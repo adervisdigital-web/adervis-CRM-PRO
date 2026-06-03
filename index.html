@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Adervis PRO 3.8.7 — сметы продакшна</title>
+  <title>Adervis CRM digital — версия 4.0</title>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
   <style>
     :root {
@@ -30,28 +31,34 @@
     }
 
     [data-theme="light"] {
-      --bg: #f1f5f9;
-      --bg2: #ffffff;
-      --panel: rgba(255, 255, 255, .98);
-      --panel2: rgba(248, 250, 252, .98);
-      --text: #1e293b;
-      --muted: #475569;
-      --line: rgba(30, 41, 59, .14);
-      --input: #ffffff;
-      --shadow: 0 4px 20px rgba(30, 41, 59, .08);
-      --primary: #4f46e5;
-      --primary2: #6366f1;
+      --bg: #f3f5f8;
+      --bg2: #f9fafb;
+      --panel: rgba(255, 255, 255, .92);
+      --panel2: rgba(247, 248, 250, .92);
+      --text: #52637a;
+      --muted: #94a3b8;
+      --line: rgba(148, 163, 184, .2);
+      --input: rgba(252, 253, 254, .9);
+      --shadow: 0 2px 10px rgba(0, 0, 0, .05);
+      --primary: #8b7fe8;
+      --primary2: #a89ef0;
+      --blue: #5a8fd4;
+      --cyan: #3aaccb;
+      --green: #3bab72;
+      --yellow: #d4a83a;
+      --orange: #d97045;
+      --red: #d65b5b;
     }
 
     [data-theme="light"] body {
       background:
-        radial-gradient(circle at top left, rgba(99,102,241,.05), transparent 40%),
-        linear-gradient(160deg, #f1f5f9 0%, #e2e8f0 100%);
+        radial-gradient(circle at top left, rgba(139,127,232,.04), transparent 40%),
+        linear-gradient(160deg, #f3f5f8 0%, #edf0f4 100%);
     }
 
     [data-theme="light"] .topbar {
-      background: rgba(255, 255, 255, .93);
-      border-bottom-color: rgba(30, 41, 59, .1);
+      background: rgba(255, 255, 255, .88);
+      border-bottom-color: rgba(148, 163, 184, .18);
     }
 
     * {
@@ -360,6 +367,17 @@
       box-shadow: 0 0 0 4px rgba(124, 58, 237, .14);
     }
 
+    input.input-error {
+      border-color: var(--red) !important;
+      box-shadow: 0 0 0 3px rgba(220, 38, 38, .15) !important;
+    }
+
+    .field-error-msg {
+      font-size: 11px;
+      color: var(--red);
+      margin-top: 2px;
+    }
+
     .toolbar {
       display: flex;
       gap: 8px;
@@ -520,11 +538,11 @@
     }
 
     [data-theme="light"] .status-pill.green {
-      color: #166534;
+      color: #2d8a57;
     }
 
     [data-theme="light"] .status-pill.yellow {
-      color: #854d0e;
+      color: #a07030;
     }
 
     .summary-line {
@@ -1096,7 +1114,7 @@
     .wstep-label { font-size: 12px; font-weight: 850; color: var(--muted); text-align: center; }
     .wstep.active .wstep-label { color: var(--text); }
     .wstep.done .wstep-label { color: #86efac; }
-    [data-theme="light"] .wstep.done .wstep-label { color: #166534; }
+    [data-theme="light"] .wstep.done .wstep-label { color: #2d8a57; }
     .wstep-line {
       flex: 1; height: 2px; background: var(--line);
       margin-top: 19px; min-width: 50px; transition: background .25s;
@@ -1162,8 +1180,8 @@
     .pkg-tier-badge.t1 { background: rgba(148,163,184,.18); color: var(--muted); }
     .pkg-tier-badge.t2 { background: rgba(37,99,235,.15); color: #93c5fd; }
     .pkg-tier-badge.t3 { background: rgba(124,58,237,.18); color: var(--primary2); }
-    [data-theme="light"] .pkg-tier-badge.t2 { color: #1d4ed8; }
-    [data-theme="light"] .pkg-tier-badge.t3 { color: #6d28d9; }
+    [data-theme="light"] .pkg-tier-badge.t2 { color: #4a76c4; }
+    [data-theme="light"] .pkg-tier-badge.t3 { color: #8b7fe8; }
 
     .pkg-cat-badge[data-cat="social"]    { background: rgba(124,58,237,.12); color: #a855f7; }
     .pkg-cat-badge[data-cat="interview"] { background: rgba(37,99,235,.12);  color: #60a5fa; }
@@ -1173,14 +1191,14 @@
     .pkg-cat-badge[data-cat="graphic"]   { background: rgba(219,39,119,.12);  color: #f472b6; }
     .pkg-cat-badge[data-cat="photo"]     { background: rgba(217,119,6,.12);   color: #fbbf24; }
     .pkg-cat-badge[data-cat="corporate"] { background: rgba(67,56,202,.12);   color: #818cf8; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="social"]    { color: #6d28d9; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="interview"] { color: #1d4ed8; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="business"]  { color: #065f46; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="events"]    { color: #c2410c; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="ai"]        { color: #0e7490; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="graphic"]   { color: #9d174d; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="photo"]     { color: #92400e; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="corporate"] { color: #3730a3; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="social"]    { color: #8b7fe8; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="interview"] { color: #4a76c4; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="business"]  { color: #2d8a57; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="events"]    { color: #d97045; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="ai"]        { color: #3aaccb; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="graphic"]   { color: #c4607c; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="photo"]     { color: #b87940; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="corporate"] { color: #6a60cc; }
 
     .pkg-group-header {
       font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em;
@@ -1426,16 +1444,16 @@
     .fin-table .amount-cell { font-weight: 900; font-size: 14px; text-align: right; white-space: nowrap; }
     .fin-table .amount-cell.income { color: #86efac; }
     .fin-table .amount-cell.expense { color: #fca5a5; }
-    [data-theme="light"] .fin-table .amount-cell.income { color: #166534; }
-    [data-theme="light"] .fin-table .amount-cell.expense { color: #991b1b; }
+    [data-theme="light"] .fin-table .amount-cell.income { color: #2d8a57; }
+    [data-theme="light"] .fin-table .amount-cell.expense { color: #b54545; }
     .fin-table .type-badge {
       display: inline-flex; align-items: center; gap: 5px;
       padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 850;
     }
     .fin-table .type-badge.income { background: rgba(22,163,74,.14); color: #86efac; }
     .fin-table .type-badge.expense { background: rgba(220,38,38,.12); color: #fca5a5; }
-    [data-theme="light"] .fin-table .type-badge.income { color: #166534; }
-    [data-theme="light"] .fin-table .type-badge.expense { color: #991b1b; }
+    [data-theme="light"] .fin-table .type-badge.income { color: #2d8a57; }
+    [data-theme="light"] .fin-table .type-badge.expense { color: #b54545; }
     .fin-table-footer td {
       background: var(--panel2); font-weight: 900;
       font-size: 13px; border-top: 2px solid var(--line);
@@ -1650,10 +1668,10 @@
     .cal-event-label.task { background: rgba(37,99,235,.18); color: #93c5fd; }
     .cal-event-label.payment { background: rgba(22,163,74,.18); color: #86efac; }
     .cal-event-label.expense { background: rgba(234,88,12,.18); color: #fdba74; }
-    [data-theme="light"] .cal-event-label.deadline { color: #991b1b; }
-    [data-theme="light"] .cal-event-label.task { color: #1d4ed8; }
-    [data-theme="light"] .cal-event-label.payment { color: #166534; }
-    [data-theme="light"] .cal-event-label.expense { color: #c2410c; }
+    [data-theme="light"] .cal-event-label.deadline { color: #b54545; }
+    [data-theme="light"] .cal-event-label.task { color: #4a76c4; }
+    [data-theme="light"] .cal-event-label.payment { color: #2d8a57; }
+    [data-theme="light"] .cal-event-label.expense { color: #d97045; }
     .cal-legend {
       display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;
       padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px;
@@ -1720,9 +1738,9 @@
     .gcal-type-badge.deadline { background: rgba(220,38,38,.12); color: #fca5a5; }
     .gcal-type-badge.task { background: rgba(37,99,235,.12); color: #93c5fd; }
     .gcal-type-badge.payment { background: rgba(22,163,74,.12); color: #86efac; }
-    [data-theme="light"] .gcal-type-badge.deadline { color: #991b1b; }
-    [data-theme="light"] .gcal-type-badge.task { color: #1d4ed8; }
-    [data-theme="light"] .gcal-type-badge.payment { color: #166534; }
+    [data-theme="light"] .gcal-type-badge.deadline { color: #b54545; }
+    [data-theme="light"] .gcal-type-badge.task { color: #4a76c4; }
+    [data-theme="light"] .gcal-type-badge.payment { color: #2d8a57; }
 
     /* ── ANALYTICS TABS ──────────────────────────── */
     .analytics-section {
@@ -1761,7 +1779,7 @@
       transition: opacity .4s; white-space: nowrap;
       padding: 4px 8px; border-radius: 999px;
     }
-    [data-theme="light"] .autosave-indicator { color: #166534; }
+    [data-theme="light"] .autosave-indicator { color: #2d8a57; }
     .autosave-indicator.show { opacity: 1; }
     .autosave-indicator.saving { color: var(--muted); opacity: 1; }
 
@@ -1795,7 +1813,7 @@
     }
     .dsp-step.active .dsp-label { color: var(--primary2); font-weight: 900; }
     .dsp-step.done .dsp-label { color: #86efac; }
-    [data-theme="light"] .dsp-step.done .dsp-label { color: #166534; }
+    [data-theme="light"] .dsp-step.done .dsp-label { color: #2d8a57; }
     .dsp-line {
       height: 2px; flex: 1; min-width: 18px; background: var(--line);
       margin-bottom: 14px; transition: background .2s;
@@ -1934,7 +1952,7 @@
       color: #86efac; white-space: nowrap; cursor: pointer;
       transition: .15s;
     }
-    [data-theme="light"] .nav-deal-indicator { color: #166534; }
+    [data-theme="light"] .nav-deal-indicator { color: #2d8a57; }
     .nav-deal-indicator:hover { background: rgba(22,163,74,.22); }
     .nav-deal-indicator .dot {
       width: 7px; height: 7px; border-radius: 50%;
@@ -1970,8 +1988,8 @@
     }
     .quick-fin-form.income .quick-fin-label { color: #86efac; }
     .quick-fin-form.expense .quick-fin-label { color: #fca5a5; }
-    [data-theme="light"] .quick-fin-form.income .quick-fin-label { color: #166534; }
-    [data-theme="light"] .quick-fin-form.expense .quick-fin-label { color: #991b1b; }
+    [data-theme="light"] .quick-fin-form.income .quick-fin-label { color: #2d8a57; }
+    [data-theme="light"] .quick-fin-form.expense .quick-fin-label { color: #b54545; }
     .quick-fin-form input {
       flex: 1; min-width: 80px; padding: 7px 10px;
       border-radius: 10px; font-size: 13px;
@@ -2103,9 +2121,39 @@
     .margin-badge.good { background: rgba(22,163,74,.18); color: #86efac; }
     .margin-badge.ok { background: rgba(202,138,4,.18); color: #fde68a; }
     .margin-badge.bad { background: rgba(220,38,38,.18); color: #fca5a5; }
-    [data-theme="light"] .margin-badge.good { color: #166534; }
-    [data-theme="light"] .margin-badge.ok { color: #854d0e; }
-    [data-theme="light"] .margin-badge.bad { color: #991b1b; }
+    [data-theme="light"] .margin-badge.good { color: #2d8a57; }
+    [data-theme="light"] .margin-badge.ok { color: #a07030; }
+    [data-theme="light"] .margin-badge.bad { color: #b54545; }
+
+    /* ── ADMIN / SUPABASE ──────────────────────────── */
+    .admin-indicator {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12px; font-weight: 700; color: var(--muted);
+      background: rgba(22,163,74,.12); border: 1px solid rgba(22,163,74,.25);
+      border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+    }
+    .admin-indicator::before { content: "●"; color: #22c55e; font-size: 8px; }
+    .admin-modal-box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+      width: min(420px, calc(100vw - 32px));
+    }
+    .supabase-config-box {
+      border: 1px solid rgba(139,127,232,.3);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-top: 18px;
+      background: rgba(139,127,232,.04);
+    }
+    .sync-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; color: #22c55e;
+      background: rgba(22,163,74,.1); border-radius: 999px;
+      padding: 2px 8px;
+    }
   </style>
 </head>
 
@@ -2119,7 +2167,7 @@
         </div>
         <div>
           <h1>Adervis PRO</h1>
-          <p>Сметы продакшна · версия 3.8.7 · Пермь</p>
+          <p>CRM digital · версия 4.0</p>
         </div>
       </div>
 
@@ -2193,6 +2241,7 @@
         </div>
         <button class="btn small" id="themeBtn" title="Сменить тему">&#9681; Тема</button>
         <button class="btn small blue" id="clientModeBtn">&#128065; Клиент</button>
+        <div id="adminTopbar"></div>
       </div>
     </header>
 
@@ -2210,7 +2259,7 @@
     (() => {
       "use strict";
 
-      const APP_VERSION = "3.8.7-all-improvements";
+      const APP_VERSION = "4.0";
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
 
@@ -2801,16 +2850,36 @@
           notes: ["Съёмка 2–3 дня.", "Финальный монтаж с цветокоррекцией, саундтреком и дикторским текстом."]
         },
 
-        // ── Корпоративный продакшн ────────────────────────────────────────
+        // ── Корпоративный продакшн (3 уровня) ────────────────────────────
+        {
+          id: "corporate_start",
+          name: "Корпоратив 1 — Старт",
+          cat: "corporate", tier: 1,
+          priceLabel: "от 28 000 ₽",
+          desc: "Базовый корпоративный контент: фотосессия команды и короткое видео-приветствие.",
+          goodFor: "HR-бренд, сайт, соцсети компании",
+          items: ["photographer", "camera_operator", "camera_basic", "light_basic", "photo_retouch", "cover_design", "edit_short"],
+          notes: ["Один день съёмки.", "Фото команды + видео-визитка 1–2 мин."]
+        },
         {
           id: "corporate_video",
-          name: "Корпоративный видеофильм",
-          cat: "corporate",
+          name: "Корпоратив 2 — Профи",
+          cat: "corporate", tier: 2,
           priceLabel: "от 75 000 ₽",
           desc: "Имиджевый корпоративный фильм: команда, офис, производство, интервью сотрудников.",
           goodFor: "HR-бренд, инвесторы, партнёры, сайт компании",
           items: ["concept", "script_full", "shoot_plan", "director", "camera_operator", "second_camera_operator", "gaffer", "soundman", "camera_pro", "lens_set", "light_plus", "sound_kit", "producer", "edit", "color", "sound_post", "motion_basic", "titles"],
           notes: ["2–3 съёмочных дня.", "Финальный ролик 3–5 мин + версии для соцсетей."]
+        },
+        {
+          id: "corporate_premium",
+          name: "Корпоратив 3 — Премиум",
+          cat: "corporate", tier: 3,
+          priceLabel: "от 140 000 ₽",
+          desc: "Полный корпоративный медиапакет: имиджевый фильм, фотосессия, интервью топ-менеджмента, серия для соцсетей.",
+          goodFor: "крупные компании, ESG-отчётность, IPO, корпоративный PR",
+          items: ["concept", "script_full", "shoot_plan", "director", "dop", "second_camera_operator", "gaffer", "soundman", "producer", "photographer", "camera_pro", "lens_set", "light_plus", "sound_kit", "edit", "color", "sound_post", "motion_basic", "titles", "voiceover_record", "photo_retouch", "smm_cutdowns"],
+          notes: ["3–4 съёмочных дня, несколько локаций.", "Имиджевый ролик 5–7 мин + 3 коротких для соцсетей + 100+ обработанных фото."]
         },
         {
           id: "teambuilding_photo",
@@ -2823,6 +2892,193 @@
           notes: ["До 20 человек включительно.", "100+ обработанных фотографий, индивидуальные портреты + группы."]
         }
       ];
+
+      function validatePhone(phone) {
+        if (!phone || !String(phone).trim()) return true;
+        const cleaned = String(phone).replace(/[\s\-\(\)\.]/g, "");
+        return /^(\+7|7|8)\d{10}$/.test(cleaned);
+      }
+
+      function checkPhoneField(input) {
+        const val = input.value;
+        let msg = input.parentElement.querySelector(".field-error-msg");
+        if (!validatePhone(val)) {
+          input.classList.add("input-error");
+          if (!msg) {
+            msg = document.createElement("span");
+            msg.className = "field-error-msg";
+            input.parentElement.appendChild(msg);
+          }
+          msg.textContent = "Неверный формат. Пример: +7 900 000-00-00";
+        } else {
+          input.classList.remove("input-error");
+          if (msg) msg.remove();
+        }
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         SUPABASE ADMIN & REAL-TIME SYNC
+      ═══════════════════════════════════════════════════════ */
+      let _supabase = null;
+      let _realtimeChannel = null;
+      let _adminSession = null;
+      let _broadcastTimer = null;
+
+      function getSupabaseConfig() {
+        return {
+          url: localStorage.getItem("sb_url") || "",
+          key: localStorage.getItem("sb_key") || ""
+        };
+      }
+
+      function initSupabase() {
+        const { url, key } = getSupabaseConfig();
+        if (!url || !key || !window.supabase) return;
+        try {
+          _supabase = window.supabase.createClient(url, key);
+          _supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) { _adminSession = session; _initRealtimeChannel(); renderAdminTopbar(); }
+          });
+          _supabase.auth.onAuthStateChange((event, session) => {
+            _adminSession = session;
+            if (session) { _initRealtimeChannel(); }
+            else { if (_realtimeChannel) { _realtimeChannel.unsubscribe(); _realtimeChannel = null; } }
+            renderAdminTopbar();
+          });
+        } catch(e) { console.warn("Supabase init:", e); }
+      }
+
+      function _initRealtimeChannel() {
+        if (!_supabase) return;
+        if (_realtimeChannel) _realtimeChannel.unsubscribe();
+        _realtimeChannel = _supabase.channel("adervis-crm-v4");
+        _realtimeChannel.on("broadcast", { event: "state-sync" }, ({ payload }) => {
+          if (!payload || !payload.data) return;
+          const myEmail = _adminSession && _adminSession.user && _adminSession.user.email;
+          if (payload.sender && payload.sender === myEmail) return;
+          const incoming = payload.data;
+          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
+          skipKeys.forEach(k => { if (k in state) incoming[k] = state[k]; });
+          Object.assign(state, incoming);
+          render();
+          toast("🔄 Обновление от " + (payload.sender || "коллеги"));
+        });
+        _realtimeChannel.subscribe();
+      }
+
+      function broadcastState() {
+        if (!_realtimeChannel || !_adminSession) return;
+        clearTimeout(_broadcastTimer);
+        _broadcastTimer = setTimeout(() => {
+          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
+          const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
+          _realtimeChannel.send({ type: "broadcast", event: "state-sync",
+            payload: { data, sender: _adminSession.user.email } });
+        }, 1200);
+      }
+
+      function renderAdminTopbar() {
+        const el = document.getElementById("adminTopbar");
+        if (!el) return;
+        if (_adminSession) {
+          const email = _adminSession.user.email || "";
+          const name = email.split("@")[0];
+          el.innerHTML = `<span class="admin-indicator">${name}</span> <button class="btn small" onclick="app.adminLogout()" style="margin-left:4px">Выйти</button>`;
+        } else {
+          const { url } = getSupabaseConfig();
+          el.innerHTML = url
+            ? `<button class="btn small" onclick="app.openAdminModal()">🔐 Войти</button>`
+            : `<button class="btn small" onclick="app.go('settings')" title="Настройте Supabase в Настройках" style="opacity:.6">🔐 Настроить</button>`;
+        }
+      }
+
+      function openAdminModal() {
+        state.adminModal = { email: "", password: "", loading: false, error: "" };
+        render();
+      }
+
+      function closeAdminModal() {
+        state.adminModal = null;
+        render();
+      }
+
+      function setAdminField(key, value) {
+        if (!state.adminModal) return;
+        state.adminModal[key] = value;
+      }
+
+      async function adminLogin() {
+        if (!state.adminModal) return;
+        const { email, password } = state.adminModal;
+        if (!email || !password) { toast("Введите email и пароль"); return; }
+        if (!_supabase) { toast("❌ Supabase не настроен. Укажите URL и ключ в Настройках."); return; }
+        state.adminModal.loading = true;
+        render();
+        const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          state.adminModal.loading = false;
+          state.adminModal.error = error.message || "Ошибка входа";
+          render();
+          return;
+        }
+        state.adminModal = null;
+        toast("✅ Вы вошли как " + email);
+        render();
+      }
+
+      async function adminLogout() {
+        if (!_supabase) return;
+        await _supabase.auth.signOut();
+        _adminSession = null;
+        renderAdminTopbar();
+        toast("Выход выполнен");
+      }
+
+      function saveSupabaseConfig() {
+        const url = document.getElementById("sb_url_input") && document.getElementById("sb_url_input").value.trim();
+        const key = document.getElementById("sb_key_input") && document.getElementById("sb_key_input").value.trim();
+        if (!url || !key) { toast("Введите URL и ключ"); return; }
+        localStorage.setItem("sb_url", url);
+        localStorage.setItem("sb_key", key);
+        toast("✅ Сохранено. Обновите страницу для подключения.");
+      }
+
+      function renderAdminModalHtml() {
+        const m = state.adminModal;
+        if (!m) return "";
+        return `
+          <div class="modal-overlay" onclick="event.target===this&&app.closeAdminModal()">
+            <div class="admin-modal-box">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                <h2 style="margin:0;font-size:20px">🔐 Вход для администратора</h2>
+                <button onclick="app.closeAdminModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px">×</button>
+              </div>
+              <p style="margin:0 0 18px;font-size:13px">Войдите через Supabase Auth для совместного редактирования.</p>
+              ${m.error ? `<div style="background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(m.error)}</div>` : ""}
+              <div class="field" style="margin-bottom:14px">
+                <label>Email</label>
+                <input type="email" placeholder="you@example.com" value="${escapeHtml(m.email)}"
+                  oninput="app.setAdminField('email',this.value)"
+                  onkeydown="if(event.key==='Enter')app.adminLogin()">
+              </div>
+              <div class="field" style="margin-bottom:20px">
+                <label>Пароль</label>
+                <input type="password" placeholder="••••••••" value="${escapeHtml(m.password)}"
+                  oninput="app.setAdminField('password',this.value)"
+                  onkeydown="if(event.key==='Enter')app.adminLogin()">
+              </div>
+              <div class="toolbar">
+                <button class="btn primary full" onclick="app.adminLogin()" ${m.loading ? "disabled" : ""}>
+                  ${m.loading ? "Входим..." : "Войти"}
+                </button>
+              </div>
+              <p style="font-size:11px;color:var(--muted);margin:12px 0 0;text-align:center">
+                Управление пользователями — в панели Supabase.<br>Настройте URL и ключ в разделе Настройки.
+              </p>
+            </div>
+          </div>
+        `;
+      }
 
       function deepClone(value) {
         return JSON.parse(JSON.stringify(value));
@@ -2883,6 +3139,7 @@
           dealView: "estimate",
           wizard: null,
           mainMenuOpen: false,
+          adminModal: null,
           clientModal: null,
           taskModal: null,
           editTransactionModal: null,
@@ -3207,7 +3464,8 @@
           versions: Array.isArray(state.versions) ? state.versions : [],
           stages: Array.isArray(state.stages) && state.stages.length ? state.stages : base.stages,
           packages: Array.isArray(state.packages) && state.packages.length ? state.packages : base.packages,
-          contracts: Array.isArray(state.contracts) ? state.contracts : []
+          contracts: Array.isArray(state.contracts) ? state.contracts : [],
+          adminModal: null
         };
 
         Object.keys(state.selected).forEach(id => {
@@ -3280,6 +3538,7 @@
       function save() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         scheduleAutoSave();
+        broadcastState();
       }
 
       function setTheme(theme) {
@@ -4460,6 +4719,15 @@
         render();
       }
 
+      function deletePackage(id) {
+        if (!id.startsWith("package_")) return;
+        if (!confirm("Удалить этот пакет?")) return;
+        state.packages = state.packages.filter(p => p.id !== id);
+        toast("Пакет удалён");
+        save();
+        render();
+      }
+
       function createClient() {
         state.clientDraft = {
           id: "",
@@ -4493,6 +4761,11 @@
 
       function saveClientDraft() {
         if (!state.clientDraft) return;
+
+        if (state.clientDraft.phone && !validatePhone(state.clientDraft.phone)) {
+          toast("❌ Неверный формат телефона. Пример: +7 900 000-00-00");
+          return;
+        }
 
         const draft = normalizeClient({
           ...state.clientDraft,
@@ -4959,6 +5232,7 @@
         const el = document.getElementById("modalContainer");
         if (!el) return;
         if (state.mainMenuOpen) { el.innerHTML = renderMainMenuModal(); }
+        else if (state.adminModal) { el.innerHTML = renderAdminModalHtml(); }
         else if (state.clientModal) { el.innerHTML = renderClientModalHtml(); }
         else if (state.taskModal) { el.innerHTML = renderTaskModalHtml(); }
         else if (state.editTransactionModal) { el.innerHTML = renderEditTransactionModal(); }
@@ -5137,6 +5411,10 @@
       }
 
       function updateClientField(clientId, key, value) {
+        if (key === "phone" && value && !validatePhone(value)) {
+          toast("❌ Неверный формат телефона. Пример: +7 900 000-00-00");
+          return;
+        }
         const client = (state.clients || []).find(c => c.id === clientId);
         if (!client) return;
         client[key] = value;
@@ -5204,6 +5482,7 @@
           if (w.clientMode === "new") {
             const name = String(w.name || "").trim();
             if (!name) { toast("Введи имя клиента"); return; }
+            if (w.phone && !validatePhone(w.phone)) { toast("❌ Неверный формат телефона. Пример: +7 900 000-00-00"); return; }
             const client = normalizeClient({ name, company: w.company, phone: w.phone, city: "Пермь" });
             client.id = uid("client");
             client.createdAt = new Date().toISOString();
@@ -5717,6 +5996,7 @@
         root.innerHTML = (views[state.view] || renderHome)();
         bindDynamicInputs();
         renderModal();
+        renderAdminTopbar();
       }
 
       function bindDynamicInputs() {
@@ -6030,6 +6310,7 @@
               <div class="toolbar no-print" style="margin-top:auto">
                 <button class="btn primary" onclick="app.applyPackage('${pkg.id}')">Добавить в смету</button>
                 <button class="btn" onclick="app.go('catalog')">Каталог</button>
+                ${pkg.id.startsWith("package_") ? `<button class="btn danger small" onclick="app.deletePackage('${pkg.id}')" title="Удалить пакет">🗑</button>` : ""}
               </div>
             </article>
           `;
@@ -6752,7 +7033,7 @@
                 ${field("Имя / название", `<input value="${escapeHtml(client.name)}" onchange="app.updateClientField('${client.id}','name',this.value)">`)}
                 ${field("Компания", `<input value="${escapeHtml(client.company||"")}" onchange="app.updateClientField('${client.id}','company',this.value)">`)}
                 ${field("Город", `<input value="${escapeHtml(client.city||"")}" onchange="app.updateClientField('${client.id}','city',this.value)">`)}
-                ${field("Телефон", `<input value="${escapeHtml(client.phone||"")}" onchange="app.updateClientField('${client.id}','phone',this.value)" placeholder="+7 ..."> `)}
+                ${field("Телефон", `<input value="${escapeHtml(client.phone||"")}" onchange="app.updateClientField('${client.id}','phone',this.value)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00"> `)}
                 ${field("Email", `<input value="${escapeHtml(client.email||"")}" onchange="app.updateClientField('${client.id}','email',this.value)" placeholder="mail@example.com">`)}
                 ${field("Источник", `<input value="${escapeHtml(client.source||"")}" onchange="app.updateClientField('${client.id}','source',this.value)" placeholder="Рекомендация, инстаграм...">`)}
               </div>
@@ -6812,7 +7093,7 @@
               ${field("Имя / название", `<input data-live data-scope="clientDraft" data-key="name" value="${escapeHtml(client.name)}">`)}
               ${field("Компания", `<input data-live data-scope="clientDraft" data-key="company" value="${escapeHtml(client.company)}">`)}
               ${field("Город", `<input data-live data-scope="clientDraft" data-key="city" value="${escapeHtml(client.city)}">`)}
-              ${field("Телефон", `<input data-live data-scope="clientDraft" data-key="phone" value="${escapeHtml(client.phone)}">`)}
+              ${field("Телефон", `<input data-live data-scope="clientDraft" data-key="phone" value="${escapeHtml(client.phone)}" onblur="app.checkPhoneField(this)">`)}
               ${field("Email", `<input data-live data-scope="clientDraft" data-key="email" value="${escapeHtml(client.email)}">`)}
               ${field("Источник", `<input data-live data-scope="clientDraft" data-key="source" value="${escapeHtml(client.source)}">`)}
             </div>
@@ -8113,7 +8394,7 @@
             ${w.clientMode === "new" ? `
               <div class="grid two">
                 ${field("Имя / название *", `<input id="wz_name" value="${escapeHtml(w.name)}" oninput="app.wizardSetField('name',this.value)" placeholder="Иван Петров или ООО Компания">`)}
-                ${field("Телефон", `<input id="wz_phone" value="${escapeHtml(w.phone)}" oninput="app.wizardSetField('phone',this.value)" placeholder="+7 900 000-00-00">`)}
+                ${field("Телефон", `<input id="wz_phone" value="${escapeHtml(w.phone)}" oninput="app.wizardSetField('phone',this.value)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00">`)}
               </div>
               <div style="margin-top:12px">
                 ${field("Компания", `<input value="${escapeHtml(w.company)}" oninput="app.wizardSetField('company',this.value)" placeholder="Название компании (необязательно)">`)}
@@ -8423,6 +8704,34 @@
               <p class="mini-note">
                 JSON сохраняет полностью всё состояние: проекты, клиентов, каталог, цены, версии, задачи, финансы, команду и настройки.
               </p>
+            </div>
+
+            <div class="supabase-config-box">
+              <h2 style="margin-top:0">🔐 Supabase — совместный доступ</h2>
+              <p style="margin-bottom:14px;font-size:13px">
+                Подключите Supabase для входа по почте и паролю и совместного редактирования в реальном времени.
+                URL и ключ (anon/public) берутся из панели Supabase → Project Settings → API.
+              </p>
+              ${(() => {
+                const cfg = getSupabaseConfig();
+                return `
+                <div class="grid two" style="margin-bottom:14px">
+                  <div class="field">
+                    <label>Supabase Project URL</label>
+                    <input id="sb_url_input" placeholder="https://xxxx.supabase.co" value="${escapeHtml(cfg.url)}">
+                  </div>
+                  <div class="field">
+                    <label>Anon / Public Key</label>
+                    <input id="sb_key_input" placeholder="eyJhbGciOi..." value="${escapeHtml(cfg.key)}" type="password">
+                  </div>
+                </div>
+                <div class="toolbar">
+                  <button class="btn primary" onclick="app.saveSupabaseConfig()">Сохранить настройки</button>
+                  ${cfg.url && cfg.key && !_adminSession ? `<button class="btn" onclick="app.openAdminModal()">🔐 Войти</button>` : ""}
+                  ${_adminSession ? `<span class="sync-badge">● Подключено как ${escapeHtml(_adminSession.user.email)}</span>` : ""}
+                </div>
+                `;
+              })()}
             </div>
 
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2);border-color:rgba(220,38,38,.45)">
@@ -9424,11 +9733,13 @@ Email: ______________________            Email: ______________________
 
         applyPackage,
         createPackage,
+        deletePackage,
 
         createClient,
         editClient,
         updateClientDraft,
         saveClientDraft,
+        checkPhoneField,
         cancelClientDraft,
         selectClient,
         deleteClient,
@@ -9538,13 +9849,21 @@ Email: ______________________            Email: ______________________
         deleteContract,
         printContract,
         openContractEdit,
-        closeContractEdit
+        closeContractEdit,
+
+        openAdminModal,
+        closeAdminModal,
+        setAdminField,
+        adminLogin,
+        adminLogout,
+        saveSupabaseConfig
       };
 
       initTheme();
       load();
       initEvents();
       render();
+      initSupabase();
     })();
   </script>
 </body>
