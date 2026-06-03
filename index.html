@@ -30,15 +30,28 @@
     }
 
     [data-theme="light"] {
-      --bg: #eef2ff;
-      --bg2: #f8fafc;
-      --panel: rgba(255, 255, 255, .96);
-      --panel2: rgba(241, 245, 249, .96);
-      --text: #0f172a;
-      --muted: #64748b;
-      --line: rgba(15, 23, 42, .12);
-      --input: rgba(255, 255, 255, .95);
-      --shadow: 0 18px 46px rgba(15, 23, 42, .12);
+      --bg: #f1f5f9;
+      --bg2: #ffffff;
+      --panel: rgba(255, 255, 255, .98);
+      --panel2: rgba(248, 250, 252, .98);
+      --text: #1e293b;
+      --muted: #475569;
+      --line: rgba(30, 41, 59, .14);
+      --input: #ffffff;
+      --shadow: 0 4px 20px rgba(30, 41, 59, .08);
+      --primary: #4f46e5;
+      --primary2: #6366f1;
+    }
+
+    [data-theme="light"] body {
+      background:
+        radial-gradient(circle at top left, rgba(99,102,241,.05), transparent 40%),
+        linear-gradient(160deg, #f1f5f9 0%, #e2e8f0 100%);
+    }
+
+    [data-theme="light"] .topbar {
+      background: rgba(255, 255, 255, .93);
+      border-bottom-color: rgba(30, 41, 59, .1);
     }
 
     * {
@@ -89,9 +102,7 @@
       backdrop-filter: blur(18px);
     }
 
-    [data-theme="light"] .topbar {
-      background: rgba(248, 250, 252, .78);
-    }
+
 
     .brand {
       display: flex;
@@ -1121,6 +1132,62 @@
     .wizard-pkg-card h3 { font-size: 14px; margin-bottom: 4px; }
     .wizard-pkg-card p { font-size: 12px; margin: 0; }
     .wizard-pkg-card .pkg-price { font-weight: 900; font-size: 15px; margin-top: 8px; color: var(--primary2); }
+
+    /* ── PACKAGE CARD CATEGORY COLORS ───────────────── */
+    .package-card { position: relative; overflow: hidden; padding: 18px; }
+    .package-card::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 4px; border-radius: var(--radius) 0 0 var(--radius);
+      background: var(--muted);
+    }
+    .package-card[data-cat="social"]::before    { background: linear-gradient(180deg, #7c3aed, #a855f7); }
+    .package-card[data-cat="interview"]::before { background: linear-gradient(180deg, #2563eb, #60a5fa); }
+    .package-card[data-cat="business"]::before  { background: linear-gradient(180deg, #059669, #34d399); }
+    .package-card[data-cat="events"]::before    { background: linear-gradient(180deg, #ea580c, #fb923c); }
+    .package-card[data-cat="ai"]::before        { background: linear-gradient(180deg, #0891b2, #22d3ee); }
+    .package-card[data-cat="graphic"]::before   { background: linear-gradient(180deg, #db2777, #f472b6); }
+    .package-card[data-cat="photo"]::before     { background: linear-gradient(180deg, #d97706, #fbbf24); }
+    .package-card[data-cat="corporate"]::before { background: linear-gradient(180deg, #4338ca, #818cf8); }
+
+    .pkg-cat-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10px; font-weight: 850; letter-spacing: .05em; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 999px; margin-bottom: 6px;
+    }
+    .pkg-tier-badge {
+      display: inline-flex; align-items: center;
+      font-size: 10px; font-weight: 850; padding: 2px 7px; border-radius: 999px;
+      margin-left: 5px;
+    }
+    .pkg-tier-badge.t1 { background: rgba(148,163,184,.18); color: var(--muted); }
+    .pkg-tier-badge.t2 { background: rgba(37,99,235,.15); color: #93c5fd; }
+    .pkg-tier-badge.t3 { background: rgba(124,58,237,.18); color: var(--primary2); }
+    [data-theme="light"] .pkg-tier-badge.t2 { color: #1d4ed8; }
+    [data-theme="light"] .pkg-tier-badge.t3 { color: #6d28d9; }
+
+    .pkg-cat-badge[data-cat="social"]    { background: rgba(124,58,237,.12); color: #a855f7; }
+    .pkg-cat-badge[data-cat="interview"] { background: rgba(37,99,235,.12);  color: #60a5fa; }
+    .pkg-cat-badge[data-cat="business"]  { background: rgba(5,150,105,.12);   color: #34d399; }
+    .pkg-cat-badge[data-cat="events"]    { background: rgba(234,88,12,.12);   color: #fb923c; }
+    .pkg-cat-badge[data-cat="ai"]        { background: rgba(8,145,178,.12);   color: #22d3ee; }
+    .pkg-cat-badge[data-cat="graphic"]   { background: rgba(219,39,119,.12);  color: #f472b6; }
+    .pkg-cat-badge[data-cat="photo"]     { background: rgba(217,119,6,.12);   color: #fbbf24; }
+    .pkg-cat-badge[data-cat="corporate"] { background: rgba(67,56,202,.12);   color: #818cf8; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="social"]    { color: #6d28d9; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="interview"] { color: #1d4ed8; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="business"]  { color: #065f46; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="events"]    { color: #c2410c; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="ai"]        { color: #0e7490; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="graphic"]   { color: #9d174d; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="photo"]     { color: #92400e; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="corporate"] { color: #3730a3; }
+
+    .pkg-group-header {
+      font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--muted); padding: 6px 0 10px; margin-top: 18px; border-bottom: 1px solid var(--line);
+      margin-bottom: 14px; grid-column: 1 / -1;
+    }
+
     .client-select-list {
       display: grid; gap: 8px; max-height: 280px; overflow-y: auto;
       scrollbar-width: thin; margin-top: 10px;
@@ -1432,26 +1499,31 @@
     }
 
     /* ── DEAL HEADER COMPACT ─────────────────────── */
-    .deal-bar { padding: 12px 18px 0; }
+    .deal-bar { padding: 16px 22px 0; }
     .deal-compact-row {
       display: flex; justify-content: space-between;
-      align-items: center; gap: 10px; flex-wrap: wrap;
-      margin-bottom: 8px;
+      align-items: center; gap: 14px; flex-wrap: wrap;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
     }
     .deal-nav-group {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 10px;
       flex-wrap: wrap; flex: 1; min-width: 0;
     }
-    .deal-nav-group h2 { margin: 0; font-size: 17px; }
+    .deal-nav-group h2 { margin: 0; font-size: 19px; font-weight: 900; }
     .deal-actions-group {
-      display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 0 0 auto;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 0 0 auto;
     }
     .deal-stats-inline {
-      display: flex; align-items: center; gap: 12px;
+      display: flex; align-items: center; gap: 16px;
+      padding: 8px 14px; border-radius: 12px;
+      background: var(--panel2); border: 1px solid var(--line);
     }
     .deal-stat-item { display: flex; flex-direction: column; align-items: flex-end; }
-    .deal-stat-item span { font-size: 10px; color: var(--muted); font-weight: 850; letter-spacing: .04em; }
-    .deal-stat-item strong { font-size: 14px; font-weight: 900; }
+    .deal-stat-item span { font-size: 10px; color: var(--muted); font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+    .deal-stat-item strong { font-size: 15px; font-weight: 900; }
+    .deal-stat-sep { width: 1px; height: 28px; background: var(--line); flex: 0 0 auto; }
     .crm-select-pill {
       padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 750;
       background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.3); color: var(--text);
@@ -1505,6 +1577,23 @@
     .cal-nav-btn.today-btn {
       background: linear-gradient(135deg, var(--primary), var(--blue));
       border-color: transparent; color: #fff;
+    }
+    .cal-nav-year {
+      font-size: 12px !important; opacity: .75; padding: 6px 10px !important;
+    }
+    .cal-nav-year:hover { opacity: 1 !important; }
+    .cal-months-row {
+      display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px;
+    }
+    .cal-month-pill {
+      padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line);
+      background: transparent; color: var(--muted); font-size: 11px; font-weight: 750;
+      cursor: pointer; transition: .13s;
+    }
+    .cal-month-pill:hover { border-color: rgba(168,85,247,.5); color: var(--text); }
+    .cal-month-pill.active {
+      background: rgba(124,58,237,.18); border-color: var(--primary2);
+      color: var(--primary2);
     }
     .cal-weekdays {
       display: grid; grid-template-columns: repeat(7, 1fr);
@@ -2047,6 +2136,10 @@
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg>
           Пакеты
         </button>
+        <button data-view="catalog" class="nav-icon-btn" title="Каталог услуг">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>
+          Каталог
+        </button>
         <button data-view="global-finances" class="nav-icon-btn" title="Финансы">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg>
           Финансы
@@ -2058,10 +2151,6 @@
         <button data-view="contracts" class="nav-icon-btn" title="Договора">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>
           Договора
-        </button>
-        <button data-view="catalog" class="nav-icon-btn" title="Каталог услуг">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>
-          Каталог
         </button>
         <button data-view="clients" class="nav-icon-btn" title="Клиенты">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>
@@ -2266,6 +2355,15 @@
         item("titles", "animation", "Титры / простая графика", "Имена, подписи, простые плашки.", "fixed", 2500, "ролик", { stage: "post", tags: ["титры"] }),
         item("motion_basic", "animation", "Простая motion-графика", "Несложная анимация элементов.", "fixed", 6000, "пакет", { stage: "post", tags: ["motion"] }),
         item("logo_anim", "animation", "Анимация логотипа простая", "Короткая простая анимация логотипа.", "fixed", 4000, "ролик", { stage: "post", tags: ["логотип"] }),
+        item("logo_anim_pro", "animation", "Анимация логотипа профи", "Сложная анимация с частицами, 3D или кинетическими эффектами.", "fixed", 9000, "ролик", { stage: "post", tags: ["логотип", "профи"] }),
+        item("intro_outro", "animation", "Интро / Аутро для канала", "Фирменное видео-интро и аутро для YouTube или стримов.", "fixed", 5500, "пакет", { stage: "post", tags: ["интро", "аутро", "канал"] }),
+        item("social_template", "animation", "Шаблоны для соцсетей", "Набор анимированных шаблонов для Stories и постов.", "fixed+qty", 3000, "пакет", { stage: "marketing", tags: ["шаблоны", "соцсети"] }),
+        item("kinetic_typography", "animation", "Кинетическая типографика", "Анимация текста и цитат в стиле кинетической типографики.", "fixed", 7500, "ролик", { stage: "post", tags: ["типографика", "текст"] }),
+        item("motion_infographic", "animation", "Анимированная инфографика", "Инфографика с анимацией: диаграммы, схемы, цифры.", "fixed+qty", 8000, "слайд", { stage: "post", tags: ["инфографика", "данные"] }),
+        item("transition_pack", "animation", "Пакет переходов / эффектов", "Кастомные переходы, маски и VFX-вставки для монтажа.", "fixed", 4500, "пакет", { stage: "post", tags: ["переходы", "VFX"] }),
+        item("screen_recording_edit", "animation", "Обработка скринкастов", "Редактура, монтаж и оформление записей экрана: зум, подсветка кликов, субтитры.", "fixed", 3500, "ролик", { stage: "post", tags: ["скринкаст", "туториал"] }),
+        item("3d_elements", "animation", "3D-элементы и рендер", "Простые 3D-объекты и рендер для вставки в видео или графику.", "fixed", 15000, "пакет", { stage: "post", tags: ["3D", "рендер"] }),
+        item("motion_ui", "animation", "Анимация интерфейса / UI", "Анимация экранов приложения или веб-интерфейса для промо-видео.", "fixed", 9000, "проект", { stage: "post", tags: ["UI", "анимация", "приложение"] }),
 
         item("landing_video_pack", "marketing", "Пакет видео для сайта", "Подготовка ролика и коротких нарезок для сайта.", "fixed", 6000, "пакет", { stage: "marketing", tags: ["сайт"] }),
         item("smm_cutdowns", "marketing", "Нарезки для соцсетей", "Короткие нарезки из основного материала.", "fixed+qty", 1200, "ролик", { stage: "marketing", tags: ["smm"] }),
@@ -2325,9 +2423,11 @@
       ];
 
       const DEFAULT_PACKAGES = [
+        // ── Соц. сети (3 уровня) ─────────────────────────────────────
         {
           id: "social_start",
-          name: "Соцсети старт",
+          name: "Соц. сети 1 — Старт",
+          cat: "social", tier: 1,
           priceLabel: "от 18 000 ₽",
           desc: "Минимальный комплект для короткого ролика в соцсети.",
           goodFor: "эксперты, малый бизнес, услуги",
@@ -2335,8 +2435,31 @@
           notes: ["Подходит для Reels, Shorts, VK Клипов.", "Не включает сложную графику и платные локации."]
         },
         {
+          id: "social_pro",
+          name: "Соц. сети 2 — Профи",
+          cat: "social", tier: 2,
+          priceLabel: "от 35 000 ₽",
+          desc: "Расширенный комплект: съёмка + монтаж + субтитры + 3 адаптации форматов.",
+          goodFor: "бренды, блогеры, маркетинг, регулярный контент",
+          items: ["script_short", "shoot_plan", "camera_operator", "assistant", "camera_basic", "light_basic", "sound_kit", "edit_short", "subtitles", "smm_cutdowns", "thumbnail_pack", "cover_design", "vertical_adapt"],
+          notes: ["3 ролика или 1 основной + нарезки за один день.", "Адаптация под Instagram, ВКонтакте, YouTube Shorts."]
+        },
+        {
+          id: "social_media",
+          name: "Соц. сети 3 — Медиа",
+          cat: "social", tier: 3,
+          priceLabel: "от 55 000 ₽",
+          desc: "Полный медиапакет: контент-день, 5+ роликов, motion-элементы и поддержка публикаций.",
+          goodFor: "активные бренды, продакшн-агентства, маркетинговые отделы",
+          items: ["concept", "script_short", "content_day_plan", "shoot_plan", "camera_operator", "second_camera_operator", "assistant", "camera_basic", "light_plus", "sound_kit", "edit_short", "subtitles", "smm_cutdowns", "thumbnail_pack", "cover_design", "vertical_adapt", "motion_basic", "publication_support"],
+          notes: ["Один контент-день — 5–7 готовых роликов.", "Включает motion-графику, обложки и помощь с публикацией."]
+        },
+
+        // ── Интервью (3 уровня) ──────────────────────────────────────
+        {
           id: "interview_base",
-          name: "Интервью базовое",
+          name: "Интервью 1 — Базовое",
+          cat: "interview", tier: 1,
           priceLabel: "от 32 000 ₽",
           desc: "Интервью с экспертом или представителем компании.",
           goodFor: "экспертный контент, HR, обучение",
@@ -2344,8 +2467,31 @@
           notes: ["Базовый вариант рассчитан на простую локацию.", "Можно добавить вторую камеру и расширенный свет."]
         },
         {
+          id: "interview_studio",
+          name: "Интервью 2 — Студийное",
+          cat: "interview", tier: 2,
+          priceLabel: "от 55 000 ₽",
+          desc: "Профессиональное интервью в студии с постановочным светом и двумя камерами.",
+          goodFor: "публичные персоны, CEO, HR-бренд, обучающий контент",
+          items: ["interview_questions", "shoot_plan", "dop", "second_camera_operator", "soundman", "camera_pro", "lens_set", "light_plus", "sound_kit", "studio_basic", "edit", "color", "sound_post", "titles"],
+          notes: ["Две камеры дают профессиональную «телевизионную» картинку.", "Студия — базовая (своя или арендованная)."]
+        },
+        {
+          id: "interview_cinema",
+          name: "Интервью 3 — Кино",
+          cat: "interview", tier: 3,
+          priceLabel: "от 80 000 ₽",
+          desc: "Кинематографическое интервью: постановочный свет, два оператора, полный постпродакшн.",
+          goodFor: "имидж-проекты, документальный стиль, серьёзные бренды",
+          items: ["interview_questions", "concept", "shoot_plan", "director", "dop", "second_camera_operator", "gaffer", "soundman", "camera_pro", "lens_set", "light_plus", "sound_kit", "edit", "color", "sound_post", "motion_basic", "titles"],
+          notes: ["Режиссёр + гаффер = кино-качество картинки и света.", "Чёрновой монтаж + 2 круга правок."]
+        },
+
+        // ── Бизнес-видео (3 уровня) ──────────────────────────────────
+        {
           id: "business_video",
-          name: "Ролик для бизнеса",
+          name: "Бизнес-видео 1 — Старт",
+          cat: "business", tier: 1,
           priceLabel: "от 55 000 ₽",
           desc: "Имиджевый или презентационный ролик для компании.",
           goodFor: "сайт, презентации, продажи, HR-бренд",
@@ -2353,37 +2499,107 @@
           notes: ["Финальная цена зависит от количества сцен и локаций.", "Можно расширить до рекламного ролика."]
         },
         {
-          id: "content_day",
-          name: "Контент-день",
-          priceLabel: "от 45 000 ₽",
-          desc: "Один съёмочный день для серии коротких материалов.",
-          goodFor: "регулярные соцсети, эксперты, отделы маркетинга",
-          items: ["content_day_plan", "shoot_plan", "camera_operator", "assistant", "camera_basic", "light_basic", "sound_kit", "edit_short", "smm_cutdowns", "thumbnail_pack"],
-          notes: ["Количество роликов зависит от сценариев и сложности монтажа.", "Можно добавить фотографа и публикационную поддержку."]
+          id: "brand_film_mid",
+          name: "Бизнес-видео 2 — Имиджевый",
+          cat: "business", tier: 2,
+          priceLabel: "от 85 000 ₽",
+          desc: "Имиджевый фильм о компании 2–5 мин: команда, производство, интервью.",
+          goodFor: "сайт компании, HR-бренд, инвесторы, партнёры",
+          items: ["concept", "script_full", "shoot_plan", "director", "dop", "soundman", "producer", "camera_pro", "lens_set", "light_plus", "sound_kit", "edit", "color", "sound_post", "titles", "voiceover_record"],
+          notes: ["Рекомендуем 2 съёмочных дня.", "Финальная цена зависит от кол-ва локаций."]
         },
         {
-          id: "event_video",
-          name: "Видео мероприятия",
-          priceLabel: "от 38 000 ₽",
-          desc: "Съёмка события, короткий итоговый ролик и базовые нарезки.",
-          goodFor: "мероприятия, конференции, открытия, корпоративы",
-          items: ["camera_operator", "second_camera_operator", "soundman", "camera_basic", "sound_kit", "edit", "color", "smm_cutdowns"],
-          notes: ["Для крупных событий может понадобиться расширенная команда.", "Транспорт, питание и длительная смена считаются отдельно."]
+          id: "ad_video_pro",
+          name: "Бизнес-видео 3 — Реклама",
+          cat: "business", tier: 3,
+          priceLabel: "от 150 000 ₽",
+          desc: "Полноценный рекламный ролик 30–60 сек: концепция, продакшн, постпродакшн.",
+          goodFor: "ТВ-реклама, digital, бренд-кампании",
+          items: ["concept", "script_short", "storyboard", "shoot_plan", "director", "dop", "assistant", "makeup", "camera_pro", "lens_set", "light_plus", "soundman", "sound_kit", "producer", "location_rent", "edit", "color", "sound_post", "motion_basic", "titles", "voiceover_record"],
+          notes: ["Финальный бюджет зависит от локаций, актёров и спецэффектов.", "До 2 кругов правок на каждом этапе."]
         },
+
+        // ── Фото-контент (3 уровня) ──────────────────────────────────
         {
           id: "photo_content",
-          name: "Фото-контент",
+          name: "Фото 1 — Старт",
+          cat: "photo", tier: 1,
           priceLabel: "от 14 000 ₽",
           desc: "Фотосъёмка и базовая обработка для сайта или соцсетей.",
           goodFor: "команда, товары, офис, мероприятия",
           items: ["photographer", "photo_retouch", "cover_design"],
           notes: ["Количество фото и глубина ретуши уточняются под задачу.", "Можно добавить визажиста и аренду студии."]
         },
+        {
+          id: "photo_content_pro",
+          name: "Фото 2 — Профи",
+          cat: "photo", tier: 2,
+          priceLabel: "от 28 000 ₽",
+          desc: "Профессиональная фотосессия в студии или на выезде: портреты, команда, товары.",
+          goodFor: "команда, LinkedIn, сайт компании, HR, пресс-кит",
+          items: ["photographer", "camera_pro", "lens_set", "light_plus", "photo_retouch", "cover_design"],
+          notes: ["До 20 человек включительно.", "100+ обработанных фотографий."]
+        },
+        {
+          id: "photo_content_premium",
+          name: "Фото 3 — Премиум",
+          cat: "photo", tier: 3,
+          priceLabel: "от 50 000 ₽",
+          desc: "Полный день коммерческой съёмки: товары, команда, репортаж, визаж.",
+          goodFor: "каталоги, рекламные кампании, большие команды",
+          items: ["photographer", "second_camera_operator", "makeup", "camera_pro", "lens_set", "light_plus", "studio_basic", "photo_retouch", "thumbnail_pack", "cover_design"],
+          notes: ["Полный день съёмки.", "200+ обработанных фото, помощь с публикацией."]
+        },
 
-        // ── ИИ-пакеты ────────────────────────────────────────────────────
+        // ── Контент-день ──────────────────────────────────────────────
+        {
+          id: "content_day",
+          name: "Контент-день",
+          cat: "social",
+          priceLabel: "от 45 000 ₽",
+          desc: "Один съёмочный день для серии коротких материалов.",
+          goodFor: "регулярные соцсети, эксперты, отделы маркетинга",
+          items: ["content_day_plan", "shoot_plan", "camera_operator", "assistant", "camera_basic", "light_basic", "sound_kit", "edit_short", "smm_cutdowns", "thumbnail_pack"],
+          notes: ["Количество роликов зависит от сценариев и сложности монтажа.", "Можно добавить фотографа и публикационную поддержку."]
+        },
+
+        // ── Графика / Анимация (3 уровня) ────────────────────────────
+        {
+          id: "graphic_start",
+          name: "Графика 1 — Старт",
+          cat: "graphic", tier: 1,
+          priceLabel: "от 15 000 ₽",
+          desc: "Базовый набор графики: анимация логотипа, титры и простые переходы.",
+          goodFor: "YouTube-каналы, блогеры, стартапы, стримеры",
+          items: ["logo_anim", "titles", "cover_design"],
+          notes: ["Простая анимация логотипа + базовые титры.", "Форматы MP4 и PNG для стриминговых платформ."]
+        },
+        {
+          id: "graphic_pro",
+          name: "Графика 2 — Профи",
+          cat: "graphic", tier: 2,
+          priceLabel: "от 35 000 ₽",
+          desc: "Профессиональный пакет motion-графики: анимации, инфографика, брендинг видео.",
+          goodFor: "YouTube-каналы, бренды, рекламодатели, корпоративные видео",
+          items: ["concept", "storyboard", "motion_basic", "logo_anim", "titles", "thumbnail_pack", "cover_design", "sound_post"],
+          notes: ["Разработка от раскадровки до финального рендера.", "Форматы After Effects + рендеры MP4/PNG."]
+        },
+        {
+          id: "graphic_explainer",
+          name: "Графика 3 — Explainer",
+          cat: "graphic", tier: 3,
+          priceLabel: "от 60 000 ₽",
+          desc: "Анимационный объясняющий ролик 60–120 сек: визуализирует продукт, услугу или идею.",
+          goodFor: "стартапы, SaaS, B2B, инвесторы, лендинги",
+          items: ["script_full", "storyboard", "motion_basic", "logo_anim", "titles", "voiceover_text", "voiceover_record", "sound_post", "music"],
+          notes: ["Сложность анимации влияет на стоимость.", "Включает текст диктора и профессиональную озвучку."]
+        },
+
+        // ── ИИ-пакеты (3 уровня) ─────────────────────────────────────
         {
           id: "ai_video_full",
-          name: "AI-видео полный цикл",
+          name: "AI-видео 3 — Полный цикл",
+          cat: "ai", tier: 3,
           priceLabel: "от 74 000 ₽",
           desc: "Полное производство AI-видеоролика: промпты, генерация, монтаж, звук, графика, цвет. Аналог профессионального продакшна без съёмочной группы.",
           goodFor: "AI-продакшн, рекламодатели, агентства, стартапы",
@@ -2396,7 +2612,8 @@
         },
         {
           id: "ai_video_short",
-          name: "AI короткий контент",
+          name: "AI-видео 1 — Старт",
+          cat: "ai", tier: 1,
           priceLabel: "от 25 000 ₽",
           desc: "Быстрый AI-ролик до 30 секунд для соцсетей: промпты, генерация, монтаж и обложка.",
           goodFor: "Reels, TikTok, соцсети, быстрый запуск",
@@ -2405,7 +2622,8 @@
         },
         {
           id: "ai_product_promo",
-          name: "AI-презентация продукта",
+          name: "AI-видео 2 — Промо",
+          cat: "ai", tier: 2,
           priceLabel: "от 45 000 ₽",
           desc: "Промо-ролик продукта или услуги на базе AI-генерации с дикторским голосом и моушн-графикой.",
           goodFor: "товары, приложения, сервисы, лендинги",
@@ -2413,10 +2631,11 @@
           notes: ["Syntex + промпты дают визуальный ряд под продукт.", "Добавь Higgsfield для плавного движения камеры."]
         },
 
-        // ── Мероприятия ──────────────────────────────────────────────────
+        // ── Мероприятия (3 уровня) ────────────────────────────────────
         {
           id: "event_basic",
-          name: "Мероприятие базовое",
+          name: "Мероприятие 1 — Базовое",
+          cat: "events", tier: 1,
           priceLabel: "от 38 000 ₽",
           desc: "Видеосъёмка события двумя операторами, монтаж ролика и нарезки для соцсетей.",
           goodFor: "корпоративы, дни открытых дверей, небольшие конференции",
@@ -2425,7 +2644,8 @@
         },
         {
           id: "event_conference",
-          name: "Конференция / форум",
+          name: "Мероприятие 2 — Конференция",
+          cat: "events", tier: 2,
           priceLabel: "от 85 000 ₽",
           desc: "Многокамерная съёмка конференции, интервью со спикерами, стрим и монтаж полной версии.",
           goodFor: "бизнес-форумы, IT-конференции, отраслевые события",
@@ -2434,7 +2654,8 @@
         },
         {
           id: "event_online",
-          name: "Онлайн-мероприятие + стрим",
+          name: "Мероприятие 3 — Онлайн / стрим",
+          cat: "events", tier: 3,
           priceLabel: "от 32 000 ₽",
           desc: "Прямая трансляция вебинара или онлайн-ивента с записью и монтажом итогового ролика.",
           goodFor: "вебинары, онлайн-конференции, запуски продуктов",
@@ -2446,6 +2667,7 @@
         {
           id: "brand_film",
           name: "Имиджевый фильм о компании",
+          cat: "business",
           priceLabel: "от 85 000 ₽",
           desc: "Полноценный имиджевый ролик 2–5 минут: концепция, съёмка, интервью, монтаж, цвет, звук.",
           goodFor: "сайт компании, HR-бренд, инвесторы, партнёры",
@@ -2455,6 +2677,7 @@
         {
           id: "reels_series",
           name: "Серия Reels / Shorts (5 роликов)",
+          cat: "social",
           priceLabel: "от 55 000 ₽",
           desc: "Пять коротких роликов для соцсетей, снятых за один контент-день и смонтированных.",
           goodFor: "регулярный контент, эксперты, блогеры, бренды",
@@ -2464,6 +2687,7 @@
         {
           id: "youtube_project",
           name: "YouTube-проект / обзор",
+          cat: "business",
           priceLabel: "от 65 000 ₽",
           desc: "Обзорное или обучающее YouTube-видео 5–15 минут: сценарий, съёмка, монтаж, анимации.",
           goodFor: "YouTube-каналы, обзоры, туториалы, экспертный контент",
@@ -2475,6 +2699,7 @@
         {
           id: "wedding_full",
           name: "Свадьба — полный день",
+          cat: "photo",
           priceLabel: "от 120 000 ₽",
           desc: "Полная видеосъёмка свадьбы: сборы, церемония, банкет. Свадебный фильм + клип + фото.",
           goodFor: "свадьбы, торжества, выездные регистрации",
@@ -2484,6 +2709,7 @@
         {
           id: "wedding_mini",
           name: "Свадьба — мини",
+          cat: "photo",
           priceLabel: "от 55 000 ₽",
           desc: "Компактная съёмка: ЗАГС + прогулка. Видеоклип и фото без банкета.",
           goodFor: "небольшие свадьбы, расписка, камерные торжества",
@@ -2493,6 +2719,7 @@
         {
           id: "love_story",
           name: "Love Story / Фотосессия пары",
+          cat: "photo",
           priceLabel: "от 22 000 ₽",
           desc: "Романтическая фото- и видеосессия пары на природе или в городе.",
           goodFor: "пары, love story, годовщины, предложение руки",
@@ -2502,6 +2729,7 @@
         {
           id: "kids_photo",
           name: "Детская / Семейная съёмка",
+          cat: "photo",
           priceLabel: "от 18 000 ₽",
           desc: "Фотосъёмка детей и семьи в студии или на выезде.",
           goodFor: "дети, семьи, праздники, дни рождения",
@@ -2513,6 +2741,7 @@
         {
           id: "ad_video_full",
           name: "Рекламный ролик — полный цикл",
+          cat: "business",
           priceLabel: "от 150 000 ₽",
           desc: "Полноценный рекламный ролик 30–60 сек: концепция, продакшн, постпродакшн.",
           goodFor: "ТВ-реклама, digital, бренд-кампании, e-com",
@@ -2522,6 +2751,7 @@
         {
           id: "motion_pack",
           name: "Motion-графика / Анимация",
+          cat: "graphic",
           priceLabel: "от 35 000 ₽",
           desc: "Анимационный ролик до 60 сек: моушн, инфографика, анимированный логотип, заставки.",
           goodFor: "презентации, YouTube, соцсети, рекламные вставки",
@@ -2531,6 +2761,7 @@
         {
           id: "explainer_video",
           name: "Explainer / Презентационная анимация",
+          cat: "graphic",
           priceLabel: "от 60 000 ₽",
           desc: "Объясняющий анимационный ролик 60–120 сек: визуализирует продукт, услугу или идею.",
           goodFor: "стартапы, SaaS, B2B, инвесторы, лендинги",
@@ -2540,6 +2771,7 @@
         {
           id: "brand_graphics_pack",
           name: "Графический пакет для бренда",
+          cat: "graphic",
           priceLabel: "от 25 000 ₽",
           desc: "Анимированный логотип, интро/аутро, нижние трети, шаблоны для соцсетей.",
           goodFor: "YouTube-каналы, блогеры, бренды, продакшн-студии",
@@ -2551,6 +2783,7 @@
         {
           id: "cinematic_interview",
           name: "Кино-интервью / Спикер",
+          cat: "interview",
           priceLabel: "от 45 000 ₽",
           desc: "Профессиональное кино-интервью с постановочным светом, двумя камерами и чистым звуком.",
           goodFor: "эксперты, CEO, спикеры, HR-бренд, публичные персоны",
@@ -2560,6 +2793,7 @@
         {
           id: "documentary_short",
           name: "Документальный мини-фильм",
+          cat: "business",
           priceLabel: "от 90 000 ₽",
           desc: "Короткий документальный фильм 5–15 мин о человеке, бизнесе или событии.",
           goodFor: "бизнес-истории, социальные проекты, личный бренд",
@@ -2571,6 +2805,7 @@
         {
           id: "corporate_video",
           name: "Корпоративный видеофильм",
+          cat: "corporate",
           priceLabel: "от 75 000 ₽",
           desc: "Имиджевый корпоративный фильм: команда, офис, производство, интервью сотрудников.",
           goodFor: "HR-бренд, инвесторы, партнёры, сайт компании",
@@ -2580,6 +2815,7 @@
         {
           id: "teambuilding_photo",
           name: "Корпоративная фотосъёмка",
+          cat: "corporate",
           priceLabel: "от 28 000 ₽",
           desc: "Профессиональная фотосессия команды в офисе или на выезде: портреты и групповые фото.",
           goodFor: "команда, LinkedIn, сайт компании, HR, пресс-кит",
@@ -4954,6 +5190,12 @@
         render();
       }
 
+      function wizardSetField(key, value) {
+        if (!state.wizard) return;
+        state.wizard[key] = value;
+        // No render() — prevents cursor jump on text inputs
+      }
+
       function wizardNext() {
         if (!state.wizard) return;
         const w = state.wizard;
@@ -5203,76 +5445,138 @@
           return;
         }
 
-        const rows = selectedIds().map((id, index) => {
+        const ids = selectedIds();
+        const t = totals();
+        const proj = state.project;
+        const comp = state.company;
+
+        // ── Classify items into sections ──────────────────────────────
+        function getSectionGroup(id) {
+          const itemData = findItem(id, true);
+          if (!itemData) return "other";
+          const sec = itemData.section || "";
+          const model = itemData.calcModel || "";
+          if (model === "crewShift" || ["shoot", "photo", "event"].includes(sec)) return "crew";
+          if (sec === "equipment") return "equip";
+          if (["post", "sound", "animation"].includes(sec)) return "post";
+          if (["creative", "pre", "management"].includes(sec)) return "pre";
+          if (["marketing", "logistics"].includes(sec)) return "other";
+          return "other";
+        }
+
+        const groups = { crew: [], equip: [], pre: [], post: [], other: [] };
+        ids.forEach(id => { const g = getSectionGroup(id); groups[g].push(id); });
+
+        // ── Build AOA (array of arrays) ───────────────────────────────
+        const AOA = [];
+
+        // Header block
+        AOA.push([comp.name || "ADERVIS DIGITAL"]);
+        AOA.push([]);
+        AOA.push(["Клиент:", proj.client || ""]);
+        AOA.push(["Название проекта:", proj.name || ""]);
+        if (proj.deadline) AOA.push(["Дата сдачи:", proj.deadline]);
+        AOA.push([]);
+
+        function crewRow(id) {
           const itemData = findItem(id, true);
           const line = state.selected[id];
-          const stage = getStage(line?.stageId || itemData?.stage);
+          if (!itemData) return null;
+          const name = (line && line.lineName) || itemData.name;
+          const days = numberValue((line && line.days) || state.project.days || 1, 1);
+          const qty  = numberValue((line && line.qty) || 1, 1);
+          const price = Math.round(numberValue((line && line.price) || 0, 0));
+          const total = Math.round(lineTotal(id));
+          return [name, days, qty, price, "", "", total];
+        }
 
-          return {
-            "№": index + 1,
-            "Позиция": itemData?.name || "",
-            "Категория": itemData?.section || "",
-            "Этап": stage?.name || "",
-            "Тип": line?.optional ? "Опция" : "Основная",
-            "Ед.": itemData?.unit || "",
-            "Цена": Math.round(numberValue(line?.price, 0)),
-            "Кол-во": numberValue(line?.qty, 1),
-            "Сумма": Math.round(lineTotal(id)),
-            "Расчёт": lineBreakdownText(id),
-            "Комментарий": line?.clientComment || ""
-          };
-        });
+        function postRow(id) {
+          const itemData = findItem(id, true);
+          const line = state.selected[id];
+          if (!itemData) return null;
+          const name = (line && line.lineName) || itemData.name;
+          const qty  = numberValue((line && line.qty) || 1, 1);
+          const unit = itemData.unit || "ед.";
+          const price = Math.round(numberValue((line && line.price) || 0, 0));
+          const total = Math.round(lineTotal(id));
+          return [name, qty, unit, price, "", "", total];
+        }
 
-        const t = totals();
-        const f = financeTotals();
+        let hasHeader = false;
+        function ensureColHeader(type) {
+          if (type === "crew") {
+            AOA.push(["Наименование", "Кол-во смен", "Кол. Чел/Ед", "Ставка", "Переработка", "Час. перераб.", "Итого"]);
+          } else {
+            AOA.push(["Наименование", "Кол-во", "Значение", "Ставка", "", "", "Итого"]);
+          }
+        }
 
-        rows.push({});
-        rows.push({ "Позиция": "Работы", "Сумма": Math.round(t.base) });
-        rows.push({ "Позиция": "Скидка", "Сумма": Math.round(t.discount) });
-        rows.push({ "Позиция": "Налог", "Сумма": Math.round(t.tax) });
-        rows.push({ "Позиция": "Итого", "Сумма": Math.round(t.total) });
-        rows.push({ "Позиция": "Опции", "Сумма": Math.round(t.optional) });
-        rows.push({ "Позиция": "Итого с опциями", "Сумма": Math.round(t.withOptional) });
-        rows.push({});
-        rows.push({ "Позиция": "Оплачено", "Сумма": Math.round(f.paid) });
-        rows.push({ "Позиция": "Долг", "Сумма": Math.round(f.debt) });
-        rows.push({ "Позиция": "Расходы", "Сумма": Math.round(f.totalExpenses) });
-        rows.push({ "Позиция": "Прибыль", "Сумма": Math.round(f.profit) });
+        // Подготовка
+        if (groups.pre.length) {
+          ensureColHeader("post");
+          AOA.push(["Подготовка"]);
+          groups.pre.forEach(id => { const r = postRow(id); if (r) AOA.push(r); });
+          AOA.push([]);
+        }
+        if (groups.crew.length) {
+          ensureColHeader("crew");
+          AOA.push(["Команда"]);
+          groups.crew.forEach(id => { const r = crewRow(id); if (r) AOA.push(r); });
+          AOA.push([]);
+        }
+        if (groups.equip.length) {
+          ensureColHeader("crew");
+          AOA.push(["Оборудование"]);
+          groups.equip.forEach(id => { const r = crewRow(id); if (r) AOA.push(r); });
+          AOA.push([]);
+        }
+        if (groups.post.length) {
+          ensureColHeader("post");
+          AOA.push(["Пост-продакшн"]);
+          groups.post.forEach(id => { const r = postRow(id); if (r) AOA.push(r); });
+          AOA.push([]);
+        }
+        if (groups.other.length) {
+          ensureColHeader("post");
+          AOA.push(["Прочее"]);
+          groups.other.forEach(id => { const r = postRow(id); if (r) AOA.push(r); });
+          AOA.push([]);
+        }
 
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Смета");
+        // Totals
+        if (t.discount > 0) AOA.push(["", "", "", "", "", "Скидка:", -Math.round(t.discount)]);
+        AOA.push(["", "", "", "", "", "Итог:", Math.round(t.base)]);
+        if (t.tax > 0) {
+          const taxLabel = `Налог ${proj.taxType || ""} ${Math.round(taxRateByType(proj.taxType) * 100)}%`;
+          AOA.push(["", "", "", "", "", taxLabel.trim(), Math.round(t.tax)]);
+        }
+        AOA.push(["", "", "", "", "", "ОБЩИЙ ИТОГ:", Math.round(t.total)]);
 
-        const taskRows = (state.tasks || []).map((task, index) => ({
-          "№": index + 1,
-          "Задача": task.title,
-          "Статус": task.status,
-          "Приоритет": task.priority,
-          "Ответственный": task.assignee,
-          "Дедлайн": task.deadline,
-          "Комментарий": task.note
-        }));
-
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(taskRows), "Задачи");
-
-        const financeRows = [
-          ...(state.payments || []).map(payment => ({
-            "Тип": "Платёж",
-            "Название": payment.title,
-            "Сумма": payment.amount,
-            "Дата": payment.date,
-            "Комментарий": payment.note
-          })),
-          ...(state.expenses || []).map(expense => ({
-            "Тип": "Расход",
-            "Название": expense.title,
-            "Сумма": expense.amount,
-            "Дата": expense.date,
-            "Комментарий": expense.note
-          }))
+        const ws = XLSX.utils.aoa_to_sheet(AOA);
+        ws["!cols"] = [
+          { wch: 36 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 12 }
         ];
 
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(financeRows), "Финансы");
-        XLSX.writeFile(wb, `${safeFileName(state.project.name)}-adervis-pro.xlsx`);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Смета");
+
+        // Tasks sheet
+        const taskRows = (state.tasks || []).map((task, i) => ({
+          "№": i + 1, "Задача": task.title, "Статус": task.status,
+          "Приоритет": task.priority, "Ответственный": task.assignee,
+          "Дедлайн": task.deadline, "Комментарий": task.note
+        }));
+        if (taskRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(taskRows), "Задачи");
+
+        // Finance sheet
+        const finRows = [
+          ...(state.payments || []).map(p => ({ "Тип": "Поступление", "Название": p.title, "Сумма": p.amount, "Дата": p.date, "Комментарий": p.note })),
+          ...(state.expenses || []).map(e => ({ "Тип": "Расход", "Название": e.title, "Сумма": e.amount, "Дата": e.date, "Комментарий": e.note }))
+        ];
+        if (finRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(finRows), "Финансы");
+
+        XLSX.writeFile(wb, `${safeFileName(proj.name)}-смета.xlsx`);
+        toast("Файл сохранён");
       }
 
       function copyProposalText() {
@@ -5668,48 +5972,94 @@
       }
 
       function renderPackages() {
+        const CAT_META = {
+          social:    { label: "Соц. сети", icon: "📱" },
+          interview: { label: "Интервью",  icon: "🎙" },
+          business:  { label: "Бизнес-видео", icon: "🎬" },
+          events:    { label: "Мероприятия", icon: "🎪" },
+          ai:        { label: "ИИ / AI",   icon: "🤖" },
+          graphic:   { label: "Графика",   icon: "✨" },
+          photo:     { label: "Фото",      icon: "📸" },
+          corporate: { label: "Корпоративный", icon: "🏢" },
+        };
+
+        const catOrder = Object.keys(CAT_META);
+        const allPkgs = state.packages || [];
+
+        // Group packages by cat
+        const groups = {};
+        const ungrouped = [];
+        allPkgs.forEach(pkg => {
+          if (pkg.cat && CAT_META[pkg.cat]) {
+            if (!groups[pkg.cat]) groups[pkg.cat] = [];
+            groups[pkg.cat].push(pkg);
+          } else {
+            ungrouped.push(pkg);
+          }
+        });
+
+        function renderPkgCard(pkg) {
+          const cat = pkg.cat || "";
+          const tier = pkg.tier || 0;
+          const tierLabel = tier === 1 ? "Старт" : tier === 2 ? "Профи" : tier === 3 ? "Премиум" : "";
+          const catMeta = CAT_META[cat] || {};
+          return `
+            <article class="package-card" data-cat="${escapeHtml(cat)}">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+                ${cat ? `<span class="pkg-cat-badge" data-cat="${escapeHtml(cat)}">${catMeta.icon || ""} ${escapeHtml(catMeta.label || cat)}</span>` : ""}
+                ${tierLabel ? `<span class="pkg-tier-badge t${tier}">${tierLabel}</span>` : ""}
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+                <h3 style="margin:0;font-size:15px;font-weight:900;line-height:1.3">${escapeHtml(pkg.name)}</h3>
+                <span class="price" style="font-size:14px;white-space:nowrap;flex-shrink:0">${escapeHtml(pkg.priceLabel || money(packageApproxTotal(pkg)))}</span>
+              </div>
+              <p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.5">${escapeHtml(pkg.desc)}</p>
+
+              <div class="badges" style="margin-bottom:10px">
+                <span class="badge">Для: ${escapeHtml(pkg.goodFor || "проектов")}</span>
+                <span class="badge">${getPackageItems(pkg).length} позиций</span>
+              </div>
+
+              <ul style="margin:0 0 10px;padding-left:16px;font-size:12px">
+                ${getPackageItems(pkg).slice(0, 6).map(x => `<li style="margin-bottom:2px">${escapeHtml(x.name)}</li>`).join("")}
+                ${getPackageItems(pkg).length > 6 ? `<li style="color:var(--muted)">+${getPackageItems(pkg).length - 6} позиций ещё</li>` : ""}
+              </ul>
+
+              ${(pkg.notes || []).length ? `<p class="mini-note" style="margin-bottom:10px">${pkg.notes.slice(0,1).map(escapeHtml).join("")}</p>` : ""}
+
+              <div class="toolbar no-print" style="margin-top:auto">
+                <button class="btn primary" onclick="app.applyPackage('${pkg.id}')">Добавить в смету</button>
+                <button class="btn" onclick="app.go('catalog')">Каталог</button>
+              </div>
+            </article>
+          `;
+        }
+
         return `
           <div class="panel">
             <div class="section-title">
               <div>
                 <h1>Пакеты услуг</h1>
-                <p>Готовые наборы для быстрого старта сметы. После добавления пакет можно свободно редактировать.</p>
+                <p>Готовые наборы по категориям. Три уровня: Старт / Профи / Премиум.</p>
               </div>
               <div class="toolbar no-print">
                 <button class="btn" onclick="app.createPackage()">Создать пакет из сметы</button>
               </div>
             </div>
 
-            <div class="grid three">
-              ${(state.packages || []).map(pkg => `
-                <article class="package-card">
-                  <div class="line-head">
-                    <div>
-                      <h3>${escapeHtml(pkg.name)}</h3>
-                      <p>${escapeHtml(pkg.desc)}</p>
-                    </div>
-                    <div class="price">${escapeHtml(pkg.priceLabel || money(packageApproxTotal(pkg)))}</div>
-                  </div>
+            ${catOrder.filter(cat => groups[cat] && groups[cat].length).map(cat => `
+              <div class="pkg-group-header">${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)}</div>
+              <div class="grid three" style="margin-bottom:6px">
+                ${groups[cat].map(renderPkgCard).join("")}
+              </div>
+            `).join("")}
 
-                  <div class="badges">
-                    <span class="badge">Для: ${escapeHtml(pkg.goodFor || "проектов")}</span>
-                    <span class="badge">${getPackageItems(pkg).length} позиций</span>
-                    <span class="badge">Примерно: ${money(packageApproxTotal(pkg))}</span>
-                  </div>
-
-                  <ul>
-                    ${getPackageItems(pkg).slice(0, 8).map(x => `<li>${escapeHtml(x.name)}</li>`).join("")}
-                  </ul>
-
-                  ${(pkg.notes || []).length ? `<p class="mini-note">${pkg.notes.map(escapeHtml).join("<br>")}</p>` : ""}
-
-                  <div class="toolbar no-print">
-                    <button class="btn primary" onclick="app.applyPackage('${pkg.id}')">Добавить в смету</button>
-                    <button class="btn" onclick="app.go('catalog')">Открыть каталог</button>
-                  </div>
-                </article>
-              `).join("")}
-            </div>
+            ${ungrouped.length ? `
+              <div class="pkg-group-header">Прочие пакеты</div>
+              <div class="grid three">
+                ${ungrouped.map(renderPkgCard).join("")}
+              </div>
+            ` : ""}
           </div>
         `;
       }
@@ -7598,9 +7948,11 @@
         function padZ(n) { return String(n).padStart(2, "0"); }
         function cellDate(c) { return `${c.year}-${padZ(c.month)}-${padZ(c.day)}`; }
 
-        /* Предыдущий/следующий месяц */
+        /* Предыдущий/следующий месяц и год */
         function prevMonth() { const d = new Date(yr, mo - 2, 1); return `${d.getFullYear()}-${padZ(d.getMonth()+1)}`; }
         function nextMonth() { const d = new Date(yr, mo, 1); return `${d.getFullYear()}-${padZ(d.getMonth()+1)}`; }
+        function prevYear() { return `${yr - 1}-${padZ(mo)}`; }
+        function nextYear() { return `${yr + 1}-${padZ(mo)}`; }
 
         /* События выбранного дня */
         const selEvents = selDay ? (eventsByDay[selDay] || []) : [];
@@ -7620,12 +7972,23 @@
               </div>
             </div>
 
-            <!-- Навигация по месяцам -->
+            <!-- Навигация по месяцам и годам -->
             <div class="cal-nav">
-              <button class="cal-nav-btn" onclick="app.calSetMonth('${prevMonth()}')">&#8592;</button>
+              <button class="cal-nav-btn cal-nav-year" onclick="app.calSetMonth('${prevYear()}')" title="Предыдущий год">&#171; ${yr - 1}</button>
+              <button class="cal-nav-btn" onclick="app.calSetMonth('${prevMonth()}')" title="Предыдущий месяц">&#8592;</button>
               <h2>${monthNames[mo-1]} ${yr}</h2>
+              <button class="cal-nav-btn" onclick="app.calSetMonth('${nextMonth()}')" title="Следующий месяц">&#8594;</button>
+              <button class="cal-nav-btn cal-nav-year" onclick="app.calSetMonth('${nextYear()}')" title="Следующий год">${yr + 1} &#187;</button>
               <button class="cal-nav-btn today-btn" onclick="app.calSetMonth('${today.slice(0,7)}');app.calSelectDay('${today}')">Сегодня</button>
-              <button class="cal-nav-btn" onclick="app.calSetMonth('${nextMonth()}')">&#8594;</button>
+            </div>
+
+            <!-- Быстрый переход по месяцам -->
+            <div class="cal-months-row">
+              ${monthNames.map((name, i) => {
+                const mIdx = i + 1;
+                const mKey = `${yr}-${padZ(mIdx)}`;
+                return `<button class="cal-month-pill ${mo === mIdx ? "active" : ""}" onclick="app.calSetMonth('${mKey}')">${name.slice(0,3)}</button>`;
+              }).join("")}
             </div>
 
             <!-- Дни недели -->
@@ -7749,11 +8112,11 @@
 
             ${w.clientMode === "new" ? `
               <div class="grid two">
-                ${field("Имя / название *", `<input id="wz_name" value="${escapeHtml(w.name)}" oninput="app.wizardSetData('name',this.value)" placeholder="Иван Петров или ООО Компания">`)}
-                ${field("Телефон", `<input id="wz_phone" value="${escapeHtml(w.phone)}" oninput="app.wizardSetData('phone',this.value)" placeholder="+7 900 000-00-00">`)}
+                ${field("Имя / название *", `<input id="wz_name" value="${escapeHtml(w.name)}" oninput="app.wizardSetField('name',this.value)" placeholder="Иван Петров или ООО Компания">`)}
+                ${field("Телефон", `<input id="wz_phone" value="${escapeHtml(w.phone)}" oninput="app.wizardSetField('phone',this.value)" placeholder="+7 900 000-00-00">`)}
               </div>
               <div style="margin-top:12px">
-                ${field("Компания", `<input value="${escapeHtml(w.company)}" oninput="app.wizardSetData('company',this.value)" placeholder="Название компании (необязательно)">`)}
+                ${field("Компания", `<input value="${escapeHtml(w.company)}" oninput="app.wizardSetField('company',this.value)" placeholder="Название компании (необязательно)">`)}
               </div>
             ` : `
               <div class="client-select-list">
@@ -7778,7 +8141,7 @@
           body = `
             <h2 style="margin-bottom:18px">О проекте</h2>
             <div class="grid two">
-              ${field("Название проекта *", `<input value="${escapeHtml(w.projectName)}" oninput="app.wizardSetData('projectName',this.value)" placeholder="Рекламный ролик для Компании">`)}
+              ${field("Название проекта *", `<input value="${escapeHtml(w.projectName)}" oninput="app.wizardSetField('projectName',this.value)" placeholder="Рекламный ролик для Компании">`)}
               ${field("Тип проекта", `
                 <select onchange="app.wizardSetData('projectType',this.value)">
                   ${["Видео", "Фото", "Motion", "Мероприятие", "Контент-день", "Прочее"].map(t => `<option value="${t}" ${w.projectType === t ? "selected" : ""}>${t}</option>`).join("")}
@@ -7787,7 +8150,7 @@
             </div>
             <div class="grid two" style="margin-top:12px">
               ${field("Дедлайн", `<input type="date" value="${escapeHtml(w.deadline)}" onchange="app.wizardSetData('deadline',this.value)">`)}
-              ${field("Примерный бюджет", `<input value="${escapeHtml(w.budget||"")}" oninput="app.wizardSetData('budget',this.value)" placeholder="Необязательно, ₽">`)}
+              ${field("Примерный бюджет", `<input value="${escapeHtml(w.budget||"")}" oninput="app.wizardSetField('budget',this.value)" placeholder="Необязательно, ₽">`)}
             </div>
           `;
         }
@@ -7945,16 +8308,18 @@
               <div class="deal-actions-group">
                 <div class="deal-stats-inline">
                   <div class="deal-stat-item">
-                    <span>ИТОГО</span>
+                    <span>Итого</span>
                     <strong>${money(t.total)}</strong>
                   </div>
+                  <div class="deal-stat-sep"></div>
                   <div class="deal-stat-item" title="${payPct}% оплачено">
-                    <span>ОПЛАЧЕНО ${payPct}%</span>
+                    <span>Оплачено ${payPct}%</span>
                     <strong style="color:${f.paid > 0 ? "var(--green)" : "var(--muted)"}">${money(f.paid)}</strong>
                   </div>
                   ${f.debt > 0 ? `
+                    <div class="deal-stat-sep"></div>
                     <div class="deal-stat-item">
-                      <span>ДОЛГ</span>
+                      <span>Долг</span>
                       <strong style="color:var(--orange)">${money(f.debt)}</strong>
                     </div>
                   ` : ""}
@@ -7964,7 +8329,7 @@
               </div>
             </div>
 
-            <div class="deal-stage-progress no-print">
+            <div class="deal-stage-progress no-print" style="margin-bottom:12px">
               ${CRM_STATUSES.map((s, i) => {
                 const isDone = i < currentIdx;
                 const isActive = i === currentIdx;
@@ -9133,6 +9498,7 @@ Email: ______________________            Email: ______________________
         saveFinanceModal,
         startWizard,
         wizardSetData,
+        wizardSetField,
         wizardNext,
         wizardBack,
         cancelWizard,
