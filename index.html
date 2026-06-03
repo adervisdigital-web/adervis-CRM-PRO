@@ -3,7 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Adervis CRM digital — версия 4.0</title>
+  <title>Adervis CRM digital — версия 4.1</title>
+  <meta name="theme-color" content="#7c3aed">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Adervis">
+  <link rel="manifest" href="manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); });
+    }
+  </script>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -1014,8 +1025,24 @@
 
     @media (max-width: 720px) {
       .container {
-        width: min(100% - 20px, 1520px);
+        width: calc(100% - 16px);
       }
+
+      .topbar {
+        grid-template-columns: auto 1fr auto;
+        padding: 10px 14px;
+        gap: 10px;
+      }
+
+      .nav { display: none; }
+
+      .burger-btn { display: inline-flex; }
+
+      .brand h1 { font-size: 14px; }
+      .brand p { display: none; }
+
+      .top-actions { gap: 5px; }
+      .autosave-indicator { display: none; }
 
       .item-top,
       .section-title,
@@ -1034,11 +1061,21 @@
       }
 
       h1 {
-        font-size: 24px;
+        font-size: 22px;
       }
 
       .metric-grid {
         grid-template-columns: 1fr;
+      }
+
+      .grid.three,
+      .grid.two {
+        grid-template-columns: 1fr;
+      }
+
+      .deal-card-footer {
+        flex-wrap: wrap;
+        gap: 6px;
       }
     }
 
@@ -2133,6 +2170,17 @@
       border-radius: 999px; padding: 4px 10px; white-space: nowrap;
     }
     .admin-indicator::before { content: "●"; color: #22c55e; font-size: 8px; }
+    .presence-dot {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--blue));
+      color: #fff; font-size: 10px; font-weight: 800; letter-spacing: -.3px;
+      border: 2px solid rgba(34,197,94,.6);
+      box-shadow: 0 0 0 2px rgba(34,197,94,.2);
+      cursor: default; margin-right: 4px; flex-shrink: 0;
+    }
+    .presence-area { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; }
+    .client-link { cursor: pointer; }
     .admin-modal-box {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -2284,15 +2332,112 @@
     [data-theme="light"] .kb-cat-badge.prod { color: #1d4ed8; }
     [data-theme="light"] .kb-cat-badge.price { color: #a16207; }
 
-    /* ── ONBOARDING GUIDE ──────────────────────────── */
-    .onboard-step { display: flex; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line); }
-    .onboard-num {
-      width: 28px; height: 28px; border-radius: 50%; flex: 0 0 28px;
-      display: flex; align-items: center; justify-content: center;
-      background: linear-gradient(135deg, var(--primary), var(--blue));
-      color: #fff; font-size: 12px; font-weight: 900; margin-top: 2px;
+    /* ── BURGER MENU ──────────────────────────────── */
+    .burger-btn {
+      display: none;
+      background: none;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 7px 10px;
+      color: var(--text);
+      cursor: pointer;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      flex-direction: column;
     }
-    .onboard-step:last-child { border-bottom: none; }
+    .burger-btn span {
+      display: block;
+      width: 18px; height: 2px;
+      background: currentColor;
+      border-radius: 2px;
+      transition: .2s ease;
+    }
+    .mobile-nav-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(7,11,20,.72);
+      backdrop-filter: blur(4px);
+    }
+    .mobile-nav-overlay.open { display: block; }
+    .mobile-nav-panel {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      background: rgba(7,11,20,.97);
+      border-bottom: 1px solid var(--line);
+      padding: 16px 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.4);
+    }
+    [data-theme="light"] .mobile-nav-panel { background: rgba(255,255,255,.98); }
+    .mobile-nav-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+    .mobile-nav-panel .nav-btn-mobile {
+      width: 100%; text-align: left; padding: 11px 14px;
+      background: transparent; border: 1px solid var(--line);
+      border-radius: 12px; color: var(--text); font-size: 14px; font-weight: 700;
+      display: flex; align-items: center; gap: 10px; cursor: pointer;
+      transition: .15s;
+    }
+    .mobile-nav-panel .nav-btn-mobile:hover,
+    .mobile-nav-panel .nav-btn-mobile.active {
+      background: linear-gradient(135deg, var(--primary), var(--blue));
+      border-color: transparent; color: #fff;
+    }
+    .mobile-nav-panel .nav-btn-mobile svg { flex: 0 0 auto; opacity: .75; }
+    .mobile-nav-panel .nav-btn-mobile.active svg { opacity: 1; }
+
+    /* ── ONBOARDING SLIDER ──────────────────────────── */
+    .ob-slider-wrap { overflow: hidden; position: relative; }
+    .ob-slides {
+      display: flex;
+      transition: transform .35s cubic-bezier(.4,0,.2,1);
+    }
+    .ob-slide {
+      min-width: 100%;
+      padding: 0 2px;
+    }
+    .ob-placeholder {
+      width: 100%; height: 160px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(124,58,237,.18), rgba(37,99,235,.14));
+      border: 1px dashed rgba(124,58,237,.35);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-size: 12px; font-weight: 750;
+      margin-bottom: 18px; text-align: center; padding: 16px;
+    }
+    .ob-slide h3 { margin: 0 0 8px; font-size: 17px; }
+    .ob-slide p { margin: 0; font-size: 14px; line-height: 1.5; }
+    .ob-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 22px; gap: 12px;
+    }
+    .ob-dots {
+      display: flex; gap: 6px; align-items: center;
+    }
+    .ob-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--line); transition: .22s ease; cursor: pointer;
+    }
+    .ob-dot.active {
+      background: var(--primary);
+      width: 22px; border-radius: 4px;
+    }
+    .ob-arrow {
+      background: none; border: 1px solid var(--line);
+      border-radius: 10px; padding: 7px 14px;
+      color: var(--text); font-size: 16px; cursor: pointer;
+      transition: .15s;
+    }
+    .ob-arrow:disabled { opacity: .3; cursor: default; }
+    .ob-arrow:not(:disabled):hover { border-color: rgba(124,58,237,.5); background: rgba(124,58,237,.08); }
   </style>
 </head>
 
@@ -2306,9 +2451,13 @@
         </div>
         <div>
           <h1>Adervis PRO</h1>
-          <p>CRM digital · версия 4.0</p>
+          <p>CRM digital · версия 4.1</p>
         </div>
       </div>
+
+      <button class="burger-btn" id="burgerBtn" title="Меню" aria-label="Открыть навигацию">
+        <span></span><span></span><span></span>
+      </button>
 
       <nav class="nav" aria-label="Навигация" id="mainNav">
         <button data-view="home" class="nav-icon-btn" title="Сделки">
@@ -2401,6 +2550,59 @@
     <div id="authGateContainer"></div>
   </div>
 
+  <div class="mobile-nav-overlay" id="mobileNavOverlay" onclick="app.closeMobileNav()">
+    <div class="mobile-nav-panel" onclick="event.stopPropagation()">
+      <div class="mobile-nav-header">
+        <strong style="font-size:15px">Навигация</strong>
+        <button onclick="app.closeMobileNav()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0;line-height:1">×</button>
+      </div>
+      <button class="nav-btn-mobile" data-mobile-view="home" onclick="app.go('home');app.closeMobileNav()">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>
+        Сделки
+      </button>
+      <button class="nav-btn-mobile" data-mobile-view="deal" onclick="app.go('deal');app.closeMobileNav()">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
+        Смета
+      </button>
+      <button class="nav-btn-mobile" data-mobile-view="packages" onclick="app.go('packages');app.closeMobileNav()">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg>
+        Пакеты
+      </button>
+      <button class="nav-btn-mobile" data-mobile-view="catalog" onclick="app.go('catalog');app.closeMobileNav()">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>
+        Каталог
+      </button>
+      <button class="nav-btn-mobile" data-mobile-view="global-finances" onclick="app.go('global-finances');app.closeMobileNav()">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg>
+        Финансы
+      </button>
+      <button class="nav-btn-mobile" data-mobile-view="global-calendar" onclick="app.go('global-calendar');app.closeMobileNav()">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>
+        Календарь
+      </button>
+      <button class="nav-btn-mobile" data-mobile-view="contracts" onclick="app.go('contracts');app.closeMobileNav()">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>
+        Договора
+      </button>
+      <button class="nav-btn-mobile" data-mobile-view="clients" onclick="app.go('clients');app.closeMobileNav()">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>
+        Клиенты
+      </button>
+      <button class="nav-btn-mobile" data-mobile-view="knowledge" onclick="app.go('knowledge');app.closeMobileNav()">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
+        База знаний
+      </button>
+      <button class="nav-btn-mobile" data-mobile-view="profile" onclick="app.go('profile');app.closeMobileNav()">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>
+        Профиль
+      </button>
+      <button class="nav-btn-mobile" data-mobile-view="settings" onclick="app.go('settings');app.closeMobileNav()">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 5a3 3 0 100 6A3 3 0 008 5zm0 1.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM6.5 1l-.5 1.6a5 5 0 00-1.4.8L3 3l-1.5 2.6 1.3 1a5 5 0 000 1.8l-1.3 1L3 12l1.6-.4a5 5 0 001.4.8L6.5 14h3l.5-1.6a5 5 0 001.4-.8L13 12l1.5-2.6-1.3-1a5 5 0 000-1.8l1.3-1L13 3l-1.6.4a5 5 0 00-1.4-.8L9.5 1h-3z"/></svg>
+        Настройки
+      </button>
+    </div>
+  </div>
+
   <input type="file" id="importJsonInput" accept="application/json" hidden>
   <input type="file" id="importCatalogInput" accept="application/json" hidden>
   <div id="toast" class="toast"></div>
@@ -2412,7 +2614,7 @@
     (() => {
       "use strict";
 
-      const APP_VERSION = "4.0";
+      const APP_VERSION = "4.1";
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
 
@@ -3078,6 +3280,8 @@
       let _broadcastTimer = null;
       let _userProfile = null;   // { subscription_status, subscription_plan, subscription_expires_at }
       let _cloudSaveTimer = null;
+      let _onlineUsers = [];
+      let _authChecking = true;
 
       function getSupabaseConfig() {
         return {
@@ -3088,28 +3292,32 @@
 
       function initSupabase() {
         const { url, key } = getSupabaseConfig();
-        if (!url || !key || !window.supabase) return;
+        if (!url || !key || !window.supabase) { _authChecking = false; renderAuthGateEl(); return; }
         try {
           _supabase = window.supabase.createClient(url, key);
+          // Быстрая проверка сохранённой сессии — не показываем auth gate до её результата
           _supabase.auth.getSession().then(({ data: { session } }) => {
+            _authChecking = false;
             if (session) { _adminSession = session; _onUserLoggedIn(session); }
+            else { renderAuthGateEl(); }
           });
           _supabase.auth.onAuthStateChange((event, session) => {
             _adminSession = session;
             if (session) { _onUserLoggedIn(session); }
             else {
               _userProfile = null;
+              _onlineUsers = [];
               if (_realtimeChannel) { _realtimeChannel.unsubscribe(); _realtimeChannel = null; }
               renderAdminTopbar();
               render();
             }
           });
-        } catch(e) { console.warn("Supabase init:", e); }
+        } catch(e) { _authChecking = false; renderAuthGateEl(); console.warn("Supabase init:", e); }
       }
 
       async function _onUserLoggedIn(session) {
         await _loadUserProfile(session.user.id, session.user.email);
-        await _loadCloudState(session.user.id);
+        await _loadCloudState();
         _initRealtimeChannel();
         renderAdminTopbar();
         render();
@@ -3131,13 +3339,12 @@
         } catch(e) { console.warn("Profile load:", e); }
       }
 
-      async function _loadCloudState(userId) {
+      async function _loadCloudState() {
         if (!_supabase) return;
         try {
-          const { data } = await _supabase.from("user_states").select("state_json").eq("user_id", userId).single();
+          const { data } = await _supabase.from("agency_state").select("state_json").eq("id", "main").single();
           if (data && data.state_json) {
             const cloudState = data.state_json;
-            // Merge cloud state into current state (cloud wins for persistent data)
             const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
             Object.entries(cloudState).forEach(([k, v]) => {
               if (!skipKeys.includes(k)) state[k] = v;
@@ -3151,11 +3358,10 @@
         if (!_supabase || !_adminSession) return;
         clearTimeout(_cloudSaveTimer);
         _cloudSaveTimer = setTimeout(async () => {
-          const userId = _adminSession.user.id;
           const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
           const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
           try {
-            await _supabase.from("user_states").upsert({ user_id: userId, state_json: data, updated_at: new Date().toISOString() });
+            await _supabase.from("agency_state").upsert({ id: "main", state_json: data, updated_at: new Date().toISOString() });
           } catch(e) { console.warn("Cloud save:", e); }
         }, 3000);
       }
@@ -3189,19 +3395,31 @@
       function _initRealtimeChannel() {
         if (!_supabase) return;
         if (_realtimeChannel) _realtimeChannel.unsubscribe();
-        _realtimeChannel = _supabase.channel("adervis-crm-v4");
-        _realtimeChannel.on("broadcast", { event: "state-sync" }, ({ payload }) => {
-          if (!payload || !payload.data) return;
-          const myEmail = _adminSession && _adminSession.user && _adminSession.user.email;
-          if (payload.sender && payload.sender === myEmail) return;
-          const incoming = payload.data;
-          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
-          skipKeys.forEach(k => { if (k in state) incoming[k] = state[k]; });
-          Object.assign(state, incoming);
-          render();
-          toast("🔄 Обновление от " + (payload.sender || "коллеги"));
+        const myEmail = _adminSession && _adminSession.user && _adminSession.user.email || "";
+        _realtimeChannel = _supabase.channel("adervis-crm-v4", {
+          config: { presence: { key: myEmail } }
         });
-        _realtimeChannel.subscribe();
+        _realtimeChannel
+          .on("broadcast", { event: "state-sync" }, ({ payload }) => {
+            if (!payload || !payload.data) return;
+            if (payload.sender && payload.sender === myEmail) return;
+            const incoming = payload.data;
+            const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
+            skipKeys.forEach(k => { if (k in state) incoming[k] = state[k]; });
+            Object.assign(state, incoming);
+            render();
+            toast("🔄 Обновление от " + (payload.sender || "коллеги"));
+          })
+          .on("presence", { event: "sync" }, () => {
+            const presState = _realtimeChannel.presenceState();
+            _onlineUsers = Object.keys(presState).filter(k => k !== myEmail && k !== "");
+            renderAdminTopbar();
+          })
+          .subscribe(async (status) => {
+            if (status === "SUBSCRIBED" && myEmail) {
+              await _realtimeChannel.track({ email: myEmail });
+            }
+          });
       }
 
       function broadcastState() {
@@ -3223,7 +3441,14 @@
           const name = email.split("@")[0];
           const subLabel = getSubscriptionLabel();
           const active = isSubscriptionActive();
+          const presenceHtml = _onlineUsers.length
+            ? `<span class="presence-area">${_onlineUsers.map(u => {
+                const initials = (u.split("@")[0] || "?").slice(0, 2).toUpperCase();
+                return `<span class="presence-dot" title="${escapeHtml(u)} — онлайн">${initials}</span>`;
+              }).join("")}</span>`
+            : "";
           el.innerHTML = `
+            ${presenceHtml}
             <span class="admin-indicator" style="${!active ? "border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.08)" : ""}">
               ${name}${subLabel ? ` <span style="font-weight:500;opacity:.75;font-size:10px">· ${subLabel}</span>` : ""}
             </span>
@@ -3292,7 +3517,7 @@
          AUTH GATE
       ═══════════════════════════════════════════════════════ */
       let _authTab = "login"; // "login" | "register"
-      let _authFields = { email: "", password: "", name: "", error: "", loading: false };
+      let _authFields = { email: "", password: "", name: "", error: "", loading: false, showPassword: false, rememberMe: true };
 
       function renderAuthGate() {
         const f = _authFields;
@@ -3322,8 +3547,18 @@
               <div class="field" style="margin-bottom:12px"><label>Email</label>
                 <input type="email" placeholder="you@example.com" value="${escapeHtml(f.email)}" oninput="app.setAuthField('email',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()"></div>
 
-              <div class="field" style="margin-bottom:20px"><label>Пароль</label>
-                <input type="password" placeholder="••••••••" value="${escapeHtml(f.password)}" oninput="app.setAuthField('password',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()"></div>
+              <div class="field" style="margin-bottom:${_authTab === "login" ? "14px" : "20px"}"><label>Пароль</label>
+                <div style="position:relative">
+                  <input type="${f.showPassword ? "text" : "password"}" placeholder="••••••••" value="${escapeHtml(f.password)}" oninput="app.setAuthField('password',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()" style="padding-right:44px;width:100%">
+                  <button type="button" onclick="app.toggleAuthPasswordVisibility()" title="${f.showPassword ? "Скрыть пароль" : "Показать пароль"}" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px;line-height:1">${f.showPassword ? "🙈" : "👁"}</button>
+                </div>
+              </div>
+
+              ${_authTab === "login" ? `
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+                <input type="checkbox" id="auth-remember-me" ${f.rememberMe ? "checked" : ""} onchange="app.setAuthField('rememberMe',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)">
+                <label for="auth-remember-me" style="font-size:13px;color:var(--muted);cursor:pointer;margin:0;user-select:none">Запомнить меня</label>
+              </div>` : `<div style="margin-bottom:20px"></div>`}
 
               <button class="btn primary full" onclick="app.authSubmit()" ${f.loading ? "disabled" : ""} style="width:100%;padding:13px">
                 ${f.loading ? "Подождите..." : _authTab === "login" ? "Войти" : "Зарегистрироваться"}
@@ -3356,6 +3591,13 @@
 
       function setAuthField(key, val) {
         _authFields[key] = val;
+        // Для чекбокса remember me и глазка перерисовываем сразу
+        if (key === "rememberMe" || key === "showPassword") renderAuthGateEl();
+      }
+
+      function toggleAuthPasswordVisibility() {
+        _authFields.showPassword = !_authFields.showPassword;
+        renderAuthGateEl();
       }
 
       async function authSubmit() {
@@ -3369,12 +3611,17 @@
             options: { data: { name: f.name } } });
           f.loading = false;
           if (error) { f.error = error.message; renderAuthGateEl(); return; }
-          f.error = ""; _authFields = { email: "", password: "", name: "", error: "✅ Проверьте почту для подтверждения.", loading: false };
+          f.error = ""; _authFields = { email: "", password: "", name: "", error: "✅ Проверьте почту для подтверждения.", loading: false, showPassword: false, rememberMe: true };
           _authTab = "login"; renderAuthGateEl();
         } else {
+          const rememberMe = f.rememberMe;
           const { error } = await _supabase.auth.signInWithPassword({ email: f.email, password: f.password });
           f.loading = false;
           if (error) { f.error = error.message === "Invalid login credentials" ? "Неверный email или пароль" : error.message; renderAuthGateEl(); return; }
+          // Если "не запоминать" — выйти при закрытии вкладки
+          if (!rememberMe) {
+            window.addEventListener("beforeunload", () => { _supabase && _supabase.auth.signOut(); }, { once: true });
+          }
           // onAuthStateChange will handle the rest
         }
       }
@@ -3390,7 +3637,8 @@
         if (!el) return;
         const cfg = getSupabaseConfig();
         const localMode = localStorage.getItem("adervis_local_mode") === "1";
-        if (!cfg.url || !cfg.key || localMode || _adminSession) {
+        // Пока проверяем сохранённую сессию — auth gate не показываем (бесшовная загрузка)
+        if (_authChecking || !cfg.url || !cfg.key || localMode || _adminSession) {
           el.innerHTML = "";
         } else {
           el.innerHTML = renderAuthGate();
@@ -3600,11 +3848,10 @@
 
       async function forceSaveToCloud() {
         if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
-        const userId = _adminSession.user.id;
         const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
         const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
         try {
-          await _supabase.from("user_states").upsert({ user_id: userId, state_json: data, updated_at: new Date().toISOString() });
+          await _supabase.from("agency_state").upsert({ id: "main", state_json: data, updated_at: new Date().toISOString() });
           toast("☁️ Данные сохранены в облако");
         } catch(e) { toast("Ошибка сохранения: " + e.message); }
       }
@@ -3646,12 +3893,11 @@
       }
 
       async function confirmDeleteAccount() {
-        if (!confirm("Вы уверены? Все ваши данные в облаке будут удалены навсегда. Это действие необратимо.")) return;
-        if (!confirm("Подтвердите ещё раз — удалить аккаунт и все данные?")) return;
+        if (!confirm("Вы уверены? Ваш профиль будет удалён. Общие данные агентства останутся нетронутыми.")) return;
+        if (!confirm("Подтвердите ещё раз — удалить аккаунт?")) return;
         if (!_supabase) return;
         try {
           const userId = _adminSession.user.id;
-          await _supabase.from("user_states").delete().eq("user_id", userId);
           await _supabase.from("profiles").delete().eq("id", userId);
           await _supabase.auth.signOut();
           toast("Аккаунт удалён");
@@ -3661,36 +3907,84 @@
       /* ═══════════════════════════════════════════════════════
          HELP / ОНБОРДИНГ
       ═══════════════════════════════════════════════════════ */
+      const ONBOARD_SLIDES = [
+        {
+          title: "Добро пожаловать в Adervis CRM",
+          body: "Полноценная CRM для видеопродакшн агентств. Управляйте сделками, сметами, клиентами и финансами в одном месте.",
+          img: "Логотип и интерфейс CRM — общий вид дашборда"
+        },
+        {
+          title: "Создайте первую сделку",
+          body: "Нажмите «+ Новая сделка» → введите имя клиента → выберите тип проекта. Мастер проведёт вас за 3 шага.",
+          img: "Скриншот: мастер создания сделки — поле «Имя клиента» и тип проекта"
+        },
+        {
+          title: "Составьте смету",
+          body: "Перейдите во вкладку «Смета». Выберите услуги из каталога или примените готовый пакет — цены подтянутся автоматически.",
+          img: "Скриншот: таблица сметы с позициями и итоговой суммой"
+        },
+        {
+          title: "Ведите воронку продаж",
+          body: "Меняйте статус сделки кнопкой «→»: Лид → Бриф → КП → Договор → Предоплата → В работе → Сдано.",
+          img: "Скриншот: карточки сделок на доске с кнопкой смены статуса"
+        },
+        {
+          title: "Фиксируйте оплаты",
+          body: "В каждой сделке есть вкладка «Финансы». Добавляйте поступления и расходы — CRM считает маржу автоматически.",
+          img: "Скриншот: вкладка Финансы — список транзакций и сводка"
+        },
+        {
+          title: "Установите как приложение",
+          body: "Adervis CRM — PWA. На телефоне нажмите «Поделиться» → «На экран Домой» (iOS) или «Установить» (Android). Работает офлайн.",
+          img: "Иллюстрация: иконка Adervis на экране смартфона"
+        }
+      ];
+
       function renderHelpModal() {
-        const steps = [
-          { n: 1, title: "Создайте первую сделку", body: "Нажмите «+ Новая сделка» → введите имя клиента → выберите тип проекта. Один клиент — одна сделка." },
-          { n: 2, title: "Добавьте услуги в смету", body: "Перейдите во вкладку «Смета». Выберите услуги из каталога или примените готовый пакет. Цены адаптируются автоматически." },
-          { n: 3, title: "Сформируйте КП", body: "Вкладка «КП» — настройте шаблон и отправьте клиенту. Текст копируется одной кнопкой." },
-          { n: 4, title: "Ведите сделку по воронке", body: "Меняйте статус: Лид → Бриф → КП → Договор → Предоплата → В работе → Сдано." },
-          { n: 5, title: "Фиксируйте оплаты", body: "В каждой сделке есть вкладка «Финансы». Добавляйте поступления и расходы." },
-          { n: 6, title: "Используйте Базу знаний", body: "В разделе «База знаний» хранятся статьи о продажах, ценообразовании и производстве." },
-        ];
+        const idx = state.helpSlide || 0;
+        const total = ONBOARD_SLIDES.length;
+        const slide = ONBOARD_SLIDES[idx];
         return `
           <div class="modal-overlay" onclick="event.target===this&&app.closeHelpModal()">
-            <div class="modal-box" style="width:min(560px,calc(100vw - 32px));max-height:90vh;overflow-y:auto">
+            <div class="modal-box" style="width:min(520px,calc(100vw - 24px));padding:24px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-                <h2 style="margin:0;font-size:20px">Знакомство с Adervis PRO</h2>
-                <button onclick="app.closeHelpModal()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px">×</button>
-              </div>
-              <p style="margin:0 0 18px;font-size:13px">Быстрый старт за 6 шагов — всё что нужно для работы.</p>
-              ${steps.map(s => `
-                <div class="onboard-step">
-                  <div class="onboard-num">${s.n}</div>
-                  <div>
-                    <strong style="font-size:14px;display:block;margin-bottom:4px">${escapeHtml(s.title)}</strong>
-                    <span style="font-size:13px;color:var(--muted)">${escapeHtml(s.body)}</span>
-                  </div>
+                <div>
+                  <div style="font-size:11px;font-weight:850;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Шаг ${idx + 1} из ${total}</div>
+                  <h2 style="margin:4px 0 0;font-size:19px">Знакомство с Adervis PRO</h2>
                 </div>
-              `).join("")}
-              <div class="toolbar" style="margin-top:20px;justify-content:center">
-                <button class="btn primary" onclick="app.closeHelpModal();app.startWizard()">Создать первую сделку →</button>
-                <button class="btn" onclick="app.closeHelpModal();app.go('knowledge')">База знаний</button>
+                <button onclick="app.closeHelpModal()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto">×</button>
               </div>
+
+              <div class="ob-slider-wrap">
+                <div class="ob-slides" style="transform:translateX(-${idx * 100}%)">
+                  ${ONBOARD_SLIDES.map((s, i) => `
+                    <div class="ob-slide">
+                      <div class="ob-placeholder">${escapeHtml(s.img)}</div>
+                      <h3>${escapeHtml(s.title)}</h3>
+                      <p style="color:var(--muted)">${escapeHtml(s.body)}</p>
+                    </div>
+                  `).join("")}
+                </div>
+              </div>
+
+              <div class="ob-nav">
+                <button class="ob-arrow" onclick="app.helpPrev()" ${idx === 0 ? "disabled" : ""}>&#8592;</button>
+                <div class="ob-dots">
+                  ${ONBOARD_SLIDES.map((_, i) => `
+                    <div class="ob-dot ${i === idx ? "active" : ""}" onclick="app.setHelpSlide(${i})" title="Слайд ${i+1}"></div>
+                  `).join("")}
+                </div>
+                ${idx < total - 1
+                  ? `<button class="ob-arrow" onclick="app.helpNext()">&#8594;</button>`
+                  : `<button class="btn primary" style="padding:7px 16px;font-size:13px" onclick="app.closeHelpModal();app.startWizard()">Начать →</button>`
+                }
+              </div>
+
+              ${idx === total - 1 ? `
+                <div style="margin-top:14px;text-align:center">
+                  <button class="btn" style="font-size:12px" onclick="app.closeHelpModal();app.go('knowledge')">Открыть Базу знаний</button>
+                </div>
+              ` : ""}
             </div>
           </div>
         `;
@@ -3698,10 +3992,24 @@
 
       function openHelpModal() {
         state.helpModal = true;
+        state.helpSlide = 0;
         renderModal();
       }
       function closeHelpModal() {
         state.helpModal = false;
+        renderModal();
+      }
+      function helpNext() {
+        const total = ONBOARD_SLIDES.length;
+        state.helpSlide = Math.min((state.helpSlide || 0) + 1, total - 1);
+        renderModal();
+      }
+      function helpPrev() {
+        state.helpSlide = Math.max((state.helpSlide || 0) - 1, 0);
+        renderModal();
+      }
+      function setHelpSlide(i) {
+        state.helpSlide = i;
         renderModal();
       }
 
@@ -4206,7 +4514,7 @@
             name: "Видео-проект",
             client: "",
             clientId: "",
-            city: "Пермь",
+            city: "",
             status: "Черновик",
             crmStatus: "Лид",
             type: "Видео",
@@ -4222,7 +4530,7 @@
             proposalTemplate: "classic",
             proposalMode: "detailed",
             internalNote: "",
-            proposalNote: "Стоимость рассчитана от минимальной региональной базы для Перми и может меняться после уточнения задачи.",
+            proposalNote: "Стоимость рассчитана на основе базовых тарифов агентства и может меняться после уточнения задачи.",
             paymentTerms: "50% предоплата, 50% после сдачи материалов.",
             deliveryTerms: "Готовые материалы передаются ссылкой на облачное хранилище.",
             includedText: "Базовая работа команды, согласованные этапы, минимальный комплект услуг по смете.",
@@ -4234,15 +4542,15 @@
             email: "",
             site: "",
             logoUrl: "logo-icon.svg",
-            desc: "Продакшн и digital-упаковка для бизнеса.",
-            details: "Продакшн и digital-упаковка для бизнеса.",
+            desc: "Видеопроизводство и digital-упаковка для бизнеса.",
+            details: "Видеопроизводство и digital-упаковка для бизнеса.",
             terms: "Срок действия предложения — 7 календарных дней. Финальные сроки и состав работ уточняются после брифа.",
             requisites: ""
           },
           proposalTemplates: {
             classic: {
               name: "Классический",
-              intro: "Подготовили предварительную смету на производство видео. Расчёт выполнен от минимальной региональной базы для Перми.",
+              intro: "Подготовили предварительную смету на производство видео. Стоимость рассчитана на основе базовых тарифов агентства.",
               showStages: true,
               showDetails: true,
               showOptional: true
@@ -4292,7 +4600,7 @@
           company: client?.company || "",
           phone: client?.phone || "",
           email: client?.email || "",
-          city: client?.city || "Пермь",
+          city: client?.city || "",
           contactPerson: client?.contactPerson || "",
           source: client?.source || "",
           note: client?.note || "",
@@ -4381,7 +4689,7 @@
           crmStatus: project?.crmStatus || project?.project?.crmStatus || "Лид",
           priority: project?.priority || project?.project?.priority || "Средний",
           deadline: project?.deadline || project?.project?.deadline || "",
-          city: project?.city || project?.project?.city || "Пермь",
+          city: project?.city || project?.project?.city || "",
           total: numberValue(project?.total, 0),
           paid: numberValue(project?.paid, 0),
           debt: numberValue(project?.debt, 0),
@@ -4559,6 +4867,7 @@
       }
 
       function save() {
+        if (!isSubscriptionActive() && _adminSession) return;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         scheduleAutoSave();
         broadcastState();
@@ -5076,7 +5385,7 @@
           return existing;
         }
 
-        const client = normalizeClient({ name, city: state.project.city || "Пермь", source: state.project.source || "" });
+        const client = normalizeClient({ name, city: state.project.city || "", source: state.project.source || "" });
         state.clients.unshift(client);
         state.project.clientId = client.id;
         state.activeClientId = client.id;
@@ -5134,7 +5443,7 @@
               crmStatus: state.project.crmStatus || "Лид",
               priority: state.project.priority || "Средний",
               deadline: state.project.deadline || "",
-              city: state.project.city || "Пермь",
+              city: state.project.city || "",
               total: snapshot.total,
               paid: f.paid,
               debt: f.debt,
@@ -5162,7 +5471,7 @@
           crmStatus: state.project.crmStatus || "Лид",
           priority: state.project.priority || "Средний",
           deadline: state.project.deadline || "",
-          city: state.project.city || "Пермь",
+          city: state.project.city || "",
           total: snapshot.total,
           paid: f.paid,
           debt: f.debt,
@@ -5202,7 +5511,7 @@
           crmStatus: saved.crmStatus || snapshot.project?.crmStatus || "Лид",
           priority: saved.priority || snapshot.project?.priority || "Средний",
           deadline: saved.deadline || snapshot.project?.deadline || "",
-          city: saved.city || snapshot.project?.city || "Пермь"
+          city: saved.city || snapshot.project?.city || ""
         };
 
         state.selected = deepClone(snapshot.selected || {});
@@ -6508,7 +6817,7 @@
             const name = String(w.name || "").trim();
             if (!name) { toast("Введи имя клиента"); return; }
             if (w.phone && !validatePhone(w.phone)) { toast("❌ Неверный формат телефона. Пример: +7 900 000-00-00"); return; }
-            const client = normalizeClient({ name, company: w.company, phone: w.phone, city: "Пермь" });
+            const client = normalizeClient({ name, company: w.company, phone: w.phone, city: "" });
             client.id = uid("client");
             client.createdAt = new Date().toISOString();
             state.clients.unshift(client);
@@ -6572,7 +6881,7 @@
             name: String(w.projectName || "Новый проект").trim(),
             client: client ? client.name : "",
             clientId: w.clientId || "",
-            city: client ? (client.city || "Пермь") : "Пермь",
+            city: client ? (client.city || "") : "",
             deadline: w.deadline || "",
             type: w.projectType || "Видео",
             crmStatus: "Лид"
@@ -6597,7 +6906,7 @@
           crmStatus: state.project.crmStatus || "Лид",
           priority: state.project.priority || "Средний",
           deadline: state.project.deadline || "",
-          city: state.project.city || "Пермь",
+          city: state.project.city || "",
           total: snap.total || 0,
           paid: 0, debt: snap.total || 0,
           expensesTotal: 0, profit: snap.total || 0,
@@ -7177,11 +7486,11 @@
                   const payPct = project.total > 0 ? Math.min(100, Math.round((project.paid || 0) / project.total * 100)) : 0;
 
                   return `
-                    <div class="deal-card ${isCurrent ? "current" : ""}">
+                    <div class="deal-card ${isCurrent ? "current" : ""}" ${project.clientId ? `onclick="app.openClientModal('${project.clientId}')" style="cursor:pointer"` : ""}>
                       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
                         <div>
-                          <div class="deal-card-client">${escapeHtml(project.client || "Без клиента")}</div>
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
+                          ${project.client ? `<div class="deal-card-client" style="margin-top:2px;color:var(--muted)">${escapeHtml(project.client)}</div>` : ""}
                         </div>
                         <div style="display:flex;gap:6px;align-items:center">
                           <div class="health-dot ${healthClass}" title="Маржа ${margin}%"></div>
@@ -7206,7 +7515,7 @@
                       ${project.deadline ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">до ${escapeHtml(formatDate(project.deadline))}</div>` : ""}
 
                       <div class="deal-card-footer">
-                        <button class="btn small" onclick="app.openDeal('${project.id}')">Открыть</button>
+                        <button class="btn small" onclick="event.stopPropagation();app.openDeal('${project.id}')">Выбрать</button>
                         ${nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${project.id}')">${nextLabel} →</button>` : `<span class="badge">Завершено</span>`}
                       </div>
                     </div>
@@ -8775,7 +9084,7 @@
               <tbody>
                 <tr><td><strong>Проект</strong></td><td>${escapeHtml(state.project.name || "Видео-проект")}</td></tr>
                 <tr><td><strong>Клиент</strong></td><td>${escapeHtml(state.project.client || client?.name || "Не указан")}</td></tr>
-                <tr><td><strong>Город</strong></td><td>${escapeHtml(state.project.city || "Пермь")}</td></tr>
+                ${state.project.city ? `<tr><td><strong>Город</strong></td><td>${escapeHtml(state.project.city)}</td></tr>` : ""}
                 ${state.project.deadline ? `<tr><td><strong>Дедлайн</strong></td><td>${escapeHtml(formatDate(state.project.deadline))}</td></tr>` : ""}
                 ${state.project.manager ? `<tr><td><strong>Менеджер</strong></td><td>${escapeHtml(state.project.manager)}</td></tr>` : ""}
               </tbody>
@@ -9761,17 +10070,21 @@ alter table profiles enable row level security;
 create policy "read own profile" on profiles for select using (auth.uid() = id);
 create policy "update own profile" on profiles for update using (auth.uid() = id);
 
--- 2. Таблица облачных состояний (данные каждого пользователя)
-create table if not exists user_states (
-  user_id uuid references auth.users on delete cascade primary key,
+-- 2. Таблица общего состояния агентства (единая для всей команды, v4.1+)
+create table if not exists agency_state (
+  id text primary key,
   state_json jsonb,
   updated_at timestamptz default now()
 );
-alter table user_states enable row level security;
-create policy "manage own state" on user_states for all using (auth.uid() = user_id);
+alter table agency_state enable row level security;
+-- Любой авторизованный сотрудник может читать и писать общее состояние
+create policy "team read agency_state" on agency_state for select using (auth.uid() is not null);
+create policy "team insert agency_state" on agency_state for insert with check (auth.uid() is not null);
+create policy "team update agency_state" on agency_state for update using (auth.uid() is not null);
 
--- 3. Для совместного редактирования (realtime) — включить broadcast в Supabase Dashboard:
--- Realtime → Tables → включить для user_states</pre>
+-- 3. Для Realtime и Presence (v4.1) — включить в Supabase Dashboard:
+-- Realtime → Tables → включить для agency_state
+-- Realtime → Channels → разрешить adervis-crm-v4</pre>
               </details>
               ${(() => {
                 const cfg = getSupabaseConfig();
@@ -9839,6 +10152,21 @@ create policy "manage own state" on user_states for all using (auth.uid() = user
       /* ═══════════════════════════════════════════════════════
          ГЛАВНОЕ МЕНЮ (клик по логотипу)
       ═══════════════════════════════════════════════════════ */
+      function openMobileNav() {
+        const overlay = document.getElementById("mobileNavOverlay");
+        if (overlay) overlay.classList.add("open");
+        updateMobileNavActive();
+      }
+      function closeMobileNav() {
+        const overlay = document.getElementById("mobileNavOverlay");
+        if (overlay) overlay.classList.remove("open");
+      }
+      function updateMobileNavActive() {
+        document.querySelectorAll(".nav-btn-mobile[data-mobile-view]").forEach(btn => {
+          btn.classList.toggle("active", btn.dataset.mobileView === state.view);
+        });
+      }
+
       function openMainMenu() {
         state.mainMenuOpen = true;
         renderModal();
@@ -10056,6 +10384,10 @@ create policy "manage own state" on user_states for all using (auth.uid() = user
         const idx = (state.clients || []).findIndex(c => c.id === m.id);
         if (idx >= 0) {
           state.clients[idx] = normalizeClient({ ...state.clients[idx], ...m, updatedAt: new Date().toISOString() });
+          // Синхронизируем имя клиента во всех сделках
+          (state.savedProjects || []).forEach(p => {
+            if (p.clientId === m.id) p.client = m.name || p.client;
+          });
           toast("Клиент обновлён");
         }
         state.clientModal = null;
@@ -10744,6 +11076,9 @@ Email: ______________________            Email: ______________________
         const clientModeBtn = document.getElementById("clientModeBtn");
         if (clientModeBtn) clientModeBtn.addEventListener("click", toggleClientMode);
 
+        const burgerBtn = document.getElementById("burgerBtn");
+        if (burgerBtn) burgerBtn.addEventListener("click", openMobileNav);
+
         const helpBtn = document.getElementById("helpBtn");
         if (helpBtn) helpBtn.addEventListener("click", openHelpModal);
 
@@ -10938,6 +11273,7 @@ Email: ______________________            Email: ______________________
 
         setAuthTab,
         setAuthField,
+        toggleAuthPasswordVisibility,
         authSubmit,
         useLocalMode,
 
@@ -10951,8 +11287,14 @@ Email: ______________________            Email: ______________________
         submitChangePassword,
         confirmDeleteAccount,
 
+        openMobileNav,
+        closeMobileNav,
+
         openHelpModal,
         closeHelpModal,
+        helpNext,
+        helpPrev,
+        setHelpSlide,
 
         renderKnowledge,
         kbOpen,
