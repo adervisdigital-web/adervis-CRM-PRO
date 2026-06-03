@@ -2154,6 +2154,145 @@
       background: rgba(22,163,74,.1); border-radius: 999px;
       padding: 2px 8px;
     }
+
+    /* ── AUTH GATE ─────────────────────────────────── */
+    .auth-gate {
+      position: fixed; inset: 0; z-index: 999;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg);
+      background-image: radial-gradient(circle at top left, rgba(124,58,237,.18), transparent 40%),
+        radial-gradient(circle at bottom right, rgba(37,99,235,.12), transparent 40%);
+    }
+    .auth-gate-box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: 0 32px 80px rgba(0,0,0,.28);
+      padding: 40px 36px;
+      width: min(440px, calc(100vw - 32px));
+    }
+    .auth-gate-logo {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 28px;
+    }
+    .auth-gate-logo .logo { flex: 0 0 auto; }
+    .auth-tab-bar {
+      display: flex; gap: 0; margin-bottom: 24px;
+      background: var(--panel2); border-radius: 12px; padding: 4px;
+    }
+    .auth-tab {
+      flex: 1; border: none; border-radius: 9px; padding: 9px;
+      font-size: 13px; font-weight: 750; cursor: pointer;
+      background: transparent; color: var(--muted); transition: .15s;
+    }
+    .auth-tab.active { background: var(--primary); color: #fff; }
+
+    /* ── NOTIFICATION BELL ─────────────────────────── */
+    .notif-btn {
+      position: relative; border: none; background: none;
+      color: var(--text); cursor: pointer; padding: 6px 8px;
+      border-radius: 10px; font-size: 18px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      transition: .14s;
+    }
+    .notif-btn:hover { background: rgba(148,163,184,.12); }
+    .notif-badge {
+      position: absolute; top: 2px; right: 2px;
+      background: var(--red); color: #fff;
+      font-size: 9px; font-weight: 900; border-radius: 999px;
+      min-width: 15px; height: 15px; display: flex; align-items: center;
+      justify-content: center; padding: 0 3px; line-height: 1;
+    }
+    .notif-popup {
+      position: fixed; right: 16px; top: 62px; z-index: 200;
+      width: min(380px, calc(100vw - 24px));
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.28);
+      overflow: hidden;
+    }
+    .notif-popup-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 18px 12px; border-bottom: 1px solid var(--line);
+    }
+    .notif-list { max-height: 420px; overflow-y: auto; }
+    .notif-item {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 12px 18px; border-bottom: 1px solid var(--line);
+      cursor: pointer; transition: .12s;
+    }
+    .notif-item:hover { background: rgba(148,163,184,.06); }
+    .notif-item.unread { background: rgba(124,58,237,.05); }
+    .notif-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--primary); flex: 0 0 8px; margin-top: 5px;
+    }
+    .notif-item.unread .notif-dot { background: var(--primary); }
+    .notif-item:not(.unread) .notif-dot { background: transparent; }
+    .notif-body { font-size: 12px; line-height: 1.45; }
+    .notif-body strong { display: block; font-size: 13px; margin-bottom: 2px; }
+    .notif-time { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+    /* ── HELP BUTTON ─────────────────────────────── */
+    .help-btn {
+      border: 1px solid var(--line); background: none;
+      color: var(--muted); border-radius: 50%;
+      width: 30px; height: 30px; font-size: 14px; font-weight: 900;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: .14s;
+    }
+    .help-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* ── PROFILE PAGE ─────────────────────────────── */
+    .plan-card {
+      border: 1px solid var(--line); border-radius: 16px;
+      padding: 20px; text-align: center; transition: .18s; cursor: default;
+    }
+    .plan-card.popular {
+      border-color: var(--primary); background: rgba(124,58,237,.06);
+    }
+    .plan-card .plan-price { font-size: 28px; font-weight: 900; margin: 10px 0 4px; }
+    .plan-card .plan-period { font-size: 12px; color: var(--muted); }
+    .plan-card .plan-label { font-size: 13px; font-weight: 850; margin-bottom: 6px; }
+    .popular-badge {
+      display: inline-block; background: var(--primary); color: #fff;
+      font-size: 10px; font-weight: 900; border-radius: 999px;
+      padding: 2px 10px; margin-bottom: 8px; text-transform: uppercase;
+    }
+    .plan-save { font-size: 11px; color: #22c55e; font-weight: 700; margin-top: 4px; }
+
+    /* ── KNOWLEDGE BASE ────────────────────────────── */
+    .kb-doc-card {
+      background: var(--panel2); border: 1px solid var(--line);
+      border-radius: 14px; padding: 16px; cursor: pointer; transition: .14s;
+    }
+    .kb-doc-card:hover { border-color: rgba(124,58,237,.4); background: rgba(124,58,237,.04); }
+    .kb-doc-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 800; }
+    .kb-doc-card p { margin: 0; font-size: 12px; }
+    .kb-editor { display: flex; flex-direction: column; gap: 12px; }
+    .kb-editor textarea { min-height: 320px; font-family: inherit; font-size: 14px; line-height: 1.6; }
+    .kb-cat-badge {
+      font-size: 10px; font-weight: 850; padding: 2px 8px;
+      border-radius: 999px; display: inline-flex; text-transform: uppercase;
+    }
+    .kb-cat-badge.sales { background: rgba(22,163,74,.14); color: #16a34a; }
+    .kb-cat-badge.prod { background: rgba(37,99,235,.12); color: #2563eb; }
+    .kb-cat-badge.price { background: rgba(202,138,4,.14); color: #ca8a04; }
+    .kb-cat-badge.client { background: rgba(124,58,237,.12); color: var(--primary); }
+    .kb-cat-badge.guide { background: rgba(8,145,178,.12); color: #0891b2; }
+    [data-theme="light"] .kb-cat-badge.sales { color: #15803d; }
+    [data-theme="light"] .kb-cat-badge.prod { color: #1d4ed8; }
+    [data-theme="light"] .kb-cat-badge.price { color: #a16207; }
+
+    /* ── ONBOARDING GUIDE ──────────────────────────── */
+    .onboard-step { display: flex; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+    .onboard-num {
+      width: 28px; height: 28px; border-radius: 50%; flex: 0 0 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, var(--primary), var(--blue));
+      color: #fff; font-size: 12px; font-weight: 900; margin-top: 2px;
+    }
+    .onboard-step:last-child { border-bottom: none; }
   </style>
 </head>
 
@@ -2204,6 +2343,14 @@
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>
           Клиенты
         </button>
+        <button data-view="knowledge" class="nav-icon-btn" title="База знаний">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
+          База знаний
+        </button>
+        <button data-view="profile" class="nav-icon-btn" title="Мой профиль">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>
+          Профиль
+        </button>
         <button data-view="settings" class="nav-icon-btn" title="Настройки">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 5a3 3 0 100 6A3 3 0 008 5zm0 1.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM6.5 1l-.5 1.6a5 5 0 00-1.4.8L3 3l-1.5 2.6 1.3 1a5 5 0 000 1.8l-1.3 1L3 12l1.6-.4a5 5 0 001.4.8L6.5 14h3l.5-1.6a5 5 0 001.4-.8L13 12l1.5-2.6-1.3-1a5 5 0 000-1.8l1.3-1L13 3l-1.6.4a5 5 0 00-1.4-.8L9.5 1h-3z"/></svg>
           Настройки
@@ -2241,11 +2388,17 @@
         </div>
         <button class="btn small" id="themeBtn" title="Сменить тему">&#9681; Тема</button>
         <button class="btn small blue" id="clientModeBtn">&#128065; Клиент</button>
+        <button class="help-btn" id="helpBtn" title="Знакомство с Adervis PRO">?</button>
+        <button class="notif-btn" id="notifBtn" title="Уведомления" onclick="app.toggleNotifPopup()">
+          🔔 <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+        </button>
         <div id="adminTopbar"></div>
       </div>
     </header>
 
     <main class="container" id="appContent"></main>
+    <div id="notifPopupContainer"></div>
+    <div id="authGateContainer"></div>
   </div>
 
   <input type="file" id="importJsonInput" accept="application/json" hidden>
@@ -3135,6 +3288,115 @@
         toast("✅ Сохранено. Обновите страницу для подключения.");
       }
 
+      /* ═══════════════════════════════════════════════════════
+         AUTH GATE
+      ═══════════════════════════════════════════════════════ */
+      let _authTab = "login"; // "login" | "register"
+      let _authFields = { email: "", password: "", name: "", error: "", loading: false };
+
+      function renderAuthGate() {
+        const f = _authFields;
+        return `
+          <div class="auth-gate">
+            <div class="auth-gate-box">
+              <div class="auth-gate-logo">
+                <div class="logo" style="width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center">
+                  <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:contain">
+                </div>
+                <div>
+                  <div style="font-weight:900;font-size:17px">Adervis PRO</div>
+                  <div style="font-size:12px;color:var(--muted)">CRM digital · версия 4.0</div>
+                </div>
+              </div>
+
+              <div class="auth-tab-bar">
+                <button class="auth-tab ${_authTab === "login" ? "active" : ""}" onclick="app.setAuthTab('login')">Вход</button>
+                <button class="auth-tab ${_authTab === "register" ? "active" : ""}" onclick="app.setAuthTab('register')">Регистрация</button>
+              </div>
+
+              ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
+
+              ${_authTab === "register" ? `<div class="field" style="margin-bottom:12px"><label>Имя</label>
+                <input placeholder="Ваше имя" value="${escapeHtml(f.name)}" oninput="app.setAuthField('name',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()"></div>` : ""}
+
+              <div class="field" style="margin-bottom:12px"><label>Email</label>
+                <input type="email" placeholder="you@example.com" value="${escapeHtml(f.email)}" oninput="app.setAuthField('email',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()"></div>
+
+              <div class="field" style="margin-bottom:20px"><label>Пароль</label>
+                <input type="password" placeholder="••••••••" value="${escapeHtml(f.password)}" oninput="app.setAuthField('password',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()"></div>
+
+              <button class="btn primary full" onclick="app.authSubmit()" ${f.loading ? "disabled" : ""} style="width:100%;padding:13px">
+                ${f.loading ? "Подождите..." : _authTab === "login" ? "Войти" : "Зарегистрироваться"}
+              </button>
+
+              <div style="text-align:center;margin-top:16px">
+                <button onclick="app.setAuthTab('forgot')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">
+                  ${_authTab === "login" ? "Забыли пароль?" : ""}
+                </button>
+              </div>
+
+              <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line);text-align:center">
+                <p style="font-size:12px;color:var(--muted);margin:0 0 10px">Или продолжить без аккаунта</p>
+                <button class="btn small" onclick="app.useLocalMode()" style="width:100%">Локальный режим (без синхронизации)</button>
+              </div>
+
+              <p style="font-size:11px;color:var(--muted);text-align:center;margin:14px 0 0;line-height:1.5">
+                Первые 14 дней — бесплатно. Затем от 990 ₽/мес.
+              </p>
+            </div>
+          </div>
+        `;
+      }
+
+      function setAuthTab(tab) {
+        _authTab = tab === "forgot" ? "forgot" : tab;
+        _authFields.error = "";
+        renderAuthGateEl();
+      }
+
+      function setAuthField(key, val) {
+        _authFields[key] = val;
+      }
+
+      async function authSubmit() {
+        const f = _authFields;
+        if (!f.email || !f.password) { f.error = "Введите email и пароль"; renderAuthGateEl(); return; }
+        if (!_supabase) { f.error = "Supabase не настроен — настройте в разделе Настройки"; renderAuthGateEl(); return; }
+        f.loading = true; f.error = ""; renderAuthGateEl();
+
+        if (_authTab === "register") {
+          const { error } = await _supabase.auth.signUp({ email: f.email, password: f.password,
+            options: { data: { name: f.name } } });
+          f.loading = false;
+          if (error) { f.error = error.message; renderAuthGateEl(); return; }
+          f.error = ""; _authFields = { email: "", password: "", name: "", error: "✅ Проверьте почту для подтверждения.", loading: false };
+          _authTab = "login"; renderAuthGateEl();
+        } else {
+          const { error } = await _supabase.auth.signInWithPassword({ email: f.email, password: f.password });
+          f.loading = false;
+          if (error) { f.error = error.message === "Invalid login credentials" ? "Неверный email или пароль" : error.message; renderAuthGateEl(); return; }
+          // onAuthStateChange will handle the rest
+        }
+      }
+
+      function useLocalMode() {
+        localStorage.setItem("adervis_local_mode", "1");
+        const el = document.getElementById("authGateContainer");
+        if (el) el.innerHTML = "";
+      }
+
+      function renderAuthGateEl() {
+        const el = document.getElementById("authGateContainer");
+        if (!el) return;
+        const cfg = getSupabaseConfig();
+        const localMode = localStorage.getItem("adervis_local_mode") === "1";
+        if (!cfg.url || !cfg.key || localMode || _adminSession) {
+          el.innerHTML = "";
+        } else {
+          el.innerHTML = renderAuthGate();
+        }
+      }
+
       function renderSubscriptionGate() {
         const email = _adminSession && _adminSession.user.email || "";
         return `
@@ -3154,6 +3416,429 @@
             <p style="margin-top:18px;font-size:12px;color:var(--muted)">Adervis CRM digital · версия 4.0</p>
           </div>
         `;
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         УВЕДОМЛЕНИЯ
+      ═══════════════════════════════════════════════════════ */
+      function pushNotification(type, title, body, projectId) {
+        const n = { id: uid("notif"), type, title, body: body || "", projectId: projectId || "", read: false, createdAt: new Date().toISOString() };
+        state.notifications = [n, ...(state.notifications || [])].slice(0, 100);
+        renderNotifBadge();
+      }
+
+      function renderNotifBadge() {
+        const badge = document.getElementById("notifBadge");
+        if (!badge) return;
+        const unread = (state.notifications || []).filter(n => !n.read).length;
+        badge.textContent = unread > 9 ? "9+" : String(unread);
+        badge.style.display = unread > 0 ? "flex" : "none";
+      }
+
+      function toggleNotifPopup() {
+        state.notifPopupOpen = !state.notifPopupOpen;
+        if (state.notifPopupOpen) {
+          // Mark all as read
+          (state.notifications || []).forEach(n => n.read = true);
+          renderNotifBadge();
+          save();
+        }
+        const el = document.getElementById("notifPopupContainer");
+        if (!el) return;
+        el.innerHTML = state.notifPopupOpen ? renderNotifPopup() : "";
+        if (state.notifPopupOpen) {
+          // close on outside click
+          setTimeout(() => document.addEventListener("click", _closeNotifOnOutside, { once: true }), 10);
+        }
+      }
+
+      function _closeNotifOnOutside(e) {
+        if (!e.target.closest("#notifPopupContainer") && !e.target.closest("#notifBtn")) {
+          state.notifPopupOpen = false;
+          const el = document.getElementById("notifPopupContainer");
+          if (el) el.innerHTML = "";
+        }
+      }
+
+      function renderNotifPopup() {
+        const notifs = state.notifications || [];
+        const timeAgo = iso => {
+          const d = Math.floor((Date.now() - new Date(iso)) / 1000);
+          if (d < 60) return "только что";
+          if (d < 3600) return Math.floor(d/60) + " мин назад";
+          if (d < 86400) return Math.floor(d/3600) + " ч назад";
+          return Math.floor(d/86400) + " дн назад";
+        };
+        return `
+          <div class="notif-popup" id="notifPopup">
+            <div class="notif-popup-header">
+              <strong>Уведомления</strong>
+              <div style="display:flex;gap:8px;align-items:center">
+                ${notifs.length ? `<button style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer" onclick="app.clearNotifs()">Очистить</button>` : ""}
+                <button onclick="app.toggleNotifPopup()" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1;padding:0 2px">×</button>
+              </div>
+            </div>
+            <div class="notif-list">
+              ${notifs.length === 0 ? `<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Нет уведомлений</div>` :
+                notifs.map(n => `
+                  <div class="notif-item ${n.read ? "" : "unread"}" onclick="app.notifClick('${n.id}')">
+                    <div class="notif-dot"></div>
+                    <div class="notif-body">
+                      <strong>${escapeHtml(n.title)}</strong>
+                      ${n.body ? escapeHtml(n.body) : ""}
+                      <div class="notif-time">${timeAgo(n.createdAt)}</div>
+                    </div>
+                  </div>`).join("")
+              }
+            </div>
+          </div>
+        `;
+      }
+
+      function clearNotifs() {
+        state.notifications = [];
+        state.notifPopupOpen = false;
+        const el = document.getElementById("notifPopupContainer");
+        if (el) el.innerHTML = "";
+        renderNotifBadge();
+        save();
+      }
+
+      function notifClick(id) {
+        const n = (state.notifications || []).find(x => x.id === id);
+        if (n && n.projectId) { app.go("deal"); }
+        toggleNotifPopup();
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         ПРОФИЛЬ И ТАРИФЫ
+      ═══════════════════════════════════════════════════════ */
+      const PLANS = [
+        { id: "trial", label: "Пробный", price: 0, period: "14 дней бесплатно", save: "", months: 0 },
+        { id: "month1", label: "Месяц", price: 990, period: "в месяц", save: "", months: 1 },
+        { id: "month3", label: "3 месяца", price: 799, period: "в месяц", save: "Экономия 20%", months: 3, popular: true },
+        { id: "month6", label: "6 месяцев", price: 699, period: "в месяц", save: "Экономия 30%", months: 6 },
+        { id: "year", label: "Год", price: 590, period: "в месяц", save: "Экономия 40%", months: 12 }
+      ];
+
+      function renderProfile() {
+        const email = _adminSession ? _adminSession.user.email : "";
+        const sub = _userProfile;
+        const subLabel = getSubscriptionLabel();
+        const active = isSubscriptionActive();
+
+        return `
+          <div class="panel">
+            <div class="section-title">
+              <div>
+                <h1>Мой профиль</h1>
+                <p>Аккаунт, подписка и безопасность.</p>
+              </div>
+              ${!_adminSession ? `<button class="btn primary" onclick="app.openAdminModal()">🔐 Войти</button>` : ""}
+            </div>
+
+            ${_adminSession ? `
+            <div class="grid two" style="margin-bottom:24px">
+              <div class="panel" style="box-shadow:none;background:var(--panel2)">
+                <h2 style="margin-top:0;font-size:17px">Аккаунт</h2>
+                <div class="field" style="margin-bottom:12px">
+                  <label>Email</label>
+                  <input value="${escapeHtml(email)}" readonly style="opacity:.7">
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+                  <span class="${active ? "sync-badge" : ""}" style="${!active ? "color:var(--red)" : ""}">
+                    ${active ? "● Подписка активна" : "⚠ Подписка истекла"}
+                  </span>
+                  ${sub ? `<span style="font-size:12px;color:var(--muted)">${escapeHtml(subLabel)}</span>` : ""}
+                </div>
+                <div class="toolbar" style="margin-top:14px;flex-wrap:wrap">
+                  <button class="btn small" onclick="app.openChangePassword()">🔑 Изменить пароль</button>
+                  <button class="btn small danger" onclick="app.confirmDeleteAccount()">Удалить аккаунт</button>
+                  <button class="btn small" onclick="app.adminLogout()">Выйти</button>
+                </div>
+              </div>
+
+              <div class="panel" style="box-shadow:none;background:var(--panel2)">
+                <h2 style="margin-top:0;font-size:17px">Данные в облаке</h2>
+                <p style="font-size:13px">Ваши данные автоматически сохраняются в облаке Supabase и доступны с любого устройства.</p>
+                <div class="toolbar" style="margin-top:10px">
+                  <button class="btn small green" onclick="app.forceSaveToCloud()">☁️ Сохранить сейчас</button>
+                  <button class="btn small" onclick="app.go('settings')">⚙ Настройки</button>
+                </div>
+              </div>
+            </div>
+            ` : `
+            <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:24px;text-align:center;padding:32px">
+              <p>Вы работаете в локальном режиме. Войдите для доступа к подписке и облачному хранению.</p>
+              <button class="btn primary" onclick="app.openAdminModal()">🔐 Войти</button>
+            </div>
+            `}
+
+            <h2>Тарифные планы</h2>
+            <p>Напишите на <a href="mailto:adervis.digital@gmail.com" style="color:var(--primary)">adervis.digital@gmail.com</a> для оплаты и активации нужного тарифа.</p>
+
+            <div class="grid five" style="margin-bottom:24px">
+              ${PLANS.map(p => `
+                <div class="plan-card ${p.popular ? "popular" : ""}">
+                  ${p.popular ? `<div class="popular-badge">Популярный</div>` : ""}
+                  <div class="plan-label">${escapeHtml(p.label)}</div>
+                  <div class="plan-price">${p.price === 0 ? "0 ₽" : p.price + " ₽"}</div>
+                  <div class="plan-period">${escapeHtml(p.period)}</div>
+                  ${p.save ? `<div class="plan-save">${escapeHtml(p.save)}</div>` : ""}
+                  ${p.months > 0 ? `<div style="font-size:11px;color:var(--muted);margin-top:8px">Итого: ${p.price * p.months} ₽</div>` : ""}
+                  <a href="mailto:adervis.digital@gmail.com?subject=Подписка Adervis — ${encodeURIComponent(p.label)}" class="btn primary small" style="text-decoration:none;display:block;margin-top:14px;text-align:center">
+                    ${p.price === 0 ? "Начать бесплатно" : "Выбрать"}
+                  </a>
+                </div>
+              `).join("")}
+            </div>
+
+            <div id="changePasswordBox"></div>
+          </div>
+        `;
+      }
+
+      async function forceSaveToCloud() {
+        if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
+        const userId = _adminSession.user.id;
+        const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
+        const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
+        try {
+          await _supabase.from("user_states").upsert({ user_id: userId, state_json: data, updated_at: new Date().toISOString() });
+          toast("☁️ Данные сохранены в облако");
+        } catch(e) { toast("Ошибка сохранения: " + e.message); }
+      }
+
+      function openChangePassword() {
+        const box = document.getElementById("changePasswordBox");
+        if (!box) return;
+        box.innerHTML = `
+          <div class="panel" style="box-shadow:none;background:var(--panel2);margin-top:18px">
+            <h2 style="margin-top:0;font-size:17px">Изменить пароль</h2>
+            <div class="grid two">
+              <div class="field">
+                <label>Новый пароль</label>
+                <input type="password" id="newPassInput" placeholder="мин. 6 символов">
+              </div>
+              <div class="field">
+                <label>Повторите пароль</label>
+                <input type="password" id="newPassConfirm" placeholder="">
+              </div>
+            </div>
+            <div class="toolbar" style="margin-top:12px">
+              <button class="btn primary" onclick="app.submitChangePassword()">Сохранить пароль</button>
+              <button class="btn" onclick="document.getElementById('changePasswordBox').innerHTML=''">Отмена</button>
+            </div>
+          </div>
+        `;
+      }
+
+      async function submitChangePassword() {
+        const p1 = document.getElementById("newPassInput") && document.getElementById("newPassInput").value;
+        const p2 = document.getElementById("newPassConfirm") && document.getElementById("newPassConfirm").value;
+        if (!p1 || p1.length < 6) { toast("Пароль должен быть не менее 6 символов"); return; }
+        if (p1 !== p2) { toast("Пароли не совпадают"); return; }
+        if (!_supabase) return;
+        const { error } = await _supabase.auth.updateUser({ password: p1 });
+        if (error) { toast("Ошибка: " + error.message); return; }
+        toast("✅ Пароль успешно изменён");
+        document.getElementById("changePasswordBox").innerHTML = "";
+      }
+
+      async function confirmDeleteAccount() {
+        if (!confirm("Вы уверены? Все ваши данные в облаке будут удалены навсегда. Это действие необратимо.")) return;
+        if (!confirm("Подтвердите ещё раз — удалить аккаунт и все данные?")) return;
+        if (!_supabase) return;
+        try {
+          const userId = _adminSession.user.id;
+          await _supabase.from("user_states").delete().eq("user_id", userId);
+          await _supabase.from("profiles").delete().eq("id", userId);
+          await _supabase.auth.signOut();
+          toast("Аккаунт удалён");
+        } catch(e) { toast("Ошибка удаления: " + e.message); }
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         HELP / ОНБОРДИНГ
+      ═══════════════════════════════════════════════════════ */
+      function renderHelpModal() {
+        const steps = [
+          { n: 1, title: "Создайте первую сделку", body: "Нажмите «+ Новая сделка» → введите имя клиента → выберите тип проекта. Один клиент — одна сделка." },
+          { n: 2, title: "Добавьте услуги в смету", body: "Перейдите во вкладку «Смета». Выберите услуги из каталога или примените готовый пакет. Цены адаптируются автоматически." },
+          { n: 3, title: "Сформируйте КП", body: "Вкладка «КП» — настройте шаблон и отправьте клиенту. Текст копируется одной кнопкой." },
+          { n: 4, title: "Ведите сделку по воронке", body: "Меняйте статус: Лид → Бриф → КП → Договор → Предоплата → В работе → Сдано." },
+          { n: 5, title: "Фиксируйте оплаты", body: "В каждой сделке есть вкладка «Финансы». Добавляйте поступления и расходы." },
+          { n: 6, title: "Используйте Базу знаний", body: "В разделе «База знаний» хранятся статьи о продажах, ценообразовании и производстве." },
+        ];
+        return `
+          <div class="modal-overlay" onclick="event.target===this&&app.closeHelpModal()">
+            <div class="modal-box" style="width:min(560px,calc(100vw - 32px));max-height:90vh;overflow-y:auto">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                <h2 style="margin:0;font-size:20px">Знакомство с Adervis PRO</h2>
+                <button onclick="app.closeHelpModal()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px">×</button>
+              </div>
+              <p style="margin:0 0 18px;font-size:13px">Быстрый старт за 6 шагов — всё что нужно для работы.</p>
+              ${steps.map(s => `
+                <div class="onboard-step">
+                  <div class="onboard-num">${s.n}</div>
+                  <div>
+                    <strong style="font-size:14px;display:block;margin-bottom:4px">${escapeHtml(s.title)}</strong>
+                    <span style="font-size:13px;color:var(--muted)">${escapeHtml(s.body)}</span>
+                  </div>
+                </div>
+              `).join("")}
+              <div class="toolbar" style="margin-top:20px;justify-content:center">
+                <button class="btn primary" onclick="app.closeHelpModal();app.startWizard()">Создать первую сделку →</button>
+                <button class="btn" onclick="app.closeHelpModal();app.go('knowledge')">База знаний</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function openHelpModal() {
+        state.helpModal = true;
+        renderModal();
+      }
+      function closeHelpModal() {
+        state.helpModal = false;
+        renderModal();
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         БАЗА ЗНАНИЙ
+      ═══════════════════════════════════════════════════════ */
+      const KB_CATS = { all: "Все", sales: "Продажи", price: "Ценообразование", prod: "Производство", client: "Клиенты", guide: "Руководство" };
+
+      function renderKnowledge() {
+        const docs = (state.knowledgeDocs || []);
+        const search = state.kbSearch || "";
+        const catFilter = state.kbCatFilter || "all";
+
+        if (state.kbView === "edit") {
+          const doc = docs.find(d => d.id === state.kbEditId);
+          if (!doc) { state.kbView = "list"; return renderKnowledge(); }
+          return `
+            <div class="panel">
+              <div class="section-title">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <button class="btn small" onclick="app.kbBack()">← Назад</button>
+                  <h2 style="margin:0">${escapeHtml(doc.title)}</h2>
+                </div>
+                <div class="toolbar no-print">
+                  <button class="btn small green" onclick="app.kbSave()">Сохранить</button>
+                  <button class="btn small" onclick="app.kbDuplicate('${doc.id}')">Дублировать</button>
+                  <button class="btn small danger" onclick="app.kbDelete('${doc.id}')">Удалить</button>
+                </div>
+              </div>
+              <div class="kb-editor">
+                <div class="grid two">
+                  <div class="field">
+                    <label>Заголовок</label>
+                    <input id="kb_title" value="${escapeHtml(doc.title)}">
+                  </div>
+                  <div class="field">
+                    <label>Категория</label>
+                    <select id="kb_cat">
+                      ${Object.entries(KB_CATS).filter(([k]) => k !== "all").map(([k, v]) =>
+                        `<option value="${k}" ${doc.cat === k ? "selected" : ""}>${v}</option>`).join("")}
+                    </select>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Содержимое (Markdown)</label>
+                  <textarea id="kb_content" style="min-height:420px;font-family:monospace;font-size:13px">${escapeHtml(doc.content || "")}</textarea>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        const filtered = docs.filter(d => {
+          const matchCat = catFilter === "all" || d.cat === catFilter;
+          const q = search.toLowerCase();
+          const matchSearch = !q || d.title.toLowerCase().includes(q) || (d.content||"").toLowerCase().includes(q);
+          return matchCat && matchSearch;
+        });
+
+        return `
+          <div class="panel">
+            <div class="section-title">
+              <div>
+                <h1>База знаний</h1>
+                <p>Полезные статьи о продажах, производстве и работе с клиентами.</p>
+              </div>
+              <div class="toolbar no-print">
+                <button class="btn primary" onclick="app.kbNew()">+ Новый документ</button>
+              </div>
+            </div>
+
+            <div class="grid two" style="margin-bottom:16px">
+              ${field("Поиск", `<input value="${escapeHtml(search)}" oninput="app.kbSetSearch(this.value)" placeholder="Поиск по документам...">`)}
+              ${field("Категория", `<select onchange="app.kbSetCat(this.value)">${Object.entries(KB_CATS).map(([k,v]) => `<option value="${k}" ${catFilter===k?"selected":""}>${v}</option>`).join("")}</select>`)}
+            </div>
+
+            <div class="tabs" style="margin-bottom:20px">
+              ${Object.entries(KB_CATS).map(([k, v]) => {
+                const cnt = k === "all" ? docs.length : docs.filter(d => d.cat === k).length;
+                return `<button class="tab ${catFilter===k?"active":""}" onclick="app.kbSetCat('${k}')">${v} <span style="opacity:.6;font-size:11px">${cnt}</span></button>`;
+              }).join("")}
+            </div>
+
+            ${filtered.length === 0 ? `<p style="text-align:center;padding:32px;color:var(--muted)">Ничего не найдено</p>` : `
+            <div class="grid three">
+              ${filtered.map(d => `
+                <div class="kb-doc-card" onclick="app.kbOpen('${d.id}')">
+                  <span class="kb-cat-badge ${d.cat || "guide"}">${escapeHtml(KB_CATS[d.cat] || d.cat || "")}</span>
+                  <h3>${escapeHtml(d.title)}</h3>
+                  <p>${escapeHtml((d.content || "").replace(/^#.*\n?/gm,"").trim().slice(0, 100))}...</p>
+                  <div style="display:flex;gap:8px;margin-top:12px" onclick="event.stopPropagation()">
+                    <button class="btn small" onclick="app.kbOpen('${d.id}')">Читать</button>
+                    <button class="btn small" onclick="app.kbDuplicate('${d.id}')">Дублировать</button>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+            `}
+          </div>
+        `;
+      }
+
+      function kbOpen(id) {
+        state.kbEditId = id; state.kbView = "edit"; render();
+      }
+      function kbBack() { state.kbView = "list"; render(); }
+      function kbSetSearch(v) { state.kbSearch = v; render(); }
+      function kbSetCat(v) { state.kbCatFilter = v; render(); }
+      function kbNew() {
+        const doc = { id: uid("kb"), cat: "guide", title: "Новый документ", content: "# Заголовок\n\nВаш текст...", updatedAt: new Date().toISOString() };
+        state.knowledgeDocs = [doc, ...(state.knowledgeDocs || [])];
+        state.kbEditId = doc.id; state.kbView = "edit"; save(); render();
+      }
+      function kbSave() {
+        const doc = (state.knowledgeDocs || []).find(d => d.id === state.kbEditId);
+        if (!doc) return;
+        const t = document.getElementById("kb_title");
+        const c = document.getElementById("kb_content");
+        const cat = document.getElementById("kb_cat");
+        if (t) doc.title = t.value;
+        if (c) doc.content = c.value;
+        if (cat) doc.cat = cat.value;
+        doc.updatedAt = new Date().toISOString();
+        toast("Документ сохранён");
+        save(); render();
+      }
+      function kbDuplicate(id) {
+        const doc = (state.knowledgeDocs || []).find(d => d.id === id);
+        if (!doc) return;
+        const copy = { ...deepClone(doc), id: uid("kb"), title: doc.title + " (копия)", updatedAt: new Date().toISOString() };
+        state.knowledgeDocs = [copy, ...(state.knowledgeDocs || [])];
+        toast("Документ дублирован"); save(); render();
+      }
+      function kbDelete(id) {
+        if (!confirm("Удалить документ?")) return;
+        state.knowledgeDocs = (state.knowledgeDocs || []).filter(d => d.id !== id);
+        state.kbView = "list"; toast("Документ удалён"); save(); render();
       }
 
       function renderAdminModalHtml() {
@@ -3244,6 +3929,217 @@
       function taxOptionsHtml(selected) {
         return TAX_OPTIONS.map(option => optionValueHtml(option.id, option.label, selected)).join("");
       }
+
+      const DEFAULT_KB_DOCS = [
+        { id: "kb_sales_1", cat: "sales", title: "Как правильно презентовать смету клиенту", content: `# Как правильно презентовать смету клиенту
+
+## Ключевые принципы
+
+**1. Не отправляйте смету просто файлом — объясняйте её.**
+Клиент не понимает, что значит «монтаж» за 12 000 ₽. Объясните что входит, зачем это нужно.
+
+**2. Сначала ценность, потом цена.**
+Расскажите, какой результат получит клиент, а потом называйте стоимость.
+
+**3. Давайте три варианта.**
+Старт / Профи / Премиум — клиенту проще выбрать из трёх, чем соглашаться или отказываться.
+
+## Структура встречи по смете
+
+1. Напомните задачу клиента (2 мин)
+2. Покажите состав работ с объяснением каждого этапа (5 мин)
+3. Назовите цену — уверенно, без извинений
+4. Расскажите о следующем шаге: бриф → предоплата → старт
+
+## Работа с возражением «дорого»
+
+— Да, это инвестиция. Давайте посмотрим, что можно убрать без потери результата?
+— Что для вас важнее: вписаться в бюджет или получить конкретный результат?
+— Можем разбить на этапы с предоплатой.
+
+## Чего НЕ делать
+
+- Не оправдываться за цену
+- Не делать скидки сразу — сначала уточните почему дорого
+- Не отправлять смету без созвона/встречи`, updatedAt: new Date().toISOString() },
+
+        { id: "kb_price_1", cat: "price", title: "Ценообразование в видеопродакшне — базовые принципы", content: `# Ценообразование в видеопродакшне
+
+## Из чего складывается цена
+
+**Человеко-часы** — основная статья. Режиссёр, оператор, монтажёр. Считайте от дневной/часовой ставки.
+
+**Оборудование** — камера, свет, звук. Аренда или амортизация своего.
+
+**Пост-продакшн** — монтаж, цветокоррекция, звук, графика. Часто недооценивается.
+
+**Сопутствующие расходы** — транспорт, питание, аренда локации, реквизит, актёры.
+
+**Маржа и риски** — закладывайте 20–30% на непредвиденное.
+
+## Региональные ставки для Перми (2025)
+
+| Специалист | Дневная ставка |
+|---|---|
+| Оператор (базовый) | 6 000 – 10 000 ₽ |
+| Оператор (профи/DOP) | 12 000 – 20 000 ₽ |
+| Режиссёр | 10 000 – 25 000 ₽ |
+| Монтажёр | 3 000 – 8 000 ₽/час работы |
+| Звукорежиссёр | 5 000 – 12 000 ₽ |
+| Фотограф | 5 000 – 15 000 ₽ |
+
+## Формулы расчёта
+
+**Монтаж ролика:** (длина × коэф. сложности × ставка/час) + правки
+**Съёмочный день:** (кол-во специалистов × ставки) + техника + логистика
+**Итог:** (сумма этапов × налог) × (1 + маржа)
+
+## Типичные ошибки
+
+- Не считать время на пре-продакшн (бриф, сценарий, раскадровка)
+- Забывать про правки (2 круга включено, остальные платно)
+- Не закладывать время проект-менеджера`, updatedAt: new Date().toISOString() },
+
+        { id: "kb_client_1", cat: "client", title: "Как работать с клиентом: от лида до закрытия", content: `# Работа с клиентом: от лида до закрытия
+
+## Воронка продаж
+
+**Лид → Бриф → КП → Согласование → Договор → Предоплата → В работе → Сдано**
+
+## Шаги при получении нового лида
+
+1. **Ответить в течение 1 часа** — скорость реакции критична
+2. **Задать квалифицирующие вопросы:**
+   - Что нужно снять / какая задача?
+   - Когда нужен результат?
+   - Есть ли примерный бюджет?
+3. **Назначить созвон или встречу для брифа**
+4. **Создать сделку в CRM** сразу же
+
+## Бриф — обязательные вопросы
+
+- Цель видео (продажи, HR, имидж, обучение)?
+- Кто целевая аудитория?
+- Где будет использоваться (YouTube, сайт, соцсети, ТВ)?
+- Примеры видео, которые нравятся
+- Сроки сдачи
+- Бюджет (примерно)
+- Кто принимает решение?
+
+## Работа с трудными клиентами
+
+**«Нам нужно быстро и дёшево»**
+→ Объясните, что качество требует времени и ресурсов. Предложите более простой пакет.
+
+**«Мы подумаем»**
+→ Уточните: что мешает принять решение? Предложите следующий шаг.
+
+**Бесконечные правки**
+→ Чётко пропишите в договоре: 2 круга правок включено, далее — по тарифу.
+
+## Подписание договора
+
+Всегда работайте с договором. Минимум:
+- Состав работ
+- Сроки
+- Стоимость и порядок оплаты (50/50 стандарт)
+- Количество кругов правок`, updatedAt: new Date().toISOString() },
+
+        { id: "kb_prod_1", cat: "prod", title: "Этапы производства видеоролика", content: `# Этапы производства видеоролика
+
+## Пре-продакшн (подготовка)
+
+**Бриф и ТЗ**
+Фиксируем всё что обсудили с клиентом. Цель, аудитория, сроки, бюджет, примеры.
+
+**Концепция и сценарий**
+Разрабатываем идею, пишем текст/диалоги. Согласовываем с клиентом.
+
+**Раскадровка (storyboard)**
+Для сложных роликов — рисуем ключевые кадры. Это экономит время на съёмке.
+
+**Подготовка к съёмке**
+- Локация: поиск, согласование, разрешения
+- Кастинг (если нужны актёры/модели)
+- Реквизит, гардероб, декорации
+- Съёмочный план (schedule)
+
+## Продакшн (съёмка)
+
+**Организация площадки**
+Приезжаем заранее, расставляем оборудование, проверяем свет и звук.
+
+**Съёмка**
+Работаем по списку кадров. Снимаем с запасом (+20–30% материала).
+
+**Звук на площадке**
+Петличка или направленный микрофон. Чистый звук = 50% качества ролика.
+
+## Пост-продакшн (монтаж и финиш)
+
+1. **Черновой монтаж** (Rough Cut) — структура, хронометраж
+2. **Согласование с клиентом** — правки по структуре
+3. **Финальный монтаж** — переходы, темп, атмосфера
+4. **Цветокоррекция** — единый стиль, настроение
+5. **Звук** — чистка, музыка, сведение
+6. **Графика и титры** — логотип, имена, субтитры
+7. **Финальное согласование** — 1–2 круга правок
+8. **Сдача** — в нужных форматах (MP4 H.264 / ProRes)
+
+## Форматы для разных платформ
+
+| Платформа | Формат | Размер |
+|---|---|---|
+| YouTube | 16:9, 1080p/4K | MP4 H.264 |
+| Instagram Reels | 9:16, 1080×1920 | MP4 |
+| VK Видео | 16:9 или 9:16 | MP4 |
+| Сайт | 16:9, 1080p | MP4, WebM |
+| ТВ | 16:9, 1080i/4K | MXF/ProRes |`, updatedAt: new Date().toISOString() },
+
+        { id: "kb_guide_1", cat: "guide", title: "Начало работы в Adervis CRM", content: `# Начало работы в Adervis CRM digital v4.0
+
+## Что умеет программа
+
+**Сделки** — ведите клиентов по воронке от первого контакта до оплаты.
+
+**Смета** — рассчитывайте стоимость видеопроекта с помощью каталога услуг.
+
+**Пакеты** — готовые наборы услуг для быстрого старта.
+
+**Каталог** — полный список услуг с редактируемыми ценами.
+
+**Финансы** — контролируйте поступления и расходы по каждому проекту.
+
+**Клиенты** — база клиентов с историей проектов.
+
+**Договора** — создавайте договора на основе шаблонов.
+
+## Быстрый старт
+
+### Шаг 1: Создайте первую сделку
+Нажмите «+ Новая сделка» → введите имя клиента → выберите тип проекта.
+
+### Шаг 2: Добавьте услуги в смету
+Перейдите во вкладку «Смета» → выберите услуги из каталога или примените готовый пакет.
+
+### Шаг 3: Сформируйте КП
+Вкладка «КП» → настройте шаблон → скопируйте текст или распечатайте.
+
+### Шаг 4: Ведите сделку по воронке
+Меняйте статус: Лид → Бриф → КП → Договор → Предоплата → В работе → Сдано.
+
+### Шаг 5: Фиксируйте оплаты
+Вкладка «Финансы» → добавляйте поступления и расходы.
+
+## Горячие клавиши
+
+- **Ctrl+Z** — отменить последнее действие
+- **Клик по логотипу** — главное меню
+
+## Настройка компании
+
+Перейдите в «Настройки» → заполните данные компании, загрузите логотип, заполните реквизиты для договоров.`, updatedAt: new Date().toISOString() }
+      ];
 
       function defaultState() {
         return {
@@ -3372,7 +4268,14 @@
               showDetails: true,
               showOptional: true
             }
-          }
+          },
+          notifications: [],
+          notifPopupOpen: false,
+          knowledgeDocs: deepClone(DEFAULT_KB_DOCS),
+          kbView: "list",
+          kbEditId: "",
+          kbSearch: "",
+          kbCatFilter: "all"
         };
       }
 
@@ -3578,7 +4481,14 @@
           stages: Array.isArray(state.stages) && state.stages.length ? state.stages : base.stages,
           packages: Array.isArray(state.packages) && state.packages.length ? state.packages : base.packages,
           contracts: Array.isArray(state.contracts) ? state.contracts : [],
-          adminModal: null
+          adminModal: null,
+          notifPopupOpen: false,
+          notifications: Array.isArray(state.notifications) ? state.notifications : [],
+          knowledgeDocs: Array.isArray(state.knowledgeDocs) && state.knowledgeDocs.length ? state.knowledgeDocs : deepClone(DEFAULT_KB_DOCS),
+          kbView: state.kbView || "list",
+          kbEditId: state.kbEditId || "",
+          kbSearch: state.kbSearch || "",
+          kbCatFilter: state.kbCatFilter || "all"
         };
 
         Object.keys(state.selected).forEach(id => {
@@ -5346,6 +6256,7 @@
         const el = document.getElementById("modalContainer");
         if (!el) return;
         if (state.mainMenuOpen) { el.innerHTML = renderMainMenuModal(); }
+        else if (state.helpModal) { el.innerHTML = renderHelpModal(); }
         else if (state.adminModal) { el.innerHTML = renderAdminModalHtml(); }
         else if (state.clientModal) { el.innerHTML = renderClientModalHtml(); }
         else if (state.taskModal) { el.innerHTML = renderTaskModalHtml(); }
@@ -5696,6 +6607,7 @@
         state.savedProjects.unshift(autoSaved);
         state.activeProjectId = projId;
 
+        pushNotification("deal", "Новая сделка создана", state.project.name + (state.project.client ? " · " + state.project.client : ""), projId);
         toast("Сделка создана и сохранена");
         save();
         render();
@@ -6087,7 +6999,9 @@
           crm: renderCrm,
           proposal: renderProposal,
           versions: renderVersions,
-          settings: renderSettings
+          settings: renderSettings,
+          profile: renderProfile,
+          knowledge: renderKnowledge
         };
 
         document.querySelectorAll(".nav button").forEach(button => {
@@ -6115,6 +7029,8 @@
         bindDynamicInputs();
         renderModal();
         renderAdminTopbar();
+        renderAuthGateEl();
+        renderNotifBadge();
       }
 
       function bindDynamicInputs() {
@@ -9828,6 +10744,9 @@ Email: ______________________            Email: ______________________
         const clientModeBtn = document.getElementById("clientModeBtn");
         if (clientModeBtn) clientModeBtn.addEventListener("click", toggleClientMode);
 
+        const helpBtn = document.getElementById("helpBtn");
+        if (helpBtn) helpBtn.addEventListener("click", openHelpModal);
+
         const importJsonInput = document.getElementById("importJsonInput");
         if (importJsonInput) importJsonInput.addEventListener("change", importData);
 
@@ -10015,7 +10934,35 @@ Email: ______________________            Email: ______________________
         setAdminField,
         adminLogin,
         adminLogout,
-        saveSupabaseConfig
+        saveSupabaseConfig,
+
+        setAuthTab,
+        setAuthField,
+        authSubmit,
+        useLocalMode,
+
+        toggleNotifPopup,
+        clearNotifs,
+        notifClick,
+
+        renderProfile,
+        forceSaveToCloud,
+        openChangePassword,
+        submitChangePassword,
+        confirmDeleteAccount,
+
+        openHelpModal,
+        closeHelpModal,
+
+        renderKnowledge,
+        kbOpen,
+        kbBack,
+        kbSetSearch,
+        kbSetCat,
+        kbNew,
+        kbSave,
+        kbDuplicate,
+        kbDelete
       };
 
       initTheme();
