@@ -31,34 +31,34 @@
     }
 
     [data-theme="light"] {
-      --bg: #f3f5f8;
-      --bg2: #f9fafb;
-      --panel: rgba(255, 255, 255, .92);
-      --panel2: rgba(247, 248, 250, .92);
-      --text: #52637a;
-      --muted: #94a3b8;
-      --line: rgba(148, 163, 184, .2);
-      --input: rgba(252, 253, 254, .9);
-      --shadow: 0 2px 10px rgba(0, 0, 0, .05);
-      --primary: #8b7fe8;
-      --primary2: #a89ef0;
-      --blue: #5a8fd4;
-      --cyan: #3aaccb;
-      --green: #3bab72;
-      --yellow: #d4a83a;
-      --orange: #d97045;
-      --red: #d65b5b;
+      --bg: #f0f2f5;
+      --bg2: #ffffff;
+      --panel: rgba(255, 255, 255, .98);
+      --panel2: rgba(244, 246, 249, .98);
+      --text: #1a2332;
+      --muted: #4a5568;
+      --line: rgba(30, 41, 59, .14);
+      --input: #ffffff;
+      --shadow: 0 2px 12px rgba(0, 0, 0, .09);
+      --primary: #5b4ee8;
+      --primary2: #7c6fef;
+      --blue: #2563eb;
+      --cyan: #0891b2;
+      --green: #16a34a;
+      --yellow: #ca8a04;
+      --orange: #ea580c;
+      --red: #dc2626;
     }
 
     [data-theme="light"] body {
       background:
-        radial-gradient(circle at top left, rgba(139,127,232,.04), transparent 40%),
-        linear-gradient(160deg, #f3f5f8 0%, #edf0f4 100%);
+        radial-gradient(circle at top left, rgba(91,78,232,.06), transparent 40%),
+        linear-gradient(160deg, #f0f2f5 0%, #e6e9ee 100%);
     }
 
     [data-theme="light"] .topbar {
-      background: rgba(255, 255, 255, .88);
-      border-bottom-color: rgba(148, 163, 184, .18);
+      background: rgba(255, 255, 255, .96);
+      border-bottom-color: rgba(30, 41, 59, .12);
     }
 
     * {
@@ -538,11 +538,11 @@
     }
 
     [data-theme="light"] .status-pill.green {
-      color: #2d8a57;
+      color: #15803d;
     }
 
     [data-theme="light"] .status-pill.yellow {
-      color: #a07030;
+      color: #a16207;
     }
 
     .summary-line {
@@ -1114,7 +1114,7 @@
     .wstep-label { font-size: 12px; font-weight: 850; color: var(--muted); text-align: center; }
     .wstep.active .wstep-label { color: var(--text); }
     .wstep.done .wstep-label { color: #86efac; }
-    [data-theme="light"] .wstep.done .wstep-label { color: #2d8a57; }
+    [data-theme="light"] .wstep.done .wstep-label { color: #15803d; }
     .wstep-line {
       flex: 1; height: 2px; background: var(--line);
       margin-top: 19px; min-width: 50px; transition: background .25s;
@@ -1180,8 +1180,8 @@
     .pkg-tier-badge.t1 { background: rgba(148,163,184,.18); color: var(--muted); }
     .pkg-tier-badge.t2 { background: rgba(37,99,235,.15); color: #93c5fd; }
     .pkg-tier-badge.t3 { background: rgba(124,58,237,.18); color: var(--primary2); }
-    [data-theme="light"] .pkg-tier-badge.t2 { color: #4a76c4; }
-    [data-theme="light"] .pkg-tier-badge.t3 { color: #8b7fe8; }
+    [data-theme="light"] .pkg-tier-badge.t2 { color: #1d4ed8; }
+    [data-theme="light"] .pkg-tier-badge.t3 { color: #5b4ee8; }
 
     .pkg-cat-badge[data-cat="social"]    { background: rgba(124,58,237,.12); color: #a855f7; }
     .pkg-cat-badge[data-cat="interview"] { background: rgba(37,99,235,.12);  color: #60a5fa; }
@@ -1191,14 +1191,14 @@
     .pkg-cat-badge[data-cat="graphic"]   { background: rgba(219,39,119,.12);  color: #f472b6; }
     .pkg-cat-badge[data-cat="photo"]     { background: rgba(217,119,6,.12);   color: #fbbf24; }
     .pkg-cat-badge[data-cat="corporate"] { background: rgba(67,56,202,.12);   color: #818cf8; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="social"]    { color: #8b7fe8; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="interview"] { color: #4a76c4; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="business"]  { color: #2d8a57; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="events"]    { color: #d97045; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="ai"]        { color: #3aaccb; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="graphic"]   { color: #c4607c; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="photo"]     { color: #b87940; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="corporate"] { color: #6a60cc; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="social"]    { color: #5b4ee8; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="interview"] { color: #1d4ed8; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="business"]  { color: #15803d; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="events"]    { color: #c2410c; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="ai"]        { color: #0e7490; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="graphic"]   { color: #be185d; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="photo"]     { color: #b45309; }
+    [data-theme="light"] .pkg-cat-badge[data-cat="corporate"] { color: #3730a3; }
 
     .pkg-group-header {
       font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em;
@@ -1444,16 +1444,16 @@
     .fin-table .amount-cell { font-weight: 900; font-size: 14px; text-align: right; white-space: nowrap; }
     .fin-table .amount-cell.income { color: #86efac; }
     .fin-table .amount-cell.expense { color: #fca5a5; }
-    [data-theme="light"] .fin-table .amount-cell.income { color: #2d8a57; }
-    [data-theme="light"] .fin-table .amount-cell.expense { color: #b54545; }
+    [data-theme="light"] .fin-table .amount-cell.income { color: #15803d; }
+    [data-theme="light"] .fin-table .amount-cell.expense { color: #dc2626; }
     .fin-table .type-badge {
       display: inline-flex; align-items: center; gap: 5px;
       padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 850;
     }
     .fin-table .type-badge.income { background: rgba(22,163,74,.14); color: #86efac; }
     .fin-table .type-badge.expense { background: rgba(220,38,38,.12); color: #fca5a5; }
-    [data-theme="light"] .fin-table .type-badge.income { color: #2d8a57; }
-    [data-theme="light"] .fin-table .type-badge.expense { color: #b54545; }
+    [data-theme="light"] .fin-table .type-badge.income { color: #15803d; }
+    [data-theme="light"] .fin-table .type-badge.expense { color: #dc2626; }
     .fin-table-footer td {
       background: var(--panel2); font-weight: 900;
       font-size: 13px; border-top: 2px solid var(--line);
@@ -1668,10 +1668,10 @@
     .cal-event-label.task { background: rgba(37,99,235,.18); color: #93c5fd; }
     .cal-event-label.payment { background: rgba(22,163,74,.18); color: #86efac; }
     .cal-event-label.expense { background: rgba(234,88,12,.18); color: #fdba74; }
-    [data-theme="light"] .cal-event-label.deadline { color: #b54545; }
-    [data-theme="light"] .cal-event-label.task { color: #4a76c4; }
-    [data-theme="light"] .cal-event-label.payment { color: #2d8a57; }
-    [data-theme="light"] .cal-event-label.expense { color: #d97045; }
+    [data-theme="light"] .cal-event-label.deadline { color: #dc2626; }
+    [data-theme="light"] .cal-event-label.task { color: #1d4ed8; }
+    [data-theme="light"] .cal-event-label.payment { color: #15803d; }
+    [data-theme="light"] .cal-event-label.expense { color: #c2410c; }
     .cal-legend {
       display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;
       padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px;
@@ -1738,9 +1738,9 @@
     .gcal-type-badge.deadline { background: rgba(220,38,38,.12); color: #fca5a5; }
     .gcal-type-badge.task { background: rgba(37,99,235,.12); color: #93c5fd; }
     .gcal-type-badge.payment { background: rgba(22,163,74,.12); color: #86efac; }
-    [data-theme="light"] .gcal-type-badge.deadline { color: #b54545; }
-    [data-theme="light"] .gcal-type-badge.task { color: #4a76c4; }
-    [data-theme="light"] .gcal-type-badge.payment { color: #2d8a57; }
+    [data-theme="light"] .gcal-type-badge.deadline { color: #dc2626; }
+    [data-theme="light"] .gcal-type-badge.task { color: #1d4ed8; }
+    [data-theme="light"] .gcal-type-badge.payment { color: #15803d; }
 
     /* ── ANALYTICS TABS ──────────────────────────── */
     .analytics-section {
@@ -1779,7 +1779,7 @@
       transition: opacity .4s; white-space: nowrap;
       padding: 4px 8px; border-radius: 999px;
     }
-    [data-theme="light"] .autosave-indicator { color: #2d8a57; }
+    [data-theme="light"] .autosave-indicator { color: #15803d; }
     .autosave-indicator.show { opacity: 1; }
     .autosave-indicator.saving { color: var(--muted); opacity: 1; }
 
@@ -1813,7 +1813,7 @@
     }
     .dsp-step.active .dsp-label { color: var(--primary2); font-weight: 900; }
     .dsp-step.done .dsp-label { color: #86efac; }
-    [data-theme="light"] .dsp-step.done .dsp-label { color: #2d8a57; }
+    [data-theme="light"] .dsp-step.done .dsp-label { color: #15803d; }
     .dsp-line {
       height: 2px; flex: 1; min-width: 18px; background: var(--line);
       margin-bottom: 14px; transition: background .2s;
@@ -1952,7 +1952,7 @@
       color: #86efac; white-space: nowrap; cursor: pointer;
       transition: .15s;
     }
-    [data-theme="light"] .nav-deal-indicator { color: #2d8a57; }
+    [data-theme="light"] .nav-deal-indicator { color: #15803d; }
     .nav-deal-indicator:hover { background: rgba(22,163,74,.22); }
     .nav-deal-indicator .dot {
       width: 7px; height: 7px; border-radius: 50%;
@@ -1988,8 +1988,8 @@
     }
     .quick-fin-form.income .quick-fin-label { color: #86efac; }
     .quick-fin-form.expense .quick-fin-label { color: #fca5a5; }
-    [data-theme="light"] .quick-fin-form.income .quick-fin-label { color: #2d8a57; }
-    [data-theme="light"] .quick-fin-form.expense .quick-fin-label { color: #b54545; }
+    [data-theme="light"] .quick-fin-form.income .quick-fin-label { color: #15803d; }
+    [data-theme="light"] .quick-fin-form.expense .quick-fin-label { color: #dc2626; }
     .quick-fin-form input {
       flex: 1; min-width: 80px; padding: 7px 10px;
       border-radius: 10px; font-size: 13px;
@@ -2121,9 +2121,9 @@
     .margin-badge.good { background: rgba(22,163,74,.18); color: #86efac; }
     .margin-badge.ok { background: rgba(202,138,4,.18); color: #fde68a; }
     .margin-badge.bad { background: rgba(220,38,38,.18); color: #fca5a5; }
-    [data-theme="light"] .margin-badge.good { color: #2d8a57; }
-    [data-theme="light"] .margin-badge.ok { color: #a07030; }
-    [data-theme="light"] .margin-badge.bad { color: #b54545; }
+    [data-theme="light"] .margin-badge.good { color: #15803d; }
+    [data-theme="light"] .margin-badge.ok { color: #a16207; }
+    [data-theme="light"] .margin-badge.bad { color: #dc2626; }
 
     /* ── ADMIN / SUPABASE ──────────────────────────── */
     .admin-indicator {
@@ -2923,6 +2923,8 @@
       let _realtimeChannel = null;
       let _adminSession = null;
       let _broadcastTimer = null;
+      let _userProfile = null;   // { subscription_status, subscription_plan, subscription_expires_at }
+      let _cloudSaveTimer = null;
 
       function getSupabaseConfig() {
         return {
@@ -2937,15 +2939,98 @@
         try {
           _supabase = window.supabase.createClient(url, key);
           _supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) { _adminSession = session; _initRealtimeChannel(); renderAdminTopbar(); }
+            if (session) { _adminSession = session; _onUserLoggedIn(session); }
           });
           _supabase.auth.onAuthStateChange((event, session) => {
             _adminSession = session;
-            if (session) { _initRealtimeChannel(); }
-            else { if (_realtimeChannel) { _realtimeChannel.unsubscribe(); _realtimeChannel = null; } }
-            renderAdminTopbar();
+            if (session) { _onUserLoggedIn(session); }
+            else {
+              _userProfile = null;
+              if (_realtimeChannel) { _realtimeChannel.unsubscribe(); _realtimeChannel = null; }
+              renderAdminTopbar();
+              render();
+            }
           });
         } catch(e) { console.warn("Supabase init:", e); }
+      }
+
+      async function _onUserLoggedIn(session) {
+        await _loadUserProfile(session.user.id, session.user.email);
+        await _loadCloudState(session.user.id);
+        _initRealtimeChannel();
+        renderAdminTopbar();
+        render();
+      }
+
+      async function _loadUserProfile(userId, email) {
+        if (!_supabase) return;
+        try {
+          const { data } = await _supabase.from("profiles").select("*").eq("id", userId).single();
+          if (data) {
+            _userProfile = data;
+          } else {
+            // Auto-create profile with trial on first login
+            const trial_expires = new Date(Date.now() + 14 * 86400000).toISOString();
+            const newProfile = { id: userId, email, subscription_status: "trial", subscription_plan: "pro", subscription_expires_at: trial_expires };
+            await _supabase.from("profiles").upsert(newProfile);
+            _userProfile = newProfile;
+          }
+        } catch(e) { console.warn("Profile load:", e); }
+      }
+
+      async function _loadCloudState(userId) {
+        if (!_supabase) return;
+        try {
+          const { data } = await _supabase.from("user_states").select("state_json").eq("user_id", userId).single();
+          if (data && data.state_json) {
+            const cloudState = data.state_json;
+            // Merge cloud state into current state (cloud wins for persistent data)
+            const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
+            Object.entries(cloudState).forEach(([k, v]) => {
+              if (!skipKeys.includes(k)) state[k] = v;
+            });
+            toast("☁️ Данные загружены из облака");
+          }
+        } catch(e) { console.warn("Cloud load:", e); }
+      }
+
+      function saveToCloud() {
+        if (!_supabase || !_adminSession) return;
+        clearTimeout(_cloudSaveTimer);
+        _cloudSaveTimer = setTimeout(async () => {
+          const userId = _adminSession.user.id;
+          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
+          const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
+          try {
+            await _supabase.from("user_states").upsert({ user_id: userId, state_json: data, updated_at: new Date().toISOString() });
+          } catch(e) { console.warn("Cloud save:", e); }
+        }, 3000);
+      }
+
+      function isSubscriptionActive() {
+        if (!_userProfile) return true; // no supabase = local mode, allow all
+        const s = _userProfile.subscription_status;
+        if (s === "active") return true;
+        if (s === "trial") {
+          const exp = _userProfile.subscription_expires_at;
+          return !exp || new Date(exp) > new Date();
+        }
+        return false;
+      }
+
+      function getSubscriptionLabel() {
+        if (!_userProfile) return "";
+        const s = _userProfile.subscription_status;
+        const plan = _userProfile.subscription_plan || "pro";
+        const exp = _userProfile.subscription_expires_at;
+        if (s === "trial") {
+          const days = exp ? Math.max(0, Math.round((new Date(exp) - new Date()) / 86400000)) : 0;
+          return `Пробный · осталось ${days} д.`;
+        }
+        if (s === "active") return `${plan === "team" ? "Команда" : "Про"} ✓`;
+        if (s === "expired") return "Подписка истекла";
+        if (s === "cancelled") return "Подписка отменена";
+        return s;
       }
 
       function _initRealtimeChannel() {
@@ -2983,7 +3068,14 @@
         if (_adminSession) {
           const email = _adminSession.user.email || "";
           const name = email.split("@")[0];
-          el.innerHTML = `<span class="admin-indicator">${name}</span> <button class="btn small" onclick="app.adminLogout()" style="margin-left:4px">Выйти</button>`;
+          const subLabel = getSubscriptionLabel();
+          const active = isSubscriptionActive();
+          el.innerHTML = `
+            <span class="admin-indicator" style="${!active ? "border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.08)" : ""}">
+              ${name}${subLabel ? ` <span style="font-weight:500;opacity:.75;font-size:10px">· ${subLabel}</span>` : ""}
+            </span>
+            <button class="btn small" onclick="app.adminLogout()" style="margin-left:4px">Выйти</button>
+          `;
         } else {
           const { url } = getSupabaseConfig();
           el.innerHTML = url
@@ -3041,6 +3133,27 @@
         localStorage.setItem("sb_url", url);
         localStorage.setItem("sb_key", key);
         toast("✅ Сохранено. Обновите страницу для подключения.");
+      }
+
+      function renderSubscriptionGate() {
+        const email = _adminSession && _adminSession.user.email || "";
+        return `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;text-align:center;padding:32px">
+            <div style="font-size:48px;margin-bottom:18px">🔒</div>
+            <h1 style="font-size:28px;margin-bottom:12px">Подписка истекла</h1>
+            <p style="max-width:420px;margin-bottom:24px;line-height:1.55">
+              Ваша подписка для <strong>${escapeHtml(email)}</strong> завершена.<br>
+              Для продолжения работы продлите подписку или свяжитесь с администратором.
+            </p>
+            <div class="toolbar" style="justify-content:center;gap:12px">
+              <a href="mailto:adervis.digital@gmail.com?subject=Продление подписки Adervis CRM" class="btn primary" style="text-decoration:none">
+                📧 Продлить подписку
+              </a>
+              <button class="btn" onclick="app.adminLogout()">Выйти</button>
+            </div>
+            <p style="margin-top:18px;font-size:12px;color:var(--muted)">Adervis CRM digital · версия 4.0</p>
+          </div>
+        `;
       }
 
       function renderAdminModalHtml() {
@@ -3539,6 +3652,7 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         scheduleAutoSave();
         broadcastState();
+        saveToCloud();
       }
 
       function setTheme(theme) {
@@ -5993,7 +6107,11 @@
             : "Смета";
         }
 
-        root.innerHTML = (views[state.view] || renderHome)();
+        if (!isSubscriptionActive() && _adminSession) {
+          root.innerHTML = renderSubscriptionGate();
+        } else {
+          root.innerHTML = (views[state.view] || renderHome)();
+        }
         bindDynamicInputs();
         renderModal();
         renderAdminTopbar();
@@ -8707,11 +8825,38 @@
             </div>
 
             <div class="supabase-config-box">
-              <h2 style="margin-top:0">🔐 Supabase — совместный доступ</h2>
-              <p style="margin-bottom:14px;font-size:13px">
-                Подключите Supabase для входа по почте и паролю и совместного редактирования в реальном времени.
-                URL и ключ (anon/public) берутся из панели Supabase → Project Settings → API.
+              <h2 style="margin-top:0">🔐 Supabase — авторизация и подписки</h2>
+              <p style="margin-bottom:6px;font-size:13px">
+                Подключите Supabase для: входа пользователей по email/паролю, облачного хранения данных, управления подписками и совместного редактирования.
               </p>
+              <details style="margin-bottom:14px">
+                <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:700">📋 SQL — создать таблицы в Supabase (нажмите чтобы раскрыть)</summary>
+                <pre style="font-size:10px;background:rgba(0,0,0,.15);border-radius:10px;padding:12px;margin-top:10px;overflow-x:auto;white-space:pre-wrap;line-height:1.5">-- 1. Таблица профилей и подписок
+create table if not exists profiles (
+  id uuid references auth.users on delete cascade primary key,
+  email text,
+  subscription_status text default 'trial',
+  subscription_plan text default 'pro',
+  subscription_expires_at timestamptz default (now() + interval '14 days'),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+alter table profiles enable row level security;
+create policy "read own profile" on profiles for select using (auth.uid() = id);
+create policy "update own profile" on profiles for update using (auth.uid() = id);
+
+-- 2. Таблица облачных состояний (данные каждого пользователя)
+create table if not exists user_states (
+  user_id uuid references auth.users on delete cascade primary key,
+  state_json jsonb,
+  updated_at timestamptz default now()
+);
+alter table user_states enable row level security;
+create policy "manage own state" on user_states for all using (auth.uid() = user_id);
+
+-- 3. Для совместного редактирования (realtime) — включить broadcast в Supabase Dashboard:
+-- Realtime → Tables → включить для user_states</pre>
+              </details>
               ${(() => {
                 const cfg = getSupabaseConfig();
                 return `
@@ -8725,11 +8870,25 @@
                     <input id="sb_key_input" placeholder="eyJhbGciOi..." value="${escapeHtml(cfg.key)}" type="password">
                   </div>
                 </div>
-                <div class="toolbar">
+                <div class="toolbar" style="margin-bottom:${_adminSession ? "14px" : "0"}">
                   <button class="btn primary" onclick="app.saveSupabaseConfig()">Сохранить настройки</button>
                   ${cfg.url && cfg.key && !_adminSession ? `<button class="btn" onclick="app.openAdminModal()">🔐 Войти</button>` : ""}
                   ${_adminSession ? `<span class="sync-badge">● Подключено как ${escapeHtml(_adminSession.user.email)}</span>` : ""}
                 </div>
+                ${_adminSession && _userProfile ? `
+                <div style="background:rgba(0,0,0,.06);border-radius:12px;padding:14px;font-size:13px">
+                  <strong>Ваша подписка:</strong>
+                  <span style="margin-left:8px">${escapeHtml(getSubscriptionLabel())}</span>
+                  ${_userProfile.subscription_expires_at ? `<span style="color:var(--muted);margin-left:8px;font-size:11px">до ${escapeHtml(new Date(_userProfile.subscription_expires_at).toLocaleDateString("ru-RU"))}</span>` : ""}
+                  <br><br>
+                  <strong>Управление пользователями:</strong>
+                  <p style="margin:6px 0 0;font-size:12px;line-height:1.5">
+                    Для активации подписки клиенту — зайдите в <a href="https://supabase.com/dashboard" target="_blank" style="color:var(--primary)">Supabase Dashboard</a>
+                    → Table Editor → profiles → найдите пользователя по email → измените <code>subscription_status</code> на <code>active</code>
+                    и <code>subscription_expires_at</code> на дату окончания.
+                  </p>
+                </div>
+                ` : ""}
                 `;
               })()}
             </div>
