@@ -1039,11 +1039,15 @@
 
       .burger-btn { display: inline-flex; }
 
+      .brand { min-width: 0; }
       .brand h1 { font-size: 14px; }
       .brand p { display: none; }
 
-      .top-actions { gap: 5px; }
+      .top-actions { gap: 5px; min-width: 0; }
       .autosave-indicator { display: none; }
+      #themeBtn, #clientModeBtn, .help-btn, .global-add-wrap { display: none; }
+
+      .toolbar { flex-direction: column; align-items: stretch; }
 
       .item-top,
       .section-title,
@@ -3416,6 +3420,18 @@
             _onlineUsers = Object.keys(presState).filter(k => k !== myEmail && k !== "");
             renderAdminTopbar();
           })
+          .on("postgres_changes", {
+            event: "UPDATE",
+            schema: "public",
+            table: "profiles",
+            filter: _adminSession ? `id=eq.${_adminSession.user.id}` : undefined
+          }, (payload) => {
+            if (payload.new) {
+              _userProfile = Object.assign({}, _userProfile, payload.new);
+              renderAdminTopbar();
+              render();
+            }
+          })
           .subscribe(async (status) => {
             if (status === "SUBSCRIBED" && myEmail) {
               await _realtimeChannel.track({ email: myEmail });
@@ -3910,34 +3926,34 @@
       ═══════════════════════════════════════════════════════ */
       const ONBOARD_SLIDES = [
         {
-          title: "Добро пожаловать в Adervis CRM",
-          body: "Полноценная CRM для видеопродакшн агентств. Управляйте сделками, сметами, клиентами и финансами в одном месте.",
-          img: "Логотип и интерфейс CRM — общий вид дашборда"
+          title: "Добро пожаловать в Adervis PRO",
+          body: "Полноценная CRM для видеопродакшн агентств. Управляйте сделками, сметами, клиентами и финансами — всё в одном месте.",
+          img: "🎬  Adervis CRM · дашборд агентства"
         },
         {
-          title: "Создайте первую сделку",
-          body: "Нажмите «+ Новая сделка» → введите имя клиента → выберите тип проекта. Мастер проведёт вас за 3 шага.",
-          img: "Скриншот: мастер создания сделки — поле «Имя клиента» и тип проекта"
+          title: "Управление сделками",
+          body: "Создайте первую сделку через «+ Новая сделка». Ведите воронку: Лид → Бриф → КП → Договор → Предоплата → В работе → Сдано.",
+          img: "📋  Доска сделок — карточки с кнопкой смены статуса"
         },
         {
-          title: "Составьте смету",
-          body: "Перейдите во вкладку «Смета». Выберите услуги из каталога или примените готовый пакет — цены подтянутся автоматически.",
-          img: "Скриншот: таблица сметы с позициями и итоговой суммой"
+          title: "Финансы и смета",
+          body: "Составляйте сметы из каталога, применяйте пакеты. В каждой сделке — вкладка «Финансы»: поступления, расходы, маржа автоматически.",
+          img: "💰  Смета и раздел Финансы — итоговая сводка"
         },
         {
-          title: "Ведите воронку продаж",
-          body: "Меняйте статус сделки кнопкой «→»: Лид → Бриф → КП → Договор → Предоплата → В работе → Сдано.",
-          img: "Скриншот: карточки сделок на доске с кнопкой смены статуса"
+          title: "Командная работа",
+          body: "Добавляйте участников команды, назначайте задачи с дедлайнами. Работайте совместно — изменения синхронизируются через Supabase Realtime.",
+          img: "👥  Раздел Команда — карточки участников и задачи"
         },
         {
-          title: "Фиксируйте оплаты",
-          body: "В каждой сделке есть вкладка «Финансы». Добавляйте поступления и расходы — CRM считает маржу автоматически.",
-          img: "Скриншот: вкладка Финансы — список транзакций и сводка"
+          title: "Настройки и шаблоны",
+          body: "В разделе «Настройки» задайте данные компании, логотип и реквизиты. В «Договорах» — готовые шаблоны для быстрой подготовки документов.",
+          img: "⚙️  Настройки компании и библиотека договоров"
         },
         {
-          title: "Установите как приложение",
-          body: "Adervis CRM — PWA. На телефоне нажмите «Поделиться» → «На экран Домой» (iOS) или «Установить» (Android). Работает офлайн.",
-          img: "Иллюстрация: иконка Adervis на экране смартфона"
+          title: "Тарифы и подписка",
+          body: "Adervis PRO работает по подписке. Напишите на adervis.digital@gmail.com для оплаты и активации нужного тарифа. Установите как приложение (PWA) для работы офлайн.",
+          img: "🚀  Тарифные планы — выберите подходящий"
         }
       ];
 
@@ -4457,6 +4473,8 @@
           dealView: "estimate",
           wizard: null,
           mainMenuOpen: false,
+          helpModal: false,
+          helpSlide: 0,
           adminModal: null,
           clientModal: null,
           taskModal: null,
@@ -4868,7 +4886,10 @@
       }
 
       function save() {
-        if (!isSubscriptionActive()) return;
+        if (!isSubscriptionActive()) {
+          toast("⛔ Подписка истекла — данные не сохранены. Продлите: adervis.digital@gmail.com");
+          return;
+        }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         scheduleAutoSave();
         broadcastState();
@@ -7331,11 +7352,11 @@
             : "Смета";
         }
 
-        if (!isSubscriptionActive() && _adminSession) {
+        if (localStorage.getItem('adervis_local_mode') !== '1' && !isSubscriptionActive() && _adminSession) {
           root.innerHTML = renderSubscriptionGate();
-        } else {
-          root.innerHTML = (views[state.view] || renderHome)();
+          return;
         }
+        root.innerHTML = (views[state.view] || renderHome)();
         bindDynamicInputs();
         renderModal();
         renderAdminTopbar();
