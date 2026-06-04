@@ -1045,7 +1045,7 @@
 
       .top-actions { gap: 4px; min-width: 0; }
       .autosave-indicator { display: none; }
-      #themeBtn, #clientModeBtn, .help-btn, .global-add-wrap, #settingsIconBtn, #searchBtn { display: none; }
+      #themeBtn, #clientModeBtn, .help-btn, .global-add-wrap, #settingsIconBtn, #searchBtn, #undoBtn { display: none; }
       /* Profile page mobile fixes */
       .plan-card { padding: 14px; }
       .plan-card .plan-price { font-size: 22px; }
@@ -2716,6 +2716,7 @@
             </button>
           </div>
         </div>
+        <button class="btn small" id="undoBtn" title="Отменить действие (Ctrl+Z)" onclick="app.undo()" style="font-size:14px;padding:7px 10px">↩</button>
         <button class="btn small" id="themeBtn" title="Сменить тему">&#9681; Тема</button>
         <button class="btn small blue" id="clientModeBtn">&#128065; Клиент</button>
         <button class="help-btn" id="searchBtn" title="Поиск (Ctrl+K)" onclick="app.openSearch()" style="font-size:15px">🔍</button>
@@ -2813,6 +2814,13 @@
       Ещё
     </button>
   </nav>
+
+  <!-- Requisites footer — required for YooKassa registration review -->
+  <footer id="requisitesFooter" style="text-align:center;padding:10px 16px;font-size:11px;color:var(--muted);border-top:1px solid var(--line);margin-top:auto">
+    Adervis PRO · CRM для видеопродакшн · Самозанятый · ИНН&nbsp;592110786536 ·
+    <a href="mailto:adervis.digital@gmail.com" style="color:var(--muted)">adervis.digital@gmail.com</a> ·
+    Доступ предоставляется онлайн сразу после оплаты
+  </footer>
 
   <input type="file" id="importJsonInput" accept="application/json" hidden>
   <input type="file" id="importCatalogInput" accept="application/json" hidden>
@@ -3564,8 +3572,23 @@
           } else {
             // First-time user — create profile
             const trial_expires = new Date(Date.now() + 14 * 86400000).toISOString();
-            // Use invite code if provided (join existing agency), else create own agency
-            const agencyId = (_pendingInviteCode || "").trim() || userId;
+            const inviteCode = (_pendingInviteCode || "").trim();
+            let agencyId = inviteCode || userId;
+            let joinedTeam = inviteCode && inviteCode !== userId;
+
+            // Check user limit for the agency being joined
+            if (joinedTeam) {
+              const { data: ownerProfile } = await _supabase.from("profiles").select("subscription_plan,subscription_status").eq("id", inviteCode).single();
+              const { count: memberCount } = await _supabase.from("profiles").select("id", { count: "exact", head: true }).eq("agency_id", inviteCode);
+              const planConfig = PLANS.find(p => p.id === (ownerProfile && ownerProfile.subscription_plan)) || PLANS[1];
+              const maxUsers = planConfig.maxUsers || 1;
+              if ((memberCount || 0) >= maxUsers) {
+                agencyId = userId; // reject invite, create own account
+                joinedTeam = false;
+                setTimeout(() => toast(`⚠️ Агентство достигло лимита пользователей (${maxUsers}) по тарифу. Создан личный аккаунт.`), 1200);
+              }
+            }
+
             const newProfile = {
               id: userId, email,
               agency_id: agencyId,
@@ -3576,7 +3599,6 @@
             await _supabase.from("profiles").upsert(newProfile);
             _userProfile = newProfile;
             _pendingInviteCode = "";
-            const joinedTeam = agencyId !== userId;
             setTimeout(() => {
               if (joinedTeam) {
                 pushNotification("info", "👥 Вы вошли в команду!", "Теперь вы работаете в общем рабочем пространстве агентства.", "");
@@ -3895,10 +3917,15 @@
 
         if (_authTab === "register") {
           if ((f.inviteCode || "").trim()) _pendingInviteCode = f.inviteCode.trim();
-          const { error } = await _supabase.auth.signUp({ email: f.email, password: f.password,
+          const { data: signUpData, error } = await _supabase.auth.signUp({ email: f.email, password: f.password,
             options: { data: { name: f.name } } });
           f.loading = false;
           if (error) { f.error = error.message; _pendingInviteCode = ""; renderAuthGateEl(); return; }
+          if (!signUpData.session) {
+            // Email confirmation required — show clear instruction
+            _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `📧 Письмо отправлено на ${f.email}. Перейдите по ссылке в письме для активации, затем войдите здесь.`, loading: false, showPassword: false, rememberMe: true };
+            _authTab = "login"; renderAuthGateEl(); return;
+          }
           f.error = ""; _authFields = { email: "", password: "", name: "", inviteCode: "", error: "✅ Аккаунт создан! Войдите ниже.", loading: false, showPassword: false, rememberMe: true };
           _authTab = "login"; renderAuthGateEl();
         } else {
@@ -4292,11 +4319,11 @@
          ПРОФИЛЬ И ТАРИФЫ
       ═══════════════════════════════════════════════════════ */
       const PLANS = [
-        { id: "trial", label: "Пробный", price: 0, period: "14 дней бесплатно", save: "", months: 0 },
-        { id: "month1", label: "Месяц", price: 890, period: "в месяц", save: "", months: 1 },
-        { id: "month3", label: "3 месяца", price: 740, period: "в месяц", save: "Экономия 17%", months: 3, popular: true },
-        { id: "month6", label: "6 месяцев", price: 640, period: "в месяц", save: "Экономия 28%", months: 6 },
-        { id: "year", label: "Год", price: 520, period: "в месяц", save: "Экономия 42%", months: 12 }
+        { id: "trial",  label: "Пробный",    price: 0,   period: "14 дней бесплатно", save: "",             months: 0,  maxUsers: 1 },
+        { id: "month1", label: "Месяц",       price: 890, period: "в месяц",            save: "",             months: 1,  maxUsers: 1 },
+        { id: "month3", label: "3 месяца",    price: 740, period: "в месяц",            save: "Экономия 17%", months: 3,  maxUsers: 3, popular: true },
+        { id: "month6", label: "6 месяцев",   price: 640, period: "в месяц",            save: "Экономия 28%", months: 6,  maxUsers: 5 },
+        { id: "year",   label: "Год",         price: 520, period: "в месяц",            save: "Экономия 42%", months: 12, maxUsers: 10 }
       ];
 
       function renderProfile() {
@@ -4415,6 +4442,7 @@
                     <div class="plan-period">${escapeHtml(p.period)}</div>
                     ${p.save ? `<div class="plan-save">${escapeHtml(p.save)}</div>` : ""}
                     ${p.months > 0 ? `<div style="font-size:10px;color:var(--muted);margin-top:4px">= ${p.price * p.months} ₽</div>` : ""}
+                    <div style="font-size:10px;color:var(--muted);margin-top:4px">👥 до ${p.maxUsers} польз.</div>
                     <button class="btn ${p.popular ? "primary" : "small"}" style="display:block;margin-top:10px;width:100%;text-align:center;${btnOff ? "opacity:.5" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
                       ${btnLabel}
                     </button>
@@ -4462,32 +4490,28 @@
             </div>
             `}
 
-            <h2 style="margin-top:0">Тарифные планы</h2>
-
-            <div class="grid five" style="margin-bottom:24px;gap:12px">
-              ${PLANS.map(p => {
-                const isCurrent = sub && sub.subscription_plan === p.id && (sub.subscription_status === "active" || (sub.subscription_status === "trial" && p.id === "trial"));
-                const isLoading = _buyingPlan === p.id;
-                const btnLabel  = isCurrent ? "Активен ✓" : isLoading ? "⏳ Загрузка..." : p.price === 0 ? "Начать бесплатно" : "Оплатить →";
-                const btnOff    = isCurrent || p.price === 0 || !!_buyingPlan;
-                return `
-                <div class="plan-card ${p.popular ? "popular" : ""}" style="${isCurrent ? "border-color:var(--green);background:rgba(22,163,74,.05)" : ""}">
-                  ${isCurrent ? `<div class="popular-badge" style="background:var(--green)">Текущий</div>` : p.popular ? `<div class="popular-badge">Популярный</div>` : ""}
-                  <div class="plan-label">${escapeHtml(p.label)}</div>
-                  <div class="plan-price">${p.price === 0 ? "0 ₽" : p.price + " ₽"}</div>
-                  <div class="plan-period">${escapeHtml(p.period)}</div>
-                  ${p.save ? `<div class="plan-save">${escapeHtml(p.save)}</div>` : ""}
-                  ${p.months > 0 ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">Итого: ${p.price * p.months} ₽</div>` : ""}
-                  <button class="btn ${p.popular ? "primary" : "small"}" style="display:block;margin-top:14px;width:100%;text-align:center;${btnOff ? "opacity:.5" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
-                    ${btnLabel}
-                  </button>
-                </div>`;
-              }).join("")}
-            </div>
-
-            <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:14px;padding:16px 20px;margin-bottom:20px">
-              <div style="font-weight:750;margin-bottom:6px">💳 Как оплатить?</div>
-              <p style="font-size:13px;margin:0;color:var(--muted)">Нажмите «Оплатить» → откроется защищённая страница ЮKassa → оплатите картой, СБП или ЮМани. Подписка активируется <strong>автоматически</strong> сразу после оплаты.</p>
+            <!-- What's included block (replaces duplicate plan grid) -->
+            <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
+              <h2 style="margin-top:0;font-size:15px">🚀 Что включено в подписку</h2>
+              <div class="grid two" style="gap:10px">
+                ${[
+                  ["📋 CRM и сделки", "Неограниченное число сделок и проектов по всем стадиям воронки"],
+                  ["💰 Калькулятор смет", "100+ позиций каталога: съёмка, постпродакшн, ИИ, логистика"],
+                  ["📄 КП и договоры", "Генерация коммерческих предложений и договоров за секунды"],
+                  ["📅 Календарь", "Дедлайны, задачи и платежи по всем проектам в одном месте"],
+                  ["💳 Финансы", "Доходы, расходы, маржа и аналитика по каждому проекту"],
+                  ["☁️ Облачная синхронизация", "Realtime-синхронизация между устройствами и членами команды"],
+                  ["👥 Команда", "Совместная работа — пригласите коллег через код приглашения"],
+                  ["📱 Мобильная версия", "PWA — устанавливается на телефон и работает как приложение"]
+                ].map(([title, desc]) => `
+                  <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:var(--panel);border-radius:10px;border:1px solid var(--line)">
+                    <div style="font-size:20px;flex:0 0 auto;line-height:1.2">${title.split(" ")[0]}</div>
+                    <div>
+                      <div style="font-size:13px;font-weight:800;margin-bottom:2px">${escapeHtml(title.slice(title.indexOf(" ")+1))}</div>
+                      <div style="font-size:11px;color:var(--muted)">${escapeHtml(desc)}</div>
+                    </div>
+                  </div>`).join("")}
+              </div>
             </div>
           </div>
         `;
@@ -6857,6 +6881,18 @@
         render();
       }
 
+      function editClientFromDeal(clientId, clientName) {
+        // Find by id first; if not found, search by name; if still not found, create stub
+        let client = clientId ? (state.clients || []).find(c => c.id === clientId) : null;
+        if (!client && clientName) client = (state.clients || []).find(c => c.name === clientName);
+        if (!client) {
+          client = normalizeClient({ name: clientName || "" });
+          state.clients = [...(state.clients || []), client];
+        }
+        state.clientDraft = deepClone(client);
+        render();
+      }
+
       function selectClient(id) {
         const client = (state.clients || []).find(x => x.id === id);
         if (!client) return;
@@ -8243,7 +8279,7 @@
                         <div>
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
                           <div style="display:flex;align-items:center;gap:8px;margin-top:2px;flex-wrap:wrap">
-                            ${project.client ? `<span class="deal-card-client" style="color:var(--muted)">${escapeHtml(project.client)}</span>` : ""}
+                            ${project.client ? `<button class="deal-card-client" onclick="event.stopPropagation();app.editClientFromDeal('${escapeHtml(project.clientId||"")}','${escapeHtml(project.client)}')" style="color:var(--primary2);background:none;border:none;padding:0;cursor:pointer;font:inherit;font-size:13px;font-weight:750;text-decoration:underline dotted" title="Редактировать клиента">${escapeHtml(project.client)}</button>` : ""}
                             ${clientObj && clientObj.phone ? `<a href="tel:${escapeHtml(clientObj.phone)}" onclick="event.stopPropagation()" style="font-size:11px;color:var(--primary2);text-decoration:none;font-weight:700">📞 ${escapeHtml(clientObj.phone)}</a>` : ""}
                           </div>
                         </div>
@@ -10448,29 +10484,52 @@
               </div>
             ` : ""}
 
-            <!-- All month events list -->
+            <!-- Events list with All/Month toggle + type filter -->
             ${(() => {
-              const monthEvents = events.filter(ev => ev.date && ev.date.startsWith(`${yr}-${padZ(mo)}`)).sort((a,b) => a.date.localeCompare(b.date));
-              if (!monthEvents.length) return `<p style="text-align:center;color:var(--muted);font-size:13px;margin-top:16px">Нет событий в этом месяце. Нажми на день, чтобы добавить задачу.</p>`;
+              const calAllMode = state.calAllMode || false;
+              const calTypeFilter = state.calTypeFilter || "all";
+              const typeFilters = [
+                { id: "all", label: "Все" },
+                { id: "deadline", label: "Дедлайны" },
+                { id: "task", label: "Задачи" },
+                { id: "payment", label: "Платежи" },
+                { id: "expense", label: "Расходы" },
+              ];
+              const listEvents = (calAllMode ? [...events] : events.filter(ev => ev.date && ev.date.startsWith(`${yr}-${padZ(mo)}`)))
+                .filter(ev => calTypeFilter === "all" || ev.type === calTypeFilter)
+                .sort((a,b) => a.date.localeCompare(b.date));
               return `
               <div style="margin-top:18px">
-                <h3 style="margin:0 0 12px;font-size:14px;font-weight:800">Все события месяца <span style="font-size:12px;font-weight:normal;color:var(--muted)">(${monthEvents.length})</span></h3>
-                <div style="display:flex;flex-direction:column;gap:6px">
-                  ${monthEvents.map(ev => {
+                <!-- mode + type toolbar -->
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+                  <div style="display:flex;border-radius:10px;overflow:hidden;border:1px solid var(--line);flex:0 0 auto">
+                    <button style="padding:6px 14px;font-size:12px;font-weight:750;background:${!calAllMode?"linear-gradient(135deg,var(--primary),var(--blue))":"transparent"};color:${!calAllMode?"#fff":"var(--muted)"};border:none;cursor:pointer" onclick="app.calSetAllMode(false)">Месяц</button>
+                    <button style="padding:6px 14px;font-size:12px;font-weight:750;background:${calAllMode?"linear-gradient(135deg,var(--primary),var(--blue))":"transparent"};color:${calAllMode?"#fff":"var(--muted)"};border:none;cursor:pointer;border-left:1px solid var(--line)" onclick="app.calSetAllMode(true)">Все события</button>
+                  </div>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap">
+                    ${typeFilters.map(f => `<button style="padding:4px 10px;font-size:11px;font-weight:750;border-radius:99px;border:1px solid ${calTypeFilter===f.id?"var(--primary)":"var(--line)"};background:${calTypeFilter===f.id?"rgba(124,58,237,.15)":"transparent"};color:${calTypeFilter===f.id?"var(--primary2)":"var(--muted)"};cursor:pointer" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
+                  </div>
+                  <span style="font-size:11px;color:var(--muted);margin-left:auto">${listEvents.length} событий</span>
+                </div>
+                ${!listEvents.length
+                  ? `<p style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0">Нет событий${calTypeFilter!=="all"?" по выбранному типу":calAllMode?"":" в этом месяце"}. Нажми на день, чтобы добавить задачу.</p>`
+                  : `<div style="display:flex;flex-direction:column;gap:6px">
+                  ${listEvents.map(ev => {
                     const isToday = ev.date === today;
                     const isPast = ev.date < today;
                     return `
-                    <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;background:var(--panel2);border:1px solid ${isToday ? "rgba(124,58,237,.4)" : "var(--line)"};cursor:${ev.projectId ? "pointer" : "default"};transition:.12s"
+                    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid ${isToday ? "rgba(124,58,237,.4)" : "var(--line)"};cursor:${ev.projectId ? "pointer" : "default"};transition:.12s"
                       onclick="${ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : `app.calSelectDay('${ev.date}')`}">
                       <div style="width:8px;height:8px;border-radius:50%;background:${typeColor[ev.type]};flex:0 0 8px"></div>
                       <div style="flex:1;min-width:0">
-                        <div style="font-size:13px;font-weight:750;${isPast&&!isToday?"opacity:.6":""}white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(ev.title)}</div>
+                        <div style="font-size:13px;font-weight:750;${isPast&&!isToday?"opacity:.6":""}overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(ev.title)}</div>
                         <div style="font-size:11px;color:var(--muted)">${formatDate(ev.date)}${ev.project ? ` · ${escapeHtml(ev.project)}` : ""}${ev.amount ? ` · ${money(ev.amount)}` : ""}</div>
                       </div>
-                      <span style="font-size:10px;color:${typeColor[ev.type]};font-weight:750;flex:0 0 auto">${escapeHtml(typeLabel[ev.type]||"")}</span>
+                      <span style="font-size:10px;color:${typeColor[ev.type]};font-weight:750;flex:0 0 auto;white-space:nowrap">${escapeHtml(typeLabel[ev.type]||"")}</span>
                     </div>`;
                   }).join("")}
-                </div>
+                  </div>`
+                }
               </div>`;
             })()}
           </div>
@@ -10965,6 +11024,14 @@ update profiles set agency_id = id::text where agency_id is null;
       function calSelectDay(day) {
         state.calendarSelectedDay = day;
         save();
+        render();
+      }
+      function calSetAllMode(val) {
+        state.calAllMode = !!val;
+        render();
+      }
+      function calSetTypeFilter(type) {
+        state.calTypeFilter = type;
         render();
       }
 
