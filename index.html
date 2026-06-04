@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Adervis CRM digital — версия 4.1</title>
+  <title>Adervis PRO — CRM для видеопродакшна</title>
   <meta name="theme-color" content="#7c3aed">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2498,7 +2498,7 @@
         </div>
         <div>
           <h1>Adervis PRO</h1>
-          <p>CRM digital · версия 4.1</p>
+          <p>CRM digital · версия 4.2</p>
         </div>
       </div>
 
@@ -2681,7 +2681,7 @@
     (() => {
       "use strict";
 
-      const APP_VERSION = "4.1";
+      const APP_VERSION = "4.2";
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
 
@@ -3345,10 +3345,11 @@
       let _realtimeChannel = null;
       let _adminSession = null;
       let _broadcastTimer = null;
-      let _userProfile = null;   // { subscription_status, subscription_plan, subscription_expires_at }
+      let _userProfile = null;   // { subscription_status, subscription_plan, subscription_expires_at, agency_id }
       let _cloudSaveTimer = null;
       let _onlineUsers = [];
       let _authChecking = true;
+      let _pendingInviteCode = ""; // set during registration if user entered invite code
 
       const _DEFAULT_SB_URL = "https://qzeylogyledmhjpzvgkk.supabase.co";
       const _DEFAULT_SB_KEY = "sb_publishable_E9JgbQiA7namAFiZAAbZEQ_aBn11VgJ";
@@ -3399,26 +3400,49 @@
           const { data } = await _supabase.from("profiles").select("*").eq("id", userId).single();
           if (data) {
             _userProfile = data;
+            // Migrate old profiles: set agency_id = own userId if missing
+            if (!_userProfile.agency_id) {
+              _userProfile.agency_id = userId;
+              await _supabase.from("profiles").update({ agency_id: userId }).eq("id", userId);
+            }
           } else {
-            // Auto-create profile with trial on first login
+            // First-time user — create profile
             const trial_expires = new Date(Date.now() + 14 * 86400000).toISOString();
-            const newProfile = { id: userId, email, subscription_status: "trial", subscription_plan: "pro", subscription_expires_at: trial_expires };
+            // Use invite code if provided (join existing agency), else create own agency
+            const agencyId = (_pendingInviteCode || "").trim() || userId;
+            const newProfile = {
+              id: userId, email,
+              agency_id: agencyId,
+              subscription_status: "trial",
+              subscription_plan: "pro",
+              subscription_expires_at: trial_expires
+            };
             await _supabase.from("profiles").upsert(newProfile);
             _userProfile = newProfile;
-            // First-time user: show onboarding toast + redirect
+            _pendingInviteCode = "";
+            const joinedTeam = agencyId !== userId;
             setTimeout(() => {
-              pushNotification("info", "👋 Добро пожаловать в Adervis PRO!", "У вас 14 дней бесплатного доступа. Создайте первую сделку!", "");
-              toast("🎉 Аккаунт создан! 14 дней бесплатно. Создайте первую сделку.");
+              if (joinedTeam) {
+                pushNotification("info", "👥 Вы вошли в команду!", "Теперь вы работаете в общем рабочем пространстве агентства.", "");
+                toast("👥 Вы присоединились к агентству!");
+              } else {
+                pushNotification("info", "👋 Добро пожаловать в Adervis PRO!", "У вас 14 дней бесплатного доступа. Создайте первую сделку!", "");
+                toast("🎉 Аккаунт создан! 14 дней бесплатно.");
+              }
             }, 1200);
           }
         } catch(e) { console.warn("Profile load:", e); }
       }
 
+      function getAgencyId() {
+        return (_userProfile && _userProfile.agency_id) || (_adminSession && _adminSession.user.id) || "local";
+      }
+
       async function _loadCloudState() {
         if (!_supabase || !_adminSession) return;
-        const userId = _adminSession.user.id;
+        const agencyId = getAgencyId();
         try {
-          const { data } = await _supabase.from("agency_state").select("state_json").eq("id", userId).single();
+          const { data } = await _supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
           if (data && data.state_json) {
             const cloudState = data.state_json;
             const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
@@ -3432,13 +3456,13 @@
 
       function saveToCloud() {
         if (!_supabase || !_adminSession) return;
-        const userId = _adminSession.user.id;
+        const agencyId = getAgencyId();
         clearTimeout(_cloudSaveTimer);
         _cloudSaveTimer = setTimeout(async () => {
           const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
           const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
           try {
-            await _supabase.from("agency_state").upsert({ id: userId, state_json: data, updated_at: new Date().toISOString() });
+            await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: new Date().toISOString() });
           } catch(e) { console.warn("Cloud save:", e); }
         }, 3000);
       }
@@ -3606,7 +3630,7 @@
          AUTH GATE
       ═══════════════════════════════════════════════════════ */
       let _authTab = "login"; // "login" | "register"
-      let _authFields = { email: "", password: "", name: "", error: "", loading: false, showPassword: false, rememberMe: true };
+      let _authFields = { email: "", password: "", name: "", inviteCode: "", error: "", loading: false, showPassword: false, rememberMe: true };
 
       function renderAuthGate() {
         const f = _authFields;
@@ -3619,7 +3643,7 @@
                 </div>
                 <div>
                   <div style="font-weight:900;font-size:17px">Adervis PRO</div>
-                  <div style="font-size:12px;color:var(--muted)">CRM digital · версия 4.0</div>
+                  <div style="font-size:12px;color:var(--muted)">CRM для видеопродакшна</div>
                 </div>
               </div>
 
@@ -3632,8 +3656,14 @@
 
               ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
 
-              ${_authTab === "register" ? `<div class="field" style="margin-bottom:12px"><label>Имя</label>
-                <input placeholder="Ваше имя" value="${escapeHtml(f.name)}" oninput="app.setAuthField('name',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()"></div>` : ""}
+              ${_authTab === "register" ? `
+              <div class="field" style="margin-bottom:12px"><label>Имя</label>
+                <input placeholder="Ваше имя" value="${escapeHtml(f.name)}" oninput="app.setAuthField('name',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()">
+              </div>
+              <div class="field" style="margin-bottom:12px">
+                <label style="display:flex;align-items:center;gap:6px">Код приглашения <span style="font-size:10px;color:var(--muted);font-weight:normal">(если вас пригласили в команду)</span></label>
+                <input placeholder="Вставьте код от руководителя (необязательно)" value="${escapeHtml(f.inviteCode||"")}" oninput="app.setAuthField('inviteCode',this.value)" style="font-family:monospace;font-size:12px">
+              </div>` : ""}
 
               <div class="field" style="margin-bottom:12px"><label>Email</label>
                 <input type="email" placeholder="you@example.com" value="${escapeHtml(f.email)}" oninput="app.setAuthField('email',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()"></div>
@@ -3711,11 +3741,12 @@
         f.loading = true; f.error = ""; renderAuthGateEl();
 
         if (_authTab === "register") {
+          if ((f.inviteCode || "").trim()) _pendingInviteCode = f.inviteCode.trim();
           const { error } = await _supabase.auth.signUp({ email: f.email, password: f.password,
             options: { data: { name: f.name } } });
           f.loading = false;
-          if (error) { f.error = error.message; renderAuthGateEl(); return; }
-          f.error = ""; _authFields = { email: "", password: "", name: "", error: "✅ Проверьте почту для подтверждения.", loading: false, showPassword: false, rememberMe: true };
+          if (error) { f.error = error.message; _pendingInviteCode = ""; renderAuthGateEl(); return; }
+          f.error = ""; _authFields = { email: "", password: "", name: "", inviteCode: "", error: "✅ Аккаунт создан! Войдите ниже.", loading: false, showPassword: false, rememberMe: true };
           _authTab = "login"; renderAuthGateEl();
         } else {
           const rememberMe = f.rememberMe;
@@ -3956,6 +3987,31 @@
                 <button class="btn small" onclick="app.go('settings')">⚙ Настройки компании →</button>
               </div>
             </div>
+
+            <!-- Team block -->
+            ${(() => {
+              const agencyId = getAgencyId();
+              const isOwner = _adminSession && _userProfile && _userProfile.agency_id === _adminSession.user.id;
+              const onlineList = _onlineUsers.length ? _onlineUsers.map(u => `<span style="background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.3);border-radius:99px;padding:2px 10px;font-size:12px">● ${escapeHtml(u)}</span>`).join(" ") : "";
+              return `
+              <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:20px">
+                <h2 style="margin-top:0;font-size:15px">👥 Команда агентства</h2>
+                ${isOwner ? `
+                  <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Поделитесь кодом приглашения с коллегой. При регистрации он вводит его — и сразу работает в вашем общем пространстве.</p>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <div style="flex:1;min-width:200px">
+                      <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em">Код приглашения</label>
+                      <div style="font-family:monospace;font-size:13px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;margin-top:4px;word-break:break-all;border:1px solid var(--line)">${escapeHtml(agencyId)}</div>
+                    </div>
+                    <button class="btn small" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(agencyId)}').then(()=>app._toast('✅ Код скопирован!'))">📋 Копировать</button>
+                  </div>
+                  ${onlineList ? `<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span style="font-size:12px;color:var(--muted)">Онлайн сейчас:</span>${onlineList}</div>` : ""}
+                ` : `
+                  <p style="font-size:13px;color:var(--muted);margin:0">Вы работаете в рабочем пространстве агентства: <code style="font-size:11px;opacity:.7">${escapeHtml(agencyId.slice(0,12))}...</code></p>
+                  ${onlineList ? `<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span style="font-size:12px;color:var(--muted)">Онлайн:</span>${onlineList}</div>` : ""}
+                `}
+              </div>`;
+            })()}
             ` : `
             <div style="text-align:center;padding:40px 24px;margin-bottom:24px">
               <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;color:#fff;margin:0 auto 20px;box-shadow:0 8px 28px rgba(124,58,237,.4)">A</div>
@@ -3998,11 +4054,11 @@
 
       async function forceSaveToCloud() {
         if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
-        const userId = _adminSession.user.id;
+        const agencyId = getAgencyId();
         const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
         const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
         try {
-          await _supabase.from("agency_state").upsert({ id: userId, state_json: data, updated_at: new Date().toISOString() });
+          await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: new Date().toISOString() });
           toast("☁️ Данные сохранены в облако");
         } catch(e) { toast("Ошибка сохранения: " + e.message); }
       }
@@ -10237,10 +10293,16 @@
               </p>
               <details style="margin-bottom:14px">
                 <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:700">📋 SQL — создать таблицы в Supabase (нажмите чтобы раскрыть)</summary>
-                <pre style="font-size:10px;background:rgba(0,0,0,.15);border-radius:10px;padding:12px;margin-top:10px;overflow-x:auto;white-space:pre-wrap;line-height:1.5">-- 1. Таблица профилей и подписок
+                <pre style="font-size:10px;background:rgba(0,0,0,.15);border-radius:10px;padding:12px;margin-top:10px;overflow-x:auto;white-space:pre-wrap;line-height:1.5">-- ═══════════════════════════════════════════════════
+-- ADERVIS PRO — Схема базы данных v4.2
+-- Выполнить один раз в Supabase SQL Editor
+-- ═══════════════════════════════════════════════════
+
+-- 1. Профили пользователей (подписка + принадлежность к агентству)
 create table if not exists profiles (
   id uuid references auth.users on delete cascade primary key,
   email text,
+  agency_id text,                   -- UUID агентства (= id владельца)
   subscription_status text default 'trial',
   subscription_plan text default 'pro',
   subscription_expires_at timestamptz default (now() + interval '14 days'),
@@ -10248,23 +10310,32 @@ create table if not exists profiles (
   updated_at timestamptz default now()
 );
 alter table profiles enable row level security;
-create policy "read own profile" on profiles for select using (auth.uid() = id);
-create policy "update own profile" on profiles for update using (auth.uid() = id);
+create policy "profiles: read own" on profiles for select using (auth.uid() = id);
+create policy "profiles: insert own" on profiles for insert with check (auth.uid() = id);
+create policy "profiles: update own" on profiles for update using (auth.uid() = id);
 
--- 2. Таблица состояния — каждый пользователь хранит своё (multi-tenant, v4.2+)
+-- 2. Состояние агентства (общий workspace команды)
+-- id = agency_id из profiles (= UUID владельца агентства)
 create table if not exists agency_state (
   id text primary key,
   state_json jsonb,
   updated_at timestamptz default now()
 );
 alter table agency_state enable row level security;
--- Каждый пользователь видит только свою строку (id = auth.uid())
-create policy "user read own state" on agency_state for select using (id = auth.uid()::text);
-create policy "user insert own state" on agency_state for insert with check (id = auth.uid()::text);
-create policy "user update own state" on agency_state for update using (id = auth.uid()::text);
+-- Пользователь видит только данные своего агентства
+create policy "state: read agency" on agency_state for select
+  using (id = (select agency_id from profiles where profiles.id = auth.uid()));
+create policy "state: insert agency" on agency_state for insert
+  with check (id = (select agency_id from profiles where profiles.id = auth.uid()));
+create policy "state: update agency" on agency_state for update
+  using (id = (select agency_id from profiles where profiles.id = auth.uid()));
 
--- 3. Для Realtime — включить в Supabase Dashboard:
--- Database → Replication → agency_state → включить Insert/Update</pre>
+-- 3. Migrating: если таблицы уже существуют — добавить agency_id
+alter table profiles add column if not exists agency_id text;
+-- Заполнить agency_id = id для существующих пользователей
+update profiles set agency_id = id::text where agency_id is null;
+
+-- 4. Realtime: Database → Replication → agency_state → Insert+Update</pre>
               </details>
               ${(() => {
                 const cfg = getSupabaseConfig();
@@ -11494,7 +11565,10 @@ Email: ______________________            Email: ______________________
         kbNew,
         kbSave,
         kbDuplicate,
-        kbDelete
+        kbDelete,
+
+        _toast: toast,
+        getAgencyId
       };
 
       function checkDeadlineNotifications() {
