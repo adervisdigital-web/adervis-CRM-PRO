@@ -1119,7 +1119,7 @@
     .search-modal {
       position: fixed; inset: 0; z-index: 600;
       background: rgba(7,11,20,.75); backdrop-filter: blur(8px);
-      display: flex !important; align-items: flex-start; justify-content: center;
+      display: flex; align-items: flex-start; justify-content: center;
       padding-top: 80px;
     }
     .search-box {
@@ -3504,6 +3504,7 @@
       let _onlineUsers = [];
       let _authChecking = true;
       let _pendingInviteCode = ""; // set during registration if user entered invite code
+      let _buyingPlan = null; // planId currently being purchased (shows loading state)
 
       const _DEFAULT_SB_URL = "https://qzeylogyledmhjpzvgkk.supabase.co";
       const _DEFAULT_SB_KEY = "sb_publishable_E9JgbQiA7namAFiZAAbZEQ_aBn11VgJ";
@@ -3546,6 +3547,7 @@
         _initRealtimeChannel();
         renderAdminTopbar();
         render();
+        checkPaymentReturn();
       }
 
       async function _loadUserProfile(userId, email) {
@@ -4402,6 +4404,9 @@
               <div class="grid five" style="gap:10px;margin-bottom:12px">
                 ${PLANS.map(p => {
                   const isCurrent = sub && sub.subscription_plan === p.id && (sub.subscription_status === "active" || (sub.subscription_status === "trial" && p.id === "trial"));
+                  const isLoading = _buyingPlan === p.id;
+                  const btnLabel  = isCurrent ? "Активен ✓" : isLoading ? "⏳ Загрузка..." : p.price === 0 ? "Бесплатно" : "Оплатить →";
+                  const btnOff    = isCurrent || p.price === 0 || !!_buyingPlan;
                   return `
                   <div class="plan-card ${p.popular ? "popular" : ""}" style="${isCurrent ? "border-color:var(--green);background:rgba(22,163,74,.05)" : ""}">
                     ${isCurrent ? `<div class="popular-badge" style="background:var(--green)">Текущий</div>` : p.popular ? `<div class="popular-badge">Популярный</div>` : ""}
@@ -4410,13 +4415,13 @@
                     <div class="plan-period">${escapeHtml(p.period)}</div>
                     ${p.save ? `<div class="plan-save">${escapeHtml(p.save)}</div>` : ""}
                     ${p.months > 0 ? `<div style="font-size:10px;color:var(--muted);margin-top:4px">= ${p.price * p.months} ₽</div>` : ""}
-                    <a href="mailto:adervis.digital@gmail.com?subject=${encodeURIComponent("Подписка Adervis PRO — " + p.label)}&body=${encodeURIComponent("Тариф: " + p.label + "\nEmail: " + email)}" class="btn ${p.popular ? "primary" : "small"}" style="text-decoration:none;display:block;margin-top:10px;text-align:center;${isCurrent ? "opacity:.5;pointer-events:none" : ""}">
-                      ${isCurrent ? "Активен" : p.price === 0 ? "Бесплатно" : "Выбрать"}
-                    </a>
+                    <button class="btn ${p.popular ? "primary" : "small"}" style="display:block;margin-top:10px;width:100%;text-align:center;${btnOff ? "opacity:.5" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
+                      ${btnLabel}
+                    </button>
                   </div>`;
                 }).join("")}
               </div>
-              <p style="font-size:12px;color:var(--muted);margin:0">Нажмите «Выбрать» → отправьте письмо → активируем в течение 2 часов (Тинькофф / СБП)</p>
+              <p style="font-size:12px;color:var(--muted);margin:0">Нажмите «Оплатить» → безопасная страница ЮKassa → карта / СБП / ЮМани. Подписка активируется автоматически.</p>
             </div>
 
             <!-- Security -->
@@ -4462,6 +4467,9 @@
             <div class="grid five" style="margin-bottom:24px;gap:12px">
               ${PLANS.map(p => {
                 const isCurrent = sub && sub.subscription_plan === p.id && (sub.subscription_status === "active" || (sub.subscription_status === "trial" && p.id === "trial"));
+                const isLoading = _buyingPlan === p.id;
+                const btnLabel  = isCurrent ? "Активен ✓" : isLoading ? "⏳ Загрузка..." : p.price === 0 ? "Начать бесплатно" : "Оплатить →";
+                const btnOff    = isCurrent || p.price === 0 || !!_buyingPlan;
                 return `
                 <div class="plan-card ${p.popular ? "popular" : ""}" style="${isCurrent ? "border-color:var(--green);background:rgba(22,163,74,.05)" : ""}">
                   ${isCurrent ? `<div class="popular-badge" style="background:var(--green)">Текущий</div>` : p.popular ? `<div class="popular-badge">Популярный</div>` : ""}
@@ -4470,19 +4478,70 @@
                   <div class="plan-period">${escapeHtml(p.period)}</div>
                   ${p.save ? `<div class="plan-save">${escapeHtml(p.save)}</div>` : ""}
                   ${p.months > 0 ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">Итого: ${p.price * p.months} ₽</div>` : ""}
-                  <a href="mailto:adervis.digital@gmail.com?subject=${encodeURIComponent("Подписка Adervis PRO — " + p.label)}&body=${encodeURIComponent("Здравствуйте!\n\nХочу оформить тариф «" + p.label + "» (" + (p.price > 0 ? p.price * p.months + " ₽" : "Пробный") + ").\n\nEmail: " + (email || ""))}" class="btn ${p.popular ? "primary" : "small"}" style="text-decoration:none;display:block;margin-top:14px;text-align:center;${isCurrent ? "opacity:.5;pointer-events:none" : ""}">
-                    ${p.price === 0 ? "Начать бесплатно" : isCurrent ? "Активен" : "Выбрать"}
-                  </a>
+                  <button class="btn ${p.popular ? "primary" : "small"}" style="display:block;margin-top:14px;width:100%;text-align:center;${btnOff ? "opacity:.5" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
+                    ${btnLabel}
+                  </button>
                 </div>`;
               }).join("")}
             </div>
 
             <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:14px;padding:16px 20px;margin-bottom:20px">
               <div style="font-weight:750;margin-bottom:6px">💳 Как оплатить?</div>
-              <p style="font-size:13px;margin:0;color:var(--muted)">Нажмите «Выбрать» → откроется письмо → отправьте нам. Ответим в течение 2 часов с реквизитами для оплаты (Тинькофф / СБП). После оплаты активируем тариф вручную.</p>
+              <p style="font-size:13px;margin:0;color:var(--muted)">Нажмите «Оплатить» → откроется защищённая страница ЮKassa → оплатите картой, СБП или ЮМани. Подписка активируется <strong>автоматически</strong> сразу после оплаты.</p>
             </div>
           </div>
         `;
+      }
+
+      /* ─── YOOKASSA SUBSCRIPTION PAYMENT ─── */
+      async function buyPlan(planId) {
+        if (!_adminSession) { toast("Войдите в аккаунт для оплаты"); return; }
+        if (planId === "trial" || _buyingPlan) return;
+
+        _buyingPlan = planId;
+        render();
+
+        try {
+          const { url } = getSupabaseConfig();
+          const resp = await fetch(`${url}/functions/v1/create-payment`, {
+            method: "POST",
+            headers: {
+              "Content-Type":  "application/json",
+              "Authorization": `Bearer ${_adminSession.access_token}`,
+            },
+            body: JSON.stringify({ planId }),
+          });
+
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ error: "Ошибка сети" }));
+            throw new Error(err.error || "Ошибка создания платежа");
+          }
+
+          const { paymentUrl } = await resp.json();
+          window.location.href = paymentUrl;
+        } catch (e) {
+          toast("Ошибка оплаты: " + e.message);
+          _buyingPlan = null;
+          render();
+        }
+      }
+
+      function checkPaymentReturn() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("payment") !== "success") return;
+        history.replaceState({}, "", window.location.pathname);
+        toast("⏳ Проверяем статус оплаты...");
+        setTimeout(async () => {
+          if (_adminSession) {
+            await _loadUserProfile(_adminSession.user.id, _adminSession.user.email);
+            render();
+            if (isSubscriptionActive()) {
+              toast("🎉 Подписка активирована! Спасибо за оплату.");
+            } else {
+              toast("Оплата обрабатывается — статус обновится автоматически.");
+            }
+          }
+        }, 2500);
       }
 
       async function forceSaveToCloud() {
