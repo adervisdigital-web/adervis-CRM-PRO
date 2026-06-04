@@ -1084,6 +1084,41 @@
       }
     }
 
+    /* ── MOBILE BOTTOM NAV ──────────────────────── */
+    .mobile-bottom-nav {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 110;
+      background: rgba(7,11,20,.97);
+      border-top: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+      padding: 8px 4px env(safe-area-inset-bottom, 8px);
+      gap: 0;
+    }
+    [data-theme="light"] .mobile-bottom-nav { background: rgba(255,255,255,.97); }
+    .mbn-item {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; padding: 5px 2px; border: none; background: none;
+      color: var(--muted); font-size: 10px; font-weight: 700; cursor: pointer;
+      border-radius: 10px; transition: .15s; min-width: 0;
+    }
+    .mbn-item.active { color: var(--primary2); }
+    .mbn-item:active { transform: scale(.93); }
+    .mbn-item svg { flex: 0 0 auto; }
+    .mbn-add {
+      flex: 0 0 52px; width: 52px; height: 52px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--blue));
+      color: #fff; font-size: 26px; font-weight: 300; line-height: 1;
+      box-shadow: 0 6px 20px rgba(124,58,237,.5);
+      display: flex; align-items: center; justify-content: center;
+      border: none; cursor: pointer; margin-top: -18px; transition: .15s;
+      flex-shrink: 0;
+    }
+    .mbn-add:active { transform: scale(.92); }
+    @media (max-width: 720px) {
+      .mobile-bottom-nav { display: flex; }
+      .container { padding-bottom: 80px; }
+    }
+
     /* ── WELCOME SCREEN ─────────────────────────── */
     .welcome-screen {
       text-align: center;
@@ -1828,39 +1863,34 @@
     /* ── DEAL STAGE PROGRESS ─────────────────────── */
     .deal-stage-progress {
       display: flex; align-items: center;
-      padding: 10px 18px 0; gap: 0;
+      padding: 10px 18px 12px; gap: 0;
       overflow-x: auto; scrollbar-width: none;
     }
     .deal-stage-progress::-webkit-scrollbar { display: none; }
     .dsp-step {
-      display: flex; flex-direction: column; align-items: center;
-      gap: 4px; cursor: pointer; flex: 0 0 auto;
-      transition: .15s;
+      display: flex; align-items: center; flex: 0 0 auto; cursor: pointer;
     }
-    .dsp-step:hover .dsp-dot { transform: scale(1.2); }
-    .dsp-dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      border: 2px solid var(--line); background: var(--panel);
-      transition: .2s; flex: 0 0 auto;
+    .dsp-pill {
+      padding: 5px 13px; border-radius: 99px; font-size: 12px; font-weight: 700;
+      border: 1.5px solid var(--line); color: var(--muted); white-space: nowrap;
+      background: transparent; transition: all .18s; user-select: none;
     }
-    .dsp-step.done .dsp-dot { background: var(--green); border-color: var(--green); }
-    .dsp-step.active .dsp-dot {
-      background: var(--primary2); border-color: var(--primary2);
-      box-shadow: 0 0 0 4px rgba(168,85,247,.2);
-      transform: scale(1.3);
+    .dsp-step:hover .dsp-pill { border-color: rgba(168,85,247,.4); color: var(--text); }
+    .dsp-step.done .dsp-pill {
+      background: rgba(22,163,74,.1); border-color: rgba(22,163,74,.35);
+      color: #86efac;
     }
-    .dsp-label {
-      font-size: 10px; color: var(--muted); white-space: nowrap;
-      font-weight: 750;
+    [data-theme="light"] .dsp-step.done .dsp-pill { color: #15803d; background: rgba(22,163,74,.08); }
+    .dsp-step.active .dsp-pill {
+      background: linear-gradient(135deg, var(--primary), #4f46e5);
+      border-color: transparent; color: #fff;
+      box-shadow: 0 4px 16px rgba(124,58,237,.4);
     }
-    .dsp-step.active .dsp-label { color: var(--primary2); font-weight: 900; }
-    .dsp-step.done .dsp-label { color: #86efac; }
-    [data-theme="light"] .dsp-step.done .dsp-label { color: #15803d; }
     .dsp-line {
-      height: 2px; flex: 1; min-width: 18px; background: var(--line);
-      margin-bottom: 14px; transition: background .2s;
+      height: 2px; min-width: 14px; flex: 1 1 14px;
+      background: var(--line); transition: background .2s;
     }
-    .dsp-line.done { background: var(--green); }
+    .dsp-line.done { background: rgba(22,163,74,.5); }
 
     /* ── GLOBAL FINANCES ─────────────────────────── */
     .gfin-month-bar {
@@ -2296,6 +2326,18 @@
     }
     .help-btn:hover { border-color: var(--primary); color: var(--primary); }
 
+    .profile-avatar-btn {
+      width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer;
+      background: linear-gradient(135deg, var(--primary), var(--blue));
+      color: #fff; font-size: 14px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; flex: 0 0 34px;
+      transition: .15s; box-shadow: 0 4px 14px rgba(124,58,237,.35);
+    }
+    .profile-avatar-btn:hover { box-shadow: 0 6px 20px rgba(124,58,237,.5); transform: scale(1.06); }
+    .profile-avatar-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .profile-avatar-btn.active { box-shadow: 0 0 0 2px #fff, 0 4px 14px rgba(124,58,237,.35); }
+
     /* ── PROFILE PAGE ─────────────────────────────── */
     .plan-card {
       border: 1px solid var(--line); border-radius: 16px;
@@ -2505,10 +2547,6 @@
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>
           Профиль
         </button>
-        <button data-view="settings" class="nav-icon-btn" title="Настройки">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 5a3 3 0 100 6A3 3 0 008 5zm0 1.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM6.5 1l-.5 1.6a5 5 0 00-1.4.8L3 3l-1.5 2.6 1.3 1a5 5 0 000 1.8l-1.3 1L3 12l1.6-.4a5 5 0 001.4.8L6.5 14h3l.5-1.6a5 5 0 001.4-.8L13 12l1.5-2.6-1.3-1a5 5 0 000-1.8l1.3-1L13 3l-1.6.4a5 5 0 00-1.4-.8L9.5 1h-3z"/></svg>
-          Настройки
-        </button>
       </nav>
 
       <div class="top-actions">
@@ -2545,6 +2583,10 @@
         <button class="help-btn" id="helpBtn" title="Знакомство с Adervis PRO">?</button>
         <button class="notif-btn" id="notifBtn" title="Уведомления" onclick="app.toggleNotifPopup()">
           🔔 <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+        </button>
+        <button class="help-btn" id="settingsIconBtn" title="Настройки" onclick="app.go('settings')" style="font-size:16px">&#9881;</button>
+        <button class="profile-avatar-btn" id="profileAvatarBtn" title="Профиль" onclick="app.go('profile')">
+          <span id="profileAvatarInner">A</span>
         </button>
         <div id="adminTopbar"></div>
       </div>
@@ -2607,6 +2649,26 @@
       </button>
     </div>
   </div>
+
+  <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Нижняя навигация">
+    <button class="mbn-item" id="mbnHome" onclick="app.go('home')" title="Сделки">
+      <svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>
+      Сделки
+    </button>
+    <button class="mbn-item" id="mbnDeal" onclick="app.go('deal')" title="Смета">
+      <svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
+      Смета
+    </button>
+    <button class="mbn-add" id="mbnAdd" onclick="app.startWizard()" title="Новая сделка">+</button>
+    <button class="mbn-item" id="mbnCalendar" onclick="app.go('global-calendar')" title="Календарь">
+      <svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>
+      Календарь
+    </button>
+    <button class="mbn-item" id="mbnMore" onclick="app.openMobileNav()" title="Ещё">
+      <svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
+      Ещё
+    </button>
+  </nav>
 
   <input type="file" id="importJsonInput" accept="application/json" hidden>
   <input type="file" id="importCatalogInput" accept="application/json" hidden>
@@ -3288,10 +3350,13 @@
       let _onlineUsers = [];
       let _authChecking = true;
 
+      const _DEFAULT_SB_URL = "https://qzeylogyledmhjpzvgkk.supabase.co";
+      const _DEFAULT_SB_KEY = "sb_publishable_E9JgbQiA7namAFiZAAbZEQ_aBn11VgJ";
+
       function getSupabaseConfig() {
         return {
-          url: localStorage.getItem("sb_url") || "",
-          key: localStorage.getItem("sb_key") || ""
+          url: localStorage.getItem("sb_url") || _DEFAULT_SB_URL,
+          key: localStorage.getItem("sb_key") || _DEFAULT_SB_KEY
         };
       }
 
@@ -3340,14 +3405,20 @@
             const newProfile = { id: userId, email, subscription_status: "trial", subscription_plan: "pro", subscription_expires_at: trial_expires };
             await _supabase.from("profiles").upsert(newProfile);
             _userProfile = newProfile;
+            // First-time user: show onboarding toast + redirect
+            setTimeout(() => {
+              pushNotification("info", "👋 Добро пожаловать в Adervis PRO!", "У вас 14 дней бесплатного доступа. Создайте первую сделку!", "");
+              toast("🎉 Аккаунт создан! 14 дней бесплатно. Создайте первую сделку.");
+            }, 1200);
           }
         } catch(e) { console.warn("Profile load:", e); }
       }
 
       async function _loadCloudState() {
-        if (!_supabase) return;
+        if (!_supabase || !_adminSession) return;
+        const userId = _adminSession.user.id;
         try {
-          const { data } = await _supabase.from("agency_state").select("state_json").eq("id", "main").single();
+          const { data } = await _supabase.from("agency_state").select("state_json").eq("id", userId).single();
           if (data && data.state_json) {
             const cloudState = data.state_json;
             const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
@@ -3361,12 +3432,13 @@
 
       function saveToCloud() {
         if (!_supabase || !_adminSession) return;
+        const userId = _adminSession.user.id;
         clearTimeout(_cloudSaveTimer);
         _cloudSaveTimer = setTimeout(async () => {
           const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
           const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
           try {
-            await _supabase.from("agency_state").upsert({ id: "main", state_json: data, updated_at: new Date().toISOString() });
+            await _supabase.from("agency_state").upsert({ id: userId, state_json: data, updated_at: new Date().toISOString() });
           } catch(e) { console.warn("Cloud save:", e); }
         }, 3000);
       }
@@ -3551,6 +3623,8 @@
                 </div>
               </div>
 
+              <p style="font-size:13px;color:var(--muted);text-align:center;margin:0 0 18px;line-height:1.5">CRM и калькулятор смет для видеопродакшна.<br>14 дней бесплатно — без карты.</p>
+
               <div class="auth-tab-bar">
                 <button class="auth-tab ${_authTab === "login" ? "active" : ""}" onclick="app.setAuthTab('login')">Вход</button>
                 <button class="auth-tab ${_authTab === "register" ? "active" : ""}" onclick="app.setAuthTab('register')">Регистрация</button>
@@ -3592,9 +3666,22 @@
                 <button class="btn small" onclick="app.useLocalMode()" style="width:100%">Локальный режим (без синхронизации)</button>
               </div>
 
-              <p style="font-size:11px;color:var(--muted);text-align:center;margin:14px 0 0;line-height:1.5">
-                Первые 14 дней — бесплатно. Затем от 990 ₽/мес.
-              </p>
+              <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
+                <div style="display:flex;justify-content:space-around;gap:8px">
+                  <div style="text-align:center">
+                    <div style="font-size:16px;font-weight:900">14</div>
+                    <div style="font-size:10px;color:var(--muted)">дней бесплатно</div>
+                  </div>
+                  <div style="text-align:center">
+                    <div style="font-size:16px;font-weight:900">890₽</div>
+                    <div style="font-size:10px;color:var(--muted)">от/мес</div>
+                  </div>
+                  <div style="text-align:center">
+                    <div style="font-size:16px;font-weight:900">∞</div>
+                    <div style="font-size:10px;color:var(--muted)">сделок</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         `;
@@ -3780,10 +3867,10 @@
       ═══════════════════════════════════════════════════════ */
       const PLANS = [
         { id: "trial", label: "Пробный", price: 0, period: "14 дней бесплатно", save: "", months: 0 },
-        { id: "month1", label: "Месяц", price: 990, period: "в месяц", save: "", months: 1 },
-        { id: "month3", label: "3 месяца", price: 799, period: "в месяц", save: "Экономия 20%", months: 3, popular: true },
-        { id: "month6", label: "6 месяцев", price: 699, period: "в месяц", save: "Экономия 30%", months: 6 },
-        { id: "year", label: "Год", price: 590, period: "в месяц", save: "Экономия 40%", months: 12 }
+        { id: "month1", label: "Месяц", price: 890, period: "в месяц", save: "", months: 1 },
+        { id: "month3", label: "3 месяца", price: 740, period: "в месяц", save: "Экономия 17%", months: 3, popular: true },
+        { id: "month6", label: "6 месяцев", price: 640, period: "в месяц", save: "Экономия 28%", months: 6 },
+        { id: "year", label: "Год", price: 520, period: "в месяц", save: "Экономия 42%", months: 12 }
       ];
 
       function renderProfile() {
@@ -3791,71 +3878,117 @@
         const sub = _userProfile;
         const subLabel = getSubscriptionLabel();
         const active = isSubscriptionActive();
+        const initial = email ? email[0].toUpperCase() : "A";
+
+        // Subscription status details
+        let subStatusBlock = "";
+        if (sub) {
+          const exp = sub.subscription_expires_at ? new Date(sub.subscription_expires_at) : null;
+          const daysLeft = exp ? Math.max(0, Math.round((exp - new Date()) / 86400000)) : null;
+          const expStr = exp ? exp.toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" }) : "";
+          const s = sub.subscription_status;
+          const planLabel = { trial: "Пробный период", month1: "Месяц", month3: "3 месяца", month6: "6 месяцев", year: "Год", pro: "PRO" }[sub.subscription_plan] || sub.subscription_plan || "PRO";
+
+          if (s === "active") {
+            subStatusBlock = `
+              <div style="background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                  <span style="font-size:20px">✅</span>
+                  <div>
+                    <div style="font-weight:900;font-size:15px;color:#86efac">Подписка активна — ${escapeHtml(planLabel)}</div>
+                    ${exp ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">Действует до: ${escapeHtml(expStr)}${daysLeft !== null ? ` (ещё ${daysLeft} дн.)` : ""}</div>` : ""}
+                  </div>
+                </div>
+              </div>`;
+          } else if (s === "trial") {
+            const urgency = daysLeft !== null && daysLeft <= 3;
+            subStatusBlock = `
+              <div style="background:rgba(202,138,4,.1);border:1px solid rgba(202,138,4,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                  <span style="font-size:20px">${urgency ? "⚠️" : "⏳"}</span>
+                  <div>
+                    <div style="font-weight:900;font-size:15px;color:${urgency ? "var(--red)" : "var(--yellow)"}">Пробный период${daysLeft !== null ? ` — осталось ${daysLeft} дн.` : ""}</div>
+                    ${exp ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">Истекает: ${escapeHtml(expStr)}</div>` : ""}
+                  </div>
+                </div>
+                <p style="font-size:13px;margin:0;color:var(--muted)">После окончания пробного периода выберите тариф ниже, чтобы продолжить работу.</p>
+              </div>`;
+          } else {
+            subStatusBlock = `
+              <div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
+                <div style="font-weight:900;color:var(--red);margin-bottom:6px">⛔ Подписка истекла</div>
+                <p style="font-size:13px;margin:0;color:var(--muted)">Выберите тариф ниже для продолжения работы.</p>
+              </div>`;
+          }
+        }
 
         return `
           <div class="panel">
-            <div class="section-title">
-              <div>
-                <h1>Мой профиль</h1>
-                <p>Аккаунт, подписка и безопасность.</p>
+            ${_adminSession ? `
+            <!-- Profile header -->
+            <div style="display:flex;align-items:center;gap:20px;margin-bottom:24px;flex-wrap:wrap">
+              <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;flex:0 0 72px;box-shadow:0 8px 28px rgba(124,58,237,.4)">
+                ${escapeHtml(initial)}
               </div>
-              ${!_adminSession ? `<button class="btn primary" onclick="app.openAdminModal()">🔐 Войти</button>` : ""}
+              <div style="flex:1;min-width:0">
+                <div style="font-size:18px;font-weight:900;margin-bottom:3px">${escapeHtml(email)}</div>
+                <div style="font-size:13px;color:var(--muted)">${escapeHtml(subLabel || "Локальный режим")}</div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn small green" onclick="app.forceSaveToCloud()">☁️ Синхронизировать</button>
+                <button class="btn small" onclick="app.adminLogout()">Выйти</button>
+              </div>
             </div>
 
-            ${_adminSession ? `
-            <div class="grid two" style="margin-bottom:24px">
+            ${subStatusBlock}
+
+            <div class="grid two" style="margin-bottom:24px;gap:14px">
               <div class="panel" style="box-shadow:none;background:var(--panel2)">
-                <h2 style="margin-top:0;font-size:17px">Аккаунт</h2>
-                <div class="field" style="margin-bottom:12px">
-                  <label>Email</label>
-                  <input value="${escapeHtml(email)}" readonly style="opacity:.7">
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-                  <span class="${active ? "sync-badge" : ""}" style="${!active ? "color:var(--red)" : ""}">
-                    ${active ? "● Подписка активна" : "⚠ Подписка истекла"}
-                  </span>
-                  ${sub ? `<span style="font-size:12px;color:var(--muted)">${escapeHtml(subLabel)}</span>` : ""}
-                </div>
-                <div class="toolbar" style="margin-top:14px;flex-wrap:wrap">
+                <h2 style="margin-top:0;font-size:15px">Безопасность</h2>
+                <div class="toolbar" style="flex-wrap:wrap;gap:8px">
                   <button class="btn small" onclick="app.openChangePassword()">🔑 Изменить пароль</button>
                   <button class="btn small danger" onclick="app.confirmDeleteAccount()">Удалить аккаунт</button>
-                  <button class="btn small" onclick="app.adminLogout()">Выйти</button>
                 </div>
               </div>
-
               <div class="panel" style="box-shadow:none;background:var(--panel2)">
-                <h2 style="margin-top:0;font-size:17px">Данные в облаке</h2>
-                <p style="font-size:13px">Ваши данные автоматически сохраняются в облаке Supabase и доступны с любого устройства.</p>
-                <div class="toolbar" style="margin-top:10px">
-                  <button class="btn small green" onclick="app.forceSaveToCloud()">☁️ Сохранить сейчас</button>
-                  <button class="btn small" onclick="app.go('settings')">⚙ Настройки</button>
-                </div>
+                <h2 style="margin-top:0;font-size:15px">Данные</h2>
+                <p style="font-size:13px;margin:0 0 10px;color:var(--muted)">Автосохранение в облаке. Данные доступны с любого устройства.</p>
+                <button class="btn small" onclick="app.go('settings')">⚙ Настройки компании →</button>
               </div>
             </div>
             ` : `
-            <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:24px;text-align:center;padding:32px">
-              <p>Вы работаете в локальном режиме. Войдите для доступа к подписке и облачному хранению.</p>
-              <button class="btn primary" onclick="app.openAdminModal()">🔐 Войти</button>
+            <div style="text-align:center;padding:40px 24px;margin-bottom:24px">
+              <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;color:#fff;margin:0 auto 20px;box-shadow:0 8px 28px rgba(124,58,237,.4)">A</div>
+              <h2 style="margin:0 0 8px">Войдите в Adervis PRO</h2>
+              <p style="color:var(--muted);margin:0 0 20px">Облачное хранение, синхронизация, подписка</p>
+              <button class="btn primary" onclick="app.openAdminModal()" style="padding:12px 32px">🔐 Войти / Зарегистрироваться</button>
+              <p style="font-size:12px;color:var(--muted);margin:14px 0 0">14 дней бесплатно · Данные хранятся локально до входа</p>
             </div>
             `}
 
-            <h2>Тарифные планы</h2>
-            <p>Напишите на <a href="mailto:adervis.digital@gmail.com" style="color:var(--primary)">adervis.digital@gmail.com</a> для оплаты и активации нужного тарифа.</p>
+            <h2 style="margin-top:0">Тарифные планы</h2>
 
-            <div class="grid five" style="margin-bottom:24px">
-              ${PLANS.map(p => `
-                <div class="plan-card ${p.popular ? "popular" : ""}">
-                  ${p.popular ? `<div class="popular-badge">Популярный</div>` : ""}
+            <div class="grid five" style="margin-bottom:24px;gap:12px">
+              ${PLANS.map(p => {
+                const isCurrent = sub && sub.subscription_plan === p.id && (sub.subscription_status === "active" || (sub.subscription_status === "trial" && p.id === "trial"));
+                return `
+                <div class="plan-card ${p.popular ? "popular" : ""}" style="${isCurrent ? "border-color:var(--green);background:rgba(22,163,74,.05)" : ""}">
+                  ${isCurrent ? `<div class="popular-badge" style="background:var(--green)">Текущий</div>` : p.popular ? `<div class="popular-badge">Популярный</div>` : ""}
                   <div class="plan-label">${escapeHtml(p.label)}</div>
                   <div class="plan-price">${p.price === 0 ? "0 ₽" : p.price + " ₽"}</div>
                   <div class="plan-period">${escapeHtml(p.period)}</div>
                   ${p.save ? `<div class="plan-save">${escapeHtml(p.save)}</div>` : ""}
-                  ${p.months > 0 ? `<div style="font-size:11px;color:var(--muted);margin-top:8px">Итого: ${p.price * p.months} ₽</div>` : ""}
-                  <a href="mailto:adervis.digital@gmail.com?subject=Подписка Adervis — ${encodeURIComponent(p.label)}" class="btn primary small" style="text-decoration:none;display:block;margin-top:14px;text-align:center">
-                    ${p.price === 0 ? "Начать бесплатно" : "Выбрать"}
+                  ${p.months > 0 ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">Итого: ${p.price * p.months} ₽</div>` : ""}
+                  <a href="mailto:adervis.digital@gmail.com?subject=${encodeURIComponent("Подписка Adervis PRO — " + p.label)}&body=${encodeURIComponent("Здравствуйте!\n\nХочу оформить тариф «" + p.label + "» (" + (p.price > 0 ? p.price * p.months + " ₽" : "Пробный") + ").\n\nEmail: " + (email || ""))}" class="btn ${p.popular ? "primary" : "small"}" style="text-decoration:none;display:block;margin-top:14px;text-align:center;${isCurrent ? "opacity:.5;pointer-events:none" : ""}">
+                    ${p.price === 0 ? "Начать бесплатно" : isCurrent ? "Активен" : "Выбрать"}
                   </a>
-                </div>
-              `).join("")}
+                </div>`;
+              }).join("")}
+            </div>
+
+            <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:14px;padding:16px 20px;margin-bottom:20px">
+              <div style="font-weight:750;margin-bottom:6px">💳 Как оплатить?</div>
+              <p style="font-size:13px;margin:0;color:var(--muted)">Нажмите «Выбрать» → откроется письмо → отправьте нам. Ответим в течение 2 часов с реквизитами для оплаты (Тинькофф / СБП). После оплаты активируем тариф вручную.</p>
             </div>
 
             <div id="changePasswordBox"></div>
@@ -3865,10 +3998,11 @@
 
       async function forceSaveToCloud() {
         if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
+        const userId = _adminSession.user.id;
         const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
         const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
         try {
-          await _supabase.from("agency_state").upsert({ id: "main", state_json: data, updated_at: new Date().toISOString() });
+          await _supabase.from("agency_state").upsert({ id: userId, state_json: data, updated_at: new Date().toISOString() });
           toast("☁️ Данные сохранены в облако");
         } catch(e) { toast("Ошибка сохранения: " + e.message); }
       }
@@ -4244,6 +4378,18 @@
         } catch {
           return String(value);
         }
+      }
+
+      function deadlineUrgency(deadline) {
+        if (!deadline) return null;
+        const today = new Date(); today.setHours(0,0,0,0);
+        const d = new Date(deadline); d.setHours(0,0,0,0);
+        const days = Math.round((d - today) / 86400000);
+        if (days < 0) return { days, level: "overdue", label: `Просрочен на ${Math.abs(days)} дн.`, color: "var(--red)" };
+        if (days === 0) return { days, level: "critical", label: "Сегодня дедлайн!", color: "var(--red)" };
+        if (days <= 7) return { days, level: "critical", label: `${days} дн. до дедлайна`, color: "var(--red)" };
+        if (days <= 14) return { days, level: "warning", label: `${days} дн. до дедлайна`, color: "var(--yellow)" };
+        return { days, level: "ok", label: `${days} дн.`, color: "var(--muted)" };
       }
 
       function taxRateByType(type) {
@@ -6800,6 +6946,7 @@
       }
 
       function startWizard() {
+        const d30 = new Date(); d30.setDate(d30.getDate() + 30);
         state.wizard = {
           step: 1,
           clientMode: "new",
@@ -6809,7 +6956,7 @@
           phone: "",
           projectName: "",
           projectType: "Видео",
-          deadline: "",
+          deadline: d30.toISOString().slice(0, 10),
           pkgFilter: "all",
         };
         state.view = "wizard";
@@ -7344,6 +7491,13 @@
           button.classList.toggle("active", isActive);
         });
 
+        // Update mobile bottom nav active states
+        const mbnViewMap = { mbnHome: ["home","wizard"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions","crm"], mbnCalendar: ["global-calendar"] };
+        Object.entries(mbnViewMap).forEach(([id, views]) => {
+          const el = document.getElementById(id);
+          if (el) el.classList.toggle("active", views.includes(state.view));
+        });
+
         const navEstimateBtn = document.getElementById("navEstimateBtn");
         if (navEstimateBtn) {
           const hasProject = selectedIds().length > 0 || state.activeProjectId;
@@ -7362,6 +7516,16 @@
         renderAdminTopbar();
         renderAuthGateEl();
         renderNotifBadge();
+
+        // Update profile avatar button
+        const paBtn = document.getElementById("profileAvatarBtn");
+        const paInner = document.getElementById("profileAvatarInner");
+        if (paBtn && paInner) {
+          paBtn.classList.toggle("active", state.view === "profile");
+          const email = _adminSession ? _adminSession.user.email : "";
+          const initial = email ? email[0].toUpperCase() : (state.company && state.company.name ? state.company.name[0].toUpperCase() : "A");
+          paInner.textContent = initial;
+        }
       }
 
       function bindDynamicInputs() {
@@ -7534,7 +7698,7 @@
                       <div class="deal-pay-bar" style="margin-top:8px;width:100%">
                         <div class="deal-pay-fill" style="width:${payPct}%"></div>
                       </div>
-                      ${project.deadline ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">до ${escapeHtml(formatDate(project.deadline))}</div>` : ""}
+                      ${project.deadline ? (() => { const u = deadlineUrgency(project.deadline); return `<div style="font-size:11px;color:${u ? u.color : "var(--muted)"};margin-top:6px;display:flex;align-items:center;gap:5px">${u && u.level !== "ok" ? `<span style="font-weight:800">⚡</span>` : ""}до ${escapeHtml(formatDate(project.deadline))}${u && u.level !== "ok" ? ` · <strong>${escapeHtml(u.label)}</strong>` : ""}</div>`; })() : ""}
 
                       <div class="deal-card-footer">
                         <button class="btn small" onclick="event.stopPropagation();app.openDeal('${project.id}')">Выбрать</button>
@@ -9796,7 +9960,7 @@
             </div>
             <div class="grid two" style="margin-top:12px">
               ${field("Дедлайн", `<input type="date" value="${escapeHtml(w.deadline)}" onchange="app.wizardSetData('deadline',this.value)">`)}
-              ${field("Примерный бюджет", `<input value="${escapeHtml(w.budget||"")}" oninput="app.wizardSetField('budget',this.value)" placeholder="Необязательно, ₽">`)}
+              ${field("Бюджет клиента", `<input value="${escapeHtml(w.budget||"")}" oninput="app.wizardSetField('budget',this.value)" placeholder="Ожидания клиента, ₽">`)}
             </div>
           `;
         }
@@ -9949,6 +10113,7 @@
                 ${state.project.client ? `<span class="badge" style="font-size:11px">${escapeHtml(state.project.client)}</span>` : ""}
                 <span class="margin-badge ${marginClass}" style="font-size:10px">${margin}% маржа</span>
                 <span class="status-pill" style="font-size:11px">${escapeHtml(state.project.crmStatus || "Лид")}</span>
+                ${(() => { const u = deadlineUrgency(state.project.deadline); if (!u || u.level === "ok") return ""; return `<span style="font-size:11px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px">⚡ ${escapeHtml(u.label)}</span>`; })()}
               </div>
 
               <div class="deal-actions-group">
@@ -9975,17 +10140,11 @@
               </div>
             </div>
 
-            <div class="deal-stage-progress no-print" style="margin-bottom:12px">
+            <div class="deal-stage-progress no-print">
               ${CRM_STATUSES.map((s, i) => {
                 const isDone = i < currentIdx;
                 const isActive = i === currentIdx;
-                return `
-                  <div class="dsp-step ${isDone ? "done" : ""} ${isActive ? "active" : ""}" onclick="app.updateProject('crmStatus','${s}')" title="Перейти: ${s}">
-                    <div class="dsp-dot"></div>
-                    <div class="dsp-label">${s}</div>
-                  </div>
-                  ${i < CRM_STATUSES.length - 1 ? `<div class="dsp-line ${isDone ? "done" : ""}"></div>` : ""}
-                `;
+                return `<div class="dsp-step ${isDone ? "done" : ""} ${isActive ? "active" : ""}" onclick="app.updateProject('crmStatus','${s}')" title="${isDone ? "✓ " : ""}${s}">${isDone ? `<div class="dsp-pill">✓ ${s}</div>` : `<div class="dsp-pill">${isActive ? "● " : ""}${s}</div>`}</div>${i < CRM_STATUSES.length - 1 ? `<div class="dsp-line ${isDone ? "done" : ""}"></div>` : ""}`;
               }).join("")}
             </div>
 
@@ -10092,21 +10251,20 @@ alter table profiles enable row level security;
 create policy "read own profile" on profiles for select using (auth.uid() = id);
 create policy "update own profile" on profiles for update using (auth.uid() = id);
 
--- 2. Таблица общего состояния агентства (единая для всей команды, v4.1+)
+-- 2. Таблица состояния — каждый пользователь хранит своё (multi-tenant, v4.2+)
 create table if not exists agency_state (
   id text primary key,
   state_json jsonb,
   updated_at timestamptz default now()
 );
 alter table agency_state enable row level security;
--- Любой авторизованный сотрудник может читать и писать общее состояние
-create policy "team read agency_state" on agency_state for select using (auth.uid() is not null);
-create policy "team insert agency_state" on agency_state for insert with check (auth.uid() is not null);
-create policy "team update agency_state" on agency_state for update using (auth.uid() is not null);
+-- Каждый пользователь видит только свою строку (id = auth.uid())
+create policy "user read own state" on agency_state for select using (id = auth.uid()::text);
+create policy "user insert own state" on agency_state for insert with check (id = auth.uid()::text);
+create policy "user update own state" on agency_state for update using (id = auth.uid()::text);
 
--- 3. Для Realtime и Presence (v4.1) — включить в Supabase Dashboard:
--- Realtime → Tables → включить для agency_state
--- Realtime → Channels → разрешить adervis-crm-v4</pre>
+-- 3. Для Realtime — включить в Supabase Dashboard:
+-- Database → Replication → agency_state → включить Insert/Update</pre>
               </details>
               ${(() => {
                 const cfg = getSupabaseConfig();
@@ -10253,6 +10411,16 @@ create policy "team update agency_state" on agency_state for update using (auth.
                   <span class="mm-icon">⚙️</span>
                   <div class="mm-label">Настройки</div>
                   <div class="mm-sub">Компания, данные</div>
+                </button>
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('knowledge')">
+                  <span class="mm-icon">📚</span>
+                  <div class="mm-label">База знаний</div>
+                  <div class="mm-sub">Скрипты и шаблоны</div>
+                </button>
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('profile')">
+                  <span class="mm-icon">👤</span>
+                  <div class="mm-label">Профиль</div>
+                  <div class="mm-sub">Аккаунт, подписка</div>
                 </button>
               </div>
             </div>
@@ -11329,11 +11497,27 @@ Email: ______________________            Email: ______________________
         kbDelete
       };
 
+      function checkDeadlineNotifications() {
+        const today = todayIso();
+        const notifKey = "adervis_deadline_notif_" + today;
+        if (localStorage.getItem(notifKey)) return; // check once per day
+        localStorage.setItem(notifKey, "1");
+        const projects = state.savedProjects || [];
+        projects.forEach(proj => {
+          if (!proj.deadline || ["Сдано", "Закрыто"].includes(proj.crmStatus || "")) return;
+          const u = deadlineUrgency(proj.deadline);
+          if (!u || u.level === "ok") return;
+          const icon = u.level === "overdue" ? "🔴" : "⚡";
+          pushNotification("deadline", icon + " " + (proj.name || "Проект"), u.label + (proj.client ? " · " + proj.client : ""), proj.id);
+        });
+      }
+
       initTheme();
       load();
       initEvents();
       render();
       initSupabase();
+      setTimeout(checkDeadlineNotifications, 1200);
     })();
   </script>
 </body>
