@@ -10,6 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Adervis">
   <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); });
@@ -4867,7 +4868,7 @@
       }
 
       function save() {
-        if (!isSubscriptionActive() && _adminSession) return;
+        if (!isSubscriptionActive()) return;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         scheduleAutoSave();
         broadcastState();

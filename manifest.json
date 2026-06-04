@@ -1,25 +1,12 @@
 {
   "name": "Adervis CRM",
   "short_name": "Adervis",
-  "description": "CRM для видеопродакшн агентств",
-  "start_url": "./",
+  "start_url": "./index.html",
   "display": "standalone",
-  "orientation": "any",
   "background_color": "#070b14",
   "theme_color": "#7c3aed",
-  "lang": "ru",
   "icons": [
-    {
-      "src": "https://via.placeholder.com/192x192/7c3aed/ffffff?text=A",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "https://via.placeholder.com/512x512/7c3aed/ffffff?text=A",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512" }
   ]
 }
