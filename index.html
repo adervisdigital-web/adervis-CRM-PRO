@@ -1043,9 +1043,17 @@
       .brand h1 { font-size: 14px; }
       .brand p { display: none; }
 
-      .top-actions { gap: 5px; min-width: 0; }
+      .top-actions { gap: 4px; min-width: 0; }
       .autosave-indicator { display: none; }
-      #themeBtn, #clientModeBtn, .help-btn, .global-add-wrap { display: none; }
+      #themeBtn, #clientModeBtn, .help-btn, .global-add-wrap, #settingsIconBtn { display: none; }
+      /* Profile page mobile fixes */
+      .plan-card { padding: 14px; }
+      .plan-card .plan-price { font-size: 22px; }
+      .section-title h1 { font-size: 20px; }
+      /* Auth gate mobile */
+      .auth-gate-box { padding: 24px 18px; max-width: 100%; margin: 8px; }
+      /* Admin indicator compact on mobile */
+      .admin-indicator { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; padding: 4px 6px; }
 
       .toolbar { flex-direction: column; align-items: stretch; }
 
@@ -1082,6 +1090,29 @@
         flex-wrap: wrap;
         gap: 6px;
       }
+
+      /* Compact topbar on mobile */
+      .presence-area { display: none; }
+      .admin-indicator { max-width: 90px; font-size: 10px; padding: 3px 7px; }
+      .profile-avatar-btn { width: 28px; height: 28px; font-size: 12px; }
+
+      /* Profile page mobile: tiers in 2 cols */
+      .grid.five { grid-template-columns: 1fr 1fr; }
+      .plan-card { padding: 12px; }
+
+      /* Cal months row compact */
+      .cal-months-row { gap: 3px; }
+      .cal-month-pill { padding: 3px 7px; font-size: 10px; }
+
+      /* Section title on mobile */
+      .section-title { gap: 10px; }
+      .section-title h1 { font-size: 20px; }
+
+      /* Deal bar compact */
+      .deal-compact-row { flex-direction: column; gap: 8px; }
+      .deal-stats-inline { flex-wrap: wrap; gap: 6px; }
+      .deal-nav-group { flex-wrap: wrap; gap: 6px; }
+      .next-action-btn { font-size: 12px; padding: 6px 10px; }
     }
 
     /* ── MOBILE BOTTOM NAV ──────────────────────── */
@@ -1660,13 +1691,14 @@
 
     /* ── REAL CALENDAR GRID ─────────────────────── */
     .cal-nav {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+      display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+      flex-wrap: nowrap;
     }
-    .cal-nav h2 { margin: 0; font-size: 22px; letter-spacing: -.02em; flex: 1; }
+    .cal-nav h2 { margin: 0; font-size: 20px; letter-spacing: -.02em; flex: 1; white-space: nowrap; }
     .cal-nav-btn {
-      padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line);
+      padding: 7px 13px; border-radius: 10px; border: 1px solid var(--line);
       background: var(--panel2); color: var(--text); font-size: 14px;
-      cursor: pointer; transition: .14s; font-weight: 750;
+      cursor: pointer; transition: .14s; font-weight: 750; flex: 0 0 auto;
     }
     .cal-nav-btn:hover { border-color: rgba(168,85,247,.5); background: rgba(124,58,237,.1); }
     .cal-nav-btn.today-btn {
@@ -1674,9 +1706,16 @@
       border-color: transparent; color: #fff;
     }
     .cal-nav-year {
-      font-size: 12px !important; opacity: .75; padding: 6px 10px !important;
+      font-size: 11px !important; opacity: .7; padding: 5px 8px !important;
     }
     .cal-nav-year:hover { opacity: 1 !important; }
+    @media (max-width: 720px) {
+      .cal-nav { gap: 5px; flex-wrap: nowrap; }
+      .cal-nav h2 { font-size: 16px; }
+      .cal-nav-year { display: none; }
+      .cal-nav-btn { padding: 6px 10px; font-size: 13px; }
+      .cal-nav-btn.today-btn { padding: 6px 12px; }
+    }
     .cal-months-row {
       display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px;
     }
@@ -3568,10 +3607,7 @@
             <button class="btn small" onclick="app.adminLogout()" style="margin-left:4px">Выйти</button>
           `;
         } else {
-          const { url } = getSupabaseConfig();
-          el.innerHTML = url
-            ? `<button class="btn small" onclick="app.openAdminModal()">🔐 Войти</button>`
-            : `<button class="btn small" onclick="app.go('settings')" title="Настройте Supabase в Настройках" style="opacity:.6">🔐 Настроить</button>`;
+          el.innerHTML = `<button class="btn small" onclick="app.exitLocalModeAndLogin()">🔐 Войти</button>`;
         }
       }
 
@@ -3763,8 +3799,16 @@
 
       function useLocalMode() {
         localStorage.setItem("adervis_local_mode", "1");
+        _authChecking = false;
         const el = document.getElementById("authGateContainer");
         if (el) el.innerHTML = "";
+      }
+
+      function exitLocalModeAndLogin() {
+        localStorage.removeItem("adervis_local_mode");
+        _authChecking = false;
+        _adminSession = null;
+        renderAuthGateEl();
       }
 
       function renderAuthGateEl() {
@@ -3957,17 +4001,19 @@
           <div class="panel">
             ${_adminSession ? `
             <!-- Profile header -->
-            <div style="display:flex;align-items:center;gap:20px;margin-bottom:24px;flex-wrap:wrap">
-              <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;flex:0 0 72px;box-shadow:0 8px 28px rgba(124,58,237,.4)">
-                ${escapeHtml(initial)}
+            <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;flex:0 0 60px;box-shadow:0 6px 20px rgba(124,58,237,.4)">
+                  ${escapeHtml(initial)}
+                </div>
+                <div style="flex:1;min-width:0;overflow:hidden">
+                  <div style="font-size:15px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(email)}</div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(subLabel || "")}</div>
+                </div>
               </div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:18px;font-weight:900;margin-bottom:3px">${escapeHtml(email)}</div>
-                <div style="font-size:13px;color:var(--muted)">${escapeHtml(subLabel || "Локальный режим")}</div>
-              </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn small green" onclick="app.forceSaveToCloud()">☁️ Синхронизировать</button>
-                <button class="btn small" onclick="app.adminLogout()">Выйти</button>
+              <div style="display:flex;gap:8px">
+                <button class="btn small green" onclick="app.forceSaveToCloud()" style="flex:1">☁️ Синхронизировать</button>
+                <button class="btn small" onclick="app.adminLogout()" style="flex:0 0 auto">Выйти</button>
               </div>
             </div>
 
@@ -4013,12 +4059,12 @@
               </div>`;
             })()}
             ` : `
-            <div style="text-align:center;padding:40px 24px;margin-bottom:24px">
-              <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;color:#fff;margin:0 auto 20px;box-shadow:0 8px 28px rgba(124,58,237,.4)">A</div>
-              <h2 style="margin:0 0 8px">Войдите в Adervis PRO</h2>
-              <p style="color:var(--muted);margin:0 0 20px">Облачное хранение, синхронизация, подписка</p>
-              <button class="btn primary" onclick="app.openAdminModal()" style="padding:12px 32px">🔐 Войти / Зарегистрироваться</button>
-              <p style="font-size:12px;color:var(--muted);margin:14px 0 0">14 дней бесплатно · Данные хранятся локально до входа</p>
+            <div style="text-align:center;padding:32px 24px;margin-bottom:24px;background:var(--panel2);border-radius:16px;border:1px solid var(--line)">
+              <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;margin:0 auto 16px;box-shadow:0 8px 28px rgba(124,58,237,.4)">A</div>
+              <h2 style="margin:0 0 6px;font-size:20px">Войдите в Adervis PRO</h2>
+              <p style="color:var(--muted);margin:0 0 18px;font-size:14px">Облачное хранение · Синхронизация · Подписка</p>
+              <button class="btn primary" onclick="app.exitLocalModeAndLogin()" style="padding:12px 28px;font-size:15px;width:100%;max-width:280px">🔐 Войти / Зарегистрироваться</button>
+              <p style="font-size:12px;color:var(--muted);margin:12px 0 0">14 дней бесплатно · Без карты · Данные не удаляются</p>
             </div>
             `}
 
@@ -11568,7 +11614,9 @@ Email: ______________________            Email: ______________________
         kbDelete,
 
         _toast: toast,
-        getAgencyId
+        getAgencyId,
+        exitLocalModeAndLogin,
+        useLocalMode
       };
 
       function checkDeadlineNotifications() {
