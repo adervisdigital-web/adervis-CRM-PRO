@@ -1045,7 +1045,7 @@
 
       .top-actions { gap: 4px; min-width: 0; }
       .autosave-indicator { display: none; }
-      #themeBtn, #clientModeBtn, .help-btn, .global-add-wrap, #settingsIconBtn { display: none; }
+      #themeBtn, #clientModeBtn, .help-btn, .global-add-wrap, #settingsIconBtn, #searchBtn { display: none; }
       /* Profile page mobile fixes */
       .plan-card { padding: 14px; }
       .plan-card .plan-price { font-size: 22px; }
@@ -1114,6 +1114,109 @@
       .deal-nav-group { flex-wrap: wrap; gap: 6px; }
       .next-action-btn { font-size: 12px; padding: 6px 10px; }
     }
+
+    /* ── GLOBAL SEARCH ──────────────────────────── */
+    .search-modal {
+      position: fixed; inset: 0; z-index: 600;
+      background: rgba(7,11,20,.75); backdrop-filter: blur(8px);
+      display: flex !important; align-items: flex-start; justify-content: center;
+      padding-top: 80px;
+    }
+    .search-box {
+      width: min(600px, calc(100vw - 32px)); background: var(--panel);
+      border-radius: 20px; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0,0,0,.5);
+      overflow: hidden;
+    }
+    .search-result {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px; cursor: pointer; transition: .1s;
+    }
+    .search-result:hover { background: rgba(124,58,237,.1); }
+    .search-result-icon { width: 32px; height: 32px; border-radius: 8px; flex: 0 0 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+    .search-result-name { font-size: 13px; font-weight: 750; }
+    .search-result-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .search-section { padding: 8px 16px 4px; font-size: 10px; font-weight: 850; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
+    /* ── PROFILE DROPDOWN ───────────────────────── */
+    .profile-dd-wrap { position: relative; }
+    .profile-dd {
+      position: absolute; top: calc(100% + 10px); right: 0;
+      width: 230px; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      z-index: 300; overflow: hidden; display: none;
+    }
+    .profile-dd.open { display: block; animation: fadeIn .15s ease; }
+    [data-theme="light"] .profile-dd { box-shadow: 0 8px 32px rgba(0,0,0,.15); }
+    .pd-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 16px 12px; border-bottom: 1px solid var(--line);
+    }
+    .pd-avatar {
+      width: 38px; height: 38px; border-radius: 50%; flex: 0 0 38px;
+      background: linear-gradient(135deg, var(--primary), var(--blue));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 900; color: #fff; overflow: hidden;
+    }
+    .pd-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .pd-email { font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pd-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .pd-sep { height: 1px; background: var(--line); margin: 4px 0; }
+    .pd-item {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; padding: 9px 16px; border: none; background: none;
+      color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer;
+      text-align: left; transition: .12s;
+    }
+    .pd-item:hover { background: rgba(124,58,237,.08); color: var(--primary2); }
+    .pd-item.danger { color: var(--red); }
+    .pd-item.danger:hover { background: rgba(220,38,38,.07); color: var(--red); }
+    .pd-item-icon { width: 18px; text-align: center; opacity: .7; font-size: 14px; flex: 0 0 18px; }
+
+    /* ── HELP DROPDOWN ───────────────────────────── */
+    .help-dd-wrap { position: relative; }
+    .help-dd {
+      position: absolute; top: calc(100% + 10px); right: 0;
+      width: 240px; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      z-index: 300; overflow: hidden; display: none; padding: 6px 0;
+    }
+    .help-dd.open { display: block; animation: fadeIn .15s ease; }
+    .help-dd-section { padding: 6px 14px 2px; font-size: 10px; font-weight: 850; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .help-dd-item {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; padding: 8px 16px; border: none; background: none;
+      color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer;
+      text-align: left; transition: .12s; text-decoration: none;
+    }
+    .help-dd-item:hover { background: rgba(124,58,237,.08); color: var(--primary2); }
+    .help-dd-item .hdi-sub { font-size: 10px; font-weight: 500; color: var(--muted); margin-top: 1px; }
+    .help-dd-item-icon { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex: 0 0 20px; }
+
+    /* ── CURRENCY DROPDOWN ───────────────────────── */
+    .currency-select-wrap { position: relative; }
+    .currency-select-btn {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      width: 100%; padding: 10px 14px; border: 1px solid var(--line);
+      border-radius: 12px; background: var(--input); color: var(--text);
+      font-size: 14px; font-weight: 700; cursor: pointer; transition: .14s;
+    }
+    .currency-select-btn:hover { border-color: rgba(124,58,237,.5); }
+    .currency-select-dd {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.3); z-index: 200; overflow: hidden;
+      display: none;
+    }
+    .currency-select-dd.open { display: block; animation: fadeIn .12s ease; }
+    .currency-opt {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; cursor: pointer; transition: .12s;
+      font-size: 13px; border: none; background: none; color: var(--text);
+      width: 100%; text-align: left;
+    }
+    .currency-opt:hover { background: rgba(124,58,237,.08); }
+    .currency-opt.active { background: rgba(124,58,237,.12); color: var(--primary2); font-weight: 750; }
+    .currency-sym { font-size: 15px; font-weight: 900; width: 22px; text-align: center; opacity: .8; }
 
     /* ── MOBILE BOTTOM NAV ──────────────────────── */
     .mobile-bottom-nav {
@@ -2582,10 +2685,6 @@
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
           База знаний
         </button>
-        <button data-view="profile" class="nav-icon-btn" title="Мой профиль">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>
-          Профиль
-        </button>
       </nav>
 
       <div class="top-actions">
@@ -2619,14 +2718,20 @@
         </div>
         <button class="btn small" id="themeBtn" title="Сменить тему">&#9681; Тема</button>
         <button class="btn small blue" id="clientModeBtn">&#128065; Клиент</button>
-        <button class="help-btn" id="helpBtn" title="Знакомство с Adervis PRO">?</button>
+        <button class="help-btn" id="searchBtn" title="Поиск (Ctrl+K)" onclick="app.openSearch()" style="font-size:15px">🔍</button>
+        <div class="help-dd-wrap" id="helpDdWrap">
+          <button class="help-btn" id="helpBtn" title="Помощь и обучение" onclick="app.toggleHelpDd()">?</button>
+          <div class="help-dd" id="helpDd"></div>
+        </div>
         <button class="notif-btn" id="notifBtn" title="Уведомления" onclick="app.toggleNotifPopup()">
           🔔 <span class="notif-badge" id="notifBadge" style="display:none">0</span>
         </button>
-        <button class="help-btn" id="settingsIconBtn" title="Настройки" onclick="app.go('settings')" style="font-size:16px">&#9881;</button>
-        <button class="profile-avatar-btn" id="profileAvatarBtn" title="Профиль" onclick="app.go('profile')">
-          <span id="profileAvatarInner">A</span>
-        </button>
+        <div class="profile-dd-wrap" id="profileDdWrap">
+          <button class="profile-avatar-btn" id="profileAvatarBtn" title="Профиль" onclick="app.toggleProfileDd()">
+            <span id="profileAvatarInner">A</span>
+          </button>
+          <div class="profile-dd" id="profileDd"></div>
+        </div>
         <div id="adminTopbar"></div>
       </div>
     </header>
@@ -2714,6 +2819,16 @@
   <div id="toast" class="toast"></div>
   <div id="printArea"></div>
   <button class="scroll-top-btn" id="scrollTopBtn" title="Наверх">&#8593;</button>
+  <div class="search-modal" id="searchModal" style="display:none" onclick="if(event.target===this)app.closeSearch()">
+    <div class="search-box">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)">
+        <span style="font-size:18px;opacity:.5">🔍</span>
+        <input id="searchInput" placeholder="Поиск по сделкам, клиентам, задачам..." style="flex:1;border:none;background:none;font-size:15px;color:var(--text);outline:none" oninput="app.runSearch(this.value)">
+        <kbd style="font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:2px 6px">Esc</kbd>
+      </div>
+      <div id="searchResults" style="max-height:380px;overflow-y:auto;padding:8px 0"></div>
+    </div>
+  </div>
   <div id="modalContainer"></div>
 
   <script>
@@ -3811,6 +3926,240 @@
         renderAuthGateEl();
       }
 
+      /* ─── USER LOCAL SETTINGS (name, avatar per user) ─── */
+      function getUserSettings() {
+        const uid = _adminSession && _adminSession.user.id;
+        if (!uid) return { displayName: "", avatarDataUrl: "" };
+        try { return JSON.parse(localStorage.getItem("adervis_us_" + uid) || "{}"); }
+        catch { return {}; }
+      }
+      function saveUserSettings(patch) {
+        const uid = _adminSession && _adminSession.user.id;
+        if (!uid) return;
+        const cur = getUserSettings();
+        localStorage.setItem("adervis_us_" + uid, JSON.stringify({ ...cur, ...patch }));
+      }
+
+      /* ─── PROFILE DROPDOWN ─── */
+      let _profileDdOpen = false;
+      function toggleProfileDd(force) {
+        _profileDdOpen = force !== undefined ? force : !_profileDdOpen;
+        renderProfileDd();
+        if (_profileDdOpen) {
+          setTimeout(() => document.addEventListener("click", _closeProfileDd, { once: true }), 10);
+        }
+      }
+      function _closeProfileDd() { _profileDdOpen = false; renderProfileDd(); }
+      function renderProfileDd() {
+        const el = document.getElementById("profileDd");
+        if (!el) return;
+        el.classList.toggle("open", _profileDdOpen);
+        if (!_profileDdOpen) { el.innerHTML = ""; return; }
+        const email = _adminSession ? _adminSession.user.email : "";
+        const subLabel = getSubscriptionLabel();
+        const us = getUserSettings();
+        const avatarHtml = us.avatarDataUrl
+          ? `<img src="${us.avatarDataUrl}" alt="">`
+          : `<span style="font-size:15px;font-weight:900">${(email||"A")[0].toUpperCase()}</span>`;
+        const active = isSubscriptionActive();
+        const localMode = !_adminSession;
+        el.innerHTML = `
+          ${localMode ? `
+            <div style="padding:14px 16px">
+              <div style="font-size:13px;font-weight:750;margin-bottom:10px">Локальный режим</div>
+              <button class="pd-item" style="padding:9px 0;width:100%;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--blue));color:#fff;justify-content:center" onclick="app.exitLocalModeAndLogin();app.toggleProfileDd(false)">🔐 Войти / Зарегистрироваться</button>
+            </div>
+          ` : `
+            <div class="pd-head">
+              <div class="pd-avatar">${avatarHtml}</div>
+              <div style="min-width:0">
+                <div class="pd-email" title="${escapeHtml(email)}">${escapeHtml(email)}</div>
+                <div class="pd-sub" style="${!active ? "color:var(--red)" : ""}">${escapeHtml(subLabel || "Активна")}</div>
+              </div>
+            </div>
+            <div class="pd-sep"></div>
+            <button class="pd-item" onclick="app.go('profile');app.toggleProfileDd(false)"><span class="pd-item-icon">👤</span>Мой профиль</button>
+            <button class="pd-item" onclick="app.go('settings');app.toggleProfileDd(false)"><span class="pd-item-icon">⚙️</span>Настройки</button>
+            <button class="pd-item" onclick="app.go('profile');app.toggleProfileDd(false)"><span class="pd-item-icon">💳</span>Тарифный план</button>
+            <div class="pd-sep"></div>
+            <button class="pd-item danger" onclick="app.adminLogout();app.toggleProfileDd(false)"><span class="pd-item-icon">→</span>Выйти</button>
+          `}
+        `;
+      }
+
+      /* ─── HELP DROPDOWN ─── */
+      let _helpDdOpen = false;
+      function toggleHelpDd(force) {
+        _helpDdOpen = force !== undefined ? force : !_helpDdOpen;
+        renderHelpDd();
+        if (_helpDdOpen) {
+          setTimeout(() => document.addEventListener("click", _closeHelpDd, { once: true }), 10);
+        }
+      }
+      function _closeHelpDd() { _helpDdOpen = false; renderHelpDd(); }
+      function renderHelpDd() {
+        const el = document.getElementById("helpDd");
+        if (!el) return;
+        el.classList.toggle("open", _helpDdOpen);
+        if (!_helpDdOpen) { el.innerHTML = ""; return; }
+        const seen = localStorage.getItem("adervis_onboarded") === "1";
+        el.innerHTML = `
+          <div style="padding:6px 0">
+            <div class="help-dd-section">Знакомство</div>
+            <button class="help-dd-item" onclick="app.openHelpModal();app.toggleHelpDd(false)">
+              <span class="help-dd-item-icon" style="background:rgba(124,58,237,.15)">✨</span>
+              <div><div>Начало работы</div>${seen ? `<div class="hdi-sub" style="color:var(--green)">Завершено ✓</div>` : `<div class="hdi-sub">Быстрый старт</div>`}</div>
+            </button>
+            <button class="help-dd-item" onclick="app.go('knowledge');app.toggleHelpDd(false)">
+              <span class="help-dd-item-icon" style="background:rgba(37,99,235,.15)">📚</span>
+              <div><div>Руководство</div><div class="hdi-sub">База знаний</div></div>
+            </button>
+            <div class="pd-sep" style="margin:6px 0"></div>
+            <div class="help-dd-section">Обновления</div>
+            <a class="help-dd-item" href="https://t.me/adervisdigital" target="_blank" rel="noopener" onclick="app.toggleHelpDd(false)">
+              <span class="help-dd-item-icon" style="background:rgba(8,145,178,.15)">✈️</span>
+              <div><div>Telegram канал</div><div class="hdi-sub">Новости и обновления</div></div>
+            </a>
+            <div class="pd-sep" style="margin:6px 0"></div>
+            <div class="help-dd-section">Получить помощь</div>
+            <a class="help-dd-item" href="mailto:adervis.digital@gmail.com?subject=Помощь по Adervis PRO" onclick="app.toggleHelpDd(false)">
+              <span class="help-dd-item-icon" style="background:rgba(22,163,74,.15)">💬</span>
+              <div><div>Написать нам</div><div class="hdi-sub">adervis.digital@gmail.com</div></div>
+            </a>
+            <button class="help-dd-item" onclick="app.go('knowledge');app.toggleHelpDd(false)">
+              <span class="help-dd-item-icon" style="background:rgba(202,138,4,.15)">🎥</span>
+              <div><div>Записаться на демо</div><div class="hdi-sub">Онлайн-показ для вас</div></div>
+            </button>
+          </div>
+        `;
+      }
+
+      /* ─── CURRENCY DROPDOWN ─── */
+      const CURRENCIES = [
+        { sym: "₽", code: "₽", label: "Российский рубль" },
+        { sym: "Br", code: "Br", label: "Белорусский рубль" },
+        { sym: "₸", code: "₸", label: "Казахстанский тенге" },
+        { sym: "с", code: "с", label: "Кыргызский сом" },
+        { sym: "$", code: "$", label: "Доллар США" },
+        { sym: "€", code: "€", label: "Евро" },
+        { sym: "£", code: "£", label: "Фунт стерлингов" },
+      ];
+      let _currencyDdOpen = false;
+      function toggleCurrencyDd() {
+        _currencyDdOpen = !_currencyDdOpen;
+        const el = document.getElementById("currencyDd");
+        if (el) el.classList.toggle("open", _currencyDdOpen);
+        if (_currencyDdOpen) setTimeout(() => document.addEventListener("click", _closeCurrencyDd, { once: true }), 10);
+      }
+      function _closeCurrencyDd() { _currencyDdOpen = false; const el = document.getElementById("currencyDd"); if (el) el.classList.remove("open"); }
+      function selectCurrency(code) {
+        state.project.currency = code;
+        save();
+        _currencyDdOpen = false;
+        render();
+      }
+
+      /* ─── UPDATE PROJECT DEADLINE FROM CARD ─── */
+      function updateProjectDeadlineCard(projectId, value) {
+        const proj = state.savedProjects.find(p => p.id === projectId);
+        if (!proj) return;
+        proj.deadline = value;
+        if (proj.snapshot && proj.snapshot.project) proj.snapshot.project.deadline = value;
+        save();
+        render();
+      }
+
+      /* ─── USER AVATAR UPLOAD ─── */
+      function uploadUserAvatar(event) {
+        const file = event.target && event.target.files && event.target.files[0];
+        if (!file || !file.type.startsWith("image/")) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          saveUserSettings({ avatarDataUrl: String(reader.result || "") });
+          render();
+          toast("Фото профиля обновлено");
+        };
+        reader.readAsDataURL(file);
+      }
+      function removeUserAvatar() {
+        saveUserSettings({ avatarDataUrl: "" });
+        render();
+        toast("Фото удалено");
+      }
+
+      /* ─── GLOBAL SEARCH ─── */
+      function openSearch() {
+        const m = document.getElementById("searchModal");
+        if (m) { m.style.display = "flex"; setTimeout(() => { const i = document.getElementById("searchInput"); if(i){i.value="";i.focus();} runSearch(""); }, 10); }
+      }
+      function closeSearch() {
+        const m = document.getElementById("searchModal");
+        if (m) m.style.display = "none";
+      }
+      function runSearch(q) {
+        const el = document.getElementById("searchResults");
+        if (!el) return;
+        q = (q || "").toLowerCase().trim();
+        if (!q) {
+          el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Начните вводить — ищем по сделкам, клиентам и задачам</div>`;
+          return;
+        }
+        const results = [];
+        (state.savedProjects || []).forEach(p => {
+          if ((p.name||"").toLowerCase().includes(q) || (p.client||"").toLowerCase().includes(q)) {
+            results.push({ type: "deal", icon: "📋", color: "rgba(124,58,237,.15)", name: p.name || "Без названия", sub: `${p.client||""} · ${money(p.total||0)} · ${p.crmStatus||"Лид"}`, action: `app.openDeal('${p.id}');app.closeSearch()` });
+          }
+        });
+        (state.clients || []).forEach(c => {
+          if ((c.name||"").toLowerCase().includes(q) || (c.company||"").toLowerCase().includes(q) || (c.phone||"").includes(q)) {
+            results.push({ type: "client", icon: "👤", color: "rgba(37,99,235,.15)", name: c.name || "Клиент", sub: `${c.company||""} · ${c.phone||""}`, action: `app.go('clients');app.closeSearch()` });
+          }
+        });
+        (state.tasks || []).forEach(t => {
+          if ((t.title||"").toLowerCase().includes(q)) {
+            results.push({ type: "task", icon: "✅", color: "rgba(8,145,178,.15)", name: t.title, sub: `${t.status||""} · ${t.deadline ? formatDate(t.deadline) : "без срока"}`, action: `app.go('deal');app.setDealView('tasks');app.closeSearch()` });
+          }
+        });
+        if (!results.length) { el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Ничего не найдено по «${escapeHtml(q)}»</div>`; return; }
+        el.innerHTML = results.slice(0,12).map(r => `
+          <div class="search-result" onclick="${r.action}">
+            <div class="search-result-icon" style="background:${r.color}">${r.icon}</div>
+            <div><div class="search-result-name">${escapeHtml(r.name)}</div><div class="search-result-sub">${escapeHtml(r.sub)}</div></div>
+          </div>`).join("");
+      }
+
+      /* ─── DUPLICATE DEAL ─── */
+      function duplicateDeal(projectId) {
+        const proj = state.savedProjects.find(p => p.id === projectId);
+        if (!proj) return;
+        const copy = deepClone(proj);
+        copy.id = uid("proj");
+        copy.name = (proj.name || "Проект") + " (копия)";
+        copy.crmStatus = "Лид";
+        copy.createdAt = new Date().toISOString();
+        if (copy.snapshot && copy.snapshot.project) {
+          copy.snapshot.project.name = copy.name;
+          copy.snapshot.project.crmStatus = "Лид";
+        }
+        state.savedProjects.unshift(copy);
+        save(); render();
+        toast("✅ Сделка продублирована: " + copy.name);
+      }
+
+      function _saveUserField(key, value) {
+        saveUserSettings({ [key]: value });
+        // Update avatar in topbar without full re-render
+        if (key === "displayName") {
+          const paBtn = document.getElementById("profileAvatarBtn");
+          const paInner = document.getElementById("profileAvatarInner");
+          if (paInner && !getUserSettings().avatarDataUrl) {
+            const email = _adminSession ? _adminSession.user.email : "";
+            const n = (value || email || "A")[0].toUpperCase();
+            paInner.textContent = n;
+          }
+        }
+      }
+
       function renderAuthGateEl() {
         const el = document.getElementById("authGateContainer");
         if (!el) return;
@@ -3954,6 +4303,11 @@
         const subLabel = getSubscriptionLabel();
         const active = isSubscriptionActive();
         const initial = email ? email[0].toUpperCase() : "A";
+        const us = getUserSettings();
+        const displayName = us.displayName || "";
+        const avatarHtml = us.avatarDataUrl
+          ? `<img src="${us.avatarDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+          : `<span style="font-size:26px;font-weight:900">${escapeHtml(initial)}</span>`;
 
         // Subscription status details
         let subStatusBlock = "";
@@ -4000,62 +4354,97 @@
         return `
           <div class="panel">
             ${_adminSession ? `
-            <!-- Profile header -->
-            <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px">
-              <div style="display:flex;align-items:center;gap:14px">
-                <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;flex:0 0 60px;box-shadow:0 6px 20px rgba(124,58,237,.4)">
-                  ${escapeHtml(initial)}
-                </div>
-                <div style="flex:1;min-width:0;overflow:hidden">
-                  <div style="font-size:15px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(email)}</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(subLabel || "")}</div>
-                </div>
+            <!-- ── PROFILE SECTION ── -->
+            <div class="section-title" style="margin-bottom:20px">
+              <div><h1 style="margin:0">Профиль</h1><p style="margin:4px 0 0;color:var(--muted)">Аккаунт, подписка и настройки</p></div>
+              <div class="toolbar" style="gap:8px">
+                <button class="btn small green" onclick="app.forceSaveToCloud()">☁️ Синхронизировать</button>
+                <button class="btn small" onclick="app.adminLogout()">→ Выйти</button>
               </div>
-              <div style="display:flex;gap:8px">
-                <button class="btn small green" onclick="app.forceSaveToCloud()" style="flex:1">☁️ Синхронизировать</button>
-                <button class="btn small" onclick="app.adminLogout()" style="flex:0 0 auto">Выйти</button>
+            </div>
+
+            <!-- Avatar + name -->
+            <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
+              <h2 style="margin-top:0;font-size:15px">Фото и имя</h2>
+              <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+                <div style="position:relative;flex:0 0 80px">
+                  <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:flex;align-items:center;justify-content:center;color:#fff;overflow:hidden;box-shadow:0 6px 20px rgba(124,58,237,.35)">
+                    ${avatarHtml}
+                  </div>
+                </div>
+                <div style="flex:1;min-width:180px">
+                  <div style="display:flex;gap:8px;margin-bottom:10px">
+                    <label class="btn small" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+                      📷 Изменить фото
+                      <input type="file" accept="image/*" onchange="app.uploadUserAvatar(event)" style="display:none">
+                    </label>
+                    ${us.avatarDataUrl ? `<button class="btn small danger" onclick="app.removeUserAvatar()">Удалить</button>` : ""}
+                  </div>
+                  <div class="grid two" style="gap:8px">
+                    <div class="field" style="margin:0">
+                      <label>Имя</label>
+                      <input placeholder="Ваше имя" value="${escapeHtml(us.displayName||"")}" oninput="app._saveUserField('displayName',this.value)">
+                    </div>
+                    <div class="field" style="margin:0">
+                      <label>Email</label>
+                      <input value="${escapeHtml(email)}" readonly style="opacity:.6">
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
             ${subStatusBlock}
 
-            <div class="grid two" style="margin-bottom:24px;gap:14px">
-              <div class="panel" style="box-shadow:none;background:var(--panel2)">
-                <h2 style="margin-top:0;font-size:15px">Безопасность</h2>
-                <div class="toolbar" style="flex-wrap:wrap;gap:8px">
-                  <button class="btn small" onclick="app.openChangePassword()">🔑 Изменить пароль</button>
-                  <button class="btn small danger" onclick="app.confirmDeleteAccount()">Удалить аккаунт</button>
-                </div>
+            <!-- Subscription block -->
+            <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
+              <h2 style="margin-top:0;font-size:15px">💳 Тарифный план</h2>
+              <div class="grid five" style="gap:10px;margin-bottom:12px">
+                ${PLANS.map(p => {
+                  const isCurrent = sub && sub.subscription_plan === p.id && (sub.subscription_status === "active" || (sub.subscription_status === "trial" && p.id === "trial"));
+                  return `
+                  <div class="plan-card ${p.popular ? "popular" : ""}" style="${isCurrent ? "border-color:var(--green);background:rgba(22,163,74,.05)" : ""}">
+                    ${isCurrent ? `<div class="popular-badge" style="background:var(--green)">Текущий</div>` : p.popular ? `<div class="popular-badge">Популярный</div>` : ""}
+                    <div class="plan-label">${escapeHtml(p.label)}</div>
+                    <div class="plan-price" style="font-size:20px">${p.price === 0 ? "0 ₽" : p.price + " ₽"}</div>
+                    <div class="plan-period">${escapeHtml(p.period)}</div>
+                    ${p.save ? `<div class="plan-save">${escapeHtml(p.save)}</div>` : ""}
+                    ${p.months > 0 ? `<div style="font-size:10px;color:var(--muted);margin-top:4px">= ${p.price * p.months} ₽</div>` : ""}
+                    <a href="mailto:adervis.digital@gmail.com?subject=${encodeURIComponent("Подписка Adervis PRO — " + p.label)}&body=${encodeURIComponent("Тариф: " + p.label + "\nEmail: " + email)}" class="btn ${p.popular ? "primary" : "small"}" style="text-decoration:none;display:block;margin-top:10px;text-align:center;${isCurrent ? "opacity:.5;pointer-events:none" : ""}">
+                      ${isCurrent ? "Активен" : p.price === 0 ? "Бесплатно" : "Выбрать"}
+                    </a>
+                  </div>`;
+                }).join("")}
               </div>
-              <div class="panel" style="box-shadow:none;background:var(--panel2)">
-                <h2 style="margin-top:0;font-size:15px">Данные</h2>
-                <p style="font-size:13px;margin:0 0 10px;color:var(--muted)">Автосохранение в облаке. Данные доступны с любого устройства.</p>
-                <button class="btn small" onclick="app.go('settings')">⚙ Настройки компании →</button>
+              <p style="font-size:12px;color:var(--muted);margin:0">Нажмите «Выбрать» → отправьте письмо → активируем в течение 2 часов (Тинькофф / СБП)</p>
+            </div>
+
+            <!-- Security -->
+            <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
+              <h2 style="margin-top:0;font-size:15px">🔐 Безопасность</h2>
+              <div id="changePasswordBox"></div>
+              <div class="toolbar" style="gap:8px;flex-wrap:wrap">
+                <button class="btn small" onclick="app.openChangePassword()">🔑 Изменить пароль</button>
+                <button class="btn small danger" onclick="app.confirmDeleteAccount()">🗑 Удалить аккаунт</button>
               </div>
             </div>
 
-            <!-- Team block -->
+            <!-- Team -->
             ${(() => {
               const agencyId = getAgencyId();
               const isOwner = _adminSession && _userProfile && _userProfile.agency_id === _adminSession.user.id;
               const onlineList = _onlineUsers.length ? _onlineUsers.map(u => `<span style="background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.3);border-radius:99px;padding:2px 10px;font-size:12px">● ${escapeHtml(u)}</span>`).join(" ") : "";
               return `
-              <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:20px">
-                <h2 style="margin-top:0;font-size:15px">👥 Команда агентства</h2>
+              <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
+                <h2 style="margin-top:0;font-size:15px">👥 Команда</h2>
                 ${isOwner ? `
-                  <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Поделитесь кодом приглашения с коллегой. При регистрации он вводит его — и сразу работает в вашем общем пространстве.</p>
+                  <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Дайте этот код коллеге — при регистрации он вводит его и попадёт в ваше агентство.</p>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                    <div style="flex:1;min-width:200px">
-                      <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em">Код приглашения</label>
-                      <div style="font-family:monospace;font-size:13px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;margin-top:4px;word-break:break-all;border:1px solid var(--line)">${escapeHtml(agencyId)}</div>
-                    </div>
-                    <button class="btn small" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(agencyId)}').then(()=>app._toast('✅ Код скопирован!'))">📋 Копировать</button>
+                    <code style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0">${escapeHtml(agencyId)}</code>
+                    <button class="btn small" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(agencyId)}').then(()=>app._toast('✅ Скопировано!'))">📋</button>
                   </div>
-                  ${onlineList ? `<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span style="font-size:12px;color:var(--muted)">Онлайн сейчас:</span>${onlineList}</div>` : ""}
-                ` : `
-                  <p style="font-size:13px;color:var(--muted);margin:0">Вы работаете в рабочем пространстве агентства: <code style="font-size:11px;opacity:.7">${escapeHtml(agencyId.slice(0,12))}...</code></p>
-                  ${onlineList ? `<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span style="font-size:12px;color:var(--muted)">Онлайн:</span>${onlineList}</div>` : ""}
-                `}
+                  ${onlineList ? `<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span style="font-size:12px;color:var(--muted)">Сейчас онлайн:</span>${onlineList}</div>` : ""}
+                ` : `<p style="font-size:13px;color:var(--muted);margin:0">Вы в команде агентства${onlineList ? ` · Онлайн: ${onlineList}` : ""}</p>`}
               </div>`;
             })()}
             ` : `
@@ -4092,8 +4481,6 @@
               <div style="font-weight:750;margin-bottom:6px">💳 Как оплатить?</div>
               <p style="font-size:13px;margin:0;color:var(--muted)">Нажмите «Выбрать» → откроется письмо → отправьте нам. Ответим в течение 2 часов с реквизитами для оплаты (Тинькофф / СБП). После оплаты активируем тариф вручную.</p>
             </div>
-
-            <div id="changePasswordBox"></div>
           </div>
         `;
       }
@@ -5027,6 +5414,12 @@
         return migrated;
       }
 
+      function sanitizeDate(d) {
+        if (!d || typeof d !== "string") return "";
+        const yr = parseInt(d.slice(0, 4), 10);
+        return (yr >= 2020 && yr <= 2099) ? d : "";
+      }
+
       function normalizeState() {
         const base = defaultState();
 
@@ -5047,8 +5440,8 @@
           catalogPrices: state.catalogPrices || {},
           priceHistory: state.priceHistory || {},
           clients: Array.isArray(state.clients) ? state.clients.map(normalizeClient) : [],
-          savedProjects: Array.isArray(state.savedProjects) ? state.savedProjects.map(normalizeSavedProject) : [],
-          tasks: Array.isArray(state.tasks) ? state.tasks.map(normalizeTask) : [],
+          savedProjects: Array.isArray(state.savedProjects) ? state.savedProjects.map(p => { const n = normalizeSavedProject(p); n.deadline = sanitizeDate(n.deadline); if (n.snapshot && n.snapshot.project) n.snapshot.project.deadline = sanitizeDate(n.snapshot.project.deadline); return n; }) : [],
+          tasks: Array.isArray(state.tasks) ? state.tasks.map(t => { const n = normalizeTask(t); n.deadline = sanitizeDate(n.deadline); return n; }) : [],
           payments: Array.isArray(state.payments) ? state.payments.map(normalizePayment) : [],
           expenses: Array.isArray(state.expenses) ? state.expenses.map(normalizeExpense) : [],
           team: Array.isArray(state.team) ? state.team.map(normalizeTeamMember) : [],
@@ -5065,6 +5458,9 @@
           kbSearch: state.kbSearch || "",
           kbCatFilter: state.kbCatFilter || "all"
         };
+
+        // Sanitize deadline on current project
+        if (state.project) state.project.deadline = sanitizeDate(state.project.deadline);
 
         Object.keys(state.selected).forEach(id => {
           if (!state.estimateOrder.includes(id)) state.estimateOrder.push(id);
@@ -7624,10 +8020,18 @@
         const paInner = document.getElementById("profileAvatarInner");
         if (paBtn && paInner) {
           paBtn.classList.toggle("active", state.view === "profile");
-          const email = _adminSession ? _adminSession.user.email : "";
-          const initial = email ? email[0].toUpperCase() : (state.company && state.company.name ? state.company.name[0].toUpperCase() : "A");
-          paInner.textContent = initial;
+          const us = getUserSettings();
+          if (us.avatarDataUrl) {
+            paInner.innerHTML = `<img src="${us.avatarDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+          } else {
+            const email = _adminSession ? _adminSession.user.email : "";
+            const initial = email ? email[0].toUpperCase() : (state.company && state.company.name ? state.company.name[0].toUpperCase() : "A");
+            paInner.textContent = initial;
+          }
         }
+        // Re-render open dropdowns
+        if (_profileDdOpen) renderProfileDd();
+        if (_helpDdOpen) renderHelpDd();
       }
 
       function bindDynamicInputs() {
@@ -7773,12 +8177,16 @@
                   const isCurrent = project.id === state.activeProjectId;
                   const payPct = project.total > 0 ? Math.min(100, Math.round((project.paid || 0) / project.total * 100)) : 0;
 
+                  const clientObj = project.clientId ? state.clients.find(c => c.id === project.clientId) : null;
                   return `
-                    <div class="deal-card ${isCurrent ? "current" : ""}" ${project.clientId ? `onclick="app.openClientModal('${project.clientId}')" style="cursor:pointer"` : ""}>
+                    <div class="deal-card ${isCurrent ? "current" : ""}">
                       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
                         <div>
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
-                          ${project.client ? `<div class="deal-card-client" style="margin-top:2px;color:var(--muted)">${escapeHtml(project.client)}</div>` : ""}
+                          <div style="display:flex;align-items:center;gap:8px;margin-top:2px;flex-wrap:wrap">
+                            ${project.client ? `<span class="deal-card-client" style="color:var(--muted)">${escapeHtml(project.client)}</span>` : ""}
+                            ${clientObj && clientObj.phone ? `<a href="tel:${escapeHtml(clientObj.phone)}" onclick="event.stopPropagation()" style="font-size:11px;color:var(--primary2);text-decoration:none;font-weight:700">📞 ${escapeHtml(clientObj.phone)}</a>` : ""}
+                          </div>
                         </div>
                         <div style="display:flex;gap:6px;align-items:center">
                           <div class="health-dot ${healthClass}" title="Маржа ${margin}%"></div>
@@ -7800,10 +8208,17 @@
                       <div class="deal-pay-bar" style="margin-top:8px;width:100%">
                         <div class="deal-pay-fill" style="width:${payPct}%"></div>
                       </div>
-                      ${project.deadline ? (() => { const u = deadlineUrgency(project.deadline); return `<div style="font-size:11px;color:${u ? u.color : "var(--muted)"};margin-top:6px;display:flex;align-items:center;gap:5px">${u && u.level !== "ok" ? `<span style="font-weight:800">⚡</span>` : ""}до ${escapeHtml(formatDate(project.deadline))}${u && u.level !== "ok" ? ` · <strong>${escapeHtml(u.label)}</strong>` : ""}</div>`; })() : ""}
+                      ${project.deadline ? (() => {
+                        const u = deadlineUrgency(project.deadline);
+                        if (!u) return "";
+                        const color = u.level === "ok" ? "var(--muted)" : u.color;
+                        const icon = u.level !== "ok" ? "⚡ " : "";
+                        return `<div style="font-size:11px;color:${color};margin-top:6px;font-weight:${u.level!=="ok"?"750":"normal"}">${icon}${escapeHtml(formatDate(project.deadline))} · ${escapeHtml(u.label)}</div>`;
+                      })() : ""}
 
                       <div class="deal-card-footer">
-                        <button class="btn small" onclick="event.stopPropagation();app.openDeal('${project.id}')">Выбрать</button>
+                        <button class="btn small" onclick="event.stopPropagation();app.openDeal('${project.id}')">Открыть</button>
+                        <button class="btn small" onclick="event.stopPropagation();app.duplicateDeal('${project.id}')" title="Дублировать сделку">⧉</button>
                         ${nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${project.id}')">${nextLabel} →</button>` : `<span class="badge">Завершено</span>`}
                       </div>
                     </div>
@@ -8324,17 +8739,30 @@
 
               ${renderLineAdvancedControls(id, itemData, line)}
 
-              ${renderLineBreakdown(id)}
+              ${(() => {
+                const bd = lineBreakdown(id);
+                if (!bd.rows.length) return "";
+                return `<div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.15);border-radius:10px;padding:10px 14px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                  <div style="font-size:12px;color:var(--muted)">${bd.rows.map(r=>`<span>${escapeHtml(r.label)}: <strong>${money(r.value)}</strong></span>`).join(" · ")}</div>
+                  <div style="font-weight:900;font-size:14px;white-space:nowrap">= ${money(bd.total)}</div>
+                </div>`;
+              })()}
 
-              <div class="grid two" style="margin-top:14px">
-                ${field("Комментарий для клиента", `<textarea data-autosave data-scope="line" data-id="${id}" data-key="clientComment">${escapeHtml(line.clientComment || "")}</textarea>`)}
-                ${field("Внутренняя заметка", `<textarea data-autosave data-scope="line" data-id="${id}" data-key="internalComment">${escapeHtml(line.internalComment || "")}</textarea>`)}
+              <div class="grid two" style="margin-top:10px;gap:8px">
+                <div class="field" style="margin:0">
+                  <label>Комментарий для клиента</label>
+                  <textarea data-autosave data-scope="line" data-id="${id}" data-key="clientComment" style="min-height:52px;resize:vertical">${escapeHtml(line.clientComment || "")}</textarea>
+                </div>
+                <div class="field" style="margin:0">
+                  <label>Внутренняя заметка</label>
+                  <textarea data-autosave data-scope="line" data-id="${id}" data-key="internalComment" style="min-height:52px;resize:vertical">${escapeHtml(line.internalComment || "")}</textarea>
+                </div>
               </div>
             `}
 
-            <div class="toolbar no-print" style="margin-top:14px">
-              <button class="btn" onclick="app.duplicateEstimateLine('${id}')">Дублировать</button>
-              <button class="btn danger" onclick="app.removeItem('${id}')">Удалить</button>
+            <div class="toolbar no-print" style="margin-top:10px;gap:6px">
+              <button class="btn small" onclick="app.duplicateEstimateLine('${id}')">Дублировать</button>
+              <button class="btn small danger" onclick="app.removeItem('${id}')">Удалить</button>
             </div>
           </article>
         `;
@@ -9940,12 +10368,12 @@
               <div class="cal-legend-item" style="margin-left:auto;font-size:11px;color:var(--muted)">Всего событий: ${events.length}</div>
             </div>
 
-            <!-- Панель выбранного дня -->
+            <!-- Selected day panel -->
             ${selDay ? `
               <div class="cal-day-panel">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-                  <h3 style="margin:0">${formatDate(selDay)}${selDay === today ? " — Сегодня" : ""}</h3>
-                  <button class="btn small" onclick="app.calSelectDay('')">Закрыть ×</button>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                  <h3 style="margin:0;font-size:15px">${formatDate(selDay)}${selDay === today ? " — Сегодня" : ""}</h3>
+                  <button class="btn small" onclick="app.calSelectDay('')">×</button>
                 </div>
                 ${selEvents.length ? selEvents.map(ev => `
                   <div class="cal-day-event-row" style="cursor:${ev.projectId ? "pointer" : "default"}"
@@ -9955,11 +10383,37 @@
                       <h4>${escapeHtml(ev.title)}</h4>
                       <p>${escapeHtml(ev.project || "")}${ev.amount ? ` · ${money(ev.amount)}` : ""} · <span style="color:${typeColor[ev.type]};font-weight:750">${typeLabel[ev.type] || ""}</span></p>
                     </div>
-                    ${ev.projectId ? `<span style="font-size:11px;color:var(--muted)">→ Открыть</span>` : ""}
+                    ${ev.projectId ? `<span style="font-size:11px;color:var(--muted)">→</span>` : ""}
                   </div>
-                `).join("") : `<div class="empty" style="padding:16px">В этот день событий нет.</div>`}
+                `).join("") : `<div class="empty" style="padding:12px">Событий нет</div>`}
               </div>
-            ` : `<p style="text-align:center;color:var(--muted);font-size:13px;margin-top:14px">Нажми на день, чтобы увидеть события</p>`}
+            ` : ""}
+
+            <!-- All month events list -->
+            ${(() => {
+              const monthEvents = events.filter(ev => ev.date && ev.date.startsWith(`${yr}-${padZ(mo)}`)).sort((a,b) => a.date.localeCompare(b.date));
+              if (!monthEvents.length) return `<p style="text-align:center;color:var(--muted);font-size:13px;margin-top:16px">Нет событий в этом месяце. Нажми на день, чтобы добавить задачу.</p>`;
+              return `
+              <div style="margin-top:18px">
+                <h3 style="margin:0 0 12px;font-size:14px;font-weight:800">Все события месяца <span style="font-size:12px;font-weight:normal;color:var(--muted)">(${monthEvents.length})</span></h3>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  ${monthEvents.map(ev => {
+                    const isToday = ev.date === today;
+                    const isPast = ev.date < today;
+                    return `
+                    <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;background:var(--panel2);border:1px solid ${isToday ? "rgba(124,58,237,.4)" : "var(--line)"};cursor:${ev.projectId ? "pointer" : "default"};transition:.12s"
+                      onclick="${ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : `app.calSelectDay('${ev.date}')`}">
+                      <div style="width:8px;height:8px;border-radius:50%;background:${typeColor[ev.type]};flex:0 0 8px"></div>
+                      <div style="flex:1;min-width:0">
+                        <div style="font-size:13px;font-weight:750;${isPast&&!isToday?"opacity:.6":""}white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(ev.title)}</div>
+                        <div style="font-size:11px;color:var(--muted)">${formatDate(ev.date)}${ev.project ? ` · ${escapeHtml(ev.project)}` : ""}${ev.amount ? ` · ${money(ev.amount)}` : ""}</div>
+                      </div>
+                      <span style="font-size:10px;color:${typeColor[ev.type]};font-weight:750;flex:0 0 auto">${escapeHtml(typeLabel[ev.type]||"")}</span>
+                    </div>`;
+                  }).join("")}
+                </div>
+              </div>`;
+            })()}
           </div>
         `;
       }
@@ -10238,7 +10692,6 @@
                   ` : ""}
                 </div>
                 ${nextCrm && state.activeProjectId && nextActionLabel ? `<button class="next-action-btn" onclick="app.advanceCrmStatus('${state.activeProjectId}')" title="→ ${nextCrm}">${nextActionLabel} →</button>` : ""}
-                <button class="btn small blue" onclick="app.setDealView('proposal')" title="Коммерческое предложение">КП</button>
               </div>
             </div>
 
@@ -10304,7 +10757,17 @@
               ${field("Логотип: путь или URL", `<input data-autosave data-scope="company" data-key="logoUrl" value="${escapeHtml(state.company.logoUrl || "logo-icon.svg")}" placeholder="logo-icon.svg">`)}
               ${field("Загрузить логотип", `<input type="file" accept="image/*" onchange="app.importCompanyLogo(event)">`)}
               ${field("Описание", `<input data-autosave data-scope="company" data-key="desc" value="${escapeHtml(state.company.desc)}">`)}
-              ${field("Валюта", `<input data-autosave data-scope="project" data-key="currency" value="${escapeHtml(state.project.currency)}">`)}
+              ${field("Валюта", `
+                <div class="currency-select-wrap">
+                  <button class="currency-select-btn" onclick="app.toggleCurrencyDd();event.stopPropagation()">
+                    <span>${escapeHtml(state.project.currency || "₽")} — ${escapeHtml((CURRENCIES.find(c=>c.code===(state.project.currency||"₽"))||CURRENCIES[0]).label)}</span>
+                    <span style="opacity:.5">▾</span>
+                  </button>
+                  <div class="currency-select-dd" id="currencyDd">
+                    ${CURRENCIES.map(c => `<button class="currency-opt ${(state.project.currency||"₽")===c.code?"active":""}" onclick="app.selectCurrency('${c.code}');event.stopPropagation()"><span class="currency-sym">${escapeHtml(c.sym)}</span>${escapeHtml(c.label)}</button>`).join("")}
+                  </div>
+                </div>
+              `)}
             </div>
 
             <div class="grid two" style="margin-top:14px">
@@ -11375,6 +11838,15 @@ Email: ______________________            Email: ______________________
             e.preventDefault();
             undo();
           }
+          if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+            e.preventDefault();
+            openSearch();
+          }
+          if (e.key === "Escape") {
+            closeSearch();
+            toggleProfileDd(false);
+            toggleHelpDd(false);
+          }
         });
 
         const themeBtn = document.getElementById("themeBtn");
@@ -11616,7 +12088,19 @@ Email: ______________________            Email: ______________________
         _toast: toast,
         getAgencyId,
         exitLocalModeAndLogin,
-        useLocalMode
+        useLocalMode,
+        toggleProfileDd,
+        toggleHelpDd,
+        toggleCurrencyDd,
+        selectCurrency,
+        updateProjectDeadlineCard,
+        uploadUserAvatar,
+        removeUserAvatar,
+        _saveUserField,
+        openSearch,
+        closeSearch,
+        runSearch,
+        duplicateDeal
       };
 
       function checkDeadlineNotifications() {
