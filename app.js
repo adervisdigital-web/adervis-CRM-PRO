@@ -980,32 +980,68 @@
       function renderAuthGate() {
         const f = _authFields;
 
+        const landingLeft = `
+          <div class="auth-gate-left">
+            <div class="auth-gate-brand">
+              <div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0">
+                <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
+              </div>
+              <div>
+                <div style="font-weight:900;font-size:20px;letter-spacing:-.3px">Adervis PRO</div>
+                <div style="font-size:12px;color:var(--muted)">CRM для видеопродакшна</div>
+              </div>
+            </div>
+
+            <h2 style="font-size:26px;font-weight:900;line-height:1.2;margin:28px 0 12px;letter-spacing:-.4px">Управляйте студией<br>как профессионал</h2>
+            <p style="font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 28px">Всё для видеопродакшна: сделки, сметы, КП,<br>финансы, договора и задачи — в одном месте.</p>
+
+            <ul class="auth-features-list">
+              <li><span class="auth-feat-icon">📋</span><div><strong>Калькулятор смет</strong><span>Быстро считайте КП с пакетами услуг</span></div></li>
+              <li><span class="auth-feat-icon">💼</span><div><strong>Воронка продаж</strong><span>Ведите сделки от брифа до оплаты</span></div></li>
+              <li><span class="auth-feat-icon">💰</span><div><strong>Финансы и аналитика</strong><span>Доходы, расходы, рентабельность</span></div></li>
+              <li><span class="auth-feat-icon">📅</span><div><strong>Задачи и дедлайны</strong><span>Командный календарь и уведомления</span></div></li>
+              <li><span class="auth-feat-icon">📄</span><div><strong>Договора и КП</strong><span>Профессиональные шаблоны для клиентов</span></div></li>
+            </ul>
+
+            <div class="auth-stats-row">
+              <div><strong>14</strong><span>дней бесплатно</span></div>
+              <div><strong>от 890₽</strong><span>в месяц</span></div>
+              <div><strong>∞</strong><span>сделок</span></div>
+            </div>
+          </div>
+        `;
+
         /* ── Forgot password form ── */
         if (_authTab === "forgot") {
           return `
             <div class="auth-gate">
-              <div class="auth-gate-box">
-                <div class="auth-gate-logo">
-                  <div class="logo" style="width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center">
-                    <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:contain">
+              <div class="auth-gate-inner">
+                ${landingLeft}
+                <div class="auth-gate-right">
+                  <div class="auth-gate-box">
+                    <div class="auth-gate-logo">
+                      <div class="logo" style="width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center">
+                        <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:24px;height:24px;object-fit:contain">
+                      </div>
+                      <div>
+                        <div style="font-weight:900;font-size:15px">Adervis PRO</div>
+                        <div style="font-size:11px;color:var(--muted)">CRM для видеопродакшна</div>
+                      </div>
+                    </div>
+                    <h3 style="font-size:16px;margin:0 0 8px">Сброс пароля</h3>
+                    <p style="font-size:13px;color:var(--muted);margin:0 0 18px;line-height:1.5">Введите email — мы отправим ссылку для восстановления пароля.</p>
+                    ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
+                    ${f.forgotSent ? `<div style="background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:10px 14px;color:var(--green);font-size:13px;margin-bottom:14px">📧 Ссылка отправлена на ${escapeHtml(f.email)}. Проверьте почту и перейдите по ссылке.</div>` : ""}
+                    <div class="field" style="margin-bottom:16px"><label>Email</label>
+                      <input type="email" placeholder="you@example.com" value="${escapeHtml(f.email)}" oninput="app.setAuthField('email',this.value)" onkeydown="if(event.key==='Enter')app.forgotPasswordSubmit()">
+                    </div>
+                    <button class="btn primary full" onclick="app.forgotPasswordSubmit()" ${f.loading || f.forgotSent ? "disabled" : ""} style="width:100%;padding:13px">
+                      ${f.loading ? "Отправка..." : f.forgotSent ? "Отправлено ✓" : "Отправить ссылку"}
+                    </button>
+                    <div style="text-align:center;margin-top:16px">
+                      <button onclick="app.setAuthTab('login')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Вернуться ко входу</button>
+                    </div>
                   </div>
-                  <div>
-                    <div style="font-weight:900;font-size:17px">Adervis PRO</div>
-                    <div style="font-size:12px;color:var(--muted)">CRM для видеопродакшна</div>
-                  </div>
-                </div>
-                <h3 style="font-size:16px;margin:0 0 8px">Сброс пароля</h3>
-                <p style="font-size:13px;color:var(--muted);margin:0 0 18px;line-height:1.5">Введите email — мы отправим ссылку для восстановления пароля.</p>
-                ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
-                ${f.forgotSent ? `<div style="background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:10px 14px;color:var(--green);font-size:13px;margin-bottom:14px">📧 Ссылка отправлена на ${escapeHtml(f.email)}. Проверьте почту и перейдите по ссылке.</div>` : ""}
-                <div class="field" style="margin-bottom:16px"><label>Email</label>
-                  <input type="email" placeholder="you@example.com" value="${escapeHtml(f.email)}" oninput="app.setAuthField('email',this.value)" onkeydown="if(event.key==='Enter')app.forgotPasswordSubmit()">
-                </div>
-                <button class="btn primary full" onclick="app.forgotPasswordSubmit()" ${f.loading || f.forgotSent ? "disabled" : ""} style="width:100%;padding:13px">
-                  ${f.loading ? "Отправка..." : f.forgotSent ? "Отправлено ✓" : "Отправить ссылку"}
-                </button>
-                <div style="text-align:center;margin-top:16px">
-                  <button onclick="app.setAuthTab('login')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Вернуться ко входу</button>
                 </div>
               </div>
             </div>
@@ -1017,77 +1053,68 @@
         const canSubmit = !f.loading && (!isRegister || f.consent);
         return `
           <div class="auth-gate">
-            <div class="auth-gate-box">
-              <div class="auth-gate-logo">
-                <div class="logo" style="width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center">
-                  <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:contain">
-                </div>
-                <div>
-                  <div style="font-weight:900;font-size:17px">Adervis PRO</div>
-                  <div style="font-size:12px;color:var(--muted)">CRM для видеопродакшна</div>
-                </div>
-              </div>
-
-              <p style="font-size:13px;color:var(--muted);text-align:center;margin:0 0 18px;line-height:1.5">CRM и калькулятор смет для видеопродакшна.<br>14 дней бесплатно — без карты.</p>
-
-              <div class="auth-tab-bar">
-                <button class="auth-tab ${!isRegister ? "active" : ""}" onclick="app.setAuthTab('login')">Вход</button>
-                <button class="auth-tab ${isRegister ? "active" : ""}" onclick="app.setAuthTab('register')">Регистрация</button>
-              </div>
-
-              ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
-
-              ${isRegister ? `
-              <div class="field" style="margin-bottom:12px"><label>Имя</label>
-                <input placeholder="Ваше имя" value="${escapeHtml(f.name)}" oninput="app.setAuthField('name',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()">
-              </div>
-              <div class="field" style="margin-bottom:12px">
-                <label style="display:flex;align-items:center;gap:6px">Код приглашения <span style="font-size:10px;color:var(--muted);font-weight:normal">(если вас пригласили в команду)</span></label>
-                <input placeholder="Вставьте код от руководителя (необязательно)" value="${escapeHtml(f.inviteCode||"")}" oninput="app.setAuthField('inviteCode',this.value)" style="font-family:monospace;font-size:12px">
-              </div>` : ""}
-
-              <div class="field" style="margin-bottom:12px"><label>Email</label>
-                <input type="email" placeholder="you@example.com" value="${escapeHtml(f.email)}" oninput="app.setAuthField('email',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()"></div>
-
-              <div class="field" style="margin-bottom:${isRegister ? "12px" : "14px"}"><label>Пароль</label>
-                <div style="position:relative">
-                  <input type="${f.showPassword ? "text" : "password"}" placeholder="••••••••" value="${escapeHtml(f.password)}" oninput="app.setAuthField('password',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()" style="padding-right:44px;width:100%">
-                  <button type="button" onclick="app.toggleAuthPasswordVisibility()" title="${f.showPassword ? "Скрыть пароль" : "Показать пароль"}" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px;line-height:1">${f.showPassword ? "🙈" : "👁"}</button>
-                </div>
-              </div>
-
-              ${!isRegister ? `
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-                <input type="checkbox" id="auth-remember-me" ${f.rememberMe ? "checked" : ""} onchange="app.setAuthField('rememberMe',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)">
-                <label for="auth-remember-me" style="font-size:13px;color:var(--muted);cursor:pointer;margin:0;user-select:none">Запомнить меня</label>
-              </div>` : `
-              <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:16px;padding:10px 12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:10px">
-                <input type="checkbox" id="auth-consent" ${f.consent ? "checked" : ""} onchange="app.setAuthField('consent',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);margin-top:1px;flex-shrink:0">
-                <label for="auth-consent" style="font-size:12px;color:var(--muted);cursor:pointer;margin:0;user-select:none;line-height:1.5">Я принимаю <a href="https://adervis.ru/docs" target="_blank" rel="noopener" style="color:var(--primary2)">Оферту и Политику конфиденциальности</a></label>
-              </div>`}
-
-              <button class="btn primary full" onclick="app.authSubmit()" ${canSubmit ? "" : "disabled"} style="width:100%;padding:13px;${!canSubmit && isRegister ? "opacity:.5;cursor:not-allowed" : ""}">
-                ${f.loading ? "Подождите..." : !isRegister ? "Войти" : "Зарегистрироваться"}
-              </button>
-
-              ${!isRegister ? `
-              <div style="text-align:center;margin-top:16px">
-                <button onclick="app.setAuthTab('forgot')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">Забыли пароль?</button>
-              </div>` : ""}
-
-              <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
-                <div style="display:flex;justify-content:space-around;gap:8px">
-                  <div style="text-align:center">
-                    <div style="font-size:16px;font-weight:900">14</div>
-                    <div style="font-size:10px;color:var(--muted)">дней бесплатно</div>
+            <div class="auth-gate-inner">
+              ${landingLeft}
+              <div class="auth-gate-right">
+                <div class="auth-gate-box">
+                  <div class="auth-gate-logo">
+                    <div class="logo" style="width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center">
+                      <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:24px;height:24px;object-fit:contain">
+                    </div>
+                    <div>
+                      <div style="font-weight:900;font-size:15px">Adervis PRO</div>
+                      <div style="font-size:11px;color:var(--muted)">CRM для видеопродакшна</div>
+                    </div>
                   </div>
-                  <div style="text-align:center">
-                    <div style="font-size:16px;font-weight:900">890₽</div>
-                    <div style="font-size:10px;color:var(--muted)">от/мес</div>
+
+                  <div class="auth-tab-bar">
+                    <button class="auth-tab ${!isRegister ? "active" : ""}" onclick="app.setAuthTab('login')">Вход</button>
+                    <button class="auth-tab ${isRegister ? "active" : ""}" onclick="app.setAuthTab('register')">Регистрация</button>
                   </div>
-                  <div style="text-align:center">
-                    <div style="font-size:16px;font-weight:900">∞</div>
-                    <div style="font-size:10px;color:var(--muted)">сделок</div>
+
+                  ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
+
+                  ${isRegister ? `
+                  <div class="field" style="margin-bottom:12px"><label>Имя</label>
+                    <input placeholder="Ваше имя" value="${escapeHtml(f.name)}" oninput="app.setAuthField('name',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()">
+                  </div>
+                  <div class="field" style="margin-bottom:12px">
+                    <label style="display:flex;align-items:center;gap:6px">Код приглашения <span style="font-size:10px;color:var(--muted);font-weight:normal">(если вас пригласили в команду)</span></label>
+                    <input placeholder="Вставьте код от руководителя (необязательно)" value="${escapeHtml(f.inviteCode||"")}" oninput="app.setAuthField('inviteCode',this.value)" style="font-family:monospace;font-size:12px">
+                  </div>` : ""}
+
+                  <div class="field" style="margin-bottom:12px"><label>Email</label>
+                    <input type="email" placeholder="you@example.com" value="${escapeHtml(f.email)}" oninput="app.setAuthField('email',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()"></div>
+
+                  <div class="field" style="margin-bottom:${isRegister ? "12px" : "14px"}"><label>Пароль</label>
+                    <div style="position:relative">
+                      <input type="${f.showPassword ? "text" : "password"}" placeholder="••••••••" value="${escapeHtml(f.password)}" oninput="app.setAuthField('password',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()" style="padding-right:44px;width:100%">
+                      <button type="button" onclick="app.toggleAuthPasswordVisibility()" title="${f.showPassword ? "Скрыть пароль" : "Показать пароль"}" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px;line-height:1">${f.showPassword ? "🙈" : "👁"}</button>
+                    </div>
+                  </div>
+
+                  ${!isRegister ? `
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+                    <input type="checkbox" id="auth-remember-me" ${f.rememberMe ? "checked" : ""} onchange="app.setAuthField('rememberMe',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)">
+                    <label for="auth-remember-me" style="font-size:13px;color:var(--muted);cursor:pointer;margin:0;user-select:none">Запомнить меня</label>
+                  </div>` : `
+                  <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:16px;padding:10px 12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:10px">
+                    <input type="checkbox" id="auth-consent" ${f.consent ? "checked" : ""} onchange="app.setAuthField('consent',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);margin-top:1px;flex-shrink:0">
+                    <label for="auth-consent" style="font-size:12px;color:var(--muted);cursor:pointer;margin:0;user-select:none;line-height:1.5">Я принимаю <a href="https://adervis.ru/docs" target="_blank" rel="noopener" style="color:var(--primary2)">Оферту и Политику конфиденциальности</a></label>
+                  </div>`}
+
+                  <button class="btn primary full" onclick="app.authSubmit()" ${canSubmit ? "" : "disabled"} style="width:100%;padding:13px;${!canSubmit && isRegister ? "opacity:.5;cursor:not-allowed" : ""}">
+                    ${f.loading ? "Подождите..." : !isRegister ? "Войти" : "Зарегистрироваться"}
+                  </button>
+
+                  ${!isRegister ? `
+                  <div style="text-align:center;margin-top:16px">
+                    <button onclick="app.setAuthTab('forgot')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">Забыли пароль?</button>
+                  </div>` : ""}
+
+                  <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:11px;color:var(--muted)">
+                    Adervis · ИНН 592110786536 ·
+                    <a href="mailto:adervis.digital@gmail.com" style="color:var(--muted)">adervis.digital@gmail.com</a>
                   </div>
                 </div>
               </div>
@@ -1221,6 +1248,7 @@
             <div class="pd-sep"></div>
             <button class="pd-item" onclick="app.go('profile');app.toggleProfileDd(false)" title="Ваш аккаунт, аватар, смена пароля"><span class="pd-item-icon">👤</span>Мой профиль</button>
             <button class="pd-item" onclick="app.go('settings');app.toggleProfileDd(false)" title="Supabase, тема, экспорт данных"><span class="pd-item-icon">⚙️</span>Настройки</button>
+            <button class="pd-item" onclick="app.go('support');app.toggleProfileDd(false)" title="Контакты и поддержка"><span class="pd-item-icon">💬</span>Поддержка</button>
             <button class="pd-item" style="background:rgba(124,58,237,.08);border-radius:10px" onclick="app.gotoSubscription();app.toggleProfileDd(false)" title="Тарифы, оплата, история платежей">
               <span class="pd-item-icon">💳</span>
               <span style="flex:1">Тарифный план</span>
@@ -1596,6 +1624,77 @@
         { id: "month6", label: "6 месяцев",   price: 640, period: "в месяц",            save: "Экономия 28%", months: 6,  maxUsers: 5 },
         { id: "year",   label: "Год",         price: 520, period: "в месяц",            save: "Экономия 42%", months: 12, maxUsers: 10 }
       ];
+
+      function renderSupport() {
+        return `
+          <div class="panel" style="max-width:680px;margin:0 auto">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px">
+              <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0">
+                <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:32px;height:32px;object-fit:contain">
+              </div>
+              <div>
+                <h1 style="margin:0;font-size:20px">Поддержка и контакты</h1>
+                <div style="font-size:13px;color:var(--muted)">Adervis PRO · CRM для видеопродакшна</div>
+              </div>
+            </div>
+
+            <div style="display:grid;gap:14px;margin-bottom:28px">
+              <a href="mailto:adervis.digital@gmail.com" class="support-card" style="text-decoration:none">
+                <div class="support-card-icon" style="background:rgba(37,99,235,.12);color:var(--blue)">✉</div>
+                <div>
+                  <div style="font-weight:700;font-size:14px;color:var(--text)">Email-поддержка</div>
+                  <div style="font-size:13px;color:var(--muted)">adervis.digital@gmail.com</div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:3px">Ответим в течение 24 часов</div>
+                </div>
+              </a>
+
+              <a href="https://t.me/adervisdigital" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
+                <div class="support-card-icon" style="background:rgba(0,136,204,.12);color:#29b6f6">▶</div>
+                <div>
+                  <div style="font-weight:700;font-size:14px;color:var(--text)">Telegram</div>
+                  <div style="font-size:13px;color:var(--muted)">@adervisdigital</div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:3px">Быстрые вопросы и обновления</div>
+                </div>
+              </a>
+
+              <a href="https://adervis.ru/docs" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
+                <div class="support-card-icon" style="background:rgba(22,163,74,.12);color:var(--green)">📄</div>
+                <div>
+                  <div style="font-weight:700;font-size:14px;color:var(--text)">Документы</div>
+                  <div style="font-size:13px;color:var(--muted)">Оферта и Политика конфиденциальности</div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:3px">adervis.ru/docs</div>
+                </div>
+              </a>
+            </div>
+
+            <div class="panel" style="background:var(--panel2);border:none;box-shadow:none">
+              <h3 style="margin:0 0 14px;font-size:15px">Реквизиты</h3>
+              <div style="display:grid;gap:8px;font-size:13px">
+                <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                  <span style="color:var(--muted)">Организация</span>
+                  <span>Самозанятый</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                  <span style="color:var(--muted)">ИНН</span>
+                  <span style="font-family:monospace">592110786536</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                  <span style="color:var(--muted)">Email</span>
+                  <a href="mailto:adervis.digital@gmail.com" style="color:var(--primary2)">adervis.digital@gmail.com</a>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                  <span style="color:var(--muted)">Приложение</span>
+                  <a href="https://app.adervis.ru" target="_blank" rel="noopener" style="color:var(--primary2)">app.adervis.ru</a>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:16px;padding:14px 16px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px;font-size:13px;color:var(--muted)">
+              Версия приложения: <strong style="color:var(--text)">4.2</strong> · Доступ предоставляется онлайн сразу после оплаты
+            </div>
+          </div>
+        `;
+      }
 
       function renderPlans() {
         const sub = _userProfile;
@@ -5410,7 +5509,8 @@
           settings: renderSettings,
           profile: renderProfile,
           plans: renderPlans,
-          knowledge: renderKnowledge
+          knowledge: renderKnowledge,
+          support: renderSupport
         };
 
         document.querySelectorAll(".nav button").forEach(button => {
@@ -5423,7 +5523,7 @@
         });
 
         // Update mobile bottom nav active states
-        const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","knowledge","catalog","packages","contracts","global-finances"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions","crm"], mbnCalendar: ["global-calendar"] };
+        const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","knowledge","catalog","packages","contracts","global-finances","support"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions","crm"], mbnCalendar: ["global-calendar"] };
         Object.entries(mbnViewMap).forEach(([id, views]) => {
           const el = document.getElementById(id);
           if (el) el.classList.toggle("active", views.includes(state.view));
@@ -5441,7 +5541,30 @@
           root.innerHTML = renderSubscriptionGate();
           return;
         }
-        root.innerHTML = (views[state.view] || renderHome)();
+        try {
+          root.innerHTML = (views[state.view] || renderHome)();
+        } catch(err) {
+          console.error("Render error:", err);
+          root.innerHTML = `
+            <div style="min-height:60vh;display:flex;align-items:center;justify-content:center;padding:32px">
+              <div style="text-align:center;max-width:460px">
+                <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;margin:0 auto 20px">
+                  <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:42px;height:42px;object-fit:contain">
+                </div>
+                <h2 style="margin:0 0 10px;font-size:22px">Что-то пошло не так</h2>
+                <p style="font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 24px">Произошла ошибка при загрузке страницы.<br>Попробуйте обновить страницу или вернуться на главную.</p>
+                <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+                  <button class="btn primary" onclick="app.go('home')">На главную</button>
+                  <button class="btn" onclick="location.reload()">Обновить страницу</button>
+                </div>
+                <div style="margin-top:20px;padding:12px;background:var(--panel2);border-radius:10px;font-size:11px;color:var(--muted);font-family:monospace;text-align:left;word-break:break-all">${escapeHtml(String(err))}</div>
+                <div style="margin-top:16px;font-size:12px;color:var(--muted)">
+                  Если ошибка повторяется — напишите нам: <a href="mailto:adervis.digital@gmail.com" style="color:var(--primary2)">adervis.digital@gmail.com</a>
+                </div>
+              </div>
+            </div>
+          `;
+        }
         bindDynamicInputs();
         renderModal();
         renderAdminTopbar();
@@ -9792,6 +9915,7 @@ Email: ______________________            Email: ______________________
 
         renderProfile,
         renderPlans,
+        renderSupport,
         forceSaveToCloud,
         openChangePassword,
         submitChangePassword,

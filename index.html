@@ -4,6 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Adervis PRO — CRM для видеопродакшна</title>
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://app.adervis.ru">
+  <meta property="og:title" content="Adervis PRO — CRM для видеопродакшна">
+  <meta property="og:description" content="Управляйте сделками, сметами и финансами видеопродакшн студии. Калькулятор КП, воронка продаж, календарь задач.">
+  <meta property="og:image" content="https://app.adervis.ru/icon-512.png">
+  <meta name="description" content="Управляйте сделками, сметами и финансами видеопродакшн студии. Калькулятор КП, воронка продаж, календарь задач.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Adervis PRO — CRM для видеопродакшна">
+  <meta name="twitter:description" content="Управляйте сделками, сметами и финансами видеопродакшн студии.">
+
   <meta name="theme-color" content="#7c3aed">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,11 +23,38 @@
   <meta name="apple-mobile-web-app-title" content="Adervis">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+  <!-- Theme: применяем сразу, до загрузки CSS — избегаем мигания -->
+  <script>
+    (function() {
+      var t = localStorage.getItem('adervis_pro_theme');
+      var theme = (t === 'light' || t === 'dark') ? t :
+        (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); });
     }
   </script>
+
+  <!-- Yandex.Metrica — замените 99999999 на ваш ID счётчика из metrika.yandex.ru -->
+  <script type="text/javascript">
+    (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+    m[i].l=1*new Date();
+    for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r){return;}}
+    k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+    (window,document,'script','https://mc.yandex.ru/metrika/tag.js','ym');
+    ym(99999999,'init',{clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true});
+  </script>
+  <noscript><div><img src="https://mc.yandex.ru/watch/99999999" style="position:absolute;left:-9999px;" alt="" /></div></noscript>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
