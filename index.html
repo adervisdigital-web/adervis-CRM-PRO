@@ -1507,7 +1507,8 @@
     }
     .deal-card:hover { border-color: rgba(168,85,247,.5); transform: translateY(-1px); }
     .deal-card.current { border-color: rgba(22,163,74,.5); }
-    .deal-card-client { font-size: 13px; font-weight: 750; }
+    .deal-card-client { font-size: 13px; font-weight: 750; transition: opacity .12s; }
+    .deal-card-client:hover { opacity: .75; }
     .deal-card-name { font-size: 15px; font-weight: 900; margin: 3px 0 8px; }
     .deal-card-footer {
       display: flex; justify-content: space-between;
@@ -1757,6 +1758,57 @@
       padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 750;
       background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.3); color: var(--text);
       cursor: pointer; max-width: 130px;
+    }
+
+    /* ── DEAL SWITCHER ────────────────────────────── */
+    .deal-switcher { position: relative; flex: 0 0 auto; }
+    .deal-switcher-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px 6px 14px; border-radius: 10px;
+      background: var(--card); border: 1px solid var(--line);
+      color: var(--text); font-size: 14px; font-weight: 800;
+      cursor: pointer; transition: border-color .15s, background .15s;
+      max-width: 240px; min-width: 0;
+    }
+    .deal-switcher-btn:hover { border-color: var(--primary2); background: var(--panel2); }
+    .deal-switcher-btn-label {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;
+    }
+    .deal-switcher-chevron {
+      flex: 0 0 auto; font-size: 10px; color: var(--muted);
+      transition: transform .15s;
+    }
+    .deal-switcher-chevron.open { transform: rotate(180deg); }
+    .deal-switcher-dropdown {
+      position: absolute; top: calc(100% + 8px); left: 0;
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 14px; box-shadow: 0 20px 56px rgba(0,0,0,.55);
+      min-width: 280px; max-width: 360px; max-height: 340px;
+      overflow-y: auto; z-index: 1001;
+      animation: fadeSlideDown .15s ease;
+      padding: 6px;
+    }
+    @keyframes fadeSlideDown {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .deal-switcher-item {
+      display: flex; flex-direction: column; gap: 3px;
+      padding: 10px 12px; border-radius: 9px;
+      cursor: pointer; transition: background .1s;
+    }
+    .deal-switcher-item:hover { background: var(--panel2); }
+    .deal-switcher-item.active { background: rgba(124,58,237,.13); }
+    .deal-switcher-item-name {
+      font-size: 13px; font-weight: 800;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .deal-switcher-item-sub {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--muted);
+    }
+    .deal-switcher-divider {
+      height: 1px; background: var(--line); margin: 4px 0;
     }
 
     /* ── ANALYTICS DATE FILTER ────────────────────── */
@@ -3569,6 +3621,13 @@
               _userProfile.agency_id = userId;
               await _supabase.from("profiles").update({ agency_id: userId }).eq("id", userId);
             }
+            // Sync avatar from cloud to local settings
+            if (data.avatar_url) {
+              const local = getUserSettings();
+              if (!local.avatarDataUrl || local.avatarDataUrl !== data.avatar_url) {
+                saveUserSettings({ avatarDataUrl: data.avatar_url });
+              }
+            }
           } else {
             // First-time user — create profile
             const trial_expires = new Date(Date.now() + 14 * 86400000).toISOString();
@@ -3623,7 +3682,7 @@
           const { data } = await _supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
           if (data && data.state_json) {
             const cloudState = data.state_json;
-            const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
+            const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen"];
             Object.entries(cloudState).forEach(([k, v]) => {
               if (!skipKeys.includes(k)) state[k] = v;
             });
@@ -3637,7 +3696,7 @@
         const agencyId = getAgencyId();
         clearTimeout(_cloudSaveTimer);
         _cloudSaveTimer = setTimeout(async () => {
-          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
+          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen"];
           const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
           try {
             await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: new Date().toISOString() });
@@ -3683,7 +3742,7 @@
             if (!payload || !payload.data) return;
             if (payload.sender && payload.sender === myEmail) return;
             const incoming = payload.data;
-            const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
+            const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen"];
             skipKeys.forEach(k => { if (k in state) incoming[k] = state[k]; });
             Object.assign(state, incoming);
             render();
@@ -3717,7 +3776,7 @@
         if (!_realtimeChannel || !_adminSession) return;
         clearTimeout(_broadcastTimer);
         _broadcastTimer = setTimeout(() => {
-          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
+          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen"];
           const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
           _realtimeChannel.send({ type: "broadcast", event: "state-sync",
             payload: { data, sender: _adminSession.user.email } });
@@ -4007,11 +4066,15 @@
               </div>
             </div>
             <div class="pd-sep"></div>
-            <button class="pd-item" onclick="app.go('profile');app.toggleProfileDd(false)"><span class="pd-item-icon">👤</span>Мой профиль</button>
-            <button class="pd-item" onclick="app.go('settings');app.toggleProfileDd(false)"><span class="pd-item-icon">⚙️</span>Настройки</button>
-            <button class="pd-item" onclick="app.go('profile');app.toggleProfileDd(false)"><span class="pd-item-icon">💳</span>Тарифный план</button>
+            <button class="pd-item" onclick="app.go('profile');app.toggleProfileDd(false)" title="Ваш аккаунт, аватар, смена пароля"><span class="pd-item-icon">👤</span>Мой профиль</button>
+            <button class="pd-item" onclick="app.go('settings');app.toggleProfileDd(false)" title="Supabase, тема, экспорт данных"><span class="pd-item-icon">⚙️</span>Настройки</button>
+            <button class="pd-item" style="background:rgba(124,58,237,.08);border-radius:10px" onclick="app.gotoSubscription();app.toggleProfileDd(false)" title="Тарифы, оплата, история платежей">
+              <span class="pd-item-icon">💳</span>
+              <span style="flex:1">Тарифный план</span>
+              <span style="font-size:10px;background:${active?"rgba(22,163,74,.18)":"rgba(220,38,38,.18)"};color:${active?"var(--green)":"var(--red)"};border-radius:99px;padding:2px 8px;font-weight:750">${escapeHtml(subLabel||"Активен")}</span>
+            </button>
             <div class="pd-sep"></div>
-            <button class="pd-item danger" onclick="app.adminLogout();app.toggleProfileDd(false)"><span class="pd-item-icon">→</span>Выйти</button>
+            <button class="pd-item danger" onclick="app.adminLogout();app.toggleProfileDd(false)" title="Выход из аккаунта"><span class="pd-item-icon">→</span>Выйти</button>
           `}
         `;
       }
@@ -4098,22 +4161,43 @@
         render();
       }
 
-      /* ─── USER AVATAR UPLOAD ─── */
+      /* ─── USER AVATAR UPLOAD (resizes to 80px, syncs to Supabase) ─── */
       function uploadUserAvatar(event) {
         const file = event.target && event.target.files && event.target.files[0];
         if (!file || !file.type.startsWith("image/")) return;
         const reader = new FileReader();
         reader.onload = () => {
-          saveUserSettings({ avatarDataUrl: String(reader.result || "") });
-          render();
-          toast("Фото профиля обновлено");
+          // Resize to 80×80 via canvas before storing
+          const img = new Image();
+          img.onload = () => {
+            const SIZE = 80;
+            const canvas = document.createElement("canvas");
+            canvas.width = SIZE; canvas.height = SIZE;
+            const ctx = canvas.getContext("2d");
+            const side = Math.min(img.width, img.height);
+            const ox = (img.width - side) / 2, oy = (img.height - side) / 2;
+            ctx.drawImage(img, ox, oy, side, side, 0, 0, SIZE, SIZE);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+            saveUserSettings({ avatarDataUrl: dataUrl });
+            _syncAvatarToCloud(dataUrl);
+            render();
+            toast("Фото профиля обновлено");
+          };
+          img.src = String(reader.result || "");
         };
         reader.readAsDataURL(file);
       }
       function removeUserAvatar() {
         saveUserSettings({ avatarDataUrl: "" });
+        _syncAvatarToCloud("");
         render();
         toast("Фото удалено");
+      }
+      async function _syncAvatarToCloud(dataUrl) {
+        if (!_supabase || !_adminSession) return;
+        try {
+          await _supabase.from("profiles").update({ avatar_url: dataUrl || null }).eq("id", _adminSession.user.id);
+        } catch(e) { console.warn("Avatar sync:", e); }
       }
 
       /* ─── GLOBAL SEARCH ─── */
@@ -4550,6 +4634,14 @@
         }
       }
 
+      function gotoSubscription() {
+        go("profile");
+        setTimeout(() => {
+          const el = document.querySelector(".plan-card");
+          if (el) el.closest(".panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 200);
+      }
+
       function checkPaymentReturn() {
         const params = new URLSearchParams(window.location.search);
         if (params.get("payment") !== "success") return;
@@ -4571,7 +4663,7 @@
       async function forceSaveToCloud() {
         if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
         const agencyId = getAgencyId();
-        const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft"];
+        const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen"];
         const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
         try {
           await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: new Date().toISOString() });
@@ -5196,6 +5288,8 @@
           adminModal: null,
           clientModal: null,
           taskModal: null,
+          dealModal: null,
+          dealSwitcherOpen: false,
           editTransactionModal: null,
           contracts: [],
           contractEditId: "",
@@ -5480,6 +5574,8 @@
           mainMenuOpen: false,
           clientModal: null,
           taskModal: null,
+          dealModal: null,
+          dealSwitcherOpen: false,
           editTransactionModal: null,
           contractEditId: old.contractEditId || "",
           calendarMonth: old.calendarMonth || "",
@@ -6881,16 +6977,23 @@
         render();
       }
 
-      function editClientFromDeal(clientId, clientName) {
-        // Find by id first; if not found, search by name; if still not found, create stub
+      function editClientFromDeal(projectId, clientId, clientName) {
+        // Find or create client
         let client = clientId ? (state.clients || []).find(c => c.id === clientId) : null;
         if (!client && clientName) client = (state.clients || []).find(c => c.name === clientName);
         if (!client) {
           client = normalizeClient({ name: clientName || "" });
           state.clients = [...(state.clients || []), client];
+          save();
         }
-        state.clientDraft = deepClone(client);
-        render();
+        // Find project deadline
+        const project = (state.savedProjects || []).find(p => p.id === projectId);
+        state.clientModal = {
+          ...deepClone(client),
+          _projectId: projectId || "",
+          _projectDeadline: project ? (project.deadline || "") : ""
+        };
+        renderModal();
       }
 
       function selectClient(id) {
@@ -7329,6 +7432,7 @@
         else if (state.helpModal) { el.innerHTML = renderHelpModal(); }
         else if (state.adminModal) { el.innerHTML = renderAdminModalHtml(); }
         else if (state.clientModal) { el.innerHTML = renderClientModalHtml(); }
+        else if (state.dealModal) { el.innerHTML = renderDealModalHtml(); }
         else if (state.taskModal) { el.innerHTML = renderTaskModalHtml(); }
         else if (state.editTransactionModal) { el.innerHTML = renderEditTransactionModal(); }
         else if (state.financeModal) { el.innerHTML = renderFinanceModal(); }
@@ -8273,17 +8377,18 @@
                   const payPct = project.total > 0 ? Math.min(100, Math.round((project.paid || 0) / project.total * 100)) : 0;
 
                   const clientObj = project.clientId ? state.clients.find(c => c.id === project.clientId) : null;
+                  const clientIdSafe = (project.clientId||"").replace(/'/g,"\\x27");
+                  const clientNameSafe = (project.client||"").replace(/'/g,"\\x27");
+                  const projectIdSafe = project.id.replace(/'/g,"");
+                  const u = project.deadline ? deadlineUrgency(project.deadline) : null;
                   return `
-                    <div class="deal-card ${isCurrent ? "current" : ""}">
+                    <div class="deal-card ${isCurrent ? "current" : ""}" onclick="app.openDealModal('${projectIdSafe}')" style="cursor:pointer" title="Редактировать сделку">
                       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-                        <div>
+                        <div style="min-width:0;flex:1">
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
-                          <div style="display:flex;align-items:center;gap:8px;margin-top:2px;flex-wrap:wrap">
-                            ${project.client ? `<button class="deal-card-client" onclick="event.stopPropagation();app.editClientFromDeal('${escapeHtml(project.clientId||"")}','${escapeHtml(project.client)}')" style="color:var(--primary2);background:none;border:none;padding:0;cursor:pointer;font:inherit;font-size:13px;font-weight:750;text-decoration:underline dotted" title="Редактировать клиента">${escapeHtml(project.client)}</button>` : ""}
-                            ${clientObj && clientObj.phone ? `<a href="tel:${escapeHtml(clientObj.phone)}" onclick="event.stopPropagation()" style="font-size:11px;color:var(--primary2);text-decoration:none;font-weight:700">📞 ${escapeHtml(clientObj.phone)}</a>` : ""}
-                          </div>
+                          ${project.client ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>` : ""}
                         </div>
-                        <div style="display:flex;gap:6px;align-items:center">
+                        <div style="display:flex;gap:6px;align-items:center;flex:0 0 auto">
                           <div class="health-dot ${healthClass}" title="Маржа ${margin}%"></div>
                           <span class="status-pill" style="font-size:11px">${escapeHtml(project.crmStatus || "Лид")}</span>
                         </div>
@@ -8303,18 +8408,12 @@
                       <div class="deal-pay-bar" style="margin-top:8px;width:100%">
                         <div class="deal-pay-fill" style="width:${payPct}%"></div>
                       </div>
-                      ${project.deadline ? (() => {
-                        const u = deadlineUrgency(project.deadline);
-                        if (!u) return "";
-                        const color = u.level === "ok" ? "var(--muted)" : u.color;
-                        const icon = u.level !== "ok" ? "⚡ " : "";
-                        return `<div style="font-size:11px;color:${color};margin-top:6px;font-weight:${u.level!=="ok"?"750":"normal"}">${icon}${escapeHtml(formatDate(project.deadline))} · ${escapeHtml(u.label)}</div>`;
-                      })() : ""}
+                      <div style="font-size:11px;margin-top:6px;font-weight:750;color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
 
-                      <div class="deal-card-footer">
-                        <button class="btn small" onclick="event.stopPropagation();app.openDeal('${project.id}')">Открыть</button>
-                        <button class="btn small" onclick="event.stopPropagation();app.duplicateDeal('${project.id}')" title="Дублировать сделку">⧉</button>
-                        ${nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${project.id}')">${nextLabel} →</button>` : `<span class="badge">Завершено</span>`}
+                      <div class="deal-card-footer" onclick="event.stopPropagation()">
+                        <button class="btn small" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету, КП, задачи">Открыть</button>
+                        <button class="btn small" onclick="app.duplicateDeal('${projectIdSafe}')" title="Дублировать сделку">⧉</button>
+                        ${nextLabel ? `<button class="next-action-btn" onclick="app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge">Завершено</span>`}
                       </div>
                     </div>
                   `;
@@ -10783,7 +10882,7 @@
             <div class="deal-compact-row">
               <div class="deal-nav-group">
                 <button class="btn small" onclick="app.go('home')">← Сделки</button>
-                <h2>${escapeHtml(state.project.name || "Без названия")}</h2>
+                <div id="dealBarSwitcher">${renderDealSwitcherHtml()}</div>
                 ${state.project.client ? `<span class="badge" style="font-size:11px">${escapeHtml(state.project.client)}</span>` : ""}
                 <span class="margin-badge ${marginClass}" style="font-size:10px">${margin}% маржа</span>
                 <span class="status-pill" style="font-size:11px">${escapeHtml(state.project.crmStatus || "Лид")}</span>
@@ -10809,7 +10908,6 @@
                     </div>
                   ` : ""}
                 </div>
-                ${nextCrm && state.activeProjectId && nextActionLabel ? `<button class="next-action-btn" onclick="app.advanceCrmStatus('${state.activeProjectId}')" title="→ ${nextCrm}">${nextActionLabel} →</button>` : ""}
               </div>
             </div>
 
@@ -10821,9 +10919,9 @@
               }).join("")}
             </div>
 
-            <div class="deal-tabs">
+            <div class="deal-tabs" style="margin-top:10px">
               ${dealTabs.map(tab => `
-                <button class="deal-tab ${state.dealView === tab.id ? "active" : ""}" onclick="app.setDealView('${tab.id}')">${escapeHtml(tab.label)}</button>
+                <button class="deal-tab ${state.dealView === tab.id ? "active" : ""}" onclick="app.setDealView('${tab.id}')" title="${tab.id === "estimate" ? "Смета проекта" : tab.id === "proposal" ? "Коммерческое предложение" : tab.id === "tasks" ? "Задачи и канбан" : tab.id === "finance" ? "Платежи и расходы" : tab.id === "team" ? "Команда проекта" : tab.id === "calendar" ? "Даты проекта" : "Версии сметы"}">${escapeHtml(tab.label)}</button>
               `).join("")}
             </div>
           </div>
@@ -11284,9 +11382,17 @@ update profiles set agency_id = id::text where agency_id is null;
           (state.savedProjects || []).forEach(p => {
             if (p.clientId === m.id) p.client = m.name || p.client;
           });
-          toast("Клиент обновлён");
+        }
+        // Сохраняем дедлайн проекта если открыто из карточки сделки
+        if (m._projectId) {
+          const proj = (state.savedProjects || []).find(p => p.id === m._projectId);
+          if (proj) {
+            proj.deadline = m._projectDeadline || "";
+            if (proj.snapshot && proj.snapshot.project) proj.snapshot.project.deadline = proj.deadline;
+          }
         }
         state.clientModal = null;
+        toast("Сохранено");
         save();
         render();
       }
@@ -11310,6 +11416,13 @@ update profiles set agency_id = id::text where agency_id is null;
                   ${["new","active","vip","paused","lost"].map(s => `<option value="${s}" ${m.status === s ? "selected" : ""}>${{new:"Новый",active:"Активный",vip:"VIP",paused:"Пауза",lost:"Потерян"}[s]}</option>`).join("")}
                 </select>`)}
               </div>
+              ${m._projectId ? `
+              <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px;padding:14px 16px;margin-bottom:14px">
+                <div style="font-size:12px;font-weight:800;color:var(--primary2);margin-bottom:10px">📅 Дедлайн проекта</div>
+                <input type="date" value="${escapeHtml(m._projectDeadline||"")}"
+                  oninput="app.setClientModalField('_projectDeadline',this.value)"
+                  style="width:100%;border-radius:10px;border:1px solid var(--line);background:var(--input);color:var(--text);padding:10px 12px;font-size:14px">
+              </div>` : ""}
               <div class="field" style="margin-bottom:14px">
                 ${field("Заметка", `<textarea style="min-height:72px" oninput="app.setClientModalField('note',this.value)" placeholder="Предпочтения, условия...">${escapeHtml(m.note || "")}</textarea>`)}
               </div>
@@ -11319,6 +11432,152 @@ update profiles set agency_id = id::text where agency_id is null;
                   <button class="btn" onclick="app.closeClientModal()">Отмена</button>
                   <button class="btn primary" onclick="app.saveClientModal()">Сохранить</button>
                 </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         СДЕЛКА MODAL (редактировать сделку из карточки)
+      ═══════════════════════════════════════════════════════ */
+      function toggleDealSwitcher(e) {
+        e && e.stopPropagation();
+        state.dealSwitcherOpen = !state.dealSwitcherOpen;
+        renderDealBar();
+      }
+      function closeDealSwitcher() {
+        if (!state.dealSwitcherOpen) return;
+        state.dealSwitcherOpen = false;
+        renderDealBar();
+      }
+      function switchDeal(projectId) {
+        state.dealSwitcherOpen = false;
+        openDeal(projectId);
+      }
+      function renderDealBar() {
+        const el = document.getElementById("dealBarSwitcher");
+        if (!el) return;
+        el.innerHTML = renderDealSwitcherHtml();
+      }
+      function renderDealSwitcherHtml() {
+        const projects = (state.savedProjects || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        const cur = state.activeProjectId;
+        const curProj = projects.find(p => p.id === cur);
+        return `
+          <div class="deal-switcher">
+            <button class="deal-switcher-btn" onclick="app.toggleDealSwitcher(event)" title="Переключить сделку">
+              <span class="deal-switcher-btn-label">${escapeHtml((curProj && curProj.name) || state.project.name || "Без названия")}</span>
+              <span class="deal-switcher-chevron ${state.dealSwitcherOpen ? "open" : ""}">▼</span>
+            </button>
+            ${state.dealSwitcherOpen ? `
+              <div class="deal-switcher-dropdown">
+                ${projects.map((p, i) => {
+                  const isActive = p.id === cur;
+                  const clientObj = p.clientId ? (state.clients || []).find(c => c.id === p.clientId) : null;
+                  const u = p.deadline ? deadlineUrgency(p.deadline) : null;
+                  return `
+                    <div class="deal-switcher-item ${isActive ? "active" : ""}" onclick="app.switchDeal('${p.id.replace(/'/g, "")}')">
+                      <div class="deal-switcher-item-name">${escapeHtml(p.name || "Без названия")}</div>
+                      <div class="deal-switcher-item-sub">
+                        ${p.client ? `<span>${escapeHtml(p.client)}</span>` : ""}
+                        <span class="status-pill" style="font-size:10px;padding:1px 7px">${escapeHtml(p.crmStatus || "Лид")}</span>
+                        ${p.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${escapeHtml(formatDate(p.deadline))}</span>` : ""}
+                      </div>
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+              <div onclick="app.closeDealSwitcher()" style="position:fixed;inset:0;z-index:1000;"></div>
+            ` : ""}
+          </div>
+        `;
+      }
+
+      function openDealModal(projectId) {
+        const project = (state.savedProjects || []).find(p => p.id === projectId);
+        if (!project) return;
+        state.dealModal = {
+          id: project.id,
+          name: project.name || "",
+          client: project.client || "",
+          clientId: project.clientId || "",
+          crmStatus: project.crmStatus || "Лид",
+          deadline: project.deadline || "",
+          manager: project.manager || "",
+          note: project.note || ""
+        };
+        renderModal();
+      }
+      function closeDealModal() {
+        state.dealModal = null;
+        renderModal();
+      }
+      function setDealModalField(key, value) {
+        if (!state.dealModal) return;
+        state.dealModal[key] = value;
+      }
+      function saveDealModal() {
+        const m = state.dealModal;
+        if (!m) return;
+        const proj = (state.savedProjects || []).find(p => p.id === m.id);
+        if (proj) {
+          proj.name = m.name || proj.name;
+          proj.crmStatus = m.crmStatus || proj.crmStatus;
+          proj.deadline = m.deadline || "";
+          proj.manager = m.manager || "";
+          proj.note = m.note || "";
+          if (proj.snapshot && proj.snapshot.project) {
+            proj.snapshot.project.deadline = proj.deadline;
+            proj.snapshot.project.crmStatus = proj.crmStatus;
+            proj.snapshot.project.name = proj.name;
+            proj.snapshot.project.manager = proj.manager;
+            proj.snapshot.project.note = proj.note;
+          }
+          if (proj.id === state.activeProjectId) {
+            state.project.name = proj.name;
+            state.project.crmStatus = proj.crmStatus;
+            state.project.deadline = proj.deadline;
+            state.project.manager = proj.manager;
+            state.project.note = proj.note;
+          }
+        }
+        state.dealModal = null;
+        toast("Сделка сохранена");
+        save();
+        render();
+      }
+      function renderDealModalHtml() {
+        const m = state.dealModal;
+        if (!m) return "";
+        const u = m.deadline ? deadlineUrgency(m.deadline) : null;
+        return `
+          <div class="modal-overlay" onclick="event.target===this&&app.closeDealModal()">
+            <div class="modal-box" style="width:min(560px,calc(100vw - 32px))">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+                <h2 style="margin:0;font-size:20px">Редактировать сделку</h2>
+                <button onclick="app.closeDealModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
+              </div>
+              <div class="grid two" style="margin-bottom:12px">
+                ${field("Название сделки *", `<input value="${escapeHtml(m.name || "")}" oninput="app.setDealModalField('name',this.value)" placeholder="Название проекта">`)}
+                ${field("Клиент", `<input value="${escapeHtml(m.client || "")}" readonly style="opacity:.65;cursor:not-allowed" title="Клиент изменяется в карточке клиента">`)}
+                ${field("Статус воронки", `<select onchange="app.setDealModalField('crmStatus',this.value)">
+                  ${CRM_STATUSES.map(s => `<option value="${s}" ${m.crmStatus === s ? "selected" : ""}>${s}</option>`).join("")}
+                </select>`)}
+                ${field("Менеджер", `<input value="${escapeHtml(m.manager || "")}" oninput="app.setDealModalField('manager',this.value)" placeholder="Имя менеджера">`)}
+              </div>
+              <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px;padding:14px 16px;margin-bottom:14px">
+                <div style="font-size:12px;font-weight:800;color:var(--primary2);margin-bottom:10px">📅 Дедлайн проекта${u && u.level !== "ok" ? ` <span style="color:${u.color};font-weight:700">· ${escapeHtml(u.label)}</span>` : ""}</div>
+                <input type="date" value="${escapeHtml(m.deadline||"")}"
+                  oninput="app.setDealModalField('deadline',this.value)"
+                  style="width:100%;border-radius:10px;border:1px solid var(--line);background:var(--input);color:var(--text);padding:10px 12px;font-size:14px">
+              </div>
+              <div class="field" style="margin-bottom:14px">
+                ${field("Заметка", `<textarea style="min-height:72px" oninput="app.setDealModalField('note',this.value)" placeholder="Дополнительная информация...">${escapeHtml(m.note || "")}</textarea>`)}
+              </div>
+              <div style="display:flex;justify-content:flex-end;gap:8px">
+                <button class="btn" onclick="app.closeDealModal()">Отмена</button>
+                <button class="btn primary" onclick="app.saveDealModal()">Сохранить</button>
               </div>
             </div>
           </div>
@@ -12152,6 +12411,15 @@ Email: ______________________            Email: ______________________
         closeClientModal,
         setClientModalField,
         saveClientModal,
+
+        toggleDealSwitcher,
+        closeDealSwitcher,
+        switchDeal,
+
+        openDealModal,
+        closeDealModal,
+        setDealModalField,
+        saveDealModal,
 
         openTaskModal,
         closeTaskModal,
