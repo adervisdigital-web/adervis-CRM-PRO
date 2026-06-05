@@ -840,7 +840,8 @@
         if (!_supabase) return;
         if (_realtimeChannel) _realtimeChannel.unsubscribe();
         const myEmail = _adminSession && _adminSession.user && _adminSession.user.email || "";
-        _realtimeChannel = _supabase.channel("adervis-crm-v4", {
+        const _channelAgencyId = getAgencyId();
+        _realtimeChannel = _supabase.channel(`adervis-crm-${_channelAgencyId}`, {
           config: { presence: { key: myEmail } }
         });
         _realtimeChannel
@@ -969,11 +970,47 @@
       /* ═══════════════════════════════════════════════════════
          AUTH GATE
       ═══════════════════════════════════════════════════════ */
-      let _authTab = "login"; // "login" | "register"
-      let _authFields = { email: "", password: "", name: "", inviteCode: "", error: "", loading: false, showPassword: false, rememberMe: true };
+      let _authTab = "login"; // "login" | "register" | "forgot"
+      let _authFields = { email: "", password: "", name: "", inviteCode: "", error: "", loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
 
       function renderAuthGate() {
         const f = _authFields;
+
+        /* ── Forgot password form ── */
+        if (_authTab === "forgot") {
+          return `
+            <div class="auth-gate">
+              <div class="auth-gate-box">
+                <div class="auth-gate-logo">
+                  <div class="logo" style="width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center">
+                    <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:contain">
+                  </div>
+                  <div>
+                    <div style="font-weight:900;font-size:17px">Adervis PRO</div>
+                    <div style="font-size:12px;color:var(--muted)">CRM для видеопродакшна</div>
+                  </div>
+                </div>
+                <h3 style="font-size:16px;margin:0 0 8px">Сброс пароля</h3>
+                <p style="font-size:13px;color:var(--muted);margin:0 0 18px;line-height:1.5">Введите email — мы отправим ссылку для восстановления пароля.</p>
+                ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
+                ${f.forgotSent ? `<div style="background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:10px 14px;color:var(--green);font-size:13px;margin-bottom:14px">📧 Ссылка отправлена на ${escapeHtml(f.email)}. Проверьте почту и перейдите по ссылке.</div>` : ""}
+                <div class="field" style="margin-bottom:16px"><label>Email</label>
+                  <input type="email" placeholder="you@example.com" value="${escapeHtml(f.email)}" oninput="app.setAuthField('email',this.value)" onkeydown="if(event.key==='Enter')app.forgotPasswordSubmit()">
+                </div>
+                <button class="btn primary full" onclick="app.forgotPasswordSubmit()" ${f.loading || f.forgotSent ? "disabled" : ""} style="width:100%;padding:13px">
+                  ${f.loading ? "Отправка..." : f.forgotSent ? "Отправлено ✓" : "Отправить ссылку"}
+                </button>
+                <div style="text-align:center;margin-top:16px">
+                  <button onclick="app.setAuthTab('login')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Вернуться ко входу</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        /* ── Login / Register form ── */
+        const isRegister = _authTab === "register";
+        const canSubmit = !f.loading && (!isRegister || f.consent);
         return `
           <div class="auth-gate">
             <div class="auth-gate-box">
@@ -990,13 +1027,13 @@
               <p style="font-size:13px;color:var(--muted);text-align:center;margin:0 0 18px;line-height:1.5">CRM и калькулятор смет для видеопродакшна.<br>14 дней бесплатно — без карты.</p>
 
               <div class="auth-tab-bar">
-                <button class="auth-tab ${_authTab === "login" ? "active" : ""}" onclick="app.setAuthTab('login')">Вход</button>
-                <button class="auth-tab ${_authTab === "register" ? "active" : ""}" onclick="app.setAuthTab('register')">Регистрация</button>
+                <button class="auth-tab ${!isRegister ? "active" : ""}" onclick="app.setAuthTab('login')">Вход</button>
+                <button class="auth-tab ${isRegister ? "active" : ""}" onclick="app.setAuthTab('register')">Регистрация</button>
               </div>
 
               ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
 
-              ${_authTab === "register" ? `
+              ${isRegister ? `
               <div class="field" style="margin-bottom:12px"><label>Имя</label>
                 <input placeholder="Ваше имя" value="${escapeHtml(f.name)}" oninput="app.setAuthField('name',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()">
               </div>
@@ -1008,33 +1045,31 @@
               <div class="field" style="margin-bottom:12px"><label>Email</label>
                 <input type="email" placeholder="you@example.com" value="${escapeHtml(f.email)}" oninput="app.setAuthField('email',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()"></div>
 
-              <div class="field" style="margin-bottom:${_authTab === "login" ? "14px" : "20px"}"><label>Пароль</label>
+              <div class="field" style="margin-bottom:${isRegister ? "12px" : "14px"}"><label>Пароль</label>
                 <div style="position:relative">
                   <input type="${f.showPassword ? "text" : "password"}" placeholder="••••••••" value="${escapeHtml(f.password)}" oninput="app.setAuthField('password',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()" style="padding-right:44px;width:100%">
                   <button type="button" onclick="app.toggleAuthPasswordVisibility()" title="${f.showPassword ? "Скрыть пароль" : "Показать пароль"}" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px;line-height:1">${f.showPassword ? "🙈" : "👁"}</button>
                 </div>
               </div>
 
-              ${_authTab === "login" ? `
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+              ${!isRegister ? `
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
                 <input type="checkbox" id="auth-remember-me" ${f.rememberMe ? "checked" : ""} onchange="app.setAuthField('rememberMe',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)">
                 <label for="auth-remember-me" style="font-size:13px;color:var(--muted);cursor:pointer;margin:0;user-select:none">Запомнить меня</label>
-              </div>` : `<div style="margin-bottom:20px"></div>`}
+              </div>` : `
+              <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:16px;padding:10px 12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:10px">
+                <input type="checkbox" id="auth-consent" ${f.consent ? "checked" : ""} onchange="app.setAuthField('consent',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);margin-top:1px;flex-shrink:0">
+                <label for="auth-consent" style="font-size:12px;color:var(--muted);cursor:pointer;margin:0;user-select:none;line-height:1.5">Я принимаю <a href="https://adervis.ru/docs" target="_blank" rel="noopener" style="color:var(--primary2)">Оферту и Политику конфиденциальности</a></label>
+              </div>`}
 
-              <button class="btn primary full" onclick="app.authSubmit()" ${f.loading ? "disabled" : ""} style="width:100%;padding:13px">
-                ${f.loading ? "Подождите..." : _authTab === "login" ? "Войти" : "Зарегистрироваться"}
+              <button class="btn primary full" onclick="app.authSubmit()" ${canSubmit ? "" : "disabled"} style="width:100%;padding:13px;${!canSubmit && isRegister ? "opacity:.5;cursor:not-allowed" : ""}">
+                ${f.loading ? "Подождите..." : !isRegister ? "Войти" : "Зарегистрироваться"}
               </button>
 
+              ${!isRegister ? `
               <div style="text-align:center;margin-top:16px">
-                <button onclick="app.setAuthTab('forgot')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">
-                  ${_authTab === "login" ? "Забыли пароль?" : ""}
-                </button>
-              </div>
-
-              <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line);text-align:center">
-                <p style="font-size:12px;color:var(--muted);margin:0 0 10px">Или продолжить без аккаунта</p>
-                <button class="btn small" onclick="app.useLocalMode()" style="width:100%">Локальный режим (без синхронизации)</button>
-              </div>
+                <button onclick="app.setAuthTab('forgot')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">Забыли пароль?</button>
+              </div>` : ""}
 
               <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
                 <div style="display:flex;justify-content:space-around;gap:8px">
@@ -1058,15 +1093,15 @@
       }
 
       function setAuthTab(tab) {
-        _authTab = tab === "forgot" ? "forgot" : tab;
+        _authTab = ["login","register","forgot"].includes(tab) ? tab : "login";
         _authFields.error = "";
+        _authFields.forgotSent = false;
         renderAuthGateEl();
       }
 
       function setAuthField(key, val) {
         _authFields[key] = val;
-        // Для чекбокса remember me и глазка перерисовываем сразу
-        if (key === "rememberMe" || key === "showPassword") renderAuthGateEl();
+        if (key === "rememberMe" || key === "showPassword" || key === "consent") renderAuthGateEl();
       }
 
       function toggleAuthPasswordVisibility() {
@@ -1078,6 +1113,7 @@
         const f = _authFields;
         if (!f.email || !f.password) { f.error = "Введите email и пароль"; renderAuthGateEl(); return; }
         if (!_supabase) { f.error = "Supabase не настроен — настройте в разделе Настройки"; renderAuthGateEl(); return; }
+        if (_authTab === "register" && !f.consent) { f.error = "Необходимо принять Оферту и Политику конфиденциальности"; renderAuthGateEl(); return; }
         f.loading = true; f.error = ""; renderAuthGateEl();
 
         if (_authTab === "register") {
@@ -1087,37 +1123,44 @@
           f.loading = false;
           if (error) { f.error = error.message; _pendingInviteCode = ""; renderAuthGateEl(); return; }
           if (!signUpData.session) {
-            // Email confirmation required — show clear instruction
-            _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `📧 Письмо отправлено на ${f.email}. Перейдите по ссылке в письме для активации, затем войдите здесь.`, loading: false, showPassword: false, rememberMe: true };
+            _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `📧 Письмо отправлено на ${f.email}. Перейдите по ссылке в письме для активации, затем войдите здесь.`, loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
             _authTab = "login"; renderAuthGateEl(); return;
           }
-          f.error = ""; _authFields = { email: "", password: "", name: "", inviteCode: "", error: "✅ Аккаунт создан! Войдите ниже.", loading: false, showPassword: false, rememberMe: true };
+          f.error = ""; _authFields = { email: "", password: "", name: "", inviteCode: "", error: "✅ Аккаунт создан! Войдите ниже.", loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
           _authTab = "login"; renderAuthGateEl();
         } else {
           const rememberMe = f.rememberMe;
           const { error } = await _supabase.auth.signInWithPassword({ email: f.email, password: f.password });
           f.loading = false;
           if (error) { f.error = error.message === "Invalid login credentials" ? "Неверный email или пароль" : error.message; renderAuthGateEl(); return; }
-          // Если "не запоминать" — выйти при закрытии вкладки
           if (!rememberMe) {
             window.addEventListener("beforeunload", () => { _supabase && _supabase.auth.signOut(); }, { once: true });
           }
-          // onAuthStateChange will handle the rest
         }
       }
 
-      function useLocalMode() {
-        localStorage.setItem("adervis_local_mode", "1");
-        _authChecking = false;
-        const el = document.getElementById("authGateContainer");
-        if (el) el.innerHTML = "";
+      async function forgotPasswordSubmit() {
+        const f = _authFields;
+        if (!f.email) { f.error = "Введите email"; renderAuthGateEl(); return; }
+        if (!_supabase) { f.error = "Supabase не настроен"; renderAuthGateEl(); return; }
+        f.loading = true; f.error = ""; renderAuthGateEl();
+        const { error } = await _supabase.auth.resetPasswordForEmail(f.email);
+        f.loading = false;
+        if (error) { f.error = error.message; renderAuthGateEl(); return; }
+        f.forgotSent = true;
+        renderAuthGateEl();
       }
 
       function exitLocalModeAndLogin() {
         localStorage.removeItem("adervis_local_mode");
-        _authChecking = false;
-        _adminSession = null;
         renderAuthGateEl();
+        render();
+      }
+
+      function useLocalMode() {
+        localStorage.setItem("adervis_local_mode", "1");
+        renderAuthGateEl();
+        render();
       }
 
       /* ─── USER LOCAL SETTINGS (name, avatar per user) ─── */
@@ -1652,28 +1695,44 @@
             <!-- Subscription block -->
             <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
               <h2 style="margin-top:0;font-size:15px">💳 Тарифный план</h2>
-              <div class="grid five" style="gap:10px;margin-bottom:12px">
-                ${PLANS.map(p => {
-                  const isCurrent = sub && sub.subscription_plan === p.id && (sub.subscription_status === "active" || (sub.subscription_status === "trial" && p.id === "trial"));
-                  const isLoading = _buyingPlan === p.id;
-                  const btnLabel  = isCurrent ? "Активен ✓" : isLoading ? "⏳ Загрузка..." : p.price === 0 ? "Бесплатно" : "Оплатить →";
-                  const btnOff    = isCurrent || p.price === 0 || !!_buyingPlan;
-                  return `
-                  <div class="plan-card ${p.popular ? "popular" : ""}" style="${isCurrent ? "border-color:var(--green);background:rgba(22,163,74,.05)" : ""}">
-                    ${isCurrent ? `<div class="popular-badge" style="background:var(--green)">Текущий</div>` : p.popular ? `<div class="popular-badge">Популярный</div>` : ""}
-                    <div class="plan-label">${escapeHtml(p.label)}</div>
-                    <div class="plan-price" style="font-size:20px">${p.price === 0 ? "0 ₽" : p.price + " ₽"}</div>
-                    <div class="plan-period">${escapeHtml(p.period)}</div>
-                    ${p.save ? `<div class="plan-save">${escapeHtml(p.save)}</div>` : ""}
-                    ${p.months > 0 ? `<div style="font-size:10px;color:var(--muted);margin-top:4px">= ${p.price * p.months} ₽</div>` : ""}
-                    <div style="font-size:10px;color:var(--muted);margin-top:4px">👥 до ${p.maxUsers} польз.</div>
-                    <button class="btn ${p.popular ? "primary" : "small"}" style="display:block;margin-top:10px;width:100%;text-align:center;${btnOff ? "opacity:.5" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
-                      ${btnLabel}
-                    </button>
-                  </div>`;
-                }).join("")}
+
+              ${/* Планы — горизонтальные карточки */""}
+              <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+                ${(() => {
+                  const planFeatures = {
+                    trial:  ["CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Календарь задач", "До 1 пользователя", "Хранение в облаке"],
+                    month1: ["Всё из пробного", "Безлимитные сделки", "Финансы и аналитика", "Экспорт Excel", "Договоры", "До 1 пользователя"],
+                    month3: ["Всё из «Месяца»", "До 3 пользователей", "Командная работа", "Синхронизация в реальном времени", "Экономия 17%", "Приоритетная поддержка"],
+                    month6: ["Всё из «3 месяца»", "До 5 пользователей", "Расширенная аналитика", "Версии смет", "Пакеты услуг", "Экономия 28%"],
+                    year:   ["Всё из «6 месяцев»", "До 10 пользователей", "Максимум функций", "API доступ", "Брендирование КП", "Экономия 42%"]
+                  };
+                  return PLANS.map(p => {
+                    const isCurrent = sub && sub.subscription_plan === p.id && (sub.subscription_status === "active" || (sub.subscription_status === "trial" && p.id === "trial"));
+                    const isLoading = _buyingPlan === p.id;
+                    const btnLabel  = isCurrent ? "✓ Текущий тариф" : isLoading ? "⏳ Загрузка..." : p.price === 0 ? "Активен по умолчанию" : `Оплатить ${p.price * Math.max(p.months,1)} ₽`;
+                    const btnOff    = isCurrent || p.price === 0 || !!_buyingPlan;
+                    const feats = planFeatures[p.id] || [];
+                    return `
+                    <div style="display:flex;align-items:stretch;gap:0;border-radius:16px;border:2px solid ${isCurrent ? "var(--green)" : p.popular ? "var(--primary)" : "var(--line)"};background:${isCurrent ? "rgba(22,163,74,.06)" : p.popular ? "rgba(124,58,237,.05)" : "var(--panel2)"};overflow:hidden;position:relative">
+                      ${p.popular && !isCurrent ? `<div style="position:absolute;top:10px;right:12px;background:linear-gradient(135deg,var(--primary),var(--blue));color:#fff;font-size:10px;font-weight:900;padding:2px 10px;border-radius:99px">🔥 Популярный</div>` : ""}
+                      ${isCurrent ? `<div style="position:absolute;top:10px;right:12px;background:var(--green);color:#fff;font-size:10px;font-weight:900;padding:2px 10px;border-radius:99px">✓ Активен</div>` : ""}
+                      <!-- Left: price block -->
+                      <div style="flex:0 0 160px;padding:16px 18px;border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:center">
+                        <div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:4px">${escapeHtml(p.label)}</div>
+                        ${p.price === 0 ? `<div style="font-size:26px;font-weight:900;color:var(--green)">Бесплатно</div><div style="font-size:11px;color:var(--muted)">${escapeHtml(p.period)}</div>` : `<div style="font-size:26px;font-weight:900;color:var(--text)">${p.price} ₽</div><div style="font-size:11px;color:var(--muted)">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:10px;color:var(--primary2);font-weight:750;margin-top:3px">${escapeHtml(p.save)}</div>` : ""}`}
+                        <button class="btn ${p.popular && !isCurrent ? "primary" : "small"}" style="margin-top:12px;width:100%;${btnOff ? "opacity:.55;cursor:not-allowed" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
+                          ${btnLabel}
+                        </button>
+                      </div>
+                      <!-- Right: features -->
+                      <div style="flex:1;padding:14px 18px;display:flex;flex-wrap:wrap;gap:4px 14px;align-content:center">
+                        ${feats.map(f => `<div style="font-size:12px;color:var(--text);display:flex;align-items:center;gap:5px;min-width:160px"><span style="color:${isCurrent ? "var(--green)" : "var(--primary2)"};font-size:11px">✓</span>${escapeHtml(f)}</div>`).join("")}
+                      </div>
+                    </div>`;
+                  }).join("");
+                })()}
               </div>
-              <p style="font-size:12px;color:var(--muted);margin:0">Нажмите «Оплатить» → безопасная страница ЮKassa → карта / СБП / ЮМани. Подписка активируется автоматически.</p>
+              <p style="font-size:12px;color:var(--muted);margin:0;padding:10px 14px;background:rgba(124,58,237,.06);border-radius:10px">💳 Оплата через ЮKassa — карта, СБП, ЮМани. Подписка активируется автоматически после оплаты. Данные не теряются при смене тарифа.</p>
             </div>
 
             <!-- Security -->
@@ -3552,6 +3611,18 @@
         render();
       }
 
+      function deleteDealFromModal(id) {
+        const proj = (state.savedProjects || []).find(p => p.id === id);
+        const name = (proj && proj.name) || "эту сделку";
+        if (!confirm(`Удалить сделку «${name}»? Это действие нельзя отменить.`)) return;
+        state.dealModal = null;
+        state.savedProjects = state.savedProjects.filter(p => p.id !== id);
+        if (state.activeProjectId === id) state.activeProjectId = "";
+        toast("Сделка удалена");
+        save();
+        render();
+      }
+
       function newProject() {
         if (selectedIds().length && !confirm("Создать новый проект? Текущая несохранённая смета будет очищена.")) return;
 
@@ -3741,6 +3812,11 @@
         state.lineCollapsed = {};
         state.stageCollapsed = {};
         save();
+        render();
+      }
+
+      function toggleSummary() {
+        state.summaryOpen = !state.summaryOpen;
         render();
       }
 
@@ -5923,25 +5999,30 @@
                 ${projectFields()}
               `}
 
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:${inDeal ? "0" : "18px"};margin-bottom:4px;flex-wrap:wrap">
-                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                  <span style="font-size:13px;color:var(--muted)">${totalItems} позиц. · ${money(t.total)}</span>
+              <!-- Компактная шапка сметы -->
+              <div style="display:flex;align-items:center;gap:10px;margin-top:${inDeal ? "0" : "18px"};margin-bottom:10px;flex-wrap:wrap;padding:10px 14px;background:var(--panel2);border-radius:14px;border:1px solid var(--line)">
+                <div style="flex:1;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                  <div>
+                    <div style="font-size:22px;font-weight:900;color:var(--text)">${money(t.total)}</div>
+                    <div style="font-size:11px;color:var(--muted);margin-top:1px">${totalItems} позиц.${t.optional ? ` · опции +${money(t.optional)}` : ""}</div>
+                  </div>
                   ${inDeal ? "" : `
-                    <select data-autosave data-scope="project" data-key="taxType" style="width:auto;padding:6px 10px;font-size:12px;border-radius:10px">
+                    <select data-autosave data-scope="project" data-key="taxType" style="width:auto;padding:5px 9px;font-size:12px;border-radius:10px;margin-left:4px">
                       ${taxOptionsHtml(state.project.taxType)}
                     </select>
                   `}
                 </div>
-                <div class="toolbar no-print">
-                  <button class="btn small" onclick="app.collapseAllEstimate()">Свернуть всё</button>
-                  <button class="btn small" onclick="app.expandAllEstimate()">Развернуть всё</button>
+                <div class="toolbar no-print" style="gap:5px">
+                  <button class="btn small" onclick="app.collapseAllEstimate()" title="Свернуть всё">⊟</button>
+                  <button class="btn small" onclick="app.expandAllEstimate()" title="Развернуть всё">⊞</button>
                   <button class="btn small" onclick="app.go('catalog')">+ Услуги</button>
                   <button class="btn small" onclick="app.go('packages')">+ Пакет</button>
                   ${inDeal ? "" : `<button class="btn small" onclick="app.createVersion()">Версия</button>`}
+                  <button class="btn small" onclick="app.toggleSummary()" title="${state.summaryOpen ? "Скрыть итоги" : "Показать итоги"}" style="${state.summaryOpen ? "background:rgba(124,58,237,.18);color:var(--primary2)" : ""}">${state.summaryOpen ? "✕ Итоги" : "→ Итоги"}</button>
                 </div>
               </div>
 
-              <div style="margin-top:10px">
+              <div style="margin-top:6px">
                 ${stagesWithItems.length
                   ? stagesWithItems.map(renderEstimateStage).join("")
                   : `
@@ -5957,7 +6038,7 @@
               </div>
             </section>
 
-            ${renderSummary()}
+            ${state.summaryOpen ? renderSummary() : ""}
           </div>
         `;
       }
@@ -6044,11 +6125,11 @@
               <div style="display:flex;gap:12px">
                 <div class="drag-handle no-print" title="Перетащи для сортировки">☰</div>
                 <div style="flex:1">
-                  <input class="line-name-input" type="text" data-autosave data-scope="line" data-id="${id}" data-key="lineName" value="${escapeHtml(line.lineName || "")}" placeholder="${escapeHtml(itemData.name)}" title="Нажми, чтобы переименовать позицию">
-                  <textarea class="line-desc-input" data-autosave data-scope="line" data-id="${id}" data-key="editedDesc" placeholder="${escapeHtml(itemData.desc)}" title="Нажми чтобы отредактировать описание">${escapeHtml(line.editedDesc || "")}</textarea>
+                  <input class="line-name-input" type="text" data-autosave data-scope="line" data-id="${id}" data-key="lineName" value="${escapeHtml(line.lineName || "")}" placeholder="${escapeHtml(itemData.name)}" title="Нажми, чтобы переименовать позицию" style="color:var(--text);font-weight:750;font-size:15px">
+                  <textarea class="line-desc-input" data-autosave data-scope="line" data-id="${id}" data-key="editedDesc" placeholder="${escapeHtml(itemData.desc)}" title="Нажми чтобы отредактировать описание" style="color:var(--muted);font-size:12px">${escapeHtml(line.editedDesc || "")}</textarea>
 
                   <div class="badges">
-                    <span class="badge">${escapeHtml(itemData.section)}</span>
+                    <span class="badge" style="background:${stageColor}22;color:${stageColor};border-color:${stageColor}44">${escapeHtml(itemData.section)}</span>
                     <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
                     ${line.optional ? `<span class="status-pill yellow">опция</span>` : `<span class="status-pill green">основная</span>`}
                   </div>
@@ -6750,6 +6831,47 @@
                   </div>
                 ` : ""}
               </div>
+
+              ${(() => {
+                /* Мини-график по месяцам для текущей сделки */
+                const monthMap = {};
+                allTransactions.forEach(tx => {
+                  const d = (tx.date || "").slice(0, 7);
+                  if (!d) return;
+                  if (!monthMap[d]) monthMap[d] = { income: 0, expense: 0 };
+                  if (tx._type === "income") monthMap[d].income += numberValue(tx.amount, 0);
+                  else monthMap[d].expense += numberValue(tx.amount, 0);
+                });
+                const months = Object.keys(monthMap).sort();
+                if (months.length < 2) return "";
+                const maxVal = Math.max(...months.map(m => Math.max(monthMap[m].income, monthMap[m].expense)), 1);
+                const BAR_H = 60;
+                return `
+                  <div style="margin:14px 0 10px;padding:14px 16px;background:var(--panel2);border-radius:14px;border:1px solid var(--line)">
+                    <div style="font-size:12px;font-weight:750;color:var(--muted);margin-bottom:10px">График по месяцам</div>
+                    <div style="display:flex;align-items:flex-end;gap:8px;overflow-x:auto;padding-bottom:4px">
+                      ${months.map(m => {
+                        const incH = Math.max(2, Math.round(monthMap[m].income / maxVal * BAR_H));
+                        const expH = Math.max(2, Math.round(monthMap[m].expense / maxVal * BAR_H));
+                        const label = m.slice(5) + "/" + m.slice(2, 4);
+                        return `
+                          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:36px" title="${m}: +${money(monthMap[m].income)} −${money(monthMap[m].expense)}">
+                            <div style="display:flex;gap:2px;align-items:flex-end;height:${BAR_H}px">
+                              <div style="width:10px;height:${incH}px;background:var(--green);border-radius:3px 3px 0 0;opacity:.85"></div>
+                              <div style="width:10px;height:${expH}px;background:var(--red);border-radius:3px 3px 0 0;opacity:.7"></div>
+                            </div>
+                            <span style="font-size:9px;color:var(--muted);white-space:nowrap">${label}</span>
+                          </div>
+                        `;
+                      }).join("")}
+                    </div>
+                    <div style="display:flex;gap:12px;font-size:10px;color:var(--muted);margin-top:6px">
+                      <span><span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:2px;margin-right:3px"></span>Поступления</span>
+                      <span><span style="display:inline-block;width:8px;height:8px;background:var(--red);opacity:.7;border-radius:2px;margin-right:3px"></span>Расходы</span>
+                    </div>
+                  </div>
+                `;
+              })()}
 
               <div class="fin-table-wrap">
                 <table class="fin-table">
@@ -7649,22 +7771,22 @@
               </div>
             </div>
 
-            <!-- Навигация по месяцам и годам -->
-            <div class="cal-nav">
+            <!-- Навигация: год + кнопка сегодня -->
+            <div class="cal-nav" style="margin-bottom:10px">
               <button class="cal-nav-btn cal-nav-year" onclick="app.calSetMonth('${prevYear()}')" title="Предыдущий год">&#171; ${yr - 1}</button>
-              <button class="cal-nav-btn" onclick="app.calSetMonth('${prevMonth()}')" title="Предыдущий месяц">&#8592;</button>
-              <h2>${monthNames[mo-1]} ${yr}</h2>
-              <button class="cal-nav-btn" onclick="app.calSetMonth('${nextMonth()}')" title="Следующий месяц">&#8594;</button>
+              <h2 style="min-width:56px;text-align:center">${yr}</h2>
               <button class="cal-nav-btn cal-nav-year" onclick="app.calSetMonth('${nextYear()}')" title="Следующий год">${yr + 1} &#187;</button>
-              <button class="cal-nav-btn today-btn" onclick="app.calSetMonth('${today.slice(0,7)}');app.calSelectDay('${today}')">Сегодня</button>
+              <button class="cal-nav-btn today-btn" onclick="app.calSetMonth('${today.slice(0,7)}');app.calSelectDay('${today}');app.calSetAllMode(false)">Сегодня</button>
             </div>
 
-            <!-- Быстрый переход по месяцам -->
-            <div class="cal-months-row">
+            <!-- Выбор месяца/года — один клик -->
+            <div class="cal-months-row" style="margin-bottom:4px">
+              <button class="cal-month-pill ${calAllMode ? "active" : ""}" onclick="app.calSetAllMode(true)" style="font-weight:750">Весь год</button>
               ${monthNames.map((name, i) => {
                 const mIdx = i + 1;
                 const mKey = `${yr}-${padZ(mIdx)}`;
-                return `<button class="cal-month-pill ${mo === mIdx ? "active" : ""}" onclick="app.calSetMonth('${mKey}')">${name.slice(0,3)}</button>`;
+                const isActive = !calAllMode && mo === mIdx;
+                return `<button class="cal-month-pill ${isActive ? "active" : ""}" onclick="app.calSetMonth('${mKey}');app.calSetAllMode(false)">${name.slice(0,3)}</button>`;
               }).join("")}
             </div>
 
@@ -7742,12 +7864,9 @@
                 .sort((a,b) => a.date.localeCompare(b.date));
               return `
               <div style="margin-top:18px">
-                <!-- mode + type toolbar -->
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-                  <div style="display:flex;border-radius:10px;overflow:hidden;border:1px solid var(--line);flex:0 0 auto">
-                    <button style="padding:6px 14px;font-size:12px;font-weight:750;background:${!calAllMode?"linear-gradient(135deg,var(--primary),var(--blue))":"transparent"};color:${!calAllMode?"#fff":"var(--muted)"};border:none;cursor:pointer" onclick="app.calSetAllMode(false)">Месяц</button>
-                    <button style="padding:6px 14px;font-size:12px;font-weight:750;background:${calAllMode?"linear-gradient(135deg,var(--primary),var(--blue))":"transparent"};color:${calAllMode?"#fff":"var(--muted)"};border:none;cursor:pointer;border-left:1px solid var(--line)" onclick="app.calSetAllMode(true)">Все события</button>
-                  </div>
+                <!-- Фильтр по типу + счётчик -->
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+                  <span style="font-size:12px;font-weight:750;color:var(--muted);margin-right:2px">${calAllMode ? yr + " год" : monthNames[mo-1] + " " + yr}:</span>
                   <div style="display:flex;gap:4px;flex-wrap:wrap">
                     ${typeFilters.map(f => `<button style="padding:4px 10px;font-size:11px;font-weight:750;border-radius:99px;border:1px solid ${calTypeFilter===f.id?"var(--primary)":"var(--line)"};background:${calTypeFilter===f.id?"rgba(124,58,237,.15)":"transparent"};color:${calTypeFilter===f.id?"var(--primary2)":"var(--muted)"};cursor:pointer" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
                   </div>
@@ -8697,9 +8816,12 @@ update profiles set agency_id = id::text where agency_id is null;
         return `
           <div class="modal-overlay" onclick="event.target===this&&app.closeDealModal()">
             <div class="modal-box" style="width:min(560px,calc(100vw - 32px))">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:8px">
                 <h2 style="margin:0;font-size:20px">Редактировать сделку</h2>
-                <button onclick="app.closeDealModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <button class="btn small" onclick="app.quickContractFromDeal('${escapeHtml(m.id)}')" title="Создать договор с данными этой сделки">📄 Договор</button>
+                  <button onclick="app.closeDealModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
+                </div>
               </div>
               <div class="grid two" style="margin-bottom:12px">
                 ${field("Название сделки *", `<input value="${escapeHtml(m.name || "")}" oninput="app.setDealModalField('name',this.value)" placeholder="Название проекта">`)}
@@ -8721,6 +8843,9 @@ update profiles set agency_id = id::text where agency_id is null;
               <div style="display:flex;justify-content:flex-end;gap:8px">
                 <button class="btn" onclick="app.closeDealModal()">Отмена</button>
                 <button class="btn primary" onclick="app.saveDealModal()">Сохранить</button>
+              </div>
+              <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);text-align:center">
+                <button onclick="app.deleteDealFromModal('${escapeHtml(m.id)}')" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline;opacity:.6;padding:4px 8px" title="Удалить сделку навсегда">Удалить сделку</button>
               </div>
             </div>
           </div>
@@ -9196,6 +9321,43 @@ Email: ______________________            Email: ______________________
         render();
       }
 
+      function quickContractFromDeal(projectId) {
+        const proj = projectId
+          ? (state.savedProjects || []).find(p => p.id === projectId)
+          : null;
+        const snap = (proj && proj.snapshot) || {};
+        const clientName = (proj ? proj.client : state.project.client) || "Заказчик";
+        const projectName = (proj ? proj.name : state.project.name) || "Проект";
+        const deadline = (proj ? proj.deadline : state.project.deadline) || "";
+        const totalPrice = proj
+          ? (proj.total ? String(Math.round(Number(proj.total))) : "___")
+          : String(Math.round(totals().total || 0));
+        const half = Math.round(Number(totalPrice) / 2) || 0;
+        const base = CONTRACT_TEMPLATES[0];
+        let body = (base.body || "")
+          .replace("[ИСПОЛНИТЕЛЬ]", state.company.name || "Исполнитель")
+          .replace("[ЗАКАЗЧИК]", clientName)
+          .replace(/_____________________________ \(___________________\) рублей/, `${totalPrice} рублей`)
+          .replace(/50% \(_______________\) рублей — в течение 3/g, `50% (${half}) рублей — в течение 3`);
+        if (deadline) {
+          body = body.replace("«___» ___________ 202__ г.", `до ${deadline}`);
+        }
+        body = body.replace(/1\.2\. Наименование и формат Результата: _{3,}\./, `1.2. Наименование и формат Результата: ${projectName}.`);
+        const contract = normalizeContract({
+          name: `${base.name} — ${clientName}`,
+          desc: projectName,
+          category: base.category || "Видео",
+          body
+        });
+        if (!state.contracts) state.contracts = [];
+        state.contracts.unshift(contract);
+        if (proj) state.dealModal = null;
+        state.contractEditId = contract.id;
+        toast("Договор создан с данными сделки");
+        save();
+        go("contracts");
+      }
+
       function createBlankContract() {
         const contract = normalizeContract({
           name: "Новый договор — " + (state.project.client || state.company.name || ""),
@@ -9432,6 +9594,7 @@ Email: ______________________            Email: ______________________
         toggleStageCollapse,
         collapseAllEstimate,
         expandAllEstimate,
+        toggleSummary,
 
         updateLine,
         updateCatalogPrice,
@@ -9469,6 +9632,7 @@ Email: ______________________            Email: ______________________
         loadSavedProject,
         duplicateSavedProject,
         deleteSavedProject,
+        deleteDealFromModal,
         newProject,
 
         createTask,
@@ -9540,6 +9704,8 @@ Email: ______________________            Email: ______________________
 
         calSetMonth,
         calSelectDay,
+        calSetAllMode,
+        calSetTypeFilter,
 
         openMainMenu,
         closeMainMenu,
@@ -9573,6 +9739,7 @@ Email: ______________________            Email: ______________________
 
         renderContracts,
         createContractFromTemplate,
+        quickContractFromDeal,
         createBlankContract,
         updateContractField,
         deleteContract,
@@ -9591,6 +9758,7 @@ Email: ______________________            Email: ______________________
         setAuthField,
         toggleAuthPasswordVisibility,
         authSubmit,
+        forgotPasswordSubmit,
         useLocalMode,
 
         toggleNotifPopup,
@@ -9625,7 +9793,6 @@ Email: ______________________            Email: ______________________
         _toast: toast,
         getAgencyId,
         exitLocalModeAndLogin,
-        useLocalMode,
         toggleProfileDd,
         toggleHelpDd,
         toggleCurrencyDd,
