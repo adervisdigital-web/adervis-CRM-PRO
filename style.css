@@ -1634,8 +1634,9 @@
       vertical-align: middle;
     }
     .fin-table tr:last-child td { border-bottom: none; }
-    .fin-table tbody tr:hover td { background: rgba(255,255,255,.03); }
-    [data-theme="light"] .fin-table tbody tr:hover td { background: rgba(0,0,0,.025); }
+    .fin-table tbody tr:hover td { background: rgba(255,255,255,.05); }
+    .fin-table tbody tr:hover .amount-cell { text-decoration: underline dotted; }
+    [data-theme="light"] .fin-table tbody tr:hover td { background: rgba(0,0,0,.04); }
     .fin-table .amount-cell { font-weight: 900; font-size: 14px; text-align: right; white-space: nowrap; }
     .fin-table .amount-cell.income { color: #86efac; }
     .fin-table .amount-cell.expense { color: #fca5a5; }

@@ -6903,38 +6903,44 @@
                     </tr>
                   </thead>
                   <tbody>
-                    ${allTransactions.length ? allTransactions.map(tx => `
-                      <tr>
-                        <td style="color:var(--muted);font-size:12px;white-space:nowrap">${escapeHtml(formatDate(tx.date))}</td>
-                        <td>
+                    ${allTransactions.length ? allTransactions.map(tx => {
+                      const txType = tx._type === "income" ? "income" : "expense";
+                      const projId = escapeHtml(state.activeProjectId || "");
+                      const openEdit = `app.openEditTransaction('${escapeHtml(tx.id)}','${txType}','${projId}')`;
+                      return `
+                      <tr style="cursor:pointer" onclick="${openEdit}" title="Нажмите чтобы редактировать">
+                        <td style="color:var(--muted);font-size:12px;white-space:nowrap" onclick="${openEdit}">${escapeHtml(formatDate(tx.date))}</td>
+                        <td onclick="event.stopPropagation()">
                           <input style="background:transparent;border:none;border-bottom:1px solid transparent;width:100%;font-size:13px;color:var(--text)"
                             value="${escapeHtml(tx.title)}"
-                            data-autosave data-scope="${tx._type === "income" ? "payment" : "expense"}" data-id="${tx.id}" data-key="title"
+                            data-autosave data-scope="${txType}" data-id="${tx.id}" data-key="title"
                             onmouseenter="this.style.borderBottomColor='var(--line)'"
-                            onmouseleave="this.style.borderBottomColor='transparent'">
+                            onmouseleave="this.style.borderBottomColor='transparent'"
+                            onclick="event.stopPropagation()">
                         </td>
-                        <td style="font-size:12px;color:var(--muted)">
+                        <td style="font-size:12px;color:var(--muted)" onclick="event.stopPropagation()">
                           ${tx._type === "income"
                             ? `<input style="background:transparent;border:none;font-size:12px;color:var(--muted);width:100%"
                                 value="${escapeHtml(tx.method || "")}" placeholder="Наличные, перевод..."
-                                data-autosave data-scope="payment" data-id="${tx.id}" data-key="method">`
+                                data-autosave data-scope="payment" data-id="${tx.id}" data-key="method"
+                                onclick="event.stopPropagation()">`
                             : tx.category ? `<span class="fin-category-badge">${escapeHtml(tx.category)}</span>` : `<span style="color:var(--muted)">—</span>`
                           }
                         </td>
-                        <td>
-                          <span class="type-badge ${tx._type === "income" ? "income" : "expense"}">
+                        <td onclick="${openEdit}">
+                          <span class="type-badge ${txType}">
                             ${tx._type === "income" ? "Поступление" : "Расход"}
                           </span>
                         </td>
-                        <td class="amount-cell ${tx._type === "income" ? "income" : "expense"}">
+                        <td class="amount-cell ${txType}" onclick="${openEdit}">
                           ${tx._type === "income" ? "+" : "−"}${money(tx.amount)}
                         </td>
-                        <td style="width:32px">
+                        <td style="width:32px" onclick="event.stopPropagation()">
                           <button class="btn danger small no-print" style="padding:4px 8px"
-                            onclick="${tx._type === "income" ? `app.deletePayment('${tx.id}')` : `app.deleteExpense('${tx.id}')`}">×</button>
+                            onclick="event.stopPropagation();${tx._type === "income" ? `app.deletePayment('${tx.id}')` : `app.deleteExpense('${tx.id}')`}">×</button>
                         </td>
-                      </tr>
-                    `).join("") : `
+                      </tr>`;
+                    }).join("") : `
                       <tr>
                         <td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">
                           Операций пока нет. Нажми «+ Поступление» или «− Расход».
