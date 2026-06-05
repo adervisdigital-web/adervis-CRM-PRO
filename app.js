@@ -810,7 +810,10 @@
         }, 3000);
       }
 
+      const SUPER_ADMIN_EMAIL = "adervis.digital@gmail.com";
+
       function isSubscriptionActive() {
+        if (_adminSession && _adminSession.user.email === SUPER_ADMIN_EMAIL) return true;
         if (!_userProfile) return true; // no supabase = local mode, allow all
         const s = _userProfile.subscription_status;
         if (s === "active") return true;
@@ -822,6 +825,7 @@
       }
 
       function getSubscriptionLabel() {
+        if (_adminSession && _adminSession.user.email === SUPER_ADMIN_EMAIL) return "Super Admin ∞";
         if (!_userProfile) return "";
         const s = _userProfile.subscription_status;
         const plan = _userProfile.subscription_plan || "pro";
@@ -1593,6 +1597,55 @@
         { id: "year",   label: "Год",         price: 520, period: "в месяц",            save: "Экономия 42%", months: 12, maxUsers: 10 }
       ];
 
+      function renderPlans() {
+        const sub = _userProfile;
+        const planFeatures = {
+          trial:  ["CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Календарь задач", "1 пользователь", "Облако"],
+          month1: ["Всё из пробного", "Безлимитные сделки", "Финансы и аналитика", "Экспорт Excel", "Договоры", "1 пользователь"],
+          month3: ["Всё из «Месяца»", "До 3 пользователей", "Командная работа", "Синхронизация", "Экономия 17%", "Поддержка"],
+          month6: ["Всё из «3 мес»", "До 5 пользователей", "Расширенная аналитика", "Версии смет", "Пакеты услуг", "Экономия 28%"],
+          year:   ["Всё из «6 мес»", "До 10 пользователей", "Максимум функций", "API доступ", "Брендирование КП", "Экономия 42%"]
+        };
+        const cards = PLANS.map(p => {
+          const isCurrent = sub && sub.subscription_plan === p.id && (sub.subscription_status === "active" || (sub.subscription_status === "trial" && p.id === "trial"));
+          const isLoading = _buyingPlan === p.id;
+          const btnLabel = isCurrent ? "✓ Активен" : isLoading ? "⏳..." : p.price === 0 ? "Бесплатно" : `Оплатить ${p.price * Math.max(p.months, 1)} ₽`;
+          const btnOff = isCurrent || p.price === 0 || !!_buyingPlan;
+          const feats = planFeatures[p.id] || [];
+          const border = isCurrent ? "var(--green)" : p.popular ? "var(--primary)" : "var(--line)";
+          const bg = isCurrent ? "rgba(22,163,74,.06)" : p.popular ? "rgba(124,58,237,.05)" : "var(--panel2)";
+          return `
+          <div class="plan-card" style="border-radius:18px;border:2px solid ${border};background:${bg};padding:20px 16px;display:flex;flex-direction:column;position:relative;min-width:0">
+            ${p.popular && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--primary),var(--blue));color:#fff;font-size:10px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">🔥 Популярный</div>` : ""}
+            ${isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:10px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">✓ Активен</div>` : ""}
+            <div style="font-size:14px;font-weight:900;margin-bottom:10px">${escapeHtml(p.label)}</div>
+            ${p.price === 0
+              ? `<div style="font-size:28px;font-weight:900;color:var(--green);line-height:1">Бесплатно</div><div style="font-size:11px;color:var(--muted);margin-bottom:16px">${escapeHtml(p.period)}</div>`
+              : `<div style="font-size:28px;font-weight:900;line-height:1">${p.price} ₽</div><div style="font-size:11px;color:var(--muted)">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:11px;color:var(--primary2);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)}</div>` : `<div style="margin-bottom:16px"></div>`}`}
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+              ${feats.map(f => `<div style="font-size:12px;display:flex;align-items:flex-start;gap:5px"><span style="color:${isCurrent ? "var(--green)" : "var(--primary2)"};flex-shrink:0;font-size:11px;margin-top:1px">✓</span><span>${escapeHtml(f)}</span></div>`).join("")}
+            </div>
+            <button class="btn ${p.popular && !isCurrent ? "primary" : "small"}" style="width:100%;${btnOff ? "opacity:.55;cursor:not-allowed" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
+              ${btnLabel}
+            </button>
+          </div>`;
+        }).join("");
+        return `
+          <div class="panel">
+            <div class="section-title" style="margin-bottom:24px">
+              <div><h1 style="margin:0">Тарифный план</h1><p style="margin:4px 0 0;color:var(--muted)">Оплата через ЮKassa — карта, СБП, ЮМани</p></div>
+              <button class="btn small" onclick="app.go('profile')">← Профиль</button>
+            </div>
+            <div class="grid five" style="gap:14px;margin-bottom:20px">
+              ${cards}
+            </div>
+            <p style="font-size:12px;color:var(--muted);padding:10px 16px;background:rgba(124,58,237,.06);border-radius:10px;margin:0">
+              ✅ Подписка активируется автоматически после оплаты · Данные не теряются при смене тарифа · При смене — оставшиеся дни переносятся
+            </p>
+          </div>
+        `;
+      }
+
       function renderProfile() {
         const email = _adminSession ? _adminSession.user.email : "";
         const sub = _userProfile;
@@ -1692,47 +1745,15 @@
 
             ${subStatusBlock}
 
-            <!-- Subscription block -->
+            <!-- Compact subscription link -->
             <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
-              <h2 style="margin-top:0;font-size:15px">💳 Тарифный план</h2>
-
-              ${/* Планы — горизонтальные карточки */""}
-              <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
-                ${(() => {
-                  const planFeatures = {
-                    trial:  ["CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Календарь задач", "До 1 пользователя", "Хранение в облаке"],
-                    month1: ["Всё из пробного", "Безлимитные сделки", "Финансы и аналитика", "Экспорт Excel", "Договоры", "До 1 пользователя"],
-                    month3: ["Всё из «Месяца»", "До 3 пользователей", "Командная работа", "Синхронизация в реальном времени", "Экономия 17%", "Приоритетная поддержка"],
-                    month6: ["Всё из «3 месяца»", "До 5 пользователей", "Расширенная аналитика", "Версии смет", "Пакеты услуг", "Экономия 28%"],
-                    year:   ["Всё из «6 месяцев»", "До 10 пользователей", "Максимум функций", "API доступ", "Брендирование КП", "Экономия 42%"]
-                  };
-                  return PLANS.map(p => {
-                    const isCurrent = sub && sub.subscription_plan === p.id && (sub.subscription_status === "active" || (sub.subscription_status === "trial" && p.id === "trial"));
-                    const isLoading = _buyingPlan === p.id;
-                    const btnLabel  = isCurrent ? "✓ Текущий тариф" : isLoading ? "⏳ Загрузка..." : p.price === 0 ? "Активен по умолчанию" : `Оплатить ${p.price * Math.max(p.months,1)} ₽`;
-                    const btnOff    = isCurrent || p.price === 0 || !!_buyingPlan;
-                    const feats = planFeatures[p.id] || [];
-                    return `
-                    <div style="display:flex;align-items:stretch;gap:0;border-radius:16px;border:2px solid ${isCurrent ? "var(--green)" : p.popular ? "var(--primary)" : "var(--line)"};background:${isCurrent ? "rgba(22,163,74,.06)" : p.popular ? "rgba(124,58,237,.05)" : "var(--panel2)"};overflow:hidden;position:relative">
-                      ${p.popular && !isCurrent ? `<div style="position:absolute;top:10px;right:12px;background:linear-gradient(135deg,var(--primary),var(--blue));color:#fff;font-size:10px;font-weight:900;padding:2px 10px;border-radius:99px">🔥 Популярный</div>` : ""}
-                      ${isCurrent ? `<div style="position:absolute;top:10px;right:12px;background:var(--green);color:#fff;font-size:10px;font-weight:900;padding:2px 10px;border-radius:99px">✓ Активен</div>` : ""}
-                      <!-- Left: price block -->
-                      <div style="flex:0 0 160px;padding:16px 18px;border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:center">
-                        <div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:4px">${escapeHtml(p.label)}</div>
-                        ${p.price === 0 ? `<div style="font-size:26px;font-weight:900;color:var(--green)">Бесплатно</div><div style="font-size:11px;color:var(--muted)">${escapeHtml(p.period)}</div>` : `<div style="font-size:26px;font-weight:900;color:var(--text)">${p.price} ₽</div><div style="font-size:11px;color:var(--muted)">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:10px;color:var(--primary2);font-weight:750;margin-top:3px">${escapeHtml(p.save)}</div>` : ""}`}
-                        <button class="btn ${p.popular && !isCurrent ? "primary" : "small"}" style="margin-top:12px;width:100%;${btnOff ? "opacity:.55;cursor:not-allowed" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
-                          ${btnLabel}
-                        </button>
-                      </div>
-                      <!-- Right: features -->
-                      <div style="flex:1;padding:14px 18px;display:flex;flex-wrap:wrap;gap:4px 14px;align-content:center">
-                        ${feats.map(f => `<div style="font-size:12px;color:var(--text);display:flex;align-items:center;gap:5px;min-width:160px"><span style="color:${isCurrent ? "var(--green)" : "var(--primary2)"};font-size:11px">✓</span>${escapeHtml(f)}</div>`).join("")}
-                      </div>
-                    </div>`;
-                  }).join("");
-                })()}
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                <div>
+                  <h2 style="margin:0 0 4px;font-size:15px">💳 Тарифный план</h2>
+                  <div style="font-size:13px;color:var(--muted)">${escapeHtml(subLabel)}${sub && sub.subscription_expires_at ? ` · до ${new Date(sub.subscription_expires_at).toLocaleDateString("ru-RU", {day:"2-digit",month:"short",year:"numeric"})}` : ""}</div>
+                </div>
+                <button class="btn small primary" onclick="app.go('plans')" style="white-space:nowrap">Изменить тариф →</button>
               </div>
-              <p style="font-size:12px;color:var(--muted);margin:0;padding:10px 14px;background:rgba(124,58,237,.06);border-radius:10px">💳 Оплата через ЮKassa — карта, СБП, ЮМани. Подписка активируется автоматически после оплаты. Данные не теряются при смене тарифа.</p>
             </div>
 
             <!-- Security -->
@@ -1834,11 +1855,7 @@
       }
 
       function gotoSubscription() {
-        go("profile");
-        setTimeout(() => {
-          const el = document.querySelector(".plan-card");
-          if (el) el.closest(".panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }, 200);
+        go("plans");
       }
 
       function checkPaymentReturn() {
@@ -4082,7 +4099,7 @@
           }
         });
 
-        state.view = "estimate";
+        state.view = state.activeProjectId ? "deal" : "estimate";
         toast(`Пакет «${pkg.name}» добавлен`);
         save();
         render();
@@ -5392,6 +5409,7 @@
           versions: renderVersions,
           settings: renderSettings,
           profile: renderProfile,
+          plans: renderPlans,
           knowledge: renderKnowledge
         };
 
@@ -5405,7 +5423,7 @@
         });
 
         // Update mobile bottom nav active states
-        const mbnViewMap = { mbnHome: ["home","wizard"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions","crm"], mbnCalendar: ["global-calendar"] };
+        const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","knowledge","catalog","packages","contracts","global-finances"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions","crm"], mbnCalendar: ["global-calendar"] };
         Object.entries(mbnViewMap).forEach(([id, views]) => {
           const el = document.getElementById(id);
           if (el) el.classList.toggle("active", views.includes(state.view));
@@ -5702,7 +5720,7 @@
 
             <div class="toolbar no-print" style="margin-top:16px">
               <button class="btn primary full" onclick="app.go('deal');app.setDealView('proposal')">Сформировать КП</button>
-              <button class="btn full" onclick="app.saveCurrentProject()">Сохранить сделку</button>
+              ${!state.activeProjectId ? `<button class="btn full" onclick="app.saveCurrentProject()">Сохранить сделку</button>` : ""}
               <button class="btn full" onclick="app.createVersion()">Сохранить версию</button>
               <button class="btn danger full" onclick="app.clearEstimate()">Очистить смету</button>
             </div>
@@ -6018,7 +6036,6 @@
                   <button class="btn small" onclick="app.go('catalog')">+ Услуги</button>
                   <button class="btn small" onclick="app.go('packages')">+ Пакет</button>
                   ${inDeal ? "" : `<button class="btn small" onclick="app.createVersion()">Версия</button>`}
-                  <button class="btn small" onclick="app.toggleSummary()" title="${state.summaryOpen ? "Скрыть итоги" : "Показать итоги"}" style="${state.summaryOpen ? "background:rgba(124,58,237,.18);color:var(--primary2)" : ""}">${state.summaryOpen ? "✕ Итоги" : "→ Итоги"}</button>
                 </div>
               </div>
 
@@ -6038,7 +6055,7 @@
               </div>
             </section>
 
-            ${state.summaryOpen ? renderSummary() : ""}
+            ${renderSummary()}
           </div>
         `;
       }
@@ -7701,6 +7718,8 @@
         const today = todayIso();
         const calMonth = state.calendarMonth || today.slice(0, 7);
         const selDay = state.calendarSelectedDay || "";
+        const calAllMode = state.calAllMode || false;
+        const calTypeFilter = state.calTypeFilter || "all";
 
         const [yr, mo] = calMonth.split("-").map(Number);
         const monthNames = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
@@ -7850,8 +7869,6 @@
 
             <!-- Events list with All/Month toggle + type filter -->
             ${(() => {
-              const calAllMode = state.calAllMode || false;
-              const calTypeFilter = state.calTypeFilter || "all";
               const typeFilters = [
                 { id: "all", label: "Все" },
                 { id: "deadline", label: "Дедлайны" },
@@ -8273,6 +8290,7 @@
               </p>
             </div>
 
+            ${(!_adminSession || _adminSession.user.email === SUPER_ADMIN_EMAIL) ? `
             <div class="supabase-config-box">
               <h2 style="margin-top:0">🔐 Supabase — авторизация и подписки</h2>
               <p style="margin-bottom:6px;font-size:13px">
@@ -8359,6 +8377,7 @@ update profiles set agency_id = id::text where agency_id is null;
                 `;
               })()}
             </div>
+            ` : ""}
 
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2);border-color:rgba(220,38,38,.45)">
               <h2>Опасная зона</h2>
@@ -9766,6 +9785,7 @@ Email: ______________________            Email: ______________________
         notifClick,
 
         renderProfile,
+        renderPlans,
         forceSaveToCloud,
         openChangePassword,
         submitChangePassword,
@@ -9790,6 +9810,9 @@ Email: ______________________            Email: ______________________
         kbDuplicate,
         kbDelete,
 
+        buyPlan,
+        gotoSubscription,
+
         _toast: toast,
         getAgencyId,
         exitLocalModeAndLogin,
@@ -9803,8 +9826,7 @@ Email: ______________________            Email: ______________________
         _saveUserField,
         openSearch,
         closeSearch,
-        runSearch,
-        duplicateDeal
+        runSearch
       };
 
       function checkDeadlineNotifications() {
