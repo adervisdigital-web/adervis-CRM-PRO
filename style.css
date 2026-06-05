@@ -2753,3 +2753,66 @@
   .brand h1 { display: none; }
   #adminTopbar { display: none !important; }
 }
+
+/* ── BRIEF MODE (public client form) ───────────────── */
+body.brief-mode .topbar { display: none !important; }
+body.brief-mode .mobile-bottom-nav { display: none !important; }
+body.brief-mode #mobileNavOverlay { display: none !important; }
+body.brief-mode .app { padding-top: 0 !important; min-height: 100vh; display: block; }
+body.brief-mode #appContent { padding: 0; }
+
+.brief-wrap {
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding: 40px 16px 60px;
+}
+.brief-inner { width: 100%; max-width: 580px; }
+.brief-logo-row {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 32px;
+}
+.brief-logo-box {
+  width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--primary), var(--blue));
+  display: grid; place-items: center;
+}
+.brief-card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 24px; padding: 36px 32px; box-shadow: var(--shadow);
+}
+.brief-card h1 { margin: 0 0 8px; font-size: 24px; font-weight: 900; }
+.brief-card > p.brief-sub { margin: 0 0 28px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.brief-fields { display: flex; flex-direction: column; gap: 14px; }
+.brief-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.brief-submit {
+  width: 100%; padding: 14px; margin-top: 8px;
+  border-radius: 12px; font-size: 16px; font-weight: 800;
+  background: linear-gradient(135deg, var(--primary), var(--blue));
+  color: #fff; border: none; cursor: pointer;
+  transition: .18s; letter-spacing: -.01em;
+}
+.brief-submit:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+.brief-submit:disabled { opacity: .5; cursor: default; }
+.brief-error { color: var(--red); font-size: 13px; margin-top: 10px; }
+.brief-success-wrap { text-align: center; padding: 48px 24px; }
+.brief-success-icon { font-size: 64px; margin-bottom: 16px; }
+.brief-success-wrap h2 { margin: 0 0 10px; font-size: 26px; font-weight: 900; }
+.brief-success-wrap p { color: var(--muted); font-size: 15px; line-height: 1.55; margin: 0; }
+.brief-link-box {
+  background: rgba(124,58,237,.08); border: 1px solid rgba(124,58,237,.3);
+  border-radius: 12px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 10px; margin-top: 16px;
+}
+.brief-link-url {
+  flex: 1; font-size: 12px; color: var(--muted);
+  word-break: break-all; user-select: all; font-family: monospace;
+}
+.brief-card-item {
+  background: var(--panel2); border: 1px solid var(--line);
+  border-radius: 14px; padding: 16px; transition: .14s;
+}
+.brief-card-item:hover { border-color: rgba(124,58,237,.3); }
+@media (max-width: 600px) {
+  .brief-row { grid-template-columns: 1fr; }
+  .brief-card { padding: 24px 18px; border-radius: 18px; }
+  .brief-wrap { padding: 24px 12px 48px; }
+}
