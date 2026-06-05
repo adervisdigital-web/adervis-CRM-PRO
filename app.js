@@ -669,6 +669,7 @@
       let _cloudSaveTimer = null;
       let _onlineUsers = [];
       let _authChecking = true;
+      let _dataLoading = false; // true while loading profile + cloud state from Supabase
       let _pendingInviteCode = ""; // set during registration if user entered invite code
       let _buyingPlan = null; // planId currently being purchased (shows loading state)
 
@@ -708,8 +709,12 @@
       }
 
       async function _onUserLoggedIn(session) {
+        _dataLoading = true;
+        renderAdminTopbar();
+        render();
         await _loadUserProfile(session.user.id, session.user.email);
         await _loadCloudState();
+        _dataLoading = false;
         _initRealtimeChannel();
         renderAdminTopbar();
         render();
@@ -5537,6 +5542,11 @@
             : "Смета";
         }
 
+        if (_dataLoading) {
+          root.innerHTML = renderLoadingSkeleton();
+          return;
+        }
+
         if (localStorage.getItem('adervis_local_mode') !== '1' && !isSubscriptionActive() && _adminSession) {
           root.innerHTML = renderSubscriptionGate();
           return;
@@ -5633,6 +5643,45 @@
             if (scope === "team") updateTeamMember(id, key, value);
           });
         });
+      }
+
+      function renderLoadingSkeleton() {
+        const skel = (w, h, r) => `<span class="skel" style="width:${w};height:${h}px;border-radius:${r || 8}px;margin-bottom:0"></span>`;
+        const cards4 = [0,1,2,3].map(() => `
+          <div class="calc-box" style="display:flex;flex-direction:column;gap:10px">
+            ${skel("55px", 12)} ${skel("80px", 24, 6)} ${skel("100px", 11)}
+          </div>`).join("");
+        const funnel = [0,1,2,3,4,5].map(() => `
+          <span class="skel" style="min-width:72px;height:52px;border-radius:12px;flex-shrink:0"></span>`).join("");
+        const dealCards = [0,1,2,3,4,5].map(() => `
+          <div class="skel-card" style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+              <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                ${skel("70%", 15)} ${skel("45%", 11)}
+              </div>
+              ${skel("64px", 22, 99)}
+            </div>
+            ${skel("100%", 5, 99)}
+            <div style="display:flex;justify-content:space-between">
+              ${skel("60px", 11)} ${skel("50px", 11)}
+            </div>
+          </div>`).join("");
+        return `
+          <div>
+            <div class="panel" style="margin-bottom:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  ${skel("100px", 20, 6)} ${skel("220px", 12)}
+                </div>
+                <div style="display:flex;gap:8px">
+                  ${skel("120px", 36, 10)} ${skel("88px", 36, 10)}
+                </div>
+              </div>
+              <div class="grid four" style="margin-top:4px">${cards4}</div>
+              <div style="display:flex;gap:8px;margin-top:16px;overflow-x:auto;padding-bottom:4px">${funnel}</div>
+            </div>
+            <div class="grid three">${dealCards}</div>
+          </div>`;
       }
 
       function renderHome() {
