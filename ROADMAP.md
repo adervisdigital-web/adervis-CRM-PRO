@@ -25,7 +25,7 @@
 ### Функции продукта
 - [x] 11. Онлайн-бриф для клиентов (?brief=UUID → форма → автосоздание сделки)
 - [x] 12. Клиентский портал (?portal=UUID → read-only КП, кнопка утверждения)
-  - SQL миграция: migrations/client_portals_rls.sql **→ нужно запустить в Supabase SQL Editor**
+  - SQL миграция: migrations/client_portals_rls.sql ✅ уже запущена в Supabase
 - [x] Drag-and-Drop Kanban — HTML5 DnD для CRM и Tasks
 - [x] AI-помощник для КП — mock (2.4с задержка, премиум-текст, кнопка ✨)
 - [x] Swipe-to-delete — мобильный свайп влево для удаления задач
@@ -42,7 +42,6 @@
   - Authorized redirect URI: https://qzeylogyledmhjpzvgkk.supabase.co/auth/v1/callback ✅
   - JS Origin: https://app.adervis.ru ✅
   - Publishing status: Production ✅
-- **client_portals SQL** — миграция ещё не запущена в Supabase! Открыть SQL Editor → новая вкладка → вставить содержимое migrations/client_portals_rls.sql → Run
 - **Service Worker ошибка** — `sw.js:54 Response body is already used` (не критично, не мешает работе)
 - **Yandex.Metrica** — заменить 99999999 на реальный ID счётчика в index.html строка ~55
 
