@@ -982,6 +982,9 @@
         if (!url || !key) { toast("Введите URL и ключ"); return; }
         localStorage.setItem("sb_url", url);
         localStorage.setItem("sb_key", key);
+        const vkId = (document.getElementById("vk_app_id_input")?.value || '').trim();
+        if (vkId) localStorage.setItem("vk_app_id", vkId);
+        else localStorage.removeItem("vk_app_id");
         toast("✅ Сохранено. Обновите страницу для подключения.");
       }
 
@@ -1133,6 +1136,7 @@
                       <span style="font-size:13px">Продолжить с Google</span>
                     </button>
                   </div>
+                  ${localStorage.getItem('vk_app_id') ? `<div id="vkid-one-tap" style="margin-top:8px"></div>` : ''}
 
                   <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:11px;color:var(--muted)">
                     Adervis · ИНН 592110786536 ·
@@ -1215,6 +1219,90 @@
         });
         if (error) { _authFields.error = error.message; renderAuthGateEl(); }
       }
+
+      let _vkidInited = false;
+
+      function initVKIDWidget() {
+        const sdk = window.VKIDSDK;
+        if (!sdk || _vkidInited) return;
+        const appId = localStorage.getItem('vk_app_id') || '';
+        if (!appId) return;
+        const container = document.getElementById('vkid-one-tap');
+        if (!container) return;
+        _vkidInited = true;
+
+        try {
+          sdk.Config.init({
+            app:          Number(appId),
+            redirectUrl:  location.origin + location.pathname,
+            responseMode: sdk.ConfigResponseMode.Callback,
+            source:       sdk.ConfigSource.LOWCODE,
+            scope:        'email',
+          });
+
+          const oneTap = new sdk.OneTap();
+          oneTap.render({ container, showAlternativeLogin: true })
+            .on(sdk.WidgetEvents.ERROR, (err) => {
+              _authFields.error = 'VK: ' + (err?.message || 'Ошибка виджета');
+              renderAuthGateEl();
+            })
+            .on(sdk.OneTapInternalEvents.LOGIN_SUCCESS, async (payload) => {
+              await handleVKIDSuccess(payload.code, payload.device_id);
+            });
+        } catch(e) {
+          _vkidInited = false;
+          console.error('VK ID init error:', e);
+        }
+      }
+
+      async function handleVKIDSuccess(code, deviceId) {
+        const sdk = window.VKIDSDK;
+        if (!sdk) return;
+        _authFields.loading = true;
+        _authFields.error = '';
+        renderAuthGateEl();
+
+        try {
+          const tokenData = await sdk.Auth.exchangeCode(code, deviceId);
+          if (!tokenData?.id_token) throw new Error('VK не вернул id_token');
+
+          const { url: sbUrl, key } = getSupabaseConfig();
+          const res = await fetch(`${sbUrl}/functions/v1/vk-auth`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': key },
+            body:    JSON.stringify({ id_token: tokenData.id_token }),
+          });
+          const result = await res.json();
+          _authFields.loading = false;
+
+          if (result.error) {
+            _authFields.error = 'VK: ' + result.error;
+            renderAuthGateEl(); return;
+          }
+
+          if (!_supabase) {
+            _authFields.error = 'Supabase не инициализирован';
+            renderAuthGateEl(); return;
+          }
+
+          const { error: otpErr } = await _supabase.auth.verifyOtp({
+            token_hash: result.token,
+            type: 'magiclink',
+          });
+
+          if (otpErr) {
+            _authFields.error = 'VK вход: ' + otpErr.message;
+            renderAuthGateEl();
+          }
+          // onAuthStateChange обработает успешный вход
+        } catch(e) {
+          _authFields.loading = false;
+          _authFields.error = 'VK Auth: ' + (e?.message || 'Ошибка');
+          renderAuthGateEl();
+        }
+      }
+
+      function checkVKCallback() { /* stub — VK ID SDK работает без редиректа */ }
 
       function exitLocalModeAndLogin() {
         localStorage.removeItem("adervis_local_mode");
@@ -1499,6 +1587,8 @@
           el.innerHTML = "";
         } else {
           el.innerHTML = renderAuthGate();
+          _vkidInited = false;
+          setTimeout(initVKIDWidget, 50);
         }
       }
 
@@ -8911,6 +9001,12 @@ update profiles set agency_id = id::text where agency_id is null;
                     <input id="sb_key_input" placeholder="eyJhbGciOi..." value="${escapeHtml(cfg.key)}" type="password">
                   </div>
                 </div>
+                <div class="grid two" style="margin-bottom:14px">
+                  <div class="field">
+                    <label>VK App ID <span style="font-size:10px;color:var(--muted)">(для авторизации через VK)</span></label>
+                    <input id="vk_app_id_input" placeholder="12345678" value="${escapeHtml(localStorage.getItem('vk_app_id') || '')}">
+                  </div>
+                </div>
                 <div class="toolbar" style="margin-bottom:${_adminSession ? "14px" : "0"}">
                   <button class="btn primary" onclick="app.saveSupabaseConfig()">Сохранить настройки</button>
                   ${cfg.url && cfg.key && !_adminSession ? `<button class="btn" onclick="app.openAdminModal()">🔐 Войти</button>` : ""}
@@ -10728,6 +10824,7 @@ Email: ______________________            Email: ______________________
       if (_portalId) document.body.classList.add('portal-mode');
       render();
       initSupabase();
+      checkVKCallback();
       if (_portalId) loadPortalData();
       setTimeout(initSwipeToDelete, 800);
       setTimeout(checkDeadlineNotifications, 1200);

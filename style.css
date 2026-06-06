@@ -3002,3 +3002,7 @@ body.portal-mode .nav { display: none !important; }
   flex-direction: row; padding: 11px 16px; font-size: 13px; font-weight: 700;
   justify-content: center; gap: 10px;
 }
+.oauth-btn.oauth-vk {
+  background: #0077ff; border-color: #0077ff; color: #fff;
+}
+.oauth-btn.oauth-vk:hover { background: #005fcc; border-color: #005fcc; }
