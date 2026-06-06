@@ -3,54 +3,89 @@
 ## Статус: В работе
 Последнее обновление: 2026-06-06
 
+---
+
 ## ✅ Выполнено
+
+### Инфраструктура
 - ЮKassa интеграция (Edge Functions задеплоены, вебхук настроен)
 - Super-admin bypass для adervis.digital@gmail.com
-- Тарифный план — отдельный view `renderPlans` с сеткой карточек
-- Кликабельные строки финансовой таблицы (открывают модал редактирования)
-- Серый placeholder в названии позиции сметы — исправлен
-- Supabase блок в настройках — скрыт от обычных пользователей
-- Удалена лишняя кнопка "Сохранить сделку" из сводки (в deal-контексте)
-- buyPlan и gotoSubscription экспортированы в window.app
+- Supabase блок в настройках скрыт от обычных пользователей
+- Google Fonts Inter, Open Graph теги, Yandex.Metrica заглушка
+- Автоопределение темы (prefers-color-scheme)
+- Error boundary — try/catch в render()
+- Service Worker v2 — кеш статики, PWA
+
+### UI/UX
+- Красивый экран входа — лендинг слева, форма справа
+- Страница поддержки / Контакты
+- Интерактивный тур (6 слайдов)
+- Скелетон-анимации загрузки
+
+### Функции продукта
+- [x] 11. Онлайн-бриф для клиентов (?brief=UUID → форма → автосоздание сделки)
+- [x] 12. Клиентский портал (?portal=UUID → read-only КП, кнопка утверждения)
+  - SQL миграция: migrations/client_portals_rls.sql **→ нужно запустить в Supabase SQL Editor**
+- [x] Drag-and-Drop Kanban — HTML5 DnD для CRM и Tasks
+- [x] AI-помощник для КП — mock (2.4с задержка, премиум-текст, кнопка ✨)
+- [x] Swipe-to-delete — мобильный свайп влево для удаления задач
+- [x] 17. VK ID OAuth — кнопка "Продолжить как [Имя]" через VK ID SDK
+  - Edge Function: supabase/functions/vk-auth/index.ts (задеплоена)
+  - VK App ID: 54626328 (захардкожен в app.js как _DEFAULT_VK_APP_ID)
+  - Synthetic email если VK не передаёт: vk{userId}@vk.adervis
 
 ---
 
-## 🔄 В приоритете (делаем следующими)
+## ⚠️ Требует внимания (баги/незавершённое)
 
-### БЛОК 1 — Быстрые правки ✅
-- [x] 1. Подключить Google Fonts Inter в index.html
-- [x] 2. Open Graph теги (og:title, og:description, og:image, og:url, twitter:card) в index.html
-- [x] 3. Yandex.Metrica счётчик в index.html — **⚠️ заменить 99999999 на реальный ID**
-- [x] 4. Автоопределение темы (prefers-color-scheme) — инлайн-скрипт в head без мигания
+- **Google OAuth** — опубликовано в Google Console 2026-06-06, ждём пока заработает (до нескольких часов)
+  - Authorized redirect URI: https://qzeylogyledmhjpzvgkk.supabase.co/auth/v1/callback ✅
+  - JS Origin: https://app.adervis.ru ✅
+  - Publishing status: Production ✅
+- **client_portals SQL** — миграция ещё не запущена в Supabase! Открыть SQL Editor → новая вкладка → вставить содержимое migrations/client_portals_rls.sql → Run
+- **Service Worker ошибка** — `sw.js:54 Response body is already used` (не критично, не мешает работе)
+- **Yandex.Metrica** — заменить 99999999 на реальный ID счётчика в index.html строка ~55
 
-### БЛОК 2 — Брендинг ADERVIS ✅
-- [x] 5. SVG логотип ADERVIS в топбар — уже был подключён (logo-icon.svg)
-- [x] 6. Страница поддержки / Контакты — renderSupport(), доступна из профиль-dropdown
-- [x] 7. Красивый экран входа — двухколоночный лендинг с фичами слева, формой справа
-- [x] 8. Error boundary — try/catch в render(), страница с логотипом, кнопками и стеком ошибки
+---
 
-### БЛОК 3 — Онбординг
-- [x] 9. Интерактивный тур — уже был (ONBOARD_SLIDES, 6 слайдов, запускается из меню ?)
-- [x] 10. Скелетон-анимации загрузки данных из Supabase
+## 🔄 В приоритете (следующие сессии)
 
-### БЛОК 4 — Новые функции (2-3 сессии каждая)
-- [x] 11. Онлайн-бриф для клиентов (ссылка → форма → автосоздание сделки)
-- [ ] 12. Клиентский портал (видит статус, смету, может утвердить КП онлайн)
-- [ ] 13. Telegram-бот уведомления (оплата, просроченные задачи, статус сделки)
-- [ ] 14. Учёт времени на задачах (таймер старт/стоп, ставка за час)
-- [ ] 15. AI-помощник для КП (Claude API генерирует текст КП по данным сделки)
+### БЛОК A — Уведомления
+- [ ] A1. Telegram-бот уведомления (оплата, просроченные задачи, статус сделки)
+  - Edge Function: telegram-notify/index.ts
+  - Нужен Telegram Bot Token (BotFather)
+  - Триггеры: смена статуса сделки, дедлайн задачи, оплата ЮKassa
 
-### БЛОК 5 — Мобильный UX
-- [ ] 16. Swipe-to-delete для задач и транзакций
-- [ ] 17. Web Push уведомления о дедлайнах
+### БЛОК B — Продуктивность
+- [ ] B1. Учёт времени на задачах (таймер старт/стоп, ставка в час, итого по проекту)
+- [ ] B2. Web Push уведомления о дедлайнах (браузерные, без Telegram)
+- [ ] B3. AI КП с реальным Claude API (сейчас mock — заменить на настоящий запрос)
+  - Нужен ANTHROPIC_API_KEY в Supabase Secrets
+  - Edge Function: ai-proposal/index.ts
+
+### БЛОК C — Монетизация / Клиентская часть
+- [ ] C1. Автоматический триал без ручного редактирования в Supabase (регистрация → сразу 14 дней)
+- [ ] C2. Email уведомления об окончании подписки (через Supabase emails + edge function)
+- [ ] C3. Промокоды / реферальная система
+
+### БЛОК D — UX улучшения
+- [ ] D1. Массовые действия в CRM (выбрать несколько → переместить / удалить)
+- [ ] D2. Фильтры и поиск в финансах
+- [ ] D3. Экспорт КП в PDF (html-to-pdf через edge function)
 
 ---
 
 ## Контекст проекта
-- Приложение: https://app.adervis.ru
-- Supabase проект: qzeylogyledmhjpzvgkk
-- GitHub: adervisdigital-web/adervis-CRM-PRO
-- Super-admin: adervis.digital@gmail.com
-- ЮKassa shopId: 1375529
-- Стек: Vanilla JS (app.js ~9800+ строк), CSS (style.css), Supabase, ЮKassa
-- Деплой: GitHub Pages (автоматически при push в main)
+
+| Параметр | Значение |
+|----------|----------|
+| Приложение | https://app.adervis.ru |
+| Supabase | qzeylogyledmhjpzvgkk.supabase.co |
+| GitHub | adervisdigital-web/adervis-CRM-PRO |
+| Super-admin | adervis.digital@gmail.com |
+| ЮKassa shopId | 1375529 |
+| VK App ID | 54626328 |
+| Google Client ID | 665927609977-e70dar6ljomoe8sto5na64j80uirgcqe.apps.googleusercontent.com |
+| Деплой | GitHub Pages (push в main → автодеплой) |
+| Edge Functions | create-payment, yookassa-webhook, vk-auth |
+| Стек | Vanilla JS (app.js ~10 800 строк), style.css, Supabase, ЮKassa |
