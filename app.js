@@ -672,6 +672,8 @@
       let _dataLoading = false; // true while loading profile + cloud state from Supabase
       let _pendingInviteCode = ""; // set during registration if user entered invite code
       let _buyingPlan = null; // planId currently being purchased (shows loading state)
+      let _promoCode  = "";   // raw input value
+      let _promoState = null; // null=idle | "checking" | {code,discount} | "invalid"
       let _briefAgencyId = (new URLSearchParams(location.search).get('brief') || '').trim();
       let _portalId = (new URLSearchParams(location.search).get('portal') || '').trim();
       let _portalData = null;
@@ -1593,10 +1595,46 @@
         }
       }
 
+      function _promoCodeInputHtml() {
+        const promoValid   = _promoState && typeof _promoState === "object";
+        const promoInvalid = _promoState === "invalid";
+        const promoChecking = _promoState === "checking";
+        const borderColor = promoValid ? "var(--green)" : promoInvalid ? "var(--red)" : "var(--line)";
+        const statusHtml = promoValid
+          ? `<span style="color:var(--green);font-size:12px;font-weight:600">✓ −${_promoState.discount}% применено</span>`
+          : promoInvalid
+            ? `<span style="color:var(--red);font-size:12px">Промокод не найден или истёк</span>`
+            : promoChecking
+              ? `<span style="color:var(--muted);font-size:12px">Проверяем...</span>`
+              : "";
+        return `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:0;border:1px solid ${borderColor};border-radius:8px;overflow:hidden;background:var(--input);transition:.15s">
+              <input
+                type="text"
+                placeholder="Промокод"
+                value="${escapeHtml(_promoCode)}"
+                maxlength="32"
+                style="border:none;background:transparent;padding:9px 12px;font-size:13px;color:var(--text);width:160px;outline:none"
+                oninput="app._promoInput(this.value)"
+                onkeydown="if(event.key==='Enter')app.validatePromo()"
+              >
+              ${promoValid
+                ? `<button onclick="app.clearPromo()" style="border:none;background:transparent;color:var(--muted);padding:9px 10px;cursor:pointer;font-size:16px" title="Убрать промокод">✕</button>`
+                : `<button onclick="app.validatePromo()" style="border:none;background:var(--primary);color:#fff;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600" ${promoChecking ? "disabled" : ""}>${promoChecking ? "..." : "→"}</button>`
+              }
+            </div>
+            ${statusHtml}
+          </div>`;
+      }
+
       function renderSubscriptionGate() {
         const email = _adminSession && _adminSession.user.email || "";
         const hasSupabase = !!getSupabaseConfig().url;
         const paidPlans = PLANS.filter(p => p.price > 0);
+        const promoValid = _promoState && typeof _promoState === "object";
+        const promoInvalid = _promoState === "invalid";
+        const promoChecking = _promoState === "checking";
         return `
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;text-align:center;padding:32px 16px">
             <div style="font-size:48px;margin-bottom:18px">🔒</div>
@@ -1608,12 +1646,14 @@
               <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:640px;margin-bottom:24px">
                 ${paidPlans.map(p => {
                   const isLoading = _buyingPlan === p.id;
-                  const totalRub = p.price * (p.months || 1);
+                  const discountedPrice = promoValid ? Math.round(p.price * (1 - _promoState.discount / 100)) : null;
                   return `
                     <div style="background:var(--panel2);border:1px solid ${p.popular ? "var(--primary)" : "var(--line)"};border-radius:16px;padding:18px 22px;min-width:140px;flex:1;max-width:180px;position:relative">
                       ${p.popular ? `<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:2px 10px">Популярный</div>` : ""}
                       <div style="font-size:13px;font-weight:700;margin-bottom:6px">${p.label}</div>
-                      <div style="font-size:22px;font-weight:900;margin-bottom:2px">${p.price}₽</div>
+                      ${discountedPrice !== null
+                        ? `<div style="font-size:14px;color:var(--muted);text-decoration:line-through;line-height:1">${p.price}₽</div><div style="font-size:22px;font-weight:900;color:var(--green);margin-bottom:2px">${discountedPrice}₽</div>`
+                        : `<div style="font-size:22px;font-weight:900;margin-bottom:2px">${p.price}₽</div>`}
                       <div style="font-size:10px;color:var(--muted);margin-bottom:10px">${p.period}</div>
                       ${p.save ? `<div style="font-size:10px;color:var(--green);margin-bottom:8px">${p.save}</div>` : ""}
                       <button class="btn primary" style="width:100%;padding:9px;font-size:13px" onclick="app.buyPlan('${p.id}')" ${isLoading ? "disabled" : ""}>
@@ -1622,6 +1662,7 @@
                     </div>`;
                 }).join("")}
               </div>
+              ${_promoCodeInputHtml()}
               <p style="font-size:12px;color:var(--muted);margin-bottom:20px">Безопасная оплата через ЮKassa · карта / СБП / ЮМани</p>
             ` : `
               <a href="mailto:adervis.digital@gmail.com?subject=Продление подписки Adervis CRM" class="btn primary" style="text-decoration:none;margin-bottom:20px">
@@ -1831,22 +1872,28 @@
           month6: ["Всё из «3 мес»", "До 5 пользователей", "Расширенная аналитика", "Версии смет", "Пакеты услуг", "Экономия 28%"],
           year:   ["Всё из «6 мес»", "До 10 пользователей", "Максимум функций", "API доступ", "Брендирование КП", "Экономия 42%"]
         };
+        const promoValid = _promoState && typeof _promoState === "object";
         const cards = PLANS.map(p => {
           const isCurrent = sub && sub.subscription_plan === p.id && (sub.subscription_status === "active" || (sub.subscription_status === "trial" && p.id === "trial"));
           const isLoading = _buyingPlan === p.id;
-          const btnLabel = isCurrent ? "✓ Активен" : isLoading ? "⏳..." : p.price === 0 ? "Бесплатно" : `Оплатить ${p.price * Math.max(p.months, 1)} ₽`;
+          const discountedPrice = (promoValid && p.price > 0) ? Math.round(p.price * (1 - _promoState.discount / 100)) : null;
+          const totalDisc = discountedPrice ? discountedPrice * Math.max(p.months, 1) : null;
+          const btnLabel = isCurrent ? "✓ Активен" : isLoading ? "⏳..." : p.price === 0 ? "Бесплатно" : `Оплатить ${totalDisc !== null ? totalDisc : p.price * Math.max(p.months, 1)} ₽`;
           const btnOff = isCurrent || p.price === 0 || !!_buyingPlan;
           const feats = planFeatures[p.id] || [];
           const border = isCurrent ? "var(--green)" : p.popular ? "var(--primary)" : "var(--line)";
           const bg = isCurrent ? "rgba(22,163,74,.06)" : p.popular ? "rgba(124,58,237,.05)" : "var(--panel2)";
+          const priceHtml = p.price === 0
+            ? `<div style="font-size:28px;font-weight:900;color:var(--green);line-height:1">Бесплатно</div><div style="font-size:11px;color:var(--muted);margin-bottom:16px">${escapeHtml(p.period)}</div>`
+            : discountedPrice !== null
+              ? `<div style="font-size:13px;color:var(--muted);text-decoration:line-through;line-height:1">${p.price} ₽</div><div style="font-size:28px;font-weight:900;color:var(--green);line-height:1.1">${discountedPrice} ₽</div><div style="font-size:11px;color:var(--muted)">${escapeHtml(p.period)}</div><div style="font-size:11px;color:var(--green);font-weight:700;margin-bottom:16px">−${_promoState.discount}% по промокоду</div>`
+              : `<div style="font-size:28px;font-weight:900;line-height:1">${p.price} ₽</div><div style="font-size:11px;color:var(--muted)">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:11px;color:var(--primary2);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)}</div>` : `<div style="margin-bottom:16px"></div>`}`;
           return `
           <div class="plan-card" style="border-radius:18px;border:2px solid ${border};background:${bg};padding:20px 16px;display:flex;flex-direction:column;position:relative;min-width:0">
             ${p.popular && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--primary),var(--blue));color:#fff;font-size:10px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">🔥 Популярный</div>` : ""}
             ${isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:10px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">✓ Активен</div>` : ""}
             <div style="font-size:14px;font-weight:900;margin-bottom:10px">${escapeHtml(p.label)}</div>
-            ${p.price === 0
-              ? `<div style="font-size:28px;font-weight:900;color:var(--green);line-height:1">Бесплатно</div><div style="font-size:11px;color:var(--muted);margin-bottom:16px">${escapeHtml(p.period)}</div>`
-              : `<div style="font-size:28px;font-weight:900;line-height:1">${p.price} ₽</div><div style="font-size:11px;color:var(--muted)">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:11px;color:var(--primary2);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)}</div>` : `<div style="margin-bottom:16px"></div>`}`}
+            ${priceHtml}
             <div style="flex:1;display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
               ${feats.map(f => `<div style="font-size:12px;display:flex;align-items:flex-start;gap:5px"><span style="color:${isCurrent ? "var(--green)" : "var(--primary2)"};flex-shrink:0;font-size:11px;margin-top:1px">✓</span><span>${escapeHtml(f)}</span></div>`).join("")}
             </div>
@@ -1864,6 +1911,7 @@
             <div class="grid five" style="gap:14px;margin-bottom:20px">
               ${cards}
             </div>
+            ${_promoCodeInputHtml()}
             <p style="font-size:12px;color:var(--muted);padding:10px 16px;background:rgba(124,58,237,.06);border-radius:10px;margin:0">
               ✅ Подписка активируется автоматически после оплаты · Данные не теряются при смене тарифа · При смене — оставшиеся дни переносятся
             </p>
@@ -2062,7 +2110,10 @@
               "Content-Type":  "application/json",
               "Authorization": `Bearer ${_adminSession.access_token}`,
             },
-            body: JSON.stringify({ planId }),
+            body: JSON.stringify({
+              planId,
+              promoCode: (_promoState && _promoState.code) ? _promoState.code : undefined,
+            }),
           });
 
           if (!resp.ok) {
@@ -2077,6 +2128,35 @@
           _buyingPlan = null;
           render();
         }
+      }
+
+      async function validatePromo() {
+        const code = _promoCode.trim().toUpperCase();
+        if (!code || !_supabase) return;
+        _promoState = "checking";
+        render();
+        const { data, error } = await _supabase
+          .from("promo_codes")
+          .select("code,discount_percent,max_uses,uses_count,expires_at")
+          .eq("code", code)
+          .eq("is_active", true)
+          .single();
+        if (error || !data) {
+          _promoState = "invalid";
+        } else if (data.max_uses !== null && data.uses_count >= data.max_uses) {
+          _promoState = "invalid";
+        } else if (data.expires_at && new Date(data.expires_at) < new Date()) {
+          _promoState = "invalid";
+        } else {
+          _promoState = { code: data.code, discount: data.discount_percent };
+        }
+        render();
+      }
+
+      function clearPromo() {
+        _promoCode = "";
+        _promoState = null;
+        render();
       }
 
       function gotoSubscription() {
@@ -10785,6 +10865,9 @@ Email: ______________________            Email: ______________________
         deleteBrief,
 
         buyPlan,
+        validatePromo,
+        clearPromo,
+        _promoInput: (v) => { _promoCode = v; },
         gotoSubscription,
 
         _toast: toast,

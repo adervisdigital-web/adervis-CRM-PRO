@@ -43,9 +43,9 @@
 ## 📋 План — 15 пунктов (следующие сессии)
 
 ### Приоритет 1 — Монетизация и удержание
-- [ ] **1. Автотриал при регистрации** — новый юзер автоматически получает 14 дней trial без ручного редактирования в Supabase. Trigger на таблице profiles или хук после signup.
+- [x] **1. Автотриал при регистрации** — реализован в `_loadUserProfile()`: первый вход → `subscription_status: "trial"`, 14 дней. Работает для email, Google и VK OAuth.
 - [ ] **2. Email при окончании подписки** — за 3 дня до конца отправлять письмо через Supabase Edge Function + Resend/SMTP.
-- [ ] **3. Промокоды** — поле ввода промокода при оплате, таблица promo_codes в Supabase, скидка % от цены тарифа.
+- [x] **3. Промокоды** — `promo_codes` таблица (migration 20260607000001), поле ввода в `renderPlans` и `renderSubscriptionGate`, серверная валидация в Edge Function `create-payment`, атомарный инкремент `uses_count`. Нужно выполнить обе миграции в Supabase Dashboard и задеплоить Edge Function.
 
 ### Приоритет 2 — Уведомления
 - [ ] **4. Telegram-бот** — Edge Function telegram-notify, BotFather токен в Secrets. Юзер вводит chat_id в профиле. Уведомления: просроченные задачи, смена статуса сделки, оплата.
