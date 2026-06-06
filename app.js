@@ -5754,7 +5754,7 @@
         });
 
         // Update mobile bottom nav active states
-        const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","knowledge","catalog","packages","contracts","global-finances","support"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions","crm"], mbnCalendar: ["global-calendar"] };
+        const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","knowledge","catalog","packages","contracts","support"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions","crm"], mbnFinances: ["global-finances","global-calendar"] };
         Object.entries(mbnViewMap).forEach(([id, views]) => {
           const el = document.getElementById(id);
           if (el) el.classList.toggle("active", views.includes(state.view));
@@ -6330,46 +6330,118 @@
           "Закрыто": null
         };
 
+        // ── Dashboard metrics ──────────────────────────────────────────
+        const nowDate = new Date();
+        const curMonth = `${nowDate.getFullYear()}-${String(nowDate.getMonth()+1).padStart(2,"0")}`;
+        const prevMonthDate = new Date(nowDate.getFullYear(), nowDate.getMonth()-1, 1);
+        const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth()+1).padStart(2,"0")}`;
+
+        function paymentsInMonth(m) {
+          let sum = 0;
+          state.savedProjects.forEach(p => { (p.snapshot?.payments||[]).forEach(x => { if (x.date?.startsWith(m)) sum += x.amount||0; }); });
+          state.payments.forEach(x => { if (x.date?.startsWith(m)) sum += x.amount||0; });
+          return sum;
+        }
+
+        const monthRevenue = paymentsInMonth(curMonth);
+        const prevRevenue  = paymentsInMonth(prevMonth);
+        const revDelta = prevRevenue > 0 ? Math.round((monthRevenue - prevRevenue) / prevRevenue * 100) : null;
+
+        const totalDebt = projects.filter(p => !["Закрыто"].includes(p.crmStatus||"Лид"))
+          .reduce((s, p) => s + Math.max(0, (p.total||0) - (p.paid||0)), 0);
+
+        const avgDeal = closedCount > 0 ? Math.round(projects.filter(p=>p.crmStatus==="Закрыто").reduce((s,p)=>s+(p.total||0),0) / closedCount) : 0;
+
+        const todayStr = todayIso();
+        const in7 = new Date(); in7.setDate(in7.getDate()+7);
+        const in7Str = in7.toISOString().slice(0,10);
+        const upcomingDeadlines = [];
+        projects.forEach(p => {
+          if (p.deadline && p.deadline >= todayStr && p.deadline <= in7Str && !["Закрыто","Сдано"].includes(p.crmStatus||"Лид"))
+            upcomingDeadlines.push({ name: p.name, date: p.deadline, type: "Проект" });
+          (p.snapshot?.tasks||[]).forEach(t => {
+            if (t.deadline && t.deadline >= todayStr && t.deadline <= in7Str && t.status !== "Готово")
+              upcomingDeadlines.push({ name: t.title, date: t.deadline, type: "Задача" });
+          });
+          state.tasks.forEach(t => {
+            if (t.deadline && t.deadline >= todayStr && t.deadline <= in7Str && t.status !== "Готово")
+              upcomingDeadlines.push({ name: t.title, date: t.deadline, type: "Задача" });
+          });
+        });
+        upcomingDeadlines.sort((a,b) => a.date.localeCompare(b.date));
+        const uniqueDeadlines = upcomingDeadlines.filter((d,i,arr) => i === arr.findIndex(x => x.name===d.name && x.date===d.date));
+
+        const monthNames2 = ["январе","феврале","марте","апреле","мае","июне","июле","августе","сентябре","октябре","ноябре","декабре"];
+        const curMonthName = monthNames2[nowDate.getMonth()];
+
         return `
           <div>
+            <!-- ── DASHBOARD HEADER ─────────────────────── -->
+            <div class="db-header">
+              <div class="db-header-left">
+                <h1 class="db-greeting">Привет, ${escapeHtml((_adminSession?.user?.email||"").split("@")[0] || "команда")} 👋</h1>
+                <p class="db-date">В ${curMonthName} · ${projects.length} сделок · ${inWork} в работе</p>
+              </div>
+              <div class="toolbar no-print">
+                <button class="btn primary" onclick="app.startWizard()">+ Новая сделка</button>
+                <button class="btn" onclick="app.go('clients')">Клиенты</button>
+              </div>
+            </div>
+
+            <!-- ── KPI CARDS ─────────────────────────────── -->
+            <div class="db-kpi-grid">
+              <div class="db-kpi" onclick="app.go('global-finances')" style="cursor:pointer">
+                <div class="db-kpi-icon" style="background:rgba(22,163,74,.14);color:#4ade80">💰</div>
+                <div class="db-kpi-body">
+                  <div class="db-kpi-label">Выручка в месяце</div>
+                  <div class="db-kpi-value">${money(monthRevenue)}</div>
+                  ${revDelta !== null ? `<div class="db-kpi-delta ${revDelta>=0?"pos":"neg"}">${revDelta>=0?"↑":"↓"} ${Math.abs(revDelta)}% к прошлому</div>` : `<div class="db-kpi-delta neu">нет данных прошлого</div>`}
+                </div>
+              </div>
+              <div class="db-kpi">
+                <div class="db-kpi-icon" style="background:rgba(124,58,237,.14);color:var(--primary2)">📈</div>
+                <div class="db-kpi-body">
+                  <div class="db-kpi-label">Воронка (потенциал)</div>
+                  <div class="db-kpi-value">${money(totalPipeline)}</div>
+                  <div class="db-kpi-delta neu">${projects.filter(p=>!["Сдано","Закрыто"].includes(p.crmStatus||"Лид")).length} активных сделок</div>
+                </div>
+              </div>
+              <div class="db-kpi ${totalDebt>0?"db-kpi-warn":""}" onclick="app.go('global-finances')" style="cursor:pointer">
+                <div class="db-kpi-icon" style="background:rgba(234,88,12,.14);color:#fb923c">💳</div>
+                <div class="db-kpi-body">
+                  <div class="db-kpi-label">Долг от клиентов</div>
+                  <div class="db-kpi-value" style="${totalDebt>0?"color:var(--orange)":""}">${money(totalDebt)}</div>
+                  <div class="db-kpi-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
+                </div>
+              </div>
+              <div class="db-kpi">
+                <div class="db-kpi-icon" style="background:rgba(8,145,178,.14);color:#22d3ee">🔧</div>
+                <div class="db-kpi-body">
+                  <div class="db-kpi-label">В работе сейчас</div>
+                  <div class="db-kpi-value">${inWork}</div>
+                  <div class="db-kpi-delta neu">${closedCount} закрыто за всё время</div>
+                </div>
+              </div>
+              <div class="db-kpi">
+                <div class="db-kpi-icon" style="background:rgba(246,189,58,.12);color:var(--yellow)">📊</div>
+                <div class="db-kpi-body">
+                  <div class="db-kpi-label">Средний чек</div>
+                  <div class="db-kpi-value">${avgDeal > 0 ? money(avgDeal) : "—"}</div>
+                  <div class="db-kpi-delta neu">по закрытым сделкам</div>
+                </div>
+              </div>
+              <div class="db-kpi" onclick="app.go('global-calendar')" style="cursor:pointer">
+                <div class="db-kpi-icon" style="background:rgba(220,38,38,.12);color:#f87171">📅</div>
+                <div class="db-kpi-body">
+                  <div class="db-kpi-label">Дедлайны (7 дней)</div>
+                  <div class="db-kpi-value ${uniqueDeadlines.length>0?"":"" }">${uniqueDeadlines.length}</div>
+                  <div class="db-kpi-delta ${uniqueDeadlines.length>2?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${uniqueDeadlines.length>0 ? `ближайший: ${formatDate(uniqueDeadlines[0].date)}` : "дедлайнов нет ✓"}</div>
+                </div>
+              </div>
+            </div>
+
             <div class="panel" style="margin-bottom:14px">
-              <div class="section-title">
-                <div>
-                  <h1>Сделки</h1>
-                  <p>Ведите клиентов по воронке от первого контакта до закрытия.</p>
-                </div>
-                <div class="toolbar no-print">
-                  <button class="btn primary" onclick="app.startWizard()">+ Новая сделка</button>
-                  <button class="btn" onclick="app.go('clients')">Клиенты</button>
-                </div>
-              </div>
-
-              <div class="grid four" style="margin-top:12px">
-                <div class="calc-box">
-                  <h3>Воронка</h3>
-                  <div class="price">${money(totalPipeline)}</div>
-                  <p>Ожидаемая выручка</p>
-                </div>
-                <div class="calc-box">
-                  <h3>В работе</h3>
-                  <div class="price">${inWork}</div>
-                  <p>Проектов сейчас</p>
-                </div>
-                <div class="calc-box">
-                  <h3>Закрыто</h3>
-                  <div class="price">${closedCount}</div>
-                  <p>За всё время</p>
-                </div>
-                <div class="calc-box">
-                  <h3>Общая прибыль</h3>
-                  <div class="price">${money(totalProfit)}</div>
-                  <p style="display:flex;align-items:center;gap:6px">По всем проектам
-                    ${totalPipeline > 0 ? `<span class="margin-badge ${totalProfit/totalPipeline > 0.4 ? "good" : totalProfit/totalPipeline > 0.2 ? "ok" : "bad"}" style="font-size:9px">${Math.round(totalProfit/totalPipeline*100)}%</span>` : ""}
-                  </p>
-                </div>
-              </div>
-
-              <div class="crm-home-funnel" style="margin-top:16px">
+              <div class="crm-home-funnel">
                 <div class="funnel-stage ${filter === "all" ? "active" : ""}" onclick="app.setCrmFilter('all')">
                   <h3>Все</h3>
                   <div class="fs-count">${projects.length}</div>
@@ -6535,43 +6607,60 @@
           }
         });
 
+        const TIER_COLORS = {
+          1: { bg: "rgba(8,145,178,.12)", border: "rgba(8,145,178,.3)", text: "#22d3ee", label: "Старт" },
+          2: { bg: "rgba(124,58,237,.12)", border: "rgba(124,58,237,.35)", text: "var(--primary2)", label: "Профи" },
+          3: { bg: "rgba(246,189,58,.1)", border: "rgba(246,189,58,.4)", text: "var(--yellow)", label: "Премиум" },
+        };
+
         function renderPkgCard(pkg) {
           const cat = pkg.cat || "";
           const tier = pkg.tier || 0;
-          const tierLabel = tier === 1 ? "Старт" : tier === 2 ? "Профи" : tier === 3 ? "Премиум" : "";
+          const tc = TIER_COLORS[tier] || {};
           const catMeta = CAT_META[cat] || {};
+          const pkgItems = getPackageItems(pkg);
+          const price = escapeHtml(pkg.priceLabel || money(packageApproxTotal(pkg)));
+          const borderStyle = tier ? `border-color:${tc.border}` : "";
           return `
-            <article class="package-card" data-cat="${escapeHtml(cat)}">
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-                ${cat ? `<span class="pkg-cat-badge" data-cat="${escapeHtml(cat)}">${catMeta.icon || ""} ${escapeHtml(catMeta.label || cat)}</span>` : ""}
-                ${tierLabel ? `<span class="pkg-tier-badge t${tier}">${tierLabel}</span>` : ""}
-              </div>
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
-                <h3 style="margin:0;font-size:15px;font-weight:900;line-height:1.3">${escapeHtml(pkg.name)}</h3>
-                <span class="price" style="font-size:14px;white-space:nowrap;flex-shrink:0">${escapeHtml(pkg.priceLabel || money(packageApproxTotal(pkg)))}</span>
-              </div>
-              <p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.5">${escapeHtml(pkg.desc)}</p>
-
-              <div class="badges" style="margin-bottom:10px">
-                <span class="badge">Для: ${escapeHtml(pkg.goodFor || "проектов")}</span>
-                <span class="badge">${getPackageItems(pkg).length} позиций</span>
+            <article class="package-card pkg-tier-${tier}" style="${borderStyle}">
+              <div class="pkg-card-top">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                  ${cat ? `<span class="pkg-cat-badge" data-cat="${escapeHtml(cat)}">${catMeta.icon || ""} ${escapeHtml(catMeta.label || cat)}</span>` : ""}
+                  ${tier && tc.label ? `<span style="font-size:10px;font-weight:850;padding:2px 9px;border-radius:99px;background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>` : ""}
+                </div>
+                ${pkg.id.startsWith("package_") ? `<button class="btn danger small" onclick="event.stopPropagation();app.deletePackage('${pkg.id}')" title="Удалить пакет" style="padding:4px 8px;font-size:11px">✕</button>` : ""}
               </div>
 
-              <ul style="margin:0 0 10px;padding-left:16px;font-size:12px">
-                ${getPackageItems(pkg).slice(0, 6).map(x => `<li style="margin-bottom:2px">${escapeHtml(x.name)}</li>`).join("")}
-                ${getPackageItems(pkg).length > 6 ? `<li style="color:var(--muted)">+${getPackageItems(pkg).length - 6} позиций ещё</li>` : ""}
-              </ul>
+              <h3 class="pkg-card-name">${escapeHtml(pkg.name)}</h3>
+              <p class="pkg-card-desc">${escapeHtml(pkg.desc)}</p>
 
-              ${(pkg.notes || []).length ? `<p class="mini-note" style="margin-bottom:10px">${pkg.notes.slice(0,1).map(escapeHtml).join("")}</p>` : ""}
+              <div class="pkg-card-price">${price}</div>
 
-              <div class="toolbar no-print" style="margin-top:auto">
-                <button class="btn primary" onclick="app.applyPackage('${pkg.id}')">Добавить в смету</button>
-                <button class="btn" onclick="app.go('catalog')">Каталог</button>
-                ${pkg.id.startsWith("package_") ? `<button class="btn danger small" onclick="app.deletePackage('${pkg.id}')" title="Удалить пакет">🗑</button>` : ""}
+              <div class="pkg-card-for">Для: ${escapeHtml(pkg.goodFor || "проектов")}</div>
+
+              <div class="pkg-card-items">
+                ${pkgItems.slice(0, 5).map(x => `<div class="pkg-item-line">✓ ${escapeHtml(x.name)}</div>`).join("")}
+                ${pkgItems.length > 5 ? `<div class="pkg-item-line" style="color:var(--muted);opacity:.7">+ ещё ${pkgItems.length - 5} позиций</div>` : ""}
+              </div>
+
+              ${(pkg.notes || []).length ? `<p class="pkg-note">${escapeHtml(pkg.notes[0])}</p>` : ""}
+
+              <div class="pkg-card-actions">
+                <button class="btn primary" style="flex:1" onclick="app.applyPackage('${pkg.id}')">В смету →</button>
               </div>
             </article>
           `;
         }
+
+        const allCatsWithData = catOrder.filter(cat => groups[cat]?.length);
+        const [pkgCatFilter, setPkgCatFilter] = (() => {
+          const v = state.pkgCatFilter || "all";
+          return [v, (c) => { state.pkgCatFilter = c; render(); }];
+        })();
+
+        const filteredGroups = pkgCatFilter === "all"
+          ? allCatsWithData
+          : allCatsWithData.filter(c => c === pkgCatFilter);
 
         return `
           <div class="panel">
@@ -6581,13 +6670,21 @@
                 <p>Готовые наборы по категориям. Три уровня: Старт / Профи / Премиум.</p>
               </div>
               <div class="toolbar no-print">
-                <button class="btn" onclick="app.createPackage()">Создать пакет из сметы</button>
+                <button class="btn" onclick="app.createPackage()">+ Из сметы</button>
               </div>
             </div>
 
-            ${catOrder.filter(cat => groups[cat] && groups[cat].length).map(cat => `
+            <!-- Категориальные табы -->
+            <div class="tabs" style="margin-bottom:20px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px">
+              <button class="tab ${pkgCatFilter==="all"?"active":""}" onclick="app.setPkgCatFilter('all')">Все ${allPkgs.length ? `<span style="opacity:.6;font-size:11px">${allPkgs.length}</span>` : ""}</button>
+              ${allCatsWithData.map(cat => `
+                <button class="tab ${pkgCatFilter===cat?"active":""}" onclick="app.setPkgCatFilter('${cat}')" style="white-space:nowrap">${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)} <span style="opacity:.6;font-size:11px">${groups[cat].length}</span></button>
+              `).join("")}
+            </div>
+
+            ${filteredGroups.map(cat => `
               <div class="pkg-group-header">${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)}</div>
-              <div class="grid three" style="margin-bottom:6px">
+              <div class="grid three" style="margin-bottom:24px">
                 ${groups[cat].map(renderPkgCard).join("")}
               </div>
             `).join("")}
@@ -10988,7 +11085,8 @@ Email: ______________________            Email: ______________________
         _saveUserField,
         openSearch,
         closeSearch,
-        runSearch
+        runSearch,
+        setPkgCatFilter: (cat) => { state.pkgCatFilter = cat; render(); }
       };
 
       function checkDeadlineNotifications() {
