@@ -680,8 +680,9 @@
       let _briefs = [];
       let _briefsLoaded = false;
 
-      const _DEFAULT_SB_URL = "https://qzeylogyledmhjpzvgkk.supabase.co";
-      const _DEFAULT_SB_KEY = "sb_publishable_E9JgbQiA7namAFiZAAbZEQ_aBn11VgJ";
+      const _DEFAULT_SB_URL    = "https://qzeylogyledmhjpzvgkk.supabase.co";
+      const _DEFAULT_SB_KEY    = "sb_publishable_E9JgbQiA7namAFiZAAbZEQ_aBn11VgJ";
+      const _DEFAULT_VK_APP_ID = "54626328";
 
       function getSupabaseConfig() {
         return {
@@ -1136,7 +1137,7 @@
                       <span style="font-size:13px">Продолжить с Google</span>
                     </button>
                   </div>
-                  ${localStorage.getItem('vk_app_id') ? `<div id="vkid-one-tap" style="margin-top:8px"></div>` : ''}
+                  ${(localStorage.getItem('vk_app_id') || _DEFAULT_VK_APP_ID) ? `<div id="vkid-one-tap" style="margin-top:8px"></div>` : ''}
 
                   <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:11px;color:var(--muted)">
                     Adervis · ИНН 592110786536 ·
@@ -1225,7 +1226,7 @@
       function initVKIDWidget() {
         const sdk = window.VKIDSDK;
         if (!sdk || _vkidInited) return;
-        const appId = localStorage.getItem('vk_app_id') || '';
+        const appId = (localStorage.getItem('vk_app_id') || _DEFAULT_VK_APP_ID) || '';
         if (!appId) return;
         const container = document.getElementById('vkid-one-tap');
         if (!container) return;
@@ -9004,7 +9005,7 @@ update profiles set agency_id = id::text where agency_id is null;
                 <div class="grid two" style="margin-bottom:14px">
                   <div class="field">
                     <label>VK App ID <span style="font-size:10px;color:var(--muted)">(для авторизации через VK)</span></label>
-                    <input id="vk_app_id_input" placeholder="12345678" value="${escapeHtml(localStorage.getItem('vk_app_id') || '')}">
+                    <input id="vk_app_id_input" placeholder="12345678" value="${escapeHtml((localStorage.getItem('vk_app_id') || _DEFAULT_VK_APP_ID) || '')}">
                   </div>
                 </div>
                 <div class="toolbar" style="margin-bottom:${_adminSession ? "14px" : "0"}">
