@@ -673,6 +673,9 @@
       let _pendingInviteCode = ""; // set during registration if user entered invite code
       let _buyingPlan = null; // planId currently being purchased (shows loading state)
       let _briefAgencyId = (new URLSearchParams(location.search).get('brief') || '').trim();
+      let _portalId = (new URLSearchParams(location.search).get('portal') || '').trim();
+      let _portalData = null;
+      let _portalLoaded = false;
       let _briefForm = { name:'', phone:'', email:'', type:'', desc:'', budget:'', deadline:'', sending:false, sent:false, error:'' };
       let _briefs = [];
       let _briefsLoaded = false;
@@ -979,6 +982,9 @@
         if (!url || !key) { toast("Введите URL и ключ"); return; }
         localStorage.setItem("sb_url", url);
         localStorage.setItem("sb_key", key);
+        const vkId = (document.getElementById("vk_app_id_input")?.value || '').trim();
+        if (vkId) localStorage.setItem("vk_app_id", vkId);
+        else localStorage.removeItem("vk_app_id");
         toast("✅ Сохранено. Обновите страницу для подключения.");
       }
 
@@ -1123,6 +1129,15 @@
                     <button onclick="app.setAuthTab('forgot')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">Забыли пароль?</button>
                   </div>` : ""}
 
+                  <div class="oauth-divider"><span>или войти через</span></div>
+                  <div class="oauth-buttons" style="grid-template-columns:1fr">
+                    <button class="oauth-btn oauth-active oauth-google-full" onclick="app.oauthSignIn('google')" title="Войти через Google">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                      <span style="font-size:13px">Продолжить с Google</span>
+                    </button>
+                  </div>
+                  ${localStorage.getItem('vk_app_id') ? `<div id="vkid-one-tap" style="margin-top:8px"></div>` : ''}
+
                   <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:11px;color:var(--muted)">
                     Adervis · ИНН 592110786536 ·
                     <a href="mailto:adervis.digital@gmail.com" style="color:var(--muted)">adervis.digital@gmail.com</a>
@@ -1192,6 +1207,102 @@
         f.forgotSent = true;
         renderAuthGateEl();
       }
+
+      async function oauthSignIn(provider) {
+        if (!_supabase) {
+          _authFields.error = "Supabase не настроен — настройте в разделе Настройки";
+          renderAuthGateEl(); return;
+        }
+        const { error } = await _supabase.auth.signInWithOAuth({
+          provider,
+          options: { redirectTo: location.origin + location.pathname }
+        });
+        if (error) { _authFields.error = error.message; renderAuthGateEl(); }
+      }
+
+      let _vkidInited = false;
+
+      function initVKIDWidget() {
+        const sdk = window.VKIDSDK;
+        if (!sdk || _vkidInited) return;
+        const appId = localStorage.getItem('vk_app_id') || '';
+        if (!appId) return;
+        const container = document.getElementById('vkid-one-tap');
+        if (!container) return;
+        _vkidInited = true;
+
+        try {
+          sdk.Config.init({
+            app:          Number(appId),
+            redirectUrl:  location.origin + location.pathname,
+            responseMode: sdk.ConfigResponseMode.Callback,
+            source:       sdk.ConfigSource.LOWCODE,
+            scope:        'email',
+          });
+
+          const oneTap = new sdk.OneTap();
+          oneTap.render({ container, showAlternativeLogin: true })
+            .on(sdk.WidgetEvents.ERROR, (err) => {
+              _authFields.error = 'VK: ' + (err?.message || 'Ошибка виджета');
+              renderAuthGateEl();
+            })
+            .on(sdk.OneTapInternalEvents.LOGIN_SUCCESS, async (payload) => {
+              await handleVKIDSuccess(payload.code, payload.device_id);
+            });
+        } catch(e) {
+          _vkidInited = false;
+          console.error('VK ID init error:', e);
+        }
+      }
+
+      async function handleVKIDSuccess(code, deviceId) {
+        const sdk = window.VKIDSDK;
+        if (!sdk) return;
+        _authFields.loading = true;
+        _authFields.error = '';
+        renderAuthGateEl();
+
+        try {
+          const tokenData = await sdk.Auth.exchangeCode(code, deviceId);
+          if (!tokenData?.id_token) throw new Error('VK не вернул id_token');
+
+          const { url: sbUrl, key } = getSupabaseConfig();
+          const res = await fetch(`${sbUrl}/functions/v1/vk-auth`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': key },
+            body:    JSON.stringify({ id_token: tokenData.id_token }),
+          });
+          const result = await res.json();
+          _authFields.loading = false;
+
+          if (result.error) {
+            _authFields.error = 'VK: ' + result.error;
+            renderAuthGateEl(); return;
+          }
+
+          if (!_supabase) {
+            _authFields.error = 'Supabase не инициализирован';
+            renderAuthGateEl(); return;
+          }
+
+          const { error: otpErr } = await _supabase.auth.verifyOtp({
+            token_hash: result.token,
+            type: 'magiclink',
+          });
+
+          if (otpErr) {
+            _authFields.error = 'VK вход: ' + otpErr.message;
+            renderAuthGateEl();
+          }
+          // onAuthStateChange обработает успешный вход
+        } catch(e) {
+          _authFields.loading = false;
+          _authFields.error = 'VK Auth: ' + (e?.message || 'Ошибка');
+          renderAuthGateEl();
+        }
+      }
+
+      function checkVKCallback() { /* stub — VK ID SDK работает без редиректа */ }
 
       function exitLocalModeAndLogin() {
         localStorage.removeItem("adervis_local_mode");
@@ -1468,7 +1579,7 @@
       function renderAuthGateEl() {
         const el = document.getElementById("authGateContainer");
         if (!el) return;
-        if (_briefAgencyId) { el.innerHTML = ""; return; }
+        if (_briefAgencyId || _portalId) { el.innerHTML = ""; return; }
         const cfg = getSupabaseConfig();
         const localMode = localStorage.getItem("adervis_local_mode") === "1";
         // Пока проверяем сохранённую сессию — auth gate не показываем (бесшовная загрузка)
@@ -1476,6 +1587,8 @@
           el.innerHTML = "";
         } else {
           el.innerHTML = renderAuthGate();
+          _vkidInited = false;
+          setTimeout(initVKIDWidget, 50);
         }
       }
 
@@ -5550,6 +5663,11 @@
             : "Смета";
         }
 
+        if (_portalId) {
+          root.innerHTML = renderClientPortal();
+          return;
+        }
+
         if (_briefAgencyId) {
           root.innerHTML = renderBriefPage();
           return;
@@ -7204,11 +7322,14 @@
                 const tasks = state.tasks.filter(task => task.status === status);
 
                 return `
-                  <div class="kanban-col">
+                  <div class="kanban-col"
+                    ondragover="event.preventDefault();this.classList.add('dragover')"
+                    ondragleave="this.classList.remove('dragover')"
+                    ondrop="app.onKanbanDrop(event,'${status}','task');this.classList.remove('dragover')">
                     <h3>${escapeHtml(status)} <span class="pill-count">${tasks.length}</span></h3>
 
                     <div class="list">
-                      ${tasks.length ? tasks.map(renderTaskCard).join("") : `<div class="empty">Пусто</div>`}
+                      ${tasks.length ? tasks.map(renderTaskCard).join("") : `<div class="empty kanban-drop-hint">Пусто</div>`}
                     </div>
                   </div>
                 `;
@@ -7224,7 +7345,12 @@
         const isOverdue = task.deadline && task.deadline < todayIso() && task.status !== "Готово";
 
         return `
-          <article class="task-card" style="border-left:3px solid ${pColor};padding:12px 14px">
+          <div class="swipe-wrap" data-task-id="${task.id}">
+            <div class="swipe-delete-bg">🗑</div>
+          <article class="task-card" style="border-left:3px solid ${pColor};padding:12px 14px"
+            draggable="true"
+            ondragstart="app.onKanbanDragStart(event,'${task.id}','task')"
+            ondragend="document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('dragover'))">
             <div style="display:flex;gap:8px;align-items:flex-start">
               <input class="task-title-input"
                 data-autosave data-scope="task" data-id="${task.id}" data-key="title"
@@ -7258,6 +7384,7 @@
               </div>
             </details>
           </article>
+          </div>
         `;
       }
 
@@ -7667,11 +7794,17 @@
                 const list = projects.filter(project => (project.crmStatus || "Лид") === status);
 
                 return `
-                  <div class="kanban-col">
+                  <div class="kanban-col"
+                    ondragover="event.preventDefault();this.classList.add('dragover')"
+                    ondragleave="this.classList.remove('dragover')"
+                    ondrop="app.onKanbanDrop(event,'${status}','crm');this.classList.remove('dragover')">
                     <h3>${escapeHtml(status)} <span class="pill-count">${list.length}</span></h3>
                     <div class="list">
                       ${list.length ? list.map(project => `
-                        <article class="crm-card">
+                        <article class="crm-card"
+                          draggable="true"
+                          ondragstart="app.onKanbanDragStart(event,'${project.id}','crm')"
+                          ondragend="document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('dragover'))">
                           <h3>${escapeHtml(project.name)}</h3>
                           <p>${escapeHtml(project.client || "Клиент не указан")}</p>
                           <div class="badges">
@@ -7681,9 +7814,10 @@
                           </div>
                           <div class="toolbar no-print" style="margin-top:10px">
                             <button class="btn primary small" onclick="app.loadSavedProject('${project.id}')">Открыть</button>
+                            <button class="btn small" onclick="app.createClientPortal('${project.id}')" title="Создать ссылку КП для клиента">🔗 КП-ссылка</button>
                           </div>
                         </article>
-                      `).join("") : `<div class="empty">Пусто</div>`}
+                      `).join("") : `<div class="empty kanban-drop-hint">Пусто</div>`}
                     </div>
                   </div>
                 `;
@@ -7703,6 +7837,7 @@
               </div>
 
               <div class="toolbar">
+                <button class="btn" id="aiProposalBtn" onclick="app.generateProposalAI()" style="background:linear-gradient(135deg,#7c3aed,#2563eb);border-color:transparent;color:#fff">✨ Сгенерировать с ИИ</button>
                 <button class="btn" onclick="app.copyProposalText()">Скопировать текст</button>
                 <button class="btn blue" onclick="app.printProposal()">Печать / PDF</button>
                 <button class="btn green" onclick="app.exportXlsx()">Excel</button>
@@ -8866,6 +9001,12 @@ update profiles set agency_id = id::text where agency_id is null;
                     <input id="sb_key_input" placeholder="eyJhbGciOi..." value="${escapeHtml(cfg.key)}" type="password">
                   </div>
                 </div>
+                <div class="grid two" style="margin-bottom:14px">
+                  <div class="field">
+                    <label>VK App ID <span style="font-size:10px;color:var(--muted)">(для авторизации через VK)</span></label>
+                    <input id="vk_app_id_input" placeholder="12345678" value="${escapeHtml(localStorage.getItem('vk_app_id') || '')}">
+                  </div>
+                </div>
                 <div class="toolbar" style="margin-bottom:${_adminSession ? "14px" : "0"}">
                   <button class="btn primary" onclick="app.saveSupabaseConfig()">Сохранить настройки</button>
                   ${cfg.url && cfg.key && !_adminSession ? `<button class="btn" onclick="app.openAdminModal()">🔐 Войти</button>` : ""}
@@ -8923,6 +9064,305 @@ update profiles set agency_id = id::text where agency_id is null;
       function calSetTypeFilter(type) {
         state.calTypeFilter = type;
         render();
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         КЛИЕНТСКИЙ ПОРТАЛ (Task 12)
+      ═══════════════════════════════════════════════════════ */
+      function renderClientPortal() {
+        if (!_portalLoaded) {
+          return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">
+            <span class="ai-spinner" style="width:32px;height:32px;border-width:3px"></span>
+            <p style="color:var(--muted)">Загрузка...</p>
+          </div>`;
+        }
+        if (!_portalData) {
+          return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:32px;text-align:center">
+            <div style="font-size:64px">🔍</div>
+            <h2 style="margin:0;font-size:22px">Ссылка недействительна</h2>
+            <p style="color:var(--muted);max-width:360px;line-height:1.6">КП не найдено. Проверьте ссылку или обратитесь к менеджеру.</p>
+          </div>`;
+        }
+        const d = _portalData;
+        const isApproved = d.deal_status === 'Согласовано' || !!d.approved_at;
+        const servicesList = Array.isArray(d.services_list) ? d.services_list : [];
+        return `
+          <div class="portal-wrap">
+            <div class="portal-inner">
+              <div class="portal-header">
+                <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0">
+                  <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:30px;height:30px;object-fit:contain">
+                </div>
+                <div>
+                  <div style="font-weight:900;font-size:17px;letter-spacing:-.2px">Adervis</div>
+                  <div style="font-size:12px;color:var(--muted)">Коммерческое предложение</div>
+                </div>
+              </div>
+
+              <div class="portal-card">
+                <div class="portal-status-badge ${isApproved ? 'approved' : ''}">
+                  ${isApproved ? '✅ Согласовано' : '📋 ' + escapeHtml(d.deal_status || 'На рассмотрении')}
+                </div>
+
+                <h1 class="portal-title">${escapeHtml(d.deal_name || 'Коммерческое предложение')}</h1>
+
+                <div class="portal-price-block">
+                  <div class="portal-price-label">Итоговая стоимость</div>
+                  <div class="portal-price-amount">${money(d.total_price || 0)}</div>
+                </div>
+
+                ${servicesList.length ? `
+                  <div class="portal-section">
+                    <h3>Состав услуг</h3>
+                    <ul class="portal-services-list">
+                      ${servicesList.map(s => `<li>${escapeHtml(s)}</li>`).join('')}
+                    </ul>
+                  </div>
+                ` : ''}
+
+                ${d.included_text ? `
+                  <div class="portal-section">
+                    <h3>Включено в стоимость</h3>
+                    <p>${escapeHtml(d.included_text).replace(/\n/g,'<br>')}</p>
+                  </div>
+                ` : ''}
+
+                ${d.excluded_text ? `
+                  <div class="portal-section">
+                    <h3>Не входит в стоимость</h3>
+                    <p style="color:var(--muted)">${escapeHtml(d.excluded_text).replace(/\n/g,'<br>')}</p>
+                  </div>
+                ` : ''}
+
+                ${d.proposal_note ? `
+                  <div class="portal-section portal-note">
+                    <p>${escapeHtml(d.proposal_note).replace(/\n/g,'<br>')}</p>
+                  </div>
+                ` : ''}
+
+                ${!isApproved ? `
+                  <button class="btn primary full" onclick="app.approvePortal()"
+                    style="margin-top:24px;padding:15px;font-size:15px;font-weight:800;letter-spacing:-.01em">
+                    ✅ Утвердить коммерческое предложение
+                  </button>
+                  <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.5">
+                    Нажимая кнопку, вы подтверждаете согласие<br>с условиями коммерческого предложения
+                  </p>
+                ` : `
+                  <div style="text-align:center;margin-top:24px;padding:22px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3);border-radius:14px">
+                    <div style="font-size:36px;margin-bottom:8px">✅</div>
+                    <div style="font-weight:800;color:var(--green);font-size:15px">КП утверждено</div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5">Мы получили ваше подтверждение и свяжемся с вами в ближайшее время.</div>
+                  </div>
+                `}
+              </div>
+
+              <div style="text-align:center;padding:24px 0 8px;font-size:12px;color:var(--muted)">
+                Adervis · Digital Creative Agency ·
+                <a href="mailto:adervis.digital@gmail.com" style="color:var(--muted)">adervis.digital@gmail.com</a>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      async function loadPortalData() {
+        const { url, key } = getSupabaseConfig();
+        if (!url || !key || !window.supabase) { _portalLoaded = true; render(); return; }
+        if (!_supabase) { try { _supabase = window.supabase.createClient(url, key); } catch(e) {} }
+        if (!_supabase) { _portalLoaded = true; render(); return; }
+        try {
+          const { data, error } = await _supabase
+            .from('client_portals')
+            .select('id, deal_name, deal_status, total_price, included_text, excluded_text, proposal_note, services_list, approved_at')
+            .eq('id', _portalId)
+            .single();
+          if (!error) _portalData = data;
+        } catch(e) { console.warn('Portal load:', e); }
+        _portalLoaded = true;
+        render();
+      }
+
+      async function approvePortal() {
+        if (!_supabase || !_portalId || !_portalData) return;
+        const btn = document.querySelector('.portal-wrap .btn.primary');
+        if (btn) { btn.disabled = true; btn.textContent = 'Отправка...'; }
+        const { error } = await _supabase
+          .from('client_portals')
+          .update({ deal_status: 'Согласовано', approved_at: new Date().toISOString() })
+          .eq('id', _portalId);
+        if (!error) {
+          _portalData.deal_status = 'Согласовано';
+          _portalData.approved_at = new Date().toISOString();
+          render();
+        } else {
+          if (btn) { btn.disabled = false; btn.textContent = '✅ Утвердить коммерческое предложение'; }
+          alert('Ошибка: ' + error.message);
+        }
+      }
+
+      async function createClientPortal(projectId) {
+        const project = (state.savedProjects || []).find(p => p.id === projectId);
+        if (!project) { toast('Проект не найден'); return; }
+        if (!_supabase) { toast('Supabase не настроен'); return; }
+        const snap = project.snapshot || {};
+        const proj = snap.project || {};
+        const selectedItems = Object.keys(snap.selected || {})
+          .map(id => { const b = BASE_ITEMS.find(x => x.id === id); return b ? b.name : null; })
+          .filter(Boolean);
+        const { data, error } = await _supabase.from('client_portals').insert({
+          agency_id: getAgencyId(),
+          deal_name: project.name || '',
+          deal_status: project.crmStatus || 'КП отправлено',
+          total_price: project.total || 0,
+          included_text: proj.includedText || '',
+          excluded_text: proj.excludedText || '',
+          proposal_note: proj.proposalNote || '',
+          services_list: selectedItems
+        }).select('id').single();
+        if (data && !error) {
+          const url = location.origin + location.pathname + '?portal=' + data.id;
+          try { await navigator.clipboard.writeText(url); toast('✅ Ссылка скопирована: ' + url); }
+          catch(e) { toast('Ссылка для клиента: ' + url); }
+        } else {
+          toast('Ошибка: ' + (error && error.message));
+        }
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         DRAG-AND-DROP КАНБАН (Task 13)
+      ═══════════════════════════════════════════════════════ */
+      let _dragItemId = null, _dragScope = null;
+
+      function onKanbanDragStart(event, id, scope) {
+        _dragItemId = id;
+        _dragScope = scope;
+        event.dataTransfer.effectAllowed = 'move';
+      }
+
+      function onKanbanDrop(event, newStatus, scope) {
+        event.preventDefault();
+        if (!_dragItemId || _dragScope !== scope) { _dragItemId = null; _dragScope = null; return; }
+        if (scope === 'crm') {
+          const proj = (state.savedProjects || []).find(p => p.id === _dragItemId);
+          if (proj && proj.crmStatus !== newStatus) {
+            proj.crmStatus = newStatus;
+            save(); saveToCloud(); render();
+            toast('Статус сделки: ' + newStatus);
+          }
+        } else if (scope === 'task') {
+          const task = (state.tasks || []).find(t => t.id === _dragItemId);
+          if (task && task.status !== newStatus) {
+            task.status = newStatus;
+            save(); render();
+          }
+        }
+        _dragItemId = null; _dragScope = null;
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         SWIPE-TO-DELETE (Task 16)
+      ═══════════════════════════════════════════════════════ */
+      let _sw = { el: null, startX: 0, dx: 0, active: false };
+
+      function initSwipeToDelete() {
+        const root = document.getElementById('appContent');
+        if (!root || root._swipeInited) return;
+        root._swipeInited = true;
+
+        root.addEventListener('touchstart', e => {
+          const wrap = e.target.closest('.swipe-wrap');
+          if (!wrap) return;
+          _sw.el = wrap;
+          _sw.startX = e.touches[0].clientX;
+          _sw.dx = 0; _sw.active = true;
+        }, { passive: true });
+
+        root.addEventListener('touchmove', e => {
+          if (!_sw.active || !_sw.el) return;
+          const dx = e.touches[0].clientX - _sw.startX;
+          if (dx < 0) {
+            _sw.dx = dx;
+            const card = _sw.el.querySelector('.task-card');
+            if (card) card.style.transform = `translateX(${Math.max(dx, -120)}px)`;
+          }
+        }, { passive: true });
+
+        root.addEventListener('touchend', () => {
+          if (!_sw.active || !_sw.el) return;
+          const wrap = _sw.el;
+          const dx = _sw.dx;
+          _sw.active = false; _sw.el = null; _sw.dx = 0;
+          const card = wrap.querySelector('.task-card');
+          if (!card) return;
+          if (dx < -80) {
+            card.style.transition = 'transform .22s ease, opacity .18s ease';
+            card.style.transform = 'translateX(-110%)';
+            card.style.opacity = '0';
+            setTimeout(() => {
+              const taskId = wrap.dataset.taskId;
+              if (taskId && confirm('Удалить задачу?')) {
+                state.tasks = state.tasks.filter(t => t.id !== taskId);
+                save(); render();
+              } else {
+                card.style.transition = 'transform .2s ease';
+                card.style.transform = '';
+                card.style.opacity = '';
+                setTimeout(() => { card.style.transition = ''; }, 200);
+              }
+            }, 220);
+          } else {
+            card.style.transition = 'transform .2s ease';
+            card.style.transform = '';
+            setTimeout(() => { card.style.transition = ''; }, 200);
+          }
+        }, { passive: true });
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         AI-ПОМОЩНИК КП (Task 15)
+      ═══════════════════════════════════════════════════════ */
+      async function generateProposalAI() {
+        const btn = document.getElementById('aiProposalBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="ai-spinner"></span> Генерация...'; }
+
+        // Симуляция задержки AI (легко заменить на fetch к API)
+        await new Promise(r => setTimeout(r, 2400));
+
+        const clientName = escapeHtml(state.project.client || 'Заказчик');
+        const total = totals().total;
+        const items = selectedIds()
+          .map(id => BASE_ITEMS.find(i => i.id === id))
+          .filter(Boolean);
+        const serviceNames = [...new Set(items.map(i => i.name))].slice(0, 6);
+        const stages = [...new Set(items.map(i => i.stage))].filter(Boolean);
+
+        const stageLabels = { pre: 'Подготовка и концепция', shoot: 'Съёмочный процесс', post: 'Постпродакшн', management: 'Управление проектом', marketing: 'Дистрибуция' };
+        const stagesText = stages.map(s => stageLabels[s] || s).join(', ');
+
+        state.project.includedText = [
+          '— Стратегия, концепция и творческое решение',
+          serviceNames.length ? '— ' + serviceNames.slice(0, 3).join(', ') : null,
+          stages.includes('shoot') ? '— Профессиональная съёмка с авторским подходом' : null,
+          stages.includes('post') ? '— Постпродакшн: монтаж, цветокоррекция, чистовой звук' : null,
+          '— Два раунда правок на каждом этапе производства',
+          '— Финальные файлы в форматах HD/4K + передача исходников',
+          stagesText ? '— Полный цикл: ' + stagesText : null
+        ].filter(Boolean).join('\n');
+
+        state.project.excludedText = [
+          '— Аренда внешних локаций, разрешения и согласования',
+          '— Актёры, модели, ведущие (при необходимости — согласуется отдельно)',
+          '— Лицензионная музыка вне включённого пакета',
+          '— Правки сверх согласованных раундов',
+          '— Продвижение и таргетированная реклама'
+        ].join('\n');
+
+        state.project.proposalNote = `Adervis — digital-агентство полного цикла. Мы создаём визуальный контент, который работает: усиливает бренд, вовлекает аудиторию и конвертирует внимание в результат.\n\nКаждый проект — это системный подход: от исследования аудитории и концепции до финального материала. Мы не производим контент ради контента — мы решаем коммуникационные задачи клиента.\n\nСтоимость производства: ${money(total)}.\nУсловия: 50% предоплата до начала работ, 50% после сдачи финального материала.`;
+
+        save(); render();
+        if (btn) { btn.disabled = false; btn.innerHTML = '✨ Сгенерировать с ИИ'; }
+        toast('✨ КП сгенерировано!');
       }
 
       /* ═══════════════════════════════════════════════════════
@@ -10242,6 +10682,16 @@ Email: ______________________            Email: ______________________
         calSetAllMode,
         calSetTypeFilter,
 
+        onKanbanDragStart,
+        onKanbanDrop,
+
+        generateProposalAI,
+
+        approvePortal,
+        createClientPortal,
+
+        oauthSignIn,
+
         openMainMenu,
         closeMainMenu,
 
@@ -10371,7 +10821,11 @@ Email: ______________________            Email: ______________________
       load();
       initEvents();
       if (_briefAgencyId) document.body.classList.add('brief-mode');
+      if (_portalId) document.body.classList.add('portal-mode');
       render();
       initSupabase();
+      checkVKCallback();
+      if (_portalId) loadPortalData();
+      setTimeout(initSwipeToDelete, 800);
       setTimeout(checkDeadlineNotifications, 1200);
     })();
