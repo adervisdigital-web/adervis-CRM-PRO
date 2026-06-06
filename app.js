@@ -669,8 +669,13 @@
       let _cloudSaveTimer = null;
       let _onlineUsers = [];
       let _authChecking = true;
+      let _dataLoading = false; // true while loading profile + cloud state from Supabase
       let _pendingInviteCode = ""; // set during registration if user entered invite code
       let _buyingPlan = null; // planId currently being purchased (shows loading state)
+      let _briefAgencyId = (new URLSearchParams(location.search).get('brief') || '').trim();
+      let _briefForm = { name:'', phone:'', email:'', type:'', desc:'', budget:'', deadline:'', sending:false, sent:false, error:'' };
+      let _briefs = [];
+      let _briefsLoaded = false;
 
       const _DEFAULT_SB_URL = "https://qzeylogyledmhjpzvgkk.supabase.co";
       const _DEFAULT_SB_KEY = "sb_publishable_E9JgbQiA7namAFiZAAbZEQ_aBn11VgJ";
@@ -699,6 +704,7 @@
             else {
               _userProfile = null;
               _onlineUsers = [];
+              _briefs = []; _briefsLoaded = false;
               if (_realtimeChannel) { _realtimeChannel.unsubscribe(); _realtimeChannel = null; }
               renderAdminTopbar();
               render();
@@ -708,8 +714,12 @@
       }
 
       async function _onUserLoggedIn(session) {
+        _dataLoading = true;
+        renderAdminTopbar();
+        render();
         await _loadUserProfile(session.user.id, session.user.email);
         await _loadCloudState();
+        _dataLoading = false;
         _initRealtimeChannel();
         renderAdminTopbar();
         render();
@@ -895,6 +905,7 @@
       }
 
       function renderAdminTopbar() {
+        if (_briefAgencyId) return;
         const el = document.getElementById("adminTopbar");
         if (!el) return;
         if (_adminSession) {
@@ -1457,6 +1468,7 @@
       function renderAuthGateEl() {
         const el = document.getElementById("authGateContainer");
         if (!el) return;
+        if (_briefAgencyId) { el.innerHTML = ""; return; }
         const cfg = getSupabaseConfig();
         const localMode = localStorage.getItem("adervis_local_mode") === "1";
         // Пока проверяем сохранённую сессию — auth gate не показываем (бесшовная загрузка)
@@ -5510,7 +5522,8 @@
           profile: renderProfile,
           plans: renderPlans,
           knowledge: renderKnowledge,
-          support: renderSupport
+          support: renderSupport,
+          briefs: renderBriefs
         };
 
         document.querySelectorAll(".nav button").forEach(button => {
@@ -5535,6 +5548,16 @@
           navEstimateBtn.textContent = hasProject && state.project.name
             ? `Смета: ${state.project.name.slice(0, 18)}${state.project.name.length > 18 ? "…" : ""}`
             : "Смета";
+        }
+
+        if (_briefAgencyId) {
+          root.innerHTML = renderBriefPage();
+          return;
+        }
+
+        if (_dataLoading) {
+          root.innerHTML = renderLoadingSkeleton();
+          return;
         }
 
         if (localStorage.getItem('adervis_local_mode') !== '1' && !isSubscriptionActive() && _adminSession) {
@@ -5633,6 +5656,351 @@
             if (scope === "team") updateTeamMember(id, key, value);
           });
         });
+      }
+
+      function renderLoadingSkeleton() {
+        const skel = (w, h, r) => `<span class="skel" style="width:${w};height:${h}px;border-radius:${r || 8}px;margin-bottom:0"></span>`;
+        const cards4 = [0,1,2,3].map(() => `
+          <div class="calc-box" style="display:flex;flex-direction:column;gap:10px">
+            ${skel("55px", 12)} ${skel("80px", 24, 6)} ${skel("100px", 11)}
+          </div>`).join("");
+        const funnel = [0,1,2,3,4,5].map(() => `
+          <span class="skel" style="min-width:72px;height:52px;border-radius:12px;flex-shrink:0"></span>`).join("");
+        const dealCards = [0,1,2,3,4,5].map(() => `
+          <div class="skel-card" style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+              <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                ${skel("70%", 15)} ${skel("45%", 11)}
+              </div>
+              ${skel("64px", 22, 99)}
+            </div>
+            ${skel("100%", 5, 99)}
+            <div style="display:flex;justify-content:space-between">
+              ${skel("60px", 11)} ${skel("50px", 11)}
+            </div>
+          </div>`).join("");
+        return `
+          <div>
+            <div class="panel" style="margin-bottom:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  ${skel("100px", 20, 6)} ${skel("220px", 12)}
+                </div>
+                <div style="display:flex;gap:8px">
+                  ${skel("120px", 36, 10)} ${skel("88px", 36, 10)}
+                </div>
+              </div>
+              <div class="grid four" style="margin-top:4px">${cards4}</div>
+              <div style="display:flex;gap:8px;margin-top:16px;overflow-x:auto;padding-bottom:4px">${funnel}</div>
+            </div>
+            <div class="grid three">${dealCards}</div>
+          </div>`;
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         ОНЛАЙН-БРИФ — публичная форма и CRM-раздел
+      ═══════════════════════════════════════════════════════ */
+
+      function renderBriefPage() {
+        const f = _briefForm;
+        if (f.sent) {
+          return `
+            <div class="brief-wrap">
+              <div class="brief-inner">
+                <div class="brief-card">
+                  <div class="brief-success-wrap">
+                    <div class="brief-success-icon">✅</div>
+                    <h2>Заявка отправлена!</h2>
+                    <p>Мы получили вашу заявку и свяжемся с вами в течение 24 часов.</p>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+        }
+        const PROJECT_TYPES = ['Свадьба','Корпоратив','Рекламный ролик','Музыкальный клип','Мероприятие','Репортаж','Другое'];
+        const BUDGETS = ['Обсудим','До 30 000 ₽','30 000 – 80 000 ₽','80 000 – 200 000 ₽','200 000 ₽+'];
+        return `
+          <div class="brief-wrap">
+            <div class="brief-inner">
+              <div class="brief-logo-row">
+                <div class="brief-logo-box">
+                  <img src="logo-icon.svg" alt="A" width="32" height="32" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+                  <span style="display:none;color:#fff;font-weight:900;font-size:20px">A</span>
+                </div>
+                <div>
+                  <div style="font-size:18px;font-weight:900;line-height:1.2">Adervis PRO</div>
+                  <div style="font-size:12px;color:var(--muted)">Видеопродакшн</div>
+                </div>
+              </div>
+              <div class="brief-card">
+                <h1>Заявка на съёмку</h1>
+                <p class="brief-sub">Расскажите о проекте — мы свяжемся с вами в течение 24 часов и обсудим детали.</p>
+                <div class="brief-fields">
+                  <div class="brief-row">
+                    <div class="field">
+                      <label>Ваше имя *</label>
+                      <input class="input" type="text" placeholder="Иван Иванов" value="${escapeHtml(f.name)}" oninput="app.updateBriefField('name',this.value)">
+                    </div>
+                    <div class="field">
+                      <label>Телефон</label>
+                      <input class="input" type="tel" placeholder="+7 900 000-00-00" value="${escapeHtml(f.phone)}" oninput="app.updateBriefField('phone',this.value)">
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Email *</label>
+                    <input class="input" type="email" placeholder="your@email.com" value="${escapeHtml(f.email)}" oninput="app.updateBriefField('email',this.value)">
+                  </div>
+                  <div class="brief-row">
+                    <div class="field">
+                      <label>Тип проекта</label>
+                      <select class="input" onchange="app.updateBriefField('type',this.value)">
+                        <option value="">Выберите...</option>
+                        ${PROJECT_TYPES.map(t => `<option value="${t}" ${f.type===t?'selected':''}>${t}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label>Бюджет</label>
+                      <select class="input" onchange="app.updateBriefField('budget',this.value)">
+                        <option value="">Выберите...</option>
+                        ${BUDGETS.map(b => `<option value="${b}" ${f.budget===b?'selected':''}>${b}</option>`).join('')}
+                      </select>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Дата съёмки (примерно)</label>
+                    <input class="input" type="date" value="${f.deadline}" oninput="app.updateBriefField('deadline',this.value)">
+                  </div>
+                  <div class="field">
+                    <label>Расскажите о проекте</label>
+                    <textarea class="input" rows="4" placeholder="Опишите идею, место съёмки, особые пожелания..." oninput="app.updateBriefField('desc',this.value)" style="resize:vertical">${escapeHtml(f.desc)}</textarea>
+                  </div>
+                  <button class="brief-submit" onclick="app.submitBrief()" ${f.sending ? 'disabled' : ''}>
+                    ${f.sending ? 'Отправляем...' : 'Отправить заявку →'}
+                  </button>
+                  ${f.error ? `<p class="brief-error">${escapeHtml(f.error)}</p>` : ''}
+                </div>
+              </div>
+              <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:20px">
+                Powered by <strong>Adervis PRO</strong> · Данные используются только для связи с вами
+              </p>
+            </div>
+          </div>`;
+      }
+
+      function updateBriefField(key, value) {
+        _briefForm[key] = value;
+      }
+
+      async function submitBrief() {
+        const f = _briefForm;
+        if (!f.name.trim()) { f.error = 'Укажите ваше имя'; render(); return; }
+        if (!f.email.trim() || !f.email.includes('@')) { f.error = 'Укажите корректный email'; render(); return; }
+        f.sending = true; f.error = ''; render();
+        try {
+          const sb = window.supabase.createClient(_DEFAULT_SB_URL, _DEFAULT_SB_KEY);
+          const { error } = await sb.from('brief_submissions').insert({
+            agency_id: _briefAgencyId,
+            client_name: f.name.trim(),
+            client_phone: f.phone.trim(),
+            client_email: f.email.trim(),
+            project_type: f.type,
+            description: f.desc.trim(),
+            budget: f.budget,
+            deadline: f.deadline || null,
+            submitted_at: new Date().toISOString()
+          });
+          f.sending = false;
+          if (error) { f.error = 'Ошибка отправки. Попробуйте позже.'; }
+          else { f.sent = true; }
+        } catch(e) {
+          _briefForm.sending = false;
+          _briefForm.error = 'Ошибка сети. Проверьте соединение и попробуйте снова.';
+        }
+        render();
+      }
+
+      /* ── CRM: просмотр входящих брифов ── */
+
+      function getBriefLink() {
+        const agencyId = getAgencyId();
+        const base = location.origin + location.pathname.replace(/index\.html$/, '');
+        return base + '?brief=' + agencyId;
+      }
+
+      function copyBriefLink() {
+        const link = getBriefLink();
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(link).then(() => toast('Ссылка скопирована!')).catch(() => {
+            prompt('Скопируйте ссылку:', link);
+          });
+        } else {
+          prompt('Скопируйте ссылку:', link);
+        }
+      }
+
+      async function _loadBriefs() {
+        if (!_supabase || !_adminSession || _briefsLoaded) return;
+        const agencyId = getAgencyId();
+        try {
+          const { data } = await _supabase.from('brief_submissions')
+            .select('*').eq('agency_id', agencyId)
+            .order('submitted_at', { ascending: false });
+          _briefs = data || [];
+          _briefsLoaded = true;
+          render();
+        } catch(e) { console.warn('Briefs load:', e); _briefsLoaded = true; render(); }
+      }
+
+      async function convertBriefToDeal(briefId) {
+        const brief = _briefs.find(b => b.id === briefId);
+        if (!brief) return;
+        let clientId = '';
+        if (brief.client_name) {
+          const existing = (state.clients || []).find(c =>
+            (brief.client_email && c.email === brief.client_email) ||
+            (brief.client_phone && c.phone === brief.client_phone)
+          );
+          if (existing) {
+            clientId = existing.id;
+          } else {
+            const newClient = { id: uid('client'), name: brief.client_name, phone: brief.client_phone || '', email: brief.client_email || '', notes: '' };
+            state.clients = [newClient, ...(state.clients || [])];
+            clientId = newClient.id;
+          }
+        }
+        const dealName = brief.project_type
+          ? `${brief.project_type} · ${brief.client_name || 'Новый клиент'}`
+          : (brief.client_name || 'Новый клиент');
+        const newProject = {
+          id: uid('proj'),
+          name: dealName,
+          client: brief.client_name || '',
+          clientId,
+          crmStatus: 'Бриф',
+          notes: [brief.description, brief.budget ? 'Бюджет: ' + brief.budget : ''].filter(Boolean).join('\n'),
+          deadline: brief.deadline || '',
+          lines: [], payments: [], expenses: [], tasks: [], team: [],
+          createdAt: new Date().toISOString()
+        };
+        state.savedProjects = [newProject, ...(state.savedProjects || [])];
+        save();
+        if (_supabase && _adminSession) {
+          try {
+            await _supabase.from('brief_submissions').update({ status: 'converted', deal_id: newProject.id }).eq('id', briefId);
+          } catch(e) { /* ignore */ }
+        }
+        _briefs = _briefs.map(b => b.id === briefId ? { ...b, status: 'converted', deal_id: newProject.id } : b);
+        toast('Сделка создана!');
+        state.activeProjectId = newProject.id;
+        state.view = 'deal';
+        render();
+      }
+
+      async function deleteBrief(briefId) {
+        if (!confirm('Удалить эту заявку?')) return;
+        if (_supabase && _adminSession) {
+          try { await _supabase.from('brief_submissions').delete().eq('id', briefId); } catch(e) { /* ignore */ }
+        }
+        _briefs = _briefs.filter(b => b.id !== briefId);
+        render();
+      }
+
+      function renderBriefs() {
+        if (!_briefsLoaded) {
+          _loadBriefs();
+          return `
+            <div class="panel">
+              <div style="text-align:center;padding:48px 24px;color:var(--muted)">
+                <div style="font-size:32px;margin-bottom:12px">⏳</div>
+                <p>Загружаем заявки...</p>
+              </div>
+            </div>`;
+        }
+        const link = getBriefLink();
+        const newBriefs = _briefs.filter(b => b.status !== 'converted');
+        const done = _briefs.filter(b => b.status === 'converted');
+        return `
+          <div>
+            <div class="panel" style="margin-bottom:14px">
+              <div class="section-title">
+                <div>
+                  <h1>Онлайн-брифы</h1>
+                  <p>Заявки от клиентов по вашей персональной ссылке.</p>
+                </div>
+                <div class="toolbar no-print">
+                  <button class="btn primary" onclick="app.copyBriefLink()">Копировать ссылку</button>
+                </div>
+              </div>
+              <div class="brief-link-box" style="margin-top:14px">
+                <span style="font-size:18px;flex-shrink:0">🔗</span>
+                <span class="brief-link-url">${escapeHtml(link)}</span>
+                <button class="btn small" onclick="app.copyBriefLink()" title="Копировать">Копировать</button>
+              </div>
+              <p style="font-size:12px;color:var(--muted);margin:10px 0 0">
+                Поделитесь ссылкой с клиентом — он заполнит форму, и заявка появится здесь.
+              </p>
+            </div>
+
+            ${newBriefs.length === 0 && done.length === 0 ? `
+              <div class="panel" style="text-align:center;padding:48px 24px">
+                <div style="font-size:48px;margin-bottom:16px">📋</div>
+                <h3 style="margin:0 0 8px">Нет новых заявок</h3>
+                <p style="color:var(--muted);font-size:14px">Скопируйте ссылку и поделитесь ею с клиентами</p>
+              </div>
+            ` : ''}
+
+            ${newBriefs.length ? `
+              <div style="margin-bottom:14px">
+                <h2 style="font-size:14px;font-weight:850;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px">
+                  Новые заявки (${newBriefs.length})
+                </h2>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  ${newBriefs.map(b => renderBriefCard(b)).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${done.length ? `
+              <div>
+                <h2 style="font-size:14px;font-weight:850;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px">
+                  Конвертировано в сделки (${done.length})
+                </h2>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  ${done.map(b => renderBriefCard(b)).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>`;
+      }
+
+      function renderBriefCard(b) {
+        const isConverted = b.status === 'converted';
+        const date = b.submitted_at ? new Date(b.submitted_at).toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+        return `
+          <div class="brief-card-item" style="${isConverted ? 'opacity:.65' : ''}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px">
+              <div style="min-width:0;flex:1">
+                <div style="font-size:15px;font-weight:800">${escapeHtml(b.client_name || 'Без имени')}</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:8px">
+                  ${b.client_email ? `<span>📧 ${escapeHtml(b.client_email)}</span>` : ''}
+                  ${b.client_phone ? `<span>📞 ${escapeHtml(b.client_phone)}</span>` : ''}
+                  ${date ? `<span>🕐 ${date}</span>` : ''}
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0;align-items:center">
+                ${isConverted
+                  ? `<span class="status-pill" style="background:rgba(22,163,74,.12);color:#16a34a;font-size:11px">✓ Сделка</span>`
+                  : `<button class="btn primary small" onclick="app.convertBriefToDeal('${b.id}')">Создать сделку</button>`}
+                <button class="btn small" onclick="app.deleteBrief('${b.id}')" title="Удалить" style="padding:5px 8px;font-size:14px;color:var(--muted)">×</button>
+              </div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px">
+              ${b.project_type ? `<span style="background:rgba(124,58,237,.1);color:var(--primary2);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.project_type)}</span>` : ''}
+              ${b.budget ? `<span style="background:rgba(37,99,235,.1);color:var(--blue);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.budget)}</span>` : ''}
+              ${b.deadline ? `<span style="background:rgba(202,138,4,.1);color:var(--yellow);border-radius:6px;padding:2px 8px;font-weight:700">📅 ${escapeHtml(b.deadline)}</span>` : ''}
+            </div>
+            ${b.description ? `<p style="margin:10px 0 0;font-size:13px;color:var(--muted);line-height:1.5">${escapeHtml(b.description)}</p>` : ''}
+          </div>`;
       }
 
       function renderHome() {
@@ -8403,6 +8771,20 @@
               ${field("Реквизиты", `<textarea data-autosave data-scope="company" data-key="requisites">${escapeHtml(state.company.requisites)}</textarea>`)}
             </div>
 
+            ${_adminSession ? `
+            <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
+              <h2>Онлайн-бриф</h2>
+              <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Поделитесь ссылкой с клиентом — он заполнит форму, и заявка автоматически появится в разделе Брифы.</p>
+              <div class="brief-link-box">
+                <span style="font-size:18px;flex-shrink:0">🔗</span>
+                <span class="brief-link-url">${escapeHtml(getBriefLink())}</span>
+                <button class="btn small primary" onclick="app.copyBriefLink()">Копировать</button>
+              </div>
+              <div style="margin-top:10px">
+                <button class="btn" onclick="app.go('briefs')">Смотреть заявки →</button>
+              </div>
+            </div>` : ''}
+
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
               <h2>Данные</h2>
 
@@ -8630,6 +9012,11 @@ update profiles set agency_id = id::text where agency_id is null;
                   <span class="mm-icon">📚</span>
                   <div class="mm-label">База знаний</div>
                   <div class="mm-sub">Скрипты и шаблоны</div>
+                </button>
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('briefs')">
+                  <span class="mm-icon">📋</span>
+                  <div class="mm-label">Онлайн-брифы</div>
+                  <div class="mm-sub">Заявки от клиентов</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('profile')">
                   <span class="mm-icon">👤</span>
@@ -9940,6 +10327,12 @@ Email: ______________________            Email: ______________________
         kbDuplicate,
         kbDelete,
 
+        updateBriefField,
+        submitBrief,
+        copyBriefLink,
+        convertBriefToDeal,
+        deleteBrief,
+
         buyPlan,
         gotoSubscription,
 
@@ -9977,6 +10370,7 @@ Email: ______________________            Email: ______________________
       initTheme();
       load();
       initEvents();
+      if (_briefAgencyId) document.body.classList.add('brief-mode');
       render();
       initSupabase();
       setTimeout(checkDeadlineNotifications, 1200);
