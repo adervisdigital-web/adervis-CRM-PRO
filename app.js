@@ -678,7 +678,7 @@
       let _portalId = (new URLSearchParams(location.search).get('portal') || '').trim();
       let _portalData = null;
       let _portalLoaded = false;
-      let _briefForm = { name:'', phone:'', email:'', type:'', desc:'', budget:'', deadline:'', sending:false, sent:false, error:'' };
+      let _briefForm = { name:'', phone:'', email:'', company:'', city:'', type:'', format:'', duration:'', desc:'', budget:'', deadline:'', references:'', extra:'', source:'', sending:false, sent:false, error:'' };
       let _briefs = [];
       let _briefsLoaded = false;
 
@@ -2412,9 +2412,6 @@
                 <h1>База знаний</h1>
                 <p>Полезные статьи о продажах, производстве и работе с клиентами.</p>
               </div>
-              <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.kbNew()">+ Новый документ</button>
-              </div>
             </div>
 
             <div class="grid two" style="margin-bottom:16px">
@@ -2429,8 +2426,11 @@
               }).join("")}
             </div>
 
-            ${filtered.length === 0 ? `<p style="text-align:center;padding:32px;color:var(--muted)">Ничего не найдено</p>` : `
             <div class="grid three">
+              <div class="kb-new-card" onclick="app.kbNew()">
+                <div class="kb-new-icon">+</div>
+                <div class="kb-new-label">Новый документ</div>
+              </div>
               ${filtered.map(d => `
                 <div class="kb-doc-card" onclick="app.kbOpen('${d.id}')">
                   <span class="kb-cat-badge ${d.cat || "guide"}">${escapeHtml(KB_CATS[d.cat] || d.cat || "")}</span>
@@ -2442,8 +2442,8 @@
                   </div>
                 </div>
               `).join("")}
+              ${filtered.length === 0 ? `<p style="grid-column:1/-1;text-align:center;padding:32px;color:var(--muted)">Ничего не найдено</p>` : ""}
             </div>
-            `}
           </div>
         `;
       }
@@ -2942,6 +2942,7 @@
       let state = defaultState();
       let draggedLineId = "";
       let undoStack = [];
+      let redoStack = [];
       let isUndoing = false;
       const MAX_UNDO = 50;
 
@@ -4719,6 +4720,7 @@
         if (isUndoing) return;
         undoStack.push(JSON.stringify(state));
         if (undoStack.length > MAX_UNDO) undoStack.shift();
+        redoStack = [];
       }
 
       function undo() {
@@ -4727,6 +4729,8 @@
           return;
         }
         isUndoing = true;
+        redoStack.push(JSON.stringify(state));
+        if (redoStack.length > MAX_UNDO) redoStack.shift();
         const prev = undoStack.pop();
         try {
           state = migrateState(JSON.parse(prev));
@@ -4738,6 +4742,26 @@
         render();
         isUndoing = false;
         toast("Действие отменено");
+      }
+
+      function redo() {
+        if (redoStack.length === 0) {
+          toast("Нечего повторять");
+          return;
+        }
+        isUndoing = true;
+        undoStack.push(JSON.stringify(state));
+        const next = redoStack.pop();
+        try {
+          state = migrateState(JSON.parse(next));
+          normalizeState();
+        } catch {
+          state = defaultState();
+        }
+        save();
+        render();
+        isUndoing = false;
+        toast("Действие повторено");
       }
 
       function openClientEstimate(clientId) {
@@ -5916,8 +5940,11 @@
               </div>
             </div>`;
         }
-        const PROJECT_TYPES = ['Свадьба','Корпоратив','Рекламный ролик','Музыкальный клип','Мероприятие','Репортаж','Другое'];
-        const BUDGETS = ['Обсудим','До 30 000 ₽','30 000 – 80 000 ₽','80 000 – 200 000 ₽','200 000 ₽+'];
+        const PROJECT_TYPES = ['Свадьба','Корпоратив','Рекламный ролик','Музыкальный клип','Мероприятие','Репортаж','Презентация / Обзор','Социальные сети / Reels','Документальный фильм','Другое'];
+        const BUDGETS = ['Обсудим','До 30 000 ₽','30 000 – 80 000 ₽','80 000 – 200 000 ₽','200 000 – 500 000 ₽','500 000 ₽+'];
+        const SOURCES = ['Рекомендация','Instagram / ВКонтакте','Google / Яндекс','TikTok / YouTube','Сарафанное радио','Другое'];
+        const FORMATS = ['Горизонтальный (16:9)','Вертикальный (9:16, Reels/Shorts)','Квадратный (1:1)','Несколько форматов','Пока не знаю'];
+        const DURATIONS = ['До 30 секунд','30–60 секунд','1–3 минуты','3–10 минут','Более 10 минут','Обсудим'];
         return `
           <div class="brief-wrap">
             <div class="brief-inner">
@@ -5932,8 +5959,10 @@
                 </div>
               </div>
               <div class="brief-card">
-                <h1>Заявка на съёмку</h1>
-                <p class="brief-sub">Расскажите о проекте — мы свяжемся с вами в течение 24 часов и обсудим детали.</p>
+                <h1>Заявка на видеосъёмку</h1>
+                <p class="brief-sub">Расскажите о проекте — мы свяжемся с вами в течение 24 часов и обсудим детали. Чем подробнее опишете задачу, тем точнее будет расчёт.</p>
+
+                <div class="brief-section-title">📋 Контактные данные</div>
                 <div class="brief-fields">
                   <div class="brief-row">
                     <div class="field">
@@ -5945,10 +5974,24 @@
                       <input class="input" type="tel" placeholder="+7 900 000-00-00" value="${escapeHtml(f.phone)}" oninput="app.updateBriefField('phone',this.value)">
                     </div>
                   </div>
-                  <div class="field">
-                    <label>Email *</label>
-                    <input class="input" type="email" placeholder="your@email.com" value="${escapeHtml(f.email)}" oninput="app.updateBriefField('email',this.value)">
+                  <div class="brief-row">
+                    <div class="field">
+                      <label>Email *</label>
+                      <input class="input" type="email" placeholder="your@email.com" value="${escapeHtml(f.email)}" oninput="app.updateBriefField('email',this.value)">
+                    </div>
+                    <div class="field">
+                      <label>Компания / Организация</label>
+                      <input class="input" type="text" placeholder="ООО «Название»" value="${escapeHtml(f.company||'')}" oninput="app.updateBriefField('company',this.value)">
+                    </div>
                   </div>
+                  <div class="field">
+                    <label>Город съёмки</label>
+                    <input class="input" type="text" placeholder="Москва" value="${escapeHtml(f.city||'')}" oninput="app.updateBriefField('city',this.value)">
+                  </div>
+                </div>
+
+                <div class="brief-section-title">🎬 О проекте</div>
+                <div class="brief-fields">
                   <div class="brief-row">
                     <div class="field">
                       <label>Тип проекта</label>
@@ -5958,26 +6001,64 @@
                       </select>
                     </div>
                     <div class="field">
+                      <label>Формат видео</label>
+                      <select class="input" onchange="app.updateBriefField('format',this.value)">
+                        <option value="">Выберите...</option>
+                        ${FORMATS.map(v => `<option value="${v}" ${(f.format||'')===v?'selected':''}>${v}</option>`).join('')}
+                      </select>
+                    </div>
+                  </div>
+                  <div class="brief-row">
+                    <div class="field">
+                      <label>Примерная длительность</label>
+                      <select class="input" onchange="app.updateBriefField('duration',this.value)">
+                        <option value="">Выберите...</option>
+                        ${DURATIONS.map(d => `<option value="${d}" ${(f.duration||'')===d?'selected':''}>${d}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label>Желаемая дата съёмки</label>
+                      <input class="input" type="date" value="${f.deadline||''}" oninput="app.updateBriefField('deadline',this.value)">
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Опишите проект подробно</label>
+                    <textarea class="input" rows="5" placeholder="Расскажите об идее, целях видео, аудитории, месте съёмки, стиле. Чем больше деталей — тем точнее предложение." oninput="app.updateBriefField('desc',this.value)" style="resize:vertical">${escapeHtml(f.desc)}</textarea>
+                  </div>
+                </div>
+
+                <div class="brief-section-title">💰 Бюджет и дополнительно</div>
+                <div class="brief-fields">
+                  <div class="brief-row">
+                    <div class="field">
                       <label>Бюджет</label>
                       <select class="input" onchange="app.updateBriefField('budget',this.value)">
                         <option value="">Выберите...</option>
                         ${BUDGETS.map(b => `<option value="${b}" ${f.budget===b?'selected':''}>${b}</option>`).join('')}
                       </select>
                     </div>
+                    <div class="field">
+                      <label>Откуда узнали о нас?</label>
+                      <select class="input" onchange="app.updateBriefField('source',this.value)">
+                        <option value="">Выберите...</option>
+                        ${SOURCES.map(s => `<option value="${s}" ${(f.source||'')===s?'selected':''}>${s}</option>`).join('')}
+                      </select>
+                    </div>
                   </div>
                   <div class="field">
-                    <label>Дата съёмки (примерно)</label>
-                    <input class="input" type="date" value="${f.deadline}" oninput="app.updateBriefField('deadline',this.value)">
+                    <label>Ссылки на референсы / примеры работ, которые нравятся</label>
+                    <textarea class="input" rows="2" placeholder="https://youtube.com/... или описание стиля..." oninput="app.updateBriefField('references',this.value)" style="resize:vertical">${escapeHtml(f.references||'')}</textarea>
                   </div>
                   <div class="field">
-                    <label>Расскажите о проекте</label>
-                    <textarea class="input" rows="4" placeholder="Опишите идею, место съёмки, особые пожелания..." oninput="app.updateBriefField('desc',this.value)" style="resize:vertical">${escapeHtml(f.desc)}</textarea>
+                    <label>Дополнительные пожелания</label>
+                    <textarea class="input" rows="2" placeholder="Особые требования, пожелания к команде, вопросы..." oninput="app.updateBriefField('extra',this.value)" style="resize:vertical">${escapeHtml(f.extra||'')}</textarea>
                   </div>
-                  <button class="brief-submit" onclick="app.submitBrief()" ${f.sending ? 'disabled' : ''}>
-                    ${f.sending ? 'Отправляем...' : 'Отправить заявку →'}
-                  </button>
-                  ${f.error ? `<p class="brief-error">${escapeHtml(f.error)}</p>` : ''}
                 </div>
+
+                <button class="brief-submit" onclick="app.submitBrief()" ${f.sending ? 'disabled' : ''}>
+                  ${f.sending ? 'Отправляем...' : 'Отправить заявку →'}
+                </button>
+                ${f.error ? `<p class="brief-error">${escapeHtml(f.error)}</p>` : ''}
               </div>
               <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:20px">
                 Powered by <strong>Adervis PRO</strong> · Данные используются только для связи с вами
@@ -6000,10 +6081,19 @@
           const { error } = await sb.from('brief_submissions').insert({
             agency_id: _briefAgencyId,
             client_name: f.name.trim(),
-            client_phone: f.phone.trim(),
+            client_phone: (f.phone||'').trim(),
             client_email: f.email.trim(),
             project_type: f.type,
-            description: f.desc.trim(),
+            description: [
+              f.desc.trim(),
+              f.format ? `Формат: ${f.format}` : '',
+              f.duration ? `Длительность: ${f.duration}` : '',
+              (f.company||'').trim() ? `Компания: ${f.company}` : '',
+              (f.city||'').trim() ? `Город: ${f.city}` : '',
+              (f.references||'').trim() ? `Референсы: ${f.references}` : '',
+              (f.extra||'').trim() ? `Дополнительно: ${f.extra}` : '',
+              (f.source||'').trim() ? `Источник: ${f.source}` : '',
+            ].filter(Boolean).join('\n'),
             budget: f.budget,
             deadline: f.deadline || null,
             submitted_at: new Date().toISOString()
@@ -8493,27 +8583,35 @@
 
         return `
           <div class="panel">
-            <div class="section-title" style="margin-bottom:12px">
-              <div>
+            <!-- Шапка: заголовок + кнопка задачи -->
+            <div class="cal-header">
+              <div class="cal-header-title">
                 <h1>Календарь</h1>
-                <p>Все дедлайны, задачи и финансы по всем проектам.</p>
+                <p class="cal-header-sub">Дедлайны, задачи и финансы по всем проектам.</p>
               </div>
-              <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.createTask()">+ Задача</button>
+              <button class="btn primary cal-add-btn" onclick="app.createTask()">+ Задача</button>
+            </div>
+
+            <!-- Навигация: год ← → + месяц ← → + Сегодня -->
+            <div class="cal-nav2">
+              <div class="cal-nav2-left">
+                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${prevYear()}')" title="Предыдущий год">«</button>
+                <span class="cal-nav2-year">${yr}</span>
+                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${nextYear()}')" title="Следующий год">»</button>
+              </div>
+              <div class="cal-nav2-center">
+                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${prevMonth()}')" title="Предыдущий месяц">‹</button>
+                <span class="cal-nav2-month">${calAllMode ? "Весь год" : monthNames[mo - 1]}</span>
+                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${nextMonth()}')" title="Следующий месяц">›</button>
+              </div>
+              <div class="cal-nav2-right">
+                <button class="cal-nav2-today" onclick="app.calSetMonth('${today.slice(0,7)}');app.calSelectDay('${today}');app.calSetAllMode(false)">Сегодня</button>
               </div>
             </div>
 
-            <!-- Навигация: год + кнопка сегодня -->
-            <div class="cal-nav" style="margin-bottom:10px">
-              <button class="cal-nav-btn cal-nav-year" onclick="app.calSetMonth('${prevYear()}')" title="Предыдущий год">&#171; ${yr - 1}</button>
-              <h2 style="min-width:56px;text-align:center">${yr}</h2>
-              <button class="cal-nav-btn cal-nav-year" onclick="app.calSetMonth('${nextYear()}')" title="Следующий год">${yr + 1} &#187;</button>
-              <button class="cal-nav-btn today-btn" onclick="app.calSetMonth('${today.slice(0,7)}');app.calSelectDay('${today}');app.calSetAllMode(false)">Сегодня</button>
-            </div>
-
-            <!-- Выбор месяца/года — один клик -->
-            <div class="cal-months-row" style="margin-bottom:4px">
-              <button class="cal-month-pill ${calAllMode ? "active" : ""}" onclick="app.calSetAllMode(true)" style="font-weight:750">Весь год</button>
+            <!-- Быстрый выбор месяца (горизонтальный скролл) -->
+            <div class="cal-months-scroll">
+              <button class="cal-month-pill ${calAllMode ? "active" : ""}" onclick="app.calSetAllMode(true)">Весь год</button>
               ${monthNames.map((name, i) => {
                 const mIdx = i + 1;
                 const mKey = `${yr}-${padZ(mIdx)}`;
@@ -10584,6 +10682,12 @@ Email: ______________________            Email: ______________________
             e.preventDefault();
             undo();
           }
+          if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
+            const active = document.activeElement;
+            if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT")) return;
+            e.preventDefault();
+            redo();
+          }
           if ((e.ctrlKey || e.metaKey) && e.key === "k") {
             e.preventDefault();
             openSearch();
@@ -10721,6 +10825,7 @@ Email: ______________________            Email: ______________________
         dropOn,
 
         undo,
+        redo,
         permanentlyDeleteItem,
         openClientEstimate,
         openClientDetail,
