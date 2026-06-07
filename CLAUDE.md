@@ -127,10 +127,20 @@ initialize → discuss → plan → execute → verify → ship
 - `client_portals.services_list` — JSONB список услуг (уже есть)
 - `client_portals.proposal_note` — текстовые заметки (уже есть)
 
-**Будущая интеграция (B2 из ROADMAP):**
-- Edge Function `ai-proposal` принимает `deal_id` → читает историю сделки → генерирует КП через Claude API
-- `ANTHROPIC_API_KEY` → добавить в Supabase secrets
-- Модель: `claude-sonnet-4-6` (баланс скорость/качество для генерации текста)
+**Реализовано (код готов, ждёт ключа — решение от 2026-06-08):**
+- Edge Function `ai-proposal` (supabase/functions/ai-proposal/index.ts) — принимает
+  данные сделки (клиент, услуги, этапы, сумма), вызывает Gemini API, возвращает
+  готовые includedText/excludedText/proposalNote. Подключена в app.js на месте
+  старого мока (`generateProposalAI`)
+- Провайдер: **Gemini API, бесплатный тариф** (не Claude — пользователь явно
+  отказался от платного варианта 2026-06-08, даже от ~50 копеек за генерацию).
+  Личные подписки (Gemini/Claude) тут ни при чём — это отдельный продукт от
+  API; но у Gemini есть полностью бесплатный тариф для разработчиков
+  (aistudio.google.com, ключ без привязки карты)
+- Секрет: `GEMINI_API_KEY` → добавить в Supabase secrets (`supabase secrets set`)
+- Модель: `gemini-2.5-flash-lite` — бесплатный лимит 15 запросов/мин,
+  1000 запросов/день, этого с большим запасом хватает на одно агентство.
+  Вызов через прямой fetch к `generativelanguage.googleapis.com` (REST), без SDK
 
 ---
 

@@ -719,6 +719,11 @@
         } catch(e) { _authChecking = false; renderAuthGateEl(); console.warn("Supabase init:", e); }
       }
 
+      /* Цели в Яндекс.Метрике для воронки регистрация → триал → оплата */
+      function trackGoal(name, params) {
+        try { window.ym && window.ym(109706942, "reachGoal", name, params); } catch(e) {}
+      }
+
       async function _onUserLoggedIn(session) {
         _dataLoading = true;
         renderAdminTopbar();
@@ -780,6 +785,7 @@
             await _supabase.from("profiles").upsert(newProfile);
             _userProfile = newProfile;
             _pendingInviteCode = "";
+            if (!joinedTeam) trackGoal("trial_started");
             setTimeout(() => {
               if (joinedTeam) {
                 pushNotification("info", "👥 Вы вошли в команду!", "Теперь вы работаете в общем рабочем пространстве агентства.", "");
@@ -1023,11 +1029,17 @@
               <li><span class="auth-feat-icon">📄</span><div><strong>Договора и КП</strong><span>Профессиональные шаблоны для клиентов</span></div></li>
             </ul>
 
+            <div style="display:flex;gap:10px;align-items:flex-start;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:12px;padding:12px 14px;margin-bottom:24px">
+              <span style="font-size:18px;line-height:1.3">🎬</span>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">Adervis PRO родился внутри digital-агентства <strong style="color:var(--text)">ADERVIS</strong> (видео, дизайн, графика) — мы делали его, чтобы вести свои сделки, сметы и финансы. Когда поняли, что инструмент закрывает реальную боль студии, открыли доступ другим командам.</p>
+            </div>
+
             <div class="auth-stats-row">
               <div><strong>14</strong><span>дней бесплатно</span></div>
               <div><strong>от 890₽</strong><span>в месяц</span></div>
               <div><strong>∞</strong><span>сделок</span></div>
             </div>
+            <p style="margin:14px 0 0;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">🔒 Карта не нужна для пробного периода — оплата только если решите остаться</p>
           </div>
         `;
 
@@ -1182,6 +1194,7 @@
             options: { data: { name: f.name } } });
           f.loading = false;
           if (error) { f.error = error.message; _pendingInviteCode = ""; renderAuthGateEl(); return; }
+          trackGoal("registration");
           if (!signUpData.session) {
             _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `📧 Письмо отправлено на ${f.email}. Перейдите по ссылке в письме для активации, затем войдите здесь.`, loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
             _authTab = "login"; renderAuthGateEl(); return;
@@ -1835,6 +1848,15 @@
                   <div style="font-size:12px;color:var(--muted);margin-top:3px">adervis.ru/docs</div>
                 </div>
               </a>
+
+              <a href="mailto:adervis.digital@gmail.com?subject=${encodeURIComponent('Отзыв о Adervis PRO')}&body=${encodeURIComponent('Привет! Делюсь впечатлением от продукта:\n\n[напишите пару предложений — что понравилось, что помогло в работе]\n\nМожно указать моё имя и компанию рядом с отзывом на сайте? (да/нет)')}" class="support-card" style="text-decoration:none">
+                <div class="support-card-icon" style="background:rgba(246,189,58,.14);color:var(--yellow)">⭐</div>
+                <div>
+                  <div style="font-weight:700;font-size:14px;color:var(--text)">Оставить отзыв о продукте</div>
+                  <div style="font-size:13px;color:var(--muted)">Поделитесь впечатлением — поможет нам стать лучше</div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:3px">Лучшие отзывы (с вашего согласия) опубликуем на сайте</div>
+                </div>
+              </a>
             </div>
 
             <div class="panel" style="background:var(--panel2);border:none;box-shadow:none">
@@ -2126,6 +2148,7 @@
           }
 
           const { paymentUrl } = await resp.json();
+          trackGoal("payment_click", { planId });
           window.location.href = paymentUrl;
         } catch (e) {
           toast("Ошибка оплаты: " + e.message);
@@ -2177,6 +2200,7 @@
             await _loadUserProfile(_adminSession.user.id, _adminSession.user.email);
             render();
             if (isSubscriptionActive()) {
+              trackGoal("payment_success", { planId: _userProfile && _userProfile.subscription_plan });
               toast("🎉 Подписка активирована! Спасибо за оплату.");
             } else {
               toast("Оплата обрабатывается — статус обновится автоматически.");
@@ -4140,6 +4164,12 @@
         state.stageCollapsed = {};
         save();
         render();
+      }
+
+      function toggleAllEstimate() {
+        const stagesWithItems = state.stages.filter(stage => selectedIdsByStage(stage.id, true).length);
+        const allCollapsed = stagesWithItems.length > 0 && stagesWithItems.every(stage => state.stageCollapsed?.[stage.id]);
+        if (allCollapsed) expandAllEstimate(); else collapseAllEstimate();
       }
 
       function toggleSummary() {
@@ -6876,6 +6906,7 @@
         const stagesWithItems = state.stages
           .map(stage => ({ stage, ids: selectedIdsByStage(stage.id, true) }))
           .filter(x => x.ids.length);
+        const allStagesCollapsed = stagesWithItems.length > 0 && stagesWithItems.every(x => state.stageCollapsed?.[x.stage.id]);
 
         const t = totals();
         const totalItems = selectedIds().length;
@@ -6912,8 +6943,7 @@
                   `}
                 </div>
                 <div class="toolbar no-print" style="gap:5px">
-                  <button class="btn small" onclick="app.collapseAllEstimate()" title="Свернуть всё">⊟</button>
-                  <button class="btn small" onclick="app.expandAllEstimate()" title="Развернуть всё">⊞</button>
+                  <button class="btn small" onclick="app.toggleAllEstimate()" title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}">${allStagesCollapsed ? "⊞" : "⊟"}</button>
                   <button class="btn small" onclick="app.go('catalog')">+ Услуги</button>
                   <button class="btn small" onclick="app.go('packages')">+ Пакет</button>
                   ${inDeal ? "" : `<button class="btn small" onclick="app.createVersion()">Версия</button>`}
@@ -9598,46 +9628,47 @@ update profiles set agency_id = id::text where agency_id is null;
          AI-ПОМОЩНИК КП (Task 15)
       ═══════════════════════════════════════════════════════ */
       async function generateProposalAI() {
+        if (!_adminSession) { toast('Войдите в аккаунт, чтобы сгенерировать КП с ИИ'); return; }
+
         const btn = document.getElementById('aiProposalBtn');
         if (btn) { btn.disabled = true; btn.innerHTML = '<span class="ai-spinner"></span> Генерация...'; }
 
-        // Симуляция задержки AI (легко заменить на fetch к API)
-        await new Promise(r => setTimeout(r, 2400));
-
-        const clientName = escapeHtml(state.project.client || 'Заказчик');
+        const clientName = state.project.client || 'Заказчик';
         const total = totals().total;
         const items = selectedIds()
           .map(id => BASE_ITEMS.find(i => i.id === id))
           .filter(Boolean);
-        const serviceNames = [...new Set(items.map(i => i.name))].slice(0, 6);
+        const serviceNames = [...new Set(items.map(i => i.name))].slice(0, 8);
         const stages = [...new Set(items.map(i => i.stage))].filter(Boolean);
 
-        const stageLabels = { pre: 'Подготовка и концепция', shoot: 'Съёмочный процесс', post: 'Постпродакшн', management: 'Управление проектом', marketing: 'Дистрибуция' };
-        const stagesText = stages.map(s => stageLabels[s] || s).join(', ');
+        try {
+          const { url } = getSupabaseConfig();
+          const resp = await fetch(`${url}/functions/v1/ai-proposal`, {
+            method: 'POST',
+            headers: {
+              'Content-Type':  'application/json',
+              'Authorization': `Bearer ${_adminSession.access_token}`,
+            },
+            body: JSON.stringify({ clientName, total, services: serviceNames, stages }),
+          });
 
-        state.project.includedText = [
-          '— Стратегия, концепция и творческое решение',
-          serviceNames.length ? '— ' + serviceNames.slice(0, 3).join(', ') : null,
-          stages.includes('shoot') ? '— Профессиональная съёмка с авторским подходом' : null,
-          stages.includes('post') ? '— Постпродакшн: монтаж, цветокоррекция, чистовой звук' : null,
-          '— Два раунда правок на каждом этапе производства',
-          '— Финальные файлы в форматах HD/4K + передача исходников',
-          stagesText ? '— Полный цикл: ' + stagesText : null
-        ].filter(Boolean).join('\n');
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ error: 'Ошибка сети' }));
+            throw new Error(err.error || 'Ошибка генерации КП');
+          }
 
-        state.project.excludedText = [
-          '— Аренда внешних локаций, разрешения и согласования',
-          '— Актёры, модели, ведущие (при необходимости — согласуется отдельно)',
-          '— Лицензионная музыка вне включённого пакета',
-          '— Правки сверх согласованных раундов',
-          '— Продвижение и таргетированная реклама'
-        ].join('\n');
+          const { includedText, excludedText, proposalNote } = await resp.json();
+          state.project.includedText = includedText;
+          state.project.excludedText = excludedText;
+          state.project.proposalNote = proposalNote;
 
-        state.project.proposalNote = `Adervis — digital-агентство полного цикла. Мы создаём визуальный контент, который работает: усиливает бренд, вовлекает аудиторию и конвертирует внимание в результат.\n\nКаждый проект — это системный подход: от исследования аудитории и концепции до финального материала. Мы не производим контент ради контента — мы решаем коммуникационные задачи клиента.\n\nСтоимость производства: ${money(total)}.\nУсловия: 50% предоплата до начала работ, 50% после сдачи финального материала.`;
-
-        save(); render();
-        if (btn) { btn.disabled = false; btn.innerHTML = '✨ Сгенерировать с ИИ'; }
-        toast('✨ КП сгенерировано!');
+          save(); render();
+          toast('✨ КП сгенерировано!');
+        } catch (e) {
+          toast('Ошибка генерации КП: ' + e.message);
+        } finally {
+          if (btn) { btn.disabled = false; btn.innerHTML = '✨ Сгенерировать с ИИ'; }
+        }
       }
 
       /* ═══════════════════════════════════════════════════════
@@ -10850,6 +10881,7 @@ Email: ______________________            Email: ______________________
         toggleStageCollapse,
         collapseAllEstimate,
         expandAllEstimate,
+        toggleAllEstimate,
         toggleSummary,
 
         updateLine,

@@ -1,0 +1,11 @@
+# Секреты — никогда не коммитить
+client_secret_*.json
+*.pem
+*.key
+.env
+.env.*
+
+# OS / редакторы
+.DS_Store
+Thumbs.db
+.vscode/
