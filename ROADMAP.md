@@ -53,10 +53,12 @@
 
 ---
 
-## 🔍 UX-аудит живого использования (сессия 2026-06-08)
+## 🔍 UX-аудит живого использования (сессия 2026-06-08) — ✅ завершён
 
 Пользователь прошёлся по продукту со скриншотами и отметил конкретные места. Часть —
 однозначные баги, часть — открытые дизайн-вопросы (нужна рекомендация перед правкой кода).
+Все пункты разобраны и реализованы (кроме реферальной программы — решено планировать отдельно,
+см. ниже). Изменения задеплоены и проверены на проде.
 
 ### Решено в этой сессии
 - [x] Переключатель темы был недоступен на мобильной версии — `#themeBtn` скрыт CSS-правилом
@@ -189,5 +191,5 @@
 | VK App ID | 54626328 |
 | Google Client ID | 341227937040-j9f41teqgu87n0f5qbd0j08qf7u1605d.apps.googleusercontent.com |
 | Деплой | GitHub Pages (push в main → автодеплой) |
-| Edge Functions | create-payment, yookassa-webhook, vk-auth, subscription-reminder |
+| Edge Functions | create-payment, yookassa-webhook, vk-auth, subscription-reminder, ai-proposal |
 | Стек | Vanilla JS (app.js ~11 100 строк), style.css, Supabase, ЮKassa, Resend |
