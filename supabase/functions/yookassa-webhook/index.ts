@@ -26,13 +26,36 @@ serve(async (req) => {
     return new Response("ok", { status: 200 });
   }
 
-  const payment = body.object as Record<string, unknown>;
+  const notifiedPayment = body.object as Record<string, unknown>;
+  const paymentId = notifiedPayment?.id as string | undefined;
+  if (!paymentId) {
+    return new Response("Missing payment id", { status: 400 });
+  }
+
+  // SECURITY: never trust the webhook body directly — this endpoint is public
+  // and unauthenticated (YooKassa can't send a Supabase JWT). Anyone could POST
+  // a forged "payment.succeeded" event with arbitrary metadata.userId/planId and
+  // get a free subscription. Re-fetch the payment from YooKassa's API using our
+  // shop secret — only YooKassa can produce a "succeeded" response for a real
+  // payment id, so this can't be spoofed.
+  const shopId = Deno.env.get("YOOKASSA_SHOP_ID")!;
+  const secret = Deno.env.get("YOOKASSA_SECRET_KEY")!;
+  const verifyResp = await fetch(`https://api.yookassa.ru/v3/payments/${paymentId}`, {
+    headers: { "Authorization": "Basic " + btoa(`${shopId}:${secret}`) },
+  });
+  if (!verifyResp.ok) {
+    console.error("Webhook: failed to verify payment with YooKassa", paymentId, verifyResp.status);
+    return new Response("Verification failed", { status: 502 });
+  }
+  const payment = await verifyResp.json() as Record<string, unknown>;
   if (payment.status !== "succeeded") {
+    console.error("Webhook: YooKassa says payment is not succeeded", paymentId, payment.status);
     return new Response("ok", { status: 200 });
   }
 
   const metadata = (payment.metadata ?? {}) as Record<string, string>;
-  const { userId, planId } = metadata;
+  const { userId, planId, promoCode } = metadata;
+  const discountPercent = Number(metadata.discountPercent) || 0;
 
   if (!userId || !planId) {
     console.error("Webhook: missing metadata userId/planId", metadata);
@@ -54,13 +77,18 @@ serve(async (req) => {
   // Load current profile to know if we should extend or start fresh
   const { data: profile, error: fetchErr } = await supabase
     .from("profiles")
-    .select("subscription_expires_at, subscription_status")
+    .select("subscription_expires_at, subscription_status, yookassa_last_payment_id")
     .eq("id", userId)
     .single();
 
   if (fetchErr) {
     console.error("Webhook: profile fetch error", fetchErr);
     return new Response("Profile not found", { status: 404 });
+  }
+
+  // Idempotency — YooKassa may redeliver the same notification; don't extend twice
+  if (profile.yookassa_last_payment_id === paymentId) {
+    return new Response("Already processed", { status: 200 });
   }
 
   const now = new Date();
@@ -81,13 +109,21 @@ serve(async (req) => {
       subscription_status:      "active",
       subscription_plan:        planId,
       subscription_expires_at:  newExpiry.toISOString(),
-      yookassa_last_payment_id: payment.id as string,
+      yookassa_last_payment_id: paymentId,
     })
     .eq("id", userId);
 
   if (updateErr) {
     console.error("Webhook: profile update error", updateErr);
     return new Response("DB error", { status: 500 });
+  }
+
+  // Count the promo use only now that the payment has actually succeeded —
+  // counting at payment creation (old behavior in create-payment) let abandoned
+  // checkouts burn through a limited-use code without anyone actually paying.
+  if (promoCode && discountPercent > 0) {
+    const { error: promoErr } = await supabase.rpc("increment_promo_uses", { p_code: promoCode });
+    if (promoErr) console.error("Webhook: promo increment error", promoErr);
   }
 
   console.log(`Subscription activated: user=${userId} plan=${planId} expires=${newExpiry.toISOString()}`);

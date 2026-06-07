@@ -42,16 +42,18 @@ serve(async (req) => {
       return json({ error: 'Не удалось декодировать id_token' }, 400);
     }
 
-    const email     = payload.email ?? '';
     const firstName = payload.first_name ?? '';
     const lastName  = payload.last_name  ?? '';
     const vkUserId  = String(payload.sub ?? payload.user_id ?? '');
 
-    if (!email) {
-      return json({
-        error: 'VK не передал email. Перейдите в Настройки VK → Контактная информация, добавьте email и попробуйте снова.',
-      }, 400);
+    if (!vkUserId) {
+      return json({ error: 'VK не вернул идентификатор пользователя' }, 400);
     }
+
+    // Используем email из id_token или создаём синтетический по VK User ID
+    const email = payload.email
+      ? payload.email
+      : `vk${vkUserId}@vk.adervis`;
 
     // Supabase Admin client
     const supabase = createClient(

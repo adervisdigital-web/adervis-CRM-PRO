@@ -107,10 +107,9 @@ serve(async (req) => {
 
     const payment = await ykResp.json();
 
-    // Increment promo uses_count after successful payment creation
-    if (promoCode && discountPercent > 0) {
-      await admin.rpc("increment_promo_uses", { p_code: promoCode });
-    }
+    // NOTE: promo uses_count is incremented in yookassa-webhook on confirmed
+    // payment success, not here — counting at creation would let abandoned
+    // checkouts burn through a limited-use code without anyone actually paying.
 
     return json({
       paymentUrl: payment.confirmation.confirmation_url,

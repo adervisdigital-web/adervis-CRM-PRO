@@ -5,6 +5,14 @@
 
 ---
 
+## Язык общения
+
+**Всегда отвечай пользователю на русском языке** — весь текст, вопросы, отчёты о проделанной
+работе, объяснения. Продукт делается для российского рынка; англоязычная версия — дело
+будущего, не текущих сессий.
+
+---
+
 ## О проекте
 
 CRM + калькулятор смет для видеопродакшн агентства. SaaS по подписке.  
@@ -143,3 +151,12 @@ initialize → discuss → plan → execute → verify → ship
 - Edge Functions logs: `supabase functions logs <name>`
 - Деплой: `git push origin main` → GitHub Pages автоматически
 - ROADMAP: `ROADMAP.md` (приоритеты A→B→C→D)
+- Регистратор домена `adervis.ru`: **рег.ру** (reg.ru) — туда заходить для правки DNS-записей
+- Email-рассылка: **Resend**, домен `app.adervis.ru` подтверждён (DKIM/SPF/MX/DMARC настроены
+  в DNS на рег.ру, статус Verified на 2026-06-07) — используется для писем-напоминаний
+  о подписке (`subscription-reminder` Edge Function)
+- Напоминание об окончании подписки/триала: ежедневный `pg_cron` job
+  `subscription-reminder-daily` (07:00 UTC = 10:00 МСК, id=1) дёргает Edge Function
+  `subscription-reminder` через `pg_net`. Функция задеплоена с `--no-verify-jwt` и сама
+  проверяет заголовок `x-cron-secret` против секрета `CRON_SECRET`; то же значение лежит
+  в Vault БД под именем `cron_secret` (читается job'ом через `vault.decrypted_secrets`)

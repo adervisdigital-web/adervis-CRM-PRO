@@ -1639,8 +1639,11 @@
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;text-align:center;padding:32px 16px">
             <div style="font-size:48px;margin-bottom:18px">🔒</div>
             <h1 style="font-size:26px;margin-bottom:10px">Подписка истекла</h1>
-            <p style="max-width:420px;margin-bottom:28px;line-height:1.55;color:var(--muted)">
+            <p style="max-width:420px;margin-bottom:8px;line-height:1.55;color:var(--muted)">
               Аккаунт <strong style="color:var(--text)">${escapeHtml(email)}</strong> — выберите тариф для продолжения работы.
+            </p>
+            <p style="max-width:420px;margin-bottom:28px;font-size:12px;color:var(--green)">
+              ✅ Все ваши сделки, клиенты и сметы сохранены — после оплаты вы продолжите с того же места
             </p>
             ${hasSupabase ? `
               <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:640px;margin-bottom:24px">
@@ -1878,7 +1881,8 @@
           const isLoading = _buyingPlan === p.id;
           const discountedPrice = (promoValid && p.price > 0) ? Math.round(p.price * (1 - _promoState.discount / 100)) : null;
           const totalDisc = discountedPrice ? discountedPrice * Math.max(p.months, 1) : null;
-          const btnLabel = isCurrent ? "✓ Активен" : isLoading ? "⏳..." : p.price === 0 ? "Бесплатно" : `Оплатить ${totalDisc !== null ? totalDisc : p.price * Math.max(p.months, 1)} ₽`;
+          const payAmount = totalDisc !== null ? totalDisc : p.price * Math.max(p.months, 1);
+          const btnLabel = isCurrent ? "✓ Активен" : isLoading ? "⏳..." : p.price === 0 ? "Бесплатно" : `Оплатить ${payAmount} ₽${p.months > 1 ? ` за ${p.months} мес.` : ""}`;
           const btnOff = isCurrent || p.price === 0 || !!_buyingPlan;
           const feats = planFeatures[p.id] || [];
           const border = isCurrent ? "var(--green)" : p.popular ? "var(--primary)" : "var(--line)";
@@ -1912,8 +1916,8 @@
               ${cards}
             </div>
             ${_promoCodeInputHtml()}
-            <p style="font-size:12px;color:var(--muted);padding:10px 16px;background:rgba(124,58,237,.06);border-radius:10px;margin:0">
-              ✅ Подписка активируется автоматически после оплаты · Данные не теряются при смене тарифа · При смене — оставшиеся дни переносятся
+            <p style="font-size:12px;color:var(--muted);padding:10px 16px;background:rgba(124,58,237,.06);border-radius:10px;margin:0;line-height:1.6">
+              ✅ Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
             </p>
           </div>
         `;
@@ -9448,10 +9452,8 @@ update profiles set agency_id = id::text where agency_id is null;
         if (!_supabase) { _portalLoaded = true; render(); return; }
         try {
           const { data, error } = await _supabase
-            .from('client_portals')
-            .select('id, deal_name, deal_status, total_price, included_text, excluded_text, proposal_note, services_list, approved_at')
-            .eq('id', _portalId)
-            .single();
+            .rpc('get_client_portal', { p_portal_id: _portalId })
+            .maybeSingle();
           if (!error) _portalData = data;
         } catch(e) { console.warn('Portal load:', e); }
         _portalLoaded = true;
@@ -9463,9 +9465,7 @@ update profiles set agency_id = id::text where agency_id is null;
         const btn = document.querySelector('.portal-wrap .btn.primary');
         if (btn) { btn.disabled = true; btn.textContent = 'Отправка...'; }
         const { error } = await _supabase
-          .from('client_portals')
-          .update({ deal_status: 'Согласовано', approved_at: new Date().toISOString() })
-          .eq('id', _portalId);
+          .rpc('approve_client_portal', { p_portal_id: _portalId });
         if (!error) {
           _portalData.deal_status = 'Согласовано';
           _portalData.approved_at = new Date().toISOString();
