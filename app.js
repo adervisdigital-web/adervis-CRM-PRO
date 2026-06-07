@@ -2859,10 +2859,6 @@
           gFinDatePreset: "all",
           gFinDateFrom: "",
           gFinDateTo: "",
-          quickPaymentTitle: "",
-          quickPaymentAmount: "",
-          quickExpenseTitle: "",
-          quickExpenseAmount: "",
           clientMode: false,
           recentlyAdded: "",
           favorites: {},
@@ -4820,37 +4816,6 @@
         state.crmFilter = value;
         save();
         render();
-      }
-
-      function quickAddPayment() {
-        const title = state.quickPaymentTitle || "";
-        const a = numberValue(state.quickPaymentAmount, 0);
-        if (!title || a <= 0) { toast("Введи описание и сумму"); return; }
-        saveHistory();
-        state.payments.unshift(normalizePayment({ title, amount: a, date: todayIso(), note: "" }));
-        state.quickPaymentTitle = "";
-        state.quickPaymentAmount = "";
-        toast(`Поступление ${money(a)} записано`);
-        save();
-        render();
-      }
-
-      function quickAddExpense() {
-        const title = state.quickExpenseTitle || "";
-        const a = numberValue(state.quickExpenseAmount, 0);
-        if (!title || a <= 0) { toast("Введи описание и сумму"); return; }
-        saveHistory();
-        state.expenses.unshift(normalizeExpense({ title, amount: a, date: todayIso(), category: "Прочее", note: "" }));
-        state.quickExpenseTitle = "";
-        state.quickExpenseAmount = "";
-        toast(`Расход ${money(a)} записан`);
-        save();
-        render();
-      }
-
-      function setQuickField(key, value) {
-        state[key] = value;
-        save();
       }
 
       function toggleGlobalMenu() {
@@ -7761,28 +7726,11 @@
 
               <div class="fin-quick-add no-print">
                 <div class="fin-quick-half income">
-                  <input type="text" class="fin-quick-input" placeholder="Поступление: за что?"
-                    value="${escapeHtml(state.quickPaymentTitle || "")}"
-                    oninput="app.setQuickField('quickPaymentTitle', this.value)"
-                    onkeydown="if(event.key==='Enter'){event.preventDefault();app.quickAddPayment();}">
-                  <input type="number" min="0" class="fin-quick-input fin-quick-amount" placeholder="₽"
-                    value="${escapeHtml(state.quickPaymentAmount || "")}"
-                    oninput="app.setQuickField('quickPaymentAmount', this.value)"
-                    onkeydown="if(event.key==='Enter'){event.preventDefault();app.quickAddPayment();}">
-                  <button class="fin-quick-btn income" onclick="app.quickAddPayment()">+ Поступление</button>
+                  <button class="fin-quick-btn income" onclick="app.openFinanceModal('payment')">+ Поступление</button>
                 </div>
                 <div class="fin-quick-half expense">
-                  <input type="text" class="fin-quick-input" placeholder="Расход: на что?"
-                    value="${escapeHtml(state.quickExpenseTitle || "")}"
-                    oninput="app.setQuickField('quickExpenseTitle', this.value)"
-                    onkeydown="if(event.key==='Enter'){event.preventDefault();app.quickAddExpense();}">
-                  <input type="number" min="0" class="fin-quick-input fin-quick-amount" placeholder="₽"
-                    value="${escapeHtml(state.quickExpenseAmount || "")}"
-                    oninput="app.setQuickField('quickExpenseAmount', this.value)"
-                    onkeydown="if(event.key==='Enter'){event.preventDefault();app.quickAddExpense();}">
-                  <button class="fin-quick-btn expense" onclick="app.quickAddExpense()">− Расход</button>
+                  <button class="fin-quick-btn expense" onclick="app.openFinanceModal('expense')">− Расход</button>
                 </div>
-                <button class="fin-quick-extra no-print" onclick="app.openFinanceModal('payment')" title="Указать дату, проект, способ оплаты и другие детали">⋯</button>
               </div>
 
               <div class="fin-action-bar no-print">
@@ -7914,46 +7862,6 @@
                   ` : ""}
                 </table>
               </div>
-
-              ${(state.payments || []).length ? `
-                <details style="margin-top:14px">
-                  <summary style="cursor:pointer;font-size:13px;color:var(--muted);padding:8px 0">Редактировать поступления</summary>
-                  <div class="list" style="margin-top:10px">
-                    ${(state.payments || []).map(p => `
-                      <article class="finance-card" style="margin-bottom:8px">
-                        <div class="grid two">
-                          ${field("Сумма ₽", `<input type="number" data-autosave data-scope="payment" data-id="${p.id}" data-key="amount" value="${escapeHtml(p.amount)}">`)}
-                          ${field("Дата", `<input type="date" data-autosave data-scope="payment" data-id="${p.id}" data-key="date" value="${escapeHtml(p.date)}">`)}
-                          ${field("Описание", `<input data-autosave data-scope="payment" data-id="${p.id}" data-key="title" value="${escapeHtml(p.title)}">`)}
-                          ${field("Способ оплаты", `<input data-autosave data-scope="payment" data-id="${p.id}" data-key="method" value="${escapeHtml(p.method)}" placeholder="Наличные, перевод...">`)}
-                        </div>
-                      </article>
-                    `).join("")}
-                  </div>
-                </details>
-              ` : ""}
-
-              ${(state.expenses || []).length ? `
-                <details style="margin-top:8px">
-                  <summary style="cursor:pointer;font-size:13px;color:var(--muted);padding:8px 0">Редактировать расходы</summary>
-                  <div class="list" style="margin-top:10px">
-                    ${(state.expenses || []).map(e => `
-                      <article class="finance-card" style="margin-bottom:8px">
-                        <div class="grid two">
-                          ${field("Сумма ₽", `<input type="number" data-autosave data-scope="expense" data-id="${e.id}" data-key="amount" value="${escapeHtml(e.amount)}">`)}
-                          ${field("Дата", `<input type="date" data-autosave data-scope="expense" data-id="${e.id}" data-key="date" value="${escapeHtml(e.date)}">`)}
-                          ${field("Описание", `<input data-autosave data-scope="expense" data-id="${e.id}" data-key="title" value="${escapeHtml(e.title)}">`)}
-                          ${field("Категория", `
-                            <select data-autosave data-scope="expense" data-id="${e.id}" data-key="category">
-                              ${EXPENSE_CATEGORIES.map(c => `<option value="${c}" ${e.category === c ? "selected" : ""}>${c}</option>`).join("")}
-                            </select>
-                          `)}
-                        </div>
-                      </article>
-                    `).join("")}
-                  </div>
-                </details>
-              ` : ""}
 
             </section>
 
@@ -11005,9 +10913,6 @@ Email: ______________________            Email: ______________________
 
         setDealView,
         setCrmFilter,
-        quickAddPayment,
-        quickAddExpense,
-        setQuickField,
         toggleGlobalMenu,
         closeGlobalMenu,
         openFinanceModal,
