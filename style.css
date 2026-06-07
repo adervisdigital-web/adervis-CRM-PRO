@@ -1039,7 +1039,7 @@
 
       .top-actions { gap: 4px; min-width: 0; }
       .autosave-indicator { display: none; }
-      #themeBtn, #clientModeBtn, .help-btn, .global-add-wrap, #settingsIconBtn, #searchBtn, #undoBtn { display: none; }
+      #themeBtn, #clientModeBtn, .help-btn, .global-add-wrap, #settingsIconBtn, #searchBtn, #undoBtn, #redoBtn { display: none; }
       /* Profile page mobile fixes */
       .plan-card { padding: 14px; }
       .plan-card .plan-price { font-size: 22px; }
