@@ -1752,6 +1752,46 @@
     }
     .btn-expense:hover { background: #b91c1c; }
 
+    .fin-quick-add {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .fin-quick-half {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      flex: 1 1 280px; min-width: 0;
+      padding: 10px; border-radius: 14px;
+      border: 1px solid var(--line); background: var(--panel2);
+    }
+    .fin-quick-half.income { border-color: rgba(22,163,74,.3); }
+    .fin-quick-half.expense { border-color: rgba(220,38,38,.2); }
+    .fin-quick-input {
+      flex: 1 1 140px; min-width: 0;
+      padding: 8px 10px; font-size: 13px;
+    }
+    .fin-quick-amount { flex: 0 1 90px; }
+    .fin-quick-btn {
+      flex: 1 1 100%;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 9px 14px; border-radius: 999px; border: none;
+      font-weight: 850; font-size: 13px; color: #fff; cursor: pointer; transition: .15s;
+      white-space: nowrap;
+    }
+    .fin-quick-btn.income { background: var(--green); }
+    .fin-quick-btn.income:hover { background: #15803d; }
+    .fin-quick-btn.expense { background: var(--red); }
+    .fin-quick-btn.expense:hover { background: #b91c1c; }
+    .fin-quick-extra {
+      flex: 0 0 auto;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 44px; height: 44px; border-radius: 12px;
+      border: 1px solid var(--line); background: var(--panel2);
+      color: var(--muted); font-size: 18px; font-weight: 900; cursor: pointer; transition: .15s;
+    }
+    .fin-quick-extra:hover { color: var(--text); border-color: var(--primary2); }
+    @media (min-width: 560px) {
+      .fin-quick-btn { flex: 0 0 auto; }
+    }
+
     /* ── ESTIMATE IN DEAL: clear tab context ───── */
     .deal-tab.active {
       color: var(--text) !important;
@@ -2800,46 +2840,6 @@
       border-radius: 2px;
       transition: .2s ease;
     }
-    .mobile-nav-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      background: rgba(7,11,20,.72);
-      backdrop-filter: blur(4px);
-    }
-    .mobile-nav-overlay.open { display: block; }
-    .mobile-nav-panel {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      background: rgba(7,11,20,.97);
-      border-bottom: 1px solid var(--line);
-      padding: 16px 18px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.4);
-    }
-    [data-theme="light"] .mobile-nav-panel { background: rgba(255,255,255,.98); }
-    .mobile-nav-header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 10px;
-    }
-    .mobile-nav-panel .nav-btn-mobile {
-      width: 100%; text-align: left; padding: 11px 14px;
-      background: transparent; border: 1px solid var(--line);
-      border-radius: 12px; color: var(--text); font-size: 14px; font-weight: 700;
-      display: flex; align-items: center; gap: 10px; cursor: pointer;
-      transition: .15s;
-    }
-    .mobile-nav-panel .nav-btn-mobile:hover,
-    .mobile-nav-panel .nav-btn-mobile.active {
-      background: linear-gradient(135deg, var(--primary), var(--blue));
-      border-color: transparent; color: #fff;
-    }
-    .mobile-nav-panel .nav-btn-mobile svg { flex: 0 0 auto; opacity: .75; }
-    .mobile-nav-panel .nav-btn-mobile.active svg { opacity: 1; }
-
     /* ── ONBOARDING SLIDER ──────────────────────────── */
     .ob-slider-wrap { overflow: hidden; position: relative; }
     .ob-slides {
@@ -2894,7 +2894,6 @@
 /* ── BRIEF MODE (public client form) ───────────────── */
 body.brief-mode .topbar { display: none !important; }
 body.brief-mode .mobile-bottom-nav { display: none !important; }
-body.brief-mode #mobileNavOverlay { display: none !important; }
 body.brief-mode .app { padding-top: 0 !important; min-height: 100vh; display: block; }
 body.brief-mode #appContent { padding: 0; }
 
@@ -2980,7 +2979,6 @@ body.brief-mode #appContent { padding: 0; }
    КЛИЕНТСКИЙ ПОРТАЛ
 ═══════════════════════════════════════════════════════ */
 body.portal-mode .topbar,
-body.portal-mode #mobileNavOverlay,
 body.portal-mode .nav { display: none !important; }
 
 .portal-wrap {

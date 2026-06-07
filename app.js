@@ -2863,7 +2863,6 @@
           quickPaymentAmount: "",
           quickExpenseTitle: "",
           quickExpenseAmount: "",
-          quickExpenseCategory: "",
           clientMode: false,
           recentlyAdded: "",
           favorites: {},
@@ -4823,8 +4822,9 @@
         render();
       }
 
-      function quickAddPayment(title, amount) {
-        const a = numberValue(amount, 0);
+      function quickAddPayment() {
+        const title = state.quickPaymentTitle || "";
+        const a = numberValue(state.quickPaymentAmount, 0);
         if (!title || a <= 0) { toast("Введи описание и сумму"); return; }
         saveHistory();
         state.payments.unshift(normalizePayment({ title, amount: a, date: todayIso(), note: "" }));
@@ -4835,14 +4835,14 @@
         render();
       }
 
-      function quickAddExpense(title, amount, category) {
-        const a = numberValue(amount, 0);
+      function quickAddExpense() {
+        const title = state.quickExpenseTitle || "";
+        const a = numberValue(state.quickExpenseAmount, 0);
         if (!title || a <= 0) { toast("Введи описание и сумму"); return; }
         saveHistory();
-        state.expenses.unshift(normalizeExpense({ title, amount: a, date: todayIso(), category: category || "Прочее", note: "" }));
+        state.expenses.unshift(normalizeExpense({ title, amount: a, date: todayIso(), category: "Прочее", note: "" }));
         state.quickExpenseTitle = "";
         state.quickExpenseAmount = "";
-        state.quickExpenseCategory = "";
         toast(`Расход ${money(a)} записан`);
         save();
         render();
@@ -7762,10 +7762,34 @@
                 </div>
               </div>
 
+              <div class="fin-quick-add no-print">
+                <div class="fin-quick-half income">
+                  <input type="text" class="fin-quick-input" placeholder="Поступление: за что?"
+                    value="${escapeHtml(state.quickPaymentTitle || "")}"
+                    oninput="app.setQuickField('quickPaymentTitle', this.value)"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();app.quickAddPayment();}">
+                  <input type="number" min="0" class="fin-quick-input fin-quick-amount" placeholder="₽"
+                    value="${escapeHtml(state.quickPaymentAmount || "")}"
+                    oninput="app.setQuickField('quickPaymentAmount', this.value)"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();app.quickAddPayment();}">
+                  <button class="fin-quick-btn income" onclick="app.quickAddPayment()">+ Поступление</button>
+                </div>
+                <div class="fin-quick-half expense">
+                  <input type="text" class="fin-quick-input" placeholder="Расход: на что?"
+                    value="${escapeHtml(state.quickExpenseTitle || "")}"
+                    oninput="app.setQuickField('quickExpenseTitle', this.value)"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();app.quickAddExpense();}">
+                  <input type="number" min="0" class="fin-quick-input fin-quick-amount" placeholder="₽"
+                    value="${escapeHtml(state.quickExpenseAmount || "")}"
+                    oninput="app.setQuickField('quickExpenseAmount', this.value)"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();app.quickAddExpense();}">
+                  <button class="fin-quick-btn expense" onclick="app.quickAddExpense()">− Расход</button>
+                </div>
+                <button class="fin-quick-extra no-print" onclick="app.openFinanceModal('payment')" title="Указать дату, проект, способ оплаты и другие детали">⋯</button>
+              </div>
+
               <div class="fin-action-bar no-print">
-                <button class="btn-income" onclick="app.openFinanceModal('payment')">+ Поступление</button>
-                <button class="btn-expense" onclick="app.openFinanceModal('expense')">− Расход</button>
-                <span style="font-size:12px;color:var(--muted);margin-left:8px">${allTransactions.length} операц.</span>
+                <span style="font-size:12px;color:var(--muted)">${allTransactions.length} операц.</span>
                 ${Object.keys(expByCategory).length > 1 ? `
                   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">
                     ${Object.entries(expByCategory).sort((a,b) => b[1]-a[1]).slice(0,4).map(([cat, sum]) => `
@@ -9673,23 +9697,8 @@ update profiles set agency_id = id::text where agency_id is null;
       }
 
       /* ═══════════════════════════════════════════════════════
-         ГЛАВНОЕ МЕНЮ (клик по логотипу)
+         ГЛАВНОЕ МЕНЮ (клик по логотипу, бургер, «Ещё» в нижней навигации)
       ═══════════════════════════════════════════════════════ */
-      function openMobileNav() {
-        const overlay = document.getElementById("mobileNavOverlay");
-        if (overlay) overlay.classList.add("open");
-        updateMobileNavActive();
-      }
-      function closeMobileNav() {
-        const overlay = document.getElementById("mobileNavOverlay");
-        if (overlay) overlay.classList.remove("open");
-      }
-      function updateMobileNavActive() {
-        document.querySelectorAll(".nav-btn-mobile[data-mobile-view]").forEach(btn => {
-          btn.classList.toggle("active", btn.dataset.mobileView === state.view);
-        });
-      }
-
       function openMainMenu() {
         state.mainMenuOpen = true;
         renderModal();
@@ -9720,10 +9729,20 @@ update profiles set agency_id = id::text where agency_id is null;
                   <div class="mm-label">Новая сделка</div>
                   <div class="mm-sub">Быстрый старт</div>
                 </button>
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('deal')">
+                  <span class="mm-icon">🧮</span>
+                  <div class="mm-label">Смета</div>
+                  <div class="mm-sub">Текущий расчёт</div>
+                </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('packages')">
                   <span class="mm-icon">📦</span>
                   <div class="mm-label">Пакеты</div>
                   <div class="mm-sub">Готовые наборы</div>
+                </button>
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('catalog')">
+                  <span class="mm-icon">🗂</span>
+                  <div class="mm-label">Каталог</div>
+                  <div class="mm-sub">Услуги и цены</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('global-finances')">
                   <span class="mm-icon">💰</span>
@@ -9745,10 +9764,15 @@ update profiles set agency_id = id::text where agency_id is null;
                   <div class="mm-label">Клиенты</div>
                   <div class="mm-sub">База клиентов</div>
                 </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('catalog')">
-                  <span class="mm-icon">🗂</span>
-                  <div class="mm-label">Каталог</div>
-                  <div class="mm-sub">Услуги и цены</div>
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('briefs')">
+                  <span class="mm-icon">📝</span>
+                  <div class="mm-label">Онлайн-брифы</div>
+                  <div class="mm-sub">Заявки от клиентов</div>
+                </button>
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('knowledge')">
+                  <span class="mm-icon">📚</span>
+                  <div class="mm-label">База знаний</div>
+                  <div class="mm-sub">Скрипты и шаблоны</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('settings')">
                   <span class="mm-icon">⚙️</span>
@@ -9759,16 +9783,6 @@ update profiles set agency_id = id::text where agency_id is null;
                   <span class="mm-icon">&#9681;</span>
                   <div class="mm-label">Тема</div>
                   <div class="mm-sub">Светлая / тёмная</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('knowledge')">
-                  <span class="mm-icon">📚</span>
-                  <div class="mm-label">База знаний</div>
-                  <div class="mm-sub">Скрипты и шаблоны</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('briefs')">
-                  <span class="mm-icon">📋</span>
-                  <div class="mm-label">Онлайн-брифы</div>
-                  <div class="mm-sub">Заявки от клиентов</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('profile')">
                   <span class="mm-icon">👤</span>
@@ -10839,7 +10853,7 @@ Email: ______________________            Email: ______________________
         if (clientModeBtn) clientModeBtn.addEventListener("click", toggleClientMode);
 
         const burgerBtn = document.getElementById("burgerBtn");
-        if (burgerBtn) burgerBtn.addEventListener("click", openMobileNav);
+        if (burgerBtn) burgerBtn.addEventListener("click", openMainMenu);
 
         const helpBtn = document.getElementById("helpBtn");
         if (helpBtn) helpBtn.addEventListener("click", openHelpModal);
@@ -11077,9 +11091,6 @@ Email: ______________________            Email: ______________________
         openChangePassword,
         submitChangePassword,
         confirmDeleteAccount,
-
-        openMobileNav,
-        closeMobileNav,
 
         openHelpModal,
         closeHelpModal,
