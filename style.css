@@ -1099,9 +1099,6 @@
       .grid.five::-webkit-scrollbar { display: none; }
       .plan-card { padding: 12px; }
 
-      /* Cal months row compact */
-      .cal-months-row { gap: 3px; }
-      .cal-month-pill { padding: 3px 7px; font-size: 10px; }
 
       /* Section title on mobile */
       .section-title { gap: 10px; }
@@ -1922,18 +1919,15 @@
 
     /* ── CALENDAR NAV BAR ─────────────────────────── */
     .cal-nav2 {
-      display: grid; grid-template-columns: 1fr auto 1fr;
-      align-items: center; gap: 8px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px;
       background: var(--panel2); border: 1px solid var(--line);
       border-radius: 14px; padding: 8px 12px;
       margin-bottom: 10px;
     }
-    .cal-nav2-left { display: flex; align-items: center; gap: 6px; }
     .cal-nav2-center {
-      display: flex; align-items: center; gap: 8px;
-      justify-content: center;
+      display: flex; align-items: center; gap: 10px; min-width: 0;
     }
-    .cal-nav2-right { display: flex; justify-content: flex-end; }
     .cal-nav2-arrow {
       width: 32px; height: 32px; border-radius: 8px;
       border: 1px solid var(--line); background: transparent;
@@ -1942,34 +1936,33 @@
       flex-shrink: 0;
     }
     .cal-nav2-arrow:hover { border-color: rgba(168,85,247,.5); color: var(--primary2); background: rgba(124,58,237,.08); }
-    .cal-nav2-year {
-      font-size: 13px; font-weight: 750; color: var(--muted); min-width: 36px; text-align: center;
-    }
     .cal-nav2-month {
       font-size: 18px; font-weight: 900; color: var(--text);
-      min-width: 120px; text-align: center; letter-spacing: -.02em;
+      min-width: 130px; text-align: center; letter-spacing: -.02em;
+      font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .cal-nav2-today {
       padding: 7px 14px; border-radius: 10px; font-size: 13px; font-weight: 750;
       background: linear-gradient(135deg, var(--primary), var(--blue));
       border: none; color: #fff; cursor: pointer; transition: .13s; white-space: nowrap;
+      flex-shrink: 0;
     }
     .cal-nav2-today:hover { opacity: .88; }
     @media (max-width: 720px) {
-      .cal-nav2 { grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px 10px; }
-      .cal-nav2-left { order: 1; }
-      .cal-nav2-right { order: 2; }
-      .cal-nav2-center { order: 3; grid-column: 1 / -1; }
-      .cal-nav2-month { font-size: 16px; min-width: 90px; }
-      .cal-nav2-year { font-size: 12px; }
+      .cal-nav2 { padding: 7px 8px; gap: 6px; }
+      .cal-nav2-center { gap: 4px; }
+      .cal-nav2-month { font-size: 15px; min-width: 0; }
+      .cal-nav2-today { padding: 7px 12px; font-size: 12px; }
       .cal-header-sub { display: none; }
     }
 
     /* ── MONTH PILLS (scrollable row) ─────────────── */
     .cal-months-scroll {
       display: flex; flex-wrap: nowrap; gap: 5px; margin-bottom: 14px;
-      overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 2px 4px 6px;
       scrollbar-width: none;
+      -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+      mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
     }
     .cal-months-scroll::-webkit-scrollbar { display: none; }
     .cal-month-pill {
@@ -1983,8 +1976,8 @@
       color: var(--primary2);
     }
     @media (max-width: 720px) {
-      .cal-months-row { gap: 3px; }
-      .cal-month-pill { padding: 4px 9px; font-size: 11px; }
+      .cal-months-scroll { gap: 4px; }
+      .cal-month-pill { padding: 5px 10px; font-size: 11px; }
     }
     .cal-weekdays {
       display: grid; grid-template-columns: repeat(7, 1fr);

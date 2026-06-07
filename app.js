@@ -8678,6 +8678,12 @@
         const typeLabel = { deadline: "Дедлайн", task: "Задача", payment: "Платёж", expense: "Расход" };
         const typeColor = { deadline: "var(--red)", task: "var(--blue)", payment: "var(--green)", expense: "var(--orange)" };
 
+        setTimeout(() => {
+          const scroller = document.getElementById("calMonthsScroll");
+          const activePill = scroller?.querySelector(".cal-month-pill.active");
+          if (activePill) activePill.scrollIntoView({ inline: "center", block: "nearest" });
+        }, 0);
+
         return `
           <div class="panel">
             <!-- Шапка: заголовок + кнопка задачи -->
@@ -8689,25 +8695,18 @@
               <button class="btn primary cal-add-btn" onclick="app.createTask()">+ Задача</button>
             </div>
 
-            <!-- Навигация: год ← → + месяц ← → + Сегодня -->
+            <!-- Навигация: месяц/год ← → + Сегодня -->
             <div class="cal-nav2">
-              <div class="cal-nav2-left">
-                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${prevYear()}')" title="Предыдущий год">«</button>
-                <span class="cal-nav2-year">${yr}</span>
-                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${nextYear()}')" title="Следующий год">»</button>
-              </div>
               <div class="cal-nav2-center">
-                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${prevMonth()}')" title="Предыдущий месяц">‹</button>
-                <span class="cal-nav2-month">${calAllMode ? "Весь год" : monthNames[mo - 1]}</span>
-                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${nextMonth()}')" title="Следующий месяц">›</button>
+                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${calAllMode ? prevYear() : prevMonth()}')" title="${calAllMode ? "Предыдущий год" : "Предыдущий месяц"}">‹</button>
+                <span class="cal-nav2-month">${calAllMode ? yr : `${monthNames[mo - 1]} ${yr}`}</span>
+                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${calAllMode ? nextYear() : nextMonth()}')" title="${calAllMode ? "Следующий год" : "Следующий месяц"}">›</button>
               </div>
-              <div class="cal-nav2-right">
-                <button class="cal-nav2-today" onclick="app.calSetMonth('${today.slice(0,7)}');app.calSelectDay('${today}');app.calSetAllMode(false)">Сегодня</button>
-              </div>
+              <button class="cal-nav2-today" onclick="app.calSetMonth('${today.slice(0,7)}');app.calSelectDay('${today}');app.calSetAllMode(false)">Сегодня</button>
             </div>
 
             <!-- Быстрый выбор месяца (горизонтальный скролл) -->
-            <div class="cal-months-scroll">
+            <div class="cal-months-scroll" id="calMonthsScroll">
               <button class="cal-month-pill ${calAllMode ? "active" : ""}" onclick="app.calSetAllMode(true)">Весь год</button>
               ${monthNames.map((name, i) => {
                 const mIdx = i + 1;
