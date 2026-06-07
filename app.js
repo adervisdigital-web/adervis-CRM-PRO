@@ -1031,7 +1031,7 @@
 
             <div style="display:flex;gap:10px;align-items:flex-start;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:12px;padding:12px 14px;margin-bottom:24px">
               <span style="font-size:18px;line-height:1.3">🎬</span>
-              <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">Adervis PRO родился внутри digital-агентства <strong style="color:var(--text)">ADERVIS</strong> (видео, дизайн, графика) — мы делали его, чтобы вести свои сделки, сметы и финансы. Когда поняли, что инструмент закрывает реальную боль студии, открыли доступ другим командам.</p>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">Adervis PRO создали люди из видеопродакшна — нам самим не хватало удобного инструмента для сделок, смет и финансов. Когда поняли, что он закрывает настоящую боль студий, открыли доступ другим командам.</p>
             </div>
 
             <div class="auth-stats-row">
