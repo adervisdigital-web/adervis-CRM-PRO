@@ -9754,6 +9754,11 @@ update profiles set agency_id = id::text where agency_id is null;
                   <div class="mm-label">Настройки</div>
                   <div class="mm-sub">Компания, данные</div>
                 </button>
+                <button class="main-menu-item" onclick="app.toggleTheme()">
+                  <span class="mm-icon">&#9681;</span>
+                  <div class="mm-label">Тема</div>
+                  <div class="mm-sub">Светлая / тёмная</div>
+                </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('knowledge')">
                   <span class="mm-icon">📚</span>
                   <div class="mm-label">База знаний</div>
