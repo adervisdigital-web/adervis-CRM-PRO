@@ -1923,7 +1923,7 @@
             <div style="flex:1;display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
               ${feats.map(f => `<div style="font-size:12px;display:flex;align-items:flex-start;gap:5px"><span style="color:${isCurrent ? "var(--green)" : "var(--primary2)"};flex-shrink:0;font-size:11px;margin-top:1px">✓</span><span>${escapeHtml(f)}</span></div>`).join("")}
             </div>
-            <button class="btn ${p.popular && !isCurrent ? "primary" : "small"}" style="width:100%;${btnOff ? "opacity:.55;cursor:not-allowed" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
+            <button class="btn ${p.popular && !isCurrent ? "primary" : "small"}" style="width:100%;white-space:normal;line-height:1.25;text-align:center;${btnOff ? "opacity:.55;cursor:not-allowed" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
               ${btnLabel}
             </button>
           </div>`;
@@ -5118,7 +5118,7 @@
                 <button class="btn" onclick="app.closeFinanceModal()">Отмена</button>
                 <button class="modal-save-btn ${isPayment ? "income" : "expense"}"
                   onclick="app.saveFinanceModal()" ${!isValid && m.amount ? "disabled" : ""}>
-                  Сохранить
+                  Добавить
                 </button>
               </div>
             </div>
@@ -7362,16 +7362,16 @@
                 <h1>Клиенты</h1>
                 <p>Нажми на клиента, чтобы открыть его профиль и проекты.</p>
               </div>
-              <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.createClient()">+ Новый клиент</button>
-              </div>
             </div>
 
             ${state.clientDraft ? renderClientDraft() : ""}
 
-            ${clients.length ? `
-              <div class="grid three">
-                ${clients.map(client => `
+            <div class="grid three">
+              <div class="kb-new-card" onclick="app.openClientModal('')">
+                <div class="kb-new-icon">+</div>
+                <div class="kb-new-label">Новый клиент</div>
+              </div>
+              ${clients.length ? clients.map(client => `
                   <article class="client-card" style="cursor:pointer" onclick="app.openClientModal('${client.id}')">
                     <div class="line-head">
                       <div>
@@ -7391,11 +7391,8 @@
                       <button class="btn danger small" onclick="event.stopPropagation();app.deleteClient('${client.id}')">×</button>
                     </div>
                   </article>
-                `).join("")}
-              </div>
-            ` : `
-              <div class="empty">Клиентов пока нет. Нажми «+ Новый клиент».</div>
-            `}
+                `).join("") : ""}
+            </div>
           </div>
         `;
       }
@@ -9922,6 +9919,11 @@ update profiles set agency_id = id::text where agency_id is null;
          КЛИЕНТ MODAL
       ═══════════════════════════════════════════════════════ */
       function openClientModal(clientId) {
+        if (!clientId) {
+          state.clientModal = { id: "", name: "", company: "", phone: "", email: "", city: "", status: "new", note: "" };
+          renderModal();
+          return;
+        }
         const client = (state.clients || []).find(c => c.id === clientId);
         if (!client) return;
         state.clientModal = { ...client };
@@ -9938,6 +9940,19 @@ update profiles set agency_id = id::text where agency_id is null;
       function saveClientModal() {
         const m = state.clientModal;
         if (!m) return;
+        if (m.phone && !validatePhone(m.phone)) {
+          toast("❌ Неверный формат телефона. Пример: +7 900 000-00-00");
+          return;
+        }
+        if (!m.id) {
+          const created = normalizeClient({ ...m, name: String(m.name || "").trim() || "Новый клиент" });
+          state.clients = [created, ...(state.clients || [])];
+          state.clientModal = null;
+          toast("Клиент добавлен");
+          save();
+          render();
+          return;
+        }
         const idx = (state.clients || []).findIndex(c => c.id === m.id);
         if (idx >= 0) {
           state.clients[idx] = normalizeClient({ ...state.clients[idx], ...m, updatedAt: new Date().toISOString() });
@@ -9966,7 +9981,7 @@ update profiles set agency_id = id::text where agency_id is null;
           <div class="modal-overlay" onclick="event.target===this&&app.closeClientModal()">
             <div class="modal-box" style="width:min(560px,calc(100vw - 32px))">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-                <h2 style="margin:0;font-size:20px">Редактировать клиента</h2>
+                <h2 style="margin:0;font-size:20px">${m.id ? "Редактировать клиента" : "Новый клиент"}</h2>
                 <button onclick="app.closeClientModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
               </div>
               <div class="grid two" style="margin-bottom:12px">
@@ -9989,11 +10004,11 @@ update profiles set agency_id = id::text where agency_id is null;
               <div class="field" style="margin-bottom:14px">
                 ${field("Заметка", `<textarea style="min-height:72px" oninput="app.setClientModalField('note',this.value)" placeholder="Предпочтения, условия...">${escapeHtml(m.note || "")}</textarea>`)}
               </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-                <button class="btn small" onclick="app.closeClientModal();app.openClientDetail('${m.id}')">Все проекты клиента →</button>
+              <div style="display:flex;justify-content:${m.id ? "space-between" : "flex-end"};align-items:center;gap:10px">
+                ${m.id ? `<button class="btn small" onclick="app.closeClientModal();app.openClientDetail('${m.id}')">Все проекты клиента →</button>` : ""}
                 <div style="display:flex;gap:8px">
                   <button class="btn" onclick="app.closeClientModal()">Отмена</button>
-                  <button class="btn primary" onclick="app.saveClientModal()">Сохранить</button>
+                  <button class="btn primary" onclick="app.saveClientModal()">${m.id ? "Сохранить" : "Добавить"}</button>
                 </div>
               </div>
             </div>
