@@ -2963,7 +2963,8 @@
           kbView: "list",
           kbEditId: "",
           kbSearch: "",
-          kbCatFilter: "all"
+          kbCatFilter: "all",
+          aiProposalCount: 0
         };
       }
 
@@ -4597,10 +4598,10 @@
         render();
       }
 
-      function createTask() {
+      function createTask(status) {
         state.tasks.unshift(normalizeTask({
           title: "Новая задача",
-          status: "Новая",
+          status: status || "Новая",
           priority: "Средний",
           assignee: state.project.manager || "",
           deadline: state.project.deadline || "",
@@ -6942,7 +6943,7 @@
                     </select>
                   `}
                 </div>
-                <div class="toolbar no-print" style="gap:5px">
+                <div class="toolbar no-print" style="gap:5px;flex-direction:row;flex-wrap:wrap">
                   <button class="btn small" onclick="app.toggleAllEstimate()" title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}">${allStagesCollapsed ? "⊞" : "⊟"}</button>
                   <button class="btn small" onclick="app.go('catalog')">+ Услуги</button>
                   <button class="btn small" onclick="app.go('packages')">+ Пакет</button>
@@ -7094,19 +7095,22 @@
                 </div>`;
               })()}
 
-              <div class="grid two" style="margin-top:10px;gap:8px">
-                <div class="field" style="margin:0">
-                  <label>Комментарий для клиента</label>
-                  <textarea data-autosave data-scope="line" data-id="${id}" data-key="clientComment" style="min-height:52px;resize:vertical">${escapeHtml(line.clientComment || "")}</textarea>
+              <details style="margin-top:10px" ${(line.clientComment || line.internalComment) ? "open" : ""}>
+                <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:750;padding:4px 0">💬 Комментарий для клиента / внутренняя заметка</summary>
+                <div class="grid two" style="margin-top:8px;gap:8px">
+                  <div class="field" style="margin:0">
+                    <label>Комментарий для клиента</label>
+                    <textarea data-autosave data-scope="line" data-id="${id}" data-key="clientComment" style="min-height:52px;resize:vertical">${escapeHtml(line.clientComment || "")}</textarea>
+                  </div>
+                  <div class="field" style="margin:0">
+                    <label>Внутренняя заметка</label>
+                    <textarea data-autosave data-scope="line" data-id="${id}" data-key="internalComment" style="min-height:52px;resize:vertical">${escapeHtml(line.internalComment || "")}</textarea>
+                  </div>
                 </div>
-                <div class="field" style="margin:0">
-                  <label>Внутренняя заметка</label>
-                  <textarea data-autosave data-scope="line" data-id="${id}" data-key="internalComment" style="min-height:52px;resize:vertical">${escapeHtml(line.internalComment || "")}</textarea>
-                </div>
-              </div>
+              </details>
             `}
 
-            <div class="toolbar no-print" style="margin-top:10px;gap:6px">
+            <div class="toolbar no-print" style="margin-top:10px;gap:6px;flex-direction:row;flex-wrap:wrap">
               <button class="btn small" onclick="app.duplicateEstimateLine('${id}')">Дублировать</button>
               <button class="btn small danger" onclick="app.removeItem('${id}')">Удалить</button>
             </div>
@@ -7615,7 +7619,6 @@
               </div>
               <div class="toolbar no-print">
                 <button class="btn primary" onclick="app.createTask()">+ Задача</button>
-                <button class="btn" onclick="app.saveCurrentProject()">Сохранить проект</button>
               </div>
             </div>
 
@@ -7628,7 +7631,10 @@
                     ondragover="event.preventDefault();this.classList.add('dragover')"
                     ondragleave="this.classList.remove('dragover')"
                     ondrop="app.onKanbanDrop(event,'${status}','task');this.classList.remove('dragover')">
-                    <h3>${escapeHtml(status)} <span class="pill-count">${tasks.length}</span></h3>
+                    <h3>
+                      <span>${escapeHtml(status)} <span class="pill-count">${tasks.length}</span></span>
+                      <button class="btn small no-print" onclick="app.createTask('${status}')" title="Добавить задачу в «${escapeHtml(status)}»">+ Задача</button>
+                    </h3>
 
                     <div class="list">
                       ${tasks.length ? tasks.map(renderTaskCard).join("") : `<div class="empty kanban-drop-hint">Пусто</div>`}
@@ -8630,13 +8636,11 @@
                 ${filtered.length ? `
                   <tfoot class="fin-table-footer">
                     <tr>
-                      <td colspan="4"></td>
-                      <td style="font-size:12px;color:var(--muted)">Итого</td>
+                      <td colspan="5" style="font-size:12px;color:var(--muted)">Итого получено</td>
                       <td class="amount-cell income" style="text-align:right">+${money(filtered.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
                     </tr>
                     <tr>
-                      <td colspan="4"></td>
-                      <td></td>
+                      <td colspan="5" style="font-size:12px;color:var(--muted)">Итого расходов</td>
                       <td class="amount-cell expense" style="text-align:right">−${money(filtered.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
                     </tr>
                   </tfoot>
@@ -9215,20 +9219,6 @@
               ${field("Реквизиты", `<textarea data-autosave data-scope="company" data-key="requisites">${escapeHtml(state.company.requisites)}</textarea>`)}
             </div>
 
-            ${_adminSession ? `
-            <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
-              <h2>Онлайн-бриф</h2>
-              <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Поделитесь ссылкой с клиентом — он заполнит форму, и заявка автоматически появится в разделе Брифы.</p>
-              <div class="brief-link-box">
-                <span style="font-size:18px;flex-shrink:0">🔗</span>
-                <span class="brief-link-url">${escapeHtml(getBriefLink())}</span>
-                <button class="btn small primary" onclick="app.copyBriefLink()">Копировать</button>
-              </div>
-              <div style="margin-top:10px">
-                <button class="btn" onclick="app.go('briefs')">Смотреть заявки →</button>
-              </div>
-            </div>` : ''}
-
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
               <h2>Данные</h2>
 
@@ -9627,8 +9617,16 @@ update profiles set agency_id = id::text where agency_id is null;
       /* ═══════════════════════════════════════════════════════
          AI-ПОМОЩНИК КП (Task 15)
       ═══════════════════════════════════════════════════════ */
+      const AI_PROPOSAL_TRIAL_LIMIT = 5;
+
       async function generateProposalAI() {
         if (!_adminSession) { toast('Войдите в аккаунт, чтобы сгенерировать КП с ИИ'); return; }
+
+        if (_userProfile && _userProfile.subscription_status === 'trial' && (state.aiProposalCount || 0) >= AI_PROPOSAL_TRIAL_LIMIT) {
+          toast(`✨ На пробном тарифе доступно ${AI_PROPOSAL_TRIAL_LIMIT} генераций КП с ИИ — лимит исчерпан. Перейдите на платный тариф для безлимитной генерации.`);
+          go('profile');
+          return;
+        }
 
         const btn = document.getElementById('aiProposalBtn');
         if (btn) { btn.disabled = true; btn.innerHTML = '<span class="ai-spinner"></span> Генерация...'; }
@@ -9661,6 +9659,9 @@ update profiles set agency_id = id::text where agency_id is null;
           state.project.includedText = includedText;
           state.project.excludedText = excludedText;
           state.project.proposalNote = proposalNote;
+          if (_userProfile && _userProfile.subscription_status === 'trial') {
+            state.aiProposalCount = (state.aiProposalCount || 0) + 1;
+          }
 
           save(); render();
           toast('✨ КП сгенерировано!');
