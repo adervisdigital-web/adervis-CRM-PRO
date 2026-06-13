@@ -946,7 +946,6 @@
             <span class="admin-indicator" style="${!active ? "border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.08)" : ""}">
               ${name}${subLabel ? ` <span style="font-weight:500;opacity:.75;font-size:10px">· ${subLabel}</span>` : ""}
             </span>
-            <button class="btn small" onclick="app.adminLogout()" style="margin-left:4px">Выйти</button>
           `;
         } else {
           el.innerHTML = `<button class="btn small" onclick="app.exitLocalModeAndLogin()">🔐 Войти</button>`;
