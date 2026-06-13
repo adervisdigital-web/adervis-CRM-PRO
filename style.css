@@ -2736,6 +2736,56 @@
     .notif-body strong { display: block; font-size: 13px; margin-bottom: 2px; }
     .notif-time { font-size: 10px; color: var(--muted); margin-top: 3px; }
 
+    /* ── ESTIMATE NAV TOOLTIP ──────────────────────── */
+    .estimate-nav-btn {
+      position: relative;
+    }
+    .estimate-nav-btn.has-project::after {
+      content: "";
+      position: absolute;
+      top: 5px; right: 5px;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 6px var(--primary);
+    }
+    .estimate-nav-tooltip-fixed {
+      position: fixed;
+      z-index: 9999;
+      pointer-events: none;
+      background: rgba(10, 13, 28, .92);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(124, 58, 237, .5);
+      border-radius: 10px;
+      padding: 7px 14px 7px 10px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity .22s cubic-bezier(.34,1.56,.64,1),
+                  transform .22s cubic-bezier(.34,1.56,.64,1);
+      box-shadow: 0 8px 24px rgba(0,0,0,.35), 0 0 0 1px rgba(124,58,237,.12);
+    }
+    .estimate-nav-tooltip-fixed.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .estimate-nav-tooltip-fixed::before {
+      content: "";
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--primary);
+      flex-shrink: 0;
+      box-shadow: 0 0 8px var(--primary);
+    }
+    [data-theme="light"] .estimate-nav-tooltip-fixed {
+      background: rgba(255,255,255,.95);
+      box-shadow: 0 8px 24px rgba(0,0,0,.12), 0 0 0 1px rgba(124,58,237,.15);
+    }
+
     /* ── THEME TOGGLE BUTTON ───────────────────────── */
     .theme-toggle-btn {
       width: 36px; height: 36px; padding: 0;

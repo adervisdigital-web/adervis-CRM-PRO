@@ -5770,11 +5770,12 @@
         });
 
         const navEstimateBtn = document.getElementById("navEstimateBtn");
+        const estimateTooltip = document.getElementById("estimateNavTooltip");
         if (navEstimateBtn) {
           const hasProject = selectedIds().length > 0 || state.activeProjectId;
-          navEstimateBtn.textContent = hasProject && state.project.name
-            ? `Смета: ${state.project.name.slice(0, 18)}${state.project.name.length > 18 ? "…" : ""}`
-            : "Смета";
+          const projectName = hasProject && state.project.name ? state.project.name : "";
+          navEstimateBtn.classList.toggle("has-project", !!projectName);
+          if (estimateTooltip) estimateTooltip.dataset.project = projectName;
         }
 
         if (_portalId) {
@@ -10780,6 +10781,24 @@ Email: ______________________            Email: ______________________
 
         const themeBtn = document.getElementById("themeBtn");
         if (themeBtn) themeBtn.addEventListener("click", toggleTheme);
+
+        // Смета hover-тултип с именем активного проекта
+        const _estimateBtn = document.getElementById("navEstimateBtn");
+        const _estimateTip = document.getElementById("estimateNavTooltip");
+        if (_estimateBtn && _estimateTip) {
+          _estimateBtn.addEventListener("mouseenter", () => {
+            const name = _estimateTip.dataset.project;
+            if (!name) return;
+            _estimateTip.textContent = name;
+            const r = _estimateBtn.getBoundingClientRect();
+            _estimateTip.style.left = Math.round(r.left) + "px";
+            _estimateTip.style.top = Math.round(r.bottom + 8) + "px";
+            _estimateTip.classList.add("visible");
+          });
+          _estimateBtn.addEventListener("mouseleave", () => {
+            _estimateTip.classList.remove("visible");
+          });
+        }
 
         const clientModeBtn = document.getElementById("clientModeBtn");
         if (clientModeBtn) clientModeBtn.addEventListener("click", toggleClientMode);
