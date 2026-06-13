@@ -4,6 +4,7 @@
       const APP_VERSION = "4.2";
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
+      const LAST_AGENCY_KEY = "adervis_last_agency_id";
 
       const CAT = {
         creative: "💡 Креатив",
@@ -729,6 +730,15 @@
         renderAdminTopbar();
         render();
         await _loadUserProfile(session.user.id, session.user.email);
+        // Если в браузере данные другого агентства — чистим localStorage чтобы
+        // новый пользователь не видел чужие сделки/клиентов
+        const currentAgencyId = getAgencyId();
+        const lastAgencyId = localStorage.getItem(LAST_AGENCY_KEY);
+        if (lastAgencyId && lastAgencyId !== currentAgencyId) {
+          state = defaultState();
+          localStorage.removeItem(STORAGE_KEY);
+        }
+        localStorage.setItem(LAST_AGENCY_KEY, currentAgencyId);
         await _loadCloudState();
         _dataLoading = false;
         _initRealtimeChannel();
@@ -791,7 +801,7 @@
                 pushNotification("info", "👥 Вы вошли в команду!", "Теперь вы работаете в общем рабочем пространстве агентства.", "");
                 toast("👥 Вы присоединились к агентству!");
               } else {
-                pushNotification("info", "👋 Добро пожаловать в Adervis PRO!", "У вас 14 дней бесплатного доступа. Создайте первую сделку!", "");
+                pushNotification("info", "👋 Добро пожаловать в ADERVIS CRM!", "У вас 14 дней бесплатного доступа. Создайте первую сделку!", "");
                 toast("🎉 Аккаунт создан! 14 дней бесплатно.");
               }
             }, 1200);
@@ -1013,7 +1023,7 @@
                 <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
               </div>
               <div>
-                <div style="font-weight:900;font-size:20px;letter-spacing:-.3px">Adervis PRO</div>
+                <div style="font-weight:900;font-size:20px;letter-spacing:-.3px">ADERVIS CRM</div>
                 <div style="font-size:12px;color:var(--muted)">CRM для видеопродакшна</div>
               </div>
             </div>
@@ -1031,7 +1041,7 @@
 
             <div style="display:flex;gap:10px;align-items:flex-start;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:12px;padding:12px 14px;margin-bottom:24px">
               <span style="font-size:18px;line-height:1.3">🎬</span>
-              <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">Adervis PRO создали люди из видеопродакшна — нам самим не хватало удобного инструмента для сделок, смет и финансов. Когда поняли, что он закрывает настоящую боль студий, открыли доступ другим командам.</p>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">ADERVIS CRM создали люди из видеопродакшна — нам самим не хватало удобного инструмента для сделок, смет и финансов. Когда поняли, что он закрывает настоящую боль студий, открыли доступ другим командам.</p>
             </div>
 
             <div class="auth-stats-row">
@@ -1056,7 +1066,7 @@
                         <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:24px;height:24px;object-fit:contain">
                       </div>
                       <div>
-                        <div style="font-weight:900;font-size:15px">Adervis PRO</div>
+                        <div style="font-weight:900;font-size:15px">ADERVIS CRM</div>
                         <div style="font-size:11px;color:var(--muted)">CRM для видеопродакшна</div>
                       </div>
                     </div>
@@ -1094,7 +1104,7 @@
                       <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:24px;height:24px;object-fit:contain">
                     </div>
                     <div>
-                      <div style="font-weight:900;font-size:15px">Adervis PRO</div>
+                      <div style="font-weight:900;font-size:15px">ADERVIS CRM</div>
                       <div style="font-size:11px;color:var(--muted)">CRM для видеопродакшна</div>
                     </div>
                   </div>
@@ -1259,8 +1269,7 @@
           const oneTap = new sdk.OneTap();
           oneTap.render({ container, showAlternativeLogin: true })
             .on(sdk.WidgetEvents.ERROR, (err) => {
-              _authFields.error = 'VK: ' + (err?.message || 'Ошибка виджета');
-              renderAuthGateEl();
+              console.warn('VK ID widget error (non-critical):', err);
             })
             .on(sdk.OneTapInternalEvents.LOGIN_SUCCESS, async (payload) => {
               await handleVKIDSuccess(payload.code, payload.device_id);
@@ -1433,7 +1442,7 @@
             </a>
             <div class="pd-sep" style="margin:6px 0"></div>
             <div class="help-dd-section">Получить помощь</div>
-            <a class="help-dd-item" href="mailto:adervis.digital@gmail.com?subject=Помощь по Adervis PRO" onclick="app.toggleHelpDd(false)">
+            <a class="help-dd-item" href="mailto:adervis.digital@gmail.com?subject=Помощь по ADERVIS CRM" onclick="app.toggleHelpDd(false)">
               <span class="help-dd-item-icon" style="background:rgba(22,163,74,.15)">💬</span>
               <div><div>Написать нам</div><div class="hdi-sub">adervis.digital@gmail.com</div></div>
             </a>
@@ -1681,7 +1690,7 @@
               ${_promoCodeInputHtml()}
               <p style="font-size:12px;color:var(--muted);margin-bottom:20px">Безопасная оплата через ЮKassa · карта / СБП / ЮМани</p>
             ` : `
-              <a href="mailto:adervis.digital@gmail.com?subject=Продление подписки Adervis CRM" class="btn primary" style="text-decoration:none;margin-bottom:20px">
+              <a href="mailto:adervis.digital@gmail.com?subject=Продление подписки ADERVIS CRM" class="btn primary" style="text-decoration:none;margin-bottom:20px">
                 📧 Продлить по email
               </a>
             `}
@@ -1817,7 +1826,7 @@
               </div>
               <div>
                 <h1 style="margin:0;font-size:20px">Поддержка и контакты</h1>
-                <div style="font-size:13px;color:var(--muted)">Adervis PRO · CRM для видеопродакшна</div>
+                <div style="font-size:13px;color:var(--muted)">ADERVIS CRM · CRM для видеопродакшна</div>
               </div>
             </div>
 
@@ -1849,7 +1858,7 @@
                 </div>
               </a>
 
-              <a href="mailto:adervis.digital@gmail.com?subject=${encodeURIComponent('Отзыв о Adervis PRO')}&body=${encodeURIComponent('Привет! Делюсь впечатлением от продукта:\n\n[напишите пару предложений — что понравилось, что помогло в работе]\n\nМожно указать моё имя и компанию рядом с отзывом на сайте? (да/нет)')}" class="support-card" style="text-decoration:none">
+              <a href="mailto:adervis.digital@gmail.com?subject=${encodeURIComponent('Отзыв о ADERVIS CRM')}&body=${encodeURIComponent('Привет! Делюсь впечатлением от продукта:\n\n[напишите пару предложений — что понравилось, что помогло в работе]\n\nМожно указать моё имя и компанию рядом с отзывом на сайте? (да/нет)')}" class="support-card" style="text-decoration:none">
                 <div class="support-card-icon" style="background:rgba(246,189,58,.14);color:var(--yellow)">⭐</div>
                 <div>
                   <div style="font-weight:700;font-size:14px;color:var(--text)">Оставить отзыв о продукте</div>
@@ -2086,7 +2095,7 @@
             ` : `
             <div style="text-align:center;padding:32px 24px;margin-bottom:24px;background:var(--panel2);border-radius:16px;border:1px solid var(--line)">
               <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;margin:0 auto 16px;box-shadow:0 8px 28px rgba(124,58,237,.4)">A</div>
-              <h2 style="margin:0 0 6px;font-size:20px">Войдите в Adervis PRO</h2>
+              <h2 style="margin:0 0 6px;font-size:20px">Войдите в ADERVIS CRM</h2>
               <p style="color:var(--muted);margin:0 0 18px;font-size:14px">Облачное хранение · Синхронизация · Подписка</p>
               <button class="btn primary" onclick="app.exitLocalModeAndLogin()" style="padding:12px 28px;font-size:15px;width:100%;max-width:280px">🔐 Войти / Зарегистрироваться</button>
               <p style="font-size:12px;color:var(--muted);margin:12px 0 0">14 дней бесплатно · Без карты · Данные не удаляются</p>
@@ -2273,9 +2282,9 @@
       ═══════════════════════════════════════════════════════ */
       const ONBOARD_SLIDES = [
         {
-          title: "Добро пожаловать в Adervis PRO",
+          title: "Добро пожаловать в ADERVIS CRM",
           body: "Полноценная CRM для видеопродакшн агентств. Управляйте сделками, сметами, клиентами и финансами — всё в одном месте.",
-          img: "🎬  Adervis CRM · дашборд агентства"
+          img: "🎬  ADERVIS CRM · дашборд агентства"
         },
         {
           title: "Управление сделками",
@@ -2299,7 +2308,7 @@
         },
         {
           title: "Тарифы и подписка",
-          body: "Adervis PRO работает по подписке. Напишите на adervis.digital@gmail.com для оплаты и активации нужного тарифа. Установите как приложение (PWA) для работы офлайн.",
+          body: "ADERVIS CRM работает по подписке. Напишите на adervis.digital@gmail.com для оплаты и активации нужного тарифа. Установите как приложение (PWA) для работы офлайн.",
           img: "🚀  Тарифные планы — выберите подходящий"
         }
       ];
@@ -2314,7 +2323,7 @@
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
                 <div>
                   <div style="font-size:11px;font-weight:850;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Шаг ${idx + 1} из ${total}</div>
-                  <h2 style="margin:4px 0 0;font-size:19px">Знакомство с Adervis PRO</h2>
+                  <h2 style="margin:4px 0 0;font-size:19px">Знакомство с ADERVIS CRM</h2>
                 </div>
                 <button onclick="app.closeHelpModal()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto">×</button>
               </div>
@@ -2780,7 +2789,7 @@
 | Сайт | 16:9, 1080p | MP4, WebM |
 | ТВ | 16:9, 1080i/4K | MXF/ProRes |`, updatedAt: new Date().toISOString() },
 
-        { id: "kb_guide_1", cat: "guide", title: "Начало работы в Adervis CRM", content: `# Начало работы в Adervis CRM digital v4.0
+        { id: "kb_guide_1", cat: "guide", title: "Начало работы в ADERVIS CRM", content: `# Начало работы в ADERVIS CRM digital v4.0
 
 ## Что умеет программа
 
@@ -5954,7 +5963,7 @@
                   <span style="display:none;color:#fff;font-weight:900;font-size:20px">A</span>
                 </div>
                 <div>
-                  <div style="font-size:18px;font-weight:900;line-height:1.2">Adervis PRO</div>
+                  <div style="font-size:18px;font-weight:900;line-height:1.2">ADERVIS CRM</div>
                   <div style="font-size:12px;color:var(--muted)">Видеопродакшн</div>
                 </div>
               </div>
@@ -6061,7 +6070,7 @@
                 ${f.error ? `<p class="brief-error">${escapeHtml(f.error)}</p>` : ''}
               </div>
               <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:20px">
-                Powered by <strong>Adervis PRO</strong> · Данные используются только для связи с вами
+                Powered by <strong>ADERVIS CRM</strong> · Данные используются только для связи с вами
               </p>
             </div>
           </div>`;
@@ -8201,7 +8210,7 @@
             ` : ""}
 
             <p style="margin-top:32px;color:#6b7280">
-              КП сформировано в Adervis PRO ${escapeHtml(APP_VERSION)} · ${escapeHtml(formatDate(new Date().toISOString()))}
+              КП сформировано в ADERVIS CRM ${escapeHtml(APP_VERSION)} · ${escapeHtml(formatDate(new Date().toISOString()))}
             </p>
           </div>
         `;
@@ -8791,7 +8800,7 @@
       function renderWelcome() {
         return `
           <div class="welcome-screen">
-            <h1>Добро пожаловать в Adervis PRO</h1>
+            <h1>Добро пожаловать в ADERVIS CRM</h1>
             <p>Ведите клиентов от первого звонка до закрытия сделки — смета, КП и финансы в одном месте.</p>
 
             <div class="welcome-steps">
@@ -8886,7 +8895,7 @@
             </div>
             <div class="grid two" style="margin-top:12px">
               ${field("Дедлайн", `<input type="date" value="${escapeHtml(w.deadline)}" onchange="app.wizardSetData('deadline',this.value)">`)}
-              ${field("Бюджет клиента", `<input value="${escapeHtml(w.budget||"")}" oninput="app.wizardSetField('budget',this.value)" placeholder="Ожидания клиента, ₽">`)}
+              ${field("Бюджет клиента", `<input value="${escapeHtml(w.budget||"")}" oninput="app.wizardSetField('budget',this.value)" placeholder="Бюджет проекта, ₽">`)}
             </div>
           `;
         }
@@ -9173,7 +9182,7 @@
               <details style="margin-bottom:14px">
                 <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:700">📋 SQL — создать таблицы в Supabase (нажмите чтобы раскрыть)</summary>
                 <pre style="font-size:10px;background:rgba(0,0,0,.15);border-radius:10px;padding:12px;margin-top:10px;overflow-x:auto;white-space:pre-wrap;line-height:1.5">-- ═══════════════════════════════════════════════════
--- ADERVIS PRO — Схема базы данных v4.2
+-- ADERVIS CRM — Схема базы данных v4.2
 -- Выполнить один раз в Supabase SQL Editor
 -- ═══════════════════════════════════════════════════
 
@@ -9618,7 +9627,7 @@ update profiles set agency_id = id::text where agency_id is null;
             <div class="modal-box" style="width:min(640px,calc(100vw - 32px))">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
                 <div>
-                  <h2 style="margin:0;font-size:22px">Adervis PRO</h2>
+                  <h2 style="margin:0;font-size:22px">ADERVIS CRM</h2>
                   <p style="margin:2px 0 0;font-size:13px;color:var(--muted)">Что хочешь сделать?</p>
                 </div>
                 <button onclick="app.closeMainMenu()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
