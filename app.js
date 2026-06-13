@@ -6487,7 +6487,10 @@
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
                           ${project.client ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>` : ""}
                         </div>
-                        <div style="display:flex;gap:6px;align-items:center;flex:0 0 auto">
+                        <div style="display:flex;gap:4px;align-items:center;flex:0 0 auto">
+                          <button class="deal-dup-btn" onclick="event.stopPropagation();app.duplicateDeal('${projectIdSafe}')" title="Дублировать сделку">
+                            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H3a1 1 0 00-1 1v9h1V2h8V1zm2 2H5a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V4a1 1 0 00-1-1zm0 11H5V4h8v10z"/></svg>
+                          </button>
                           <div class="health-dot ${healthClass}" title="Маржа ${margin}%"></div>
                           <span class="status-pill" style="font-size:11px">${escapeHtml(project.crmStatus || "Лид")}</span>
                         </div>
@@ -6511,7 +6514,6 @@
 
                       <div class="deal-card-footer" onclick="event.stopPropagation()">
                         <button class="btn small" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету, КП, задачи">Открыть</button>
-                        <button class="btn small" onclick="app.duplicateDeal('${projectIdSafe}')" title="Дублировать сделку">⧉</button>
                         ${nextLabel ? `<button class="next-action-btn" onclick="app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge">Завершено</span>`}
                       </div>
                     </div>
@@ -9268,6 +9270,11 @@ update profiles set agency_id = id::text where agency_id is null;
               })()}
             </div>
             ` : ""}
+
+            <div style="margin-top:18px;padding:10px 14px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:12px;color:var(--muted)">ADERVIS CRM</span>
+              <span style="font-size:11px;color:var(--muted);opacity:.55">v${APP_VERSION}</span>
+            </div>
 
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2);border-color:rgba(220,38,38,.45)">
               <h2>Опасная зона</h2>

@@ -1564,6 +1564,17 @@
     .deal-card-client { font-size: 13px; font-weight: 750; transition: opacity .12s; }
     .deal-card-client:hover { opacity: .75; }
     .deal-card-name { font-size: 15px; font-weight: 900; margin: 3px 0 8px; }
+    .deal-dup-btn {
+      width: 24px; height: 24px; padding: 0;
+      border: 1px solid transparent;
+      background: none; border-radius: 6px;
+      cursor: pointer; color: var(--muted);
+      display: grid; place-items: center;
+      opacity: 0; transition: opacity .15s, color .15s, border-color .15s, background .15s;
+      flex-shrink: 0;
+    }
+    .deal-card:hover .deal-dup-btn { opacity: 1; }
+    .deal-dup-btn:hover { color: var(--text); border-color: var(--line); background: var(--panel2); }
     .deal-card-footer {
       display: flex; justify-content: space-between;
       align-items: center; gap: 8px; margin-top: 10px;
@@ -1590,6 +1601,7 @@
       width: 36px; height: 36px;
       border-radius: 50%;
       background: rgba(124,58,237,.82);
+      -webkit-backdrop-filter: blur(10px);
       backdrop-filter: blur(10px);
       color: #fff; border: none; cursor: pointer;
       font-size: 14px; font-weight: 900;
@@ -2198,7 +2210,7 @@
     .dsp-pill {
       padding: 5px 13px; border-radius: 99px; font-size: 12px; font-weight: 700;
       border: 1.5px solid var(--line); color: var(--muted); white-space: nowrap;
-      background: transparent; transition: all .18s; user-select: none;
+      background: transparent; transition: all .18s; -webkit-user-select: none; user-select: none;
     }
     .dsp-step:hover .dsp-pill { border-color: rgba(168,85,247,.4); color: var(--text); }
     .dsp-step.done .dsp-pill {
@@ -2244,6 +2256,7 @@
       background: rgba(0,0,0,.55);
       z-index: 500;
       display: flex; align-items: center; justify-content: center;
+      -webkit-backdrop-filter: blur(6px);
       backdrop-filter: blur(6px);
       animation: fadeIn .18s ease;
     }
