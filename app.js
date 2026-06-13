@@ -9029,13 +9029,13 @@
         const nextActionLabel = DEAL_NEXT_ACTIONS[state.project.crmStatus || "Лид"];
 
         const dealTabs = [
-          { id: "estimate", label: "Смета" },
-          { id: "proposal", label: "КП" },
-          { id: "tasks", label: `Задачи${state.tasks.length ? " (" + state.tasks.length + ")" : ""}` },
           { id: "finance", label: "Финансы" },
-          { id: "team", label: "Команда" },
+          { id: "estimate", label: "Смета" },
+          { id: "tasks", label: `Задачи${state.tasks.length ? " (" + state.tasks.length + ")" : ""}` },
           { id: "calendar", label: "Календарь" },
-          { id: "versions", label: "Версии" },
+          { id: "team", label: "Команда" },
+          { id: "proposal", label: "КП" },
+          { id: "versions", label: "Версии сметы" },
         ];
 
         const tabContent = {
