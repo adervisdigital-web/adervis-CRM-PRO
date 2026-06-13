@@ -165,17 +165,12 @@
       justify-content: flex-start;
       gap: 4px;
       overflow-x: auto;
-      scrollbar-width: thin;
-      padding: 2px 0 4px;
+      scrollbar-width: none;
+      padding: 2px 0;
     }
 
     .nav::-webkit-scrollbar {
-      height: 4px;
-    }
-
-    .nav::-webkit-scrollbar-thumb {
-      background: rgba(148, 163, 184, .28);
-      border-radius: 999px;
+      display: none;
     }
 
     .nav button,
