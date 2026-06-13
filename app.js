@@ -1858,6 +1858,15 @@
                 </div>
               </a>
 
+              <button class="support-card" onclick="app.openHelpModal()" style="border:none;cursor:pointer;text-align:left;width:100%">
+                <div class="support-card-icon" style="background:rgba(124,58,237,.12);color:var(--primary)">✨</div>
+                <div>
+                  <div style="font-weight:700;font-size:14px;color:var(--text)">Помощь и обучение</div>
+                  <div style="font-size:13px;color:var(--muted)">Быстрый старт — как начать работать в CRM</div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:3px">Онбординг, подсказки, видео-инструкции</div>
+                </div>
+              </button>
+
               <a href="mailto:adervis.digital@gmail.com?subject=${encodeURIComponent('Отзыв о ADERVIS CRM')}&body=${encodeURIComponent('Привет! Делюсь впечатлением от продукта:\n\n[напишите пару предложений — что понравилось, что помогло в работе]\n\nМожно указать моё имя и компанию рядом с отзывом на сайте? (да/нет)')}" class="support-card" style="text-decoration:none">
                 <div class="support-card-icon" style="background:rgba(246,189,58,.14);color:var(--yellow)">⭐</div>
                 <div>
