@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Adervis PRO — CRM для видеопродакшна</title>
+  <title>ADERVIS CRM — для видеопродакшн-студий</title>
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://app.adervis.ru">
-  <meta property="og:title" content="Adervis PRO — CRM для видеопродакшна">
+  <meta property="og:title" content="ADERVIS CRM — для видеопродакшн-студий">
   <meta property="og:description" content="Управляйте сделками, сметами и финансами видеопродакшн студии. Калькулятор КП, воронка продаж, календарь задач.">
   <meta property="og:image" content="https://app.adervis.ru/icon-512.png">
   <meta name="description" content="Управляйте сделками, сметами и финансами видеопродакшн студии. Калькулятор КП, воронка продаж, календарь задач.">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Adervis PRO — CRM для видеопродакшна">
+  <meta name="twitter:title" content="ADERVIS CRM — для видеопродакшн-студий">
   <meta name="twitter:description" content="Управляйте сделками, сметами и финансами видеопродакшн студии.">
 
   <meta name="theme-color" content="#7c3aed">
@@ -75,8 +75,8 @@
           <span>A</span>
         </div>
         <div>
-          <h1>Adervis PRO</h1>
-          <p>CRM digital · версия 4.2</p>
+          <h1>ADERVIS CRM</h1>
+          <p>для видеопродакшна · версия 4.2</p>
         </div>
       </div>
 
@@ -154,7 +154,17 @@
         </div>
         <button class="btn small" id="undoBtn" title="Отменить действие (Ctrl+Z)" onclick="app.undo()" style="font-size:14px;padding:7px 10px">↩</button>
         <button class="btn small" id="redoBtn" title="Повторить действие (Ctrl+Y)" onclick="app.redo()" style="font-size:14px;padding:7px 10px">↪</button>
-        <button class="btn small" id="themeBtn" title="Сменить тему">&#9681; Тема</button>
+        <button class="theme-toggle-btn" id="themeBtn" title="Сменить тему">
+          <span class="theme-icon">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+            </svg>
+          </span>
+        </button>
         <button class="btn small blue" id="clientModeBtn">&#128065; Клиент</button>
         <button class="help-btn" id="searchBtn" title="Поиск (Ctrl+K)" onclick="app.openSearch()" style="font-size:15px">🔍</button>
         <div class="help-dd-wrap" id="helpDdWrap">
@@ -201,7 +211,7 @@
 
   <!-- Requisites footer — required for YooKassa registration review -->
   <footer id="requisitesFooter" style="text-align:center;padding:10px 16px;font-size:11px;color:var(--muted);border-top:1px solid var(--line);margin-top:auto">
-    Adervis PRO &middot; CRM для видеопродакшн &middot; Самозанятый &middot; ИНН&nbsp;592110786536 &middot;
+    ADERVIS CRM &middot; CRM для видеопродакшн &middot; Самозанятый &middot; ИНН&nbsp;592110786536 &middot;
     <a href="mailto:adervis.digital@gmail.com" style="color:var(--muted)">adervis.digital@gmail.com</a> &middot;
     <a href="https://adervis.ru/docs" target="_blank" rel="noopener" style="color:var(--muted)">Оферта и политика конфиденциальности</a> &middot;
     Доступ предоставляется онлайн сразу после оплаты

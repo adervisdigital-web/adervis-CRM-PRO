@@ -2736,6 +2736,41 @@
     .notif-body strong { display: block; font-size: 13px; margin-bottom: 2px; }
     .notif-time { font-size: 10px; color: var(--muted); margin-top: 3px; }
 
+    /* ── THEME TOGGLE BUTTON ───────────────────────── */
+    .theme-toggle-btn {
+      width: 36px; height: 36px; padding: 0;
+      border: 1px solid var(--line);
+      background: none; border-radius: 10px;
+      cursor: pointer; color: var(--text);
+      display: grid; place-items: center;
+      transition: border-color .2s, background .2s, transform .2s;
+      flex: 0 0 auto;
+    }
+    .theme-toggle-btn:hover {
+      background: rgba(148,163,184,.1);
+      border-color: var(--primary);
+      transform: scale(1.08);
+    }
+    .theme-toggle-btn:active { transform: scale(.93) rotate(20deg); }
+
+    .theme-icon {
+      position: relative; width: 16px; height: 16px;
+    }
+    .theme-icon .icon-moon,
+    .theme-icon .icon-sun {
+      position: absolute; top: 0; left: 0;
+      transition: opacity .35s cubic-bezier(.34,1.56,.64,1),
+                  transform .35s cubic-bezier(.34,1.56,.64,1);
+    }
+
+    /* dark mode (default): moon visible, sun hidden */
+    .theme-icon .icon-moon { opacity: 1; transform: rotate(0deg) scale(1); }
+    .theme-icon .icon-sun  { opacity: 0; transform: rotate(90deg) scale(0); }
+
+    /* light mode: sun visible, moon hidden */
+    [data-theme="light"] .theme-icon .icon-moon { opacity: 0; transform: rotate(-90deg) scale(0); }
+    [data-theme="light"] .theme-icon .icon-sun  { opacity: 1; transform: rotate(0deg) scale(1); }
+
     /* ── HELP BUTTON ─────────────────────────────── */
     .help-btn {
       border: 1px solid var(--line); background: none;
@@ -2943,7 +2978,7 @@ body.brief-mode #appContent { padding: 0; }
 }
 .brief-link-url {
   flex: 1; font-size: 12px; color: var(--muted);
-  word-break: break-all; user-select: all; font-family: monospace;
+  word-break: break-all; -webkit-user-select: all; user-select: all; font-family: monospace;
 }
 .brief-card-item {
   background: var(--panel2); border: 1px solid var(--line);
@@ -3054,7 +3089,7 @@ body.portal-mode .nav { display: none !important; }
 .crm-card[draggable="true"],
 .task-card[draggable="true"] {
   cursor: grab;
-  user-select: none;
+  -webkit-user-select: none; user-select: none;
 }
 .crm-card[draggable="true"]:active,
 .task-card[draggable="true"]:active { cursor: grabbing; }
