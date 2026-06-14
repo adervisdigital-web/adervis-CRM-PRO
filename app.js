@@ -3233,6 +3233,7 @@
           assignee: task?.assignee || "",
           deadline: task?.deadline || "",
           note: task?.note || "",
+          comments: Array.isArray(task?.comments) ? task.comments : [],
           createdAt: task?.createdAt || new Date().toISOString(),
           updatedAt: task?.updatedAt || new Date().toISOString()
         };
@@ -10819,6 +10820,34 @@ update profiles set agency_id = id::text where agency_id is null;
         save();
         render();
       }
+
+      function addTaskComment() {
+        if (!state.taskModal) return;
+        const input = document.getElementById("taskCommentDraft");
+        const text = (input ? input.value : "").trim();
+        if (!text) return;
+        const author = getUserSettings().displayName || "Я";
+        const comment = { id: uid("cmt"), text, author, createdAt: new Date().toISOString() };
+        const idx = (state.tasks || []).findIndex(t => t.id === state.taskModal.id);
+        if (idx >= 0) {
+          if (!Array.isArray(state.tasks[idx].comments)) state.tasks[idx].comments = [];
+          state.tasks[idx].comments.push(comment);
+          state.taskModal.comments = [...state.tasks[idx].comments];
+          save();
+        }
+        renderModal();
+      }
+
+      function deleteTaskComment(commentId) {
+        if (!state.taskModal) return;
+        const idx = (state.tasks || []).findIndex(t => t.id === state.taskModal.id);
+        if (idx >= 0) {
+          state.tasks[idx].comments = (state.tasks[idx].comments || []).filter(c => c.id !== commentId);
+          state.taskModal.comments = [...state.tasks[idx].comments];
+          save();
+        }
+        renderModal();
+      }
       function renderTaskModalHtml() {
         const m = state.taskModal;
         if (!m) return "";
@@ -10845,6 +10874,32 @@ update profiles set agency_id = id::text where agency_id is null;
               <div class="field" style="margin-bottom:18px">
                 ${field("Заметка", `<textarea style="min-height:80px" oninput="app.setTaskModalField('note',this.value)" placeholder="Детали задачи...">${escapeHtml(m.note||"")}</textarea>`)}
               </div>
+
+              <div style="border-top:1px solid var(--line);padding-top:16px;margin-bottom:18px">
+                <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">
+                  Комментарии${(m.comments||[]).length ? ` (${m.comments.length})` : ""}
+                </div>
+                ${(m.comments||[]).length ? `
+                  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+                    ${(m.comments||[]).map(c => `
+                      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;position:relative">
+                        <div style="font-size:13px;color:var(--text);line-height:1.5;white-space:pre-wrap;word-break:break-word">${escapeHtml(c.text)}</div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                          <span style="font-size:11px;color:var(--muted)">${escapeHtml(c.author || "Я")} · ${new Date(c.createdAt).toLocaleString("ru-RU",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+                          <button onclick="app.deleteTaskComment('${c.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 2px;line-height:1" title="Удалить комментарий">×</button>
+                        </div>
+                      </div>
+                    `).join("")}
+                  </div>
+                ` : `<p style="font-size:13px;color:var(--muted);margin:0 0 12px">Комментариев пока нет.</p>`}
+                <div style="display:flex;gap:8px;align-items:flex-end">
+                  <textarea id="taskCommentDraft" placeholder="Написать комментарий... (Ctrl+Enter — отправить)"
+                    onkeydown="if(event.ctrlKey&&event.key==='Enter'){event.preventDefault();app.addTaskComment()}"
+                    style="flex:1;min-height:60px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:13px;resize:none;font-family:inherit"></textarea>
+                  <button class="btn primary" onclick="app.addTaskComment()" style="white-space:nowrap;align-self:flex-end">Добавить</button>
+                </div>
+              </div>
+
               <div style="display:flex;justify-content:flex-end;gap:8px">
                 <button class="btn" onclick="app.closeTaskModal()">Отмена</button>
                 <button class="btn primary" onclick="app.saveTaskModal()">Сохранить</button>
@@ -11708,6 +11763,8 @@ Email: ______________________            Email: ______________________
         saveDealModal,
 
         openTaskModal,
+        addTaskComment,
+        deleteTaskComment,
         closeTaskModal,
         setTaskModalField,
         saveTaskModal,
