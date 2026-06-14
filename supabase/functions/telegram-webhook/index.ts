@@ -67,6 +67,7 @@ serve(async (req) => {
           { command: "today", description: "📅 Дедлайны на неделю" },
           { command: "deals", description: "🗂 Активные сделки" },
           { command: "stats", description: "📊 Финансовая сводка" },
+          { command: "deal", description: "➕ Новая сделка: /deal Название · Клиент · Бюджет" },
           { command: "help", description: "❓ Помощь и команды" },
         ],
       }),
@@ -119,6 +120,24 @@ serve(async (req) => {
       ],
     ],
   };
+
+  // ── Create deal atomically ─────────────────────────────────────────────────
+
+  async function addDealToState(agencyId: string, deal: any): Promise<void> {
+    // Read fresh state right before writing to minimize conflict window
+    const { data } = await supabase
+      .from("agency_state")
+      .select("state_json")
+      .eq("id", agencyId)
+      .single();
+    const currentState = data?.state_json || {};
+    const projects: any[] = currentState.savedProjects || [];
+    projects.unshift(deal);
+    currentState.savedProjects = projects;
+    await supabase
+      .from("agency_state")
+      .upsert({ id: agencyId, state_json: currentState, updated_at: new Date().toISOString() });
+  }
 
   // ── /start ─────────────────────────────────────────────────────────────────
 
@@ -264,6 +283,66 @@ serve(async (req) => {
     return new Response("ok", { status: 200 });
   }
 
+  // ── /deal — create deal ────────────────────────────────────────────────────
+
+  if (command === "deal" || command === "сделка") {
+    // Parse: /deal Название · Клиент · Бюджет
+    const argStr = text.replace(/^\/\S+\s*/, "").trim();
+    if (!argStr) {
+      await send(
+        `➕ <b>Новая сделка</b>\n\n` +
+        `Формат:\n<code>/deal Название · Клиент · Бюджет</code>\n\n` +
+        `Примеры:\n` +
+        `<code>/deal Свадьба Ивановых</code>\n` +
+        `<code>/deal Корпоратив Альфа · ООО Альфа</code>\n` +
+        `<code>/deal Рекламный ролик · Бета · 120000</code>\n\n` +
+        `Клиент и бюджет — необязательны.`,
+        mainKeyboard,
+      );
+      return new Response("ok", { status: 200 });
+    }
+
+    const parts = argStr.split(/[·|]/).map((s) => s.trim()).filter(Boolean);
+    const dealName = parts[0] || "Новая сделка";
+    const clientName = parts[1] || "";
+    const budgetRaw = parts[2] ? parseFloat(parts[2].replace(/\D/g, "")) : 0;
+    const budget = isNaN(budgetRaw) ? 0 : budgetRaw;
+
+    const newDeal = {
+      id: `proj_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`,
+      name: dealName,
+      client: clientName,
+      clientId: "",
+      crmStatus: "Лид",
+      total: budget,
+      paid: 0,
+      deadline: "",
+      lines: [],
+      payments: [],
+      expenses: [],
+      tasks: [],
+      team: [],
+      notes: `Создано через Telegram (${new Date().toLocaleDateString("ru-RU")})`,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await addDealToState(agency.agency_id, newDeal);
+      await send(
+        `✅ <b>Сделка создана!</b>\n\n` +
+        `📋 <b>${dealName}</b>\n` +
+        (clientName ? `👤 ${clientName}\n` : "") +
+        (budget ? `💰 ${money(budget)}\n` : "") +
+        `📌 Статус: Лид\n\n` +
+        `Откройте CRM чтобы добавить услуги, дедлайн и детали.`,
+        mainKeyboard,
+      );
+    } catch {
+      await send("❌ Не удалось создать сделку. Попробуйте ещё раз.", mainKeyboard);
+    }
+    return new Response("ok", { status: 200 });
+  }
+
   // ── /help ──────────────────────────────────────────────────────────────────
 
   if (command === "help" || command === "помощь") {
@@ -272,7 +351,8 @@ serve(async (req) => {
       `<b>Кнопки меню или команды:</b>\n` +
       `/today — дедлайны на 7 дней\n` +
       `/deals — активные сделки по статусам\n` +
-      `/stats — финансовая сводка за месяц\n\n` +
+      `/stats — финансовая сводка за месяц\n` +
+      `/deal Название · Клиент · Бюджет — создать сделку\n\n` +
       `<b>Или просто напишите вопрос:</b>\n` +
       `«Что просрочено?»\n` +
       `«Сколько должен клиент Альфа?»\n` +
