@@ -1574,6 +1574,61 @@
       .db-greeting { font-size: 18px; }
     }
 
+    /* ── Compact stat strip ───────────────────────────────── */
+    .db-stat-row {
+      display: flex; flex-wrap: wrap;
+      background: var(--panel2); border: 1px solid var(--line);
+      border-radius: 14px; margin-bottom: 14px; overflow: hidden;
+    }
+    .db-stat {
+      flex: 1; min-width: 120px;
+      padding: 11px 14px;
+      border-right: 1px solid var(--line);
+      transition: background .12s;
+    }
+    .db-stat:last-child { border-right: none; }
+    .db-stat[onclick] { cursor: pointer; }
+    .db-stat[onclick]:hover { background: var(--panel); }
+    .db-stat-warn { background: rgba(234,88,12,.05); }
+    .db-stat-label {
+      font-size: 10px; color: var(--muted); font-weight: 750;
+      text-transform: uppercase; letter-spacing: .04em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px;
+    }
+    .db-stat-value {
+      font-size: 17px; font-weight: 900; letter-spacing: -.02em;
+      font-variant-numeric: tabular-nums; line-height: 1.15; margin-bottom: 2px;
+    }
+    .db-stat-delta {
+      font-size: 10px; font-weight: 700;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .db-stat-delta.pos { color: var(--green); }
+    .db-stat-delta.neg { color: var(--red); }
+    .db-stat-delta.neu { color: var(--muted); }
+
+    /* ── Analytics 2-column ───────────────────────────────── */
+    .db-analytics-header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+    }
+    .db-analytics-legend { display: flex; gap: 12px; font-size: 11px; }
+    .db-analytics-body {
+      display: grid; grid-template-columns: 1fr 200px; gap: 16px; align-items: start;
+    }
+    .db-analytics-top {
+      padding-left: 14px; border-left: 1px solid var(--line);
+    }
+
+    @media (max-width: 700px) {
+      .db-stat { min-width: 45%; padding: 10px 12px; }
+      .db-stat-value { font-size: 15px; }
+      .db-analytics-body { grid-template-columns: 1fr; }
+      .db-analytics-top { border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 10px; }
+    }
+    @media (max-width: 400px) {
+      .db-stat { min-width: 50%; }
+    }
+
     .crm-home-funnel {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));

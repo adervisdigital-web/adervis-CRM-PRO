@@ -6669,8 +6669,8 @@
 
         const maxVal = Math.max(...revenue, ...expenseArr, 1);
 
-        // SVG bar chart
-        const W = 600, H = 110, BOT = 16, TOP = 6, chartH = H - BOT - TOP;
+        // SVG bar chart — compact height
+        const W = 600, H = 72, BOT = 14, TOP = 4, chartH = H - BOT - TOP;
         const gw = W / months.length;
         const bw = Math.floor(gw * 0.26);
 
@@ -6687,7 +6687,7 @@
             <text x="${cx}" y="${H - 1}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="inherit">${label}</text>`;
         }).join('');
 
-        const gridLines = [0.33, 0.66, 1].map(f => {
+        const gridLines = [0.4, 0.8].map(f => {
           const y = TOP + chartH - Math.floor(f * chartH);
           const val = Math.floor(maxVal * f);
           const label = val >= 1000000 ? (val/1000000).toFixed(1)+'М' : val >= 1000 ? Math.round(val/1000)+'к' : val;
@@ -6709,35 +6709,37 @@
           .sort((a,b) => b.total - a.total).slice(0, 5);
         const maxC = topClients[0]?.total || 1;
 
-        const topClientsHtml = topClients.length ? `
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
-            <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Топ клиентов</div>
-            ${topClients.map(c => `
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-                <div style="flex:0 0 110px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.name)}</div>
-                <div style="flex:1;height:5px;background:var(--line);border-radius:999px">
-                  <div style="height:100%;width:${Math.round(c.total/maxC*100)}%;background:linear-gradient(90deg,var(--primary),var(--blue));border-radius:999px"></div>
-                </div>
-                <div style="font-size:12px;font-weight:700;flex:0 0 72px;text-align:right;font-variant-numeric:tabular-nums">${money(c.total)}</div>
-              </div>`).join('')}
-          </div>` : '';
-
         const profit = totalRev - totalExp;
         return `
           <div class="panel" style="margin-bottom:14px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-              <div style="font-weight:700;font-size:14px">📊 За 6 месяцев</div>
-              <div style="display:flex;gap:16px;font-size:11px">
+            <div class="db-analytics-header">
+              <span style="font-weight:700;font-size:13px">📊 За 6 месяцев</span>
+              <div class="db-analytics-legend">
                 <span style="color:#4ade80">▋ ${money(totalRev)}</span>
                 <span style="color:#f87171">▋ ${money(totalExp)}</span>
                 <span style="color:${profit>=0?'var(--green)':'var(--red)'}">= ${money(profit)}</span>
               </div>
             </div>
-            <svg viewBox="0 0 ${W} ${H}" width="100%" height="auto" style="display:block">
-              ${gridLines}
-              ${barsHtml}
-            </svg>
-            ${topClientsHtml}
+            <div class="db-analytics-body">
+              <svg viewBox="0 0 ${W} ${H}" width="100%" height="auto" style="display:block">
+                ${gridLines}
+                ${barsHtml}
+              </svg>
+              ${topClients.length ? `
+              <div class="db-analytics-top">
+                <div style="font-size:10px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Топ клиентов</div>
+                ${topClients.map(c => `
+                  <div style="margin-bottom:8px">
+                    <div style="display:flex;justify-content:space-between;gap:6px;margin-bottom:3px">
+                      <span style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${escapeHtml(c.name)}</span>
+                      <span style="font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;flex:0 0 auto">${money(c.total)}</span>
+                    </div>
+                    <div style="height:3px;background:var(--line);border-radius:999px">
+                      <div style="height:100%;width:${Math.round(c.total/maxC*100)}%;background:linear-gradient(90deg,var(--primary),var(--blue));border-radius:999px"></div>
+                    </div>
+                  </div>`).join('')}
+              </div>` : ''}
+            </div>
           </div>`;
       }
 
@@ -6869,6 +6871,15 @@
         const prevRevenue  = paymentsInMonth(prevMonth);
         const revDelta = prevRevenue > 0 ? Math.round((monthRevenue - prevRevenue) / prevRevenue * 100) : null;
 
+        function expensesInMonth(m) {
+          let s = 0;
+          state.savedProjects.forEach(p => { (p.snapshot?.expenses||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; }); });
+          (state.expenses||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; });
+          return s;
+        }
+        const monthExpenses = expensesInMonth(curMonth);
+        const monthProfit   = monthRevenue - monthExpenses;
+
         const totalDebt = projects.filter(p => !["Закрыто"].includes(p.crmStatus||"Лид"))
           .reduce((s, p) => s + Math.max(0, (p.total||0) - (p.paid||0)), 0);
 
@@ -6893,6 +6904,15 @@
         upcomingDeadlines.sort((a,b) => a.date.localeCompare(b.date));
         const uniqueDeadlines = upcomingDeadlines.filter((d,i,arr) => i === arr.findIndex(x => x.name===d.name && x.date===d.date));
 
+        const overdueCount = (() => {
+          let cnt = 0;
+          projects.forEach(p => {
+            (p.snapshot?.tasks||[]).forEach(t => { if (t.deadline && t.deadline < todayStr && t.status !== "Готово") cnt++; });
+          });
+          (state.tasks||[]).forEach(t => { if (t.deadline && t.deadline < todayStr && t.status !== "Готово") cnt++; });
+          return cnt;
+        })();
+
         const monthNames2 = ["январе","феврале","марте","апреле","мае","июне","июле","августе","сентябре","октябре","ноябре","декабре"];
         const curMonthName = monthNames2[nowDate.getMonth()];
 
@@ -6910,55 +6930,47 @@
               </div>
             </div>
 
-            <!-- ── KPI CARDS ─────────────────────────────── -->
-            <div class="db-kpi-grid">
-              <div class="db-kpi" onclick="app.go('global-finances')" style="cursor:pointer">
-                <div class="db-kpi-icon" style="background:rgba(22,163,74,.14);color:#4ade80">💰</div>
-                <div class="db-kpi-body">
-                  <div class="db-kpi-label">Выручка в месяце</div>
-                  <div class="db-kpi-value">${money(monthRevenue)}</div>
-                  ${revDelta !== null ? `<div class="db-kpi-delta ${revDelta>=0?"pos":"neg"}">${revDelta>=0?"↑":"↓"} ${Math.abs(revDelta)}% к прошлому</div>` : `<div class="db-kpi-delta neu">нет данных прошлого</div>`}
-                </div>
+            <!-- ── STAT STRIP ─────────────────────────────── -->
+            <div class="db-stat-row">
+              <div class="db-stat" onclick="app.go('global-finances')">
+                <div class="db-stat-label">Выручка / мес</div>
+                <div class="db-stat-value">${money(monthRevenue)}</div>
+                <div class="db-stat-delta ${revDelta!==null?(revDelta>=0?"pos":"neg"):"neu"}">${revDelta!==null?(revDelta>=0?"↑":"↓")+Math.abs(revDelta)+"% к прошлому":"нет данных"}</div>
               </div>
-              <div class="db-kpi">
-                <div class="db-kpi-icon" style="background:rgba(124,58,237,.14);color:var(--primary2)">📈</div>
-                <div class="db-kpi-body">
-                  <div class="db-kpi-label">Воронка (потенциал)</div>
-                  <div class="db-kpi-value">${money(totalPipeline)}</div>
-                  <div class="db-kpi-delta neu">${projects.filter(p=>!["Сдано","Закрыто"].includes(p.crmStatus||"Лид")).length} активных сделок</div>
-                </div>
+              <div class="db-stat" onclick="app.go('global-finances')">
+                <div class="db-stat-label">Расходы / мес</div>
+                <div class="db-stat-value" style="${monthExpenses>0?"color:var(--red)":""}">${money(monthExpenses)}</div>
+                <div class="db-stat-delta neu">текущий месяц</div>
               </div>
-              <div class="db-kpi ${totalDebt>0?"db-kpi-warn":""}" onclick="app.go('global-finances')" style="cursor:pointer">
-                <div class="db-kpi-icon" style="background:rgba(234,88,12,.14);color:#fb923c">💳</div>
-                <div class="db-kpi-body">
-                  <div class="db-kpi-label">Долг от клиентов</div>
-                  <div class="db-kpi-value" style="${totalDebt>0?"color:var(--orange)":""}">${money(totalDebt)}</div>
-                  <div class="db-kpi-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
-                </div>
+              <div class="db-stat" onclick="app.go('global-finances')">
+                <div class="db-stat-label">Прибыль / мес</div>
+                <div class="db-stat-value" style="color:${monthProfit>=0?"var(--green)":"var(--red)"}">${money(monthProfit)}</div>
+                <div class="db-stat-delta ${monthProfit>=0?"pos":"neg"}">${monthProfit>=0?"доход":"убыток"}</div>
               </div>
-              <div class="db-kpi">
-                <div class="db-kpi-icon" style="background:rgba(8,145,178,.14);color:#22d3ee">🔧</div>
-                <div class="db-kpi-body">
-                  <div class="db-kpi-label">В работе сейчас</div>
-                  <div class="db-kpi-value">${inWork}</div>
-                  <div class="db-kpi-delta neu">${closedCount} закрыто за всё время</div>
-                </div>
+              <div class="db-stat">
+                <div class="db-stat-label">Воронка</div>
+                <div class="db-stat-value">${money(totalPipeline)}</div>
+                <div class="db-stat-delta neu">${projects.filter(p=>!["Сдано","Закрыто"].includes(p.crmStatus||"Лид")).length} активных</div>
               </div>
-              <div class="db-kpi">
-                <div class="db-kpi-icon" style="background:rgba(246,189,58,.12);color:var(--yellow)">📊</div>
-                <div class="db-kpi-body">
-                  <div class="db-kpi-label">Средний чек</div>
-                  <div class="db-kpi-value">${avgDeal > 0 ? money(avgDeal) : "—"}</div>
-                  <div class="db-kpi-delta neu">по закрытым сделкам</div>
-                </div>
+              <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')">
+                <div class="db-stat-label">Долг клиентов</div>
+                <div class="db-stat-value" style="${totalDebt>0?"color:var(--orange)":""}">${money(totalDebt)}</div>
+                <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
               </div>
-              <div class="db-kpi" onclick="app.go('global-calendar')" style="cursor:pointer">
-                <div class="db-kpi-icon" style="background:rgba(220,38,38,.12);color:#f87171">📅</div>
-                <div class="db-kpi-body">
-                  <div class="db-kpi-label">Дедлайны (7 дней)</div>
-                  <div class="db-kpi-value ${uniqueDeadlines.length>0?"":"" }">${uniqueDeadlines.length}</div>
-                  <div class="db-kpi-delta ${uniqueDeadlines.length>2?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${uniqueDeadlines.length>0 ? `ближайший: ${formatDate(uniqueDeadlines[0].date)}` : "дедлайнов нет ✓"}</div>
-                </div>
+              <div class="db-stat">
+                <div class="db-stat-label">В работе</div>
+                <div class="db-stat-value">${inWork}</div>
+                <div class="db-stat-delta neu">${closedCount} закрыто</div>
+              </div>
+              <div class="db-stat">
+                <div class="db-stat-label">Ср. чек</div>
+                <div class="db-stat-value">${avgDeal>0?money(avgDeal):"—"}</div>
+                <div class="db-stat-delta neu">${closedCount>0?"по "+closedCount+" сделкам":"нет закрытых"}</div>
+              </div>
+              <div class="db-stat ${overdueCount>0?"db-stat-warn":""}" onclick="app.go('global-calendar')">
+                <div class="db-stat-label">Дедлайны / 7 дн</div>
+                <div class="db-stat-value">${uniqueDeadlines.length}</div>
+                <div class="db-stat-delta ${overdueCount>0?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${overdueCount>0?"⚠ "+overdueCount+" просрочено":uniqueDeadlines.length>0?"ближ. "+formatDate(uniqueDeadlines[0].date):"нет ✓"}</div>
               </div>
             </div>
 
