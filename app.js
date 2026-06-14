@@ -8843,6 +8843,12 @@
                 <button class="btn" onclick="app.copyProposalText()">Скопировать текст</button>
                 <button class="btn blue" onclick="app.downloadProposalPDF()">Печать / PDF</button>
                 <button class="btn green" onclick="app.exportXlsx()">Excel</button>
+                ${(() => {
+                  const cl = getCurrentClient();
+                  return cl?.email
+                    ? `<button class="btn primary" onclick="app.createClientPortal('${state.project.id}')">📧 КП на ${escapeHtml(cl.email)}</button>`
+                    : `<button class="btn" onclick="app.createClientPortal('${state.project.id}')" title="Добавьте email клиента для отправки письма">🔗 Ссылка КП</button>`;
+                })()}
               </div>
             </div>
 

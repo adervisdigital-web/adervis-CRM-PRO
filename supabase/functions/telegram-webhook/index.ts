@@ -86,7 +86,8 @@ serve(async (req) => {
        { text: "➕ Новая сделка",  callback_data: "new_deal" }],
       [{ text: "💰 Поступление",   callback_data: "new_income" },
        { text: "📤 Расход",        callback_data: "new_expense" }],
-      [{ text: "❓ Помощь",        callback_data: "help" }],
+      [{ text: "❓ Помощь",        callback_data: "help" },
+       { text: "📌 Статус",        callback_data: "change_status" }],
     ],
   };
 
@@ -112,6 +113,17 @@ serve(async (req) => {
     rows.push([{ text: noneLabel, callback_data: `${prefix}_proj_none` }]);
     rows.push([{ text: "❌ Отмена", callback_data: `${prefix}_cancel` }]);
     return { inline_keyboard: rows };
+  }
+
+  const CRM_STATUSES = ["Лид", "Переговоры", "КП отправлено", "Оплата", "В работе", "Завершённые"];
+
+  function statusKb() {
+    return {
+      inline_keyboard: [
+        ...CRM_STATUSES.map((s, i) => [{ text: s, callback_data: `cs_st_${i}` }]),
+        [{ text: "❌ Отмена", callback_data: "cs_cancel" }],
+      ],
+    };
   }
 
   // ── Agency lookup ───────────────────────────────────────────────────────────
@@ -178,6 +190,23 @@ serve(async (req) => {
     }
 
     await supabase.from("agency_state").upsert({ id: agencyId, state_json: st, updated_at: new Date().toISOString() });
+  }
+
+  async function updateDealStatus(agencyId: string, dealId: string, newStatus: string): Promise<void> {
+    const { data } = await supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
+    const st: any = { ...(data?.state_json || {}) };
+    if (!st._botSessions) st._botSessions = {};
+    delete st._botSessions[String(chatId)];
+    const proj = (st.savedProjects || []).find((p: any) => p.id === dealId);
+    if (proj) { proj.crmStatus = newStatus; proj.updatedAt = new Date().toISOString(); }
+    await supabase.from("agency_state").upsert({ id: agencyId, state_json: st, updated_at: new Date().toISOString() });
+  }
+
+  async function startChangeStatusFlow(agencyId: string, projs: any[]) {
+    const active = projs.filter(p => p.crmStatus !== "Завершённые");
+    if (!active.length) { await send("📭 Активных сделок нет.", mainKeyboard); return; }
+    await writeSession(agencyId, { action: "change_status", step: "select_deal" });
+    await send("📌 <b>Изменить статус сделки</b>\n\nВыберите сделку:", dealSelectKb(active, "❌ Отмена", "cs"));
   }
 
   // ── Collect all transactions for stats ──────────────────────────────────────
@@ -465,15 +494,45 @@ serve(async (req) => {
     }
   }
 
+  if (session?.action === "change_status") {
+    if (text === "cs_cancel" || text === "cs_proj_none") {
+      await writeSession(agencyId, null);
+      await send("❌ Отменено.", mainKeyboard);
+      return new Response("ok", { status: 200 });
+    }
+    // Сделка выбрана — показать выбор статуса
+    if (isCallback && text.startsWith("cs_proj_") && session.step === "select_deal") {
+      const dealId = text.replace("cs_proj_", "");
+      const proj = projects.find((p: any) => p.id === dealId);
+      if (!proj) { await writeSession(agencyId, null); await send("Сделка не найдена.", mainKeyboard); return new Response("ok", { status: 200 }); }
+      await writeSession(agencyId, { ...session, step: "select_status", dealId, dealName: proj.name });
+      await send(
+        `📋 <b>${proj.name}</b>${proj.client ? `\n👤 ${proj.client}` : ""}\nСтатус: <b>${proj.crmStatus || "Лид"}</b>\n\nВыберите новый статус:`,
+        statusKb(),
+      );
+      return new Response("ok", { status: 200 });
+    }
+    // Статус выбран
+    if (isCallback && text.startsWith("cs_st_") && session.step === "select_status") {
+      const idx = parseInt(text.replace("cs_st_", ""), 10);
+      const newStatus = CRM_STATUSES[idx];
+      if (!newStatus || !session.dealId) { await send("Ошибка. Попробуйте снова.", mainKeyboard); return new Response("ok", { status: 200 }); }
+      await updateDealStatus(agencyId, session.dealId, newStatus);
+      await send(`✅ <b>${session.dealName || "Сделка"}</b>\nСтатус изменён → <b>${newStatus}</b>`, mainKeyboard);
+      return new Response("ok", { status: 200 });
+    }
+  }
+
   // ── Commands ───────────────────────────────────────────────────────────────
 
   const command = text.startsWith("/")
     ? text.split(" ")[0].slice(1).split("@")[0].toLowerCase()
     : text.toLowerCase();
 
-  if (command === "new_deal"   || command === "deal"   || command === "сделка")     { await startDealFlow(agencyId); return new Response("ok", { status: 200 }); }
-  if (command === "new_income" || command === "доход"  || command === "поступление") { await startTxFlow(agencyId, "income");  return new Response("ok", { status: 200 }); }
-  if (command === "new_expense"|| command === "расход") { await startTxFlow(agencyId, "expense"); return new Response("ok", { status: 200 }); }
+  if (command === "new_deal"      || command === "deal"   || command === "сделка")     { await startDealFlow(agencyId); return new Response("ok", { status: 200 }); }
+  if (command === "new_income"    || command === "доход"  || command === "поступление") { await startTxFlow(agencyId, "income");  return new Response("ok", { status: 200 }); }
+  if (command === "new_expense"   || command === "расход") { await startTxFlow(agencyId, "expense"); return new Response("ok", { status: 200 }); }
+  if (command === "change_status" || command === "статус") { await startChangeStatusFlow(agencyId, projects); return new Response("ok", { status: 200 }); }
 
   // ── /today ─────────────────────────────────────────────────────────────────
 
@@ -553,7 +612,8 @@ serve(async (req) => {
       `📊 Сводка — деньги за месяц\n` +
       `➕ Новая сделка — пошаговое создание\n` +
       `💰 Поступление — записать приход\n` +
-      `📤 Расход — записать расход\n\n` +
+      `📤 Расход — записать расход\n` +
+      `📌 Статус — изменить статус сделки\n\n` +
       `<b>Или напишите вопрос:</b>\n` +
       `«Что просрочено?»\n` +
       `«Сколько должен клиент Альфа?»\n` +
