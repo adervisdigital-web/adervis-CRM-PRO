@@ -5682,23 +5682,28 @@
         const btn = document.querySelector("[onclick*='downloadProposalPDF']");
         if (btn) { btn.disabled = true; btn.textContent = "Генерация..."; }
 
-        // Временный элемент вне экрана — html2pdf не рендерит display:none
-        const el = document.createElement("div");
-        el.style.cssText = "position:fixed;left:-9999px;top:0;width:794px;background:#fff;color:#111;font-family:'DM Sans',Arial,sans-serif;font-size:14px;line-height:1.5";
-        el.innerHTML = renderProposalPrint();
-        document.body.appendChild(el);
+        // Временно переключаем в светлую тему — иначе CSS-переменные дают белый текст на белом фоне
+        const htmlEl = document.documentElement;
+        const prevTheme = htmlEl.getAttribute("data-theme") || "dark";
+        htmlEl.setAttribute("data-theme", "light");
+
+        // Показываем #printArea (он скрыт в @media print, но не в обычном режиме)
+        const printArea = document.getElementById("printArea");
+        printArea.innerHTML = renderProposalPrint();
+        printArea.style.cssText = "display:block;position:absolute;left:-9999px;top:0;width:794px;background:#fff;";
 
         try {
           await html2pdf().set({
             margin: [12, 14, 12, 14],
             filename: `КП_${name}_${date}.pdf`,
             image: { type: "jpeg", quality: 0.95 },
-            html2canvas: { scale: 2, useCORS: true, logging: false },
+            html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff" },
             jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-            pagebreak: { mode: ["avoid-all", "css"] },
-          }).from(el).save();
+          }).from(printArea).save();
         } finally {
-          document.body.removeChild(el);
+          printArea.style.cssText = "";
+          printArea.innerHTML = "";
+          htmlEl.setAttribute("data-theme", prevTheme);
           if (btn) { btn.disabled = false; btn.textContent = "⬇ PDF"; }
         }
       }
