@@ -9471,8 +9471,38 @@ update profiles set agency_id = id::text where agency_id is null;
         }).select('id').single();
         if (data && !error) {
           const url = location.origin + location.pathname + '?portal=' + data.id;
-          try { await navigator.clipboard.writeText(url); toast('✅ Ссылка скопирована: ' + url); }
-          catch(e) { toast('Ссылка для клиента: ' + url); }
+          try { await navigator.clipboard.writeText(url); } catch(e) {}
+
+          // Отправить письмо клиенту, если у него указан email
+          const client = getClientById(project.clientId);
+          let emailSent = false;
+          if (client?.email) {
+            try {
+              const { url: sbUrl } = getSupabaseConfig();
+              const r = await fetch(`${sbUrl}/functions/v1/send-portal-email`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${_adminSession.access_token}`,
+                },
+                body: JSON.stringify({
+                  clientEmail: client.email,
+                  clientName: client.name || '',
+                  dealName: project.name || '',
+                  portalUrl: url,
+                  totalPrice: project.total || 0,
+                  agencyName: state.company?.name || 'Adervis',
+                }),
+              });
+              emailSent = r.ok;
+            } catch(e) { /* письмо не обязательно — портал создан успешно */ }
+          }
+
+          if (emailSent) {
+            toast(`✅ Ссылка скопирована, письмо отправлено на ${client.email}`);
+          } else {
+            toast('✅ Ссылка скопирована: ' + url);
+          }
         } else {
           toast('Ошибка: ' + (error && error.message));
         }
