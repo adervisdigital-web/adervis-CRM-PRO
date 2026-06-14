@@ -965,6 +965,7 @@
       }
 
       .topbar,
+      .mobile-bottom-nav,
       .no-print,
       .section-title.no-print {
         display: none !important;
