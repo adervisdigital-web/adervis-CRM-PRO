@@ -5675,6 +5675,29 @@
         window.print();
       }
 
+      async function downloadProposalPDF() {
+        if (typeof html2pdf === "undefined") { toast("Загрузка библиотеки PDF..."); return; }
+        const printArea = document.getElementById("printArea");
+        if (!printArea) return;
+        printArea.innerHTML = renderProposalPrint();
+        const name = (state.project.name || "КП").replace(/[^\wа-яёА-ЯЁ\s-]/gi, "").trim();
+        const date = new Date().toLocaleDateString("ru-RU").replace(/\./g, "-");
+        const btn = document.querySelector("[onclick*='downloadProposalPDF']");
+        if (btn) { btn.disabled = true; btn.textContent = "Генерация..."; }
+        try {
+          await html2pdf().set({
+            margin: [12, 14, 12, 14],
+            filename: `КП_${name}_${date}.pdf`,
+            image: { type: "jpeg", quality: 0.95 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+            pagebreak: { mode: ["avoid-all", "css"] },
+          }).from(printArea).save();
+        } finally {
+          if (btn) { btn.disabled = false; btn.textContent = "⬇ PDF"; }
+        }
+      }
+
       function field(label, html) {
         return `
           <div class="field">
@@ -8097,7 +8120,8 @@
               <div class="toolbar">
                 <button class="btn" id="aiProposalBtn" onclick="app.generateProposalAI()" style="background:linear-gradient(135deg,#7c3aed,#2563eb);border-color:transparent;color:#fff">✨ Сгенерировать с ИИ</button>
                 <button class="btn" onclick="app.copyProposalText()">Скопировать текст</button>
-                <button class="btn blue" onclick="app.printProposal()">Печать / PDF</button>
+                <button class="btn blue" onclick="app.downloadProposalPDF()">⬇ PDF</button>
+                <button class="btn" onclick="app.printProposal()">Печать</button>
                 <button class="btn green" onclick="app.exportXlsx()">Excel</button>
               </div>
             </div>
@@ -11035,6 +11059,7 @@ Email: ______________________            Email: ______________________
         exportXlsx,
         copyProposalText,
         printProposal,
+        downloadProposalPDF,
         importCompanyLogo,
 
         dragStart,
