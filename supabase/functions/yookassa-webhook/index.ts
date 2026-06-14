@@ -54,6 +54,33 @@ serve(async (req) => {
   }
 
   const metadata = (payment.metadata ?? {}) as Record<string, string>;
+
+  // Use service role to bypass RLS
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
+  // ── Аванс клиента через клиентский портал ──────────────────────────────
+  if (metadata.type === "portal_advance") {
+    const { portalId } = metadata;
+    if (!portalId) {
+      console.error("Webhook: portal_advance missing portalId", metadata);
+      return new Response("Missing portalId", { status: 400 });
+    }
+    const { error: advErr } = await supabase.rpc("mark_portal_advance_paid", {
+      p_portal_id:  portalId,
+      p_payment_id: paymentId,
+    });
+    if (advErr) {
+      console.error("Webhook: mark_portal_advance_paid error", advErr);
+      return new Response("DB error", { status: 500 });
+    }
+    console.log(`Portal advance paid: portal=${portalId} payment=${paymentId}`);
+    return new Response("ok", { status: 200 });
+  }
+
+  // ── Подписка агентства ──────────────────────────────────────────────────
   const { userId, planId, promoCode } = metadata;
   const discountPercent = Number(metadata.discountPercent) || 0;
 
@@ -67,12 +94,6 @@ serve(async (req) => {
     console.error("Webhook: unknown planId", planId);
     return new Response("Unknown plan", { status: 400 });
   }
-
-  // Use service role to bypass RLS and update the profile
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
 
   // Load current profile to know if we should extend or start fresh
   const { data: profile, error: fetchErr } = await supabase

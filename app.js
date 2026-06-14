@@ -9562,6 +9562,35 @@ update profiles set agency_id = id::text where agency_id is null;
                     <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5">Мы получили ваше подтверждение и свяжемся с вами в ближайшее время.</div>
                   </div>
                 `}
+
+                ${d.advance_amount > 0 ? `
+                  <div style="margin-top:20px;padding:20px;background:var(--panel2);border:1px solid var(--line);border-radius:14px">
+                    <div style="font-size:13px;font-weight:700;margin-bottom:4px">💳 Онлайн-оплата аванса</div>
+                    ${d.advance_paid_at ? `
+                      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:12px 14px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:10px">
+                        <span style="font-size:20px">✅</span>
+                        <div>
+                          <div style="font-weight:800;color:var(--green);font-size:13px">Аванс оплачен</div>
+                          <div style="font-size:11px;color:var(--muted)">${new Date(d.advance_paid_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</div>
+                        </div>
+                        <div style="margin-left:auto;font-size:18px;font-weight:900;color:var(--green)">${money(d.advance_amount)}</div>
+                      </div>
+                    ` : `
+                      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Вы можете оплатить аванс онлайн прямо сейчас — картой, СБП или ЮMoney</div>
+                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+                        <span style="font-size:13px;color:var(--text2)">Сумма аванса (50%)</span>
+                        <span style="font-size:22px;font-weight:900">${money(d.advance_amount)}</span>
+                      </div>
+                      <button class="btn primary full" id="portalPayBtn" onclick="app.payPortalAdvance()"
+                        style="padding:14px;font-size:14px;font-weight:800">
+                        💳 Оплатить ${money(d.advance_amount)}
+                      </button>
+                      <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5">
+                        Безопасная оплата через ЮKassa · Карта, СБП, ЮMoney
+                      </p>
+                    `}
+                  </div>
+                ` : ''}
               </div>
 
               <div style="text-align:center;padding:24px 0 8px;font-size:12px;color:var(--muted)">
@@ -9586,6 +9615,10 @@ update profiles set agency_id = id::text where agency_id is null;
         } catch(e) { console.warn('Portal load:', e); }
         _portalLoaded = true;
         render();
+        // Возврат с ЮKassa после оплаты аванса — показываем тост
+        if (new URLSearchParams(location.search).get('advance') === 'paid') {
+          setTimeout(() => toast('✅ Аванс успешно оплачен! Спасибо.'), 400);
+        }
       }
 
       async function approvePortal() {
@@ -9604,6 +9637,29 @@ update profiles set agency_id = id::text where agency_id is null;
         }
       }
 
+      async function payPortalAdvance() {
+        const btn = document.getElementById('portalPayBtn');
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ Подготовка платежа...'; }
+        try {
+          const { url: sbUrl } = getSupabaseConfig();
+          const r = await fetch(`${sbUrl}/functions/v1/create-portal-payment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ portalId: _portalId }),
+          });
+          const data = await r.json();
+          if (data.paymentUrl) {
+            location.href = data.paymentUrl;
+          } else {
+            if (btn) { btn.disabled = false; btn.textContent = `💳 Оплатить ${money(_portalData.advance_amount)}`; }
+            alert('Ошибка: ' + (data.error || 'Не удалось создать платёж'));
+          }
+        } catch(e) {
+          if (btn) { btn.disabled = false; btn.textContent = `💳 Оплатить ${money(_portalData.advance_amount)}`; }
+          alert('Ошибка сети. Попробуйте ещё раз.');
+        }
+      }
+
       async function createClientPortal(projectId) {
         const project = (state.savedProjects || []).find(p => p.id === projectId);
         if (!project) { toast('Проект не найден'); return; }
@@ -9613,6 +9669,11 @@ update profiles set agency_id = id::text where agency_id is null;
         const selectedItems = Object.keys(snap.selected || {})
           .map(id => { const b = BASE_ITEMS.find(x => x.id === id); return b ? b.name : null; })
           .filter(Boolean);
+        // Аванс 50% от суммы, округлён до 100 ₽ (стандарт в видеопродакшне)
+        const advanceAmount = project.total > 0
+          ? Math.max(100, Math.round(project.total * 0.5 / 100) * 100)
+          : null;
+
         const { data, error } = await _supabase.from('client_portals').insert({
           agency_id: getAgencyId(),
           deal_name: project.name || '',
@@ -9621,7 +9682,8 @@ update profiles set agency_id = id::text where agency_id is null;
           included_text: proj.includedText || '',
           excluded_text: proj.excludedText || '',
           proposal_note: proj.proposalNote || '',
-          services_list: selectedItems
+          services_list: selectedItems,
+          advance_amount: advanceAmount
         }).select('id').single();
         if (data && !error) {
           const url = location.origin + location.pathname + '?portal=' + data.id;
@@ -11221,6 +11283,7 @@ Email: ______________________            Email: ______________________
         generateProposalAI,
 
         approvePortal,
+        payPortalAdvance,
         createClientPortal,
 
         oauthSignIn,
