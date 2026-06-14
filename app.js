@@ -1570,6 +1570,7 @@
 
       /* ─── DUPLICATE DEAL ─── */
       function duplicateDeal(projectId) {
+        if (checkTrialDealLimit()) return;
         const proj = state.savedProjects.find(p => p.id === projectId);
         if (!proj) return;
         const copy = deepClone(proj);
@@ -1908,7 +1909,7 @@
       function renderPlans() {
         const sub = _userProfile;
         const planFeatures = {
-          trial:  ["До 3 активных сделок", "CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Календарь задач", "1 пользователь"],
+          trial:  ["До 5 активных сделок", "CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Календарь задач", "1 пользователь"],
           month1: ["Всё из пробного", "Безлимитные сделки", "Финансы и аналитика", "Экспорт Excel", "Договоры", "1 пользователь"],
           month3: ["Всё из «Месяца»", "До 3 пользователей", "Командная работа", "Синхронизация", "Экономия 17%", "Поддержка"],
           month6: ["Всё из «3 мес»", "До 5 пользователей", "Расширенная аналитика", "Версии смет", "Пакеты услуг", "Экономия 28%"],
@@ -1969,7 +1970,7 @@
               <tbody>
                 ${group("CRM и продажи")}
                 ${row("Активных сделок",
-                  [`<span style='color:var(--muted);font-weight:600'>до 3</span>`,
+                  [`<span style='color:var(--muted);font-weight:600'>до 5</span>`,
                    `<span style='color:var(--green);font-weight:700'>∞</span>`,
                    `<span style='color:var(--green);font-weight:700'>∞</span>`,
                    `<span style='color:var(--green);font-weight:700'>∞</span>`,
@@ -5308,7 +5309,7 @@
         render();
       }
 
-      const TRIAL_DEAL_LIMIT = 3;
+      const TRIAL_DEAL_LIMIT = 5;
 
       function checkTrialDealLimit() {
         if (!_userProfile || _userProfile.subscription_status !== "trial") return false;
