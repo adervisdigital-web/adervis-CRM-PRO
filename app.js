@@ -5677,13 +5677,17 @@
 
       async function downloadProposalPDF() {
         if (typeof html2pdf === "undefined") { toast("Загрузка библиотеки PDF..."); return; }
-        const printArea = document.getElementById("printArea");
-        if (!printArea) return;
-        printArea.innerHTML = renderProposalPrint();
         const name = (state.project.name || "КП").replace(/[^\wа-яёА-ЯЁ\s-]/gi, "").trim();
         const date = new Date().toLocaleDateString("ru-RU").replace(/\./g, "-");
         const btn = document.querySelector("[onclick*='downloadProposalPDF']");
         if (btn) { btn.disabled = true; btn.textContent = "Генерация..."; }
+
+        // Временный элемент вне экрана — html2pdf не рендерит display:none
+        const el = document.createElement("div");
+        el.style.cssText = "position:fixed;left:-9999px;top:0;width:794px;background:#fff;color:#111;font-family:'DM Sans',Arial,sans-serif;font-size:14px;line-height:1.5";
+        el.innerHTML = renderProposalPrint();
+        document.body.appendChild(el);
+
         try {
           await html2pdf().set({
             margin: [12, 14, 12, 14],
@@ -5692,8 +5696,9 @@
             html2canvas: { scale: 2, useCORS: true, logging: false },
             jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
             pagebreak: { mode: ["avoid-all", "css"] },
-          }).from(printArea).save();
+          }).from(el).save();
         } finally {
+          document.body.removeChild(el);
           if (btn) { btn.disabled = false; btn.textContent = "⬇ PDF"; }
         }
       }

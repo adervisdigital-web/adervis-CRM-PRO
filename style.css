@@ -966,6 +966,8 @@
 
       .topbar,
       .mobile-bottom-nav,
+      .toast,
+      #printArea,
       .no-print,
       .section-title.no-print {
         display: none !important;
