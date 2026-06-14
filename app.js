@@ -813,8 +813,8 @@
                 pushNotification("info", "👥 Вы вошли в команду!", "Теперь вы работаете в общем рабочем пространстве агентства.", "");
                 toast("👥 Вы присоединились к агентству!");
               } else {
-                pushNotification("info", "👋 Добро пожаловать в ADERVIS CRM!", "У вас 14 дней бесплатного доступа. Создайте первую сделку!", "");
-                toast("🎉 Аккаунт создан! 14 дней бесплатно.");
+                pushNotification("info", "👋 Добро пожаловать в ADERVIS CRM!", "14 дней бесплатно и без карты. Начните с создания первой сделки!", "");
+                toast("🎉 Аккаунт создан! 14 дней бесплатного доступа.");
               }
             }, 1200);
           }
@@ -1139,20 +1139,20 @@
               </div>
             </div>
 
-            <h2 style="font-size:26px;font-weight:900;line-height:1.2;margin:28px 0 12px;letter-spacing:-.4px">Управляйте студией<br>как профессионал</h2>
-            <p style="font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 28px">Всё для видеопродакшна: сделки, сметы, КП,<br>финансы, договора и задачи — в одном месте.</p>
+            <h2 style="font-size:26px;font-weight:900;line-height:1.2;margin:28px 0 12px;letter-spacing:-.4px">CRM для видеостудий<br>и продакшн-агентств</h2>
+            <p style="font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 28px">Сделки, сметы, КП, финансы, договоры и задачи —<br>всё в одном инструменте, созданном продакшном для продакшна.</p>
 
             <ul class="auth-features-list">
-              <li><span class="auth-feat-icon">📋</span><div><strong>Калькулятор смет</strong><span>Быстро считайте КП с пакетами услуг</span></div></li>
-              <li><span class="auth-feat-icon">💼</span><div><strong>Воронка продаж</strong><span>Ведите сделки от брифа до оплаты</span></div></li>
-              <li><span class="auth-feat-icon">💰</span><div><strong>Финансы и аналитика</strong><span>Доходы, расходы, рентабельность</span></div></li>
-              <li><span class="auth-feat-icon">📅</span><div><strong>Задачи и дедлайны</strong><span>Командный календарь и уведомления</span></div></li>
-              <li><span class="auth-feat-icon">📄</span><div><strong>Договора и КП</strong><span>Профессиональные шаблоны для клиентов</span></div></li>
+              <li><span class="auth-feat-icon">📋</span><div><strong>Калькулятор смет</strong><span>Считайте смету за минуты с пакетами услуг</span></div></li>
+              <li><span class="auth-feat-icon">💼</span><div><strong>Воронка продаж</strong><span>Ведите сделки от брифа до получения оплаты</span></div></li>
+              <li><span class="auth-feat-icon">💰</span><div><strong>Финансы и аналитика</strong><span>Доходы, расходы, рентабельность каждого проекта</span></div></li>
+              <li><span class="auth-feat-icon">📅</span><div><strong>Задачи и дедлайны</strong><span>Командный календарь с push-уведомлениями</span></div></li>
+              <li><span class="auth-feat-icon">📄</span><div><strong>Договоры и КП</strong><span>Готовые шаблоны и онлайн-портал для клиента</span></div></li>
             </ul>
 
             <div style="display:flex;gap:10px;align-items:flex-start;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:12px;padding:12px 14px;margin-bottom:24px">
               <span style="font-size:18px;line-height:1.3">🎬</span>
-              <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">ADERVIS CRM создали люди из видеопродакшна — нам самим не хватало удобного инструмента для сделок, смет и финансов. Когда поняли, что он закрывает настоящую боль студий, открыли доступ другим командам.</p>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">ADERVIS CRM создали люди из видеопродакшна — нам самим не хватало нормального инструмента для сделок, смет и финансов. Когда поняли, что он закрывает настоящую боль студий, открыли доступ другим командам.</p>
             </div>
 
             <div class="auth-stats-row">
@@ -1160,7 +1160,7 @@
               <div><strong>от 890₽</strong><span>в месяц</span></div>
               <div><strong>∞</strong><span>сделок</span></div>
             </div>
-            <p style="margin:14px 0 0;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">🔒 Карта не нужна для пробного периода — оплата только если решите остаться</p>
+            <p style="margin:14px 0 0;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">🔒 Карта не нужна для пробного периода — платите только если решите остаться</p>
           </div>
         `;
 
@@ -1774,10 +1774,10 @@
             <div style="font-size:48px;margin-bottom:18px">🔒</div>
             <h1 style="font-size:26px;margin-bottom:10px">Подписка истекла</h1>
             <p style="max-width:420px;margin-bottom:8px;line-height:1.55;color:var(--muted)">
-              Аккаунт <strong style="color:var(--text)">${escapeHtml(email)}</strong> — выберите тариф для продолжения работы.
+              Аккаунт <strong style="color:var(--text)">${escapeHtml(email)}</strong>. Выберите тариф, чтобы продолжить работу.
             </p>
             <p style="max-width:420px;margin-bottom:28px;font-size:12px;color:var(--green)">
-              ✅ Все ваши сделки, клиенты и сметы сохранены — после оплаты вы продолжите с того же места
+              ✅ Все сделки, клиенты и сметы сохранены — после оплаты вы продолжите с того же места
             </p>
             ${hasSupabase ? `
               <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:640px;margin-bottom:24px">
@@ -1820,7 +1820,7 @@
           if (daysLeft > 7) return "";
           return `
             <div id="payBannerBar" style="position:fixed;bottom:70px;right:16px;z-index:200;background:var(--primary);color:#fff;border-radius:14px;padding:10px 16px;box-shadow:0 8px 28px rgba(124,58,237,.45);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;cursor:pointer" onclick="app.gotoSubscription()" title="Продлите подписку">
-              ⚡ ${daysLeft <= 0 ? "Истекает сегодня" : `Осталось ${daysLeft} дн.`} — Продлить
+              ⚡ ${daysLeft <= 0 ? "Подписка истекает сегодня" : `Подписка: осталось ${daysLeft} дн.`} — Продлить →
             </div>`;
         }
         return "";
@@ -1914,7 +1914,7 @@
 
       function notifClick(id) {
         const n = (state.notifications || []).find(x => x.id === id);
-        if (n && n.projectId) { app.go("deal"); }
+        if (n && n.projectId) { app.loadSavedProject(n.projectId); }
         toggleNotifPopup();
       }
 
@@ -1938,7 +1938,7 @@
               </div>
               <div>
                 <h1 style="margin:0;font-size:20px">Поддержка и контакты</h1>
-                <div style="font-size:13px;color:var(--muted)">ADERVIS CRM · CRM для видеопродакшна</div>
+                <div style="font-size:13px;color:var(--muted)">ADERVIS CRM · автоматизация для видеопродакшна</div>
               </div>
             </div>
 
@@ -3028,7 +3028,7 @@
 
 **Клиенты** — база клиентов с историей проектов.
 
-**Договора** — создавайте договора на основе шаблонов.
+**Договоры** — создавайте договоры на основе шаблонов.
 
 ## Быстрый старт
 
@@ -6759,7 +6759,7 @@
             btn: "Открыть"
           },
           {
-            label: 'Отправьте КП-ссылку клиенту',
+            label: 'Поделитесь КП с клиентом',
             done: !!localStorage.getItem('_onboardingPortalDone'),
             action: firstDealId ? `app.createClientPortal('${firstDealId}')` : "app.startWizard()",
             btn: "Создать КП"
@@ -6768,7 +6768,7 @@
             label: 'Оформите подписку — от 890 ₽/мес',
             done: false,
             action: "app.go('plans')",
-            btn: "Смотреть"
+            btn: "Тарифы"
           }
         ];
         const done = steps.filter(s => s.done).length;
@@ -6810,7 +6810,7 @@
               <div style="font-weight:700;font-size:13px;color:#fca5a5;margin-bottom:2px">Пробный период</div>
               <div style="font-size:12px;color:var(--muted)">${text}</div>
             </div>
-            <button onclick="app.go('plans')" class="btn primary small" style="white-space:nowrap">Перейти на платный</button>
+            <button onclick="app.go('plans')" class="btn primary small" style="white-space:nowrap">Выбрать тариф</button>
           </div>`;
       }
 
@@ -10440,7 +10440,7 @@ update profiles set agency_id = id::text where agency_id is null;
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('contracts')">
                   <span class="mm-icon">📄</span>
-                  <div class="mm-label">Договора</div>
+                  <div class="mm-label">Договоры</div>
                   <div class="mm-sub">Шаблоны и база</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('clients')">
@@ -11460,7 +11460,7 @@ Email: ______________________            Email: ______________________
               <div class="panel">
                 <div class="section-title" style="margin-bottom:16px">
                   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                    <button class="btn small" onclick="app.closeContractEdit()">← Договора</button>
+                    <button class="btn small" onclick="app.closeContractEdit()">← Договоры</button>
                     <input value="${escapeHtml(c.name)}" onchange="app.updateContractField('${c.id}','name',this.value)"
                       style="font-size:18px;font-weight:900;background:transparent;border:1px solid transparent;border-radius:8px;padding:4px 8px;color:var(--text);flex:1;min-width:0"
                       onmouseover="this.style.borderColor='var(--line)'" onmouseout="this.style.borderColor='transparent'">
@@ -11490,7 +11490,7 @@ Email: ______________________            Email: ______________________
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Договора</h1>
+                <h1>Договоры</h1>
                 <p>База шаблонов и готовых договоров. Редактируй под каждый проект.</p>
               </div>
               <div class="toolbar no-print">
@@ -11514,7 +11514,7 @@ Email: ______________________            Email: ______________________
             </div>
 
             ${contracts.length ? `
-              <h2 style="font-size:16px;margin:0 0 12px">Мои договора (${contracts.length})</h2>
+              <h2 style="font-size:16px;margin:0 0 12px">Мои договоры (${contracts.length})</h2>
               <div class="grid three">
                 ${contracts.map(c => `
                   <article class="contract-card" onclick="app.openContractEdit('${c.id}')">
