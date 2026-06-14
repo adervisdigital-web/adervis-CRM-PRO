@@ -147,6 +147,14 @@ serve(async (req) => {
     if (promoErr) console.error("Webhook: promo increment error", promoErr);
   }
 
+  // Реферальный бонус — 30 дней реферреру при первой оплате реферала
+  // grant_referral_bonus сама проверяет referred_by_agency_id и идемпотентность
+  const { error: refErr } = await supabase.rpc("grant_referral_bonus", {
+    p_referred_user_id: userId,
+    p_bonus_days:       30,
+  });
+  if (refErr) console.error("Webhook: grant_referral_bonus error", refErr);
+
   console.log(`Subscription activated: user=${userId} plan=${planId} expires=${newExpiry.toISOString()}`);
   return new Response("ok", { status: 200 });
 });

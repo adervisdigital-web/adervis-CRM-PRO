@@ -677,6 +677,14 @@
       let _promoState = null; // null=idle | "checking" | {code,discount} | "invalid"
       let _briefAgencyId = (new URLSearchParams(location.search).get('brief') || '').trim();
       let _portalId = (new URLSearchParams(location.search).get('portal') || '').trim();
+
+      // Реферальный код — сохраняем при первом визите, применяем после регистрации
+      (function() {
+        const ref = (new URLSearchParams(location.search).get('ref') || '').trim();
+        if (ref && /^[0-9a-f-]{36}$/i.test(ref)) {
+          localStorage.setItem('_refCode', ref);
+        }
+      })();
       let _portalData = null;
       let _portalLoaded = false;
       let _briefForm = { name:'', phone:'', email:'', company:'', city:'', type:'', format:'', duration:'', desc:'', budget:'', deadline:'', references:'', extra:'', source:'', sending:false, sent:false, error:'' };
@@ -730,6 +738,8 @@
         renderAdminTopbar();
         render();
         await _loadUserProfile(session.user.id, session.user.email);
+        // Сохранить реферальный код, если пользователь пришёл по ref-ссылке
+        await _applyReferralCode(session.user.id);
         // Если в браузере данные другого агентства — чистим localStorage чтобы
         // новый пользователь не видел чужие сделки/клиентов
         const currentAgencyId = getAgencyId();
@@ -807,6 +817,35 @@
             }, 1200);
           }
         } catch(e) { console.warn("Profile load:", e); }
+      }
+
+      async function _loadRefStats() {
+        const el = document.getElementById('refStats');
+        if (!el || !_supabase) return;
+        try {
+          const { data } = await _supabase.rpc('get_referral_stats').maybeSingle();
+          if (!data) { el.textContent = 'Статистика недоступна'; return; }
+          const { total_invited, total_paid, bonus_days_earned } = data;
+          el.innerHTML = `
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+              <span>👥 Приглашено: <b>${total_invited}</b></span>
+              <span>💳 Оплатили: <b>${total_paid}</b></span>
+              <span>🎁 Бонус получен: <b>+${bonus_days_earned} дн.</b></span>
+            </div>`;
+        } catch(e) { el.textContent = ''; }
+      }
+
+      async function _applyReferralCode(userId) {
+        const refCode = localStorage.getItem('_refCode');
+        if (!refCode || !_supabase || !_userProfile) return;
+        // Не применяем если уже записан или это собственный agency_id
+        if (_userProfile.referred_by_agency_id) { localStorage.removeItem('_refCode'); return; }
+        if (refCode === _userProfile.agency_id) { localStorage.removeItem('_refCode'); return; }
+        await _supabase.from('profiles')
+          .update({ referred_by_agency_id: refCode })
+          .eq('id', userId)
+          .is('referred_by_agency_id', null);
+        localStorage.removeItem('_refCode');
       }
 
       function getAgencyId() {
@@ -2193,6 +2232,25 @@
               <p style="font-size:12px;color:var(--muted);margin:12px 0 0">14 дней бесплатно · Без карты · Данные не удаляются</p>
             </div>
             `}
+
+            <!-- Referral program -->
+            ${_adminSession ? (() => {
+              // Загружаем статистику асинхронно после рендера
+              setTimeout(_loadRefStats, 200);
+              const refUrl = escapeHtml(location.origin + location.pathname + '?ref=' + getAgencyId());
+              return `
+              <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
+                <h2 style="margin-top:0;font-size:15px">🎁 Реферальная программа</h2>
+                <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.6">
+                  Поделитесь ссылкой с другой видеостудией или фрилансером. Когда они оплатят любой тариф — вы получите <b>+30 дней</b> к подписке бесплатно.
+                </p>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+                  <code id="refLinkCode" style="flex:1;font-size:11px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0;color:var(--text2)">${refUrl}</code>
+                  <button class="btn small primary" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('refLinkCode').textContent.trim()).then(()=>app._toast('✅ Реферальная ссылка скопирована!'))">📋 Копировать</button>
+                </div>
+                <div id="refStats" style="font-size:12px;color:var(--muted)">Загрузка статистики...</div>
+              </div>`;
+            })() : ''}
 
             <!-- What's included block (replaces duplicate plan grid) -->
             <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
