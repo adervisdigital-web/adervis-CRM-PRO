@@ -2876,6 +2876,7 @@
           gFinDatePreset: "all",
           gFinDateFrom: "",
           gFinDateTo: "",
+          telegramChatId: "",
           clientMode: false,
           recentlyAdded: "",
           favorites: {},
@@ -9284,6 +9285,21 @@ update profiles set agency_id = id::text where agency_id is null;
               <span style="font-size:11px;color:var(--muted);opacity:.55">v${APP_VERSION}</span>
             </div>
 
+            <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
+              <h2>Уведомления (Telegram)</h2>
+              <p style="font-size:13px;color:var(--text2);margin-bottom:14px">
+                Напишите боту <a href="https://t.me/adervis_crm_bot" target="_blank" style="color:var(--primary)">@adervis_crm_bot</a> команду <code>/start</code> — он пришлёт ваш Chat ID. Вставьте его ниже.
+              </p>
+              <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+                <div style="flex:1;min-width:180px">
+                  ${field("Chat ID", `<input placeholder="например: 123456789" value="${escapeHtml(state.telegramChatId || "")}" oninput="app.setTelegramChatId(this.value)">`)}
+                </div>
+                <button class="btn primary" onclick="app.testTelegramNotification()" style="margin-bottom:2px">Проверить связь</button>
+                ${state.telegramChatId ? `<span style="font-size:13px;color:var(--green);align-self:center">✓ Подключено</span>` : ""}
+              </div>
+              <p style="font-size:12px;color:var(--muted);margin-top:10px">Уведомления: просроченные дедлайны, смена статуса сделки.</p>
+            </div>
+
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2);border-color:rgba(220,38,38,.45)">
               <h2>Опасная зона</h2>
               <p>Сброс удалит все локальные данные приложения в браузере.</p>
@@ -9528,6 +9544,7 @@ update profiles set agency_id = id::text where agency_id is null;
             proj.crmStatus = newStatus;
             save(); saveToCloud(); render();
             toast('Статус сделки: ' + newStatus);
+            sendTelegramNotification(`📋 <b>${escapeHtml(proj.name || "Сделка")}</b>\nСтатус: ${escapeHtml(newStatus)}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
           }
         } else if (scope === 'task') {
           const task = (state.tasks || []).find(t => t.id === _dragItemId);
@@ -9659,6 +9676,33 @@ update profiles set agency_id = id::text where agency_id is null;
       /* ═══════════════════════════════════════════════════════
          ГЛАВНОЕ МЕНЮ (клик по логотипу, бургер, «Ещё» в нижней навигации)
       ═══════════════════════════════════════════════════════ */
+      async function sendTelegramNotification(text) {
+        if (!state.telegramChatId || !_adminSession) return;
+        try {
+          const { url } = getSupabaseConfig();
+          await fetch(`${url}/functions/v1/telegram-notify`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${_adminSession.access_token}`,
+            },
+            body: JSON.stringify({ chatId: state.telegramChatId, text }),
+          });
+        } catch(e) { /* уведомление не критично */ }
+      }
+
+      function setTelegramChatId(val) {
+        state.telegramChatId = val.trim();
+        save();
+        saveToCloud();
+      }
+
+      async function testTelegramNotification() {
+        if (!state.telegramChatId) { toast('Введите Chat ID'); return; }
+        await sendTelegramNotification('✅ Adervis CRM подключён!\nУведомления о задачах и сделках будут приходить сюда.');
+        toast('Тестовое сообщение отправлено');
+      }
+
       function openMainMenu() {
         state.mainMenuOpen = true;
         renderModal();
@@ -11127,7 +11171,10 @@ Email: ______________________            Email: ______________________
         openSearch,
         closeSearch,
         runSearch,
-        setPkgCatFilter: (cat) => { state.pkgCatFilter = cat; render(); }
+        setPkgCatFilter: (cat) => { state.pkgCatFilter = cat; render(); },
+
+        setTelegramChatId,
+        testTelegramNotification,
       };
 
       function checkDeadlineNotifications() {
@@ -11136,13 +11183,18 @@ Email: ______________________            Email: ______________________
         if (localStorage.getItem(notifKey)) return; // check once per day
         localStorage.setItem(notifKey, "1");
         const projects = state.savedProjects || [];
+        const tgLines = [];
         projects.forEach(proj => {
           if (!proj.deadline || ["Сдано", "Закрыто"].includes(proj.crmStatus || "")) return;
           const u = deadlineUrgency(proj.deadline);
           if (!u || u.level === "ok") return;
           const icon = u.level === "overdue" ? "🔴" : "⚡";
           pushNotification("deadline", icon + " " + (proj.name || "Проект"), u.label + (proj.client ? " · " + proj.client : ""), proj.id);
+          tgLines.push(`${icon} <b>${escapeHtml(proj.name || "Проект")}</b> — ${u.label}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
         });
+        if (tgLines.length && state.telegramChatId) {
+          sendTelegramNotification("⏰ Дедлайны Adervis CRM:\n\n" + tgLines.join("\n"));
+        }
       }
 
       initTheme();
