@@ -5675,37 +5675,32 @@
         window.print();
       }
 
-      async function downloadProposalPDF() {
-        if (typeof html2pdf === "undefined") { toast("Загрузка библиотеки PDF..."); return; }
+      function downloadProposalPDF() {
         const name = (state.project.name || "КП").replace(/[^\wа-яёА-ЯЁ\s-]/gi, "").trim();
-        const date = new Date().toLocaleDateString("ru-RU").replace(/\./g, "-");
-        const btn = document.querySelector("[onclick*='downloadProposalPDF']");
-        if (btn) { btn.disabled = true; btn.textContent = "Генерация..."; }
-
-        // Временно переключаем в светлую тему — иначе CSS-переменные дают белый текст на белом фоне
-        const htmlEl = document.documentElement;
-        const prevTheme = htmlEl.getAttribute("data-theme") || "dark";
-        htmlEl.setAttribute("data-theme", "light");
-
-        // Показываем #printArea (он скрыт в @media print, но не в обычном режиме)
-        const printArea = document.getElementById("printArea");
-        printArea.innerHTML = renderProposalPrint();
-        printArea.style.cssText = "display:block;position:absolute;left:-9999px;top:0;width:794px;background:#fff;";
-
-        try {
-          await html2pdf().set({
-            margin: [12, 14, 12, 14],
-            filename: `КП_${name}_${date}.pdf`,
-            image: { type: "jpeg", quality: 0.95 },
-            html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff" },
-            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-          }).from(printArea).save();
-        } finally {
-          printArea.style.cssText = "";
-          printArea.innerHTML = "";
-          htmlEl.setAttribute("data-theme", prevTheme);
-          if (btn) { btn.disabled = false; btn.textContent = "⬇ PDF"; }
-        }
+        const content = renderProposalPrint();
+        const css = `
+          @page { margin: 15mm 18mm; }
+          * { box-sizing: border-box; }
+          body { font-family: 'DM Sans', Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #111; background: #fff; margin: 0; padding: 0; }
+          h1 { font-size: 20px; font-weight: 700; margin: 0 0 2px; color: #000; }
+          h2 { font-size: 14px; font-weight: 700; margin: 18px 0 8px; color: #000; text-transform: uppercase; letter-spacing: .3px; }
+          p { margin: 0 0 10px; color: #374151; }
+          hr { border: 0; border-top: 1px solid #e5e7eb; margin: 14px 0; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 12px; page-break-inside: avoid; }
+          th { background: #f3f4f6; font-weight: 600; text-align: left; padding: 6px 10px; border-bottom: 2px solid #e5e7eb; font-size: 11px; }
+          td { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: top; color: #111; }
+          strong { font-weight: 600; color: #000; }
+          pre { white-space: pre-wrap; font-family: inherit; font-size: 12px; color: #374151; }
+          a { color: #2563eb; text-decoration: none; }
+          .proposal-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+          .proposal-brand img { width: 36px; height: 36px; object-fit: contain; }
+          .proposal-brand p { font-size: 12px; color: #6b7280; margin: 0; }
+          .empty { color: #9ca3af; font-style: italic; }
+        `;
+        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>КП — ${escapeHtml(name)}</title><style>${css}</style></head><body>${content}<script>window.onload=function(){window.print();}<\/script></body></html>`;
+        const win = window.open('', '_blank', 'width=860,height=700');
+        if (win) { win.document.write(html); win.document.close(); }
+        else toast('Разрешите всплывающие окна для скачивания PDF');
       }
 
       function field(label, html) {
