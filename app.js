@@ -2876,7 +2876,7 @@
           gFinDatePreset: "all",
           gFinDateFrom: "",
           gFinDateTo: "",
-          telegramChatId: "",
+          telegramChatIds: [],
           clientMode: false,
           recentlyAdded: "",
           favorites: {},
@@ -9288,16 +9288,22 @@ update profiles set agency_id = id::text where agency_id is null;
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
               <h2>Уведомления (Telegram)</h2>
               <p style="font-size:13px;color:var(--text2);margin-bottom:14px">
-                Напишите боту <a href="https://t.me/adervis_crm_bot" target="_blank" style="color:var(--primary)">@adervis_crm_bot</a> команду <code>/start</code> — он пришлёт ваш Chat ID. Вставьте его ниже.
+                Напишите боту <a href="https://t.me/adervis_crm_bot" target="_blank" style="color:var(--primary)">@adervis_crm_bot</a> команду <code>/start</code> — он пришлёт Chat ID. Добавьте столько получателей, сколько нужно.
               </p>
-              <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-                <div style="flex:1;min-width:180px">
-                  ${field("Chat ID", `<input placeholder="например: 123456789" value="${escapeHtml(state.telegramChatId || "")}" oninput="app.setTelegramChatId(this.value)">`)}
+              ${(state.telegramChatIds || []).map(r => `
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+                  <input placeholder="Имя (необязательно)" value="${escapeHtml(r.name)}"
+                    style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input);color:var(--text);font-size:13px"
+                    oninput="app.setTelegramRecipientField('${r.id}','name',this.value)">
+                  <input placeholder="Chat ID" value="${escapeHtml(r.chatId)}"
+                    style="flex:1;min-width:130px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input);color:var(--text);font-size:13px;font-family:monospace"
+                    oninput="app.setTelegramRecipientField('${r.id}','chatId',this.value)">
+                  <button class="btn" onclick="app.testTelegramRecipient('${r.id}')" style="font-size:12px;padding:7px 12px">Проверить</button>
+                  <button class="btn danger" onclick="app.removeTelegramRecipient('${r.id}')" style="font-size:12px;padding:7px 10px">✕</button>
                 </div>
-                <button class="btn primary" onclick="app.testTelegramNotification()" style="margin-bottom:2px">Проверить связь</button>
-                ${state.telegramChatId ? `<span style="font-size:13px;color:var(--green);align-self:center">✓ Подключено</span>` : ""}
-              </div>
-              <p style="font-size:12px;color:var(--muted);margin-top:10px">Уведомления: просроченные дедлайны, смена статуса сделки.</p>
+              `).join("")}
+              <button class="btn" onclick="app.addTelegramRecipient()" style="margin-top:4px">+ Добавить получателя</button>
+              <p style="font-size:12px;color:var(--muted);margin-top:12px">Уведомления: просроченные дедлайны, смена статуса сделки.</p>
             </div>
 
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2);border-color:rgba(220,38,38,.45)">
@@ -9677,30 +9683,53 @@ update profiles set agency_id = id::text where agency_id is null;
          ГЛАВНОЕ МЕНЮ (клик по логотипу, бургер, «Ещё» в нижней навигации)
       ═══════════════════════════════════════════════════════ */
       async function sendTelegramNotification(text) {
-        if (!state.telegramChatId || !_adminSession) return;
+        const recipients = state.telegramChatIds || [];
+        if (!recipients.length || !_adminSession) return;
+        const { url } = getSupabaseConfig();
+        for (const r of recipients) {
+          if (!r.chatId) continue;
+          try {
+            await fetch(`${url}/functions/v1/telegram-notify`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${_adminSession.access_token}`,
+              },
+              body: JSON.stringify({ chatId: r.chatId, text }),
+            });
+          } catch(e) { /* уведомление не критично */ }
+        }
+      }
+
+      function addTelegramRecipient() {
+        state.telegramChatIds = state.telegramChatIds || [];
+        state.telegramChatIds.push({ id: uid('tg'), name: '', chatId: '' });
+        save(); saveToCloud(); render();
+      }
+
+      function removeTelegramRecipient(id) {
+        state.telegramChatIds = (state.telegramChatIds || []).filter(r => r.id !== id);
+        save(); saveToCloud(); render();
+      }
+
+      function setTelegramRecipientField(id, key, val) {
+        const r = (state.telegramChatIds || []).find(x => x.id === id);
+        if (r) { r[key] = val.trim(); save(); saveToCloud(); }
+      }
+
+      async function testTelegramRecipient(id) {
+        const r = (state.telegramChatIds || []).find(x => x.id === id);
+        if (!r?.chatId) { toast('Введите Chat ID'); return; }
+        if (!_adminSession) { toast('Нужна авторизация'); return; }
+        const { url } = getSupabaseConfig();
         try {
-          const { url } = getSupabaseConfig();
-          await fetch(`${url}/functions/v1/telegram-notify`, {
+          const resp = await fetch(`${url}/functions/v1/telegram-notify`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${_adminSession.access_token}`,
-            },
-            body: JSON.stringify({ chatId: state.telegramChatId, text }),
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_adminSession.access_token}` },
+            body: JSON.stringify({ chatId: r.chatId, text: `✅ Adervis CRM подключён${r.name ? ', ' + r.name : ''}!\nУведомления о задачах и сделках будут приходить сюда.` }),
           });
-        } catch(e) { /* уведомление не критично */ }
-      }
-
-      function setTelegramChatId(val) {
-        state.telegramChatId = val.trim();
-        save();
-        saveToCloud();
-      }
-
-      async function testTelegramNotification() {
-        if (!state.telegramChatId) { toast('Введите Chat ID'); return; }
-        await sendTelegramNotification('✅ Adervis CRM подключён!\nУведомления о задачах и сделках будут приходить сюда.');
-        toast('Тестовое сообщение отправлено');
+          toast(resp.ok ? `Сообщение отправлено${r.name ? ' ' + r.name : ''}` : 'Ошибка отправки — проверьте Chat ID');
+        } catch(e) { toast('Ошибка сети'); }
       }
 
       function openMainMenu() {
@@ -11173,8 +11202,10 @@ Email: ______________________            Email: ______________________
         runSearch,
         setPkgCatFilter: (cat) => { state.pkgCatFilter = cat; render(); },
 
-        setTelegramChatId,
-        testTelegramNotification,
+        addTelegramRecipient,
+        removeTelegramRecipient,
+        setTelegramRecipientField,
+        testTelegramRecipient,
       };
 
       function checkDeadlineNotifications() {
@@ -11192,7 +11223,7 @@ Email: ______________________            Email: ______________________
           pushNotification("deadline", icon + " " + (proj.name || "Проект"), u.label + (proj.client ? " · " + proj.client : ""), proj.id);
           tgLines.push(`${icon} <b>${escapeHtml(proj.name || "Проект")}</b> — ${u.label}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
         });
-        if (tgLines.length && state.telegramChatId) {
+        if (tgLines.length && (state.telegramChatIds || []).length) {
           sendTelegramNotification("⏰ Дедлайны Adervis CRM:\n\n" + tgLines.join("\n"));
         }
       }
