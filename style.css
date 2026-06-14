@@ -967,10 +967,13 @@
       .topbar,
       .mobile-bottom-nav,
       .toast,
+      .toast.show,
+      #toast,
       #printArea,
       .no-print,
       .section-title.no-print {
         display: none !important;
+        visibility: hidden !important;
       }
 
       .container {
