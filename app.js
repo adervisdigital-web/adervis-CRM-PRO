@@ -6463,7 +6463,21 @@
           });
           f.sending = false;
           if (error) { f.error = 'Ошибка отправки. Попробуйте позже.'; }
-          else { f.sent = true; }
+          else {
+            f.sent = true;
+            // Notify agency via Telegram
+            try {
+              fetch(_DEFAULT_SB_URL + '/functions/v1/agency-notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'brief_submitted',
+                  agencyId: _briefAgencyId,
+                  briefData: { name: f.name.trim(), phone: (f.phone||'').trim(), email: f.email.trim(), type: f.type, budget: f.budget },
+                }),
+              }).catch(() => {});
+            } catch(e) {}
+          }
         } catch(e) {
           _briefForm.sending = false;
           _briefForm.error = 'Ошибка сети. Проверьте соединение и попробуйте снова.';
@@ -10257,7 +10271,23 @@ update profiles set agency_id = id::text where agency_id is null;
           const { data, error } = await _supabase
             .rpc('get_client_portal', { p_portal_id: _portalId })
             .maybeSingle();
-          if (!error) _portalData = data;
+          if (!error && data) {
+            _portalData = data;
+            // Notify agency once per 30 min per portal (localStorage gate)
+            const notifKey = 'portal_notif_' + _portalId;
+            const lastNotif = parseInt(localStorage.getItem(notifKey) || '0');
+            if (Date.now() - lastNotif > 30 * 60 * 1000) {
+              localStorage.setItem(notifKey, String(Date.now()));
+              try {
+                const { url } = getSupabaseConfig();
+                fetch(url + '/functions/v1/agency-notify', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ type: 'portal_view', portalId: _portalId }),
+                }).catch(() => {});
+              } catch(e) {}
+            }
+          }
         } catch(e) { console.warn('Portal load:', e); }
         _portalLoaded = true;
         render();
