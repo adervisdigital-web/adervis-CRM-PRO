@@ -1908,7 +1908,7 @@
       function renderPlans() {
         const sub = _userProfile;
         const planFeatures = {
-          trial:  ["CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Календарь задач", "1 пользователь", "Облако"],
+          trial:  ["До 3 активных сделок", "CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Календарь задач", "1 пользователь"],
           month1: ["Всё из пробного", "Безлимитные сделки", "Финансы и аналитика", "Экспорт Excel", "Договоры", "1 пользователь"],
           month3: ["Всё из «Месяца»", "До 3 пользователей", "Командная работа", "Синхронизация", "Экономия 17%", "Поддержка"],
           month6: ["Всё из «3 мес»", "До 5 пользователей", "Расширенная аналитика", "Версии смет", "Пакеты услуг", "Экономия 28%"],
@@ -1968,6 +1968,12 @@
               </thead>
               <tbody>
                 ${group("CRM и продажи")}
+                ${row("Активных сделок",
+                  [`<span style='color:var(--muted);font-weight:600'>до 3</span>`,
+                   `<span style='color:var(--green);font-weight:700'>∞</span>`,
+                   `<span style='color:var(--green);font-weight:700'>∞</span>`,
+                   `<span style='color:var(--green);font-weight:700'>∞</span>`,
+                   `<span style='color:var(--green);font-weight:700'>∞</span>`])}
                 ${row("Сделки и воронка (канбан)", [yes,yes,yes,yes,yes])}
                 ${row("Карточка сделки", [yes,yes,yes,yes,yes])}
                 ${row("База клиентов", [yes,yes,yes,yes,yes])}
@@ -3909,6 +3915,9 @@
       }
 
       function saveCurrentProject() {
+        // Лимит проверяем только при создании НОВОЙ сделки (не при обновлении существующей)
+        if (!state.activeProjectId && checkTrialDealLimit()) return;
+
         const snapshot = currentProjectSnapshot();
         const now = new Date().toISOString();
         const f = financeTotals();
@@ -5299,7 +5308,19 @@
         render();
       }
 
+      const TRIAL_DEAL_LIMIT = 3;
+
+      function checkTrialDealLimit() {
+        if (!_userProfile || _userProfile.subscription_status !== "trial") return false;
+        const count = (state.savedProjects || []).length;
+        if (count < TRIAL_DEAL_LIMIT) return false;
+        toast(`🔒 Пробный период: максимум ${TRIAL_DEAL_LIMIT} сделки. Перейдите на платный план — от 890 ₽/мес.`);
+        setTimeout(() => { state.view = "plans"; render(); }, 1800);
+        return true;
+      }
+
       function startWizard() {
+        if (checkTrialDealLimit()) return;
         const d30 = new Date(); d30.setDate(d30.getDate() + 30);
         state.wizard = {
           step: 1,
@@ -6269,6 +6290,7 @@
       }
 
       async function convertBriefToDeal(briefId) {
+        if (checkTrialDealLimit()) return;
         const brief = _briefs.find(b => b.id === briefId);
         if (!brief) return;
         let clientId = '';
