@@ -1945,6 +1945,82 @@
             </button>
           </div>`;
         }).join("");
+        const yes = `<span style="color:var(--green);font-size:16px;font-weight:700">✓</span>`;
+        const no  = `<span style="color:var(--muted);font-size:15px">—</span>`;
+        const colStyle = (id) => id === "month3" ? "background:rgba(124,58,237,.07);font-weight:600" : "";
+        const hdr = (label, id) => `<th style="text-align:center;padding:10px 8px;font-size:12px;font-weight:700;white-space:nowrap;${colStyle(id)}">${label}</th>`;
+        const cell = (val, id) => `<td style="text-align:center;padding:9px 8px;${colStyle(id)}">${val}</td>`;
+        const row = (label, vals) => `<tr><td style="padding:9px 12px;font-size:13px;color:var(--text2)">${label}</td>${PLANS.map((p,i) => cell(vals[i], p.id)).join("")}</tr>`;
+        const group = (title) => `<tr><td colspan="6" style="padding:10px 12px 4px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:var(--panel2);border-top:1px solid var(--line)">${title}</td></tr>`;
+
+        const compTable = `
+          <div style="overflow-x:auto;margin-top:32px">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px">
+              <thead>
+                <tr style="border-bottom:2px solid var(--line)">
+                  <th style="text-align:left;padding:10px 12px;font-size:13px;min-width:180px">Функция</th>
+                  ${hdr("Пробный<br><span style='font-weight:400;color:var(--muted)'>14 дней</span>","trial")}
+                  ${hdr("Месяц<br><span style='font-weight:400;color:var(--muted)'>890 ₽</span>","month1")}
+                  ${hdr("3 месяца 🔥<br><span style='font-weight:400;color:var(--muted)'>740 ₽/мес</span>","month3")}
+                  ${hdr("6 месяцев<br><span style='font-weight:400;color:var(--muted)'>640 ₽/мес</span>","month6")}
+                  ${hdr("Год<br><span style='font-weight:400;color:var(--muted)'>520 ₽/мес</span>","year")}
+                </tr>
+              </thead>
+              <tbody>
+                ${group("CRM и продажи")}
+                ${row("Сделки и воронка (канбан)", [yes,yes,yes,yes,yes])}
+                ${row("Карточка сделки", [yes,yes,yes,yes,yes])}
+                ${row("База клиентов", [yes,yes,yes,yes,yes])}
+                ${row("Дублирование сделок", [yes,yes,yes,yes,yes])}
+
+                ${group("Смета и калькулятор")}
+                ${row("Калькулятор смет", [yes,yes,yes,yes,yes])}
+                ${row("Каталог и пакеты услуг", [yes,yes,yes,yes,yes])}
+                ${row("Этапы производства", [yes,yes,yes,yes,yes])}
+                ${row("Версии смет", [yes,yes,yes,yes,yes])}
+                ${row("Экспорт Excel", [yes,yes,yes,yes,yes])}
+
+                ${group("Клиентские инструменты")}
+                ${row("Коммерческое предложение (КП)", [yes,yes,yes,yes,yes])}
+                ${row("Клиентский портал (ссылка для клиента)", [yes,yes,yes,yes,yes])}
+                ${row("Онлайн-бриф от клиента", [yes,yes,yes,yes,yes])}
+                ${row("Email клиенту со ссылкой на КП", [yes,yes,yes,yes,yes])}
+                ${row("Печать / PDF КП", [yes,yes,yes,yes,yes])}
+
+                ${group("Финансы")}
+                ${row("Транзакции по сделке", [yes,yes,yes,yes,yes])}
+                ${row("Глобальные финансы агентства", [yes,yes,yes,yes,yes])}
+                ${row("P&amp;L по проектам", [yes,yes,yes,yes,yes])}
+
+                ${group("Задачи и команда")}
+                ${row("Задачи (канбан)", [yes,yes,yes,yes,yes])}
+                ${row("Календарь дедлайнов", [yes,yes,yes,yes,yes])}
+                ${row("Договоры (шаблоны и редактор)", [yes,yes,yes,yes,yes])}
+                ${row("Telegram-уведомления", [yes,yes,yes,yes,yes])}
+                ${row("Пользователей в команде",
+                  ["<span style='color:var(--muted)'>1</span>",
+                   "<span style='color:var(--muted)'>1</span>",
+                   "<b>до 3</b>","<b>до 5</b>","<b>до 10</b>"])}
+
+                ${group("AI и автоматизация")}
+                ${row("AI-генерация текста КП (Gemini)",
+                  [`<span style='color:var(--muted)'>5 запросов</span>`,yes,yes,yes,yes])}
+                ${row("Облачная синхронизация", [yes,yes,yes,yes,yes])}
+                ${row("PWA — работает как приложение", [yes,yes,yes,yes,yes])}
+
+                ${group("Цена")}
+                ${row("Стоимость в месяц",
+                  [`<span style='color:var(--green);font-weight:700'>0 ₽</span>`,
+                   "890 ₽","<b style='color:var(--primary)'>740 ₽</b>","640 ₽","520 ₽"])}
+                ${row("Экономия vs месяца",
+                  [no,no,
+                   `<span style='color:var(--green);font-weight:700'>−17%</span>`,
+                   `<span style='color:var(--green);font-weight:700'>−28%</span>`,
+                   `<span style='color:var(--green);font-weight:700'>−42%</span>`])}
+              </tbody>
+            </table>
+          </div>`;
+
         return `
           <div class="panel">
             <div class="section-title" style="margin-bottom:24px">
@@ -1958,6 +2034,7 @@
             <p style="font-size:12px;color:var(--muted);padding:10px 16px;background:rgba(124,58,237,.06);border-radius:10px;margin:0;line-height:1.6">
               ✅ Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
             </p>
+            ${compTable}
           </div>
         `;
       }
