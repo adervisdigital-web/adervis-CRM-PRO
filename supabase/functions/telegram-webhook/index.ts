@@ -95,12 +95,14 @@ serve(async (req) => {
     const chatIdStr = String(chatId);
     const { data, error } = await supabase
       .from("agency_state")
-      .select("agency_id, state");
+      .select("id, state_json");
     if (error || !data) return null;
-    return data.find((row: any) => {
-      const ids: any[] = row.state?.telegramChatIds || [];
-      return ids.some((r) => String(r.chatId) === chatIdStr);
-    }) || null;
+    const row = data.find((row: any) => {
+      const ids: any[] = row.state_json?.telegramChatIds || [];
+      return ids.some((r: any) => String(r.chatId) === chatIdStr);
+    });
+    if (!row) return null;
+    return { agency_id: row.id, state: row.state_json };
   }
 
   // ── Inline keyboard ────────────────────────────────────────────────────────
