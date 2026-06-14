@@ -5698,7 +5698,8 @@
           .proposal-brand p { font-size: 12px; color: #6b7280; margin: 0; }
           .empty { color: #9ca3af; font-style: italic; }
         `;
-        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>КП — ${escapeHtml(name)}</title><style>${css}</style></head><body>${content}</body></html>`;
+        const baseUrl = location.origin + location.pathname.replace(/[^/]*$/, '');
+        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><base href="${baseUrl}"><title>КП — ${escapeHtml(name)}</title><style>${css}</style></head><body>${content}</body></html>`;
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const win = window.open(url, '_blank');
