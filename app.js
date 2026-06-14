@@ -6574,6 +6574,108 @@
           </div>`;
       }
 
+      function renderAnalyticsSection(projects) {
+        if (!projects.length) return '';
+
+        // Last 6 months
+        const months = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
+          months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+        }
+        const ML = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+
+        const revenue = months.map(m => {
+          let s = 0;
+          projects.forEach(p => { (p.snapshot?.payments||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; }); });
+          (state.payments||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; });
+          return s;
+        });
+        const expenseArr = months.map(m => {
+          let s = 0;
+          projects.forEach(p => { (p.snapshot?.expenses||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; }); });
+          (state.expenses||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; });
+          return s;
+        });
+
+        const totalRev = revenue.reduce((a,b)=>a+b,0);
+        const totalExp = expenseArr.reduce((a,b)=>a+b,0);
+        if (totalRev === 0 && totalExp === 0) return '';
+
+        const maxVal = Math.max(...revenue, ...expenseArr, 1);
+
+        // SVG bar chart
+        const W = 600, H = 110, BOT = 16, TOP = 6, chartH = H - BOT - TOP;
+        const gw = W / months.length;
+        const bw = Math.floor(gw * 0.26);
+
+        const barsHtml = months.map((m, i) => {
+          const cx = Math.floor(i * gw + gw / 2);
+          const rh = Math.max(revenue[i] > 0 ? 2 : 0, Math.floor(revenue[i] / maxVal * chartH));
+          const eh = Math.max(expenseArr[i] > 0 ? 2 : 0, Math.floor(expenseArr[i] / maxVal * chartH));
+          const label = ML[parseInt(m.split('-')[1]) - 1];
+          return `
+            <rect x="${cx - bw - 2}" y="${TOP + chartH - rh}" width="${bw}" height="${rh}" rx="3" fill="rgba(34,197,94,.75)">
+              <title>Выручка ${label}: ${money(revenue[i])}</title></rect>
+            <rect x="${cx + 2}" y="${TOP + chartH - eh}" width="${bw}" height="${eh}" rx="3" fill="rgba(239,68,68,.65)">
+              <title>Расходы ${label}: ${money(expenseArr[i])}</title></rect>
+            <text x="${cx}" y="${H - 1}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="inherit">${label}</text>`;
+        }).join('');
+
+        const gridLines = [0.33, 0.66, 1].map(f => {
+          const y = TOP + chartH - Math.floor(f * chartH);
+          const val = Math.floor(maxVal * f);
+          const label = val >= 1000000 ? (val/1000000).toFixed(1)+'М' : val >= 1000 ? Math.round(val/1000)+'к' : val;
+          return `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="var(--line)" stroke-width="0.8" stroke-dasharray="4,4"/>
+                  <text x="2" y="${y - 3}" font-size="9" fill="var(--muted)" font-family="inherit">${label}</text>`;
+        }).join('');
+
+        // Top clients
+        const byClient = {};
+        projects.forEach(p => {
+          const key = p.clientId || p.client || '';
+          if (!key) return;
+          const name = (p.clientId ? getClientById(p.clientId)?.name : null) || p.client || '—';
+          if (!byClient[key]) byClient[key] = { name, total: 0, count: 0 };
+          byClient[key].total += p.total || 0;
+          byClient[key].count++;
+        });
+        const topClients = Object.values(byClient).filter(c => c.total > 0)
+          .sort((a,b) => b.total - a.total).slice(0, 5);
+        const maxC = topClients[0]?.total || 1;
+
+        const topClientsHtml = topClients.length ? `
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+            <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Топ клиентов</div>
+            ${topClients.map(c => `
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                <div style="flex:0 0 110px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.name)}</div>
+                <div style="flex:1;height:5px;background:var(--line);border-radius:999px">
+                  <div style="height:100%;width:${Math.round(c.total/maxC*100)}%;background:linear-gradient(90deg,var(--primary),var(--blue));border-radius:999px"></div>
+                </div>
+                <div style="font-size:12px;font-weight:700;flex:0 0 72px;text-align:right;font-variant-numeric:tabular-nums">${money(c.total)}</div>
+              </div>`).join('')}
+          </div>` : '';
+
+        const profit = totalRev - totalExp;
+        return `
+          <div class="panel" style="margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div style="font-weight:700;font-size:14px">📊 За 6 месяцев</div>
+              <div style="display:flex;gap:16px;font-size:11px">
+                <span style="color:#4ade80">▋ ${money(totalRev)}</span>
+                <span style="color:#f87171">▋ ${money(totalExp)}</span>
+                <span style="color:${profit>=0?'var(--green)':'var(--red)'}">= ${money(profit)}</span>
+              </div>
+            </div>
+            <svg viewBox="0 0 ${W} ${H}" width="100%" height="auto" style="display:block">
+              ${gridLines}
+              ${barsHtml}
+            </svg>
+            ${topClientsHtml}
+          </div>`;
+      }
+
       function renderOnboardingChecklist(projects) {
         if (localStorage.getItem('_onboardingDismissed')) return '';
         if (!_userProfile || _userProfile.subscription_status !== 'trial') return '';
@@ -6797,6 +6899,7 @@
 
             ${renderUpgradeBanner(projects)}
             ${renderOnboardingChecklist(projects)}
+            ${renderAnalyticsSection(projects)}
 
             <div class="panel" style="margin-bottom:14px">
               <div class="crm-home-funnel">
