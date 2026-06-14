@@ -51,7 +51,8 @@ self.addEventListener("fetch", event => {
       caches.match(event.request).then(cached => {
         const networkFetch = fetch(event.request).then(response => {
           if (response.ok) {
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, response.clone()));
+            const cloned = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
           }
           return response;
         });
@@ -72,5 +73,43 @@ self.addEventListener("fetch", event => {
         return response;
       })
       .catch(() => caches.match(event.request))
+  );
+});
+
+// ── Web Push ──────────────────────────────────────────────────────────────────
+self.addEventListener("push", event => {
+  let title = "Adervis CRM";
+  let body  = "Новое уведомление";
+  let url   = "./";
+  try {
+    if (event.data) {
+      const d = event.data.json();
+      if (d.title) title = d.title;
+      if (d.body)  body  = d.body;
+      if (d.url)   url   = d.url;
+    }
+  } catch (_) { /* empty push */ }
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon:  "./logo-icon.svg",
+      badge: "./logo-icon.svg",
+      data:  { url },
+      vibrate: [200, 100, 200],
+    })
+  );
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "./";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+      for (const c of list) {
+        if (c.url.includes(location.origin) && "focus" in c) return c.focus();
+      }
+      return clients.openWindow(target);
+    })
   );
 });

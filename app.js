@@ -6,6 +6,8 @@
       const THEME_KEY = "adervis_pro_theme";
       const LAST_AGENCY_KEY = "adervis_last_agency_id";
 
+      const VAPID_PUBLIC_KEY = "d6EDj4byOmLGERCR7t-xX-YLUuzbyt3Geadj3LHqehwyS17d3VdCyMGIf2PCEpXE0l860ouA8atUreP5RlqZVg";
+
       const CAT = {
         creative: "💡 Креатив",
         pre: "🧠 Подготовка",
@@ -817,6 +819,77 @@
             }, 1200);
           }
         } catch(e) { console.warn("Profile load:", e); }
+      }
+
+      // ── Web Push ────────────────────────────────────────────────────────────
+      function _urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = atob(base64);
+        return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+      }
+
+      async function subscribeToPush() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+          toast('Push-уведомления не поддерживаются в этом браузере'); return;
+        }
+        try {
+          const perm = await Notification.requestPermission();
+          if (perm !== 'granted') { toast('Разрешение на уведомления отклонено'); return; }
+          const reg = await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: _urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+          });
+          const { endpoint, keys } = sub.toJSON();
+          if (!_supabase || !keys) return;
+          await _supabase.from('push_subscriptions').upsert({
+            agency_id: getAgencyId(),
+            user_id:   _adminSession.user.id,
+            endpoint,
+            p256dh:    keys.p256dh,
+            auth_key:  keys.auth,
+          }, { onConflict: 'agency_id,endpoint' });
+          toast('✅ Push-уведомления включены');
+          render();
+        } catch(e) { console.error('Push subscribe:', e); toast('Ошибка подписки на уведомления'); }
+      }
+
+      async function unsubscribeFromPush() {
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            await _supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+            await sub.unsubscribe();
+          }
+          toast('Push-уведомления отключены');
+          render();
+        } catch(e) { toast('Ошибка отписки'); }
+      }
+
+      async function getPushSubscriptionState() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return 'unsupported';
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.getSubscription();
+          return sub ? 'subscribed' : 'unsubscribed';
+        } catch(e) { return 'unsubscribed'; }
+      }
+
+      async function sendWebPush(title, body, url) {
+        if (!_supabase || !_adminSession) return;
+        const { url: sbUrl } = getSupabaseConfig();
+        try {
+          await fetch(`${sbUrl}/functions/v1/web-push-send`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${_adminSession.access_token}`,
+            },
+            body: JSON.stringify({ agencyId: getAgencyId(), title, body, url }),
+          });
+        } catch(e) { /* push — нет критического значения, не прерываем */ }
       }
 
       async function _loadRefStats() {
@@ -9375,6 +9448,36 @@
               </p>
             </div>
 
+            <!-- Web Push notifications -->
+            ${_adminSession ? (() => {
+              // Асинхронно проверяем состояние подписки и обновляем кнопку
+              setTimeout(async () => {
+                const el = document.getElementById('pushToggleBtn');
+                if (!el) return;
+                const state = await getPushSubscriptionState();
+                if (state === 'unsupported') {
+                  el.textContent = 'Не поддерживается браузером';
+                  el.disabled = true;
+                } else if (state === 'subscribed') {
+                  el.textContent = '🔕 Отключить Push';
+                  el.onclick = () => app.unsubscribeFromPush();
+                  el.className = 'btn small';
+                } else {
+                  el.textContent = '🔔 Включить Push';
+                  el.onclick = () => app.subscribeToPush();
+                  el.className = 'btn small primary';
+                }
+              }, 100);
+              return `
+              <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
+                <h2 style="margin-top:0">🔔 Push-уведомления</h2>
+                <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.6">
+                  Браузерные уведомления о дедлайнах и событиях — работают даже когда вкладка закрыта.
+                </p>
+                <button id="pushToggleBtn" class="btn small" disabled>Проверка...</button>
+              </div>`;
+            })() : ''}
+
             ${(!_adminSession || _adminSession.user.email === SUPER_ADMIN_EMAIL) ? `
             <div class="supabase-config-box">
               <h2 style="margin-top:0">🔐 Supabase — авторизация и подписки</h2>
@@ -11343,6 +11446,8 @@ Email: ______________________            Email: ______________________
         approvePortal,
         payPortalAdvance,
         createClientPortal,
+        subscribeToPush,
+        unsubscribeFromPush,
 
         oauthSignIn,
 
@@ -11477,8 +11582,16 @@ Email: ______________________            Email: ______________________
           pushNotification("deadline", icon + " " + (proj.name || "Проект"), u.label + (proj.client ? " · " + proj.client : ""), proj.id);
           tgLines.push(`${icon} <b>${escapeHtml(proj.name || "Проект")}</b> — ${u.label}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
         });
-        if (tgLines.length && (state.telegramChatIds || []).length) {
-          sendTelegramNotification("⏰ Дедлайны Adervis CRM:\n\n" + tgLines.join("\n"));
+        if (tgLines.length) {
+          if ((state.telegramChatIds || []).length) {
+            sendTelegramNotification("⏰ Дедлайны Adervis CRM:\n\n" + tgLines.join("\n"));
+          }
+          const overdueCount = tgLines.filter(l => l.startsWith("🔴")).length;
+          const urgentCount  = tgLines.filter(l => l.startsWith("⚡")).length;
+          const parts = [];
+          if (overdueCount) parts.push(`просрочено: ${overdueCount}`);
+          if (urgentCount)  parts.push(`скоро: ${urgentCount}`);
+          sendWebPush("⏰ Дедлайны Adervis CRM", parts.join(", "), "./");
         }
       }
 
