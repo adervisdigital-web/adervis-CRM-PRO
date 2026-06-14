@@ -6574,6 +6574,79 @@
           </div>`;
       }
 
+      function renderOnboardingChecklist(projects) {
+        if (localStorage.getItem('_onboardingDismissed')) return '';
+        if (!_userProfile || _userProfile.subscription_status !== 'trial') return '';
+        const firstDealId = projects.length ? projects[0].id : null;
+        const steps = [
+          {
+            label: 'Создайте первую сделку',
+            done: projects.length >= 1,
+            action: "app.startWizard()",
+            btn: "Создать"
+          },
+          {
+            label: 'Добавьте услуги в смету',
+            done: projects.some(p => p.total > 0),
+            action: firstDealId ? `app.loadSavedProject('${firstDealId}')` : "app.startWizard()",
+            btn: "Открыть"
+          },
+          {
+            label: 'Отправьте КП-ссылку клиенту',
+            done: !!localStorage.getItem('_onboardingPortalDone'),
+            action: firstDealId ? `app.createClientPortal('${firstDealId}')` : "app.startWizard()",
+            btn: "Создать КП"
+          },
+          {
+            label: 'Оформите подписку — от 890 ₽/мес',
+            done: false,
+            action: "app.go('plans')",
+            btn: "Смотреть"
+          }
+        ];
+        const done = steps.filter(s => s.done).length;
+        if (done >= 3) return '';
+        const pct = Math.round(done / (steps.length - 1) * 100);
+        return `
+          <div class="panel" style="margin-bottom:14px;border:1px solid rgba(124,58,237,.25)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div>
+                <div style="font-weight:700;font-size:14px;margin-bottom:2px">🚀 Начало работы</div>
+                <div style="font-size:12px;color:var(--muted)">${done} из ${steps.length - 1} шагов выполнено</div>
+              </div>
+              <button onclick="localStorage.setItem('_onboardingDismissed','1');app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Скрыть">×</button>
+            </div>
+            <div style="height:4px;background:var(--line);border-radius:999px;margin-bottom:12px">
+              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--primary),var(--blue));border-radius:999px;transition:.4s"></div>
+            </div>
+            ${steps.map(s => `
+              <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
+                <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${s.done ? 'var(--green)' : 'var(--line)'};background:${s.done ? 'rgba(22,163,74,.15)' : 'transparent'};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:10px;color:var(--green)">${s.done ? '✓' : ''}</div>
+                <div style="flex:1;font-size:13px;${s.done ? 'text-decoration:line-through;opacity:.5' : ''}">${s.label}</div>
+                ${!s.done ? `<button onclick="${s.action}" class="btn small primary" style="padding:4px 10px;font-size:11px;white-space:nowrap">${s.btn}</button>` : ''}
+              </div>
+            `).join('')}
+          </div>`;
+      }
+
+      function renderUpgradeBanner(projects) {
+        if (!_userProfile || _userProfile.subscription_status !== 'trial') return '';
+        const remaining = TRIAL_DEAL_LIMIT - projects.length;
+        if (remaining > 1) return '';
+        const text = remaining <= 0
+          ? 'Лимит пробного периода исчерпан — новые сделки заблокированы'
+          : `Осталось ${remaining} место из ${TRIAL_DEAL_LIMIT} — переходите, пока есть клиенты`;
+        return `
+          <div class="panel" style="margin-bottom:14px;border:1px solid rgba(220,38,38,.3);background:rgba(220,38,38,.06);display:flex;align-items:center;gap:12px">
+            <div style="font-size:20px;flex:0 0 auto">⚠️</div>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:13px;color:#fca5a5;margin-bottom:2px">Пробный период</div>
+              <div style="font-size:12px;color:var(--muted)">${text}</div>
+            </div>
+            <button onclick="app.go('plans')" class="btn primary small" style="white-space:nowrap">Перейти на платный</button>
+          </div>`;
+      }
+
       function renderHome() {
         const projects = state.savedProjects || [];
 
@@ -6721,6 +6794,9 @@
                 </div>
               </div>
             </div>
+
+            ${renderUpgradeBanner(projects)}
+            ${renderOnboardingChecklist(projects)}
 
             <div class="panel" style="margin-bottom:14px">
               <div class="crm-home-funnel">
@@ -11545,6 +11621,7 @@ Email: ______________________            Email: ______________________
         _promoInput: (v) => { _promoCode = v; },
         gotoSubscription,
 
+        render,
         _toast: toast,
         getAgencyId,
         exitLocalModeAndLogin,
