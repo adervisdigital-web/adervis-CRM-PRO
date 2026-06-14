@@ -3091,6 +3091,9 @@
           gFinDatePreset: "all",
           gFinDateFrom: "",
           gFinDateTo: "",
+          gFinSearch: "",
+          finSearch: "",
+          finTypeFilter: "all",
           telegramChatIds: [],
           clientMode: false,
           recentlyAdded: "",
@@ -5362,6 +5365,21 @@
         state.gFinDateTo = v;
         state.gFinDatePreset = "custom";
         save();
+        render();
+      }
+
+      function setGFinSearch(v) {
+        state.gFinSearch = v;
+        render();
+      }
+
+      function setFinSearch(v) {
+        state.finSearch = v;
+        render();
+      }
+
+      function setFinTypeFilter(v) {
+        state.finTypeFilter = v;
         render();
       }
 
@@ -8134,6 +8152,14 @@
           ...(state.expenses || []).map(e => ({ ...e, _type: "expense" }))
         ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
 
+        const _finSearch = (state.finSearch || "").toLowerCase().trim();
+        const _finTF = state.finTypeFilter || "all";
+        const displayTxs = allTransactions.filter(tx => {
+          if (_finTF !== "all" && tx._type !== _finTF) return false;
+          if (_finSearch && !(`${tx.title||""} ${tx.method||""} ${tx.category||""}`.toLowerCase().includes(_finSearch))) return false;
+          return true;
+        });
+
         const expByCategory = {};
         (state.expenses || []).forEach(e => {
           const cat = e.category || "Прочее";
@@ -8196,16 +8222,24 @@
                 </div>
               </div>
 
-              <div class="fin-action-bar no-print">
-                <span style="font-size:12px;color:var(--muted)">${allTransactions.length} операц.</span>
-                ${Object.keys(expByCategory).length > 1 ? `
-                  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">
-                    ${Object.entries(expByCategory).sort((a,b) => b[1]-a[1]).slice(0,4).map(([cat, sum]) => `
-                      <span class="fin-category-badge">${escapeHtml(cat)}: <strong>${money(sum)}</strong></span>
-                    `).join("")}
-                  </div>
-                ` : ""}
+              <div class="fin-action-bar no-print" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
+                <input type="search" placeholder="Поиск..." value="${escapeHtml(state.finSearch||"")}"
+                  oninput="app.setFinSearch(this.value)"
+                  style="padding:7px 12px;border-radius:10px;font-size:13px;border:1px solid var(--line);background:var(--panel2);color:var(--text);min-width:140px;flex:1">
+                <div style="display:flex;gap:4px">
+                  ${[["all","Все"],["income","Поступления"],["expense","Расходы"]].map(([v,l]) =>
+                    `<button onclick="app.setFinTypeFilter('${v}')" style="padding:7px 12px;border-radius:10px;font-size:12px;font-weight:750;border:1px solid var(--line);cursor:pointer;background:${_finTF===v?"var(--primary)":"var(--panel2)"};color:${_finTF===v?"#fff":"var(--text)"}">${l}</button>`
+                  ).join("")}
+                </div>
+                <span style="font-size:12px;color:var(--muted);white-space:nowrap">${displayTxs.length}${displayTxs.length!==allTransactions.length?" из "+allTransactions.length:""} операц.</span>
               </div>
+              ${Object.keys(expByCategory).length > 1 && _finTF !== "income" ? `
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+                  ${Object.entries(expByCategory).sort((a,b) => b[1]-a[1]).slice(0,4).map(([cat, sum]) => `
+                    <span class="fin-category-badge">${escapeHtml(cat)}: <strong>${money(sum)}</strong></span>
+                  `).join("")}
+                </div>
+              ` : ""}
 
               ${(() => {
                 /* Мини-график по месяцам для текущей сделки */
@@ -8261,7 +8295,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    ${allTransactions.length ? allTransactions.map(tx => {
+                    ${displayTxs.length ? displayTxs.map(tx => {
                       const txType = tx._type === "income" ? "income" : "expense";
                       const projId = escapeHtml(state.activeProjectId || "");
                       const openEdit = `app.openEditTransaction('${escapeHtml(tx.id)}','${txType}','${projId}')`;
@@ -8301,24 +8335,23 @@
                     }).join("") : `
                       <tr>
                         <td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">
-                          Операций пока нет. Нажми «+ Поступление» или «− Расход».
-                          <br><small>Предоплата 50%: <strong>${money(half)}</strong></small>
+                          ${allTransactions.length ? "Ничего не найдено по фильтрам." : `Операций пока нет. Нажми «+ Поступление» или «− Расход».<br><small>Предоплата 50%: <strong>${money(half)}</strong></small>`}
                         </td>
                       </tr>
                     `}
                   </tbody>
-                  ${allTransactions.length ? `
+                  ${displayTxs.length ? `
                     <tfoot class="fin-table-footer">
                       <tr>
                         <td colspan="3"></td>
-                        <td>Поступлений: ${money(f.paid)}</td>
-                        <td class="amount-cell income" style="text-align:right">+${money(f.paid)}</td>
+                        <td>Поступлений: ${money(displayTxs.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
+                        <td class="amount-cell income" style="text-align:right">+${money(displayTxs.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
                         <td></td>
                       </tr>
                       <tr>
                         <td colspan="3"></td>
-                        <td>Расходов: ${money(f.expenses)}</td>
-                        <td class="amount-cell expense" style="text-align:right">−${money(f.expenses)}</td>
+                        <td>Расходов: ${money(displayTxs.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
+                        <td class="amount-cell expense" style="text-align:right">−${money(displayTxs.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
                         <td></td>
                       </tr>
                     </tfoot>
@@ -8803,11 +8836,13 @@
         const monthly = getMonthlyAnalytics(filteredByDate);
         const gFilter = state.gFinFilter || "all";
         const typeFilter = state.gFinTypeFilter || "all";
+        const gFinSearch = (state.gFinSearch || "").toLowerCase().trim();
 
-        const filtered = allTxs.filter(tx => {
+        const filtered = filteredByDate.filter(tx => {
           if (gFilter !== "all" && tx.projectId !== gFilter) return false;
           if (typeFilter === "income" && tx._type !== "income") return false;
           if (typeFilter === "expense" && tx._type !== "expense") return false;
+          if (gFinSearch && !(`${tx.title||""} ${tx.projectName||""} ${tx.method||""} ${tx.category||""}`.toLowerCase().includes(gFinSearch))) return false;
           return true;
         });
 
@@ -8982,7 +9017,7 @@
             ` : ""}
 
             ${(state.gFinSubTab || "transactions") === "transactions" ? `
-            <div class="fin-action-bar no-print" style="margin-bottom:12px">
+            <div class="fin-action-bar no-print" style="margin-bottom:8px;flex-wrap:wrap;gap:8px">
               <select onchange="app.setGFinFilter(this.value)" style="padding:8px 12px;border-radius:10px;font-size:13px">
                 ${projects.map(p => `<option value="${p.id}" ${gFilter===p.id?"selected":""}>${escapeHtml(p.name)}</option>`).join("")}
               </select>
@@ -8991,7 +9026,23 @@
                 <option value="income" ${typeFilter==="income"?"selected":""}>Только поступления</option>
                 <option value="expense" ${typeFilter==="expense"?"selected":""}>Только расходы</option>
               </select>
-              <span style="font-size:12px;color:var(--muted)">${filtered.length} операций · ${money(filtered.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))} получено · ${money(filtered.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))} расходов</span>
+              <input type="search" placeholder="Поиск по описанию..." value="${escapeHtml(state.gFinSearch||"")}"
+                oninput="app.setGFinSearch(this.value)"
+                style="padding:8px 12px;border-radius:10px;font-size:13px;border:1px solid var(--line);background:var(--panel2);color:var(--text);min-width:180px;flex:1">
+            </div>
+            <div class="analytics-date-bar no-print" style="margin-bottom:12px">
+              <span style="font-size:12px;color:var(--muted);font-weight:750;margin-right:4px">Период:</span>
+              ${[["all","Всё время"],["month","Этот месяц"],["3months","3 месяца"],["quarter","Квартал"],["year","Год"],["custom","Свой"]].map(([k,l]) =>
+                `<button class="date-preset-btn ${(state.gFinDatePreset||"all")===k?"active":""}" onclick="app.setGFinDatePreset('${k}')">${l}</button>`
+              ).join("")}
+              ${state.gFinDatePreset === "custom" ? `
+                <div class="date-range-inputs">
+                  <input type="date" value="${escapeHtml(state.gFinDateFrom)}" onchange="app.setGFinDateFrom(this.value)" title="С">
+                  <span style="color:var(--muted)">—</span>
+                  <input type="date" value="${escapeHtml(state.gFinDateTo)}" onchange="app.setGFinDateTo(this.value)" title="По">
+                </div>
+              ` : ""}
+              <span style="font-size:12px;color:var(--muted);margin-left:auto">${filtered.length} операций · ${money(filtered.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))} получено · ${money(filtered.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))} расходов</span>
             </div>
 
             <div class="fin-table-wrap">
@@ -11588,6 +11639,9 @@ Email: ______________________            Email: ______________________
         setGFinDatePreset,
         setGFinDateFrom,
         setGFinDateTo,
+        setGFinSearch,
+        setFinSearch,
+        setFinTypeFilter,
         duplicateDeal,
         updateClientField,
         startWizardForClient,
