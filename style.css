@@ -1598,6 +1598,7 @@
     }
     .deal-card:hover { border-color: rgba(168,85,247,.5); transform: translateY(-1px); }
     .deal-card.current { border-color: rgba(22,163,74,.5); }
+    .deal-card.deal-card-selected { border-color: var(--primary); background: rgba(124,58,237,.06); }
     .deal-card-client { font-size: 13px; font-weight: 750; transition: opacity .12s; }
     .deal-card-client:hover { opacity: .75; }
     .deal-card-name { font-size: 15px; font-weight: 900; margin: 3px 0 8px; }

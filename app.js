@@ -3094,6 +3094,7 @@
           gFinSearch: "",
           finSearch: "",
           finTypeFilter: "all",
+          crmSelected: {},
           telegramChatIds: [],
           clientMode: false,
           recentlyAdded: "",
@@ -5058,6 +5059,51 @@
         render();
       }
 
+      function toggleCrmSelect(id) {
+        if (!id) return;
+        if (state.crmSelected[id]) delete state.crmSelected[id];
+        else state.crmSelected[id] = true;
+        render();
+      }
+
+      function clearCrmSelect() {
+        state.crmSelected = {};
+        render();
+      }
+
+      function selectAllCrmVisible() {
+        const filter = state.crmFilter || "all";
+        (state.savedProjects || []).forEach(p => {
+          if (filter === "all" || (p.crmStatus || "Лид") === filter) state.crmSelected[p.id] = true;
+        });
+        render();
+      }
+
+      function bulkSetCrmStatus(status) {
+        if (!status) return;
+        const ids = Object.keys(state.crmSelected || {});
+        if (!ids.length) return;
+        ids.forEach(id => {
+          const p = state.savedProjects.find(x => x.id === id);
+          if (p) p.crmStatus = status;
+        });
+        state.crmSelected = {};
+        toast(`Статус «${status}» применён к ${ids.length} сделкам`);
+        save();
+        render();
+      }
+
+      function bulkDeleteDeals() {
+        const ids = Object.keys(state.crmSelected || {});
+        if (!ids.length) return;
+        if (!confirm(`Удалить ${ids.length} выбранных сделок? Это действие необратимо.`)) return;
+        state.savedProjects = state.savedProjects.filter(p => !state.crmSelected[p.id]);
+        state.crmSelected = {};
+        toast(`Удалено ${ids.length} сделок`);
+        save();
+        render();
+      }
+
       function toggleGlobalMenu() {
         const menu = document.getElementById("globalAddMenu");
         if (menu) menu.classList.toggle("open");
@@ -6937,6 +6983,22 @@
             </div>
 
             ${visibleItems.length ? `
+              ${(() => {
+                const selIds = Object.keys(state.crmSelected || {});
+                const selCount = selIds.length;
+                return selCount > 0 ? `
+                  <div class="no-print" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--panel2);border:1px solid var(--primary);border-radius:12px;margin-bottom:12px">
+                    <span style="font-size:13px;font-weight:750;color:var(--primary)">Выбрано: ${selCount}</span>
+                    <select id="crmBulkStatusSel" style="padding:6px 10px;border-radius:8px;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text)">
+                      ${CRM_STATUSES.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("")}
+                    </select>
+                    <button class="btn primary small" onclick="app.bulkSetCrmStatus(document.getElementById('crmBulkStatusSel').value)">Применить статус</button>
+                    <button class="btn small" onclick="app.selectAllCrmVisible()">Выбрать все (${visibleItems.length})</button>
+                    <button class="btn small" onclick="app.clearCrmSelect()">Снять выбор</button>
+                    <button class="btn danger small" onclick="app.bulkDeleteDeals()">Удалить (${selCount})</button>
+                  </div>
+                ` : "";
+              })()}
               <div class="grid three">
                 ${visibleItems.map(project => {
                   const margin = project.total > 0 ? Math.round((project.profit || 0) / project.total * 100) : 0;
@@ -6944,6 +7006,7 @@
                   const nextLabel = CRM_NEXT[project.crmStatus || "Лид"];
                   const isCurrent = project.id === state.activeProjectId;
                   const payPct = project.total > 0 ? Math.min(100, Math.round((project.paid || 0) / project.total * 100)) : 0;
+                  const isSelected = !!(state.crmSelected || {})[project.id];
 
                   const clientObj = project.clientId ? state.clients.find(c => c.id === project.clientId) : null;
                   const clientIdSafe = (project.clientId||"").replace(/'/g,"\\x27");
@@ -6951,8 +7014,10 @@
                   const projectIdSafe = project.id.replace(/'/g,"");
                   const u = project.deadline ? deadlineUrgency(project.deadline) : null;
                   return `
-                    <div class="deal-card ${isCurrent ? "current" : ""}" onclick="app.openDealModal('${projectIdSafe}')" style="cursor:pointer" title="Редактировать сделку">
+                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.openDealModal('${projectIdSafe}')" style="cursor:pointer" title="Редактировать сделку">
                       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+                        <input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
+                          style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">
                         <div style="min-width:0;flex:1">
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
                           ${project.client ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>` : ""}
@@ -11697,6 +11762,11 @@ Email: ______________________            Email: ______________________
         setGFinSearch,
         setFinSearch,
         setFinTypeFilter,
+        toggleCrmSelect,
+        clearCrmSelect,
+        selectAllCrmVisible,
+        bulkSetCrmStatus,
+        bulkDeleteDeals,
         duplicateDeal,
         updateClientField,
         startWizardForClient,
