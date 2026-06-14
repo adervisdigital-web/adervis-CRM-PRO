@@ -988,15 +988,10 @@
       }
     }
 
-    /* ── MEDIUM SCREENS (1161–1380px): icon-only nav ────────────────────── */
-    @media (min-width: 1161px) and (max-width: 1380px) {
-      .nav button {
-        font-size: 0;
-        padding: 9px;
-        gap: 0;
-        justify-content: center;
-        min-width: 34px;
-      }
+    /* ── MEDIUM SCREENS (1161–1600px): icon-only nav ────────────────────── */
+    @media (min-width: 1161px) and (max-width: 1600px) {
+      .nav-label { display: none; }
+      .nav button { padding: 9px; gap: 0; justify-content: center; min-width: 34px; }
       .brand p { display: none; }
       .autosave-indicator { display: none; }
       #undoBtn, #redoBtn { display: none; }
