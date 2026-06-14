@@ -53,7 +53,7 @@
         { id: "usn15", label: "УСН 15%", rate: 0.15 }
       ];
 
-      const CRM_STATUSES = ["Лид", "Бриф", "КП отправлено", "Согласование", "Договор", "Предоплата", "В работе", "Сдано", "Закрыто"];
+      const CRM_STATUSES = ["Лид", "Бриф", "КП отправлено", "Согласование", "Договор", "Предоплата", "В работе", "Сдано", "Завершённые"];
       const TASK_STATUSES = ["Новая", "В работе", "На согласовании", "Готово"];
       const PRIORITIES = ["Низкий", "Средний", "Высокий", "Срочно"];
 
@@ -925,6 +925,13 @@
         return (_userProfile && _userProfile.agency_id) || (_adminSession && _adminSession.user.id) || "local";
       }
 
+      function _migrateStateData() {
+        // Migrate old CRM status "Закрыто" → "Завершённые"
+        (state.savedProjects || []).forEach(p => {
+          if (p.crmStatus === "Закрыто") p.crmStatus = "Завершённые";
+        });
+      }
+
       async function _loadCloudState() {
         if (!_supabase || !_adminSession) return;
         const agencyId = getAgencyId();
@@ -932,10 +939,11 @@
           const { data } = await _supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
           if (data && data.state_json) {
             const cloudState = data.state_json;
-            const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen"];
+            const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal"];
             Object.entries(cloudState).forEach(([k, v]) => {
               if (!skipKeys.includes(k)) state[k] = v;
             });
+            _migrateStateData();
             toast("☁️ Данные загружены из облака");
           }
         } catch(e) { console.warn("Cloud load:", e); }
@@ -946,7 +954,7 @@
         const agencyId = getAgencyId();
         clearTimeout(_cloudSaveTimer);
         _cloudSaveTimer = setTimeout(async () => {
-          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen"];
+          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal"];
           const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
           try {
             await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: new Date().toISOString() });
@@ -997,7 +1005,7 @@
             if (!payload || !payload.data) return;
             if (payload.sender && payload.sender === myEmail) return;
             const incoming = payload.data;
-            const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen"];
+            const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal"];
             skipKeys.forEach(k => { if (k in state) incoming[k] = state[k]; });
             Object.assign(state, incoming);
             render();
@@ -1031,7 +1039,7 @@
         if (!_realtimeChannel || !_adminSession) return;
         clearTimeout(_broadcastTimer);
         _broadcastTimer = setTimeout(() => {
-          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen"];
+          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal"];
           const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
           _realtimeChannel.send({ type: "broadcast", event: "state-sync",
             payload: { data, sender: _adminSession.user.email } });
@@ -2444,7 +2452,7 @@
       async function forceSaveToCloud() {
         if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
         const agencyId = getAgencyId();
-        const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen"];
+        const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal"];
         const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
         try {
           await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: new Date().toISOString() });
@@ -3085,6 +3093,8 @@
           crmFilter: "all",
           clientDetailId: "",
           financeModal: null,
+          packageEditModal: null,
+          crmView: "grid",
           gFinFilter: "all",
           gFinTypeFilter: "all",
           gFinSubTab: "transactions",
@@ -3487,6 +3497,7 @@
         try {
           state = migrateState(JSON.parse(raw));
           normalizeState();
+          _migrateStateData();
         } catch {
           state = defaultState();
         }
@@ -5059,6 +5070,11 @@
         render();
       }
 
+      function setCrmView(v) {
+        state.crmView = v === "list" ? "list" : "grid";
+        render();
+      }
+
       function toggleCrmSelect(id) {
         if (!id) return;
         if (state.crmSelected[id]) delete state.crmSelected[id];
@@ -5284,6 +5300,7 @@
         else if (state.taskModal) { el.innerHTML = renderTaskModalHtml(); }
         else if (state.editTransactionModal) { el.innerHTML = renderEditTransactionModal(); }
         else if (state.financeModal) { el.innerHTML = renderFinanceModal(); }
+        else if (state.packageEditModal) { el.innerHTML = renderPackageEditModal(); }
         else { el.innerHTML = ""; }
       }
 
@@ -5295,7 +5312,7 @@
         const isValid = amount > 0;
 
         return `
-          <div class="modal-overlay" onclick="event.target===this&&app.closeFinanceModal()">
+          <div class="modal-overlay">
             <div class="modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                 <h2 style="margin:0;font-size:20px">${isPayment ? "Поступление" : "Расход"}</h2>
@@ -6836,11 +6853,11 @@
           ? projects
           : projects.filter(p => (p.crmStatus || "Лид") === filter);
 
-        const totalPipeline = projects.filter(p => !["Сдано", "Закрыто"].includes(p.crmStatus || "Лид"))
+        const totalPipeline = projects.filter(p => !["Сдано", "Завершённые"].includes(p.crmStatus || "Лид"))
           .reduce((s, p) => s + (p.total || 0), 0);
         const totalProfit = projects.reduce((s, p) => s + (p.profit || 0), 0);
         const inWork = projects.filter(p => p.crmStatus === "В работе").length;
-        const closedCount = projects.filter(p => p.crmStatus === "Закрыто").length;
+        const closedCount = projects.filter(p => p.crmStatus === "Завершённые").length;
 
         const CRM_NEXT = {
           "Лид": "Взять в работу",
@@ -6850,8 +6867,8 @@
           "Договор": "Получить предоплату",
           "Предоплата": "Начать работу",
           "В работе": "Сдать проект",
-          "Сдано": "Закрыть сделку",
-          "Закрыто": null
+          "Сдано": "Завершить",
+          "Завершённые": null
         };
 
         // ── Dashboard metrics ──────────────────────────────────────────
@@ -6880,17 +6897,17 @@
         const monthExpenses = expensesInMonth(curMonth);
         const monthProfit   = monthRevenue - monthExpenses;
 
-        const totalDebt = projects.filter(p => !["Закрыто"].includes(p.crmStatus||"Лид"))
+        const totalDebt = projects.filter(p => !["Завершённые"].includes(p.crmStatus||"Лид"))
           .reduce((s, p) => s + Math.max(0, (p.total||0) - (p.paid||0)), 0);
 
-        const avgDeal = closedCount > 0 ? Math.round(projects.filter(p=>p.crmStatus==="Закрыто").reduce((s,p)=>s+(p.total||0),0) / closedCount) : 0;
+        const avgDeal = closedCount > 0 ? Math.round(projects.filter(p=>p.crmStatus==="Завершённые").reduce((s,p)=>s+(p.total||0),0) / closedCount) : 0;
 
         const todayStr = todayIso();
         const in7 = new Date(); in7.setDate(in7.getDate()+7);
         const in7Str = in7.toISOString().slice(0,10);
         const upcomingDeadlines = [];
         projects.forEach(p => {
-          if (p.deadline && p.deadline >= todayStr && p.deadline <= in7Str && !["Закрыто","Сдано"].includes(p.crmStatus||"Лид"))
+          if (p.deadline && p.deadline >= todayStr && p.deadline <= in7Str && !["Завершённые","Сдано"].includes(p.crmStatus||"Лид"))
             upcomingDeadlines.push({ name: p.name, date: p.deadline, type: "Проект" });
           (p.snapshot?.tasks||[]).forEach(t => {
             if (t.deadline && t.deadline >= todayStr && t.deadline <= in7Str && t.status !== "Готово")
@@ -6950,7 +6967,7 @@
               <div class="db-stat">
                 <div class="db-stat-label">Воронка</div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>
-                <div class="db-stat-delta neu">${projects.filter(p=>!["Сдано","Закрыто"].includes(p.crmStatus||"Лид")).length} активных</div>
+                <div class="db-stat-delta neu">${projects.filter(p=>!["Сдано","Завершённые"].includes(p.crmStatus||"Лид")).length} активных</div>
               </div>
               <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')">
                 <div class="db-stat-label">Долг клиентов</div>
@@ -6995,6 +7012,13 @@
             </div>
 
             ${visibleItems.length ? `
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+                <span style="font-size:13px;color:var(--muted)">${visibleItems.length} ${visibleItems.length===1?"сделка":visibleItems.length<5?"сделки":"сделок"}</span>
+                <div class="deal-view-toggle no-print">
+                  <button class="deal-view-btn ${(state.crmView||"grid")==="grid"?"active":""}" onclick="app.setCrmView('grid')" title="Плитка">⊞</button>
+                  <button class="deal-view-btn ${state.crmView==="list"?"active":""}" onclick="app.setCrmView('list')" title="Список">☰</button>
+                </div>
+              </div>
               ${(() => {
                 const selIds = Object.keys(state.crmSelected || {});
                 const selCount = selIds.length;
@@ -7011,7 +7035,33 @@
                   </div>
                 ` : "";
               })()}
-              <div class="grid three">
+              ${state.crmView === "list" ? `
+              <div class="panel" style="padding:0;overflow:hidden">
+                ${visibleItems.map(project => {
+                  const payPct = project.total > 0 ? Math.min(100, Math.round((project.paid||0)/project.total*100)) : 0;
+                  const isCurrent = project.id === state.activeProjectId;
+                  const u = project.deadline ? deadlineUrgency(project.deadline) : null;
+                  const nextLabel = CRM_NEXT[project.crmStatus || "Лид"];
+                  const projectIdSafe = project.id.replace(/'/g,"");
+                  const margin = project.total > 0 ? Math.round((project.profit||0)/project.total*100) : 0;
+                  const healthClass = margin >= 40 ? "green" : margin >= 20 ? "yellow" : margin > 0 ? "red" : "grey";
+                  return `
+                    <div class="deal-list-row ${isCurrent?"current":""}" onclick="app.openDealModal('${projectIdSafe}')">
+                      <input type="checkbox" class="crm-cb no-print" ${(state.crmSelected||{})[project.id]?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">
+                      <div class="health-dot ${healthClass}" style="flex:0 0 auto" title="Маржа ${margin}%"></div>
+                      <span class="status-pill" style="font-size:10px;flex:0 0 auto">${escapeHtml(project.crmStatus||"Лид")}</span>
+                      <div class="deal-list-name">${escapeHtml(project.name)}</div>
+                      <div class="deal-list-client">${escapeHtml(project.client||"—")}</div>
+                      <div class="deal-list-budget">${money(project.total)}</div>
+                      <div class="deal-list-deadline" style="color:${u&&u.level!=="ok"?u.color:"var(--muted)"}">${project.deadline?formatDate(project.deadline):"—"}</div>
+                      <div class="deal-list-actions" onclick="event.stopPropagation()">
+                        <button class="btn small" onclick="app.openDeal('${projectIdSafe}')" title="Смета">✏</button>
+                        ${nextLabel?`<button class="next-action-btn" onclick="app.advanceCrmStatus('${projectIdSafe}')" title="${nextLabel}" style="font-size:11px;padding:4px 8px">${nextLabel} →</button>`:""}
+                      </div>
+                    </div>`;
+                }).join("")}
+              </div>
+              ` : `<div class="grid three">
                 ${visibleItems.map(project => {
                   const margin = project.total > 0 ? Math.round((project.profit || 0) / project.total * 100) : 0;
                   const healthClass = margin >= 40 ? "green" : margin >= 20 ? "yellow" : margin > 0 ? "red" : "grey";
@@ -7066,7 +7116,7 @@
                     </div>
                   `;
                 }).join("")}
-              </div>
+              </div>`}
             ` : `
               <div class="empty">
                 ${filter === "all" ? "Сделок пока нет." : `Нет сделок в статусе «${escapeHtml(filter)}».`}
@@ -7139,6 +7189,133 @@
         `;
       }
 
+      // ── Package edit modal ────────────────────────────────────────────
+      function openPackageEditModal(id) {
+        const pkg = (state.packages || []).find(p => p.id === id);
+        if (!pkg) return;
+        const isCustom = id.startsWith("package_");
+        state.packageEditModal = {
+          id,
+          isCustom,
+          name:       pkg.name || "",
+          desc:       pkg.desc || "",
+          cat:        pkg.cat  || "",
+          goodFor:    pkg.goodFor || "",
+          priceLabel: pkg.priceLabel || "",
+          note:       (pkg.notes || [])[0] || ""
+        };
+        renderModal();
+      }
+
+      function closePackageEditModal() {
+        state.packageEditModal = null;
+        renderModal();
+      }
+
+      function setPackageEditField(key, val) {
+        if (!state.packageEditModal) return;
+        state.packageEditModal[key] = val;
+      }
+
+      function savePackageEdit() {
+        const m = state.packageEditModal;
+        if (!m || !m.isCustom) return;
+        const idx = (state.packages || []).findIndex(p => p.id === m.id);
+        if (idx < 0) return;
+        state.packages[idx] = Object.assign({}, state.packages[idx], {
+          name:       m.name.trim() || state.packages[idx].name,
+          desc:       m.desc.trim(),
+          cat:        m.cat,
+          goodFor:    m.goodFor.trim(),
+          priceLabel: m.priceLabel.trim(),
+          notes:      m.note.trim() ? [m.note.trim()] : []
+        });
+        state.packageEditModal = null;
+        save();
+        toast("Пакет обновлён");
+        renderModal();
+        render();
+      }
+
+      function renderPackageEditModal() {
+        const m = state.packageEditModal;
+        if (!m) return "";
+        const PKG_CATS = [
+          ["", "— без категории —"],
+          ["social",    "📱 Соц. сети"],
+          ["interview", "🎙 Интервью"],
+          ["business",  "🎬 Бизнес-видео"],
+          ["events",    "🎪 Мероприятия"],
+          ["ai",        "🤖 ИИ / AI"],
+          ["graphic",   "✨ Графика"],
+          ["photo",     "📸 Фото"],
+          ["corporate", "🏢 Корпоративный"]
+        ];
+        const pkg = (state.packages || []).find(p => p.id === m.id);
+        const pkgItems = pkg ? getPackageItems(pkg) : [];
+
+        return `
+          <div class="modal-overlay" onclick="event.target===this&&app.closePackageEditModal()">
+            <div class="modal-box" style="max-width:520px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+                <h2 style="margin:0;font-size:18px">${m.isCustom ? "Редактировать пакет" : "Просмотр пакета"}</h2>
+                <button onclick="app.closePackageEditModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
+              </div>
+
+              ${m.isCustom ? `
+              <div class="field" style="margin-bottom:12px">
+                <label>Название</label>
+                <input value="${escapeHtml(m.name)}" oninput="app.setPackageEditField('name',this.value)" placeholder="Название пакета">
+              </div>
+              <div class="field" style="margin-bottom:12px">
+                <label>Описание</label>
+                <input value="${escapeHtml(m.desc)}" oninput="app.setPackageEditField('desc',this.value)" placeholder="Краткое описание">
+              </div>
+              <div class="grid two" style="gap:10px;margin-bottom:12px">
+                <div class="field">
+                  <label>Категория</label>
+                  <select onchange="app.setPackageEditField('cat',this.value)">
+                    ${PKG_CATS.map(([v,l]) => `<option value="${v}" ${m.cat===v?"selected":""}>${l}</option>`).join("")}
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Цена (отображение)</label>
+                  <input value="${escapeHtml(m.priceLabel)}" oninput="app.setPackageEditField('priceLabel',this.value)" placeholder="от 50 000 ₽">
+                </div>
+              </div>
+              <div class="field" style="margin-bottom:12px">
+                <label>Для кого подходит</label>
+                <input value="${escapeHtml(m.goodFor)}" oninput="app.setPackageEditField('goodFor',this.value)" placeholder="стартапы, блогеры...">
+              </div>
+              <div class="field" style="margin-bottom:18px">
+                <label>Заметка (показывается курсивом)</label>
+                <input value="${escapeHtml(m.note)}" oninput="app.setPackageEditField('note',this.value)" placeholder="Необязательно">
+              </div>
+              ` : `
+              <div style="margin-bottom:16px">
+                <div style="font-size:13px;color:var(--muted);margin-bottom:6px">${escapeHtml(m.desc)}</div>
+                <div style="font-size:12px;color:var(--muted)">Для: ${escapeHtml(m.goodFor)}</div>
+              </div>
+              `}
+
+              ${pkgItems.length ? `
+              <div style="margin-bottom:18px;padding:12px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)">
+                <div style="font-size:11px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Состав пакета (${pkgItems.length} позиций)</div>
+                <div style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto">
+                  ${pkgItems.map(x => `<div style="font-size:12px">✓ ${escapeHtml(x.name)}</div>`).join("")}
+                </div>
+              </div>` : ""}
+
+              <div style="display:flex;gap:10px;justify-content:flex-end">
+                <button class="btn" onclick="app.closePackageEditModal()">Закрыть</button>
+                <button class="btn primary" onclick="app.applyPackage('${m.id}');app.closePackageEditModal()">В смету →</button>
+                ${m.isCustom ? `<button class="btn green" onclick="app.savePackageEdit()">Сохранить</button>` : ""}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
       function renderPackages() {
         const CAT_META = {
           social:    { label: "Соц. сети", icon: "📱" },
@@ -7181,7 +7358,7 @@
           const price = escapeHtml(pkg.priceLabel || money(packageApproxTotal(pkg)));
           const borderStyle = tier ? `border-color:${tc.border}` : "";
           return `
-            <article class="package-card pkg-tier-${tier}" style="${borderStyle}">
+            <article class="package-card pkg-tier-${tier}" style="${borderStyle};cursor:pointer" onclick="app.openPackageEditModal('${pkg.id}')">
               <div class="pkg-card-top">
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                   ${cat ? `<span class="pkg-cat-badge" data-cat="${escapeHtml(cat)}">${catMeta.icon || ""} ${escapeHtml(catMeta.label || cat)}</span>` : ""}
@@ -7205,7 +7382,7 @@
               ${(pkg.notes || []).length ? `<p class="pkg-note">${escapeHtml(pkg.notes[0])}</p>` : ""}
 
               <div class="pkg-card-actions">
-                <button class="btn primary" style="flex:1" onclick="app.applyPackage('${pkg.id}')">В смету →</button>
+                <button class="btn primary" style="flex:1" onclick="event.stopPropagation();app.applyPackage('${pkg.id}')">В смету →</button>
               </div>
             </article>
           `;
@@ -11948,7 +12125,7 @@ Email: ______________________            Email: ______________________
         const projects = state.savedProjects || [];
         const tgLines = [];
         projects.forEach(proj => {
-          if (!proj.deadline || ["Сдано", "Закрыто"].includes(proj.crmStatus || "")) return;
+          if (!proj.deadline || ["Сдано", "Завершённые"].includes(proj.crmStatus || "")) return;
           const u = deadlineUrgency(proj.deadline);
           if (!u || u.level === "ok") return;
           const icon = u.level === "overdue" ? "🔴" : "⚡";
