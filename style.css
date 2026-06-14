@@ -988,14 +988,49 @@
       }
     }
 
+    /* ── MEDIUM SCREENS (1161–1380px): icon-only nav ────────────────────── */
+    @media (min-width: 1161px) and (max-width: 1380px) {
+      .nav button {
+        font-size: 0;
+        padding: 9px;
+        gap: 0;
+        justify-content: center;
+        min-width: 34px;
+      }
+      .brand p { display: none; }
+      .autosave-indicator { display: none; }
+      #undoBtn, #redoBtn { display: none; }
+      .admin-indicator {
+        max-width: 130px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 11px;
+      }
+    }
+
     @media (max-width: 1160px) {
+      /* Топбар: 3 колонки с бургером вместо nav-строки */
       .topbar {
-        grid-template-columns: 1fr;
-        align-items: stretch;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        padding: 10px 16px;
+        gap: 10px;
       }
 
-      .nav {
-        width: 100%;
+      .nav { display: none; }
+      .burger-btn { display: inline-flex; }
+      .brand p { display: none; }
+      .brand { min-width: 0; }
+      .top-actions { gap: 4px; min-width: 0; }
+      .autosave-indicator { display: none; }
+      #undoBtn, #redoBtn { display: none; }
+      .admin-indicator {
+        max-width: 130px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 11px;
       }
 
       .layout,
