@@ -30,21 +30,21 @@ serve(async (req) => {
   const text = rawText.trim();
   const supabase = createClient(supabaseUrl, serviceKey);
 
-  // ── Telegram API helpers ───────────────────────────────────────────────────
+  // ── Telegram helpers ────────────────────────────────────────────────────────
 
-  async function send(replyText: string, keyboard?: any) {
-    const body: any = { chat_id: chatId, text: replyText, parse_mode: "HTML", disable_web_page_preview: true };
+  async function send(msg: string, keyboard?: any) {
+    const body: any = { chat_id: chatId, text: msg, parse_mode: "HTML", disable_web_page_preview: true };
     if (keyboard) body.reply_markup = keyboard;
     await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
   }
 
-  async function answerCallback(notice = "") {
+  async function answerCallback() {
     if (!isCallback) return;
     await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ callback_query_id: update.callback_query.id, text: notice }),
+      body: JSON.stringify({ callback_query_id: update.callback_query.id }),
     });
   }
 
@@ -53,64 +53,68 @@ serve(async (req) => {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         commands: [
-          { command: "today", description: "📅 Дедлайны на неделю" },
-          { command: "deals", description: "🗂 Активные сделки" },
-          { command: "stats", description: "📊 Финансовая сводка" },
-          { command: "help",  description: "❓ Помощь и команды" },
+          { command: "today",  description: "📅 Дедлайны на неделю" },
+          { command: "deals",  description: "🗂 Активные сделки" },
+          { command: "stats",  description: "📊 Финансовая сводка" },
+          { command: "help",   description: "❓ Помощь и команды" },
         ],
       }),
     });
   }
 
-  // ── Formatters ─────────────────────────────────────────────────────────────
+  // ── Formatters ──────────────────────────────────────────────────────────────
 
   function money(n: number) {
     return new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", minimumFractionDigits: 0 }).format(n || 0);
   }
-
   function todayIso() { return new Date().toISOString().split("T")[0]; }
-
   function daysUntil(d: string) {
-    const now = new Date(); now.setHours(0,0,0,0);
+    const now = new Date(); now.setHours(0, 0, 0, 0);
     return Math.round((new Date(d).getTime() - now.getTime()) / 86400000);
   }
+  function uid(prefix = "x") {
+    return prefix + "_" + crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+  }
 
-  // ── Keyboards ──────────────────────────────────────────────────────────────
+  // ── Keyboards ───────────────────────────────────────────────────────────────
 
   const mainKeyboard = {
     inline_keyboard: [
-      [{ text: "📅 Дедлайны", callback_data: "today" }, { text: "🗂 Сделки", callback_data: "deals" }],
-      [{ text: "📊 Сводка",   callback_data: "stats" }, { text: "➕ Новая сделка", callback_data: "new_deal" }],
-      [{ text: "❓ Помощь",   callback_data: "help" }],
+      [{ text: "📅 Дедлайны",     callback_data: "today" },
+       { text: "🗂 Сделки",        callback_data: "deals" }],
+      [{ text: "📊 Сводка",        callback_data: "stats" },
+       { text: "➕ Новая сделка",  callback_data: "new_deal" }],
+      [{ text: "💰 Поступление",   callback_data: "new_income" },
+       { text: "📤 Расход",        callback_data: "new_expense" }],
+      [{ text: "❓ Помощь",        callback_data: "help" }],
     ],
   };
 
-  function cancelKeyboard() {
-    return { inline_keyboard: [[{ text: "❌ Отмена", callback_data: "deal_cancel" }]] };
+  function cancelKb(action: string) {
+    return { inline_keyboard: [[{ text: "❌ Отмена", callback_data: `${action}_cancel` }]] };
   }
-
-  function skipKeyboard() {
+  function skipCancelKb(action: string) {
     return {
       inline_keyboard: [
-        [{ text: "Пропустить →", callback_data: "deal_skip" }],
-        [{ text: "❌ Отмена",    callback_data: "deal_cancel" }],
+        [{ text: "Пропустить →", callback_data: `${action}_skip` }],
+        [{ text: "❌ Отмена",    callback_data: `${action}_cancel` }],
       ],
     };
   }
-
-  function confirmKeyboard() {
-    return {
-      inline_keyboard: [
-        [{ text: "✅ Создать сделку", callback_data: "deal_confirm" }],
-        [{ text: "✏ Изменить название", callback_data: "deal_edit_name" },
-         { text: "✏ Изменить клиента", callback_data: "deal_edit_client" }],
-        [{ text: "✏ Изменить бюджет", callback_data: "deal_edit_budget" },
-         { text: "❌ Отмена", callback_data: "deal_cancel" }],
-      ],
-    };
+  function dealSelectKb(projects: any[], noneLabel: string, prefix: string) {
+    const active = projects
+      .filter(p => !["Завершённые", "Сдано"].includes(p.crmStatus || ""))
+      .slice(0, 6);
+    const rows = active.map(p => [{
+      text: `${p.name}${p.client ? " · " + p.client : ""}`,
+      callback_data: `${prefix}_proj_${p.id}`,
+    }]);
+    rows.push([{ text: noneLabel, callback_data: `${prefix}_proj_none` }]);
+    rows.push([{ text: "❌ Отмена", callback_data: `${prefix}_cancel` }]);
+    return { inline_keyboard: rows };
   }
 
-  // ── Agency lookup ──────────────────────────────────────────────────────────
+  // ── Agency lookup ───────────────────────────────────────────────────────────
 
   async function findAgencyRow(): Promise<{ id: string; state_json: any } | null> {
     const chatIdStr = String(chatId);
@@ -121,115 +125,218 @@ serve(async (req) => {
     ) || null;
   }
 
-  // ── Session management (stored in state_json._botSessions[chatId]) ─────────
+  // ── Session management ──────────────────────────────────────────────────────
 
   function readSession(stateJson: any): any {
     const s = stateJson?._botSessions?.[String(chatId)];
-    // Expire sessions older than 10 minutes
-    if (s && Date.now() - (s.ts || 0) > 600_000) return null;
+    if (s && Date.now() - (s.ts || 0) > 600_000) return null; // 10 min expire
     return s || null;
   }
 
   async function writeSession(agencyId: string, session: any | null): Promise<void> {
-    // Read fresh to avoid clobbering concurrent CRM saves
     const { data } = await supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
     const st: any = { ...(data?.state_json || {}) };
     if (!st._botSessions) st._botSessions = {};
-    if (session === null) {
-      delete st._botSessions[String(chatId)];
-    } else {
-      st._botSessions[String(chatId)] = { ...session, ts: Date.now() };
-    }
+    if (session === null) delete st._botSessions[String(chatId)];
+    else st._botSessions[String(chatId)] = { ...session, ts: Date.now() };
     await supabase.from("agency_state").upsert({ id: agencyId, state_json: st, updated_at: new Date().toISOString() });
   }
+
+  // ── State writers ───────────────────────────────────────────────────────────
 
   async function addDeal(agencyId: string, deal: any): Promise<void> {
     const { data } = await supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
     const st: any = { ...(data?.state_json || {}) };
     if (!st._botSessions) st._botSessions = {};
-    delete st._botSessions[String(chatId)]; // clear session
+    delete st._botSessions[String(chatId)];
     st.savedProjects = [deal, ...(st.savedProjects || [])];
     await supabase.from("agency_state").upsert({ id: agencyId, state_json: st, updated_at: new Date().toISOString() });
   }
 
-  // ── Deal session flow ──────────────────────────────────────────────────────
+  async function addTransaction(agencyId: string, txType: "income" | "expense", tx: any, projectId: string | null): Promise<void> {
+    const { data } = await supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
+    const st: any = { ...(data?.state_json || {}) };
+    if (!st._botSessions) st._botSessions = {};
+    delete st._botSessions[String(chatId)];
 
-  function dealSummary(d: any): string {
-    return (
-      `📋 <b>${d.name || "—"}</b>\n` +
+    if (projectId) {
+      const proj = (st.savedProjects || []).find((p: any) => p.id === projectId);
+      if (proj) {
+        if (!proj.snapshot) proj.snapshot = {};
+        if (txType === "income") {
+          proj.snapshot.payments = [tx, ...(proj.snapshot.payments || [])];
+          proj.paid = (proj.paid || 0) + tx.amount;
+        } else {
+          proj.snapshot.expenses = [tx, ...(proj.snapshot.expenses || [])];
+          proj.expensesTotal = (proj.expensesTotal || 0) + tx.amount;
+        }
+        proj.updatedAt = new Date().toISOString();
+      }
+    } else {
+      if (txType === "income") st.payments = [tx, ...(st.payments || [])];
+      else st.expenses = [tx, ...(st.expenses || [])];
+    }
+
+    await supabase.from("agency_state").upsert({ id: agencyId, state_json: st, updated_at: new Date().toISOString() });
+  }
+
+  // ── Collect all transactions for stats ──────────────────────────────────────
+
+  function collectTx(stateJson: any): any[] {
+    const seen = new Set<string>();
+    const txs: any[] = [];
+    function push(arr: any[], type: string) {
+      (arr || []).forEach((t: any) => {
+        if (t.id && seen.has(t.id)) return;
+        if (t.id) seen.add(t.id);
+        txs.push({ ...t, _type: type });
+      });
+    }
+    push(stateJson.payments || [], "income");
+    push(stateJson.expenses || [], "expense");
+    (stateJson.savedProjects || []).forEach((p: any) => {
+      push(p.snapshot?.payments || [], "income");
+      push(p.snapshot?.expenses || [], "expense");
+    });
+    return txs;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // DEAL CREATION FLOW
+  // ══════════════════════════════════════════════════════════════════════════
+
+  function dealSummary(d: any) {
+    return `📋 <b>${d.name || "—"}</b>\n` +
       `👤 Клиент: ${d.client || "<i>не указан</i>"}\n` +
-      `💰 Бюджет: ${d.budget ? money(d.budget) : "<i>не указан</i>"}`
-    );
+      `💰 Бюджет: ${d.budget ? money(d.budget) : "<i>не указан</i>"}`;
+  }
+
+  function dealConfirmKb() {
+    return {
+      inline_keyboard: [
+        [{ text: "✅ Создать сделку",    callback_data: "deal_confirm" }],
+        [{ text: "✏ Название",           callback_data: "deal_edit_name" },
+         { text: "✏ Клиент",             callback_data: "deal_edit_client" }],
+        [{ text: "✏ Бюджет",             callback_data: "deal_edit_budget" },
+         { text: "❌ Отмена",            callback_data: "deal_cancel" }],
+      ],
+    };
   }
 
   async function startDealFlow(agencyId: string) {
     await writeSession(agencyId, { action: "create_deal", step: "name", data: {} });
     await send(
-      "➕ <b>Новая сделка</b>\n\nШаг 1 из 3\n\n<b>Название сделки:</b>\nНапример: «Корпоратив Альфа» или «Рекламный ролик Бета»",
-      cancelKeyboard(),
+      "➕ <b>Новая сделка</b>\n\nШаг 1 из 3\n\n<b>Название:</b>\nНапример: «Корпоратив Альфа» или «Рекламный ролик Бета»",
+      cancelKb("deal"),
     );
   }
 
   async function handleDealStep(agencyId: string, session: any, input: string, isSkip: boolean) {
-    const d = session.data || {};
+    const d = { ...session.data };
     const step = session.step;
+    const returning = session.prevStep === "confirm";
 
     if (step === "name") {
-      if (isSkip || !input.trim()) {
-        await send("Название обязательно — введите хотя бы что-нибудь.", cancelKeyboard());
+      if (!input.trim()) { await send("Название обязательно.", cancelKb("deal")); return; }
+      d.name = input.trim();
+      if (returning) {
+        await writeSession(agencyId, { ...session, step: "confirm", prevStep: undefined, data: d });
+        await send(`<b>Проверьте данные:</b>\n\n${dealSummary(d)}`, dealConfirmKb());
         return;
       }
-      d.name = input.trim();
       await writeSession(agencyId, { ...session, step: "client", data: d });
-      await send(
-        `✅ Название: <b>${d.name}</b>\n\nШаг 2 из 3\n\n<b>Клиент</b> — имя или компания:\n<i>(или пропустите, добавите в CRM позже)</i>`,
-        skipKeyboard(),
-      );
+      await send(`✅ Название: <b>${d.name}</b>\n\nШаг 2 из 3\n\n<b>Клиент</b> — имя или компания:\n<i>(необязательно)</i>`, skipCancelKb("deal"));
       return;
     }
-
     if (step === "client") {
       if (!isSkip && input.trim()) d.client = input.trim();
+      if (returning) {
+        await writeSession(agencyId, { ...session, step: "confirm", prevStep: undefined, data: d });
+        await send(`<b>Проверьте данные:</b>\n\n${dealSummary(d)}`, dealConfirmKb());
+        return;
+      }
       await writeSession(agencyId, { ...session, step: "budget", data: d });
       await send(
-        (d.client ? `✅ Клиент: <b>${d.client}</b>\n\n` : "👤 Клиент: не указан\n\n") +
-        `Шаг 3 из 3\n\n<b>Бюджет</b> в рублях:\nНапример: <code>150000</code>\n<i>(или пропустите)</i>`,
-        skipKeyboard(),
+        (d.client ? `✅ Клиент: <b>${d.client}</b>\n\n` : "") +
+        `Шаг 3 из 3\n\n<b>Бюджет</b> в рублях:\n<i>(необязательно)</i>`,
+        skipCancelKb("deal"),
       );
       return;
     }
-
     if (step === "budget") {
       if (!isSkip && input.trim()) {
         const n = parseFloat(input.replace(/\D/g, ""));
         if (!isNaN(n) && n > 0) d.budget = n;
       }
       await writeSession(agencyId, { ...session, step: "confirm", data: d });
+      await send(`<b>Проверьте данные:</b>\n\n${dealSummary(d)}\n\n<i>Нажмите «Создать» или исправьте поле.</i>`, dealConfirmKb());
+      return;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TRANSACTION FLOW (income / expense)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  function txSummary(d: any, txType: string) {
+    const sign = txType === "income" ? "+" : "−";
+    const icon = txType === "income" ? "💰" : "📤";
+    return `${icon} <b>${sign}${money(d.amount)}</b>\n` +
+      `📝 ${d.desc || "<i>без описания</i>"}\n` +
+      `📋 ${d.projectName || "<i>без привязки к сделке</i>"}`;
+  }
+
+  function txConfirmKb(txType: string) {
+    return {
+      inline_keyboard: [
+        [{ text: txType === "income" ? "✅ Записать поступление" : "✅ Записать расход", callback_data: "tx_confirm" }],
+        [{ text: "❌ Отмена", callback_data: "tx_cancel" }],
+      ],
+    };
+  }
+
+  async function startTxFlow(agencyId: string, txType: "income" | "expense") {
+    await writeSession(agencyId, { action: "add_transaction", txType, step: "amount", data: {} });
+    const icon = txType === "income" ? "💰" : "📤";
+    const label = txType === "income" ? "Поступление" : "Расход";
+    await send(
+      `${icon} <b>${label}</b>\n\nШаг 1 из 3\n\n<b>Сумма</b> в рублях:`,
+      cancelKb("tx"),
+    );
+  }
+
+  async function handleTxStep(agencyId: string, session: any, projects: any[], input: string, isSkip: boolean) {
+    const d = { ...session.data };
+    const step = session.step;
+    const txType = session.txType as "income" | "expense";
+    const icon = txType === "income" ? "💰" : "📤";
+
+    if (step === "amount") {
+      const n = parseFloat(input.replace(/\D/g, ""));
+      if (!n || n <= 0) { await send("Введите сумму больше нуля.", cancelKb("tx")); return; }
+      d.amount = n;
+      await writeSession(agencyId, { ...session, step: "desc", data: d });
       await send(
-        `<b>Проверьте данные:</b>\n\n${dealSummary(d)}\n\n<i>Нажмите «Создать» или исправьте любое поле.</i>`,
-        confirmKeyboard(),
+        `${icon} Сумма: <b>${money(n)}</b>\n\nШаг 2 из 3\n\n<b>Описание</b>:\nНапример: «Аванс за съёмку» или «Аренда студии»\n<i>(необязательно)</i>`,
+        skipCancelKb("tx"),
       );
       return;
     }
 
-    if (step === "confirm") {
-      // Shouldn't get here via text, handled by callbacks
-      await send(`Нажмите кнопку ниже.`, confirmKeyboard());
+    if (step === "desc") {
+      if (!isSkip && input.trim()) d.desc = input.trim();
+      await writeSession(agencyId, { ...session, step: "project", data: d });
+      await send(
+        `Шаг 3 из 3\n\n<b>К какой сделке привязать?</b>`,
+        dealSelectKb(projects, "Без привязки (общая)", "tx"),
+      );
+      return;
     }
   }
 
-  async function handleDealEdit(agencyId: string, session: any, field: "name" | "client" | "budget") {
-    const stepMap = { name: "name", client: "client", budget: "budget" } as const;
-    const labels: Record<string, string> = {
-      name: "Введите новое <b>название</b>:",
-      client: "Введите нового <b>клиента</b>:",
-      budget: "Введите новый <b>бюджет</b> (в рублях):",
-    };
-    await writeSession(agencyId, { ...session, step: stepMap[field], prevStep: "confirm" });
-    await send(labels[field], skipKeyboard());
-  }
-
-  // ── /start — no agency required ────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // ENTRY POINT
+  // ══════════════════════════════════════════════════════════════════════════
 
   if (text.startsWith("/start")) {
     await setMyCommands();
@@ -246,8 +353,6 @@ serve(async (req) => {
 
   await answerCallback();
 
-  // ── Find agency ────────────────────────────────────────────────────────────
-
   const agencyRow = await findAgencyRow();
   if (!agencyRow) {
     await send(
@@ -261,73 +366,101 @@ serve(async (req) => {
   const stateJson = agencyRow.state_json || {};
   const projects: any[] = stateJson.savedProjects || [];
   const today = todayIso();
-
-  // ── Check active session ───────────────────────────────────────────────────
-
   const session = readSession(stateJson);
 
+  // ── Active session routing ─────────────────────────────────────────────────
+
   if (session?.action === "create_deal") {
-    // Handle inline keyboard callbacks for deal flow
-    if (isCallback) {
-      if (text === "deal_cancel") {
-        await writeSession(agencyId, null);
-        await send("❌ Создание сделки отменено.", mainKeyboard);
-        return new Response("ok", { status: 200 });
-      }
-      if (text === "deal_skip") {
-        await handleDealStep(agencyId, session, "", true);
-        return new Response("ok", { status: 200 });
-      }
-      if (text === "deal_confirm" && session.step === "confirm") {
-        const d = session.data || {};
-        if (!d.name) {
-          await send("Название не заполнено, нельзя создать.", confirmKeyboard());
-          return new Response("ok", { status: 200 });
-        }
-        const deal = {
-          id: `proj_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`,
-          name: d.name, client: d.client || "", clientId: "",
-          crmStatus: "Лид", total: d.budget || 0, paid: 0,
-          deadline: "", lines: [], payments: [], expenses: [], tasks: [], team: [],
-          notes: `Создано через Telegram (${new Date().toLocaleDateString("ru-RU")})`,
-          createdAt: new Date().toISOString(),
-        };
-        await addDeal(agencyId, deal);
-        await send(
-          `🎉 <b>Сделка создана!</b>\n\n${dealSummary(d)}\n📌 Статус: Лид\n\nОткройте CRM, чтобы добавить услуги и дедлайн.`,
-          mainKeyboard,
-        );
-        return new Response("ok", { status: 200 });
-      }
-      if (text === "deal_edit_name") { await handleDealEdit(agencyId, session, "name"); return new Response("ok", { status: 200 }); }
-      if (text === "deal_edit_client") { await handleDealEdit(agencyId, session, "client"); return new Response("ok", { status: 200 }); }
-      if (text === "deal_edit_budget") { await handleDealEdit(agencyId, session, "budget"); return new Response("ok", { status: 200 }); }
+    // Cancel
+    if (text === "deal_cancel") {
+      await writeSession(agencyId, null);
+      await send("❌ Создание сделки отменено.", mainKeyboard);
+      return new Response("ok", { status: 200 });
     }
-
-    // User typed a text answer to current step
+    // Skip step
+    if (text === "deal_skip") {
+      await handleDealStep(agencyId, session, "", true);
+      return new Response("ok", { status: 200 });
+    }
+    // Confirm → create deal
+    if (text === "deal_confirm" && session.step === "confirm") {
+      const d = session.data || {};
+      if (!d.name) { await send("Название не заполнено.", dealConfirmKb()); return new Response("ok", { status: 200 }); }
+      const deal = {
+        id: uid("proj"), name: d.name, client: d.client || "", clientId: "",
+        crmStatus: "Лид", total: d.budget || 0, paid: 0,
+        deadline: "", lines: [], payments: [], expenses: [], tasks: [], team: [],
+        notes: `Создано через Telegram (${new Date().toLocaleDateString("ru-RU")})`,
+        createdAt: new Date().toISOString(),
+      };
+      await addDeal(agencyId, deal);
+      await send(`🎉 <b>Сделка создана!</b>\n\n${dealSummary(d)}\n📌 Статус: Лид\n\nОткройте CRM чтобы добавить услуги.`, mainKeyboard);
+      return new Response("ok", { status: 200 });
+    }
+    // Edit fields
+    if (text === "deal_edit_name")   { await writeSession(agencyId, { ...session, step: "name",   prevStep: "confirm" }); await send("Введите новое <b>название</b>:", cancelKb("deal")); return new Response("ok", { status: 200 }); }
+    if (text === "deal_edit_client") { await writeSession(agencyId, { ...session, step: "client", prevStep: "confirm" }); await send("Введите нового <b>клиента</b>:", skipCancelKb("deal")); return new Response("ok", { status: 200 }); }
+    if (text === "deal_edit_budget") { await writeSession(agencyId, { ...session, step: "budget", prevStep: "confirm" }); await send("Введите новый <b>бюджет</b> (₽):", skipCancelKb("deal")); return new Response("ok", { status: 200 }); }
+    // Text input for current step
     if (!isCallback && !text.startsWith("/")) {
-      // If came back from edit, return to confirm after saving
-      const isReturning = session.prevStep === "confirm";
-      const prevStep = session.prevStep;
-      const cleanSession = { ...session };
-      delete cleanSession.prevStep;
+      await handleDealStep(agencyId, session, text, false);
+      return new Response("ok", { status: 200 });
+    }
+  }
 
-      await handleDealStep(agencyId, cleanSession, text, false);
+  if (session?.action === "add_transaction") {
+    const txType = session.txType as "income" | "expense";
 
-      // If we were editing a specific field, jump back to confirm
-      if (isReturning && session.step !== "confirm") {
-        // Re-read session to get updated data, then jump to confirm
-        const { data: fresh } = await supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
-        const freshSession = readSession(fresh?.state_json);
-        if (freshSession) {
-          await writeSession(agencyId, { ...freshSession, step: "confirm" });
-          const d = freshSession.data || {};
-          await send(
-            `<b>Проверьте данные:</b>\n\n${dealSummary(d)}\n\n<i>Нажмите «Создать» или исправьте любое поле.</i>`,
-            confirmKeyboard(),
-          );
-        }
+    // Cancel
+    if (text === "tx_cancel") {
+      await writeSession(agencyId, null);
+      await send("❌ Отменено.", mainKeyboard);
+      return new Response("ok", { status: 200 });
+    }
+    // Skip desc
+    if (text === "tx_skip" && session.step === "desc") {
+      await handleTxStep(agencyId, session, projects, "", true);
+      return new Response("ok", { status: 200 });
+    }
+    // Project selected via button
+    if (isCallback && text.startsWith("tx_proj_") && session.step === "project") {
+      const d = { ...session.data };
+      if (text === "tx_proj_none") {
+        d.projectId = null; d.projectName = null;
+      } else {
+        const projId = text.replace("tx_proj_", "");
+        const proj = projects.find(p => p.id === projId);
+        d.projectId = projId;
+        d.projectName = proj ? (proj.name + (proj.client ? " · " + proj.client : "")) : projId;
       }
+      await writeSession(agencyId, { ...session, step: "confirm", data: d });
+      await send(
+        `<b>Проверьте запись:</b>\n\n${txSummary(d, txType)}\n\n<i>Подтвердите или отмените.</i>`,
+        txConfirmKb(txType),
+      );
+      return new Response("ok", { status: 200 });
+    }
+    // Confirm → save transaction
+    if (text === "tx_confirm" && session.step === "confirm") {
+      const d = session.data || {};
+      const isIncome = txType === "income";
+      const tx = isIncome
+        ? { id: uid("payment"), title: d.desc || "Поступление", amount: d.amount, date: today, method: "Telegram", note: "" }
+        : { id: uid("expense"), title: d.desc || "Расход",      amount: d.amount, date: today, category: "Прочее",   note: "" };
+      await addTransaction(agencyId, txType, tx, d.projectId || null);
+      const icon = isIncome ? "💰" : "📤";
+      const sign = isIncome ? "+" : "−";
+      await send(
+        `${icon} <b>Записано!</b>\n\n${sign}${money(d.amount)}` +
+        (d.desc ? `\n📝 ${d.desc}` : "") +
+        (d.projectName ? `\n📋 ${d.projectName}` : "\n📋 Без привязки"),
+        mainKeyboard,
+      );
+      return new Response("ok", { status: 200 });
+    }
+    // Text input for current step
+    if (!isCallback && !text.startsWith("/")) {
+      await handleTxStep(agencyId, session, projects, text, false);
       return new Response("ok", { status: 200 });
     }
   }
@@ -338,23 +471,19 @@ serve(async (req) => {
     ? text.split(" ")[0].slice(1).split("@")[0].toLowerCase()
     : text.toLowerCase();
 
-  // ── new_deal / +сделка ─────────────────────────────────────────────────────
-
-  if (command === "new_deal" || command === "deal" || command === "сделка") {
-    await startDealFlow(agencyId);
-    return new Response("ok", { status: 200 });
-  }
+  if (command === "new_deal"   || command === "deal"   || command === "сделка")     { await startDealFlow(agencyId); return new Response("ok", { status: 200 }); }
+  if (command === "new_income" || command === "доход"  || command === "поступление") { await startTxFlow(agencyId, "income");  return new Response("ok", { status: 200 }); }
+  if (command === "new_expense"|| command === "расход") { await startTxFlow(agencyId, "expense"); return new Response("ok", { status: 200 }); }
 
   // ── /today ─────────────────────────────────────────────────────────────────
 
   if (command === "today" || command === "сегодня") {
-    const active = projects.filter(p => !["Сдано","Завершённые"].includes(p.crmStatus || ""));
+    const active = projects.filter(p => !["Сдано", "Завершённые"].includes(p.crmStatus || ""));
     const deadlines = active
       .filter(p => p.deadline)
       .map(p => ({ ...p, days: daysUntil(p.deadline) }))
       .filter(p => p.days <= 7)
       .sort((a, b) => a.days - b.days);
-
     if (!deadlines.length) {
       await send(`✅ <b>Горящих дедлайнов нет</b>\nАктивных сделок: ${active.length}`, mainKeyboard);
     } else {
@@ -392,15 +521,14 @@ serve(async (req) => {
   if (command === "stats" || command === "сводка") {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-    const txs: any[] = stateJson.globalTransactions || [];
-    const monthIncome  = txs.filter(t => t.type === "income"  && t.date >= monthStart).reduce((s, t) => s + (t.amount || 0), 0);
-    const monthExpense = txs.filter(t => t.type === "expense" && t.date >= monthStart).reduce((s, t) => s + (t.amount || 0), 0);
-    const active = projects.filter(p => !["Сдано","Завершённые"].includes(p.crmStatus || ""));
+    const txs = collectTx(stateJson);
+    const monthIncome  = txs.filter(t => t._type === "income"  && (t.date || "") >= monthStart).reduce((s, t) => s + (t.amount || 0), 0);
+    const monthExpense = txs.filter(t => t._type === "expense" && (t.date || "") >= monthStart).reduce((s, t) => s + (t.amount || 0), 0);
+    const active = projects.filter(p => !["Сдано", "Завершённые"].includes(p.crmStatus || ""));
     const pipeline = active.reduce((s, p) => s + (p.total || 0), 0);
     const debt = projects.reduce((s, p) => s + Math.max(0, (p.total || 0) - (p.paid || 0)), 0);
     const overdue = active.filter(p => p.deadline && daysUntil(p.deadline) < 0).length;
     const monthName = now.toLocaleDateString("ru-RU", { month: "long" });
-
     await send(
       `📊 <b>Сводка за ${monthName}:</b>\n\n` +
       `💰 Выручка:  <b>${money(monthIncome)}</b>\n` +
@@ -423,11 +551,13 @@ serve(async (req) => {
       `📅 Дедлайны — горящие на 7 дней\n` +
       `🗂 Сделки — активные по статусам\n` +
       `📊 Сводка — деньги за месяц\n` +
-      `➕ Новая сделка — пошаговое создание\n\n` +
+      `➕ Новая сделка — пошаговое создание\n` +
+      `💰 Поступление — записать приход\n` +
+      `📤 Расход — записать расход\n\n` +
       `<b>Или напишите вопрос:</b>\n` +
       `«Что просрочено?»\n` +
       `«Сколько должен клиент Альфа?»\n` +
-      `«Какие сделки на стадии Монтаж?»`,
+      `«Сколько я заработал в этом месяце?»`,
       mainKeyboard,
     );
     return new Response("ok", { status: 200 });
@@ -439,8 +569,7 @@ serve(async (req) => {
     const active = projects.filter(p => !["Завершённые"].includes(p.crmStatus || ""));
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-    const txs: any[] = stateJson.globalTransactions || [];
-
+    const txs = collectTx(stateJson);
     const context = {
       сегодня: today,
       сделки: active.map(p => ({
@@ -450,16 +579,13 @@ serve(async (req) => {
         дедлайн: p.deadline || null, дней_до_дедлайна: p.deadline ? daysUntil(p.deadline) : null,
       })),
       финансы_месяц: {
-        поступления: txs.filter(t => t.type === "income"  && t.date >= monthStart).reduce((s, t) => s + (t.amount||0), 0),
-        расходы:     txs.filter(t => t.type === "expense" && t.date >= monthStart).reduce((s, t) => s + (t.amount||0), 0),
+        поступления: txs.filter(t => t._type === "income"  && (t.date || "") >= monthStart).reduce((s, t) => s + (t.amount || 0), 0),
+        расходы:     txs.filter(t => t._type === "expense" && (t.date || "") >= monthStart).reduce((s, t) => s + (t.amount || 0), 0),
       },
     };
-
     const prompt =
       `Ты AI-помощник CRM для видеопродакшн-агентства. Отвечай кратко, по делу, на русском. ` +
-      `HTML разметка: только <b>жирный</b>. Без вводных фраз.\n\n` +
-      `Данные агентства:\n${JSON.stringify(context, null, 2)}\n\nВопрос: ${text}`;
-
+      `HTML: только <b>жирный</b>. Без вводных фраз.\n\nДанные:\n${JSON.stringify(context, null, 2)}\n\nВопрос: ${text}`;
     try {
       const gr = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiKey}`,
