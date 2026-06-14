@@ -5678,29 +5678,32 @@
       function downloadProposalPDF() {
         const name = (state.project.name || "КП").replace(/[^\wа-яёА-ЯЁ\s-]/gi, "").trim();
         const content = renderProposalPrint();
+        if (!content || !content.trim()) { toast('Нет данных для PDF'); return; }
         const css = `
           @page { margin: 15mm 18mm; }
           * { box-sizing: border-box; }
-          body { font-family: 'DM Sans', Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #111; background: #fff; margin: 0; padding: 0; }
+          body { font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #111; background: #fff; margin: 0; padding: 20px; }
           h1 { font-size: 20px; font-weight: 700; margin: 0 0 2px; color: #000; }
-          h2 { font-size: 14px; font-weight: 700; margin: 18px 0 8px; color: #000; text-transform: uppercase; letter-spacing: .3px; }
+          h2 { font-size: 14px; font-weight: 700; margin: 18px 0 8px; color: #000; }
           p { margin: 0 0 10px; color: #374151; }
           hr { border: 0; border-top: 1px solid #e5e7eb; margin: 14px 0; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 12px; page-break-inside: avoid; }
-          th { background: #f3f4f6; font-weight: 600; text-align: left; padding: 6px 10px; border-bottom: 2px solid #e5e7eb; font-size: 11px; }
-          td { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: top; color: #111; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 12px; }
+          th { background: #f3f4f6; font-weight: 600; text-align: left; padding: 6px 10px; border-bottom: 2px solid #e5e7eb; }
+          td { padding: 6px 10px; border-bottom: 1px solid #f0f0f0; vertical-align: top; color: #111; }
           strong { font-weight: 600; color: #000; }
-          pre { white-space: pre-wrap; font-family: inherit; font-size: 12px; color: #374151; }
-          a { color: #2563eb; text-decoration: none; }
+          pre { white-space: pre-wrap; font-family: inherit; font-size: 12px; }
+          a { color: #2563eb; }
           .proposal-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
           .proposal-brand img { width: 36px; height: 36px; object-fit: contain; }
           .proposal-brand p { font-size: 12px; color: #6b7280; margin: 0; }
           .empty { color: #9ca3af; font-style: italic; }
         `;
-        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>КП — ${escapeHtml(name)}</title><style>${css}</style></head><body>${content}<script>window.onload=function(){window.print();}<\/script></body></html>`;
-        const win = window.open('', '_blank', 'width=860,height=700');
-        if (win) { win.document.write(html); win.document.close(); }
-        else toast('Разрешите всплывающие окна для скачивания PDF');
+        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>КП — ${escapeHtml(name)}</title><style>${css}</style></head><body>${content}</body></html>`;
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const win = window.open(url, '_blank');
+        if (!win) { URL.revokeObjectURL(url); toast('Разрешите всплывающие окна в браузере'); return; }
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
       }
 
       function field(label, html) {
@@ -8125,8 +8128,7 @@
               <div class="toolbar">
                 <button class="btn" id="aiProposalBtn" onclick="app.generateProposalAI()" style="background:linear-gradient(135deg,#7c3aed,#2563eb);border-color:transparent;color:#fff">✨ Сгенерировать с ИИ</button>
                 <button class="btn" onclick="app.copyProposalText()">Скопировать текст</button>
-                <button class="btn blue" onclick="app.downloadProposalPDF()">⬇ PDF</button>
-                <button class="btn" onclick="app.printProposal()">Печать</button>
+                <button class="btn blue" onclick="app.downloadProposalPDF()">Печать / PDF</button>
                 <button class="btn green" onclick="app.exportXlsx()">Excel</button>
               </div>
             </div>
