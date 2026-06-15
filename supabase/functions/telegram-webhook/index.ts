@@ -6,6 +6,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
+  // Verify Telegram webhook secret token (set via TELEGRAM_WEBHOOK_SECRET secret).
+  // To activate: supabase secrets set TELEGRAM_WEBHOOK_SECRET=<random-string>
+  // Then re-register the webhook: https://api.telegram.org/bot<TOKEN>/setWebhook?url=...&secret_token=<same-string>
+  const webhookSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
+  if (webhookSecret) {
+    const incoming = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
+    if (incoming !== webhookSecret) return new Response("Unauthorized", { status: 401 });
+  }
+
   const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -115,7 +124,7 @@ serve(async (req) => {
     return { inline_keyboard: rows };
   }
 
-  const CRM_STATUSES = ["Лид", "Переговоры", "КП отправлено", "Оплата", "В работе", "Завершённые"];
+  const CRM_STATUSES = ["Лид", "Бриф", "КП отправлено", "Согласование", "Договор", "Предоплата", "В работе", "Сдано", "Завершённые"];
 
   function statusKb() {
     return {
@@ -130,11 +139,23 @@ serve(async (req) => {
 
   async function findAgencyRow(): Promise<{ id: string; state_json: any } | null> {
     const chatIdStr = String(chatId);
-    const { data } = await supabase.from("agency_state").select("id, state_json");
-    if (!data) return null;
-    return data.find((row: any) =>
-      (row.state_json?.telegramChatIds || []).some((r: any) => String(r.chatId) === chatIdStr)
-    ) || null;
+    // Phase 1: load only telegramChatIds to avoid pulling full state for every agency
+    const { data: index } = await supabase
+      .from("agency_state")
+      .select("id, state_json->telegramChatIds");
+    if (!index) return null;
+    const match = (index as any[]).find((row) => {
+      const ids = row.telegramChatIds ?? [];
+      return Array.isArray(ids) && ids.some((r: any) => String(r.chatId) === chatIdStr);
+    });
+    if (!match) return null;
+    // Phase 2: load full state only for the matched agency
+    const { data: full } = await supabase
+      .from("agency_state")
+      .select("id, state_json")
+      .eq("id", match.id)
+      .single();
+    return full || null;
   }
 
   // ── Session management ──────────────────────────────────────────────────────

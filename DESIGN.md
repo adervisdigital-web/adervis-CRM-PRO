@@ -1,4 +1,4 @@
-# DESIGN.md — Adervis PRO Design System
+# DESIGN.md — ADERVIS CRM Design System
 
 > Sources: Refactoring UI, Frontend Design Pro Demo (Dark OLED), Interface Design system.md pattern, Awesome DESIGN.md (Stripe/Apple references)
 

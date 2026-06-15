@@ -57,7 +57,7 @@ create policy "agency owner can delete briefs" on brief_submissions
 
 ## Шаг 2 — Использование
 
-1. Войдите в Adervis PRO
+1. Войдите в ADERVIS CRM
 2. Откройте **Настройки** → блок **Онлайн-бриф**
 3. Скопируйте персональную ссылку вида `https://app.adervis.ru/?brief=ВАШ_ID`
 4. Поделитесь ссылкой с клиентом — через мессенджер, сайт, соцсети

@@ -1,4 +1,4 @@
-# Security Guide — Adervis PRO
+# Security Guide — ADERVIS CRM
 
 ## Supabase Row Level Security (RLS)
 

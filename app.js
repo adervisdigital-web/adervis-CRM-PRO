@@ -177,6 +177,8 @@
 
         // ── ИИ / Нейросети ───────────────────────────────────────────────
         item("ai_sub_service", "ai", "Подписка на AI-сервис", "Месячная подписка на AI-инструмент. Выбери сервис в строке сметы: Higgsfield, Syntex, Runway, Midjourney и др.", "fixed", 1990, "мес.", { stage: "pre", tags: ["ИИ", "подписка", "сервис"] }),
+        item("ai_sub_higgsfield", "ai", "Подписка Higgsfield", "Месячная подписка на Higgsfield.ai — генерация плавного видеоряда с управлением камерой.", "fixed", 1890, "мес.", { stage: "pre", tags: ["ИИ", "Higgsfield", "подписка"] }),
+        item("ai_sub_syntex", "ai", "Подписка Syntex", "Месячная подписка на Syntex — AI-генерация визуального ряда под продукт.", "fixed", 1490, "мес.", { stage: "pre", tags: ["ИИ", "Syntex", "подписка"] }),
         item("ai_credits_1000", "ai", "AI-кредиты (1000 шт)", "Пакет 1000 кредитов/токенов для AI-генерации видео или изображений.", "fixed+qty", 2200, "пакет", { stage: "pre", tags: ["ИИ", "кредиты", "токены"] }),
         item("ai_credits_5000", "ai", "AI-кредиты (5000 шт)", "Пакет 5000 кредитов — базовый объём для полноценного AI-видеопроекта.", "fixed", 9900, "пакет", { stage: "pre", tags: ["ИИ", "кредиты"] }),
         item("ai_prompt_writing", "ai", "Написание промптов / раскадровка AI", "Разработка промптов, сценарий для AI, подбор референсов, раскадровка локаций.", "creativeWork", 5000, "проект", { stage: "pre", tags: ["ИИ", "промпты", "раскадровка"] }),
@@ -716,6 +718,8 @@
             else { renderAuthGateEl(); }
           });
           _supabase.auth.onAuthStateChange((event, session) => {
+            // INITIAL_SESSION fires on subscribe and duplicates the getSession() call above
+            if (event === "INITIAL_SESSION") return;
             _adminSession = session;
             if (session) { _onUserLoggedIn(session); }
             else {
@@ -3359,7 +3363,6 @@
           stages: Array.isArray(old.stages) && old.stages.length ? old.stages : base.stages,
           packages: Array.isArray(old.packages) && old.packages.length ? old.packages : base.packages,
           contracts: Array.isArray(old.contracts) ? old.contracts : [],
-          contractEditId: "",
           clientDraft: null,
           dealView: old.dealView || "estimate",
           wizard: null,

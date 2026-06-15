@@ -1,4 +1,4 @@
-# CLAUDE.md — Adervis PRO
+# CLAUDE.md — ADERVIS CRM
 
 > Системные инструкции для Claude Code на все сессии.
 > Sources: Karpathy Guidelines, Get Shit Done workflow, claude-code-best-practice (Boris Cherny).
