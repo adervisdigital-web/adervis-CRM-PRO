@@ -679,6 +679,7 @@
       let _buyingPlan = null; // planId currently being purchased (shows loading state)
       let _promoCode  = "";   // raw input value
       let _promoState = null; // null=idle | "checking" | {code,discount} | "invalid"
+      let _needsNormalize = true; // true after any state mutation; normalizeState() runs in render() only when set
       let _briefAgencyId = (new URLSearchParams(location.search).get('brief') || '').trim();
       let _portalId = (new URLSearchParams(location.search).get('portal') || '').trim();
 
@@ -962,7 +963,8 @@
 
       function isSubscriptionActive() {
         if (_adminSession && _adminSession.user.email === SUPER_ADMIN_EMAIL) return true;
-        if (!_userProfile) return true; // no supabase = local mode, allow all
+        if (!_adminSession) return true; // local mode — no Supabase auth
+        if (!_userProfile) return false; // session exists but profile failed to load
         const s = _userProfile.subscription_status;
         if (s === "active") return true;
         if (s === "trial") {
@@ -1003,6 +1005,7 @@
             const incoming = payload.data;
             SYNC_SKIP_KEYS.forEach(k => { if (k in state) incoming[k] = state[k]; });
             Object.assign(state, incoming);
+            _needsNormalize = true;
             render();
             toast("🔄 Обновление от " + (payload.sender || "коллеги"));
           })
@@ -3503,6 +3506,7 @@
           toast("⛔ Подписка истекла — данные не сохранены. Продлите: adervis.digital@gmail.com");
           return;
         }
+        _needsNormalize = true;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         scheduleAutoSave();
         broadcastState();
@@ -5011,7 +5015,6 @@
         const prev = undoStack.pop();
         try {
           state = migrateState(JSON.parse(prev));
-          normalizeState();
         } catch {
           state = defaultState();
         }
@@ -5031,7 +5034,6 @@
         const next = redoStack.pop();
         try {
           state = migrateState(JSON.parse(next));
-          normalizeState();
         } catch {
           state = defaultState();
         }
@@ -6060,7 +6062,7 @@
       }
 
       function render() {
-        normalizeState();
+        if (_needsNormalize) { normalizeState(); _needsNormalize = false; }
 
         document.body.classList.toggle("client-mode", state.clientMode);
 

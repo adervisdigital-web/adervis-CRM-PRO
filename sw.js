@@ -42,38 +42,47 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // Static assets: cache-first, update in background
   const isStatic = STATIC_ASSETS.some(a => url.pathname.endsWith(a.replace("./", "/"))) ||
     url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2?)$/);
 
   if (isStatic) {
-    event.respondWith(
-      caches.match(event.request).then(cached => {
-        const networkFetch = fetch(event.request).then(response => {
-          if (response.ok) {
-            const cloned = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
+    // Cache-first: return cached immediately, refresh cache in background via event.waitUntil
+    event.respondWith((async () => {
+      const cached = await caches.match(event.request);
+      // Background refresh — must use event.waitUntil so SW stays alive until write completes
+      event.waitUntil(
+        fetch(event.request).then(async r => {
+          if (r.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(event.request, r); // fresh response, body not yet consumed
           }
-          return response;
-        });
-        return cached || networkFetch;
-      })
-    );
+        }).catch(() => {})
+      );
+      if (cached) return cached;
+      // Cache miss: fetch and cache synchronously
+      const r = await fetch(event.request);
+      if (r.ok) {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(event.request, r.clone()); // clone for cache, return original
+      }
+      return r;
+    })());
     return;
   }
 
-  // Everything else: network-first, fall back to cache
-  event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
+  // Network-first, fall back to cache
+  event.respondWith((async () => {
+    try {
+      const response = await fetch(event.request);
+      if (response.ok) {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(event.request, response.clone()); // clone for cache, return original
+      }
+      return response;
+    } catch {
+      return caches.match(event.request);
+    }
+  })());
 });
 
 // ── Web Push ──────────────────────────────────────────────────────────────────
