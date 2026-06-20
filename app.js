@@ -896,20 +896,10 @@
         } catch(e) { /* push — нет критического значения, не прерываем */ }
       }
 
-      async function _loadRefStats() {
+      function _loadRefStats() {
         const el = document.getElementById('refStats');
-        if (!el || !_supabase) return;
-        try {
-          const { data } = await _supabase.rpc('get_referral_stats').maybeSingle();
-          if (!data) { el.textContent = 'Статистика недоступна'; return; }
-          const { total_invited, total_paid, bonus_days_earned } = data;
-          el.innerHTML = `
-            <div style="display:flex;gap:16px;flex-wrap:wrap">
-              <span>👥 Приглашено: <b>${total_invited}</b></span>
-              <span>💳 Оплатили: <b>${total_paid}</b></span>
-              <span>🎁 Бонус получен: <b>+${bonus_days_earned} дн.</b></span>
-            </div>`;
-        } catch(e) { el.textContent = ''; }
+        if (!el) return;
+        el.textContent = 'Бонус +30 дней будет начислен автоматически после первой оплаты приглашённого.';
       }
 
       async function _applyReferralCode(userId) {
@@ -1113,8 +1103,7 @@
       async function adminLogout() {
         if (!_supabase) return;
         await _supabase.auth.signOut();
-        _adminSession = null;
-        renderAdminTopbar();
+        // onAuthStateChange(SIGNED_OUT) handles _adminSession=null, renderAdminTopbar(), render()
         toast("Выход выполнен");
       }
 
@@ -1340,7 +1329,13 @@
           f.loading = false;
           if (error) { f.error = error.message === "Invalid login credentials" ? "Неверный email или пароль" : error.message; renderAuthGateEl(); return; }
           if (!rememberMe) {
-            window.addEventListener("beforeunload", () => { _supabase && _supabase.auth.signOut(); }, { once: true });
+            // pagehide fires on mobile (beforeunload is unreliable on iOS/Android).
+            // Remove token synchronously — async signOut() won't finish before page dies.
+            window.addEventListener("pagehide", () => {
+              const { url } = getSupabaseConfig();
+              const ref = (url.match(/https?:\/\/([^.]+)\./) || [])[1];
+              if (ref) localStorage.removeItem(`sb-${ref}-auth-token`);
+            }, { once: true });
           }
         }
       }
@@ -1350,7 +1345,9 @@
         if (!f.email) { f.error = "Введите email"; renderAuthGateEl(); return; }
         if (!_supabase) { f.error = "Supabase не настроен"; renderAuthGateEl(); return; }
         f.loading = true; f.error = ""; renderAuthGateEl();
-        const { error } = await _supabase.auth.resetPasswordForEmail(f.email);
+        const { error } = await _supabase.auth.resetPasswordForEmail(f.email, {
+          redirectTo: location.origin + location.pathname + '?type=recovery',
+        });
         f.loading = false;
         if (error) { f.error = error.message; renderAuthGateEl(); return; }
         f.forgotSent = true;
@@ -2798,7 +2795,7 @@
       }
 
       function uid(prefix = "id") {
-        return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
+        return `${prefix}_${crypto.randomUUID().replace(/-/g, "")}`;
       }
 
       function numberValue(value, fallback = 0) {
@@ -2821,10 +2818,6 @@
 
       function todayIso() {
         return new Date().toISOString().slice(0, 10);
-      }
-
-      function dateStamp() {
-        return todayIso();
       }
 
       function formatDate(value) {
@@ -5741,7 +5734,7 @@
       }
 
       function exportData() {
-        downloadJson(`adervis-pro-backup-${dateStamp()}.json`, state);
+        downloadJson(`adervis-pro-backup-${todayIso()}.json`, state);
         toast("Данные экспортированы");
       }
 
@@ -5771,7 +5764,7 @@
       }
 
       function exportCatalog() {
-        downloadJson(`adervis-catalog-${dateStamp()}.json`, {
+        downloadJson(`adervis-catalog-${todayIso()}.json`, {
           catalogPrices: state.catalogPrices,
           customItems: state.customItems,
           hiddenItems: state.hiddenItems,
