@@ -7,10 +7,10 @@ const cors = {
 };
 
 const PLANS: Record<string, { amount: number; days: number; label: string }> = {
-  month1: { amount: 890,  days: 30,  label: "Adervis PRO — 1 месяц"   },
-  month3: { amount: 2220, days: 90,  label: "Adervis PRO — 3 месяца"  },
-  month6: { amount: 3840, days: 180, label: "Adervis PRO — 6 месяцев" },
-  year:   { amount: 6240, days: 365, label: "Adervis PRO — 1 год"     },
+  month1: { amount: 890,  days: 30,  label: "ADERVIS CRM — 1 месяц"   },
+  month3: { amount: 2220, days: 90,  label: "ADERVIS CRM — 3 месяца"  },
+  month6: { amount: 3840, days: 180, label: "ADERVIS CRM — 6 месяцев" },
+  year:   { amount: 6240, days: 365, label: "ADERVIS CRM — 1 год"     },
 };
 
 serve(async (req) => {

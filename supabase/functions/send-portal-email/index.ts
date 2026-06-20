@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const RESEND_FROM = "Adervis PRO <noreply@app.adervis.ru>";
+const RESEND_FROM = "ADERVIS CRM <noreply@app.adervis.ru>";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -93,7 +93,7 @@ serve(async (req) => {
         <!-- Footer -->
         <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center">
           <p style="margin:0;font-size:12px;color:#94a3b8">
-            Письмо отправлено через платформу <strong>Adervis PRO</strong>.
+            Письмо отправлено через платформу <strong>ADERVIS CRM</strong>.
             Если вы получили его по ошибке — просто проигнорируйте.
           </p>
         </td></tr>

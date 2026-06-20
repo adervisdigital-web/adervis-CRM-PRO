@@ -477,7 +477,7 @@
           priceLabel: "от 55 000 ₽",
           desc: "Пять коротких роликов для соцсетей, снятых за один контент-день и смонтированных.",
           goodFor: "регулярный контент, эксперты, блогеры, бренды",
-          items: ["content_day_plan", "shoot_plan", "camera_operator", "camera_basic", "light_basic", "sound_kit", "edit_short", "edit_short", "edit_short", "smm_cutdowns", "thumbnail_pack"],
+          items: ["content_day_plan", "shoot_plan", "camera_operator", "camera_basic", "light_basic", "sound_kit", "edit_short", "smm_cutdowns", "thumbnail_pack"],
           notes: ["5 роликов по 15–60 сек за один день съёмки.", "В монтаж входят субтитры и базовые переходы."]
         },
         {
@@ -936,6 +936,8 @@
         });
       }
 
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal"]);
+
       async function _loadCloudState() {
         if (!_supabase || !_adminSession) return;
         const agencyId = getAgencyId();
@@ -943,12 +945,13 @@
           const { data } = await _supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
           if (data && data.state_json) {
             const cloudState = data.state_json;
-            const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal"];
+            const localSnap = JSON.stringify(Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k))));
             Object.entries(cloudState).forEach(([k, v]) => {
-              if (!skipKeys.includes(k)) state[k] = v;
+              if (!SYNC_SKIP_KEYS.has(k)) state[k] = v;
             });
             _migrateStateData();
-            toast("☁️ Данные загружены из облака");
+            const cloudSnap = JSON.stringify(Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k))));
+            if (localSnap !== cloudSnap) toast("☁️ Данные синхронизированы из облака");
           }
         } catch(e) { console.warn("Cloud load:", e); }
       }
@@ -958,8 +961,7 @@
         const agencyId = getAgencyId();
         clearTimeout(_cloudSaveTimer);
         _cloudSaveTimer = setTimeout(async () => {
-          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal"];
-          const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
+          const data = Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k)));
           try {
             await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: new Date().toISOString() });
           } catch(e) { console.warn("Cloud save:", e); }
@@ -1009,8 +1011,7 @@
             if (!payload || !payload.data) return;
             if (payload.sender && payload.sender === myEmail) return;
             const incoming = payload.data;
-            const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal"];
-            skipKeys.forEach(k => { if (k in state) incoming[k] = state[k]; });
+            SYNC_SKIP_KEYS.forEach(k => { if (k in state) incoming[k] = state[k]; });
             Object.assign(state, incoming);
             render();
             toast("🔄 Обновление от " + (payload.sender || "коллеги"));
@@ -1043,8 +1044,7 @@
         if (!_realtimeChannel || !_adminSession) return;
         clearTimeout(_broadcastTimer);
         _broadcastTimer = setTimeout(() => {
-          const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal"];
-          const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
+          const data = Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k)));
           _realtimeChannel.send({ type: "broadcast", event: "state-sync",
             payload: { data, sender: _adminSession.user.email } });
         }, 1200);
@@ -2456,8 +2456,7 @@
       async function forceSaveToCloud() {
         if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
         const agencyId = getAgencyId();
-        const skipKeys = ["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal"];
-        const data = Object.fromEntries(Object.entries(state).filter(([k]) => !skipKeys.includes(k)));
+        const data = Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k)));
         try {
           await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: new Date().toISOString() });
           toast("☁️ Данные сохранены в облако");
