@@ -10313,6 +10313,38 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <p style="font-size:12px;color:var(--muted);margin-top:12px">Уведомления: просроченные дедлайны, смена статуса сделки.</p>
             </div>
 
+            ${(() => {
+              if (!_adminSession || !_userProfile) return "";
+              const { url } = getSupabaseConfig();
+              if (!url) return "";
+              const agencyId = getAgencyId();
+              const feedUrl = `${url}/functions/v1/calendar-feed?token=${agencyId}`;
+              const webcalUrl = feedUrl.replace(/^https?:\/\//, "webcal://");
+              return `
+              <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
+                <h2>📅 Синхронизация с iPhone / Google Calendar</h2>
+                <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+                  Подпишитесь на iCal-фид чтобы задачи и дедлайны из CRM автоматически появлялись в вашем календаре. Обновляется каждые 1–12 часов автоматически.
+                </p>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                  <input readonly onclick="this.select()" value="${escapeHtml(feedUrl)}"
+                    style="flex:1;font-size:11px;min-width:0;background:rgba(0,0,0,.15);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--fg);cursor:text">
+                  <button class="btn small" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(feedUrl)}').then(()=>app._toast('✅ Ссылка скопирована!'))">📋 Копировать</button>
+                  <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none;white-space:nowrap">📱 Открыть на iPhone</a>
+                </div>
+                <details style="font-size:12px;color:var(--muted)">
+                  <summary style="cursor:pointer;font-weight:600;margin-bottom:8px">Как подключить?</summary>
+                  <div style="padding:10px 0;line-height:1.7">
+                    <b>iPhone:</b> нажмите «Открыть на iPhone» → Календарь предложит подписаться → «Добавить».<br>
+                    <b>Google Calendar:</b> Другие календари → Добавить по URL → вставить ссылку выше → Добавить.<br>
+                    <b>Outlook:</b> Добавить календарь → Подписаться из Интернета → вставить ссылку.<br>
+                    <br>
+                    <b>⚠️ Ссылка личная</b> — не передавайте её третьим лицам. В фиде отображаются задачи и дедлайны всех проектов агентства.
+                  </div>
+                </details>
+              </div>`;
+            })()}
+
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2);border-color:rgba(220,38,38,.45)">
               <h2>Опасная зона</h2>
               <p>Сброс удалит все локальные данные приложения в браузере.</p>
