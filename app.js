@@ -12410,6 +12410,10 @@ Email: ______________________            Email: ______________________
         closeSearch,
         runSearch,
         setPkgCatFilter: (cat) => { state.pkgCatFilter = cat; render(); },
+        setCrmView,
+        openPackageEditModal,
+        closePackageEditModal,
+        savePackageEdit,
 
         addTelegramRecipient,
         removeTelegramRecipient,
