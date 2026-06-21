@@ -1370,6 +1370,10 @@
           f.loading = false;
           if (error) { f.error = error.message; _pendingInviteCode = ""; renderAuthGateEl(); return; }
           if (!signUpData.session) {
+            if (!signUpData.user) {
+              _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `Этот email уже зарегистрирован. Войдите с вашим паролем или воспользуйтесь «Забыли пароль?».`, loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
+              _authTab = "login"; renderAuthGateEl(); return;
+            }
             _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `📧 Письмо отправлено на ${f.email}. Перейдите по ссылке в письме для активации, затем войдите здесь.`, loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
             _authTab = "login"; renderAuthGateEl(); return;
           }
