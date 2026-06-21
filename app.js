@@ -2553,12 +2553,20 @@
       }
 
       async function confirmDeleteAccount() {
-        if (!confirm("Вы уверены? Ваш профиль будет удалён. Общие данные агентства останутся нетронутыми.")) return;
+        if (!confirm("Вы уверены? Аккаунт и все данные профиля будут удалены безвозвратно.")) return;
         if (!confirm("Подтвердите ещё раз — удалить аккаунт?")) return;
         if (!_supabase) return;
         try {
-          const userId = _adminSession.user.id;
-          await _supabase.from("profiles").delete().eq("id", userId);
+          const { data: { session } } = await _supabase.auth.getSession();
+          if (!session) { toast("Ошибка: нет активной сессии"); return; }
+          const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-account`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+          });
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            toast("Ошибка удаления: " + (body.error || res.status)); return;
+          }
           await _supabase.auth.signOut();
           toast("Аккаунт удалён");
         } catch(e) { toast("Ошибка удаления: " + e.message); }
