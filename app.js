@@ -747,11 +747,11 @@
         await _loadUserProfile(session.user.id, session.user.email);
         // Сохранить реферальный код, если пользователь пришёл по ref-ссылке
         await _applyReferralCode(session.user.id);
-        // Если в браузере данные другого агентства — чистим localStorage чтобы
-        // новый пользователь не видел чужие сделки/клиентов
+        // Если в браузере данные другого агентства (или нет записи о предыдущем пользователе)
+        // — чистим localStorage чтобы новый пользователь не видел чужие сделки/клиентов
         const currentAgencyId = getAgencyId();
         const lastAgencyId = localStorage.getItem(LAST_AGENCY_KEY);
-        if (lastAgencyId && lastAgencyId !== currentAgencyId) {
+        if (!lastAgencyId || lastAgencyId !== currentAgencyId) {
           state = defaultState();
           localStorage.removeItem(STORAGE_KEY);
         }
@@ -2584,7 +2584,8 @@
         try {
           const { data: { session } } = await _supabase.auth.getSession();
           if (!session) { toast("Ошибка: нет активной сессии"); return; }
-          const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-account`, {
+          const { url: sbUrl } = getSupabaseConfig();
+          const res = await fetch(`${sbUrl}/functions/v1/delete-account`, {
             method: "POST",
             headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
           });
@@ -2592,8 +2593,10 @@
             const body = await res.json().catch(() => ({}));
             toast("Ошибка удаления: " + (body.error || res.status)); return;
           }
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(LAST_AGENCY_KEY);
           await _supabase.auth.signOut();
-          toast("Аккаунт удалён");
+          toast("✅ Аккаунт удалён");
         } catch(e) { toast("Ошибка удаления: " + e.message); }
       }
 
