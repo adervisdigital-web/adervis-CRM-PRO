@@ -10210,7 +10210,39 @@ alter table profiles add column if not exists agency_id text;
 -- Заполнить agency_id = id для существующих пользователей
 update profiles set agency_id = id::text where agency_id is null;
 
--- 4. Realtime: Database → Replication → agency_state → Insert+Update</pre>
+-- 4. Realtime: Database → Replication → agency_state → Insert+Update
+
+-- 5. RPC: атомарное обновление telegramChatIds (избегаем race condition в команде)
+create or replace function update_telegram_recipients(
+  p_agency_id uuid,
+  p_recipients jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_agency_id text;
+begin
+  select agency_id into v_user_agency_id from profiles where id = auth.uid();
+  if v_user_agency_id is distinct from p_agency_id::text then
+    raise exception 'Unauthorized';
+  end if;
+  update agency_state
+    set state_json = jsonb_set(coalesce(state_json, '{}'), '{telegramChatIds}', p_recipients, true),
+        updated_at = now()
+    where id = p_agency_id;
+  if not found then
+    insert into agency_state (id, state_json, updated_at)
+    values (p_agency_id, jsonb_build_object('telegramChatIds', p_recipients), now())
+    on conflict (id) do update
+      set state_json = jsonb_set(coalesce(agency_state.state_json, '{}'), '{telegramChatIds}', p_recipients, true),
+          updated_at = now();
+  end if;
+end;
+$$;
+grant execute on function update_telegram_recipients(uuid, jsonb) to authenticated;</pre>
               </details>
               ${(() => {
                 const cfg = getSupabaseConfig();
@@ -10759,20 +10791,36 @@ update profiles set agency_id = id::text where agency_id is null;
         }
       }
 
+      // Атомарное сохранение telegramChatIds через RPC чтобы избежать race condition
+      // при одновременном редактировании в команде (jsonb_set только этого ключа).
+      async function _saveTelegramRecipients() {
+        save();
+        if (!_supabase || !_adminSession) return;
+        try {
+          await _supabase.rpc('update_telegram_recipients', {
+            p_agency_id: getAgencyId(),
+            p_recipients: state.telegramChatIds || []
+          });
+        } catch(e) {
+          console.warn('Telegram RPC save failed, fallback to full save:', e);
+          saveToCloud();
+        }
+      }
+
       function addTelegramRecipient() {
         state.telegramChatIds = state.telegramChatIds || [];
         state.telegramChatIds.push({ id: uid('tg'), name: '', chatId: '' });
-        save(); saveToCloud(); render();
+        _saveTelegramRecipients(); render();
       }
 
       function removeTelegramRecipient(id) {
         state.telegramChatIds = (state.telegramChatIds || []).filter(r => r.id !== id);
-        save(); saveToCloud(); render();
+        _saveTelegramRecipients(); render();
       }
 
       function setTelegramRecipientField(id, key, val) {
         const r = (state.telegramChatIds || []).find(x => x.id === id);
-        if (r) { r[key] = val.trim(); save(); saveToCloud(); }
+        if (r) { r[key] = val.trim(); _saveTelegramRecipients(); }
       }
 
       async function testTelegramRecipient(id) {
