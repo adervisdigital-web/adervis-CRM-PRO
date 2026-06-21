@@ -897,10 +897,58 @@
         } catch(e) { /* push — нет критического значения, не прерываем */ }
       }
 
-      function _loadRefStats() {
+      async function _loadRefStats() {
         const el = document.getElementById('refStats');
-        if (!el) return;
-        el.textContent = 'Бонус +30 дней будет начислен автоматически после первой оплаты приглашённого.';
+        if (!el || !_supabase) return;
+        const { data, error } = await _supabase.rpc('get_referral_stats');
+        if (error || !data || !data[0]) {
+          el.textContent = 'Бонус +30 дней будет начислен автоматически после первой оплаты приглашённого.';
+          return;
+        }
+        const s = data[0];
+        const invited = Number(s.total_invited) || 0;
+        const paid    = Number(s.total_paid)    || 0;
+        const bonus   = Number(s.bonus_days_earned) || 0;
+        if (invited === 0) {
+          el.textContent = 'Вы ещё никого не пригласили. Поделитесь ссылкой — получите +30 дней за каждого оплатившего.';
+        } else {
+          el.innerHTML = `Приглашено: <b>${invited}</b> &nbsp;·&nbsp; Оплатили: <b>${paid}</b> &nbsp;·&nbsp; Бонус заработан: <b>+${bonus} дн.</b>`;
+        }
+      }
+
+      async function _loadPortalAdvanceStatus() {
+        const el = document.getElementById('portalAdvanceStatus');
+        if (!el || !_supabase) return;
+        const portalId = state.project && state.project.portalId;
+        if (!portalId) { el.remove(); return; }
+        const { data, error } = await _supabase
+          .from('client_portals')
+          .select('advance_amount, advance_paid_at, advance_payment_id')
+          .eq('id', portalId)
+          .maybeSingle();
+        if (error || !data) { el.remove(); return; }
+        if (!data.advance_amount || data.advance_amount <= 0) { el.remove(); return; }
+        const amount = data.advance_amount.toLocaleString('ru-RU');
+        if (data.advance_paid_at) {
+          const date = new Date(data.advance_paid_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+          el.innerHTML = `
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.25);border-radius:12px">
+              <span style="font-size:20px">✅</span>
+              <div>
+                <div style="font-size:12px;font-weight:800;color:var(--green)">Аванс оплачен клиентом</div>
+                <div style="font-size:11px;color:var(--muted)">${date} · ${amount} ₽</div>
+              </div>
+            </div>`;
+        } else {
+          el.innerHTML = `
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(234,179,8,.07);border:1px solid rgba(234,179,8,.25);border-radius:12px">
+              <span style="font-size:18px">⏳</span>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:var(--yellow,#d97706)">Аванс не оплачен</div>
+                <div style="font-size:11px;color:var(--muted)">Сумма аванса: ${amount} ₽ · Ожидаем оплату клиента</div>
+              </div>
+            </div>`;
+        }
       }
 
       async function _applyReferralCode(userId) {
@@ -4153,7 +4201,8 @@
           crmStatus: saved.crmStatus || snapshot.project?.crmStatus || "Лид",
           priority: saved.priority || snapshot.project?.priority || "Средний",
           deadline: saved.deadline || snapshot.project?.deadline || "",
-          city: saved.city || snapshot.project?.city || ""
+          city: saved.city || snapshot.project?.city || "",
+          portalId: saved.portalId || snapshot.project?.portalId || undefined
         };
 
         state.selected = deepClone(snapshot.selected || {});
@@ -8849,6 +8898,13 @@
               </div>
             </div>
 
+            ${state.project.portalId ? `
+            <div id="portalAdvanceStatus" class="no-print client-hidden" style="margin-bottom:14px">
+              <div style="font-size:11px;color:var(--muted);padding:8px 0">⏳ Загрузка статуса аванса...</div>
+            </div>
+            ${(() => { setTimeout(_loadPortalAdvanceStatus, 0); return ''; })()}
+            ` : ''}
+
             <div class="grid three no-print client-hidden">
               ${field("Шаблон", `
                 <select data-autosave data-scope="project" data-key="proposalTemplate">
@@ -10367,6 +10423,11 @@ update profiles set agency_id = id::text where agency_id is null;
         if (data && !error) {
           const url = location.origin + location.pathname + '?portal=' + data.id;
           try { await navigator.clipboard.writeText(url); } catch(e) {}
+
+          // Сохраняем portalId в проект чтобы показывать статус аванса в KP-табе
+          project.portalId = data.id;
+          if (state.project && state.project.id === projectId) state.project.portalId = data.id;
+          save();
 
           // Отправить письмо клиенту, если у него указан email
           const client = getClientById(project.clientId);

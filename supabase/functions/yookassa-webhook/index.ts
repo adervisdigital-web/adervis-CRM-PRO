@@ -68,6 +68,8 @@ serve(async (req) => {
       console.error("Webhook: portal_advance missing portalId", metadata);
       return new Response("Missing portalId", { status: 400 });
     }
+
+    // 1. Пометить аванс оплаченным
     const { error: advErr } = await supabase.rpc("mark_portal_advance_paid", {
       p_portal_id:  portalId,
       p_payment_id: paymentId,
@@ -77,6 +79,52 @@ serve(async (req) => {
       return new Response("DB error", { status: 500 });
     }
     console.log(`Portal advance paid: portal=${portalId} payment=${paymentId}`);
+
+    // 2. Telegram-уведомление агентству
+    try {
+      const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+      if (botToken) {
+        const { data: portal } = await supabase
+          .from("client_portals")
+          .select("agency_id, deal_name, advance_amount")
+          .eq("id", portalId)
+          .maybeSingle();
+
+        if (portal?.agency_id) {
+          const { data: agState } = await supabase
+            .from("agency_state")
+            .select("state_json")
+            .eq("id", portal.agency_id)
+            .maybeSingle();
+
+          const chatIds: string[] = (agState?.state_json?.telegramChatIds || [])
+            .map((r: { chatId: string | number }) => String(r.chatId))
+            .filter(Boolean);
+
+          if (chatIds.length) {
+            const amount = portal.advance_amount ?? 0;
+            const formatted = amount.toLocaleString("ru-RU");
+            const text =
+              `💳 <b>Клиент оплатил аванс!</b>\n\n` +
+              `📋 ${portal.deal_name || "КП"}\n` +
+              `💰 <b>${formatted} ₽</b>\n\n` +
+              `<i>Деньги поступили через ЮKassa.</i>`;
+
+            for (const chatId of chatIds) {
+              await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true }),
+              });
+            }
+          }
+        }
+      }
+    } catch (tgErr) {
+      // Telegram-ошибка не должна откатывать успешную оплату
+      console.error("Webhook: telegram notify failed", tgErr);
+    }
+
     return new Response("ok", { status: 200 });
   }
 
