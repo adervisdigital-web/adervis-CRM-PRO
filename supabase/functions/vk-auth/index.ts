@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +21,7 @@ interface VKIDPayload {
   phone?:      string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {

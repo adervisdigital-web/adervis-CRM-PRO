@@ -1,9 +1,8 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Deployed with --no-verify-jwt because Telegram sends updates without a user JWT.
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
   // Verify Telegram webhook secret token (set via TELEGRAM_WEBHOOK_SECRET secret).

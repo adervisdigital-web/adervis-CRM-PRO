@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Called daily by pg_cron — no user JWT, verifies x-cron-secret header.
@@ -83,7 +82,7 @@ async function encryptPayload(
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────────
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
   const cronSecret = Deno.env.get("CRON_SECRET");

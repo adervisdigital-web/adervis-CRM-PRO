@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Sends a "your subscription/trial ends in 3 days" email so users renew before
@@ -10,7 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const RESEND_FROM = "ADERVIS CRM <noreply@app.adervis.ru>";
 const REPLY_TO = "adervis.digital@gmail.com";
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // SECURITY: deployed with --no-verify-jwt (pg_cron has no Supabase user JWT to send),
   // so we gate it ourselves with a shared secret known only to the cron job and this function.
   const cronSecret = Deno.env.get("CRON_SECRET");

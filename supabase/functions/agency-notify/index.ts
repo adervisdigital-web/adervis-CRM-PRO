@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Public endpoint — no JWT required.
@@ -10,7 +9,7 @@ const cors = {
   "Access-Control-Allow-Headers": "content-type, apikey, authorization",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 

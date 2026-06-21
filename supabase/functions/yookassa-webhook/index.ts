@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // How many days each plan adds to the subscription
@@ -9,7 +8,7 @@ const PLAN_DAYS: Record<string, number> = {
   year:   365,
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }

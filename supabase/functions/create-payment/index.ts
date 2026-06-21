@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -13,7 +12,7 @@ const PLANS: Record<string, { amount: number; days: number; label: string }> = {
   year:   { amount: 6240, days: 365, label: "ADERVIS CRM — 1 год"     },
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {

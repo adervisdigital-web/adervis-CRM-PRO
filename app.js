@@ -812,7 +812,7 @@
             await _supabase.from("profiles").upsert(newProfile);
             _userProfile = newProfile;
             _pendingInviteCode = "";
-            if (!joinedTeam) trackGoal("trial_started");
+            if (!joinedTeam) { trackGoal("registration"); trackGoal("trial_started"); }
             setTimeout(() => {
               if (joinedTeam) {
                 pushNotification("info", "👥 Вы вошли в команду!", "Теперь вы работаете в общем рабочем пространстве агентства.", "");
@@ -1007,10 +1007,12 @@
         }, 3000);
       }
 
-      const SUPER_ADMIN_EMAIL = "adervis.digital@gmail.com";
+      function _isSuperAdmin() {
+        return !!(_adminSession && _adminSession.user.email === atob("YWRlcnZpcy5kaWdpdGFsQGdtYWlsLmNvbQ=="));
+      }
 
       function isSubscriptionActive() {
-        if (_adminSession && _adminSession.user.email === SUPER_ADMIN_EMAIL) return true;
+        if (_isSuperAdmin()) return true;
         if (!_adminSession) return true; // local mode — no Supabase auth
         if (!_userProfile) return false; // session exists but profile failed to load
         const s = _userProfile.subscription_status;
@@ -1023,7 +1025,7 @@
       }
 
       function getSubscriptionLabel() {
-        if (_adminSession && _adminSession.user.email === SUPER_ADMIN_EMAIL) return "Super Admin ∞";
+        if (_isSuperAdmin()) return "Super Admin ∞";
         if (!_userProfile) return "";
         const s = _userProfile.subscription_status;
         const plan = _userProfile.subscription_plan || "pro";
@@ -1367,7 +1369,6 @@
             options: { data: { name: f.name } } });
           f.loading = false;
           if (error) { f.error = error.message; _pendingInviteCode = ""; renderAuthGateEl(); return; }
-          trackGoal("registration");
           if (!signUpData.session) {
             _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `📧 Письмо отправлено на ${f.email}. Перейдите по ссылке в письме для активации, затем войдите здесь.`, loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
             _authTab = "login"; renderAuthGateEl(); return;
@@ -10036,7 +10037,7 @@
               </div>`;
             })() : ''}
 
-            ${(!_adminSession || _adminSession.user.email === SUPER_ADMIN_EMAIL) ? `
+            ${(!_adminSession || _isSuperAdmin()) ? `
             <div class="supabase-config-box">
               <h2 style="margin-top:0">🔐 Supabase — авторизация и подписки</h2>
               <p style="margin-bottom:6px;font-size:13px">
