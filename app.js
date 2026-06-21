@@ -1550,7 +1550,7 @@
         const subLabel = getSubscriptionLabel();
         const us = getUserSettings();
         const avatarHtml = us.avatarDataUrl
-          ? `<img src="${us.avatarDataUrl}" alt="">`
+          ? `<img src="${safeAvatarSrc(us.avatarDataUrl)}" alt="">`
           : `<span style="font-size:15px;font-weight:900">${(email||"A")[0].toUpperCase()}</span>`;
         const active = isSubscriptionActive();
         const localMode = !_adminSession;
@@ -2232,7 +2232,7 @@
         const us = getUserSettings();
         const displayName = us.displayName || "";
         const avatarHtml = us.avatarDataUrl
-          ? `<img src="${us.avatarDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+          ? `<img src="${safeAvatarSrc(us.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
           : `<span style="font-size:26px;font-weight:900">${escapeHtml(initial)}</span>`;
 
         // Subscription status details
@@ -2874,6 +2874,14 @@
           .replaceAll(">", "&gt;")
           .replaceAll('"', "&quot;")
           .replaceAll("'", "&#039;");
+      }
+
+      function safeAvatarSrc(url) {
+        if (!url) return "";
+        if (/^data:image\/(jpeg|png|webp|gif);base64,/.test(url) || /^https:\/\//.test(url)) {
+          return escapeHtml(url);
+        }
+        return "";
       }
 
       function optionValueHtml(value, label, selected) {
@@ -6249,7 +6257,7 @@
           paBtn.classList.toggle("active", state.view === "profile");
           const us = getUserSettings();
           if (us.avatarDataUrl) {
-            paInner.innerHTML = `<img src="${us.avatarDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+            paInner.innerHTML = `<img src="${safeAvatarSrc(us.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
           } else {
             const email = _adminSession ? _adminSession.user.email : "";
             const initial = email ? email[0].toUpperCase() : (state.company && state.company.name ? state.company.name[0].toUpperCase() : "A");
@@ -11740,7 +11748,7 @@ Email: ______________________            Email: ______________________
         const c = (state.contracts || []).find(x => x.id === id);
         if (!c) return;
         const win = window.open("", "_blank");
-        win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${c.name}</title><style>body{font-family:Arial,sans-serif;margin:40px;line-height:1.6;white-space:pre-wrap;font-size:13px}h1{font-size:18px;margin-bottom:16px}</style></head><body><h1>${c.name}</h1>${c.body}</body></html>`);
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(c.name)}</title><style>body{font-family:Arial,sans-serif;margin:40px;line-height:1.6;white-space:pre-wrap;font-size:13px}h1{font-size:18px;margin-bottom:16px}</style></head><body><h1>${escapeHtml(c.name)}</h1>${escapeHtml(c.body)}</body></html>`);
         win.document.close();
         win.print();
       }
