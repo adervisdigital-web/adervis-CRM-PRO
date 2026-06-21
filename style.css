@@ -3358,3 +3358,30 @@ body.portal-mode .nav { display: none !important; }
   background: #0077ff; border-color: #0077ff; color: #fff;
 }
 .oauth-btn.oauth-vk:hover { background: #005fcc; border-color: #005fcc; }
+
+/* ── Toast close button ─────────────────────────────── */
+.toast { display: flex; align-items: center; gap: 2px; }
+.toast-msg { flex: 1; }
+.toast-close {
+  background: none; border: none; color: inherit;
+  font-size: 18px; cursor: pointer; padding: 0 0 0 8px;
+  line-height: 1; opacity: .65; flex-shrink: 0;
+  pointer-events: auto;
+}
+.toast-close:hover { opacity: 1; }
+.toast.show { pointer-events: auto; }
+
+/* ── View fade on section switch ───────────────────── */
+@keyframes viewFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+#appContent.view-fade { animation: viewFadeIn .18s ease forwards; }
+@media (prefers-reduced-motion: reduce) { #appContent.view-fade { animation: none; } }
+
+/* ── Offline banner ─────────────────────────────────── */
+.offline-banner {
+  display: none;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+  background: #dc2626; color: #fff;
+  padding: 10px 16px;
+  align-items: center; justify-content: center; gap: 8px;
+  font-size: 14px; font-weight: 600;
+}

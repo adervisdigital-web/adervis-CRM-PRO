@@ -682,6 +682,7 @@
       let _needsNormalize = true; // true after any state mutation; normalizeState() runs in render() only when set
       let _briefAgencyId = (new URLSearchParams(location.search).get('brief') || '').trim();
       let _portalId = (new URLSearchParams(location.search).get('portal') || '').trim();
+      if (_portalId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(_portalId)) _portalId = '';
 
       // Реферальный код — сохраняем при первом визите, применяем после регистрации
       (function() {
@@ -1771,6 +1772,11 @@
         if (m) m.style.display = "none";
       }
       function runSearch(q) {
+        clearTimeout(runSearch._t);
+        runSearch._t = setTimeout(() => _execSearch(q), 150);
+      }
+
+      function _execSearch(q) {
         const el = document.getElementById("searchResults");
         if (!el) return;
         q = (q || "").toLowerCase().trim();
@@ -1778,6 +1784,8 @@
           el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Начните вводить — ищем по сделкам, клиентам и задачам</div>`;
           return;
         }
+        const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const hl = t => escapeHtml(t).replace(new RegExp(`(${safe})`, "gi"), "<mark>$1</mark>");
         const results = [];
         (state.savedProjects || []).forEach(p => {
           if ((p.name||"").toLowerCase().includes(q) || (p.client||"").toLowerCase().includes(q)) {
@@ -1798,7 +1806,7 @@
         el.innerHTML = results.slice(0,12).map(r => `
           <div class="search-result" onclick="${r.action}">
             <div class="search-result-icon" style="background:${r.color}">${r.icon}</div>
-            <div><div class="search-result-name">${escapeHtml(r.name)}</div><div class="search-result-sub">${escapeHtml(r.sub)}</div></div>
+            <div><div class="search-result-name">${hl(r.name)}</div><div class="search-result-sub">${hl(r.sub)}</div></div>
           </div>`).join("");
       }
 
@@ -3418,7 +3426,7 @@
         return {
           id: payment?.id || uid("payment"),
           title: payment?.title || "Платёж",
-          amount: numberValue(payment?.amount, 0),
+          amount: Math.min(Math.max(0, numberValue(payment?.amount, 0)), 999_000_000),
           date: payment?.date || todayIso(),
           method: payment?.method || "",
           note: payment?.note || "",
@@ -3430,7 +3438,7 @@
         return {
           id: expense?.id || uid("expense"),
           title: expense?.title || "Расход",
-          amount: numberValue(expense?.amount, 0),
+          amount: Math.min(Math.max(0, numberValue(expense?.amount, 0)), 999_000_000),
           date: expense?.date || todayIso(),
           category: expense?.category || "",
           note: expense?.note || "",
@@ -3691,10 +3699,10 @@
       function toast(message) {
         const el = document.getElementById("toast");
         if (!el) return;
-        el.textContent = message;
+        el.innerHTML = `<span class="toast-msg">${escapeHtml(message)}</span><button class="toast-close" onclick="this.parentElement.classList.remove('show')" aria-label="Закрыть">&times;</button>`;
         el.classList.add("show");
         clearTimeout(toast._timer);
-        toast._timer = setTimeout(() => el.classList.remove("show"), 2200);
+        toast._timer = setTimeout(() => el.classList.remove("show"), 3500);
       }
 
       function allItems(includeHidden = false) {
@@ -6315,7 +6323,11 @@
           return;
         }
         try {
+          const viewChanged = root.dataset.view !== state.view;
+          root.dataset.view = state.view;
+          if (viewChanged) root.classList.add("view-fade");
           root.innerHTML = (views[state.view] || renderHome)();
+          if (viewChanged) requestAnimationFrame(() => root.classList.remove("view-fade"));
         } catch(err) {
           console.error("Render error:", err);
           root.innerHTML = `
@@ -8942,6 +8954,27 @@
       function renderCrm() {
         const projects = state.savedProjects || [];
 
+        if (!projects.length) {
+          return `
+            <div class="panel">
+              <div class="section-title">
+                <div><h1>CRM</h1><p>Воронка сохранённых проектов по CRM-статусам.</p></div>
+                <div class="toolbar no-print">
+                  <button class="btn primary" onclick="app.saveCurrentProject()">Сохранить текущий в CRM</button>
+                </div>
+              </div>
+              <div style="min-height:50vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:48px 24px;text-align:center">
+                <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(37,99,235,.12));display:grid;place-items:center;font-size:32px">📋</div>
+                <h2 style="margin:0;font-size:22px">Воронка пуста</h2>
+                <p style="margin:0;color:var(--muted);max-width:360px;line-height:1.5">Сохраните текущую смету в CRM, чтобы видеть сделки по статусам и отслеживать воронку продаж.</p>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+                  <button class="btn primary" onclick="app.saveCurrentProject()">Сохранить текущую смету</button>
+                  <button class="btn" onclick="app.startWizard()">Создать новую сделку</button>
+                </div>
+              </div>
+            </div>`;
+        }
+
         return `
           <div class="panel">
             <div class="section-title">
@@ -10605,6 +10638,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (data && !error) {
           const url = location.origin + location.pathname + '?portal=' + data.id;
           try { await navigator.clipboard.writeText(url); } catch(e) {}
+          if (navigator.share) {
+            navigator.share({ title: project.name || 'Коммерческое предложение', url }).catch(() => {});
+          }
 
           // Сохраняем portalId в проект чтобы показывать статус аванса в KP-табе
           project.portalId = data.id;
@@ -12460,4 +12496,13 @@ Email: ______________________            Email: ______________________
       if (_portalId) loadPortalData();
       setTimeout(initSwipeToDelete, 800);
       setTimeout(checkDeadlineNotifications, 1200);
+
+      window.addEventListener('offline', () => {
+        const b = document.getElementById('offlineBanner');
+        if (b) b.style.display = 'flex';
+      });
+      window.addEventListener('online', () => {
+        const b = document.getElementById('offlineBanner');
+        if (b) b.style.display = 'none';
+      });
     })();
