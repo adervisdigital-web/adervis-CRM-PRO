@@ -1797,8 +1797,12 @@
         // Пока проверяем сохранённую сессию — auth gate не показываем (бесшовная загрузка)
         if (_authChecking || !cfg.url || !cfg.key || localMode || _adminSession) {
           el.innerHTML = "";
+          const footer = document.getElementById("requisitesFooter");
+          if (footer) footer.style.display = "";
         } else {
           el.innerHTML = renderAuthGate();
+          const footer = document.getElementById("requisitesFooter");
+          if (footer) footer.style.display = "none";
           _vkidInited = false;
           setTimeout(initVKIDWidget, 50);
         }
@@ -2111,7 +2115,7 @@
       function renderPlans() {
         const sub = _userProfile;
         const planFeatures = {
-          trial:  ["До 5 активных сделок", "CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Календарь задач", "1 пользователь"],
+          trial:  ["До 5 активных сделок", "CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Telegram-бот уведомления", "AI генерация КП", "Web Push", "1 пользователь"],
           month1: ["Всё из пробного", "Безлимитные сделки", "Финансы и аналитика", "Экспорт Excel", "Договоры", "1 пользователь"],
           month3: ["Всё из «Месяца»", "До 3 пользователей", "Командная работа", "Синхронизация", "Экономия 17%", "Поддержка"],
           month6: ["Всё из «3 мес»", "До 5 пользователей", "Расширенная аналитика", "Версии смет", "Пакеты услуг", "Экономия 28%"],
@@ -6167,6 +6171,7 @@
         const clientModeBtn = document.getElementById("clientModeBtn");
         if (clientModeBtn) {
           clientModeBtn.textContent = state.clientMode ? "🙈 Выйти" : "👁 Клиент";
+          clientModeBtn.title = state.clientMode ? "Выйти из режима предпросмотра" : "Предпросмотр КП глазами клиента";
           clientModeBtn.classList.toggle("primary", state.clientMode);
           clientModeBtn.classList.toggle("blue", !state.clientMode);
         }
@@ -7157,7 +7162,7 @@
                   return `
                     <div class="deal-list-row ${isCurrent?"current":""}" onclick="app.openDealModal('${projectIdSafe}')">
                       <input type="checkbox" class="crm-cb no-print" ${(state.crmSelected||{})[project.id]?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">
-                      <div class="health-dot ${healthClass}" style="flex:0 0 auto" title="Маржа ${margin}%"></div>
+                      <div class="health-dot ${healthClass}" style="flex:0 0 auto" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
                       <span class="status-pill" style="font-size:10px;flex:0 0 auto">${escapeHtml(project.crmStatus||"Лид")}</span>
                       <div class="deal-list-name">${escapeHtml(project.name)}</div>
                       <div class="deal-list-client">${escapeHtml(project.client||"—")}</div>
@@ -7197,7 +7202,7 @@
                           <button class="deal-dup-btn" onclick="event.stopPropagation();app.duplicateDeal('${projectIdSafe}')" title="Дублировать сделку">
                             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H3a1 1 0 00-1 1v9h1V2h8V1zm2 2H5a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V4a1 1 0 00-1-1zm0 11H5V4h8v10z"/></svg>
                           </button>
-                          <div class="health-dot ${healthClass}" title="Маржа ${margin}%"></div>
+                          <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
                           <span class="status-pill" style="font-size:11px">${escapeHtml(project.crmStatus || "Лид")}</span>
                         </div>
                       </div>
@@ -7219,7 +7224,7 @@
                       <div style="font-size:11px;margin-top:6px;font-weight:750;color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
 
                       <div class="deal-card-footer" onclick="event.stopPropagation()">
-                        <button class="btn small" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету, КП, задачи">Открыть</button>
+                        <button class="btn small" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету, КП и задачи по сделке">Смета / КП</button>
                         ${nextLabel ? `<button class="next-action-btn" onclick="app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge">Завершено</span>`}
                       </div>
                     </div>
