@@ -722,7 +722,7 @@
             // INITIAL_SESSION fires on subscribe and duplicates the getSession() call above
             if (event === "INITIAL_SESSION") return;
             _adminSession = session;
-            if (session) { _onUserLoggedIn(session); }
+            if (session) { _onUserLoggedIn(session, event === "SIGNED_IN"); }
             else {
               _userProfile = null;
               _onlineUsers = [];
@@ -740,7 +740,7 @@
         try { window.ym && window.ym(109706942, "reachGoal", name, params); } catch(e) {}
       }
 
-      async function _onUserLoggedIn(session) {
+      async function _onUserLoggedIn(session, isFreshLogin = false) {
         _dataLoading = true;
         renderAdminTopbar();
         render();
@@ -757,6 +757,13 @@
         }
         localStorage.setItem(LAST_AGENCY_KEY, currentAgencyId);
         await _loadCloudState();
+        // При свежем входе (не при обновлении страницы / refresh токена) — всегда
+        // открываем главную страницу CRM, а не восстанавливаем последний открытый проект.
+        // Это исключает ситуацию когда новый аккаунт видит чужую/старую смету.
+        if (isFreshLogin) {
+          state.view = "crm";
+          state.activeProjectId = "";
+        }
         _dataLoading = false;
         _initRealtimeChannel();
         renderAdminTopbar();
