@@ -1049,6 +1049,27 @@
         return s;
       }
 
+      // Короткое название плана без счётчика дней — для использования в dropdown
+      function getSubscriptionPlanName() {
+        if (_isSuperAdmin()) return "Super Admin";
+        if (!_userProfile) return "";
+        const s = _userProfile.subscription_status;
+        const plan = _userProfile.subscription_plan || "pro";
+        if (s === "trial") return "Пробный период";
+        if (s === "active") return plan === "team" ? "Команда" : "Про";
+        if (s === "expired") return "Подписка истекла";
+        if (s === "cancelled") return "Подписка отменена";
+        return s;
+      }
+
+      // Количество дней до конца подписки/триала (null если неприменимо)
+      function getSubscriptionDaysLeft() {
+        if (!_userProfile) return null;
+        const exp = _userProfile.subscription_expires_at;
+        if (!exp) return null;
+        return Math.max(0, Math.round((new Date(exp) - new Date()) / 86400000));
+      }
+
       function _initRealtimeChannel() {
         if (!_supabase) return;
         if (_realtimeChannel) _realtimeChannel.unsubscribe();
@@ -1225,6 +1246,23 @@
               <div><strong>∞</strong><span>сделок</span></div>
             </div>
             <p style="margin:14px 0 0;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">🔒 Карта не нужна для пробного периода — платите только если решите остаться</p>
+
+            <div style="margin-top:28px;display:flex;flex-direction:column;gap:10px">
+              <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
+                <p style="margin:0 0 8px;font-size:13px;line-height:1.55;color:var(--fg)">"Раньше вели всё в таблицах — постоянно теряли задачи и забывали про дедлайны. Теперь вся студия в одном месте, и смету клиенту отправляю прямо из CRM за 5 минут."</p>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">А</div>
+                  <div><div style="font-size:12px;font-weight:700">Андрей К.</div><div style="font-size:11px;color:var(--muted)">Руководитель видеостудии, Москва</div></div>
+                </div>
+              </div>
+              <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
+                <p style="margin:0 0 8px;font-size:13px;line-height:1.55;color:var(--fg)">"Калькулятор смет — огонь. Показываю клиенту КП прямо на встрече, он сразу видит позиции и может что-то убрать. Конверсия в оплату выросла заметно."</p>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#10b981,#0ea5e9);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">М</div>
+                  <div><div style="font-size:12px;font-weight:700">Мария Д.</div><div style="font-size:11px;color:var(--muted)">Продюсер, продакшн-агентство</div></div>
+                </div>
+              </div>
+            </div>
           </div>
         `;
 
@@ -1575,18 +1613,26 @@
               <div class="pd-avatar">${avatarHtml}</div>
               <div style="min-width:0">
                 <div class="pd-email" title="${escapeHtml(email)}">${escapeHtml(email)}</div>
-                <div class="pd-sub" style="${!active ? "color:var(--red)" : ""}">${escapeHtml(subLabel || "Активна")}</div>
+                <div class="pd-sub" style="${!active ? "color:var(--red)" : ""}">${escapeHtml(getSubscriptionPlanName() || "Активна")}</div>
               </div>
             </div>
             <div class="pd-sep"></div>
             <button class="pd-item" onclick="app.go('profile');app.toggleProfileDd(false)" title="Ваш аккаунт, аватар, смена пароля"><span class="pd-item-icon">👤</span>Мой профиль</button>
             <button class="pd-item" onclick="app.go('settings');app.toggleProfileDd(false)" title="Supabase, тема, экспорт данных"><span class="pd-item-icon">⚙️</span>Настройки</button>
             <button class="pd-item" onclick="app.go('support');app.toggleProfileDd(false)" title="Контакты и поддержка"><span class="pd-item-icon">💬</span>Поддержка</button>
-            <button class="pd-item" style="background:rgba(124,58,237,.08);border-radius:10px" onclick="app.gotoSubscription();app.toggleProfileDd(false)" title="Тарифы, оплата, история платежей">
+            ${(() => {
+              const daysLeft = getSubscriptionDaysLeft();
+              const s = _userProfile && _userProfile.subscription_status;
+              const isUrgent = !active || (s === "trial" && daysLeft !== null && daysLeft <= 7);
+              const urgentBadge = isUrgent
+                ? `<span style="font-size:10px;background:rgba(220,38,38,.18);color:var(--red);border-radius:99px;padding:2px 8px;font-weight:750;white-space:nowrap">${s === "expired" || s === "cancelled" ? "Оплатить" : `⚠ ${daysLeft} д.`}</span>`
+                : "";
+              return `<button class="pd-item" style="background:rgba(124,58,237,.08);border-radius:10px" onclick="app.gotoSubscription();app.toggleProfileDd(false)" title="Тарифы, оплата, история платежей">
               <span class="pd-item-icon">💳</span>
               <span style="flex:1">Тарифный план</span>
-              <span style="font-size:10px;background:${active?"rgba(22,163,74,.18)":"rgba(220,38,38,.18)"};color:${active?"var(--green)":"var(--red)"};border-radius:99px;padding:2px 8px;font-weight:750">${escapeHtml(subLabel||"Активен")}</span>
-            </button>
+              ${urgentBadge}
+            </button>`;
+            })()}
             <div class="pd-sep"></div>
             <button class="pd-item danger" onclick="app.adminLogout();app.toggleProfileDd(false)" title="Выход из аккаунта"><span class="pd-item-icon">→</span>Выйти</button>
           `}
@@ -2248,6 +2294,23 @@
               ✅ Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
             </p>
             ${compTable}
+            <div style="margin-top:24px;padding:16px 20px;background:var(--panel2);border:1px solid var(--line);border-radius:14px">
+              <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Почему не amoCRM / Bitrix24?</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+                <div style="padding:10px 12px;border-radius:10px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.18)">
+                  <div style="font-size:12px;font-weight:700;margin-bottom:4px">amoCRM</div>
+                  <div style="font-size:12px;color:var(--muted);line-height:1.5">от 1&nbsp;299 ₽/пользователь&nbsp;·&nbsp;нет сметного модуля&nbsp;·&nbsp;перегруженный интерфейс</div>
+                </div>
+                <div style="padding:10px 12px;border-radius:10px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.18)">
+                  <div style="font-size:12px;font-weight:700;margin-bottom:4px">Bitrix24</div>
+                  <div style="font-size:12px;color:var(--muted);line-height:1.5">бесплатный, но сложный&nbsp;·&nbsp;3–4 недели на внедрение&nbsp;·&nbsp;всё для всех, ничего для продакшна</div>
+                </div>
+                <div style="padding:10px 12px;border-radius:10px;background:rgba(22,163,74,.07);border:1px solid rgba(22,163,74,.25)">
+                  <div style="font-size:12px;font-weight:700;margin-bottom:4px;color:var(--green)">ADERVIS CRM ✓</div>
+                  <div style="font-size:12px;color:var(--muted);line-height:1.5">создан для продакшна&nbsp;·&nbsp;смета, КП, финансы в одном&nbsp;·&nbsp;готов к работе за 10 минут</div>
+                </div>
+              </div>
+            </div>
           </div>
         `;
       }
