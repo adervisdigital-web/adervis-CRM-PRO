@@ -820,6 +820,15 @@
               } else {
                 pushNotification("info", "👋 Добро пожаловать в ADERVIS CRM!", "14 дней бесплатно и без карты. Начните с создания первой сделки!", "");
                 toast("🎉 Аккаунт создан! 14 дней бесплатного доступа.");
+                // Приветственный email — fire-and-forget, не блокируем UI
+                if (_adminSession) {
+                  const { url: _sbUrl } = getSupabaseConfig();
+                  fetch(`${_sbUrl}/functions/v1/welcome-email`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
+                    body: "{}",
+                  }).catch(() => {});
+                }
               }
             }, 1200);
           }
@@ -1202,6 +1211,7 @@
               <li><span class="auth-feat-icon">💰</span><div><strong>Финансы и аналитика</strong><span>Доходы, расходы, рентабельность каждого проекта</span></div></li>
               <li><span class="auth-feat-icon">📅</span><div><strong>Задачи и дедлайны</strong><span>Командный календарь с push-уведомлениями</span></div></li>
               <li><span class="auth-feat-icon">📄</span><div><strong>Договоры и КП</strong><span>Готовые шаблоны и онлайн-портал для клиента</span></div></li>
+              <li><span class="auth-feat-icon">✈️</span><div><strong>Управление из Telegram</strong><span>Сделки, финансы и статистика прямо в боте</span></div></li>
             </ul>
 
             <div style="display:flex;gap:10px;align-items:flex-start;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:12px;padding:12px 14px;margin-bottom:24px">
@@ -1880,8 +1890,23 @@
         if (!_adminSession || !_userProfile) return "";
         const sub = _userProfile;
         const s = sub.subscription_status;
-        if (s === "active" && sub.subscription_expires_at) {
-          const daysLeft = Math.round((new Date(sub.subscription_expires_at) - new Date()) / 86400000);
+        const exp = sub.subscription_expires_at ? new Date(sub.subscription_expires_at) : null;
+        const daysLeft = exp ? Math.round((exp - new Date()) / 86400000) : null;
+
+        if (s === "trial" && daysLeft !== null) {
+          if (daysLeft > 7) return "";
+          const bg = daysLeft <= 2 ? "var(--red)" : daysLeft <= 4 ? "var(--orange)" : "var(--primary)";
+          const msg = daysLeft <= 0
+            ? "Пробный период истёк — оформите подписку"
+            : daysLeft === 1
+            ? "Пробный период заканчивается завтра"
+            : `Пробный период: осталось ${daysLeft} дн.`;
+          return `
+            <div id="payBannerBar" style="position:fixed;bottom:70px;right:16px;z-index:200;background:${bg};color:#fff;border-radius:14px;padding:10px 16px;box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;cursor:pointer;max-width:320px" onclick="app.gotoSubscription()" title="Оформить подписку">
+              ⏰ ${msg} — Выбрать тариф →
+            </div>`;
+        }
+        if (s === "active" && daysLeft !== null) {
           if (daysLeft > 7) return "";
           return `
             <div id="payBannerBar" style="position:fixed;bottom:70px;right:16px;z-index:200;background:var(--primary);color:#fff;border-radius:14px;padding:10px 16px;box-shadow:0 8px 28px rgba(124,58,237,.45);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;cursor:pointer" onclick="app.gotoSubscription()" title="Продлите подписку">
@@ -7019,7 +7044,7 @@
             <!-- ── DASHBOARD HEADER ─────────────────────── -->
             <div class="db-header">
               <div class="db-header-left">
-                <h1 class="db-greeting">Привет, ${escapeHtml((_adminSession?.user?.email||"").split("@")[0] || "команда")} 👋</h1>
+                <h1 class="db-greeting">Привет, ${escapeHtml(_adminSession?.user?.user_metadata?.name || _adminSession?.user?.user_metadata?.full_name || (_adminSession?.user?.email||"").split("@")[0] || "команда")} 👋</h1>
                 <p class="db-date">В ${curMonthName} · ${projects.length} сделок · ${inWork} в работе</p>
               </div>
               <div class="toolbar no-print">
@@ -11903,6 +11928,14 @@ Email: ______________________            Email: ______________________
             closeSearch();
             toggleProfileDd(false);
             toggleHelpDd(false);
+            if (state.financeModal) closeFinanceModal();
+            else if (state.taskModal) { state.taskModal = null; renderModal(); }
+            else if (state.clientModal) closeClientModal();
+            else if (state.dealModal) { state.dealModal = null; renderModal(); render(); }
+            else if (state.editTransactionModal) closeEditTransactionModal();
+            else if (state.packageEditModal) closePackageEditModal();
+            else if (state.helpModal) closeHelpModal();
+            else if (state.mainMenuOpen) { state.mainMenuOpen = false; renderModal(); }
           }
         });
 
