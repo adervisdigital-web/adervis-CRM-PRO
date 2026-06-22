@@ -5050,8 +5050,26 @@
         render();
       }
 
+      // Синхронизирует paid/debt/profit и snapshot платежей/расходов в savedProjects
+      // сразу при изменении — иначе CRM-карточки показывают устаревший долг
+      function _syncFinancesToSaved() {
+        if (!state.activeProjectId) return;
+        const p = state.savedProjects.find(x => x.id === state.activeProjectId);
+        if (!p) return;
+        const f = financeTotals();
+        p.paid = f.paid;
+        p.debt = f.debt;
+        p.profit = f.profit;
+        p.expensesTotal = f.totalExpenses;
+        if (p.snapshot) {
+          p.snapshot.payments = deepClone(state.payments);
+          p.snapshot.expenses = deepClone(state.expenses);
+        }
+      }
+
       function createPayment() {
         state.payments.unshift(normalizePayment({ title: "Платёж", amount: 0, date: todayIso(), method: "", note: "" }));
+        _syncFinancesToSaved();
         toast("Платёж добавлен");
         save();
         render();
@@ -5061,6 +5079,7 @@
         const payment = state.payments.find(x => x.id === id);
         if (!payment) return;
         payment[key] = key === "amount" ? numberValue(value, 0) : value;
+        _syncFinancesToSaved();
         save();
         render();
       }
@@ -5068,12 +5087,14 @@
       function deletePayment(id) {
         if (!confirm("Удалить платёж?")) return;
         state.payments = state.payments.filter(x => x.id !== id);
+        _syncFinancesToSaved();
         save();
         render();
       }
 
       function createExpense() {
         state.expenses.unshift(normalizeExpense({ title: "Расход", amount: 0, date: todayIso(), category: "", note: "" }));
+        _syncFinancesToSaved();
         toast("Расход добавлен");
         save();
         render();
@@ -5083,6 +5104,7 @@
         const expense = state.expenses.find(x => x.id === id);
         if (!expense) return;
         expense[key] = key === "amount" ? numberValue(value, 0) : value;
+        _syncFinancesToSaved();
         save();
         render();
       }
@@ -5090,12 +5112,14 @@
       function deleteExpense(id) {
         if (!confirm("Удалить расход?")) return;
         state.expenses = state.expenses.filter(x => x.id !== id);
+        _syncFinancesToSaved();
         save();
         render();
       }
 
       function createTeamMember() {
         state.team.unshift(normalizeTeamMember({ name: "Новый участник", role: "", rate: 0, payout: 0, paid: false, note: "" }));
+        _syncFinancesToSaved();
         toast("Участник добавлен");
         save();
         render();
@@ -5109,6 +5133,7 @@
         else if (key === "paid") member[key] = Boolean(value);
         else member[key] = value;
 
+        _syncFinancesToSaved();
         save();
         render();
       }
@@ -5116,6 +5141,7 @@
       function deleteTeamMember(id) {
         if (!confirm("Удалить участника?")) return;
         state.team = state.team.filter(x => x.id !== id);
+        _syncFinancesToSaved();
         save();
         render();
       }
