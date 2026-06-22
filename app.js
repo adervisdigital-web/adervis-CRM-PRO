@@ -7459,7 +7459,7 @@
                       <div style="font-size:11px;margin-top:6px;font-weight:750;color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
 
                       <div class="deal-card-footer" onclick="event.stopPropagation()">
-                        <button class="btn small" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету, КП и задачи по сделке">Смета / КП</button>
+                        <button class="btn small" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету, КП и задачи по сделке">Открыть →</button>
                         ${nextLabel ? `<button class="next-action-btn" onclick="app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge">Завершено</span>`}
                       </div>
                     </div>
