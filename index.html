@@ -85,6 +85,14 @@
           <!-- Autosave (скрыт на мобильных) -->
           <span class="autosave-indicator" id="autoSaveIndicator">Сохранено</span>
 
+          <!-- Undo / Redo -->
+          <button class="topbar-icon-btn" id="undoBtn" title="Отменить (Ctrl+Z)" onclick="app.undo()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg>
+          </button>
+          <button class="topbar-icon-btn" id="redoBtn" title="Повторить (Ctrl+Y)" onclick="app.redo()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 000 11H13"/></svg>
+          </button>
+
           <!-- Тема -->
           <button class="topbar-icon-btn theme-toggle-btn" id="themeBtn" title="Сменить тему">
             <span class="theme-icon">
@@ -136,10 +144,8 @@
             <div class="profile-dd" id="profileDd"></div>
           </div>
 
-          <!-- Служебные элементы — только для JS, визуально скрыты -->
+          <!-- Служебные элементы — только для JS -->
           <span id="adminTopbar" style="display:none"></span>
-          <button id="undoBtn" onclick="app.undo()" style="display:none"></button>
-          <button id="redoBtn" onclick="app.redo()" style="display:none"></button>
           <button id="clientModeBtn" style="display:none">👁 Клиент</button>
           <div id="helpDdWrap" style="display:none">
             <button id="helpBtn" onclick="app.toggleHelpDd()"></button>

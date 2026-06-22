@@ -113,9 +113,47 @@
       overflow-x: hidden;
       z-index: 40;
       scrollbar-width: none;
+      transition: width .2s ease, flex-basis .2s ease;
     }
     .app-sidebar::-webkit-scrollbar { display: none; }
     .app-sidebar:empty { display: none; }
+
+    /* Collapsed sidebar — только иконки */
+    .app-sidebar.collapsed {
+      width: 56px;
+      flex: 0 0 56px;
+    }
+    .app-sidebar.collapsed .sidebar-label,
+    .app-sidebar.collapsed .sidebar-brand-name,
+    .app-sidebar.collapsed .sidebar-brand-sub,
+    .app-sidebar.collapsed .sidebar-badge { display: none; }
+    .app-sidebar.collapsed .sidebar-nav-item { justify-content: center; padding: 10px; }
+    .app-sidebar.collapsed .sidebar-header { justify-content: center; padding: 14px 8px; }
+    .app-sidebar.collapsed .sidebar-brand { cursor: pointer; }
+    /* Sidebar header с кнопкой свёртки */
+    .sidebar-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 12px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+    }
+    .sidebar-brand {
+      display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0;
+    }
+    .sidebar-collapse-btn {
+      width: 26px; height: 26px; padding: 0; flex-shrink: 0;
+      display: grid; place-items: center;
+      border: 1px solid var(--line); background: transparent;
+      border-radius: 8px; color: var(--muted); cursor: pointer;
+      transition: .14s;
+    }
+    .sidebar-collapse-btn:hover { background: var(--primary-bg); color: var(--text); border-color: rgba(108,0,255,.2); }
+
+    /* Текущий проект под Смета */
+    .sidebar-project-hint {
+      display: block; font-size: 10px; color: var(--primary2);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-weight: 600; margin-top: 1px;
+    }
+    .app-sidebar.collapsed .sidebar-project-hint { display: none; }
 
     .app-main {
       flex: 1;

@@ -1167,11 +1167,17 @@
         const initials = (name[0] || "A").toUpperCase();
         const subLabel = getSubscriptionLabel();
 
-        const navItem = (view, icon, label, badge) => `
-          <button class="sidebar-nav-item ${v === view ? "active" : ""}" onclick="app.go('${view}')">
+        const collapsed = localStorage.getItem("sidebar_collapsed") === "1";
+        if (collapsed) el.classList.add("collapsed"); else el.classList.remove("collapsed");
+
+        const activeProject = state.activeProjectId && state.project?.name ? state.project.name : "";
+
+        const navItem = (view, icon, label, badge, extraId, extraClass) => `
+          <button class="sidebar-nav-item ${v === view ? "active" : ""} ${extraClass||""}" onclick="app.go('${view}')"
+            ${extraId ? `id="${extraId}"` : ""} title="${label}">
             ${icon}
-            <span>${label}</span>
-            ${badge ? `<span style="margin-left:auto;background:var(--primary);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 6px;line-height:16px">${badge}</span>` : ""}
+            <span class="sidebar-label">${label}</span>
+            ${badge ? `<span class="sidebar-badge">${badge}</span>` : ""}
           </button>`;
 
         const overdueCount = (() => {
@@ -1183,19 +1189,37 @@
         })();
 
         el.innerHTML = `
-          <div class="sidebar-brand" onclick="app.go('home')" style="cursor:pointer" title="Дашборд">
-            <div class="logo" style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0">
-              <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:22px;height:22px;object-fit:contain">
+          <div class="sidebar-header">
+            <div class="sidebar-brand" onclick="app.go('home')" title="Дашборд">
+              <div class="logo" style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0">
+                <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:20px;height:20px;object-fit:contain">
+              </div>
+              <div class="sidebar-label">
+                <div class="sidebar-brand-name">ADERVIS CRM</div>
+                <div class="sidebar-brand-sub">продакшн</div>
+              </div>
             </div>
-            <div>
-              <div class="sidebar-brand-name">ADERVIS CRM</div>
-              <div class="sidebar-brand-sub">продакшн</div>
-            </div>
+            <button class="sidebar-collapse-btn" onclick="app.toggleSidebar()" title="${collapsed?"Развернуть":"Свернуть"} меню">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                ${collapsed
+                  ? `<path d="M9 18l6-6-6-6"/>`
+                  : `<path d="M15 18l-6-6 6-6"/>`}
+              </svg>
+            </button>
           </div>
 
           <nav class="sidebar-nav">
             ${navItem("home",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>`,"Дашборд")}
-            ${navItem("deal",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"Смета")}
+
+            <button class="sidebar-nav-item ${v==="deal"?"active":""} estimate-nav-btn" id="navEstimateBtn"
+              onclick="app.go('deal')" title="Смета${activeProject?" — "+activeProject:""}">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
+              <span class="sidebar-label">
+                Смета
+                ${activeProject ? `<small class="sidebar-project-hint">${escapeHtml(activeProject)}</small>` : ""}
+              </span>
+            </button>
+
             ${navItem("packages",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg>`,"Пакеты")}
             ${navItem("catalog",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>`,"Каталог")}
 
@@ -1203,7 +1227,7 @@
 
             ${navItem("clients",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>`,"Клиенты")}
             ${navItem("global-finances",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg>`,"Финансы")}
-            ${navItem("global-calendar",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>`,"Календарь", overdueCount || "")}
+            ${navItem("global-calendar",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>`,"Календарь","","","", overdueCount ? `badge${overdueCount}` : "")}
             ${navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора")}
             ${navItem("knowledge",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"База знаний")}
 
@@ -1213,19 +1237,26 @@
           </nav>
 
           <div class="sidebar-footer">
-            <button class="sidebar-nav-item" onclick="app.go('profile')" style="color:var(--muted)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-              <span style="min-width:0;flex:1;overflow:hidden;text-align:left">
-                <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">${escapeHtml(name)}</div>
-                <div style="font-size:10px;color:var(--muted);margin-top:1px">${escapeHtml(subLabel || "Подписка активна")}</div>
+            <button class="sidebar-nav-item" onclick="app.go('profile')" title="${escapeHtml(name)}">
+              <div class="sidebar-user-avatar" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff">${initials}</div>
+              <span class="sidebar-label" style="min-width:0;overflow:hidden;text-align:left">
+                <div style="font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">${escapeHtml(name)}</div>
+                <div style="font-size:10px;color:var(--muted)">${escapeHtml(subLabel || "Активна")}</div>
               </span>
             </button>
-            <button class="sidebar-nav-item" onclick="app.adminLogout()" style="color:var(--muted)">
+            <button class="sidebar-nav-item" onclick="app.adminLogout()" title="Выйти">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-              <span>Выйти</span>
+              <span class="sidebar-label">Выйти</span>
             </button>
           </div>
+          <div id="estimateNavTooltip" class="estimate-nav-tooltip-fixed"></div>
         `;
+      }
+
+      function toggleSidebar() {
+        const collapsed = localStorage.getItem("sidebar_collapsed") === "1";
+        localStorage.setItem("sidebar_collapsed", collapsed ? "0" : "1");
+        renderSidebar();
       }
 
       function renderAdminTopbar() {
@@ -7364,7 +7395,7 @@
                   const margin = project.total > 0 ? Math.round((project.profit||0)/project.total*100) : 0;
                   const healthClass = margin >= 40 ? "green" : margin >= 20 ? "yellow" : margin > 0 ? "red" : "grey";
                   return `
-                    <div class="deal-list-row ${isCurrent?"current":""}" onclick="app.openDealModal('${projectIdSafe}')">
+                    <div class="deal-list-row ${isCurrent?"current":""}" onclick="app.openDeal('${projectIdSafe}')">
                       <input type="checkbox" class="crm-cb no-print" ${(state.crmSelected||{})[project.id]?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">
                       <div class="health-dot ${healthClass}" style="flex:0 0 auto" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
                       <span class="status-pill" style="font-size:10px;flex:0 0 auto">${escapeHtml(project.crmStatus||"Лид")}</span>
@@ -7394,7 +7425,7 @@
                   const projectIdSafe = project.id.replace(/'/g,"");
                   const u = project.deadline ? deadlineUrgency(project.deadline) : null;
                   return `
-                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.openDealModal('${projectIdSafe}')" style="cursor:pointer" title="Редактировать сделку">
+                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.openDeal('${projectIdSafe}')" style="cursor:pointer" title="Открыть сделку">
                       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
                         <input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">
@@ -12563,6 +12594,7 @@ Email: ______________________            Email: ______________________
         getAgencyId,
         exitLocalModeAndLogin,
         toggleProfileDd,
+        toggleSidebar,
         toggleHelpDd,
         toggleCurrencyDd,
         selectCurrency,
