@@ -1213,12 +1213,33 @@
           </nav>
 
           <div class="sidebar-footer">
-            <div class="sidebar-user-btn" style="cursor:default" title="${escapeHtml(email)}">
-              <div class="sidebar-user-avatar" id="sidebarAvatar">${initials}</div>
-              <div style="min-width:0;flex:1;overflow:hidden">
-                <div class="sidebar-user-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(name)}</div>
-                <div class="sidebar-user-sub">${escapeHtml(subLabel || "Подписка активна")}</div>
-              </div>
+            <!-- Утилиты: тема, undo, redo -->
+            <div class="sidebar-footer-tools">
+              <button class="sidebar-tool-btn" title="Сменить тему" onclick="document.getElementById('themeBtn').click()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              </button>
+              <button class="sidebar-tool-btn" title="Отменить (Ctrl+Z)" onclick="app.undo()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg>
+              </button>
+              <button class="sidebar-tool-btn" title="Повторить (Ctrl+Y)" onclick="app.redo()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 000 11H13"/></svg>
+              </button>
+              <button class="sidebar-tool-btn" title="Помощь" onclick="app.toggleHelpDd()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+              </button>
+            </div>
+            <!-- Аккаунт: единственная точка на десктопе -->
+            <div style="display:flex;align-items:center;gap:6px;padding:8px 10px 12px">
+              <button class="sidebar-user-btn" onclick="app.go('profile')" title="Профиль и настройки" style="flex:1;cursor:pointer">
+                <div class="sidebar-user-avatar" id="sidebarAvatar">${initials}</div>
+                <div style="min-width:0;flex:1;overflow:hidden">
+                  <div class="sidebar-user-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(name)}</div>
+                  <div class="sidebar-user-sub">${escapeHtml(subLabel || "Подписка активна")}</div>
+                </div>
+              </button>
+              <button class="sidebar-logout-btn" onclick="app.adminLogout()" title="Выйти из аккаунта">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              </button>
             </div>
           </div>
         `;

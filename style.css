@@ -248,26 +248,52 @@
     .topbar-add-icon { font-size: 16px; font-weight: 300; line-height: 1; }
     .topbar-add-chevron { opacity: .75; }
 
-    /* Desktop: sidebar = бренд+нав; topbar = название раздела слева + утилиты справа */
+    /* Desktop: sidebar = бренд+нав; topbar = название раздела + [поиск][уведомления][+ создать] */
     @media (min-width: 769px) {
       .topbar {
         display: flex; align-items: center; justify-content: space-between;
         padding: 0 20px; height: 54px; gap: 10px;
       }
       .topbar .brand, .topbar .burger-btn, .topbar .nav { display: none; }
-      #adminTopbar { display: none; }
       .topbar-page-title { display: block; flex: 1; min-width: 0; }
-      .top-actions { min-width: auto; gap: 4px; justify-content: flex-end; flex-shrink: 0; }
+      .top-actions { min-width: auto; gap: 6px; justify-content: flex-end; flex-shrink: 0; }
       .topbar-add-label { display: inline; }
+      /* Avatar/profile — только в sidebar на десктопе */
+      #profileDdWrap { display: none; }
     }
 
-    /* Mobile: компактный топбар без page title */
+    /* Mobile: компактный топбар, sidebar скрыт */
     @media (max-width: 768px) {
       .topbar-page-title { display: none !important; }
       .topbar-add-label, .topbar-add-chevron { display: none; }
-      .topbar-add-btn { padding: 7px 10px; }
-      .topbar-utils { display: none; }
+      .topbar-add-btn { padding: 8px 10px; }
+      #profileDdWrap { display: flex; } /* аватар виден на мобильном в topbar */
     }
+
+    /* Sidebar footer tools (theme + settings) */
+    .sidebar-footer-tools {
+      display: flex; align-items: center; gap: 4px;
+      padding: 8px 10px 4px;
+    }
+    .sidebar-tool-btn {
+      width: 32px; height: 32px; padding: 0;
+      display: grid; place-items: center;
+      border: 1px solid transparent; background: transparent;
+      border-radius: 8px; color: var(--muted); cursor: pointer;
+      transition: background .14s, color .14s, border-color .14s; flex-shrink: 0;
+    }
+    .sidebar-tool-btn:hover {
+      background: var(--primary-bg); color: var(--text);
+      border-color: rgba(108,0,255,.18);
+    }
+    .sidebar-logout-btn {
+      width: 30px; height: 30px; padding: 0;
+      display: grid; place-items: center;
+      border: 1px solid var(--line); background: transparent;
+      border-radius: 8px; color: var(--muted); cursor: pointer;
+      font-size: 16px; transition: .14s; flex-shrink: 0;
+    }
+    .sidebar-logout-btn:hover { background: rgba(220,38,38,.1); color: var(--red); border-color: rgba(220,38,38,.3); }
 
     /* Hide sidebar + show mobile nav on mobile */
     @media (max-width: 768px) {
