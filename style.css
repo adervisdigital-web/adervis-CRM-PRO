@@ -109,43 +109,81 @@
       flex-direction: column;
       background: var(--bg2);
       border-right: 1px solid var(--line);
-      overflow-y: auto;
-      overflow-x: hidden;
+      overflow: hidden;
       z-index: 40;
       scrollbar-width: none;
-      transition: width .2s ease, flex-basis .2s ease;
+      /* Плавная анимация свёртки */
+      transition: width .25s cubic-bezier(.4,0,.2,1), flex-basis .25s cubic-bezier(.4,0,.2,1);
     }
     .app-sidebar::-webkit-scrollbar { display: none; }
     .app-sidebar:empty { display: none; }
 
-    /* ── Collapsed sidebar — иконки с tooltip ─────────────── */
+    /* ── Кнопка переключения — на правом крае sidebar ── */
+    .sidebar-toggle-edge {
+      position: absolute;
+      top: 50%;
+      right: -12px;
+      transform: translateY(-50%);
+      width: 24px; height: 24px; padding: 0;
+      display: grid; place-items: center;
+      background: var(--bg2);
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      color: var(--muted);
+      cursor: pointer;
+      z-index: 50;
+      transition: opacity .15s, background .15s, color .15s, box-shadow .15s;
+      opacity: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    .app-sidebar:hover .sidebar-toggle-edge { opacity: 1; }
+    .sidebar-toggle-edge:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(108,0,255,.4);
+    }
+
+    /* ── Collapsed sidebar ─────────────────────────────── */
     .app-sidebar.collapsed { width: 64px; flex: 0 0 64px; }
 
-    /* Скрываем текст в collapsed */
+    /* Скрываем текст, показываем только иконки */
     .app-sidebar.collapsed .sidebar-label,
     .app-sidebar.collapsed .sidebar-brand-name,
     .app-sidebar.collapsed .sidebar-brand-sub,
     .app-sidebar.collapsed .sidebar-project-hint,
-    .app-sidebar.collapsed .sidebar-badge { display: none; }
+    .app-sidebar.collapsed .sidebar-badge { display: none !important; }
 
-    /* Центрируем иконки */
+    /* Центрируем всё в collapsed */
+    .app-sidebar.collapsed .sidebar-header {
+      justify-content: center; padding: 16px 0;
+    }
+    .app-sidebar.collapsed .sidebar-brand {
+      justify-content: center; gap: 0; flex: none;
+    }
+    .app-sidebar.collapsed .sidebar-nav { padding: 8px 8px; }
     .app-sidebar.collapsed .sidebar-nav-item {
-      justify-content: center;
-      padding: 11px 0;
-      border-radius: 12px;
-      position: relative;
+      justify-content: center !important;
+      padding: 10px !important;
+      gap: 0 !important;
     }
     .app-sidebar.collapsed .sidebar-nav-item svg {
-      width: 19px; height: 19px; opacity: .75;
+      width: 18px; height: 18px; opacity: .8;
     }
-    .app-sidebar.collapsed .sidebar-nav-item:hover svg,
-    .app-sidebar.collapsed .sidebar-nav-item.active svg { opacity: 1; }
+    .app-sidebar.collapsed .sidebar-nav-item.active svg,
+    .app-sidebar.collapsed .sidebar-nav-item:hover svg { opacity: 1; }
+    .app-sidebar.collapsed .sidebar-footer { padding: 8px; }
+    .app-sidebar.collapsed .sidebar-footer .sidebar-nav-item { justify-content: center !important; padding: 10px !important; }
 
-    /* Tooltip справа при наведении в collapsed режиме */
-    .app-sidebar.collapsed .sidebar-nav-item::after {
+    /* CSS tooltip при наведении в collapsed режиме */
+    .app-sidebar.collapsed .sidebar-nav-item {
+      position: relative;
+    }
+    .app-sidebar.collapsed .sidebar-nav-item[title]::after {
       content: attr(title);
       position: fixed;
       left: 72px;
+      transform: translateY(-50%);
       background: var(--panel);
       color: var(--text);
       font-size: 12px;
@@ -156,49 +194,33 @@
       white-space: nowrap;
       pointer-events: none;
       opacity: 0;
-      transition: opacity .12s;
+      transition: opacity .15s .05s;
       z-index: 9999;
-      box-shadow: 0 4px 16px rgba(0,0,0,.3);
+      box-shadow: 0 4px 16px rgba(0,0,0,.25);
     }
-    .app-sidebar.collapsed .sidebar-nav-item:hover::after { opacity: 1; }
+    .app-sidebar.collapsed .sidebar-nav-item[title]:hover::after { opacity: 1; }
 
-    /* Header в collapsed */
-    .app-sidebar.collapsed .sidebar-header {
-      justify-content: center; padding: 14px 0; gap: 0;
-    }
-    .app-sidebar.collapsed .sidebar-collapse-btn {
-      width: 36px; height: 36px; border-radius: 10px;
-    }
-
-    /* Footer в collapsed */
-    .app-sidebar.collapsed .sidebar-footer { padding: 8px 4px; }
-    .app-sidebar.collapsed .sidebar-footer .sidebar-nav-item {
-      padding: 10px 0;
-    }
-
-    /* ── Sidebar header ─────────────────────────────────────── */
+    /* ── Sidebar header ─────────────────────────────────── */
     .sidebar-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 12px 10px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+      padding: 16px 14px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+      position: relative;
     }
     .sidebar-brand {
-      display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0;
-      flex: 1;
+      display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0; flex: 1;
     }
-    .sidebar-collapse-btn {
-      width: 28px; height: 28px; padding: 0; flex-shrink: 0;
-      display: grid; place-items: center;
-      border: 1px solid var(--line); background: transparent;
-      border-radius: 8px; color: var(--muted); cursor: pointer;
-      transition: .14s;
-    }
-    .sidebar-collapse-btn:hover { background: var(--primary-bg); color: var(--text); border-color: rgba(108,0,255,.2); }
+    .sidebar-collapse-btn { display: none; } /* старая кнопка убрана */
 
     /* Текущий проект под Смета */
     .sidebar-project-hint {
       display: block; font-size: 10px; color: var(--primary2);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       font-weight: 600; margin-top: 1px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .app-sidebar { transition: none; }
+      .sidebar-toggle-edge { transition: none; }
     }
 
     .app-main {

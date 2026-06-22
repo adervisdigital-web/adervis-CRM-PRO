@@ -1199,14 +1199,13 @@
                 <div class="sidebar-brand-sub">продакшн</div>
               </div>
             </div>
-            <button class="sidebar-collapse-btn" onclick="app.toggleSidebar()" title="${collapsed?"Развернуть":"Свернуть"} меню">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                ${collapsed
-                  ? `<path d="M9 18l6-6-6-6"/>`
-                  : `<path d="M15 18l-6-6 6-6"/>`}
-              </svg>
-            </button>
           </div>
+          <!-- Кнопка свёртки — на правом крае sidebar -->
+          <button class="sidebar-toggle-edge" onclick="app.toggleSidebar()" title="${collapsed ? "Развернуть" : "Свернуть"}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              ${collapsed ? `<path d="M9 18l6-6-6-6"/>` : `<path d="M15 18l-6-6 6-6"/>`}
+            </svg>
+          </button>
 
           <nav class="sidebar-nav">
             ${navItem("home",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>`,"Дашборд")}
@@ -2636,29 +2635,29 @@
               </div>`;
             })() : ''}
 
-            <!-- What's included block (replaces duplicate plan grid) -->
-            <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
-              <h2 style="margin-top:0;font-size:15px">🚀 Что включено в подписку</h2>
-              <div class="grid two" style="gap:10px">
-                ${[
-                  ["📋 CRM и сделки", "Неограниченное число сделок и проектов по всем стадиям воронки"],
-                  ["💰 Калькулятор смет", "100+ позиций каталога: съёмка, постпродакшн, ИИ, логистика"],
-                  ["📄 КП и договоры", "Генерация коммерческих предложений и договоров за секунды"],
-                  ["📅 Календарь", "Дедлайны, задачи и платежи по всем проектам в одном месте"],
-                  ["💳 Финансы", "Доходы, расходы, маржа и аналитика по каждому проекту"],
-                  ["☁️ Облачная синхронизация", "Realtime-синхронизация между устройствами и членами команды"],
-                  ["👥 Команда", "Совместная работа — пригласите коллег через код приглашения"],
-                  ["📱 Мобильная версия", "PWA — устанавливается на телефон и работает как приложение"]
-                ].map(([title, desc]) => `
-                  <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:var(--panel);border-radius:10px;border:1px solid var(--line)">
-                    <div style="font-size:20px;flex:0 0 auto;line-height:1.2">${title.split(" ")[0]}</div>
-                    <div>
-                      <div style="font-size:13px;font-weight:800;margin-bottom:2px">${escapeHtml(title.slice(title.indexOf(" ")+1))}</div>
-                      <div style="font-size:11px;color:var(--muted)">${escapeHtml(desc)}</div>
-                    </div>
-                  </div>`).join("")}
-              </div>
+          <div class="panel" style="box-shadow:none;background:var(--panel2);margin-top:16px">
+            <h2 style="margin-top:0;font-size:15px;margin-bottom:14px">Что включено в подписку</h2>
+            <div class="grid two" style="gap:10px">
+              ${[
+                ["CRM и сделки", "Неограниченное число сделок и проектов по всем стадиям воронки"],
+                ["Калькулятор смет", "100+ позиций каталога: съёмка, постпродакшн, ИИ, логистика"],
+                ["КП и договоры", "Генерация коммерческих предложений и договоров за секунды"],
+                ["Календарь", "Дедлайны, задачи и платежи по всем проектам в одном месте"],
+                ["Финансы", "Доходы, расходы, маржа и аналитика по каждому проекту"],
+                ["Облачная синхронизация", "Realtime-синхронизация между устройствами и членами команды"],
+                ["Команда", "Совместная работа — пригласите коллег через код приглашения"],
+                ["Мобильная версия", "PWA — устанавливается на телефон и работает как приложение"]
+              ].map(([title, desc]) => `
+                <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:var(--panel);border-radius:10px;border:1px solid var(--line)">
+                  <div style="width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0;margin-top:5px"></div>
+                  <div>
+                    <div style="font-size:13px;font-weight:700;margin-bottom:2px">${escapeHtml(title)}</div>
+                    <div style="font-size:11px;color:var(--muted)">${escapeHtml(desc)}</div>
+                  </div>
+                </div>`).join("")}
             </div>
+          </div>
+
           </div>
         `;
       }
