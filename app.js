@@ -1231,9 +1231,6 @@
             ${navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора")}
             ${navItem("knowledge",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"База знаний")}
 
-            <div class="sidebar-divider"></div>
-
-            ${navItem("profile",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M10.3 1.3a1 1 0 011.4 0l3 3a1 1 0 010 1.4l-7 7a1 1 0 01-.5.3l-3 .7a1 1 0 01-1.2-1.2l.7-3a1 1 0 01.3-.5l7-7z"/></svg>`,"Настройки")}
           </nav>
 
           <div class="sidebar-footer">
