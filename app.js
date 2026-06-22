@@ -7265,55 +7265,47 @@
               </div>
             </div>
 
-            <!-- ── STAT GRID ──────────────────────────────── -->
+            <!-- ── STAT STRIP ─────────────────────────────── -->
             <div class="db-stat-row">
-              <div class="db-stat" onclick="app.go('global-finances')" title="Выручка за текущий месяц">
-                <div class="db-stat-icon">💰</div>
+              <div class="db-stat" onclick="app.go('global-finances')">
                 <div class="db-stat-label">Выручка / мес</div>
                 <div class="db-stat-value">${money(monthRevenue)}</div>
                 <div class="db-stat-delta ${revDelta!==null?(revDelta>=0?"pos":"neg"):"neu"}">${revDelta!==null?(revDelta>=0?"↑ ":"↓ ")+Math.abs(revDelta)+"% к прошлому":"нет данных"}</div>
               </div>
-              <div class="db-stat" onclick="app.go('global-finances')" title="Расходы за текущий месяц">
-                <div class="db-stat-icon">📉</div>
+              <div class="db-stat" onclick="app.go('global-finances')">
                 <div class="db-stat-label">Расходы / мес</div>
                 <div class="db-stat-value" style="${monthExpenses>0?"color:var(--red)":""}">${money(monthExpenses)}</div>
                 <div class="db-stat-delta neu">${curMonthName}</div>
               </div>
-              <div class="db-stat" onclick="app.go('global-finances')" title="Чистая прибыль за месяц">
-                <div class="db-stat-icon">📈</div>
+              <div class="db-stat" onclick="app.go('global-finances')">
                 <div class="db-stat-label">Прибыль / мес</div>
                 <div class="db-stat-value" style="color:${monthProfit>=0?"var(--green)":"var(--red)"}">${money(monthProfit)}</div>
-                <div class="db-stat-delta ${monthProfit>=0?"pos":"neg"}">${monthProfit>=0?"↑ доход":"↓ убыток"}</div>
+                <div class="db-stat-delta ${monthProfit>=0?"pos":"neg"}">${monthProfit>=0?"доход":"убыток"}</div>
               </div>
-              <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')" title="Сколько клиенты ещё должны">
-                <div class="db-stat-icon">${totalDebt>0?"⏳":"✅"}</div>
+              <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')">
                 <div class="db-stat-label">Долг клиентов</div>
                 <div class="db-stat-value" style="${totalDebt>0?"color:var(--orange)":"color:var(--green)"}">${money(totalDebt)}</div>
-                <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё закрыто"}</div>
+                <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
               </div>
-              <div class="db-stat" title="Сумма активных сделок в воронке">
-                <div class="db-stat-icon">🔮</div>
+              <div class="db-stat">
                 <div class="db-stat-label">Воронка</div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>
-                <div class="db-stat-delta neu">${projects.filter(p=>!["Сдано","Завершённые"].includes(p.crmStatus||"Лид")).length} активных сделок</div>
+                <div class="db-stat-delta neu">${projects.filter(p=>!["Сдано","Завершённые"].includes(p.crmStatus||"Лид")).length} активных</div>
               </div>
-              <div class="db-stat" title="Сделки в работе">
-                <div class="db-stat-icon">🎬</div>
+              <div class="db-stat">
                 <div class="db-stat-label">В работе</div>
                 <div class="db-stat-value">${inWork}</div>
-                <div class="db-stat-delta neu">${closedCount} завершено</div>
+                <div class="db-stat-delta neu">${closedCount} закрыто</div>
               </div>
-              <div class="db-stat" title="Средний чек по закрытым сделкам">
-                <div class="db-stat-icon">🎯</div>
-                <div class="db-stat-label">Средний чек</div>
+              <div class="db-stat">
+                <div class="db-stat-label">Ср. чек</div>
                 <div class="db-stat-value">${avgDeal>0?money(avgDeal):"—"}</div>
                 <div class="db-stat-delta neu">${closedCount>0?"по "+closedCount+" сделкам":"нет закрытых"}</div>
               </div>
-              <div class="db-stat ${overdueCount>0?"db-stat-warn":""}" onclick="app.go('global-calendar')" title="Дедлайны в ближайшие 7 дней">
-                <div class="db-stat-icon">${overdueCount>0?"🚨":"📅"}</div>
+              <div class="db-stat ${overdueCount>0?"db-stat-warn":""}" onclick="app.go('global-calendar')">
                 <div class="db-stat-label">Дедлайны / 7 дн</div>
                 <div class="db-stat-value">${uniqueDeadlines.length}</div>
-                <div class="db-stat-delta ${overdueCount>0?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${overdueCount>0?"⚠ "+overdueCount+" просрочено":uniqueDeadlines.length>0?"ближ. "+formatDate(uniqueDeadlines[0].date):"всё ок ✓"}</div>
+                <div class="db-stat-delta ${overdueCount>0?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${overdueCount>0?overdueCount+" просрочено":uniqueDeadlines.length>0?"ближ. "+formatDate(uniqueDeadlines[0].date):"нет ✓"}</div>
               </div>
             </div>
 
