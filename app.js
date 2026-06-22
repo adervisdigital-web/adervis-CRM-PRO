@@ -7280,10 +7280,6 @@
                 <h1 class="db-greeting">Привет, ${escapeHtml(_adminSession?.user?.user_metadata?.name || _adminSession?.user?.user_metadata?.full_name || (_adminSession?.user?.email||"").split("@")[0] || "команда")} 👋</h1>
                 <p class="db-date">В ${curMonthName} · ${projects.length} сделок · ${inWork} в работе</p>
               </div>
-              <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.startWizard()">+ Новая сделка</button>
-                <button class="btn" onclick="app.go('clients')">Клиенты</button>
-              </div>
             </div>
 
             <!-- ── STAT GRID ──────────────────────────────── -->
