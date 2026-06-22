@@ -664,6 +664,20 @@
       outline: none;
     }
 
+    /* Dropdown options — тема браузера для нативного select */
+    [data-theme="dark"] select { color-scheme: dark; }
+    [data-theme="light"] select { color-scheme: light; }
+
+    /* Явные цвета для option — работает в Firefox и Chromium */
+    [data-theme="dark"] select option {
+      background-color: #1e1e2e;
+      color: #f0f0f0;
+    }
+    [data-theme="light"] select option {
+      background-color: #ffffff;
+      color: #1a2332;
+    }
+
     /* Иконка календаря/часов в date/time inputs — следует теме браузера */
     [data-theme="dark"] input[type="date"],
     [data-theme="dark"] input[type="time"],
