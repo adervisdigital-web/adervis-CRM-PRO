@@ -258,8 +258,7 @@
       .topbar-page-title { display: block; flex: 1; min-width: 0; }
       .top-actions { min-width: auto; gap: 6px; justify-content: flex-end; flex-shrink: 0; }
       .topbar-add-label { display: inline; }
-      /* Avatar/profile — только в sidebar на десктопе */
-      #profileDdWrap { display: none; }
+      /* Avatar остаётся в topbar — единственный доступ к дропдауну профиля */
     }
 
     /* Mobile: компактный топбар, sidebar скрыт */
