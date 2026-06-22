@@ -55,6 +55,7 @@
     <aside class="app-sidebar" id="appSidebar" aria-label="Боковая навигация"></aside>
     <div class="app-main">
     <header class="topbar">
+      <!-- Mobile: brand + burger + nav -->
       <div class="brand">
         <div class="logo" title="Главное меню" onclick="app.openMainMenu()" tabindex="0" role="button">
           <img src="logo-icon.svg" alt="Adervis" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
@@ -65,103 +66,90 @@
           <p>для видеопродакшна</p>
         </div>
       </div>
-
       <button class="burger-btn" id="burgerBtn" title="Меню" aria-label="Открыть навигацию">
         <span></span><span></span><span></span>
       </button>
-
       <nav class="nav" aria-label="Навигация" id="mainNav">
-        <button data-view="home" class="nav-icon-btn" title="Сделки">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>
-          <span class="nav-label">Сделки</span>
-        </button>
-        <button data-view="deal" id="navEstimateBtn" class="nav-icon-btn estimate-nav-btn" title="Текущая смета">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
-          <span class="nav-label">Смета</span>
-        </button>
-        <button data-view="packages" class="nav-icon-btn" title="Пакеты услуг">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg>
-          <span class="nav-label">Пакеты</span>
-        </button>
-        <button data-view="catalog" class="nav-icon-btn" title="Каталог услуг">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>
-          <span class="nav-label">Каталог</span>
-        </button>
-        <button data-view="global-finances" class="nav-icon-btn" title="Финансы">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg>
-          <span class="nav-label">Финансы</span>
-        </button>
-        <button data-view="global-calendar" class="nav-icon-btn" title="Календарь">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>
-          <span class="nav-label">Календарь</span>
-        </button>
-        <button data-view="contracts" class="nav-icon-btn" title="Договора">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>
-          <span class="nav-label">Договора</span>
-        </button>
-        <button data-view="clients" class="nav-icon-btn" title="Клиенты">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>
-          <span class="nav-label">Клиенты</span>
-        </button>
-        <button data-view="knowledge" class="nav-icon-btn" title="База знаний">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
-          <span class="nav-label">База знаний</span>
-        </button>
+        <button data-view="home" class="nav-icon-btn" title="Сделки"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg><span class="nav-label">Сделки</span></button>
+        <button data-view="deal" id="navEstimateBtn" class="nav-icon-btn estimate-nav-btn" title="Смета"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg><span class="nav-label">Смета</span></button>
+        <button data-view="packages" class="nav-icon-btn" title="Пакеты"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg><span class="nav-label">Пакеты</span></button>
+        <button data-view="global-finances" class="nav-icon-btn" title="Финансы"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg><span class="nav-label">Финансы</span></button>
+        <button data-view="global-calendar" class="nav-icon-btn" title="Календарь"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg><span class="nav-label">Календарь</span></button>
+        <button data-view="clients" class="nav-icon-btn" title="Клиенты"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg><span class="nav-label">Клиенты</span></button>
       </nav>
 
+      <!-- Desktop: page title (filled by JS) -->
+      <div class="topbar-page-title" id="topbarPageTitle"></div>
+
+      <!-- All viewports: right utility actions -->
       <div class="top-actions">
         <span class="autosave-indicator" id="autoSaveIndicator">Сохранено</span>
+
+        <!-- Small utils: compact on desktop, visible on mobile -->
+        <div class="topbar-utils">
+          <button class="topbar-icon-btn" id="undoBtn" title="Отменить (Ctrl+Z)" onclick="app.undo()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg>
+          </button>
+          <button class="topbar-icon-btn" id="redoBtn" title="Повторить (Ctrl+Y)" onclick="app.redo()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 000 11H13"/></svg>
+          </button>
+          <button class="topbar-icon-btn theme-toggle-btn" id="themeBtn" title="Сменить тему">
+            <span class="theme-icon">
+              <svg class="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              <svg class="icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            </span>
+          </button>
+          <button class="topbar-icon-btn" id="clientModeBtn" title="Предпросмотр КП глазами клиента">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+
+        <button class="topbar-icon-btn" id="searchBtn" title="Поиск (Ctrl+K)" onclick="app.openSearch()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+
+        <div class="help-dd-wrap" id="helpDdWrap">
+          <button class="topbar-icon-btn" id="helpBtn" title="Помощь" onclick="app.toggleHelpDd()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          </button>
+          <div class="help-dd" id="helpDd"></div>
+        </div>
+
+        <button class="notif-btn topbar-icon-btn" id="notifBtn" title="Уведомления" onclick="app.toggleNotifPopup()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+        </button>
+
+        <!-- Desktop: add deal button; Mobile: compact + -->
         <div class="global-add-wrap">
-          <button class="global-add-btn" id="globalAddBtn" title="Быстрые действия">+</button>
+          <button class="topbar-add-btn" id="globalAddBtn" title="Быстрые действия">
+            <span class="topbar-add-icon">+</span>
+            <span class="topbar-add-label">Добавить</span>
+            <svg class="topbar-add-chevron" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4"/></svg>
+          </button>
           <div class="global-add-menu" id="globalAddMenu">
             <button class="global-add-menu-item" onclick="app.startWizard();app.closeGlobalMenu()">
-              <span class="icon" style="background:rgba(124,58,237,.18)">&#9741;</span>
-              Новая сделка
+              <span class="icon" style="background:rgba(124,58,237,.18)">⭑</span>Новая сделка
             </button>
             <div class="global-add-menu-divider"></div>
             <button class="global-add-menu-item" onclick="app.openFinanceModal('payment');app.closeGlobalMenu()">
-              <span class="icon" style="background:rgba(22,163,74,.18);color:#86efac">+</span>
-              Поступление
+              <span class="icon" style="background:rgba(22,163,74,.18);color:#86efac">+</span>Поступление
             </button>
             <button class="global-add-menu-item" onclick="app.openFinanceModal('expense');app.closeGlobalMenu()">
-              <span class="icon" style="background:rgba(220,38,38,.15);color:#fca5a5">−</span>
-              Расход
+              <span class="icon" style="background:rgba(220,38,38,.15);color:#fca5a5">−</span>Расход
             </button>
             <div class="global-add-menu-divider"></div>
             <button class="global-add-menu-item" onclick="app.createTask();app.closeGlobalMenu()">
-              <span class="icon" style="background:rgba(8,145,178,.18)">&#9744;</span>
-              Задача
+              <span class="icon" style="background:rgba(8,145,178,.18)">☐</span>Задача
             </button>
             <button class="global-add-menu-item" onclick="app.createClient();app.go('clients');app.closeGlobalMenu()">
-              <span class="icon" style="background:rgba(202,138,4,.18)">&#9786;</span>
-              Новый клиент
+              <span class="icon" style="background:rgba(202,138,4,.18)">☺</span>Новый клиент
             </button>
           </div>
         </div>
-        <button class="btn small" id="undoBtn" title="Отменить действие (Ctrl+Z)" onclick="app.undo()" style="font-size:14px;padding:7px 10px">↩</button>
-        <button class="btn small" id="redoBtn" title="Повторить действие (Ctrl+Y)" onclick="app.redo()" style="font-size:14px;padding:7px 10px">↪</button>
-        <button class="theme-toggle-btn" id="themeBtn" title="Сменить тему">
-          <span class="theme-icon">
-            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="4"/>
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
-            </svg>
-          </span>
-        </button>
-        <button class="btn small blue" id="clientModeBtn" title="Предпросмотр КП глазами клиента">&#128065; Клиент</button>
-        <button class="help-btn" id="searchBtn" title="Поиск (Ctrl+K)" onclick="app.openSearch()" style="font-size:15px">🔍</button>
-        <div class="help-dd-wrap" id="helpDdWrap">
-          <button class="help-btn" id="helpBtn" title="Помощь и обучение" onclick="app.toggleHelpDd()">?</button>
-          <div class="help-dd" id="helpDd"></div>
-        </div>
-        <button class="notif-btn" id="notifBtn" title="Уведомления" onclick="app.toggleNotifPopup()">
-          🔔 <span class="notif-badge" id="notifBadge" style="display:none">0</span>
-        </button>
+
         <div class="profile-dd-wrap" id="profileDdWrap">
-          <button class="profile-avatar-btn" id="profileAvatarBtn" title="Профиль" onclick="app.toggleProfileDd()">
+          <button class="profile-avatar-btn" id="profileAvatarBtn" title="Профиль и аккаунт" onclick="app.toggleProfileDd()">
             <span id="profileAvatarInner">A</span>
           </button>
           <div class="profile-dd" id="profileDd"></div>

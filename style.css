@@ -214,20 +214,59 @@
     .sidebar-user-name { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.2; }
     .sidebar-user-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
 
-    /* Desktop: sidebar = бренд+навигация; topbar = тонкая правая утилитарная панель */
+    /* ── Topbar icon buttons ───────────────────────────────── */
+    .topbar-icon-btn {
+      width: 34px; height: 34px; padding: 0;
+      display: grid; place-items: center;
+      border: 1px solid transparent;
+      background: transparent;
+      border-radius: 10px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background .14s, color .14s, border-color .14s;
+      flex-shrink: 0;
+    }
+    .topbar-icon-btn:hover {
+      background: var(--primary-bg);
+      color: var(--text);
+      border-color: rgba(108,0,255,.18);
+    }
+    .topbar-utils { display: flex; align-items: center; gap: 2px; }
+    .topbar-page-title { display: none; }
+    .topbar-page-title h2 { font-size: 17px; font-weight: 800; margin: 0; letter-spacing: -.3px; }
+    .topbar-page-title p { font-size: 11px; color: var(--muted); margin: 1px 0 0; }
+
+    /* ── Topbar add button ─────────────────────────────────── */
+    .topbar-add-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 10px; border: none;
+      background: linear-gradient(135deg, var(--primary), var(--blue));
+      color: #fff; font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: opacity .15s, transform .15s; white-space: nowrap;
+    }
+    .topbar-add-btn:hover { opacity: .88; transform: translateY(-1px); }
+    .topbar-add-icon { font-size: 16px; font-weight: 300; line-height: 1; }
+    .topbar-add-chevron { opacity: .75; }
+
+    /* Desktop: sidebar = бренд+нав; topbar = название раздела слева + утилиты справа */
     @media (min-width: 769px) {
       .topbar {
-        display: flex;
-        justify-content: flex-end;   /* всё содержимое — вправо */
-        align-items: center;
-        padding: 7px 16px;
-        gap: 4px;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 20px; height: 54px; gap: 10px;
       }
-      .topbar .brand,
-      .topbar .burger-btn,
-      .topbar .nav { display: none; }  /* только в sidebar */
-      #adminTopbar { display: none; }  /* имя — только в sidebar footer */
-      .top-actions { min-width: auto; gap: 5px; justify-content: flex-end; }
+      .topbar .brand, .topbar .burger-btn, .topbar .nav { display: none; }
+      #adminTopbar { display: none; }
+      .topbar-page-title { display: block; flex: 1; min-width: 0; }
+      .top-actions { min-width: auto; gap: 4px; justify-content: flex-end; flex-shrink: 0; }
+      .topbar-add-label { display: inline; }
+    }
+
+    /* Mobile: компактный топбар без page title */
+    @media (max-width: 768px) {
+      .topbar-page-title { display: none !important; }
+      .topbar-add-label, .topbar-add-chevron { display: none; }
+      .topbar-add-btn { padding: 7px 10px; }
+      .topbar-utils { display: none; }
     }
 
     /* Hide sidebar + show mobile nav on mobile */
@@ -2989,11 +3028,7 @@
 
     /* ── NOTIFICATION BELL ─────────────────────────── */
     .notif-btn {
-      position: relative; border: none; background: none;
-      color: var(--text); cursor: pointer; padding: 6px 8px;
-      border-radius: 10px; font-size: 18px; line-height: 1;
-      display: flex; align-items: center; justify-content: center;
-      transition: .14s;
+      position: relative;
     }
     .notif-btn:hover { background: rgba(148,163,184,.12); }
     .notif-badge {

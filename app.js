@@ -1125,6 +1125,37 @@
         }, 1200);
       }
 
+      const _PAGE_TITLES = {
+        home: ["Дашборд", "Обзор и воронка продаж"],
+        deal: ["Смета", null],
+        wizard: ["Новая сделка", "Быстрый старт"],
+        packages: ["Пакеты услуг", "Готовые наборы"],
+        catalog: ["Каталог", "Услуги и цены"],
+        "global-finances": ["Финансы", "Транзакции и аналитика"],
+        "global-calendar": ["Календарь", "Задачи и дедлайны"],
+        contracts: ["Договора", "Шаблоны и база"],
+        clients: ["Клиенты", null],
+        knowledge: ["База знаний", "Скрипты и шаблоны"],
+        profile: ["Профиль", "Аккаунт и подписка"],
+        settings: ["Настройки", "Параметры системы"],
+        support: ["Поддержка", "Связаться с нами"],
+        crm: ["CRM", "Воронка сделок"],
+        tasks: ["Задачи", null],
+        finance: ["Финансы проекта", null],
+        estimate: ["Смета", null],
+      };
+
+      function renderPageTitle() {
+        const el = document.getElementById("topbarPageTitle");
+        if (!el) return;
+        if (!_adminSession || _briefAgencyId || _portalId) { el.innerHTML = ""; return; }
+        let [title, sub] = _PAGE_TITLES[state.view] || ["ADERVIS CRM", ""];
+        if (state.view === "deal" && state.project?.name) sub = escapeHtml(state.project.name);
+        if (state.view === "clients") sub = `${(state.clients||[]).length} клиентов`;
+        if (state.view === "tasks") sub = `${(state.tasks||[]).length} задач`;
+        el.innerHTML = `<h2 class="topbar-page-title-h2">${escapeHtml(title)}</h2>${sub ? `<p class="topbar-page-title-sub">${sub}</p>` : ""}`;
+      }
+
       function renderSidebar() {
         const el = document.getElementById("appSidebar");
         if (!el) return;
@@ -1160,13 +1191,6 @@
               <div class="sidebar-brand-name">ADERVIS CRM</div>
               <div class="sidebar-brand-sub">продакшн</div>
             </div>
-          </div>
-
-          <div style="padding:10px 10px 4px">
-            <button class="btn primary" onclick="app.startWizard()" style="width:100%;padding:9px 12px;font-size:13px;font-weight:700;border-radius:10px;gap:8px">
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-              Новая сделка
-            </button>
           </div>
 
           <nav class="sidebar-nav">
@@ -6340,6 +6364,7 @@
       function render() {
         if (_needsNormalize) { normalizeState(); _needsNormalize = false; }
         renderSidebar();
+        renderPageTitle();
 
         document.body.classList.toggle("client-mode", state.clientMode);
 
