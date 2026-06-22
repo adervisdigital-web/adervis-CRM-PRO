@@ -1189,14 +1189,13 @@
           </nav>
 
           <div class="sidebar-footer">
-            <button class="sidebar-user-btn" onclick="app.go('profile')" title="Профиль и настройки">
+            <div class="sidebar-user-btn" style="cursor:default" title="${escapeHtml(email)}">
               <div class="sidebar-user-avatar" id="sidebarAvatar">${initials}</div>
-              <div style="min-width:0;flex:1">
-                <div class="sidebar-user-name">${escapeHtml(name)}</div>
-                <div class="sidebar-user-sub">${escapeHtml(subLabel || "Активна")}</div>
+              <div style="min-width:0;flex:1;overflow:hidden">
+                <div class="sidebar-user-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(name)}</div>
+                <div class="sidebar-user-sub">${escapeHtml(subLabel || "Подписка активна")}</div>
               </div>
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="color:var(--muted);flex-shrink:0"><path d="M6 4l4 4-4 4"/></svg>
-            </button>
+            </div>
           </div>
         `;
       }
