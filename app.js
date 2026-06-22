@@ -2082,10 +2082,15 @@
 
       function renderPayBanner() {
         if (!_adminSession || !_userProfile) return "";
+        // Проверяем — пользователь скрыл баннер в этой сессии
+        if (sessionStorage.getItem("pay_banner_dismissed") === "1") return "";
+
         const sub = _userProfile;
         const s = sub.subscription_status;
         const exp = sub.subscription_expires_at ? new Date(sub.subscription_expires_at) : null;
         const daysLeft = exp ? Math.round((exp - new Date()) / 86400000) : null;
+
+        const closeBtn = `<button onclick="event.stopPropagation();app.dismissPayBanner()" title="Скрыть" style="margin-left:4px;background:rgba(255,255,255,.2);border:none;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;cursor:pointer;flex-shrink:0;color:#fff;font-size:14px;line-height:1">×</button>`;
 
         if (s === "trial" && daysLeft !== null) {
           if (daysLeft > 7) return "";
@@ -2096,18 +2101,26 @@
             ? "Пробный период заканчивается завтра"
             : `Пробный период: осталось ${daysLeft} дн.`;
           return `
-            <div id="payBannerBar" style="position:fixed;bottom:70px;right:16px;z-index:200;background:${bg};color:#fff;border-radius:14px;padding:10px 16px;box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;cursor:pointer;max-width:320px" onclick="app.gotoSubscription()" title="Оформить подписку">
-              ⏰ ${msg} — Выбрать тариф →
+            <div id="payBannerBar" style="position:fixed;bottom:70px;right:16px;z-index:200;background:${bg};color:#fff;border-radius:14px;padding:10px 16px;box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;max-width:340px">
+              <span style="cursor:pointer;flex:1" onclick="app.gotoSubscription()">⏰ ${msg} — Выбрать тариф →</span>
+              ${closeBtn}
             </div>`;
         }
         if (s === "active" && daysLeft !== null) {
           if (daysLeft > 7) return "";
           return `
-            <div id="payBannerBar" style="position:fixed;bottom:70px;right:16px;z-index:200;background:var(--primary);color:#fff;border-radius:14px;padding:10px 16px;box-shadow:0 8px 28px rgba(124,58,237,.45);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;cursor:pointer" onclick="app.gotoSubscription()" title="Продлите подписку">
-              ⚡ ${daysLeft <= 0 ? "Подписка истекает сегодня" : `Подписка: осталось ${daysLeft} дн.`} — Продлить →
+            <div id="payBannerBar" style="position:fixed;bottom:70px;right:16px;z-index:200;background:var(--primary);color:#fff;border-radius:14px;padding:10px 16px;box-shadow:0 8px 28px rgba(124,58,237,.45);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;max-width:340px">
+              <span style="cursor:pointer;flex:1" onclick="app.gotoSubscription()">⚡ ${daysLeft <= 0 ? "Подписка истекает сегодня" : `Подписка: осталось ${daysLeft} дн.`} — Продлить →</span>
+              ${closeBtn}
             </div>`;
         }
         return "";
+      }
+
+      function dismissPayBanner() {
+        sessionStorage.setItem("pay_banner_dismissed", "1");
+        const el = document.getElementById("payBannerContainer");
+        if (el) el.innerHTML = "";
       }
 
       /* ═══════════════════════════════════════════════════════
@@ -7459,7 +7472,6 @@
                       <div style="font-size:11px;margin-top:6px;font-weight:750;color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
 
                       <div class="deal-card-footer" onclick="event.stopPropagation()">
-                        <button class="btn small" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету, КП и задачи по сделке">Открыть →</button>
                         ${nextLabel ? `<button class="next-action-btn" onclick="app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge">Завершено</span>`}
                       </div>
                     </div>
@@ -12606,6 +12618,7 @@ Email: ______________________            Email: ______________________
         clearPromo,
         _promoInput: (v) => { _promoCode = v; },
         gotoSubscription,
+        dismissPayBanner,
 
         render,
         _toast: toast,

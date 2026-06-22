@@ -118,28 +118,75 @@
     .app-sidebar::-webkit-scrollbar { display: none; }
     .app-sidebar:empty { display: none; }
 
-    /* Collapsed sidebar — только иконки */
-    .app-sidebar.collapsed {
-      width: 56px;
-      flex: 0 0 56px;
-    }
+    /* ── Collapsed sidebar — иконки с tooltip ─────────────── */
+    .app-sidebar.collapsed { width: 64px; flex: 0 0 64px; }
+
+    /* Скрываем текст в collapsed */
     .app-sidebar.collapsed .sidebar-label,
     .app-sidebar.collapsed .sidebar-brand-name,
     .app-sidebar.collapsed .sidebar-brand-sub,
+    .app-sidebar.collapsed .sidebar-project-hint,
     .app-sidebar.collapsed .sidebar-badge { display: none; }
-    .app-sidebar.collapsed .sidebar-nav-item { justify-content: center; padding: 10px; }
-    .app-sidebar.collapsed .sidebar-header { justify-content: center; padding: 14px 8px; }
-    .app-sidebar.collapsed .sidebar-brand { cursor: pointer; }
-    /* Sidebar header с кнопкой свёртки */
+
+    /* Центрируем иконки */
+    .app-sidebar.collapsed .sidebar-nav-item {
+      justify-content: center;
+      padding: 11px 0;
+      border-radius: 12px;
+      position: relative;
+    }
+    .app-sidebar.collapsed .sidebar-nav-item svg {
+      width: 19px; height: 19px; opacity: .75;
+    }
+    .app-sidebar.collapsed .sidebar-nav-item:hover svg,
+    .app-sidebar.collapsed .sidebar-nav-item.active svg { opacity: 1; }
+
+    /* Tooltip справа при наведении в collapsed режиме */
+    .app-sidebar.collapsed .sidebar-nav-item::after {
+      content: attr(title);
+      position: fixed;
+      left: 72px;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .12s;
+      z-index: 9999;
+      box-shadow: 0 4px 16px rgba(0,0,0,.3);
+    }
+    .app-sidebar.collapsed .sidebar-nav-item:hover::after { opacity: 1; }
+
+    /* Header в collapsed */
+    .app-sidebar.collapsed .sidebar-header {
+      justify-content: center; padding: 14px 0; gap: 0;
+    }
+    .app-sidebar.collapsed .sidebar-collapse-btn {
+      width: 36px; height: 36px; border-radius: 10px;
+    }
+
+    /* Footer в collapsed */
+    .app-sidebar.collapsed .sidebar-footer { padding: 8px 4px; }
+    .app-sidebar.collapsed .sidebar-footer .sidebar-nav-item {
+      padding: 10px 0;
+    }
+
+    /* ── Sidebar header ─────────────────────────────────────── */
     .sidebar-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 12px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+      padding: 14px 12px 10px; border-bottom: 1px solid var(--line); flex-shrink: 0;
     }
     .sidebar-brand {
       display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0;
+      flex: 1;
     }
     .sidebar-collapse-btn {
-      width: 26px; height: 26px; padding: 0; flex-shrink: 0;
+      width: 28px; height: 28px; padding: 0; flex-shrink: 0;
       display: grid; place-items: center;
       border: 1px solid var(--line); background: transparent;
       border-radius: 8px; color: var(--muted); cursor: pointer;
@@ -153,7 +200,6 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       font-weight: 600; margin-top: 1px;
     }
-    .app-sidebar.collapsed .sidebar-project-hint { display: none; }
 
     .app-main {
       flex: 1;
