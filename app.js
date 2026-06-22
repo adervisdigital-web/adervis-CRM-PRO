@@ -10171,8 +10171,8 @@
         const nextActionLabel = DEAL_NEXT_ACTIONS[state.project.crmStatus || "Лид"];
 
         const dealTabs = [
-          { id: "finance", label: "Финансы" },
           { id: "estimate", label: "Смета" },
+          { id: "finance", label: "Финансы" },
           { id: "tasks", label: `Задачи${state.tasks.length ? " (" + state.tasks.length + ")" : ""}` },
           { id: "calendar", label: "Календарь" },
           { id: "team", label: "Команда" },
