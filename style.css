@@ -251,13 +251,15 @@
     /* Desktop: sidebar = бренд+нав; topbar = название раздела + [поиск][уведомления][+ создать] */
     @media (min-width: 769px) {
       .topbar {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 0 20px; height: 54px; gap: 10px;
+        display: flex; align-items: center; justify-content: flex-end;
+        padding: 0 24px; height: 62px; gap: 8px;
       }
       .topbar .brand, .topbar .burger-btn, .topbar .nav { display: none; }
-      .topbar-page-title { display: block; flex: 1; min-width: 0; }
-      .top-actions { min-width: auto; gap: 6px; justify-content: flex-end; flex-shrink: 0; }
+      .topbar-page-title { display: none; }
+      .top-actions { min-width: auto; gap: 8px; justify-content: flex-end; flex-shrink: 0; }
       .topbar-add-label { display: inline; }
+      .topbar-icon-btn { width: 38px; height: 38px; }
+      .topbar-add-btn { padding: 9px 18px; font-size: 14px; }
       /* Avatar остаётся в topbar — единственный доступ к дропдауну профиля */
     }
 
