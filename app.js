@@ -1125,6 +1125,82 @@
         }, 1200);
       }
 
+      function renderSidebar() {
+        const el = document.getElementById("appSidebar");
+        if (!el) return;
+        if (!_adminSession || _briefAgencyId || _portalId) { el.innerHTML = ""; return; }
+
+        const v = state.view || "home";
+        const email = _adminSession.user.email || "";
+        const name = _adminSession.user.user_metadata?.name || _adminSession.user.user_metadata?.full_name || email.split("@")[0] || "A";
+        const initials = (name[0] || "A").toUpperCase();
+        const subLabel = getSubscriptionLabel();
+
+        const navItem = (view, icon, label, badge) => `
+          <button class="sidebar-nav-item ${v === view ? "active" : ""}" onclick="app.go('${view}')">
+            ${icon}
+            <span>${label}</span>
+            ${badge ? `<span style="margin-left:auto;background:var(--primary);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 6px;line-height:16px">${badge}</span>` : ""}
+          </button>`;
+
+        const overdueCount = (() => {
+          let cnt = 0;
+          const t = todayIso();
+          (state.savedProjects||[]).forEach(p => { (p.snapshot?.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; }); });
+          (state.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; });
+          return cnt;
+        })();
+
+        const unreadNotif = (state.notifications||[]).filter(n => !n.read).length;
+
+        el.innerHTML = `
+          <div class="sidebar-brand" onclick="app.go('home')" style="cursor:pointer" title="Дашборд">
+            <div class="logo" style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0">
+              <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:22px;height:22px;object-fit:contain">
+            </div>
+            <div>
+              <div class="sidebar-brand-name">ADERVIS CRM</div>
+              <div class="sidebar-brand-sub">продакшн</div>
+            </div>
+          </div>
+
+          <nav class="sidebar-nav">
+            ${navItem("home",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>`,"Дашборд")}
+            ${navItem("deal",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"Смета")}
+            ${navItem("packages",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg>`,"Пакеты")}
+            ${navItem("catalog",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>`,"Каталог")}
+
+            <div class="sidebar-divider"></div>
+
+            ${navItem("clients",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>`,"Клиенты")}
+            ${navItem("global-finances",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg>`,"Финансы")}
+            ${navItem("global-calendar",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>`,"Календарь", overdueCount || "")}
+            ${navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора")}
+            ${navItem("knowledge",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"База знаний")}
+
+            <div class="sidebar-divider"></div>
+
+            <button class="sidebar-nav-item" onclick="app.toggleNotifPopup()">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a5 5 0 00-5 5v3l-1 2h12l-1-2V6a5 5 0 00-5-5zm0 13a2 2 0 01-2-2h4a2 2 0 01-2 2z"/></svg>
+              <span>Уведомления</span>
+              ${unreadNotif ? `<span style="margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 6px;line-height:16px">${unreadNotif}</span>` : ""}
+            </button>
+            ${navItem("profile",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>`,"Настройки")}
+          </nav>
+
+          <div class="sidebar-footer">
+            <button class="sidebar-user-btn" onclick="app.go('profile')" title="Профиль и настройки">
+              <div class="sidebar-user-avatar" id="sidebarAvatar">${initials}</div>
+              <div style="min-width:0;flex:1">
+                <div class="sidebar-user-name">${escapeHtml(name)}</div>
+                <div class="sidebar-user-sub">${escapeHtml(subLabel || "Активна")}</div>
+              </div>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="color:var(--muted);flex-shrink:0"><path d="M6 4l4 4-4 4"/></svg>
+            </button>
+          </div>
+        `;
+      }
+
       function renderAdminTopbar() {
         if (_briefAgencyId) return;
         const el = document.getElementById("adminTopbar");
@@ -1149,6 +1225,7 @@
         } else {
           el.innerHTML = `<button class="btn small" onclick="app.exitLocalModeAndLogin()">🔐 Войти</button>`;
         }
+        renderSidebar();
       }
 
       function openAdminModal() {
@@ -6263,6 +6340,7 @@
 
       function render() {
         if (_needsNormalize) { normalizeState(); _needsNormalize = false; }
+        renderSidebar();
 
         document.body.classList.toggle("client-mode", state.clientMode);
 
@@ -7163,47 +7241,55 @@
               </div>
             </div>
 
-            <!-- ── STAT STRIP ─────────────────────────────── -->
+            <!-- ── STAT GRID ──────────────────────────────── -->
             <div class="db-stat-row">
-              <div class="db-stat" onclick="app.go('global-finances')">
+              <div class="db-stat" onclick="app.go('global-finances')" title="Выручка за текущий месяц">
+                <div class="db-stat-icon">💰</div>
                 <div class="db-stat-label">Выручка / мес</div>
                 <div class="db-stat-value">${money(monthRevenue)}</div>
-                <div class="db-stat-delta ${revDelta!==null?(revDelta>=0?"pos":"neg"):"neu"}">${revDelta!==null?(revDelta>=0?"↑":"↓")+Math.abs(revDelta)+"% к прошлому":"нет данных"}</div>
+                <div class="db-stat-delta ${revDelta!==null?(revDelta>=0?"pos":"neg"):"neu"}">${revDelta!==null?(revDelta>=0?"↑ ":"↓ ")+Math.abs(revDelta)+"% к прошлому":"нет данных"}</div>
               </div>
-              <div class="db-stat" onclick="app.go('global-finances')">
+              <div class="db-stat" onclick="app.go('global-finances')" title="Расходы за текущий месяц">
+                <div class="db-stat-icon">📉</div>
                 <div class="db-stat-label">Расходы / мес</div>
                 <div class="db-stat-value" style="${monthExpenses>0?"color:var(--red)":""}">${money(monthExpenses)}</div>
-                <div class="db-stat-delta neu">текущий месяц</div>
+                <div class="db-stat-delta neu">${curMonthName}</div>
               </div>
-              <div class="db-stat" onclick="app.go('global-finances')">
+              <div class="db-stat" onclick="app.go('global-finances')" title="Чистая прибыль за месяц">
+                <div class="db-stat-icon">📈</div>
                 <div class="db-stat-label">Прибыль / мес</div>
                 <div class="db-stat-value" style="color:${monthProfit>=0?"var(--green)":"var(--red)"}">${money(monthProfit)}</div>
-                <div class="db-stat-delta ${monthProfit>=0?"pos":"neg"}">${monthProfit>=0?"доход":"убыток"}</div>
+                <div class="db-stat-delta ${monthProfit>=0?"pos":"neg"}">${monthProfit>=0?"↑ доход":"↓ убыток"}</div>
               </div>
-              <div class="db-stat">
+              <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')" title="Сколько клиенты ещё должны">
+                <div class="db-stat-icon">${totalDebt>0?"⏳":"✅"}</div>
+                <div class="db-stat-label">Долг клиентов</div>
+                <div class="db-stat-value" style="${totalDebt>0?"color:var(--orange)":"color:var(--green)"}">${money(totalDebt)}</div>
+                <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё закрыто"}</div>
+              </div>
+              <div class="db-stat" title="Сумма активных сделок в воронке">
+                <div class="db-stat-icon">🔮</div>
                 <div class="db-stat-label">Воронка</div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>
-                <div class="db-stat-delta neu">${projects.filter(p=>!["Сдано","Завершённые"].includes(p.crmStatus||"Лид")).length} активных</div>
+                <div class="db-stat-delta neu">${projects.filter(p=>!["Сдано","Завершённые"].includes(p.crmStatus||"Лид")).length} активных сделок</div>
               </div>
-              <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')">
-                <div class="db-stat-label">Долг клиентов</div>
-                <div class="db-stat-value" style="${totalDebt>0?"color:var(--orange)":""}">${money(totalDebt)}</div>
-                <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
-              </div>
-              <div class="db-stat">
+              <div class="db-stat" title="Сделки в работе">
+                <div class="db-stat-icon">🎬</div>
                 <div class="db-stat-label">В работе</div>
                 <div class="db-stat-value">${inWork}</div>
-                <div class="db-stat-delta neu">${closedCount} закрыто</div>
+                <div class="db-stat-delta neu">${closedCount} завершено</div>
               </div>
-              <div class="db-stat">
-                <div class="db-stat-label">Ср. чек</div>
+              <div class="db-stat" title="Средний чек по закрытым сделкам">
+                <div class="db-stat-icon">🎯</div>
+                <div class="db-stat-label">Средний чек</div>
                 <div class="db-stat-value">${avgDeal>0?money(avgDeal):"—"}</div>
                 <div class="db-stat-delta neu">${closedCount>0?"по "+closedCount+" сделкам":"нет закрытых"}</div>
               </div>
-              <div class="db-stat ${overdueCount>0?"db-stat-warn":""}" onclick="app.go('global-calendar')">
+              <div class="db-stat ${overdueCount>0?"db-stat-warn":""}" onclick="app.go('global-calendar')" title="Дедлайны в ближайшие 7 дней">
+                <div class="db-stat-icon">${overdueCount>0?"🚨":"📅"}</div>
                 <div class="db-stat-label">Дедлайны / 7 дн</div>
                 <div class="db-stat-value">${uniqueDeadlines.length}</div>
-                <div class="db-stat-delta ${overdueCount>0?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${overdueCount>0?"⚠ "+overdueCount+" просрочено":uniqueDeadlines.length>0?"ближ. "+formatDate(uniqueDeadlines[0].date):"нет ✓"}</div>
+                <div class="db-stat-delta ${overdueCount>0?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${overdueCount>0?"⚠ "+overdueCount+" просрочено":uniqueDeadlines.length>0?"ближ. "+formatDate(uniqueDeadlines[0].date):"всё ок ✓"}</div>
               </div>
             </div>
 

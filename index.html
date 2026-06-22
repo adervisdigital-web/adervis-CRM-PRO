@@ -52,6 +52,8 @@
 
 <body>
   <div class="app">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Боковая навигация"></aside>
+    <div class="app-main">
     <header class="topbar">
       <div class="brand">
         <div class="logo" title="Главное меню" onclick="app.openMainMenu()" tabindex="0" role="button">
@@ -171,7 +173,8 @@
     <main class="container" id="appContent"></main>
     <div id="notifPopupContainer"></div>
     <div id="authGateContainer"></div>
-  </div>
+  </div><!-- end app-main -->
+  </div><!-- end app -->
 
   <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Нижняя навигация">
     <button class="mbn-item" id="mbnHome" onclick="app.go('home')" title="Сделки">
