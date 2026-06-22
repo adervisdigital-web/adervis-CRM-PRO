@@ -2452,23 +2452,6 @@
               ✅ Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
             </p>
             ${compTable}
-            <div style="margin-top:24px;padding:16px 20px;background:var(--panel2);border:1px solid var(--line);border-radius:14px">
-              <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Почему не amoCRM / Bitrix24?</div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
-                <div style="padding:10px 12px;border-radius:10px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.18)">
-                  <div style="font-size:12px;font-weight:700;margin-bottom:4px">amoCRM</div>
-                  <div style="font-size:12px;color:var(--muted);line-height:1.5">от 1&nbsp;299 ₽/пользователь&nbsp;·&nbsp;нет сметного модуля&nbsp;·&nbsp;перегруженный интерфейс</div>
-                </div>
-                <div style="padding:10px 12px;border-radius:10px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.18)">
-                  <div style="font-size:12px;font-weight:700;margin-bottom:4px">Bitrix24</div>
-                  <div style="font-size:12px;color:var(--muted);line-height:1.5">бесплатный, но сложный&nbsp;·&nbsp;3–4 недели на внедрение&nbsp;·&nbsp;всё для всех, ничего для продакшна</div>
-                </div>
-                <div style="padding:10px 12px;border-radius:10px;background:rgba(22,163,74,.07);border:1px solid rgba(22,163,74,.25)">
-                  <div style="font-size:12px;font-weight:700;margin-bottom:4px;color:var(--green)">ADERVIS CRM ✓</div>
-                  <div style="font-size:12px;color:var(--muted);line-height:1.5">создан для продакшна&nbsp;·&nbsp;смета, КП, финансы в одном&nbsp;·&nbsp;готов к работе за 10 минут</div>
-                </div>
-              </div>
-            </div>
           </div>
         `;
       }
@@ -7473,6 +7456,7 @@
                       <div style="font-size:11px;margin-top:6px;font-weight:750;color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
 
                       <div class="deal-card-footer" onclick="event.stopPropagation()">
+                        <button class="btn small" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету, КП, задачи, финансы">Открыть</button>
                         ${nextLabel ? `<button class="next-action-btn" onclick="app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge">Завершено</span>`}
                       </div>
                     </div>
