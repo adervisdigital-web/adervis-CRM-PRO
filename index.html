@@ -80,10 +80,14 @@
         <!-- ── Desktop only: current page title ── -->
         <div class="topbar-page-title" id="topbarPageTitle"></div>
 
-        <!-- ── Right actions (all viewports) ── -->
+        <!-- ── Right actions: [поиск][↩][↪][🌙][🔔][+][аватар] ── -->
         <div class="top-actions">
-          <!-- Autosave (скрыт на мобильных) -->
           <span class="autosave-indicator" id="autoSaveIndicator">Сохранено</span>
+
+          <!-- Поиск — первый слева -->
+          <button class="topbar-icon-btn" id="searchBtn" title="Поиск (Ctrl+K)" onclick="app.openSearch()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </button>
 
           <!-- Undo / Redo -->
           <button class="topbar-icon-btn" id="undoBtn" title="Отменить (Ctrl+Z)" onclick="app.undo()">
@@ -99,11 +103,6 @@
               <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
               <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
             </span>
-          </button>
-
-          <!-- Поиск -->
-          <button class="topbar-icon-btn" id="searchBtn" title="Поиск (Ctrl+K)" onclick="app.openSearch()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           </button>
 
           <!-- Уведомления -->
@@ -197,6 +196,19 @@
   <div id="printArea"></div>
   <button class="scroll-top-btn" id="scrollTopBtn" title="Наверх">&#8593;</button>
   <div id="vkid-one-tap" style="display:none"></div>
+
+  <!-- Поисковый оверлей -->
+  <div class="search-modal" id="searchModal" style="display:none" onclick="if(event.target===this)app.closeSearch()">
+    <div class="search-box">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5;flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="searchInput" placeholder="Поиск по сделкам, клиентам, задачам..." style="flex:1;border:none;background:none;font-size:15px;color:var(--text);outline:none" oninput="app.runSearch(this.value)">
+        <kbd style="font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:2px 6px">Esc</kbd>
+      </div>
+      <div id="searchResults" style="max-height:380px;overflow-y:auto;padding:8px 0"></div>
+    </div>
+  </div>
+  <div id="modalContainer"></div>
 
   <script src="app.js"></script>
 </body>
