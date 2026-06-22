@@ -251,27 +251,39 @@
     .topbar-add-label, .topbar-add-chevron { display: none !important; }
     .topbar-add-icon { display: none; }
 
-    /* Desktop: sidebar = бренд+нав; topbar = название раздела + [поиск][уведомления][+ создать] */
+    /* ── Topbar: десктоп и мобильные ─────────────────────────
+       Справа всегда: [тема] [поиск] [уведомления] [+] [аватар]
+       Слева на мобильных: лого + горизонтальный нав
+       Слева на десктопе: пусто (sidebar держит навигацию)
+    ────────────────────────────────────────────────────────── */
     @media (min-width: 769px) {
       .topbar {
-        display: flex !important; align-items: center;
-        padding: 0 24px !important; height: 62px; gap: 8px;
+        display: flex !important;
+        align-items: center;
+        padding: 0 20px !important;
+        height: 62px;
+        gap: 6px;
       }
-      .topbar .brand, .topbar .burger-btn, .topbar .nav { display: none !important; }
+      /* На десктопе скрываем мобильные элементы */
+      .topbar .brand,
+      .topbar .burger-btn,
+      .topbar .nav { display: none !important; }
       .topbar-page-title { display: none !important; }
-      .top-actions { margin-left: auto; min-width: auto; gap: 8px; justify-content: flex-end; flex-shrink: 0; }
-      .topbar-add-label { display: inline; }
+      /* Весь .top-actions прижат вправо */
+      .top-actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
       .topbar-icon-btn { width: 38px; height: 38px; }
-      .topbar-add-btn { padding: 9px 18px; font-size: 14px; }
-      /* Avatar остаётся в topbar — единственный доступ к дропдауну профиля */
     }
 
-    /* Mobile: компактный топбар, sidebar скрыт */
     @media (max-width: 768px) {
       .topbar-page-title { display: none !important; }
-      .topbar-add-label, .topbar-add-chevron { display: none; }
-      .topbar-add-btn { padding: 8px 10px; }
-      #profileDdWrap { display: flex; } /* аватар виден на мобильном в topbar */
+      /* На мобиле автосохранение не нужно в шапке */
+      .autosave-indicator { display: none; }
     }
 
     /* Sidebar footer tools (theme + settings) */

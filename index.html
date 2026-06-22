@@ -82,21 +82,29 @@
 
         <!-- ── Right actions (all viewports) ── -->
         <div class="top-actions">
-          <!-- Autosave status -->
+          <!-- Autosave (скрыт на мобильных) -->
           <span class="autosave-indicator" id="autoSaveIndicator">Сохранено</span>
 
-          <!-- Search -->
+          <!-- Тема -->
+          <button class="topbar-icon-btn theme-toggle-btn" id="themeBtn" title="Сменить тему">
+            <span class="theme-icon">
+              <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            </span>
+          </button>
+
+          <!-- Поиск -->
           <button class="topbar-icon-btn" id="searchBtn" title="Поиск (Ctrl+K)" onclick="app.openSearch()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           </button>
 
-          <!-- Notifications -->
+          <!-- Уведомления -->
           <button class="notif-btn topbar-icon-btn" id="notifBtn" title="Уведомления" onclick="app.toggleNotifPopup()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
             <span class="notif-badge" id="notifBadge" style="display:none">0</span>
           </button>
 
-          <!-- Add new (primary CTA) -->
+          <!-- Создать (круглая + кнопка) -->
           <div class="global-add-wrap">
             <button class="topbar-add-btn" id="globalAddBtn" title="Создать новое">+</button>
             <div class="global-add-menu" id="globalAddMenu">
@@ -120,29 +128,23 @@
             </div>
           </div>
 
-          <!-- Mobile only: profile avatar -->
+          <!-- Профиль (аватар + дропдаун: профиль / настройки / подписка / выйти) -->
           <div class="profile-dd-wrap" id="profileDdWrap">
-            <button class="profile-avatar-btn" id="profileAvatarBtn" title="Профиль" onclick="app.toggleProfileDd()">
+            <button class="profile-avatar-btn" id="profileAvatarBtn" title="Профиль и аккаунт" onclick="app.toggleProfileDd()">
               <span id="profileAvatarInner">A</span>
             </button>
             <div class="profile-dd" id="profileDd"></div>
           </div>
 
-          <!-- Hidden JS-controlled elements (needed by app logic, not shown in topbar) -->
-          <button id="undoBtn" onclick="app.undo()" aria-hidden="true" style="display:none"></button>
-          <button id="redoBtn" onclick="app.redo()" aria-hidden="true" style="display:none"></button>
-          <button class="theme-toggle-btn" id="themeBtn" aria-hidden="true" style="display:none">
-            <span class="theme-icon">
-              <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-              <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-            </span>
-          </button>
-          <button id="clientModeBtn" aria-hidden="true" style="display:none">👁 Клиент</button>
-          <div class="help-dd-wrap" id="helpDdWrap" style="position:absolute;opacity:0;pointer-events:none;height:0;overflow:hidden">
+          <!-- Служебные элементы — только для JS, визуально скрыты -->
+          <span id="adminTopbar" style="display:none"></span>
+          <button id="undoBtn" onclick="app.undo()" style="display:none"></button>
+          <button id="redoBtn" onclick="app.redo()" style="display:none"></button>
+          <button id="clientModeBtn" style="display:none">👁 Клиент</button>
+          <div id="helpDdWrap" style="display:none">
             <button id="helpBtn" onclick="app.toggleHelpDd()"></button>
             <div class="help-dd" id="helpDd"></div>
           </div>
-          <div id="adminTopbar" style="display:none"></div>
         </div>
       </header>
 
