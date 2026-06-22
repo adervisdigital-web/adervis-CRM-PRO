@@ -8436,9 +8436,7 @@
                     </div>
                     ${client.note ? `<p style="font-size:12px;margin-top:8px">${escapeHtml(client.note.slice(0,80))}${client.note.length > 80 ? "…" : ""}</p>` : ""}
                     <div class="toolbar no-print" style="margin-top:10px">
-                      <button class="btn primary small" onclick="event.stopPropagation();app.openClientModal('${client.id}')">✏ Изменить</button>
-                      <button class="btn small" onclick="event.stopPropagation();app.openClientDetail('${client.id}')">Проекты</button>
-                      <button class="btn danger small" onclick="event.stopPropagation();app.deleteClient('${client.id}')">×</button>
+                      <button class="btn small" onclick="event.stopPropagation();app.openClientDetail('${client.id}')">Проекты →</button>
                     </div>
                   </article>
                 `).join("") : ""}
@@ -11367,8 +11365,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <div class="field" style="margin-bottom:14px">
                 ${field("Заметка", `<textarea style="min-height:72px" oninput="app.setClientModalField('note',this.value)" placeholder="Предпочтения, условия...">${escapeHtml(m.note || "")}</textarea>`)}
               </div>
-              <div style="display:flex;justify-content:${m.id ? "space-between" : "flex-end"};align-items:center;gap:10px">
-                ${m.id ? `<button class="btn small" onclick="app.closeClientModal();app.openClientDetail('${m.id}')">Все проекты клиента →</button>` : ""}
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+                <div style="display:flex;gap:8px">
+                  ${m.id ? `<button class="btn small" onclick="app.closeClientModal();app.openClientDetail('${m.id}')">Проекты →</button>` : ""}
+                  ${m.id ? `<button class="btn danger small" onclick="app.closeClientModal();app.deleteClient('${m.id}')">Удалить клиента</button>` : ""}
+                </div>
                 <div style="display:flex;gap:8px">
                   <button class="btn" onclick="app.closeClientModal()">Отмена</button>
                   <button class="btn primary" onclick="app.saveClientModal()">${m.id ? "Сохранить" : "Добавить"}</button>
@@ -12189,10 +12190,20 @@ Email: ______________________            Email: ______________________
               `).join("")}
             </div>
 
-            ${contracts.length ? `
-              <h2 style="font-size:16px;margin:0 0 12px">Мои договоры (${contracts.length})</h2>
+            ${contracts.length ? (() => {
+              const cats = ["Все", ...([...new Set(contracts.map(c => c.category || "Прочее"))].sort())];
+              const activeCat = state.contractCatFilter || "Все";
+              const filtered = activeCat === "Все" ? contracts : contracts.filter(c => (c.category || "Прочее") === activeCat);
+              return `
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                <h2 style="font-size:16px;margin:0">Мои договоры (${contracts.length})</h2>
+                <div style="display:flex;gap:4px;flex-wrap:wrap">
+                  ${cats.map(cat => `<button class="badge${activeCat===cat?" active-filter":""}" onclick="app.setContractCatFilter('${escapeHtml(cat)}')"
+                    style="cursor:pointer;padding:4px 10px;border-radius:99px;border:1px solid ${activeCat===cat?"var(--primary)":"var(--line)"};background:${activeCat===cat?"var(--primary)":"transparent"};color:${activeCat===cat?"#fff":"var(--muted)"};font-size:12px;font-weight:600">${escapeHtml(cat)}</button>`).join("")}
+                </div>
+              </div>
               <div class="grid three">
-                ${contracts.map(c => `
+                ${filtered.map(c => `
                   <article class="contract-card" onclick="app.openContractEdit('${c.id}')">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px">
                       <h3 style="margin:0;font-size:15px">${escapeHtml(c.name)}</h3>
@@ -12201,16 +12212,22 @@ Email: ______________________            Email: ______________________
                     ${c.desc ? `<p style="font-size:12px;margin:0 0 8px">${escapeHtml(c.desc)}</p>` : ""}
                     <p style="font-size:11px;margin:0;color:var(--muted)">Обновлён: ${formatDate(c.updatedAt)}</p>
                     <div class="toolbar no-print" style="margin-top:10px">
-                      <button class="btn primary small" onclick="event.stopPropagation();app.openContractEdit('${c.id}')">✏ Редактировать</button>
-                      <button class="btn small" onclick="event.stopPropagation();app.printContract('${c.id}')">Печать</button>
-                      <button class="btn danger small" onclick="event.stopPropagation();app.deleteContract('${c.id}')">×</button>
+                      <button class="btn small" onclick="event.stopPropagation();app.printContract('${c.id}')">Печать / PDF</button>
+                      <button class="btn danger small" onclick="event.stopPropagation();app.deleteContract('${c.id}')">Удалить</button>
                     </div>
                   </article>
                 `).join("")}
               </div>
-            ` : `<div class="empty">Договоров пока нет — выбери шаблон выше или создай пустой.</div>`}
+              ${filtered.length === 0 && activeCat !== "Все" ? `<div class="empty">Нет договоров в категории «${escapeHtml(activeCat)}».</div>` : ""}
+            `;
+            })() : `<div class="empty">Договоров пока нет — выбери шаблон выше или создай пустой.</div>`}
           </div>
         `;
+      }
+
+      function setContractCatFilter(cat) {
+        state.contractCatFilter = cat;
+        render();
       }
 
       function openContractEdit(id) {
@@ -12526,6 +12543,7 @@ Email: ______________________            Email: ______________________
         openDealTasks,
 
         renderContracts,
+        setContractCatFilter,
         createContractFromTemplate,
         quickContractFromDeal,
         createBlankContract,

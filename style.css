@@ -618,6 +618,22 @@
       outline: none;
     }
 
+    /* Иконка календаря/часов в date/time inputs — следует теме браузера */
+    [data-theme="dark"] input[type="date"],
+    [data-theme="dark"] input[type="time"],
+    [data-theme="dark"] input[type="datetime-local"],
+    [data-theme="dark"] input[type="month"],
+    [data-theme="dark"] input[type="week"] {
+      color-scheme: dark;
+    }
+    [data-theme="light"] input[type="date"],
+    [data-theme="light"] input[type="time"],
+    [data-theme="light"] input[type="datetime-local"],
+    [data-theme="light"] input[type="month"],
+    [data-theme="light"] input[type="week"] {
+      color-scheme: light;
+    }
+
     textarea {
       min-height: 92px;
       resize: vertical;
