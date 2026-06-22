@@ -1200,12 +1200,6 @@
               </div>
             </div>
           </div>
-          <!-- Кнопка свёртки — на правом крае sidebar -->
-          <button class="sidebar-toggle-edge" onclick="app.toggleSidebar()" title="${collapsed ? "Развернуть" : "Свернуть"}">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              ${collapsed ? `<path d="M9 18l6-6-6-6"/>` : `<path d="M15 18l-6-6 6-6"/>`}
-            </svg>
-          </button>
 
           <nav class="sidebar-nav">
             ${navItem("home",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>`,"Дашборд")}
@@ -1230,6 +1224,17 @@
             ${navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора")}
             ${navItem("knowledge",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"База знаний")}
 
+            <div class="sidebar-divider"></div>
+
+            <!-- Кнопка свёртки/развёртки — всегда видна -->
+            <button class="sidebar-nav-item sidebar-toggle-btn" onclick="app.toggleSidebar()" title="${collapsed ? "Развернуть меню" : "Свернуть меню"}">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                ${collapsed
+                  ? `<path d="M13 17l5-5-5-5"/><path d="M6 17l5-5-5-5"/>`
+                  : `<path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/>`}
+              </svg>
+              <span class="sidebar-label">${collapsed ? "Развернуть" : "Свернуть"}</span>
+            </button>
           </nav>
 
           <div class="sidebar-footer">
