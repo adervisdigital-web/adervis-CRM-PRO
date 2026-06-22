@@ -214,15 +214,20 @@
     .sidebar-user-name { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.2; }
     .sidebar-user-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
 
-    /* Desktop: sidebar = навигация + бренд; topbar = утилиты */
+    /* Desktop: sidebar = бренд+навигация; topbar = тонкая правая утилитарная панель */
     @media (min-width: 769px) {
-      .topbar .nav { display: none; }        /* навигация — только в sidebar */
-      .topbar .brand { display: none; }      /* бренд — только в sidebar */
-      .topbar .burger-btn { display: none; } /* бургер — только на мобильных */
-      #adminTopbar { display: none; }        /* имя — только в sidebar footer */
-      /* #profileDdWrap остаётся: аватар → dropdown с логаутом/настройками */
-      .topbar { grid-template-columns: 1fr; padding: 8px 20px; }
-      .top-actions { justify-content: flex-end; min-width: auto; gap: 6px; }
+      .topbar {
+        display: flex;
+        justify-content: flex-end;   /* всё содержимое — вправо */
+        align-items: center;
+        padding: 7px 16px;
+        gap: 4px;
+      }
+      .topbar .brand,
+      .topbar .burger-btn,
+      .topbar .nav { display: none; }  /* только в sidebar */
+      #adminTopbar { display: none; }  /* имя — только в sidebar footer */
+      .top-actions { min-width: auto; gap: 5px; justify-content: flex-end; }
     }
 
     /* Hide sidebar + show mobile nav on mobile */
