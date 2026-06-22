@@ -251,12 +251,11 @@
     /* Desktop: sidebar = бренд+нав; topbar = название раздела + [поиск][уведомления][+ создать] */
     @media (min-width: 769px) {
       .topbar {
-        display: flex; align-items: center;
-        padding: 0 24px; height: 62px; gap: 8px;
+        display: flex !important; align-items: center;
+        padding: 0 24px !important; height: 62px; gap: 8px;
       }
       .topbar .brand, .topbar .burger-btn, .topbar .nav { display: none !important; }
       .topbar-page-title { display: none !important; }
-      /* margin-left: auto гарантированно толкает кнопки вправо в любом flex-контейнере */
       .top-actions { margin-left: auto; min-width: auto; gap: 8px; justify-content: flex-end; flex-shrink: 0; }
       .topbar-add-label { display: inline; }
       .topbar-icon-btn { width: 38px; height: 38px; }
