@@ -1151,8 +1151,6 @@
           return cnt;
         })();
 
-        const unreadNotif = (state.notifications||[]).filter(n => !n.read).length;
-
         el.innerHTML = `
           <div class="sidebar-brand" onclick="app.go('home')" style="cursor:pointer" title="Дашборд">
             <div class="logo" style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0">
@@ -1162,6 +1160,13 @@
               <div class="sidebar-brand-name">ADERVIS CRM</div>
               <div class="sidebar-brand-sub">продакшн</div>
             </div>
+          </div>
+
+          <div style="padding:10px 10px 4px">
+            <button class="btn primary" onclick="app.startWizard()" style="width:100%;padding:9px 12px;font-size:13px;font-weight:700;border-radius:10px;gap:8px">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              Новая сделка
+            </button>
           </div>
 
           <nav class="sidebar-nav">
@@ -1180,12 +1185,7 @@
 
             <div class="sidebar-divider"></div>
 
-            <button class="sidebar-nav-item" onclick="app.toggleNotifPopup()">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a5 5 0 00-5 5v3l-1 2h12l-1-2V6a5 5 0 00-5-5zm0 13a2 2 0 01-2-2h4a2 2 0 01-2 2z"/></svg>
-              <span>Уведомления</span>
-              ${unreadNotif ? `<span style="margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 6px;line-height:16px">${unreadNotif}</span>` : ""}
-            </button>
-            ${navItem("profile",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>`,"Настройки")}
+            ${navItem("profile",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M10.3 1.3a1 1 0 011.4 0l3 3a1 1 0 010 1.4l-7 7a1 1 0 01-.5.3l-3 .7a1 1 0 01-1.2-1.2l.7-3a1 1 0 01.3-.5l7-7z"/></svg>`,"Настройки")}
           </nav>
 
           <div class="sidebar-footer">

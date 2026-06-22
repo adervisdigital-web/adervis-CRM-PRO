@@ -214,10 +214,15 @@
     .sidebar-user-name { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.2; }
     .sidebar-user-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
 
-    /* Hide horizontal nav on desktop (sidebar takes over) */
+    /* Desktop: sidebar handles brand/nav/profile — topbar becomes slim utility bar */
     @media (min-width: 769px) {
-      .topbar .nav { display: none; }
-      .topbar { grid-template-columns: auto auto; justify-content: space-between; }
+      .topbar .nav { display: none; }           /* sidebar nav */
+      .topbar .brand { display: none; }         /* sidebar brand */
+      .topbar .burger-btn { display: none; }    /* mobile-only */
+      #profileDdWrap { display: none; }         /* sidebar user profile */
+      #adminTopbar { display: none; }           /* sidebar user info */
+      .topbar { grid-template-columns: 1fr; padding: 10px 20px; }
+      .top-actions { justify-content: flex-end; min-width: auto; }
     }
 
     /* Hide sidebar + show mobile nav on mobile */
