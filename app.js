@@ -824,9 +824,11 @@
             setTimeout(() => {
               if (joinedTeam) {
                 pushNotification("info", "👥 Вы вошли в команду!", "Теперь вы работаете в общем рабочем пространстве агентства.", "");
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
                 toast("👥 Вы присоединились к агентству!");
               } else {
                 pushNotification("info", "👋 Добро пожаловать в ADERVIS CRM!", "14 дней бесплатно и без карты. Начните с создания первой сделки!", "");
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
                 toast("🎉 Аккаунт создан! 14 дней бесплатного доступа.");
                 // Приветственный email — fire-and-forget, не блокируем UI
                 if (_adminSession) {
@@ -3999,6 +4001,10 @@
           profit: numberValue(project?.profit, 0),
           createdAt: project?.createdAt || project?.at || new Date().toISOString(),
           updatedAt: project?.updatedAt || project?.at || new Date().toISOString(),
+          note: project?.note || "",
+          manager: project?.manager || "",
+          tags: Array.isArray(project?.tags) ? project.tags : [],
+          activity: Array.isArray(project?.activity) ? project.activity : [],
           snapshot
         };
       }
@@ -6797,7 +6803,7 @@
             "Телефон": c.phone || "",
             "Email": c.email || "",
             "Город": c.city || "",
-            "Заметки": c.notes || "",
+            "Заметки": c.note || "",
             "Сделок": projs.length,
             "Оборот": projs.reduce((s, p) => s + (p.total || 0), 0),
             "Последняя сделка": projs.length ? projs[0].name : ""
@@ -11664,7 +11670,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const clientName = state.project.client || 'Заказчик';
         const total = totals().total;
         const items = selectedIds()
-          .map(id => BASE_ITEMS.find(i => i.id === id))
+          .map(id => findItem(id))
           .filter(Boolean);
         const serviceNames = [...new Set(items.map(i => i.name))].slice(0, 8);
         const stages = [...new Set(items.map(i => i.stage))].filter(Boolean);
@@ -13474,6 +13480,7 @@ Email: ______________________            Email: ______________________
           pushNotification("deadline", icon + " " + (proj.name || "Проект"), u.label + (proj.client ? " · " + proj.client : ""), proj.id);
           tgLines.push(`${icon} <b>${escapeHtml(proj.name || "Проект")}</b> — ${u.label}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
         });
+        if (tgLines.length) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         if (tgLines.length) {
           if ((state.telegramChatIds || []).length) {
             sendTelegramNotification("⏰ Дедлайны Adervis CRM:\n\n" + tgLines.join("\n"));
