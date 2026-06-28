@@ -3729,6 +3729,25 @@ body.portal-mode .nav { display: none !important; }
   }
 }
 
+/* ── Estimate line collapse chevron ─────────────────── */
+.line-collapse-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel2);
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s, color .15s, transform .2s;
+}
+.line-collapse-btn:hover { background: rgba(124,58,237,.1); color: var(--primary); border-color: var(--primary); }
+.line-collapse-btn.collapsed { transform: rotate(180deg); }
+.line-collapse-btn.collapsed:hover { transform: rotate(180deg); }
+
 /* ── Catalog action icon buttons ────────────────────── */
 .catalog-action-btn {
   width: 30px;

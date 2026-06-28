@@ -8610,11 +8610,11 @@
         return `
           <article class="item ${line.optional ? "optional" : ""}" draggable="true" ondragstart="app.dragStart('${id}')" ondragover="app.dragOver(event)" ondrop="app.dropOn('${id}')">
             <div class="item-top">
-              <div style="display:flex;gap:12px">
+              <div style="display:flex;gap:12px;flex:1;min-width:0">
                 <div class="drag-handle no-print" title="Перетащи для сортировки">☰</div>
-                <div style="flex:1">
+                <div style="flex:1;min-width:0">
                   <input class="line-name-input" type="text" data-autosave data-scope="line" data-id="${id}" data-key="lineName" value="${escapeHtml(line.lineName || "")}" placeholder="${escapeHtml(itemData.name)}" title="Нажми, чтобы переименовать позицию" style="color:var(--text);font-weight:750;font-size:15px">
-                  <textarea class="line-desc-input" data-autosave data-scope="line" data-id="${id}" data-key="editedDesc" placeholder="${escapeHtml(itemData.desc)}" title="Нажми чтобы отредактировать описание" style="color:var(--muted);font-size:12px">${escapeHtml(line.editedDesc || "")}</textarea>
+                  ${!collapsed ? `<textarea class="line-desc-input" data-autosave data-scope="line" data-id="${id}" data-key="editedDesc" placeholder="${escapeHtml(itemData.desc)}" title="Нажми чтобы отредактировать описание" style="color:var(--muted);font-size:12px">${escapeHtml(line.editedDesc || "")}</textarea>` : ""}
 
                   <div class="badges">
                     <span class="badge" style="background:${stageColor}22;color:${stageColor};border-color:${stageColor}44">${escapeHtml(itemData.section)}</span>
@@ -8625,11 +8625,15 @@
               </div>
 
               <div class="price-editor">
-                <div class="price">${money(total)}</div>
+                <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+                  <div class="price">${money(total)}</div>
+                  <button class="line-collapse-btn no-print ${collapsed ? "collapsed" : ""}" onclick="app.toggleLineCollapse('${id}')" title="${collapsed ? "Развернуть" : "Свернуть"}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                  </button>
+                </div>
                 <div class="line-total-note">${line.optional ? "Не входит в основной итог" : "Входит в основной итог"}</div>
                 <div class="estimate-line-actions no-print">
                   <button class="btn small" onclick="app.toggleOptional('${id}')">${line.optional ? "В основные" : "В опции"}</button>
-                  <button class="btn small" onclick="app.toggleLineCollapse('${id}')">${collapsed ? "Развернуть" : "Свернуть"}</button>
                 </div>
               </div>
             </div>
