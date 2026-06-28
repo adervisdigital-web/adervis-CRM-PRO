@@ -2268,7 +2268,7 @@
         _adminLoading = true; render();
         try {
           const [agRes, promoRes] = await Promise.all([
-            _supabase.rpc("admin_get_profiles"),
+            _supabase.rpc("admin_get_all_users"),
             _supabase.rpc("admin_get_promo_codes")
           ]);
           _adminAgencies = agRes.data || [];
@@ -2352,16 +2352,18 @@
                 ${_adminStatCard("MRR (оценка)", (s.mrr || 0) + " ₽", "purple")}
                 ${_adminStatCard("ARR (оценка)", ((s.mrr || 0) * 12) + " ₽", "")}
               </div>
-              <h2>Последние регистрации</h2>
+              <h2>Все пользователи (${(_adminAgencies||[]).length})</h2>
               <div style="overflow-x:auto">
                 <table class="data-table" style="width:100%">
-                  <thead><tr><th>Email</th><th>Статус</th><th>Тариф</th><th>Дата</th></tr></thead>
+                  <thead><tr><th>Email</th><th>Статус</th><th>Тариф</th><th>Email ✓</th><th>Последний вход</th><th>Зарег.</th></tr></thead>
                   <tbody>
-                    ${(_adminAgencies || []).slice(0, 20).map(a => `
+                    ${(_adminAgencies || []).map(a => `
                       <tr>
                         <td>${escapeHtml(a.email || "—")}</td>
-                        <td><span class="badge ${a.subscription_status === "active" ? "green" : a.subscription_status === "trial" ? "yellow" : "red"}">${escapeHtml(a.subscription_status || "—")}</span></td>
+                        <td><span class="badge ${a.subscription_status === "active" ? "green" : a.subscription_status === "trial" ? "yellow" : "red"}">${escapeHtml(a.subscription_status || "нет профиля")}</span></td>
                         <td>${escapeHtml(a.subscription_plan || "—")}</td>
+                        <td style="text-align:center">${a.email_confirmed ? "✅" : "⏳"}</td>
+                        <td style="color:var(--muted);font-size:12px">${a.last_sign_in_at ? new Date(a.last_sign_in_at).toLocaleDateString("ru-RU") : "—"}</td>
                         <td style="color:var(--muted);font-size:12px">${a.created_at ? new Date(a.created_at).toLocaleDateString("ru-RU") : "—"}</td>
                       </tr>`).join("")}
                   </tbody>
@@ -13105,6 +13107,7 @@ Email: ______________________            Email: ______________________
         renderSupport,
         renderAdminPanel,
         renderActivityLog,
+        _logActivity,
         saveDealAsTemplate,
         loadDealFromTemplate,
         deleteDealTemplate,
