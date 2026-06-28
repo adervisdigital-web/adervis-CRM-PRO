@@ -2351,6 +2351,16 @@
         toast(n > 0 ? `Бюджет расходов: ${money(n)}` : "Бюджет расходов удалён");
       }
 
+      async function adminActivate(agencyId) {
+        const expires = new Date(); expires.setDate(expires.getDate() + 30);
+        const { error } = await _supabase.rpc("admin_set_subscription", {
+          p_agency_id: agencyId, p_status: "active", p_plan: "month1", p_expires_at: expires.toISOString()
+        });
+        if (error) { toast("Ошибка: " + error.message); return; }
+        toast("✅ Подписка активирована на 30 дней");
+        loadAdminPanel();
+      }
+
       async function adminExtendTrial(agencyId) {
         const agency = (_adminAgencies || []).find(a => a.agency_id === agencyId);
         const currentExpires = agency?.subscription_expires_at ? new Date(agency.subscription_expires_at) : new Date();
@@ -2382,89 +2392,194 @@
         loadAdminPanel();
       }
 
+      function _adminSubLabel(status) {
+        return { trial: "Триал", active: "Активна", expired: "Истекла", blocked: "Заблок.", "": "Нет профиля" }[status || ""] || status;
+      }
+      function _adminPlanLabel(plan) {
+        return { month1: "1 мес", month3: "3 мес", month6: "6 мес", year: "Год", pro: "PRO", "": "—" }[plan || ""] || plan;
+      }
+      function _adminDaysLeft(expiresAt) {
+        if (!expiresAt) return null;
+        const d = Math.round((new Date(expiresAt) - new Date()) / 86400000);
+        if (d > 0) return `через ${d} дн.`;
+        if (d === 0) return "сегодня";
+        return `${Math.abs(d)} дн. назад`;
+      }
+
       function renderAdminPanel() {
         if (!_isSuperAdmin()) return `<div class="panel"><p style="color:var(--muted)">Доступ запрещён.</p></div>`;
-        if (_adminLoading) return `<div class="panel"><p style="color:var(--muted)">Загрузка...</p></div>`;
-        if (!_adminAgencies) { loadAdminPanel(); return `<div class="panel"><p style="color:var(--muted)">Загрузка панели...</p></div>`; }
+        if (_adminLoading) return `<div class="panel" style="text-align:center;padding:48px"><div class="spinner" style="margin:0 auto 12px"></div><p style="color:var(--muted)">Загрузка...</p></div>`;
+        if (!_adminAgencies) { loadAdminPanel(); return `<div class="panel"><p style="color:var(--muted)">Загрузка...</p></div>`; }
         const s = _adminStats || {};
-        const tabs = [["stats", "📊 Статистика"], ["users", "👥 Агентства"], ["promos", "🎁 Промокоды"]];
+
+        const statusColor = { trial: "rgba(202,138,4,.15)", active: "rgba(22,163,74,.15)", expired: "rgba(220,38,38,.12)", blocked: "rgba(220,38,38,.2)", "": "var(--panel2)" };
+        const statusText = { trial: "#f59e0b", active: "#4ade80", expired: "var(--red)", blocked: "var(--red)" };
+
         return `
           <div class="panel">
-            <div class="section-title">
-              <div><h1 style="margin:0">🔐 Admin Panel</h1><p style="color:var(--muted);margin:4px 0 0">Только для adervis.digital@gmail.com</p></div>
-              <button class="btn small" onclick="app.loadAdminPanel()">⟳ Обновить</button>
-            </div>
-            <div class="tabs" style="margin-bottom:20px">
-              ${tabs.map(([k,l]) => `<button class="tab ${_adminPanelTab===k?"active":""}" onclick="app._setAdminTab('${k}')">${l}</button>`).join("")}
-            </div>
-            ${_adminPanelTab === "stats" ? `
-              <div class="grid three" style="margin-bottom:24px">
-                ${_adminStatCard("Всего агентств", s.total || 0, "")}
-                ${_adminStatCard("Активных подписок", s.active || 0, "green")}
-                ${_adminStatCard("На триале", s.trial || 0, "yellow")}
-                ${_adminStatCard("Новых за месяц", s.newThisMonth || 0, "blue")}
-                ${_adminStatCard("MRR (оценка)", (s.mrr || 0) + " ₽", "purple")}
-                ${_adminStatCard("ARR (оценка)", ((s.mrr || 0) * 12) + " ₽", "")}
+            <!-- Header -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#dc2626,#7c3aed);display:grid;place-items:center;font-size:20px">🔐</div>
+                <div>
+                  <h1 style="margin:0;font-size:20px">Admin Panel</h1>
+                  <p style="margin:0;font-size:12px;color:var(--muted)">adervis.digital@gmail.com</p>
+                </div>
               </div>
-              <h2>Все пользователи (${(_adminAgencies||[]).length})</h2>
-              <div style="overflow-x:auto">
-                <table class="data-table" style="width:100%">
-                  <thead><tr><th>Email</th><th>Статус</th><th>Тариф</th><th>Email ✓</th><th>Последний вход</th><th>Зарег.</th></tr></thead>
-                  <tbody>
-                    ${(_adminAgencies || []).map(a => `
-                      <tr>
-                        <td>${escapeHtml(a.email || "—")}</td>
-                        <td><span class="badge ${a.subscription_status === "active" ? "green" : a.subscription_status === "trial" ? "yellow" : "red"}">${escapeHtml(a.subscription_status || "нет профиля")}</span></td>
-                        <td>${escapeHtml(a.subscription_plan || "—")}</td>
-                        <td style="text-align:center">${a.email_confirmed ? "✅" : "⏳"}</td>
-                        <td style="color:var(--muted);font-size:12px">${a.last_sign_in_at ? new Date(a.last_sign_in_at).toLocaleDateString("ru-RU") : "—"}</td>
-                        <td style="color:var(--muted);font-size:12px">${a.created_at ? new Date(a.created_at).toLocaleDateString("ru-RU") : "—"}</td>
-                      </tr>`).join("")}
-                  </tbody>
-                </table>
+              <button class="btn small" onclick="app.loadAdminPanel()" style="display:flex;align-items:center;gap:6px">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M3 12a9 9 0 101.77-5.5"/><path d="M3 3v4h4"/></svg>
+                Обновить
+              </button>
+            </div>
+
+            <!-- KPI strip -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:24px">
+              ${[
+                ["Всего", s.total||0, ""],
+                ["Активных", s.active||0, "#4ade80"],
+                ["На триале", s.trial||0, "#f59e0b"],
+                ["Новых / мес", s.newThisMonth||0, "#60a5fa"],
+                ["MRR", (s.mrr||0).toLocaleString("ru-RU")+" ₽", "#a78bfa"],
+                ["ARR", ((s.mrr||0)*12).toLocaleString("ru-RU")+" ₽", "#a78bfa"]
+              ].map(([label, val, color]) => `
+                <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
+                  <div style="font-size:22px;font-weight:900;color:${color||"var(--text)"};font-variant-numeric:tabular-nums">${val}</div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:3px;font-weight:600">${label}</div>
+                </div>`).join("")}
+            </div>
+
+            <!-- Tabs -->
+            <div style="display:flex;gap:4px;margin-bottom:20px;background:var(--panel2);padding:4px;border-radius:12px;width:fit-content">
+              ${[["users","👥 Пользователи"],["promos","🎁 Промокоды"]].map(([k,l]) => `
+                <button onclick="app._setAdminTab('${k}')"
+                  style="padding:8px 18px;border-radius:9px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:.15s;
+                  background:${_adminPanelTab===k?"var(--primary)":"transparent"};
+                  color:${_adminPanelTab===k?"#fff":"var(--muted)"}">
+                  ${l}
+                </button>`).join("")}
+            </div>
+
+            <!-- Users tab -->
+            ${_adminPanelTab === "users" ? `
+              <div style="display:flex;flex-direction:column;gap:8px">
+                ${(_adminAgencies||[]).map(a => {
+                  const aid = escapeHtml(a.agency_id||"");
+                  const ast = a.subscription_status || "";
+                  const isEditing = _adminEditSub && _adminEditSub.agencyId === (a.agency_id||"");
+                  const daysLeft = _adminDaysLeft(a.subscription_expires_at);
+                  const isBlocked = ast === "blocked";
+                  const isExpired = ast === "expired";
+                  return `
+                    <div style="border:1px solid var(--line);border-radius:14px;overflow:hidden;${isBlocked?"opacity:.6":""}">
+                      <!-- User row -->
+                      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;flex-wrap:wrap">
+                        <!-- Avatar -->
+                        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;font-size:14px;font-weight:900;color:#fff;flex-shrink:0">
+                          ${(a.email||"?")[0].toUpperCase()}
+                        </div>
+                        <!-- Info -->
+                        <div style="flex:1;min-width:0">
+                          <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.email||"—")}</div>
+                          <div style="font-size:11px;color:var(--muted);margin-top:2px">
+                            Зарег.: ${a.created_at ? new Date(a.created_at).toLocaleDateString("ru-RU") : "—"}
+                            ${a.last_sign_in_at ? ` · Вход: ${new Date(a.last_sign_in_at).toLocaleDateString("ru-RU")}` : ""}
+                          </div>
+                        </div>
+                        <!-- Status + plan + expiry -->
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0">
+                          <span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:${statusColor[ast]||"var(--panel2)"};color:${statusText[ast]||"var(--muted)"}">
+                            ${_adminSubLabel(ast)}
+                          </span>
+                          ${a.subscription_plan ? `<span style="font-size:12px;font-weight:600;color:var(--muted)">${_adminPlanLabel(a.subscription_plan)}</span>` : ""}
+                          ${a.subscription_expires_at ? `<span style="font-size:11px;color:${isExpired?"var(--red)":"var(--muted)"}">${daysLeft}</span>` : ""}
+                          ${!a.email_confirmed ? `<span title="Email не подтверждён" style="font-size:11px;color:var(--yellow)">⚠ email</span>` : ""}
+                        </div>
+                        <!-- Actions -->
+                        <div style="display:flex;gap:6px;flex-shrink:0">
+                          ${!isEditing ? `
+                            ${(isExpired || ast === "") ? `<button class="btn small green" onclick="app.adminActivate('${aid}')" title="Активировать на 30 дней">✅ Активировать</button>` : ""}
+                            <button class="btn small" onclick="app.adminExtendTrial('${aid}')" title="+14 дней к триалу">+14д</button>
+                            <button class="btn small" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Изменить подписку">✏️</button>
+                            <button class="btn small ${isBlocked?"green":"danger"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?"🔓":"🚫"}</button>
+                          ` : `
+                            <button class="btn small" onclick="app._closeEditSub()" style="opacity:.6">Отмена</button>
+                          `}
+                        </div>
+                      </div>
+                      <!-- Inline editor -->
+                      ${isEditing ? `
+                        <div style="border-top:1px solid var(--line);padding:14px 16px;background:var(--panel2)">
+                          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px">
+                            <div class="field" style="margin:0">
+                              <label>Статус</label>
+                              <select onchange="app._setEditSub('status',this.value)">
+                                ${["trial","active","expired","blocked"].map(sv => `<option value="${sv}" ${_adminEditSub.status===sv?"selected":""}>${_adminSubLabel(sv)}</option>`).join("")}
+                              </select>
+                            </div>
+                            <div class="field" style="margin:0">
+                              <label>Тариф</label>
+                              <select onchange="app._setEditSub('plan',this.value)">
+                                ${["month1","month3","month6","year","pro"].map(pv => `<option value="${pv}" ${_adminEditSub.plan===pv?"selected":""}>${_adminPlanLabel(pv)}</option>`).join("")}
+                              </select>
+                            </div>
+                            <div class="field" style="margin:0">
+                              <label>Истекает</label>
+                              <input type="date" value="${escapeHtml(_adminEditSub.expires||"")}" onchange="app._setEditSub('expires',this.value)">
+                            </div>
+                          </div>
+                          <div style="display:flex;gap:8px">
+                            <button class="btn primary small" onclick="app.adminSetSubscription()">Сохранить</button>
+                            <button class="btn small" onclick="app._closeEditSub()">Отмена</button>
+                          </div>
+                        </div>
+                      ` : ""}
+                    </div>`;
+                }).join("")}
               </div>
             ` : ""}
-            ${_adminPanelTab === "users" ? `
-              <div style="overflow-x:auto">
-                <table class="data-table" style="width:100%">
-                  <thead><tr><th>Email</th><th>Статус</th><th>Тариф</th><th>Истекает</th><th>Действие</th></tr></thead>
-                  <tbody>
-                    ${(_adminAgencies || []).map(a => `
-                      <tr>
-                        <td>${escapeHtml(a.email || "—")}</td>
-                        <td><span class="badge ${a.subscription_status === "active" ? "green" : a.subscription_status === "trial" ? "yellow" : "red"}">${escapeHtml(a.subscription_status || "—")}</span></td>
-                        <td>${escapeHtml(a.subscription_plan || "—")}</td>
-                        <td style="font-size:12px;color:var(--muted)">${a.subscription_expires_at ? new Date(a.subscription_expires_at).toLocaleDateString("ru-RU") : "—"}</td>
-                        <td style="display:flex;gap:4px;flex-wrap:wrap">
-                          <button class="btn small" onclick="app._openEditSub('${escapeHtml(a.agency_id||"")}','${escapeHtml(a.subscription_status||"")}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')">✏️</button>
-                          <button class="btn small green" onclick="app.adminExtendTrial('${escapeHtml(a.agency_id||"")}')" title="Продлить триал +14 дней">+14д</button>
-                          <button class="btn small ${a.subscription_status==='blocked'?'green':'danger'}" onclick="app.adminToggleBlock('${escapeHtml(a.agency_id||"")}','${escapeHtml(a.subscription_status||"")}')" title="${a.subscription_status==='blocked'?'Разблокировать':'Заблокировать'}">${a.subscription_status==='blocked'?'✓':'🚫'}</button>
-                        </td>
-                      </tr>`).join("")}
-                  </tbody>
-                </table>
+
+            <!-- Promos tab -->
+            ${_adminPanelTab === "promos" ? `
+              <div style="background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px">
+                <h3 style="margin:0 0 16px;font-size:15px">+ Новый промокод</h3>
+                ${_adminPromoForm.error ? `<div style="color:var(--red);font-size:13px;margin-bottom:10px;padding:8px 12px;background:rgba(220,38,38,.1);border-radius:8px">${escapeHtml(_adminPromoForm.error)}</div>` : ""}
+                <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+                  ${field("Код", `<input placeholder="PROMO2026" value="${escapeHtml(_adminPromoForm.code)}" oninput="app._setPromoForm('code',this.value)" style="text-transform:uppercase">`)}
+                  ${field("Скидка %", `<input type="number" min="1" max="100" placeholder="20" value="${_adminPromoForm.discount||""}" oninput="app._setPromoForm('discount',this.value)">`)}
+                  ${field("Макс. исп.", `<input type="number" min="1" value="${_adminPromoForm.maxUses||100}" oninput="app._setPromoForm('maxUses',this.value)">`)}
+                  ${field("Истекает", `<input type="date" value="${escapeHtml(_adminPromoForm.expires||"")}" onchange="app._setPromoForm('expires',this.value)">`)}
+                </div>
+                <button class="btn primary" onclick="app.adminCreatePromo()" ${_adminPromoForm.loading?"disabled":""} style="display:flex;align-items:center;gap:6px">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                  ${_adminPromoForm.loading?"Создание...":"Создать промокод"}
+                </button>
               </div>
-              ${_adminEditSub ? `
-                <div class="panel" style="background:var(--panel2);margin-top:20px">
-                  <h3 style="margin-top:0">Изменить подписку</h3>
-                  <div class="grid three">
-                    <div class="field"><label>Статус</label>
-                      <select onchange="app._setEditSub('status',this.value)">
-                        ${["trial","active","expired"].map(s => `<option value="${s}" ${_adminEditSub.status===s?"selected":""}>${s}</option>`).join("")}
-                      </select>
-                    </div>
-                    <div class="field"><label>Тариф</label>
-                      <select onchange="app._setEditSub('plan',this.value)">
-                        ${["month1","month3","month6","year","pro"].map(p => `<option value="${p}" ${_adminEditSub.plan===p?"selected":""}>${p}</option>`).join("")}
-                      </select>
-                    </div>
-                    <div class="field"><label>Дата окончания</label>
-                      <input type="date" value="${escapeHtml(_adminEditSub.expires||"")}" onchange="app._setEditSub('expires',this.value)">
-                    </div>
-                  </div>
-                  <div class="toolbar">
-                    <button class="btn primary" onclick="app.adminSetSubscription()">Сохранить</button>
-                    <button class="btn" onclick="app._closeEditSub()">Отмена</button>
+              ${(_adminPromoCodes||[]).length ? `
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  ${(_adminPromoCodes||[]).map(p => `
+                    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid var(--line);border-radius:12px;${p.active===false?"opacity:.55":""}">
+                      <div style="flex:1;min-width:0">
+                        <div style="display:flex;align-items:center;gap:8px">
+                          <span style="font-family:monospace;font-size:14px;font-weight:900">${escapeHtml(p.code)}</span>
+                          <span style="font-size:13px;font-weight:700;color:#a78bfa">${p.discount||0}%</span>
+                          <span style="padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;background:${p.active!==false?"rgba(22,163,74,.12)":"rgba(220,38,38,.1)"};color:${p.active!==false?"#4ade80":"var(--red)"}">
+                            ${p.active!==false?"Активен":"Отключён"}
+                          </span>
+                        </div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:4px">
+                          Использован: ${p.uses||0} / ${p.max_uses||"∞"}
+                          ${p.expires_at ? ` · до ${new Date(p.expires_at).toLocaleDateString("ru-RU")}` : ""}
+                        </div>
+                      </div>
+                      <button class="btn small ${p.active!==false?"danger":""}" onclick="app.adminTogglePromo('${p.id}',${p.active===false})">
+                        ${p.active!==false?"Откл.":"Вкл."}
+                      </button>
+                    </div>`).join("")}
+                </div>
+              ` : `<div style="text-align:center;padding:24px;color:var(--muted)">Промокодов пока нет</div>`}
+            ` : ""}
+          </div>`;
+      }
                   </div>
                 </div>
               ` : ""}
@@ -13310,6 +13425,7 @@ Email: ______________________            Email: ______________________
         adminSetSubscription,
         adminCreatePromo,
         adminTogglePromo,
+        adminActivate,
         adminExtendTrial,
         adminToggleBlock,
         _setExpenseBudget,
