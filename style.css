@@ -659,7 +659,24 @@
       outline: none;
     }
 
-    /* Dropdown options — тема браузера для нативного select */
+    /* Кастомный select — убираем браузерную стрелку, ставим свой шеврон */
+    select {
+      -webkit-appearance: none;
+      appearance: none;
+      padding-right: 34px;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237a7a8a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 15px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    [data-theme="light"] select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    }
+    select:hover { border-color: rgba(168, 85, 247, .35); }
+
+    /* Тема браузера для нативного dropdown popup */
     [data-theme="dark"] select { color-scheme: dark; }
     [data-theme="light"] select { color-scheme: light; }
 
@@ -1246,6 +1263,17 @@
     .catalog-price-input::-webkit-outer-spin-button,
     .catalog-price-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .catalog-price-input { appearance: textfield; }
+
+    /* Убираем спиннеры у числовых полей в строках сметы (цена, дни, кол-во) */
+    input[data-scope="line"][data-key="price"]::-webkit-inner-spin-button,
+    input[data-scope="line"][data-key="price"]::-webkit-outer-spin-button,
+    input[data-scope="line"][data-key="days"]::-webkit-inner-spin-button,
+    input[data-scope="line"][data-key="days"]::-webkit-outer-spin-button,
+    input[data-scope="line"][data-key="qty"]::-webkit-inner-spin-button,
+    input[data-scope="line"][data-key="qty"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[data-scope="line"][data-key="price"],
+    input[data-scope="line"][data-key="days"],
+    input[data-scope="line"][data-key="qty"] { appearance: textfield; }
 
     .proposal-brand {
       display: flex;
