@@ -1244,6 +1244,11 @@
           </nav>
 
           <div class="sidebar-footer">
+            ${_isSuperAdmin() ? `
+            <button class="sidebar-nav-item" onclick="app.go('admin')" title="Панель администратора" style="color:var(--red);opacity:.7">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              <span class="sidebar-label">Admin Panel</span>
+            </button>` : ""}
             <button class="sidebar-nav-item" onclick="app.go('profile')" title="${escapeHtml(name)}">
               <div class="sidebar-user-avatar" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff">${initials}</div>
               <span class="sidebar-label" style="min-width:0;overflow:hidden;text-align:left">
@@ -2328,6 +2333,47 @@
         loadAdminPanel();
       }
 
+      function _setExpenseBudget() {
+        const cur = state.project.expenseBudget || 0;
+        const val = prompt("Плановый бюджет расходов:", cur || "");
+        if (val === null) return;
+        const n = numberValue(val, 0);
+        state.project.expenseBudget = n;
+        save(); render();
+        toast(n > 0 ? `Бюджет расходов: ${money(n)}` : "Бюджет расходов удалён");
+      }
+
+      async function adminExtendTrial(agencyId) {
+        const agency = (_adminAgencies || []).find(a => a.agency_id === agencyId);
+        const currentExpires = agency?.subscription_expires_at ? new Date(agency.subscription_expires_at) : new Date();
+        const base = currentExpires > new Date() ? currentExpires : new Date();
+        base.setDate(base.getDate() + 14);
+        const { error } = await _supabase.rpc("admin_set_subscription", {
+          p_agency_id: agencyId,
+          p_status: "trial",
+          p_plan: agency?.subscription_plan || "pro",
+          p_expires_at: base.toISOString()
+        });
+        if (error) { toast("Ошибка: " + error.message); return; }
+        toast("Триал продлён до " + base.toLocaleDateString("ru-RU"));
+        loadAdminPanel();
+      }
+
+      async function adminToggleBlock(agencyId, currentStatus) {
+        const newStatus = currentStatus === "blocked" ? "expired" : "blocked";
+        const label = newStatus === "blocked" ? "Заблокировать" : "Разблокировать";
+        if (!confirm(`${label} пользователя?`)) return;
+        const { error } = await _supabase.rpc("admin_set_subscription", {
+          p_agency_id: agencyId,
+          p_status: newStatus,
+          p_plan: "pro",
+          p_expires_at: null
+        });
+        if (error) { toast("Ошибка: " + error.message); return; }
+        toast(newStatus === "blocked" ? "Пользователь заблокирован" : "Пользователь разблокирован");
+        loadAdminPanel();
+      }
+
       function renderAdminPanel() {
         if (!_isSuperAdmin()) return `<div class="panel"><p style="color:var(--muted)">Доступ запрещён.</p></div>`;
         if (_adminLoading) return `<div class="panel"><p style="color:var(--muted)">Загрузка...</p></div>`;
@@ -2381,8 +2427,10 @@
                         <td><span class="badge ${a.subscription_status === "active" ? "green" : a.subscription_status === "trial" ? "yellow" : "red"}">${escapeHtml(a.subscription_status || "—")}</span></td>
                         <td>${escapeHtml(a.subscription_plan || "—")}</td>
                         <td style="font-size:12px;color:var(--muted)">${a.subscription_expires_at ? new Date(a.subscription_expires_at).toLocaleDateString("ru-RU") : "—"}</td>
-                        <td>
-                          <button class="btn small" onclick="app._openEditSub('${escapeHtml(a.agency_id||"")}','${escapeHtml(a.subscription_status||"")}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')">✏️ Изменить</button>
+                        <td style="display:flex;gap:4px;flex-wrap:wrap">
+                          <button class="btn small" onclick="app._openEditSub('${escapeHtml(a.agency_id||"")}','${escapeHtml(a.subscription_status||"")}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')">✏️</button>
+                          <button class="btn small green" onclick="app.adminExtendTrial('${escapeHtml(a.agency_id||"")}')" title="Продлить триал +14 дней">+14д</button>
+                          <button class="btn small ${a.subscription_status==='blocked'?'green':'danger'}" onclick="app.adminToggleBlock('${escapeHtml(a.agency_id||"")}','${escapeHtml(a.subscription_status||"")}')" title="${a.subscription_status==='blocked'?'Разблокировать':'Заблокировать'}">${a.subscription_status==='blocked'?'✓':'🚫'}</button>
                         </td>
                       </tr>`).join("")}
                   </tbody>
@@ -3694,6 +3742,7 @@
             proposalNote: "Стоимость рассчитана на основе базовых тарифов агентства и может меняться после уточнения задачи.",
             paymentTerms: "50% предоплата, 50% после сдачи материалов.",
             deliveryTerms: "Готовые материалы передаются ссылкой на облачное хранилище.",
+            expenseBudget: 0,
             includedText: "Базовая работа команды, согласованные этапы, минимальный комплект услуг по смете.",
             excludedText: "Сложная графика, актёры, студии, расширенная техника, музыка с платной лицензией и дополнительные версии, если они не указаны в смете."
           },
@@ -4043,6 +4092,7 @@
         }
       }
 
+      let _saveIndicatorTimer = null;
       function save() {
         if (!isSubscriptionActive()) {
           toast("⛔ Подписка истекла — данные не сохранены. Продлите: adervis.digital@gmail.com");
@@ -4053,6 +4103,14 @@
         scheduleAutoSave();
         broadcastState();
         saveToCloud();
+        // Мигающий индикатор сохранения
+        const el = document.getElementById("autoSaveIndicator");
+        if (el) {
+          el.textContent = "✓ сохранено";
+          el.style.opacity = "1";
+          clearTimeout(_saveIndicatorTimer);
+          _saveIndicatorTimer = setTimeout(() => { if (el) el.style.opacity = "0"; }, 2000);
+        }
       }
 
       function setTheme(theme) {
@@ -4675,6 +4733,7 @@
         state.savedProjects.unshift(saved);
         state.activeProjectId = saved.id;
         state.project.createdAt = saved.createdAt;
+        _logActivity(saved.id, "Сделка создана");
 
         toast("Проект сохранён");
         save();
@@ -5855,6 +5914,18 @@
           else state.expenses.unshift(newRecord);
         }
 
+        const targetId = m.projectId || state.activeProjectId;
+        if (targetId) _logActivity(targetId, `${m.type === "payment" ? "Поступление" : "Расход"}: ${money(amount)}${m.title ? " · " + m.title : ""}`);
+        // Проверка перерасхода бюджета
+        if (m.type === "expense" && targetId === state.activeProjectId) {
+          const budget = state.project.expenseBudget || 0;
+          if (budget > 0) {
+            const newTotal = (state.expenses || []).reduce((s, e) => s + (e.amount || 0), 0) + amount;
+            if (newTotal > budget) {
+              setTimeout(() => toast(`⚠️ Перерасход бюджета: ${money(newTotal - budget)} сверх плана (${money(budget)})`), 100);
+            }
+          }
+        }
         toast((m.type === "payment" ? "Поступление " : "Расход ") + money(amount) + " записано");
         state.financeModal = null;
         save();
@@ -7819,6 +7890,7 @@
                         <div class="deal-pay-fill" style="width:${payPct}%"></div>
                       </div>
                       <div style="font-size:11px;margin-top:6px;font-weight:750;color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
+                      ${project.note ? `<div style="font-size:11px;color:var(--muted);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%" title="${escapeHtml(project.note)}">💬 ${escapeHtml(project.note)}</div>` : ""}
 
                       <div class="deal-card-footer" onclick="event.stopPropagation()">
                         <button class="btn small" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету, КП, задачи, финансы">Открыть</button>
@@ -9234,7 +9306,15 @@
                 <div class="fin-card expense-card">
                   <h3>Расход</h3>
                   <div class="fin-amount">${money(f.totalExpenses)}</div>
-                  <div class="fin-sub">вкл. команда</div>
+                  <div class="fin-sub">
+                    ${(() => {
+                      const budget = state.project.expenseBudget || 0;
+                      if (!budget) return `<button class="btn small no-print" style="margin-top:4px;font-size:11px" onclick="app._setExpenseBudget()">+ Бюджет</button>`;
+                      const over = f.totalExpenses - budget;
+                      const pct = Math.round(f.totalExpenses / budget * 100);
+                      return `<span style="color:${over>0?"var(--red)":"var(--muted)"}">Бюджет: ${money(budget)} (${pct}%)</span>${over>0?` <span style="color:var(--red);font-size:10px">⚠ +${money(over)}</span>`:""}`;
+                    })()}
+                  </div>
                 </div>
                 <div class="fin-card profit-card">
                   <h3>Прибыль</h3>
@@ -13115,6 +13195,9 @@ Email: ______________________            Email: ______________________
         adminSetSubscription,
         adminCreatePromo,
         adminTogglePromo,
+        adminExtendTrial,
+        adminToggleBlock,
+        _setExpenseBudget,
         _setAdminTab,
         _openEditSub,
         _closeEditSub,
