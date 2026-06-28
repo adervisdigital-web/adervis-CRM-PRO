@@ -3729,6 +3729,19 @@ body.portal-mode .nav { display: none !important; }
   }
 }
 
+/* ── Estimate line bottom action bar ────────────────── */
+.line-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  opacity: 0;
+  transition: opacity .15s;
+}
+.item:hover .line-action-bar { opacity: 1; }
+
 /* ── Estimate line collapse chevron ─────────────────── */
 .line-collapse-btn {
   width: 26px;

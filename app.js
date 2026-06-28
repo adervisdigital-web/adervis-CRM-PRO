@@ -8631,18 +8631,11 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
                   </button>
                 </div>
-                <div class="line-total-note">${line.optional ? "Не входит в основной итог" : "Входит в основной итог"}</div>
-                <div class="estimate-line-actions no-print">
-                  <button class="btn small" onclick="app.toggleOptional('${id}')">${line.optional ? "В основные" : "В опции"}</button>
-                </div>
+                <div class="line-total-note">${line.optional ? "Не входит в итог" : "В итоге"}</div>
               </div>
             </div>
 
-            ${collapsed ? `
-              <div class="line-collapsed-note">
-                Позиция свернута. Итог: <strong>${money(total)}</strong>
-              </div>
-            ` : `
+            ${collapsed ? "" : `
               <div class="grid ${gridClass}" style="margin-top:14px">
                 ${mainFields.join("")}
               </div>
@@ -8673,9 +8666,16 @@
               </details>
             `}
 
-            <div class="toolbar no-print" style="margin-top:10px;gap:6px;flex-direction:row;flex-wrap:wrap">
-              <button class="btn small" onclick="app.duplicateEstimateLine('${id}')">Дублировать</button>
-              <button class="btn small danger" onclick="app.removeItem('${id}')">Удалить</button>
+            <div class="line-action-bar no-print">
+              <button class="btn small" onclick="app.toggleOptional('${id}')" style="font-size:11px">${line.optional ? "В основные" : "В опции"}</button>
+              <div style="display:flex;gap:4px;margin-left:auto">
+                <button class="catalog-action-btn" onclick="app.duplicateEstimateLine('${id}')" title="Дублировать позицию">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                </button>
+                <button class="catalog-action-btn danger" onclick="app.removeItem('${id}')" title="Удалить позицию">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </button>
+              </div>
             </div>
           </article>
         `;
