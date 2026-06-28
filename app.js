@@ -2276,6 +2276,8 @@
             _supabase.rpc("admin_get_all_users"),
             _supabase.rpc("admin_get_promo_codes")
           ]);
+          if (agRes.error) throw new Error("admin_get_all_users: " + agRes.error.message);
+          if (promoRes.error) throw new Error("admin_get_promo_codes: " + promoRes.error.message);
           _adminAgencies = agRes.data || [];
           _adminPromoCodes = promoRes.data || [];
           const now = new Date();
