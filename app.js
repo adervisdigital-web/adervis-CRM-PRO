@@ -3693,6 +3693,7 @@
           finSearch: "",
           finTypeFilter: "all",
           crmSelected: {},
+          crmTagFilter: "",
           telegramChatIds: [],
           clientMode: false,
           recentlyAdded: "",
@@ -6700,6 +6701,30 @@
         toast(`Отчёт за ${ML[month]} ${year} сохранён`);
       }
 
+      function exportClientsXlsx() {
+        if (!window.XLSX) { toast("Библиотека XLSX не загрузилась"); return; }
+        const clients = state.clients || [];
+        if (!clients.length) { toast("Нет клиентов для экспорта"); return; }
+        const rows = clients.map(c => {
+          const projs = (state.savedProjects || []).filter(p => p.clientId === c.id || p.client === c.name);
+          return {
+            "Имя": c.name || "",
+            "Компания": c.company || "",
+            "Телефон": c.phone || "",
+            "Email": c.email || "",
+            "Город": c.city || "",
+            "Заметки": c.notes || "",
+            "Сделок": projs.length,
+            "Оборот": projs.reduce((s, p) => s + (p.total || 0), 0),
+            "Последняя сделка": projs.length ? projs[0].name : ""
+          };
+        });
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Клиенты");
+        XLSX.writeFile(wb, `клиенты-${new Date().toISOString().slice(0,10)}.xlsx`);
+        toast(`Экспортировано ${clients.length} клиентов`);
+      }
+
       function copyProposalText() {
         const t = totals();
         const rows = selectedIds().map(id => {
@@ -7250,6 +7275,18 @@
         return base + '?brief=' + agencyId;
       }
 
+      function showBriefQR() {
+        const container = document.getElementById("briefQrContainer");
+        if (!container) return;
+        if (container.style.display !== "none") { container.style.display = "none"; return; }
+        const link = encodeURIComponent(getBriefLink());
+        container.innerHTML = `
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${link}"
+            alt="QR-код" style="border-radius:12px;border:4px solid var(--panel2);max-width:200px">
+          <div style="font-size:12px;color:var(--muted);margin-top:8px">Отсканируй для открытия формы брифа</div>`;
+        container.style.display = "block";
+      }
+
       function copyBriefLink() {
         const link = getBriefLink();
         if (navigator.clipboard) {
@@ -7353,6 +7390,7 @@
                 </div>
                 <div class="toolbar no-print">
                   <button class="btn primary" onclick="app.copyBriefLink()">Копировать ссылку</button>
+                  <button class="btn" onclick="app.showBriefQR()" title="QR-код для ссылки">QR-код</button>
                 </div>
               </div>
               <div class="brief-link-box" style="margin-top:14px">
@@ -7360,6 +7398,7 @@
                 <span class="brief-link-url">${escapeHtml(link)}</span>
                 <button class="btn small" onclick="app.copyBriefLink()" title="Копировать">Копировать</button>
               </div>
+              <div id="briefQrContainer" style="margin-top:14px;display:none;text-align:center"></div>
               <p style="font-size:12px;color:var(--muted);margin:10px 0 0">
                 Поделитесь ссылкой с клиентом — он заполнит форму, и заявка появится здесь.
               </p>
@@ -7620,9 +7659,9 @@
           total: projects.filter(p => (p.crmStatus || "Лид") === s).reduce((sum, p) => sum + (p.total || 0), 0)
         }));
 
-        const visibleItems = filter === "all"
-          ? projects
-          : projects.filter(p => (p.crmStatus || "Лид") === filter);
+        const tagFilter = state.crmTagFilter || "";
+        const visibleItems = (filter === "all" ? projects : projects.filter(p => (p.crmStatus || "Лид") === filter))
+          .filter(p => !tagFilter || (p.tags || []).includes(tagFilter));
 
         const totalPipeline = projects.filter(p => !["Сдано", "Завершённые"].includes(p.crmStatus || "Лид"))
           .reduce((s, p) => s + (p.total || 0), 0);
@@ -7787,9 +7826,16 @@
               </div>
             </div>
 
+            ${(() => {
+              const allTags = [...new Set((visibleItems.flatMap(p => p.tags || [])))].sort();
+              return allTags.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">
+                ${tagFilter ? `<button class="btn small" onclick="app.setCrmTagFilter('')" style="background:var(--primary);color:#fff;border-color:var(--primary)">× ${escapeHtml(tagFilter)}</button>` : ""}
+                ${allTags.filter(t => t !== tagFilter).map(t => `<button class="btn small" onclick="app.setCrmTagFilter('${escapeHtml(t)}')" style="border-radius:99px;font-size:11px">${escapeHtml(t)}</button>`).join("")}
+              </div>` : "";
+            })()}
             ${visibleItems.length ? `
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-                <span style="font-size:13px;color:var(--muted)">${visibleItems.length} ${visibleItems.length===1?"сделка":visibleItems.length<5?"сделки":"сделок"}</span>
+                <span style="font-size:13px;color:var(--muted)">${visibleItems.length} ${visibleItems.length===1?"сделка":visibleItems.length<5?"сделки":"сделок"}${tagFilter?` · тег: ${escapeHtml(tagFilter)}`:""}</span>
                 <div class="deal-view-toggle no-print">
                   <button class="deal-view-btn ${(state.crmView||"grid")==="grid"?"active":""}" onclick="app.setCrmView('grid')" title="Плитка">⊞</button>
                   <button class="deal-view-btn ${state.crmView==="list"?"active":""}" onclick="app.setCrmView('list')" title="Список">☰</button>
@@ -7893,6 +7939,7 @@
                       </div>
                       <div style="font-size:11px;margin-top:6px;font-weight:750;color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
                       ${project.note ? `<div style="font-size:11px;color:var(--muted);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%" title="${escapeHtml(project.note)}">💬 ${escapeHtml(project.note)}</div>` : ""}
+                      ${(project.tags||[]).length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${(project.tags||[]).map(t=>`<span style="font-size:10px;background:rgba(124,58,237,.12);border-radius:99px;padding:1px 7px;color:var(--primary2);cursor:pointer" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
 
                       <div class="deal-card-footer" onclick="event.stopPropagation()">
                         <button class="btn small" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету, КП, задачи, финансы">Открыть</button>
@@ -8848,6 +8895,7 @@
                 <h1>Клиенты</h1>
                 <p>Нажми на клиента, чтобы открыть его профиль и проекты.</p>
               </div>
+              ${clients.length ? `<button class="btn small green no-print" onclick="app.exportClientsXlsx()">Excel</button>` : ""}
             </div>
 
             ${state.clientDraft ? renderClientDraft() : ""}
@@ -12034,7 +12082,8 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           crmStatus: project.crmStatus || "Лид",
           deadline: project.deadline || "",
           manager: project.manager || "",
-          note: project.note || ""
+          note: project.note || "",
+          tags: project.tags ? [...project.tags] : []
         };
         renderModal();
       }
@@ -12046,6 +12095,23 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!state.dealModal) return;
         state.dealModal[key] = value;
       }
+      function _addDealTag(val) {
+        if (!state.dealModal) return;
+        const tag = (val || "").trim().toLowerCase();
+        if (!tag) return;
+        state.dealModal.tags = state.dealModal.tags || [];
+        if (!state.dealModal.tags.includes(tag)) state.dealModal.tags.push(tag);
+        renderModal();
+      }
+      function _removeDealTag(tag) {
+        if (!state.dealModal) return;
+        state.dealModal.tags = (state.dealModal.tags || []).filter(t => t !== tag);
+        renderModal();
+      }
+      function setCrmTagFilter(tag) {
+        state.crmTagFilter = state.crmTagFilter === tag ? "" : tag;
+        render();
+      }
       function saveDealModal() {
         const m = state.dealModal;
         if (!m) return;
@@ -12056,6 +12122,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           proj.deadline = m.deadline || "";
           proj.manager = m.manager || "";
           proj.note = m.note || "";
+          proj.tags = m.tags || [];
           if (proj.snapshot && proj.snapshot.project) {
             proj.snapshot.project.deadline = proj.deadline;
             proj.snapshot.project.crmStatus = proj.crmStatus;
@@ -12106,6 +12173,17 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               </div>
               <div class="field" style="margin-bottom:14px">
                 ${field("Заметка", `<textarea style="min-height:72px" oninput="app.setDealModalField('note',this.value)" placeholder="Дополнительная информация...">${escapeHtml(m.note || "")}</textarea>`)}
+              </div>
+              <div class="field" style="margin-bottom:14px">
+                <label style="font-size:12px;color:var(--muted);font-weight:750;margin-bottom:6px;display:block">Теги</label>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+                  ${(m.tags||[]).map(t => `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--primary2)">${escapeHtml(t)}<button onclick="app._removeDealTag('${escapeHtml(t)}')" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0;line-height:1;font-size:14px">×</button></span>`).join("")}
+                </div>
+                <div style="display:flex;gap:6px">
+                  <input id="dealTagInput" placeholder="Новый тег..." style="flex:1;padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--text);font-size:13px"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();app._addDealTag(this.value);this.value=''}">
+                  <button class="btn small" onclick="app._addDealTag(document.getElementById('dealTagInput').value);document.getElementById('dealTagInput').value=''">+ Тег</button>
+                </div>
               </div>
               <div style="display:flex;justify-content:flex-end;gap:8px">
                 <button class="btn" onclick="app.closeDealModal()">Отмена</button>
@@ -13087,6 +13165,11 @@ Email: ______________________            Email: ______________________
 
         setDealView,
         setCrmFilter,
+        setCrmTagFilter,
+        exportClientsXlsx,
+        showBriefQR,
+        _addDealTag,
+        _removeDealTag,
         toggleGlobalMenu,
         closeGlobalMenu,
         openFinanceModal,
