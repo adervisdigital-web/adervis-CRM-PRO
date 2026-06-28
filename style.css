@@ -3704,3 +3704,24 @@ body.portal-mode .nav { display: none !important; }
   align-items: center; justify-content: center; gap: 8px;
   font-size: 14px; font-weight: 600;
 }
+
+/* ── Mobile UX — touch targets & table overflow ─────── */
+@media (max-width: 640px) {
+  .btn { min-height: 44px; }
+  .btn.small { min-height: 36px; }
+  button.deal-tab { min-height: 40px; }
+  .data-table { display: block; overflow-x: auto; }
+  .grid.three { grid-template-columns: 1fr 1fr; }
+  .grid.four { grid-template-columns: 1fr 1fr; }
+  .deal-bar .deal-compact-row { flex-wrap: wrap; gap: 8px; }
+  .deal-stats-inline { display: none; }
+  .fin-summary-grid { grid-template-columns: 1fr 1fr; }
+  .kanban { flex-direction: column; }
+  .kanban-col { min-width: unset; width: 100%; }
+  .db-stat-row { grid-template-columns: repeat(2, 1fr); }
+  .toolbar { flex-wrap: wrap; gap: 6px; }
+  .admin-modal-box { width: calc(100vw - 32px); padding: 20px; }
+  select, input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="number"], textarea {
+    font-size: 16px;
+  }
+}

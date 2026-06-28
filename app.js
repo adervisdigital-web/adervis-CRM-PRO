@@ -679,6 +679,10 @@
       let _buyingPlan = null; // planId currently being purchased (shows loading state)
       let _promoCode  = "";   // raw input value
       let _promoState = null; // null=idle | "checking" | {code,discount} | "invalid"
+      let _tgSaveTimer = null;
+      let _fadeRaf = null;
+      let _loginFailCount = 0;
+      let _loginLockUntil = 0;
       let _needsNormalize = true; // true after any state mutation; normalizeState() runs in render() only when set
       let _briefAgencyId = (new URLSearchParams(location.search).get('brief') || '').trim();
       let _portalId = (new URLSearchParams(location.search).get('portal') || '').trim();
@@ -722,6 +726,8 @@
           _supabase.auth.onAuthStateChange((event, session) => {
             // INITIAL_SESSION fires on subscribe and duplicates the getSession() call above
             if (event === "INITIAL_SESSION") return;
+            // TOKEN_REFRESHED: only update the session token, do not reload all data
+            if (event === "TOKEN_REFRESHED") { _adminSession = session; return; }
             _adminSession = session;
             if (session) { _onUserLoggedIn(session); }
             else {
@@ -1278,7 +1284,7 @@
           el.innerHTML = `
             ${presenceHtml}
             <span class="admin-indicator" style="${!active ? "border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.08)" : ""}">
-              ${name}${subLabel ? ` <span style="font-weight:500;opacity:.75;font-size:10px">· ${subLabel}</span>` : ""}
+              ${escapeHtml(name)}${subLabel ? ` <span style="font-weight:500;opacity:.75;font-size:10px">· ${escapeHtml(subLabel)}</span>` : ""}
             </span>
           `;
         } else {
@@ -1566,10 +1572,23 @@
           f.error = ""; _authFields = { email: "", password: "", name: "", inviteCode: "", error: "✅ Аккаунт создан! Войдите ниже.", loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
           _authTab = "login"; renderAuthGateEl();
         } else {
+          const now = Date.now();
+          if (_loginLockUntil > now) {
+            const secs = Math.ceil((_loginLockUntil - now) / 1000);
+            f.loading = false;
+            f.error = `Слишком много попыток. Подождите ${secs} сек.`;
+            renderAuthGateEl(); return;
+          }
           const rememberMe = f.rememberMe;
           const { error } = await _supabase.auth.signInWithPassword({ email: f.email, password: f.password });
           f.loading = false;
-          if (error) { f.error = error.message === "Invalid login credentials" ? "Неверный email или пароль" : error.message; renderAuthGateEl(); return; }
+          if (error) {
+            _loginFailCount++;
+            if (_loginFailCount >= 3) { _loginLockUntil = Date.now() + 30000; _loginFailCount = 0; }
+            f.error = error.message === "Invalid login credentials" ? "Неверный email или пароль" : error.message;
+            renderAuthGateEl(); return;
+          }
+          _loginFailCount = 0; _loginLockUntil = 0;
           if (!rememberMe) {
             // pagehide fires on mobile (beforeunload is unreliable on iOS/Android).
             // Remove token synchronously — async signOut() won't finish before page dies.
@@ -1758,6 +1777,7 @@
             <button class="pd-item" onclick="app.go('profile');app.toggleProfileDd(false)" title="Ваш аккаунт, аватар, смена пароля"><span class="pd-item-icon">👤</span>Мой профиль</button>
             <button class="pd-item" onclick="app.go('settings');app.toggleProfileDd(false)" title="Supabase, тема, экспорт данных"><span class="pd-item-icon">⚙️</span>Настройки</button>
             <button class="pd-item" onclick="app.go('support');app.toggleProfileDd(false)" title="Контакты и поддержка"><span class="pd-item-icon">💬</span>Поддержка</button>
+            ${_isSuperAdmin() ? `<button class="pd-item" onclick="app.go('admin');app.toggleProfileDd(false)" style="background:rgba(220,38,38,.08)" title="Панель администратора"><span class="pd-item-icon">🔐</span>Admin Panel</button>` : ""}
             ${(() => {
               const daysLeft = getSubscriptionDaysLeft();
               const s = _userProfile && _userProfile.subscription_status;
@@ -1921,7 +1941,7 @@
           return;
         }
         const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const hl = t => escapeHtml(t).replace(new RegExp(`(${safe})`, "gi"), "<mark>$1</mark>");
+        const hl = t => highlightText(t, q);
         const results = [];
         (state.savedProjects || []).forEach(p => {
           if ((p.name||"").toLowerCase().includes(q) || (p.client||"").toLowerCase().includes(q)) {
@@ -1956,9 +1976,16 @@
         copy.name = (proj.name || "Проект") + " (копия)";
         copy.crmStatus = "Лид";
         copy.createdAt = new Date().toISOString();
-        if (copy.snapshot && copy.snapshot.project) {
-          copy.snapshot.project.name = copy.name;
-          copy.snapshot.project.crmStatus = "Лид";
+        copy.updatedAt = copy.createdAt;
+        copy.paid = 0; copy.debt = copy.total || 0; copy.expensesTotal = 0; copy.profit = copy.total || 0;
+        copy.portalId = "";
+        copy.activity = [];
+        if (copy.snapshot) {
+          if (copy.snapshot.project) { copy.snapshot.project.name = copy.name; copy.snapshot.project.crmStatus = "Лид"; copy.snapshot.project.portalId = ""; }
+          // Reset execution data — keep only estimate structure
+          copy.snapshot.payments = []; copy.snapshot.expenses = []; copy.snapshot.team = [];
+          // Give new IDs to tasks so they don't collide
+          if (copy.snapshot.tasks) copy.snapshot.tasks = copy.snapshot.tasks.map(t => ({ ...t, id: uid("task") }));
         }
         state.savedProjects.unshift(copy);
         save(); render();
@@ -2226,6 +2253,208 @@
         { id: "month6", label: "6 месяцев",   price: 640, period: "в месяц",            save: "Экономия 28%", months: 6,  maxUsers: 5 },
         { id: "year",   label: "Год",         price: 520, period: "в месяц",            save: "Экономия 42%", months: 12, maxUsers: 10 }
       ];
+
+      // ─── ADMIN PANEL ─────────────────────────────────────────────────────────
+      let _adminPanelTab = "stats";
+      let _adminAgencies = null; // null = not loaded
+      let _adminPromoCodes = null;
+      let _adminStats = null;
+      let _adminLoading = false;
+      let _adminPromoForm = { code: "", discount: 0, expires: "", maxUses: 100, loading: false, error: "" };
+      let _adminEditSub = null; // { agencyId, status, plan, expires }
+
+      async function loadAdminPanel() {
+        if (!_isSuperAdmin() || !_supabase) return;
+        _adminLoading = true; render();
+        try {
+          const [agRes, promoRes] = await Promise.all([
+            _supabase.from("profiles").select("id,email,agency_id,subscription_status,subscription_plan,subscription_expires_at,created_at").order("created_at", { ascending: false }),
+            _supabase.from("promo_codes").select("*").order("created_at", { ascending: false })
+          ]);
+          _adminAgencies = agRes.data || [];
+          _adminPromoCodes = promoRes.data || [];
+          // Compute stats
+          const now = new Date();
+          const month1 = new Date(now.getFullYear(), now.getMonth(), 1);
+          _adminStats = {
+            total: _adminAgencies.length,
+            active: _adminAgencies.filter(a => a.subscription_status === "active").length,
+            trial: _adminAgencies.filter(a => a.subscription_status === "trial").length,
+            newThisMonth: _adminAgencies.filter(a => a.created_at && new Date(a.created_at) >= month1).length,
+            mrr: _adminAgencies.filter(a => a.subscription_status === "active").reduce((s, a) => {
+              const m = { month1: 890, month3: 790, month6: 640, year: 520 };
+              return s + (m[a.subscription_plan] || 890);
+            }, 0)
+          };
+        } catch(e) { console.warn("Admin load error:", e); }
+        _adminLoading = false; render();
+      }
+
+      async function adminSetSubscription() {
+        if (!_adminEditSub || !_supabase) return;
+        const { agencyId, status, plan, expires } = _adminEditSub;
+        const { error } = await _supabase.from("profiles")
+          .update({ subscription_status: status, subscription_plan: plan, subscription_expires_at: expires || null })
+          .eq("agency_id", agencyId);
+        if (error) { toast("Ошибка: " + error.message); return; }
+        toast("Подписка обновлена");
+        _adminEditSub = null;
+        loadAdminPanel();
+      }
+
+      async function adminCreatePromo() {
+        const f = _adminPromoForm;
+        if (!f.code.trim()) { toast("Введите код"); return; }
+        if (!f.discount || f.discount <= 0) { toast("Введите скидку %"); return; }
+        f.loading = true; render();
+        const { error } = await _supabase.from("promo_codes").insert({
+          code: f.code.trim().toUpperCase(),
+          discount: Number(f.discount),
+          expires_at: f.expires || null,
+          max_uses: Number(f.maxUses) || 100
+        });
+        f.loading = false;
+        if (error) { f.error = error.message; render(); return; }
+        toast("Промокод создан: " + f.code.toUpperCase());
+        _adminPromoForm = { code: "", discount: 0, expires: "", maxUses: 100, loading: false, error: "" };
+        loadAdminPanel();
+      }
+
+      async function adminTogglePromo(id, active) {
+        await _supabase.from("promo_codes").update({ active }).eq("id", id);
+        loadAdminPanel();
+      }
+
+      function renderAdminPanel() {
+        if (!_isSuperAdmin()) return `<div class="panel"><p style="color:var(--muted)">Доступ запрещён.</p></div>`;
+        if (_adminLoading) return `<div class="panel"><p style="color:var(--muted)">Загрузка...</p></div>`;
+        if (!_adminAgencies) { loadAdminPanel(); return `<div class="panel"><p style="color:var(--muted)">Загрузка панели...</p></div>`; }
+        const s = _adminStats || {};
+        const tabs = [["stats", "📊 Статистика"], ["users", "👥 Агентства"], ["promos", "🎁 Промокоды"]];
+        return `
+          <div class="panel">
+            <div class="section-title">
+              <div><h1 style="margin:0">🔐 Admin Panel</h1><p style="color:var(--muted);margin:4px 0 0">Только для adervis.digital@gmail.com</p></div>
+              <button class="btn small" onclick="app.loadAdminPanel()">⟳ Обновить</button>
+            </div>
+            <div class="tabs" style="margin-bottom:20px">
+              ${tabs.map(([k,l]) => `<button class="tab ${_adminPanelTab===k?"active":""}" onclick="app._setAdminTab('${k}')">${l}</button>`).join("")}
+            </div>
+            ${_adminPanelTab === "stats" ? `
+              <div class="grid three" style="margin-bottom:24px">
+                ${_adminStatCard("Всего агентств", s.total || 0, "")}
+                ${_adminStatCard("Активных подписок", s.active || 0, "green")}
+                ${_adminStatCard("На триале", s.trial || 0, "yellow")}
+                ${_adminStatCard("Новых за месяц", s.newThisMonth || 0, "blue")}
+                ${_adminStatCard("MRR (оценка)", (s.mrr || 0) + " ₽", "purple")}
+                ${_adminStatCard("ARR (оценка)", ((s.mrr || 0) * 12) + " ₽", "")}
+              </div>
+              <h2>Последние регистрации</h2>
+              <div style="overflow-x:auto">
+                <table class="data-table" style="width:100%">
+                  <thead><tr><th>Email</th><th>Статус</th><th>Тариф</th><th>Дата</th></tr></thead>
+                  <tbody>
+                    ${(_adminAgencies || []).slice(0, 20).map(a => `
+                      <tr>
+                        <td>${escapeHtml(a.email || "—")}</td>
+                        <td><span class="badge ${a.subscription_status === "active" ? "green" : a.subscription_status === "trial" ? "yellow" : "red"}">${escapeHtml(a.subscription_status || "—")}</span></td>
+                        <td>${escapeHtml(a.subscription_plan || "—")}</td>
+                        <td style="color:var(--muted);font-size:12px">${a.created_at ? new Date(a.created_at).toLocaleDateString("ru-RU") : "—"}</td>
+                      </tr>`).join("")}
+                  </tbody>
+                </table>
+              </div>
+            ` : ""}
+            ${_adminPanelTab === "users" ? `
+              <div style="overflow-x:auto">
+                <table class="data-table" style="width:100%">
+                  <thead><tr><th>Email</th><th>Статус</th><th>Тариф</th><th>Истекает</th><th>Действие</th></tr></thead>
+                  <tbody>
+                    ${(_adminAgencies || []).map(a => `
+                      <tr>
+                        <td>${escapeHtml(a.email || "—")}</td>
+                        <td><span class="badge ${a.subscription_status === "active" ? "green" : a.subscription_status === "trial" ? "yellow" : "red"}">${escapeHtml(a.subscription_status || "—")}</span></td>
+                        <td>${escapeHtml(a.subscription_plan || "—")}</td>
+                        <td style="font-size:12px;color:var(--muted)">${a.subscription_expires_at ? new Date(a.subscription_expires_at).toLocaleDateString("ru-RU") : "—"}</td>
+                        <td>
+                          <button class="btn small" onclick="app._openEditSub('${escapeHtml(a.agency_id||"")}','${escapeHtml(a.subscription_status||"")}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')">✏️ Изменить</button>
+                        </td>
+                      </tr>`).join("")}
+                  </tbody>
+                </table>
+              </div>
+              ${_adminEditSub ? `
+                <div class="panel" style="background:var(--panel2);margin-top:20px">
+                  <h3 style="margin-top:0">Изменить подписку</h3>
+                  <div class="grid three">
+                    <div class="field"><label>Статус</label>
+                      <select onchange="app._setEditSub('status',this.value)">
+                        ${["trial","active","expired"].map(s => `<option value="${s}" ${_adminEditSub.status===s?"selected":""}>${s}</option>`).join("")}
+                      </select>
+                    </div>
+                    <div class="field"><label>Тариф</label>
+                      <select onchange="app._setEditSub('plan',this.value)">
+                        ${["month1","month3","month6","year","pro"].map(p => `<option value="${p}" ${_adminEditSub.plan===p?"selected":""}>${p}</option>`).join("")}
+                      </select>
+                    </div>
+                    <div class="field"><label>Дата окончания</label>
+                      <input type="date" value="${escapeHtml(_adminEditSub.expires||"")}" onchange="app._setEditSub('expires',this.value)">
+                    </div>
+                  </div>
+                  <div class="toolbar">
+                    <button class="btn primary" onclick="app.adminSetSubscription()">Сохранить</button>
+                    <button class="btn" onclick="app._closeEditSub()">Отмена</button>
+                  </div>
+                </div>
+              ` : ""}
+            ` : ""}
+            ${_adminPanelTab === "promos" ? `
+              <div class="panel" style="background:var(--panel2);margin-bottom:20px">
+                <h3 style="margin-top:0">Создать промокод</h3>
+                ${_adminPromoForm.error ? `<div style="color:var(--red);font-size:13px;margin-bottom:10px">${escapeHtml(_adminPromoForm.error)}</div>` : ""}
+                <div class="grid three">
+                  ${field("Код", `<input placeholder="PROMO2026" value="${escapeHtml(_adminPromoForm.code)}" oninput="app._setPromoForm('code',this.value)">`)}
+                  ${field("Скидка %", `<input type="number" min="1" max="100" value="${_adminPromoForm.discount||""}" oninput="app._setPromoForm('discount',this.value)">`)}
+                  ${field("Макс. использований", `<input type="number" min="1" value="${_adminPromoForm.maxUses||100}" oninput="app._setPromoForm('maxUses',this.value)">`)}
+                  ${field("Истекает", `<input type="date" value="${escapeHtml(_adminPromoForm.expires||"")}" onchange="app._setPromoForm('expires',this.value)">`)}
+                </div>
+                <button class="btn primary" onclick="app.adminCreatePromo()" ${_adminPromoForm.loading?"disabled":""}>
+                  ${_adminPromoForm.loading?"Создание...":"+ Создать промокод"}
+                </button>
+              </div>
+              <table class="data-table" style="width:100%">
+                <thead><tr><th>Код</th><th>Скидка</th><th>Исп.</th><th>Макс.</th><th>Истекает</th><th>Статус</th><th></th></tr></thead>
+                <tbody>
+                  ${(_adminPromoCodes || []).map(p => `
+                    <tr>
+                      <td><b>${escapeHtml(p.code)}</b></td>
+                      <td>${p.discount}%</td>
+                      <td>${p.uses || 0}</td>
+                      <td>${p.max_uses || "∞"}</td>
+                      <td style="font-size:12px">${p.expires_at ? new Date(p.expires_at).toLocaleDateString("ru-RU") : "—"}</td>
+                      <td><span class="badge ${p.active!==false?"green":"red"}">${p.active!==false?"Активен":"Отключён"}</span></td>
+                      <td><button class="btn small ${p.active!==false?"":"green"}" onclick="app.adminTogglePromo('${p.id}',${p.active===false})">${p.active!==false?"Откл.":"Вкл."}</button></td>
+                    </tr>`).join("")}
+                </tbody>
+              </table>
+            ` : ""}
+          </div>
+        `;
+      }
+
+      function _adminStatCard(label, value, color) {
+        const colors = { green: "rgba(22,163,74,.12)", yellow: "rgba(202,138,4,.12)", blue: "rgba(37,99,235,.12)", purple: "rgba(124,58,237,.12)", "": "var(--panel2)" };
+        return `<div class="panel" style="background:${colors[color]||"var(--panel2)"};box-shadow:none;padding:18px">
+          <div style="font-size:22px;font-weight:900;font-variant-numeric:tabular-nums">${value}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">${label}</div>
+        </div>`;
+      }
+
+      function _setAdminTab(tab) { _adminPanelTab = tab; render(); }
+      function _openEditSub(agencyId, status, plan, expires) { _adminEditSub = { agencyId, status, plan, expires }; render(); }
+      function _closeEditSub() { _adminEditSub = null; render(); }
+      function _setEditSub(k, v) { if (_adminEditSub) { _adminEditSub[k] = v; render(); } }
+      function _setPromoForm(k, v) { _adminPromoForm[k] = v; render(); }
 
       function renderSupport() {
         return `
@@ -3424,6 +3653,7 @@
           priceHistory: {},
           versions: [],
           savedProjects: [],
+          dealTemplates: [],
           clients: [],
           clientDraft: null,
           activeProjectId: "",
@@ -3467,6 +3697,8 @@
             phone: "",
             email: "",
             site: "",
+            inn: "",
+            address: "",
             logoUrl: "logo-icon.svg",
             desc: "Видеопроизводство и digital-упаковка для бизнеса.",
             details: "Видеопроизводство и digital-упаковка для бизнеса.",
@@ -3885,9 +4117,9 @@
         return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(amount) + " " + (state.project.currency || "₽");
       }
 
-      function highlightText(text) {
+      function highlightText(text, query) {
         const source = escapeHtml(text);
-        const q = String(state.search || "").trim();
+        const q = String(query !== undefined ? query : (state.search || "")).trim();
         if (!q) return source;
         const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         return source.replace(new RegExp(`(${safe})`, "gi"), "<mark>$1</mark>");
@@ -4367,6 +4599,12 @@
       }
 
       function saveCurrentProject() {
+        // При создании новой сделки — требуем хотя бы название или услугу
+        if (!state.activeProjectId) {
+          const hasName = (state.project.name || "").trim();
+          const hasServices = (state.items || []).length > 0;
+          if (!hasName && !hasServices) { toast('Добавьте название или хотя бы одну услугу'); return; }
+        }
         // Лимит проверяем только при создании НОВОЙ сделки (не при обновлении существующей)
         if (!state.activeProjectId && checkTrialDealLimit()) return;
 
@@ -5430,7 +5668,7 @@
         if (!ids.length) return;
         ids.forEach(id => {
           const p = state.savedProjects.find(x => x.id === id);
-          if (p) p.crmStatus = status;
+          if (p) { const prev = p.crmStatus || "Лид"; p.crmStatus = status; _logActivity(id, `Статус: ${prev} → ${status}`); }
         });
         state.crmSelected = {};
         toast(`Статус «${status}» применён к ${ids.length} сделкам`);
@@ -5882,6 +6120,45 @@
         render();
       }
 
+      function saveDealAsTemplate() {
+        const proj = state.savedProjects.find(p => p.id === state.activeProjectId);
+        if (!proj) { toast("Нет активной сделки"); return; }
+        const name = prompt("Название шаблона:", proj.name || "Шаблон");
+        if (!name) return;
+        state.dealTemplates = state.dealTemplates || [];
+        state.dealTemplates.push({
+          id: uid("tmpl"),
+          name: name.trim(),
+          createdAt: new Date().toISOString(),
+          lines: deepClone(state.items || []),
+          stages: deepClone(state.stages),
+          packages: deepClone(state.packages || []),
+          project: { ...deepClone(state.project), id: "", client: "", clientId: "", name: name.trim(), createdAt: "" }
+        });
+        save();
+        toast(`Шаблон «${name}» сохранён`);
+      }
+
+      function loadDealFromTemplate(templateId) {
+        if (checkTrialDealLimit()) return;
+        const tmpl = (state.dealTemplates || []).find(t => t.id === templateId);
+        if (!tmpl) return;
+        state.activeProjectId = "";
+        state.items = deepClone(tmpl.lines || []);
+        state.stages = deepClone(tmpl.stages || DEFAULT_STAGES);
+        state.project = { ...deepClone(tmpl.project), id: uid("proj"), createdAt: new Date().toISOString(), name: tmpl.name };
+        state.payments = []; state.expenses = []; state.tasks = []; state.team = [];
+        state.view = "deal"; state.dealView = "estimate";
+        save(); render();
+        toast(`Шаблон «${tmpl.name}» загружен — заполните клиента и сохраните`);
+      }
+
+      function deleteDealTemplate(templateId) {
+        if (!confirm("Удалить шаблон?")) return;
+        state.dealTemplates = (state.dealTemplates || []).filter(t => t.id !== templateId);
+        save(); render();
+      }
+
       function wizardSetData(key, value) {
         if (!state.wizard) return;
         state.wizard[key] = value;
@@ -6014,14 +6291,41 @@
         applyPackage(pkgId);
       }
 
+      function _logActivity(projectId, text) {
+        const project = state.savedProjects.find(p => p.id === projectId);
+        if (!project) return;
+        if (!project.activity) project.activity = [];
+        project.activity.unshift({ text, date: new Date().toISOString() });
+        if (project.activity.length > 100) project.activity.length = 100;
+      }
+
+      function renderActivityLog() {
+        const proj = state.savedProjects.find(p => p.id === state.activeProjectId);
+        const log = proj?.activity || [];
+        return `
+          <div style="padding:0 4px">
+            ${log.length === 0 ? `<div style="text-align:center;padding:48px 24px;color:var(--muted)">История пуста — действия начнут записываться с этого момента</div>` : ""}
+            ${log.map(e => {
+              const d = new Date(e.date);
+              const ds = d.toLocaleDateString("ru-RU", { day:"2-digit", month:"short" }) + " " + d.toLocaleTimeString("ru-RU", { hour:"2-digit", minute:"2-digit" });
+              return `<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)">
+                <div style="font-size:11px;color:var(--muted);white-space:nowrap;padding-top:2px;min-width:80px">${escapeHtml(ds)}</div>
+                <div style="font-size:13px">${escapeHtml(e.text)}</div>
+              </div>`;
+            }).join("")}
+          </div>`;
+      }
+
       function advanceCrmStatus(projectId) {
         const order = CRM_STATUSES;
         const project = state.savedProjects.find(x => x.id === projectId);
         if (!project) return;
         const idx = order.indexOf(project.crmStatus || "Лид");
         if (idx < order.length - 1) {
+          const prev = project.crmStatus || "Лид";
           project.crmStatus = order[idx + 1];
           if (project.snapshot?.project) project.snapshot.project.crmStatus = project.crmStatus;
+          _logActivity(projectId, `Статус: ${prev} → ${project.crmStatus}`);
           toast(`Статус → ${project.crmStatus}`);
           save();
           render();
@@ -6280,6 +6584,44 @@
         toast("Файл сохранён");
       }
 
+      function exportMonthlyReport(yearMonth) {
+        if (!window.XLSX) { toast("Библиотека XLSX не загрузилась"); return; }
+        const [year, month] = yearMonth ? yearMonth.split("-").map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
+        const monthStr = `${year}-${String(month).padStart(2, "0")}`;
+        const ML = ["","Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+        const projects = state.savedProjects || [];
+
+        // Payments & expenses for the month
+        const payments = [];
+        const expenses = [];
+        projects.forEach(p => {
+          (p.snapshot?.payments || []).forEach(x => { if ((x.date||"").startsWith(monthStr)) payments.push({ Сделка: p.name||"", Клиент: p.client||"", Дата: x.date||"", Сумма: x.amount||0, Комментарий: x.note||"" }); });
+          (p.snapshot?.expenses || []).forEach(x => { if ((x.date||"").startsWith(monthStr)) expenses.push({ Сделка: p.name||"", Клиент: p.client||"", Дата: x.date||"", Сумма: x.amount||0, Категория: x.category||"", Комментарий: x.comment||"" }); });
+        });
+        (state.payments||[]).forEach(x => { if ((x.date||"").startsWith(monthStr)) payments.push({ Сделка: "—", Клиент: "—", Дата: x.date||"", Сумма: x.amount||0, Комментарий: x.note||"" }); });
+        (state.expenses||[]).forEach(x => { if ((x.date||"").startsWith(monthStr)) expenses.push({ Сделка: "—", Клиент: "—", Дата: x.date||"", Сумма: x.amount||0, Категория: x.category||"", Комментарий: x.comment||"" }); });
+
+        const totalRevenue = payments.reduce((s, x) => s + (x.Сумма||0), 0);
+        const totalExpenses = expenses.reduce((s, x) => s + (x.Сумма||0), 0);
+
+        const summary = [
+          ["Отчёт за", `${ML[month]} ${year}`],
+          ["Поступлений", totalRevenue],
+          ["Расходов", totalExpenses],
+          ["Прибыль", totalRevenue - totalExpenses],
+          [],
+          ["Активных сделок", projects.filter(p => !["Завершённые"].includes(p.crmStatus)).length],
+          ["Завершённых", projects.filter(p => p.crmStatus === "Завершённые").length]
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), "Сводка");
+        if (payments.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(payments), "Поступления");
+        if (expenses.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expenses), "Расходы");
+        XLSX.writeFile(wb, `отчёт-${monthStr}.xlsx`);
+        toast(`Отчёт за ${ML[month]} ${year} сохранён`);
+      }
+
       function copyProposalText() {
         const t = totals();
         const rows = selectedIds().map(id => {
@@ -6435,7 +6777,8 @@
           plans: renderPlans,
           knowledge: renderKnowledge,
           support: renderSupport,
-          briefs: renderBriefs
+          briefs: renderBriefs,
+          admin: renderAdminPanel
         };
 
         document.querySelectorAll(".nav button").forEach(button => {
@@ -6487,7 +6830,7 @@
           root.dataset.view = state.view;
           if (viewChanged) root.classList.add("view-fade");
           root.innerHTML = (views[state.view] || renderHome)();
-          if (viewChanged) requestAnimationFrame(() => root.classList.remove("view-fade"));
+          if (viewChanged) { cancelAnimationFrame(_fadeRaf); _fadeRaf = requestAnimationFrame(() => root.classList.remove("view-fade")); }
         } catch(err) {
           console.error("Render error:", err);
           root.innerHTML = `
@@ -7330,6 +7673,15 @@
                 <div class="db-stat-value">${avgDeal>0?money(avgDeal):"—"}</div>
                 <div class="db-stat-delta neu">${closedCount>0?"по "+closedCount+" сделкам":"нет закрытых"}</div>
               </div>
+              ${(() => {
+                const weights = { "Лид":0.10, "Бриф":0.20, "КП отправлено":0.30, "Согласование":0.50, "Договор":0.70, "Предоплата":0.90, "В работе":0.95, "Сдано":1.0 };
+                const forecast30 = projects.filter(p => !["Завершённые"].includes(p.crmStatus||"Лид")).reduce((s,p) => s + (p.total||0)*(weights[p.crmStatus||"Лид"]||0.10), 0);
+                return `<div class="db-stat" title="Взвешенная вероятность закрытия сделок из воронки (30 дней)">
+                  <div class="db-stat-label">Прогноз 30 дн</div>
+                  <div class="db-stat-value" style="color:var(--blue)">${money(Math.round(forecast30))}</div>
+                  <div class="db-stat-delta neu">по вероятности</div>
+                </div>`;
+              })()}
               <div class="db-stat ${overdueCount>0?"db-stat-warn":""}" onclick="app.go('global-calendar')">
                 <div class="db-stat-label">Дедлайны / 7 дн</div>
                 <div class="db-stat-value">${uniqueDeadlines.length}</div>
@@ -7441,13 +7793,21 @@
 
                       <div style="display:flex;gap:16px;margin-top:10px;align-items:flex-end">
                         <div>
-                          <div style="font-size:10px;color:var(--muted);font-weight:850;letter-spacing:.04em">БЮДЖЕТ</div>
+                          <div style="font-size:10px;color:var(--muted);font-weight:850;letter-spacing:.04em">СМЕТА</div>
                           <div style="font-size:16px;font-weight:900;margin-top:2px">${money(project.total)}</div>
                         </div>
                         <div>
                           <div style="font-size:10px;color:var(--muted);font-weight:850;letter-spacing:.04em">ОПЛАЧЕНО</div>
                           <div style="font-size:16px;font-weight:900;margin-top:2px;color:${project.paid > 0 ? "var(--green)" : "var(--muted)"}">${money(project.paid || 0)}</div>
                         </div>
+                        ${project.expensesTotal > 0 ? `<div>
+                          <div style="font-size:10px;color:var(--muted);font-weight:850;letter-spacing:.04em">РАСХОДЫ</div>
+                          <div style="font-size:16px;font-weight:900;margin-top:2px;color:var(--red)">${money(project.expensesTotal)}</div>
+                        </div>
+                        <div>
+                          <div style="font-size:10px;color:var(--muted);font-weight:850;letter-spacing:.04em">ПРИБЫЛЬ</div>
+                          <div style="font-size:16px;font-weight:900;margin-top:2px;color:${(project.profit||0)>=0?"var(--green)":"var(--red)"}">${money(project.profit||0)}</div>
+                        </div>` : ""}
                         ${isCurrent ? `<span class="status-pill green" style="font-size:11px;margin-left:auto">текущий</span>` : ""}
                       </div>
                       <div class="deal-pay-bar" style="margin-top:8px;width:100%">
@@ -8738,6 +9098,68 @@
         `;
       }
 
+      function printInvoice() {
+        const proj = state.savedProjects.find(p => p.id === state.activeProjectId) || {};
+        const t = totals();
+        const f = financeTotals();
+        const c = state.company || {};
+        const client = state.clients?.find(cl => cl.id === state.project?.clientId) || {};
+        const invNo = "INV-" + new Date().getFullYear() + "-" + String(Math.floor(Math.random()*9000)+1000);
+        const today = new Date().toLocaleDateString("ru-RU", { day:"2-digit", month:"long", year:"numeric" });
+        const items = (state.items || []).filter(id => state.selected?.[id]);
+        const w = window.open("", "_blank", "width=800,height=600");
+        if (!w) { toast("Разрешите всплывающие окна"); return; }
+        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Счёт ${invNo}</title>
+          <style>
+            body{font-family:Arial,sans-serif;margin:40px;color:#111;font-size:13px}
+            h1{font-size:22px;margin:0 0 4px} h2{font-size:15px;margin:0 0 20px;color:#555}
+            table{width:100%;border-collapse:collapse;margin:20px 0}
+            th{background:#f5f5f5;padding:8px 10px;text-align:left;border:1px solid #ddd;font-size:12px}
+            td{padding:8px 10px;border:1px solid #ddd;vertical-align:top}
+            .total-row td{font-weight:bold;font-size:15px}
+            .grid2{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
+            p{margin:3px 0}
+            @media print{@page{margin:20mm}}
+          </style>
+        </head><body>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
+            <div><h1>СЧЁТ НА ОПЛАТУ</h1><h2>${invNo} от ${today}</h2></div>
+            ${c.logoUrl ? `<img src="${escapeHtml(c.logoUrl)}" style="max-height:60px">` : ""}
+          </div>
+          <div class="grid2">
+            <div style="background:#f9f9f9;padding:14px;border-radius:8px">
+              <p style="font-weight:bold;margin-bottom:8px">Исполнитель:</p>
+              <p>${escapeHtml(c.name||"")}</p>
+              ${c.inn ? `<p>ИНН: ${escapeHtml(c.inn)}</p>` : ""}
+              ${c.address ? `<p>${escapeHtml(c.address)}</p>` : ""}
+              ${c.phone ? `<p>${escapeHtml(c.phone)}</p>` : ""}
+              ${c.email ? `<p>${escapeHtml(c.email)}</p>` : ""}
+            </div>
+            <div style="background:#f0f7ff;padding:14px;border-radius:8px">
+              <p style="font-weight:bold;margin-bottom:8px">Заказчик:</p>
+              <p>${escapeHtml(state.project?.client||client.name||"")}</p>
+              ${client.phone ? `<p>${escapeHtml(client.phone)}</p>` : ""}
+              ${client.email ? `<p>${escapeHtml(client.email)}</p>` : ""}
+            </div>
+          </div>
+          <p style="margin-bottom:8px"><b>Назначение:</b> ${escapeHtml(state.project?.name || proj.name || "Оказание услуг")}</p>
+          <table>
+            <thead><tr><th>#</th><th>Наименование</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr></thead>
+            <tbody>
+              ${(state.stages||[]).flatMap((stage, si) => {
+                const stageItems = items.filter ? [] : [];
+                return [];
+              }).join("") || `<tr><td colspan="5" style="text-align:center;color:#888">Услуги загружаются из текущей сметы</td></tr>`}
+              <tr><td colspan="4">Итого по смете</td><td style="font-weight:bold">${(t.total||0).toLocaleString("ru-RU")} ${state.project?.currency||"₽"}</td></tr>
+            </tbody>
+            <tfoot><tr class="total-row"><td colspan="4">К ОПЛАТЕ</td><td>${(f.debt||t.total||0).toLocaleString("ru-RU")} ${state.project?.currency||"₽"}</td></tr></tfoot>
+          </table>
+          ${c.requisites ? `<div style="border-top:2px solid #eee;margin-top:24px;padding-top:16px;font-size:12px;color:#555"><b>Реквизиты:</b><br>${escapeHtml(c.requisites).replace(/\n/g,"<br>")}</div>` : ""}
+          <script>window.print();window.onafterprint=()=>window.close();<\/script>
+        </body></html>`);
+        w.document.close();
+      }
+
       function renderFinance() {
         const f = financeTotals();
         const t = totals();
@@ -8777,7 +9199,11 @@
                     <h1>Финансы</h1>
                     <p>${escapeHtml(state.project.name || "Проект")} · ${escapeHtml(state.project.client || "Клиент не указан")}</p>
                   </div>
-                  <button class="btn green" onclick="app.exportXlsx()">Excel</button>
+                  <div class="toolbar">
+                    <button class="btn green" onclick="app.exportXlsx()">Excel</button>
+                    <button class="btn" onclick="app.printInvoice()" title="Сформировать счёт на оплату PDF">🧾 Счёт</button>
+                    ${(state.savedProjects||[]).find(p=>p.id===state.activeProjectId)?.debt > 0 ? `<button class="btn" onclick="app.sendDebtReminder()" title="Отправить напоминание о долге в Telegram">📲 Напомнить об оплате</button>` : ""}
+                  </div>
                 </div>
               `}
 
@@ -9139,6 +9565,15 @@
               <div class="toolbar no-print">
                 <button class="btn primary" onclick="app.saveCurrentProject()">Сохранить текущий в CRM</button>
                 <button class="btn" onclick="app.go('projects')">Список проектов</button>
+                ${(state.dealTemplates||[]).length ? `<div style="position:relative;display:inline-block" id="tmplDdWrap">
+                  <button class="btn" onclick="document.getElementById('tmplDd').style.display=document.getElementById('tmplDd').style.display==='block'?'none':'block'">📋 Шаблоны ▾</button>
+                  <div id="tmplDd" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px;min-width:200px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,.15)">
+                    ${(state.dealTemplates||[]).map(t => `<div style="display:flex;align-items:center;gap:6px;padding:4px 0">
+                      <button class="btn small" style="flex:1;text-align:left" onclick="app.loadDealFromTemplate('${t.id}');document.getElementById('tmplDd').style.display='none'">${escapeHtml(t.name)}</button>
+                      <button class="btn small" style="color:var(--red);padding:4px 7px" onclick="app.deleteDealTemplate('${t.id}')">×</button>
+                    </div>`).join("")}
+                  </div>
+                </div>` : ""}
               </div>
             </div>
 
@@ -10163,6 +10598,7 @@
           { id: "team", label: "Команда" },
           { id: "proposal", label: "КП" },
           { id: "versions", label: "Версии сметы" },
+          { id: "activity", label: "История" },
         ];
 
         const tabContent = {
@@ -10173,6 +10609,7 @@
           team: renderTeam,
           calendar: renderCalendar,
           versions: renderVersions,
+          activity: renderActivityLog,
         };
 
         const currentIdx = CRM_STATUSES.indexOf(state.project.crmStatus || "Лид");
@@ -10209,6 +10646,7 @@
                   ` : ""}
                 </div>
               </div>
+              <button class="btn small no-print" onclick="app.saveDealAsTemplate()" title="Сохранить текущую сделку как шаблон для будущих сделок">📋 В шаблон</button>
             </div>
 
             <div class="deal-stage-progress no-print">
@@ -10267,6 +10705,8 @@
 
             <div class="grid three">
               ${field("Название", `<input data-autosave data-scope="company" data-key="name" value="${escapeHtml(state.company.name)}">`)}
+              ${field("ИНН", `<input data-autosave data-scope="company" data-key="inn" value="${escapeHtml(state.company.inn || "")}" placeholder="590000000000">`)}
+              ${field("Юридический адрес", `<input data-autosave data-scope="company" data-key="address" value="${escapeHtml(state.company.address || "")}" placeholder="г. Пермь, ул. Примерная, 1">`)}
               ${field("Телефон", `<input data-autosave data-scope="company" data-key="phone" value="${escapeHtml(state.company.phone)}">`)}
               ${field("Email", `<input data-autosave data-scope="company" data-key="email" value="${escapeHtml(state.company.email)}">`)}
               ${field("Сайт", `<input data-autosave data-scope="company" data-key="site" value="${escapeHtml(state.company.site)}">`)}
@@ -10304,6 +10744,12 @@
                 <button class="btn green" onclick="app.exportXlsx()">Экспорт Excel</button>
                 <button class="btn" onclick="app.printProposal()">Печать / PDF</button>
                 <button class="btn" onclick="document.getElementById('importCatalogInput').click()">Импорт каталога</button>
+              </div>
+              <div class="toolbar no-print" style="margin-top:8px">
+                <span style="font-size:12px;color:var(--muted);align-self:center">Ежемесячный отчёт:</span>
+                <input type="month" id="monthReportInput" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:13px"
+                  value="${new Date().toISOString().slice(0,7)}">
+                <button class="btn green" onclick="app.exportMonthlyReport(document.getElementById('monthReportInput').value)">📥 Отчёт за месяц</button>
               </div>
 
               <p class="mini-note">
@@ -10467,6 +10913,22 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               })()}
             </div>
             ` : ""}
+
+            <!-- AI-генерация КП — активация Gemini -->
+            <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
+              <h2>🤖 AI-генерация КП (Gemini)</h2>
+              <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+                Edge Function <code>ai-proposal</code> уже задеплоена. Для активации — добавить бесплатный ключ Gemini в Supabase Secrets:
+              </p>
+              <ol style="font-size:13px;color:var(--text2);padding-left:18px;line-height:2">
+                <li>Получить ключ: <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--primary)">aistudio.google.com</a> → Create API key (без карты)</li>
+                <li>Установить секрет: <code style="background:var(--bg);padding:2px 6px;border-radius:6px">supabase secrets set GEMINI_API_KEY=ваш_ключ</code></li>
+                <li>Передеплоить функцию: <code style="background:var(--bg);padding:2px 6px;border-radius:6px">supabase functions deploy ai-proposal</code></li>
+              </ol>
+              <p style="font-size:12px;color:var(--muted);margin-top:8px">
+                Модель: <b>gemini-2.5-flash-lite</b> · Лимит бесплатного тарифа: 1000 запросов/день, 15 запросов/мин. Более чем достаточно для одного агентства.
+              </p>
+            </div>
 
             <div style="margin-top:18px;padding:10px 14px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
               <span style="font-size:12px;color:var(--muted)">ADERVIS CRM</span>
@@ -10636,13 +11098,21 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 ` : ''}
 
                 ${!isApproved ? `
-                  <button class="btn primary full" onclick="app.approvePortal()"
-                    style="margin-top:24px;padding:15px;font-size:15px;font-weight:800;letter-spacing:-.01em">
-                    ✅ Утвердить коммерческое предложение
-                  </button>
-                  <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.5">
-                    Нажимая кнопку, вы подтверждаете согласие<br>с условиями коммерческого предложения
-                  </p>
+                  <div style="margin-top:24px;padding:18px;background:var(--panel2);border:1px solid var(--line);border-radius:14px">
+                    <p style="font-size:13px;font-weight:700;margin:0 0 12px">Электронная подпись</p>
+                    <div class="field" style="margin-bottom:10px">
+                      <label style="font-size:12px;color:var(--muted)">Ваше ФИО (для подтверждения)</label>
+                      <input id="esignName" type="text" placeholder="Иванов Иван Иванович" style="width:100%;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px">
+                    </div>
+                    <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px">
+                      <input type="checkbox" id="esignConsent" style="margin-top:2px;accent-color:var(--primary);flex:0 0 auto">
+                      Я подтверждаю согласие с условиями коммерческого предложения и даю согласие на обработку персональных данных
+                    </label>
+                    <button class="btn primary full" onclick="app.approvePortal()"
+                      style="padding:15px;font-size:15px;font-weight:800;letter-spacing:-.01em">
+                      ✅ Подписать и утвердить КП
+                    </button>
+                  </div>
                 ` : `
                   <div style="text-align:center;margin-top:24px;padding:22px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3);border-radius:14px">
                     <div style="font-size:36px;margin-bottom:8px">✅</div>
@@ -10727,6 +11197,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
       async function approvePortal() {
         if (!_supabase || !_portalId || !_portalData) return;
+        const consent = document.getElementById('esignConsent');
+        if (consent && !consent.checked) { alert('Пожалуйста, подтвердите согласие с условиями КП'); return; }
+        const signerName = (document.getElementById('esignName')?.value || "").trim();
         const btn = document.querySelector('.portal-wrap .btn.primary');
         if (btn) { btn.disabled = true; btn.textContent = 'Отправка...'; }
         const { error } = await _supabase
@@ -10734,9 +11207,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!error) {
           _portalData.deal_status = 'Согласовано';
           _portalData.approved_at = new Date().toISOString();
+          if (signerName) _portalData.signer_name = signerName;
           render();
         } else {
-          if (btn) { btn.disabled = false; btn.textContent = '✅ Утвердить коммерческое предложение'; }
+          if (btn) { btn.disabled = false; btn.textContent = '✅ Подписать и утвердить КП'; }
           alert('Ошибка: ' + error.message);
         }
       }
@@ -10792,7 +11266,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (data && !error) {
           const url = location.origin + location.pathname + '?portal=' + data.id;
           try { await navigator.clipboard.writeText(url); } catch(e) {}
-          if (navigator.share) {
+          if (navigator.share && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
             navigator.share({ title: project.name || 'Коммерческое предложение', url }).catch(() => {});
           }
 
@@ -10988,6 +11462,19 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       /* ═══════════════════════════════════════════════════════
          ГЛАВНОЕ МЕНЮ (клик по логотипу, бургер, «Ещё» в нижней навигации)
       ═══════════════════════════════════════════════════════ */
+      async function sendDebtReminder(projectId) {
+        const proj = (state.savedProjects || []).find(p => p.id === (projectId || state.activeProjectId));
+        if (!proj) { toast("Проект не найден"); return; }
+        const debt = (proj.total || 0) - (proj.paid || 0);
+        if (debt <= 0) { toast("Долга нет — оплата полностью получена"); return; }
+        if (!(state.telegramChatIds || []).length) { toast("Настройте Telegram-уведомления в Настройках"); return; }
+        const msg = `💰 <b>Напоминание об оплате</b>\n\n<b>${escapeHtml(proj.name || "Проект")}</b>${proj.client ? "\nКлиент: " + escapeHtml(proj.client) : ""}\n\nСумма: ${money(proj.total || 0)}\nОплачено: ${money(proj.paid || 0)}\nОстаток: <b>${money(debt)}</b>`;
+        await sendTelegramNotification(msg);
+        _logActivity(proj.id, `Отправлено напоминание о долге ${money(debt)}`);
+        save();
+        toast(`Напоминание о долге ${money(debt)} отправлено в Telegram`);
+      }
+
       async function sendTelegramNotification(text) {
         const recipients = state.telegramChatIds || [];
         if (!recipients.length || !_adminSession) return;
@@ -11018,8 +11505,8 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             p_recipients: state.telegramChatIds || []
           });
         } catch(e) {
-          console.warn('Telegram RPC save failed, fallback to full save:', e);
-          saveToCloud();
+          console.warn('Telegram RPC save failed:', e);
+          toast('Не удалось сохранить настройки Telegram');
         }
       }
 
@@ -11036,7 +11523,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
       function setTelegramRecipientField(id, key, val) {
         const r = (state.telegramChatIds || []).find(x => x.id === id);
-        if (r) { r[key] = val.trim(); _saveTelegramRecipients(); }
+        if (r) {
+          r[key] = val.trim();
+          save();
+          clearTimeout(_tgSaveTimer);
+          _tgSaveTimer = setTimeout(() => _saveTelegramRecipients(), 600);
+        }
       }
 
       async function testTelegramRecipient(id) {
@@ -11303,6 +11795,17 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           return;
         }
         if (!m.id) {
+          // Detect duplicates by phone or email before creating
+          const phone = (m.phone || "").replace(/\D/g, "");
+          const email = (m.email || "").trim().toLowerCase();
+          const dup = (state.clients || []).find(c => {
+            if (phone && c.phone && c.phone.replace(/\D/g, "") === phone) return true;
+            if (email && c.email && c.email.trim().toLowerCase() === email) return true;
+            return false;
+          });
+          if (dup) {
+            if (!confirm(`Возможный дубль: клиент «${dup.name}» с таким же ${phone && dup.phone?.replace(/\D/g,"")===phone?"телефоном":"email"} уже существует.\n\nСоздать нового клиента?`)) return;
+          }
           const created = normalizeClient({ ...m, name: String(m.name || "").trim() || "Новый клиент" });
           state.clients = [created, ...(state.clients || [])];
           state.clientModal = null;
@@ -12148,6 +12651,14 @@ Email: ______________________            Email: ______________________
                   <div class="grid two">
                     ${field("Категория", `<input value="${escapeHtml(c.category||"")}" onchange="app.updateContractField('${c.id}','category',this.value)" placeholder="Видео, Фото...">`)}
                     ${field("Описание", `<input value="${escapeHtml(c.desc||"")}" onchange="app.updateContractField('${c.id}','desc',this.value)" placeholder="Краткое описание">`)}
+                    ${field("Клиент", `<select onchange="app.updateContractField('${c.id}','clientId',this.value)">
+                      <option value="">— без привязки —</option>
+                      ${(state.clients||[]).map(cl => `<option value="${cl.id}" ${c.clientId===cl.id?"selected":""}>${escapeHtml(cl.name)}${cl.company?" · "+escapeHtml(cl.company):""}</option>`).join("")}
+                    </select>`)}
+                    ${field("Сделка", `<select onchange="app.updateContractField('${c.id}','dealId',this.value)">
+                      <option value="">— без привязки —</option>
+                      ${(state.savedProjects||[]).map(p => `<option value="${p.id}" ${c.dealId===p.id?"selected":""}>${escapeHtml(p.name)}${p.client?" · "+escapeHtml(p.client):""}</option>`).join("")}
+                    </select>`)}
                   </div>
                 </div>
                 <div class="field">
@@ -12298,6 +12809,21 @@ Email: ______________________            Email: ______________________
             else if (state.helpModal) closeHelpModal();
             else if (state.mainMenuOpen) { state.mainMenuOpen = false; renderModal(); }
           }
+          // Ctrl+N — новая сделка (кроме полей ввода)
+          if ((e.ctrlKey || e.metaKey) && e.key === "n") {
+            const active = document.activeElement;
+            if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+            e.preventDefault();
+            startWizard();
+          }
+          // Ctrl+S — сохранить текущую смету в CRM
+          if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+            const active = document.activeElement;
+            if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+            e.preventDefault();
+            saveCurrentProject();
+            toast("Сохранено");
+          }
         });
 
         const themeBtn = document.getElementById("themeBtn");
@@ -12432,6 +12958,9 @@ Email: ______________________            Email: ______________________
         deleteTeamMember,
 
         exportData,
+        exportMonthlyReport,
+        printInvoice,
+        sendDebtReminder,
         importData,
         exportCatalog,
         importCatalog,
@@ -12571,6 +13100,20 @@ Email: ______________________            Email: ______________________
         renderProfile,
         renderPlans,
         renderSupport,
+        renderAdminPanel,
+        renderActivityLog,
+        saveDealAsTemplate,
+        loadDealFromTemplate,
+        deleteDealTemplate,
+        loadAdminPanel,
+        adminSetSubscription,
+        adminCreatePromo,
+        adminTogglePromo,
+        _setAdminTab,
+        _openEditSub,
+        _closeEditSub,
+        _setEditSub,
+        _setPromoForm,
         forceSaveToCloud,
         openChangePassword,
         submitChangePassword,
