@@ -2580,43 +2580,6 @@
             ` : ""}
           </div>`;
       }
-                  </div>
-                </div>
-              ` : ""}
-            ` : ""}
-            ${_adminPanelTab === "promos" ? `
-              <div class="panel" style="background:var(--panel2);margin-bottom:20px">
-                <h3 style="margin-top:0">Создать промокод</h3>
-                ${_adminPromoForm.error ? `<div style="color:var(--red);font-size:13px;margin-bottom:10px">${escapeHtml(_adminPromoForm.error)}</div>` : ""}
-                <div class="grid three">
-                  ${field("Код", `<input placeholder="PROMO2026" value="${escapeHtml(_adminPromoForm.code)}" oninput="app._setPromoForm('code',this.value)">`)}
-                  ${field("Скидка %", `<input type="number" min="1" max="100" value="${_adminPromoForm.discount||""}" oninput="app._setPromoForm('discount',this.value)">`)}
-                  ${field("Макс. использований", `<input type="number" min="1" value="${_adminPromoForm.maxUses||100}" oninput="app._setPromoForm('maxUses',this.value)">`)}
-                  ${field("Истекает", `<input type="date" value="${escapeHtml(_adminPromoForm.expires||"")}" onchange="app._setPromoForm('expires',this.value)">`)}
-                </div>
-                <button class="btn primary" onclick="app.adminCreatePromo()" ${_adminPromoForm.loading?"disabled":""}>
-                  ${_adminPromoForm.loading?"Создание...":"+ Создать промокод"}
-                </button>
-              </div>
-              <table class="data-table" style="width:100%">
-                <thead><tr><th>Код</th><th>Скидка</th><th>Исп.</th><th>Макс.</th><th>Истекает</th><th>Статус</th><th></th></tr></thead>
-                <tbody>
-                  ${(_adminPromoCodes || []).map(p => `
-                    <tr>
-                      <td><b>${escapeHtml(p.code)}</b></td>
-                      <td>${p.discount}%</td>
-                      <td>${p.uses || 0}</td>
-                      <td>${p.max_uses || "∞"}</td>
-                      <td style="font-size:12px">${p.expires_at ? new Date(p.expires_at).toLocaleDateString("ru-RU") : "—"}</td>
-                      <td><span class="badge ${p.active!==false?"green":"red"}">${p.active!==false?"Активен":"Отключён"}</span></td>
-                      <td><button class="btn small ${p.active!==false?"":"green"}" onclick="app.adminTogglePromo('${p.id}',${p.active===false})">${p.active!==false?"Откл.":"Вкл."}</button></td>
-                    </tr>`).join("")}
-                </tbody>
-              </table>
-            ` : ""}
-          </div>
-        `;
-      }
 
       function _adminStatCard(label, value, color) {
         const colors = { green: "rgba(22,163,74,.12)", yellow: "rgba(202,138,4,.12)", blue: "rgba(37,99,235,.12)", purple: "rgba(124,58,237,.12)", "": "var(--panel2)" };
