@@ -1243,6 +1243,9 @@
     .catalog-price-input {
       max-width: 190px;
     }
+    .catalog-price-input::-webkit-outer-spin-button,
+    .catalog-price-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .catalog-price-input { appearance: textfield; }
 
     .proposal-brand {
       display: flex;
