@@ -2293,7 +2293,12 @@
               return s + (m[a.subscription_plan] || 890);
             }, 0)
           };
-        } catch(e) { console.warn("Admin load error:", e); toast("Ошибка загрузки: " + e.message); }
+        } catch(e) {
+          console.warn("Admin load error:", e);
+          toast("Ошибка: " + e.message);
+          _adminAgencies = []; // предотвратить render-loop
+          _adminPromoCodes = [];
+        }
         _adminLoading = false; render();
       }
 
