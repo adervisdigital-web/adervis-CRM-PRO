@@ -3725,3 +3725,34 @@ body.portal-mode .nav { display: none !important; }
     font-size: 16px;
   }
 }
+
+/* ── Catalog action icon buttons ────────────────────── */
+.catalog-action-btn {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  flex-shrink: 0;
+}
+.catalog-action-btn:hover {
+  background: var(--panel3, rgba(124,58,237,.08));
+  color: var(--text);
+  border-color: var(--primary);
+}
+.catalog-action-btn.active {
+  background: rgba(251,191,36,.12);
+  color: #f59e0b;
+  border-color: rgba(251,191,36,.4);
+}
+.catalog-action-btn.danger:hover {
+  background: rgba(220,38,38,.1);
+  color: var(--red);
+  border-color: rgba(220,38,38,.4);
+}

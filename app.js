@@ -8375,19 +8375,39 @@
               </div>
             </div>
 
-            <div class="toolbar no-print" style="margin-top:14px">
+            <div class="no-print" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:8px">
               ${hidden ? `
-                <button class="btn green" onclick="app.restoreCatalogItem('${itemData.id}')">Восстановить</button>
-                <button class="btn danger" onclick="app.permanentlyDeleteItem('${itemData.id}')">Удалить навсегда</button>
+                <div style="display:flex;gap:6px">
+                  <button class="btn small green" onclick="app.restoreCatalogItem('${itemData.id}')">↩ Восстановить</button>
+                  <button class="btn small danger" onclick="app.permanentlyDeleteItem('${itemData.id}')">Удалить навсегда</button>
+                </div>
               ` : `
-                ${selected
-                  ? `<button class="btn danger" onclick="app.removeItem('${itemData.id}')">Убрать из сметы</button>`
-                  : `<button class="btn primary" onclick="app.addItem('${itemData.id}')">Добавить</button>`
-                }
-                <button class="btn" onclick="app.toggleFavorite('${itemData.id}')">${state.favorites[itemData.id] ? "★ Убрать" : "☆ В избранное"}</button>
-                <button class="btn" onclick="app.duplicateToCustom('${itemData.id}')">Копия в свои</button>
-                <button class="btn" onclick="app.resetCatalogPrice('${itemData.id}')">Сброс цены</button>
-                <button class="btn danger" onclick="app.hideCatalogItem('${itemData.id}')">Скрыть</button>
+                <div>
+                  ${selected
+                    ? `<button class="btn small danger" onclick="app.removeItem('${itemData.id}')">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        Убрать
+                       </button>`
+                    : `<button class="btn small primary" onclick="app.addItem('${itemData.id}')">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                        Добавить
+                       </button>`
+                  }
+                </div>
+                <div style="display:flex;gap:4px;align-items:center">
+                  <button class="catalog-action-btn ${state.favorites[itemData.id] ? 'active' : ''}" onclick="app.toggleFavorite('${itemData.id}')" title="${state.favorites[itemData.id] ? 'Убрать из избранного' : 'В избранное'}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="${state.favorites[itemData.id] ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  </button>
+                  <button class="catalog-action-btn" onclick="app.duplicateToCustom('${itemData.id}')" title="Скопировать в свои позиции">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                  </button>
+                  <button class="catalog-action-btn" onclick="app.resetCatalogPrice('${itemData.id}')" title="Сбросить цену к базовой">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 101.77-5.5"/><path d="M3 3v4h4"/></svg>
+                  </button>
+                  <button class="catalog-action-btn danger" onclick="app.hideCatalogItem('${itemData.id}')" title="Скрыть из каталога">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  </button>
+                </div>
               `}
             </div>
           </article>
