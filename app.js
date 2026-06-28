@@ -2268,12 +2268,11 @@
         _adminLoading = true; render();
         try {
           const [agRes, promoRes] = await Promise.all([
-            _supabase.from("profiles").select("id,email,agency_id,subscription_status,subscription_plan,subscription_expires_at,created_at").order("created_at", { ascending: false }),
-            _supabase.from("promo_codes").select("*").order("created_at", { ascending: false })
+            _supabase.rpc("admin_get_profiles"),
+            _supabase.rpc("admin_get_promo_codes")
           ]);
           _adminAgencies = agRes.data || [];
           _adminPromoCodes = promoRes.data || [];
-          // Compute stats
           const now = new Date();
           const month1 = new Date(now.getFullYear(), now.getMonth(), 1);
           _adminStats = {
@@ -2286,16 +2285,19 @@
               return s + (m[a.subscription_plan] || 890);
             }, 0)
           };
-        } catch(e) { console.warn("Admin load error:", e); }
+        } catch(e) { console.warn("Admin load error:", e); toast("Ошибка загрузки: " + e.message); }
         _adminLoading = false; render();
       }
 
       async function adminSetSubscription() {
         if (!_adminEditSub || !_supabase) return;
         const { agencyId, status, plan, expires } = _adminEditSub;
-        const { error } = await _supabase.from("profiles")
-          .update({ subscription_status: status, subscription_plan: plan, subscription_expires_at: expires || null })
-          .eq("agency_id", agencyId);
+        const { error } = await _supabase.rpc("admin_set_subscription", {
+          p_agency_id: agencyId,
+          p_status: status,
+          p_plan: plan,
+          p_expires_at: expires || null
+        });
         if (error) { toast("Ошибка: " + error.message); return; }
         toast("Подписка обновлена");
         _adminEditSub = null;
@@ -2307,11 +2309,11 @@
         if (!f.code.trim()) { toast("Введите код"); return; }
         if (!f.discount || f.discount <= 0) { toast("Введите скидку %"); return; }
         f.loading = true; render();
-        const { error } = await _supabase.from("promo_codes").insert({
-          code: f.code.trim().toUpperCase(),
-          discount: Number(f.discount),
-          expires_at: f.expires || null,
-          max_uses: Number(f.maxUses) || 100
+        const { error } = await _supabase.rpc("admin_create_promo", {
+          p_code: f.code.trim(),
+          p_discount: Number(f.discount),
+          p_max_uses: Number(f.maxUses) || 100,
+          p_expires: f.expires || null
         });
         f.loading = false;
         if (error) { f.error = error.message; render(); return; }
@@ -2321,7 +2323,8 @@
       }
 
       async function adminTogglePromo(id, active) {
-        await _supabase.from("promo_codes").update({ active }).eq("id", id);
+        const { error } = await _supabase.rpc("admin_toggle_promo", { p_id: id, p_active: active });
+        if (error) { toast("Ошибка: " + error.message); return; }
         loadAdminPanel();
       }
 
