@@ -2278,8 +2278,9 @@
           ]);
           if (agRes.error) throw new Error("admin_get_all_users: " + agRes.error.message);
           if (promoRes.error) throw new Error("admin_get_promo_codes: " + promoRes.error.message);
-          _adminAgencies = agRes.data || [];
-          _adminPromoCodes = promoRes.data || [];
+          // admin_get_all_users возвращает json → data уже является массивом
+          _adminAgencies = Array.isArray(agRes.data) ? agRes.data : (agRes.data || []);
+          _adminPromoCodes = Array.isArray(promoRes.data) ? promoRes.data : (promoRes.data || []);
           const now = new Date();
           const month1 = new Date(now.getFullYear(), now.getMonth(), 1);
           _adminStats = {
