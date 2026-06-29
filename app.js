@@ -2197,7 +2197,9 @@
       function renderNotifPopup() {
         const notifs = state.notifications || [];
         const timeAgo = iso => {
-          const d = Math.floor((Date.now() - new Date(iso)) / 1000);
+          const ts = new Date(iso);
+          if (!iso || isNaN(ts)) return "";
+          const d = Math.floor((Date.now() - ts) / 1000);
           if (d < 60) return "только что";
           if (d < 3600) return Math.floor(d/60) + " мин назад";
           if (d < 86400) return Math.floor(d/3600) + " ч назад";
@@ -2213,7 +2215,12 @@
               </div>
             </div>
             <div class="notif-list">
-              ${notifs.length === 0 ? `<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Нет уведомлений</div>` :
+              ${notifs.length === 0 ? `
+                <div style="padding:32px 20px;text-align:center">
+                  <div style="font-size:28px;margin-bottom:10px;opacity:.5">🔔</div>
+                  <div style="color:var(--text);font-size:13px;font-weight:600;margin-bottom:4px">Всё тихо</div>
+                  <div style="color:var(--muted);font-size:12px">Уведомления о дедлайнах<br>и событиях появятся здесь</div>
+                </div>` :
                 notifs.map(n => `
                   <div class="notif-item ${n.read ? "" : "unread"}" onclick="app.notifClick('${n.id}')">
                     <div class="notif-dot"></div>
@@ -9347,13 +9354,15 @@
 
       function renderTaskCard(task) {
         const priorityColor = { "Низкий": "#64748b", "Средний": "#ca8a04", "Высокий": "#ea580c", "Срочно": "#dc2626" };
+        const priorityBg   = { "Низкий": "rgba(100,116,139,.12)", "Средний": "rgba(202,138,4,.12)", "Высокий": "rgba(234,88,12,.12)", "Срочно": "rgba(220,38,38,.12)" };
         const pColor = priorityColor[task.priority] || "#64748b";
+        const pBg    = priorityBg[task.priority]    || "rgba(100,116,139,.12)";
         const isOverdue = task.deadline && task.deadline < todayIso() && task.status !== "Готово";
 
         return `
           <div class="swipe-wrap" data-task-id="${task.id}">
             <div class="swipe-delete-bg">🗑</div>
-          <article class="task-card" style="border-left:3px solid ${pColor};padding:12px 14px"
+          <article class="task-card" style="padding:12px 14px"
             draggable="true"
             ondragstart="app.onKanbanDragStart(event,'${task.id}','task')"
             ondragend="document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('dragover'))">
@@ -9370,7 +9379,7 @@
                 ${TASK_STATUSES.map(s => `<option value="${s}" ${task.status===s?"selected":""}>${s}</option>`).join("")}
               </select>
               <select class="task-mini-select" data-autosave data-scope="task" data-id="${task.id}" data-key="priority"
-                style="border-color:${pColor};color:${pColor}">
+                style="background:${pBg};border-color:${pColor}40;color:${pColor};font-weight:600">
                 ${PRIORITIES.map(p => `<option value="${p}" ${task.priority===p?"selected":""}>${p}</option>`).join("")}
               </select>
               ${task.deadline ? `<span class="badge" style="${isOverdue?"color:var(--red);border-color:rgba(220,38,38,.4)":""}">${isOverdue?"!" : ""}${escapeHtml(formatDate(task.deadline))}</span>` : ""}
@@ -12957,6 +12966,7 @@ Email: ______________________            Email: ______________________
         const c = (state.contracts || []).find(x => x.id === id);
         if (!c) return;
         const win = window.open("", "_blank");
+        if (!win) { toast("❌ Браузер заблокировал открытие окна. Разрешите всплывающие окна для этого сайта."); return; }
         win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(c.name)}</title><style>body{font-family:Arial,sans-serif;margin:40px;line-height:1.6;white-space:pre-wrap;font-size:13px}h1{font-size:18px;margin-bottom:16px}</style></head><body><h1>${escapeHtml(c.name)}</h1>${escapeHtml(c.body)}</body></html>`);
         win.document.close();
         win.print();
