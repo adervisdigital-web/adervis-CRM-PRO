@@ -7958,7 +7958,7 @@
                   const margin = project.total > 0 ? Math.round((project.profit||0)/project.total*100) : 0;
                   const healthClass = margin >= 40 ? "green" : margin >= 20 ? "yellow" : margin > 0 ? "red" : "grey";
                   return `
-                    <div class="deal-list-row ${isCurrent?"current":""}" onclick="app.openDealModal('${projectIdSafe}')">
+                    <div class="deal-list-row ${isCurrent?"current":""}" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету">
                       <input type="checkbox" class="crm-cb no-print" ${(state.crmSelected||{})[project.id]?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">
                       <div class="health-dot ${healthClass}" style="flex:0 0 auto" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
                       <span class="status-pill" style="font-size:10px;flex:0 0 auto">${escapeHtml(project.crmStatus||"Лид")}</span>
@@ -7967,7 +7967,7 @@
                       <div class="deal-list-budget">${money(project.total)}</div>
                       <div class="deal-list-deadline" style="color:${u&&u.level!=="ok"?u.color:"var(--muted)"}">${project.deadline?formatDate(project.deadline):"—"}</div>
                       <div class="deal-list-actions" onclick="event.stopPropagation()">
-                        <button class="btn small" onclick="app.openDeal('${projectIdSafe}')" title="Смета">✏</button>
+                        <button class="btn small" onclick="app.openDealModal('${projectIdSafe}')" title="Редактировать сделку">Ред.</button>
                         ${nextLabel?`<button class="next-action-btn" onclick="app.advanceCrmStatus('${projectIdSafe}')" title="${nextLabel}" style="font-size:11px;padding:4px 8px">${nextLabel} →</button>`:""}
                       </div>
                     </div>`;
@@ -7988,7 +7988,7 @@
                   const projectIdSafe = project.id.replace(/'/g,"");
                   const u = project.deadline ? deadlineUrgency(project.deadline) : null;
                   return `
-                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.openDealModal('${projectIdSafe}')" style="cursor:pointer" title="Открыть сделку">
+                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.openDeal('${projectIdSafe}')" style="cursor:pointer" title="Открыть смету">
                       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
                         <input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">
@@ -8032,7 +8032,7 @@
                       ${(project.tags||[]).length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${(project.tags||[]).map(t=>`<span style="font-size:10px;background:rgba(124,58,237,.12);border-radius:99px;padding:1px 7px;color:var(--primary2);cursor:pointer" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
 
                       <div class="deal-card-footer">
-                        <button class="btn small" onclick="event.stopPropagation();app.openDeal('${projectIdSafe}')" title="Открыть смету, КП, задачи, финансы">Открыть</button>
+                        <button class="btn small" onclick="event.stopPropagation();app.openDealModal('${projectIdSafe}')" title="Редактировать сделку">Редактировать</button>
                         ${nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge" onclick="event.stopPropagation()">Завершено</span>`}
                       </div>
                     </div>
