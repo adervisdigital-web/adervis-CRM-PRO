@@ -7661,7 +7661,7 @@
               </div>
             </div>
             <div class="db-analytics-body">
-              <svg viewBox="0 0 ${W} ${H}" width="100%" height="auto" style="display:block">
+              <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">
                 ${gridLines}
                 ${barsHtml}
               </svg>
