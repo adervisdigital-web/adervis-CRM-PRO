@@ -2126,6 +2126,50 @@
     .health-dot.red { background: var(--red); }
     .health-dot.grey { background: var(--muted); }
 
+    /* ── DEAL CONTEXT MENU ───────────────────────── */
+    .deal-menu-btn {
+      width: 26px; height: 26px; padding: 0;
+      display: grid; place-items: center;
+      border: 1px solid transparent; background: transparent;
+      border-radius: 7px; color: var(--muted);
+      cursor: pointer; flex-shrink: 0;
+      opacity: 0;
+      transition: opacity .15s, background .15s, border-color .15s, color .15s;
+    }
+    .deal-card:hover .deal-menu-btn { opacity: 1; }
+    .deal-menu-btn:hover {
+      background: var(--panel2); border-color: var(--line); color: var(--text);
+    }
+    .deal-ctx-menu {
+      position: absolute; top: calc(100% + 6px); right: 0;
+      min-width: 192px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 5px;
+      box-shadow: var(--elev-3);
+      z-index: var(--z-dropdown);
+      animation: fadeSlideDown .14s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .dcm-item {
+      display: flex; align-items: center; gap: 9px;
+      width: 100%; padding: 8px 10px;
+      border: none; background: transparent;
+      color: var(--text); font-size: 13px; font-weight: 600;
+      border-radius: 8px; cursor: pointer; text-align: left;
+      transition: background .1s, color .1s;
+    }
+    .dcm-item:hover { background: rgba(255,255,255,.06); }
+    .dcm-item svg { flex-shrink: 0; opacity: .7; }
+    .dcm-item:hover svg { opacity: 1; }
+    .dcm-green { color: #4ade80; }
+    .dcm-green:hover { background: rgba(22,163,74,.12) !important; color: #4ade80; }
+    .dcm-danger { color: var(--red); }
+    .dcm-danger:hover { background: rgba(242,40,34,.1) !important; }
+    .dcm-sep { height: 1px; background: var(--line); margin: 4px 5px; }
+    [data-theme="light"] .dcm-green { color: #15803d; }
+    [data-theme="light"] .dcm-item:hover { background: rgba(0,0,0,.05); }
+
     /* ── SCROLL TO TOP ───────────────────────────── */
     .scroll-top-btn {
       position: fixed;

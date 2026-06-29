@@ -681,6 +681,7 @@
       let _promoState = null; // null=idle | "checking" | {code,discount} | "invalid"
       let _tgSaveTimer = null;
       let _fadeRaf = null;
+      let _dealMenuOpen = null;
       let _loginFailCount = 0;
       let _loginLockUntil = 0;
       let _needsNormalize = true; // true after any state mutation; normalizeState() runs in render() only when set
@@ -6505,6 +6506,39 @@
         loadSavedProject(projectId);
       }
 
+      function toggleDealMenu(id, e) {
+        e.stopPropagation();
+        const wasOpen = _dealMenuOpen === id;
+        closeDealMenu();
+        if (!wasOpen) {
+          _dealMenuOpen = id;
+          const el = document.getElementById("dcm-" + id);
+          if (el) el.style.display = "block";
+        }
+      }
+
+      function closeDealMenu() {
+        if (_dealMenuOpen) {
+          const el = document.getElementById("dcm-" + _dealMenuOpen);
+          if (el) el.style.display = "none";
+          _dealMenuOpen = null;
+        }
+      }
+
+      function finishDeal(id) {
+        closeDealMenu();
+        const project = (state.savedProjects || []).find(p => p.id === id);
+        if (!project) return;
+        const prev = project.crmStatus || "Лид";
+        if (prev === "Завершённые") { toast("Сделка уже завершена"); return; }
+        project.crmStatus = "Завершённые";
+        if (project.snapshot?.project) project.snapshot.project.crmStatus = "Завершённые";
+        _logActivity(id, `Статус: ${prev} → Завершённые`);
+        toast("Сделка завершена ✓");
+        save();
+        render();
+      }
+
       function dragStart(id) {
         draggedLineId = id;
       }
@@ -7996,12 +8030,32 @@
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
                           ${project.client ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>` : ""}
                         </div>
-                        <div style="display:flex;gap:4px;align-items:center;flex:0 0 auto">
-                          <button class="deal-dup-btn" onclick="event.stopPropagation();app.duplicateDeal('${projectIdSafe}')" title="Дублировать сделку">
-                            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H3a1 1 0 00-1 1v9h1V2h8V1zm2 2H5a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V4a1 1 0 00-1-1zm0 11H5V4h8v10z"/></svg>
-                          </button>
+                        <div style="display:flex;gap:4px;align-items:center;flex:0 0 auto;position:relative">
                           <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
                           <span class="status-pill" style="font-size:11px">${escapeHtml(project.crmStatus || "Лид")}</span>
+                          <button class="deal-menu-btn" onclick="app.toggleDealMenu('${projectIdSafe}',event)" title="Действия со сделкой">
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
+                          </button>
+                          <div class="deal-ctx-menu" id="dcm-${projectIdSafe}" style="display:none">
+                            <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.openDealModal('${projectIdSafe}')">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 011.06 2.56L5.12 11H3v-2.12l7.44-7.44A1.5 1.5 0 0111.5 1zM2 12.5V15h2.5l.1-.1-2.4-2.4-.2.1z"/></svg>
+                              Редактировать
+                            </button>
+                            <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.duplicateDeal('${projectIdSafe}')">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H3a1 1 0 00-1 1v9h1V2h8V1zm2 2H5a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V4a1 1 0 00-1-1zm0 11H5V4h8v10z"/></svg>
+                              Дублировать
+                            </button>
+                            <div class="dcm-sep"></div>
+                            <button class="dcm-item dcm-green" onclick="event.stopPropagation();app.finishDeal('${projectIdSafe}')">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 2.5l-8 8-3-3-1 1 4 4 9-9z"/></svg>
+                              Завершить
+                            </button>
+                            <div class="dcm-sep"></div>
+                            <button class="dcm-item dcm-danger" onclick="event.stopPropagation();app.closeDealMenu();app.deleteSavedProject('${projectIdSafe}')">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>
+                              Удалить проект
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -8032,7 +8086,6 @@
                       ${(project.tags||[]).length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${(project.tags||[]).map(t=>`<span style="font-size:10px;background:rgba(124,58,237,.12);border-radius:99px;padding:1px 7px;color:var(--primary2);cursor:pointer" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
 
                       <div class="deal-card-footer">
-                        <button class="btn small" onclick="event.stopPropagation();app.openDealModal('${projectIdSafe}')" title="Редактировать сделку">Редактировать</button>
                         ${nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge" onclick="event.stopPropagation()">Завершено</span>`}
                       </div>
                     </div>
@@ -13048,7 +13101,7 @@ Email: ______________________            Email: ______________________
         if (globalAddBtn) {
           globalAddBtn.addEventListener("click", e => { e.stopPropagation(); toggleGlobalMenu(); });
         }
-        document.addEventListener("click", () => closeGlobalMenu());
+        document.addEventListener("click", () => { closeGlobalMenu(); closeDealMenu(); });
 
         const scrollTopBtn = document.getElementById("scrollTopBtn");
         if (scrollTopBtn) {
@@ -13301,6 +13354,9 @@ Email: ______________________            Email: ______________________
         finishWizardWithPackage,
         advanceCrmStatus,
         openDeal,
+        toggleDealMenu,
+        closeDealMenu,
+        finishDeal,
 
         calSetMonth,
         calSelectDay,
