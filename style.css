@@ -132,13 +132,28 @@
       background: var(--bg2);
       border-right: 1px solid var(--line);
       overflow: hidden;
-      z-index: 40;
+      z-index: var(--z-sticky);
       scrollbar-width: none;
-      /* Плавная анимация свёртки */
-      transition: width .25s cubic-bezier(.4,0,.2,1), flex-basis .25s cubic-bezier(.4,0,.2,1);
+      transition: width .3s cubic-bezier(0.16, 1, 0.3, 1),
+                  flex-basis .3s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .app-sidebar::-webkit-scrollbar { display: none; }
     .app-sidebar:empty { display: none; }
+
+    /* Sidebar labels — fade+clip instead of display:none so they can transition */
+    .sidebar-label,
+    .sidebar-brand-name,
+    .sidebar-brand-sub,
+    .sidebar-project-hint,
+    .sidebar-badge {
+      overflow: hidden;
+      flex-shrink: 1;
+      max-width: 200px;
+      opacity: 1;
+      /* fade slightly after width starts expanding; hide before width finishes collapsing */
+      transition: max-width .3s cubic-bezier(0.16, 1, 0.3, 1),
+                  opacity .18s ease;
+    }
 
     /* ── Collapsed sidebar ─────────────────────────────── */
     .app-sidebar.collapsed { width: 64px; flex: 0 0 64px; }
@@ -147,7 +162,11 @@
     .app-sidebar.collapsed .sidebar-brand-name,
     .app-sidebar.collapsed .sidebar-brand-sub,
     .app-sidebar.collapsed .sidebar-project-hint,
-    .app-sidebar.collapsed .sidebar-badge { display: none !important; }
+    .app-sidebar.collapsed .sidebar-badge {
+      max-width: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
 
     .app-sidebar.collapsed .sidebar-header {
       justify-content: center; padding: 14px 0;
@@ -155,12 +174,11 @@
     .app-sidebar.collapsed .sidebar-brand { justify-content: center; gap: 0; flex: none; }
     .app-sidebar.collapsed .sidebar-nav { padding: 6px; }
     .app-sidebar.collapsed .sidebar-nav-item {
-      justify-content: center !important;
-      padding: 10px 0 !important;
-      gap: 0 !important;
+      justify-content: center;
+      padding: 10px 0;
+      gap: 0;
       border-radius: 10px;
     }
-    /* Иконки чётче в collapsed */
     .app-sidebar.collapsed .sidebar-nav-item svg {
       width: 18px; height: 18px;
       color: var(--text);
@@ -171,12 +189,8 @@
 
     .app-sidebar.collapsed .sidebar-footer { padding: 6px; }
     .app-sidebar.collapsed .sidebar-footer .sidebar-nav-item {
-      justify-content: center !important; padding: 10px 0 !important;
+      justify-content: center; padding: 10px 0;
     }
-
-    /* Кнопка свёртки — в nav, всегда видна */
-    .sidebar-toggle-btn { color: var(--muted) !important; }
-    .sidebar-toggle-btn:hover { color: var(--text) !important; background: var(--primary-bg) !important; }
 
     /* CSS tooltip при наведении в collapsed */
     .app-sidebar.collapsed .sidebar-nav-item { position: relative; }
@@ -193,9 +207,9 @@
       white-space: nowrap;
       pointer-events: none;
       opacity: 0;
-      transition: opacity .12s .08s;
-      z-index: 9999;
-      box-shadow: 0 4px 16px rgba(0,0,0,.3);
+      transition: opacity .14s .06s;
+      z-index: var(--z-tooltip);
+      box-shadow: var(--elev-2);
     }
     .app-sidebar.collapsed .sidebar-nav-item[title]:hover::after { opacity: 1; }
 
@@ -204,7 +218,7 @@
       display: flex; align-items: center; justify-content: space-between;
       padding: 16px 14px 12px; flex-shrink: 0;
     }
-    .sidebar-brand { display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0; flex: 1; }
+    .sidebar-brand { display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0; flex: 1; -webkit-user-select: none; user-select: none; }
     .sidebar-collapse-btn { display: none; }
 
     /* Текущий проект под Смета */
@@ -226,19 +240,11 @@
       min-height: 100vh;
     }
 
-    .sidebar-brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 18px 16px 14px;
-      border-bottom: 1px solid var(--line);
-      flex-shrink: 0;
-    }
     .sidebar-brand .logo {
       width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
     }
-    .sidebar-brand-name { font-size: 13px; font-weight: 900; letter-spacing: .2px; line-height: 1.2; }
-    .sidebar-brand-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .sidebar-brand-name { font-size: 13px; font-weight: 900; letter-spacing: .2px; line-height: 1.2; white-space: nowrap; }
+    .sidebar-brand-sub { font-size: 10px; color: var(--muted); margin-top: 2px; white-space: nowrap; }
 
     .sidebar-nav {
       padding: 10px 8px;
