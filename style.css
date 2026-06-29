@@ -202,7 +202,7 @@
     /* ── Sidebar header ─────────────────────────────────── */
     .sidebar-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 14px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+      padding: 16px 14px 12px; flex-shrink: 0;
     }
     .sidebar-brand { display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0; flex: 1; }
     .sidebar-collapse-btn { display: none; }

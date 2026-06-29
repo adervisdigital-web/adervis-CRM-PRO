@@ -1199,13 +1199,13 @@
 
         el.innerHTML = `
           <div class="sidebar-header">
-            <div class="sidebar-brand" onclick="app.go('home')" title="Дашборд">
+            <div class="sidebar-brand" onclick="app.toggleSidebar()" title="${collapsed ? "Развернуть меню" : "Свернуть меню"}" style="cursor:pointer">
               <div class="logo" style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0">
                 <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:20px;height:20px;object-fit:contain">
               </div>
               <div class="sidebar-label">
                 <div class="sidebar-brand-name">ADERVIS CRM</div>
-                <div class="sidebar-brand-sub">продакшн</div>
+                <div class="sidebar-brand-sub">v${APP_VERSION}</div>
               </div>
             </div>
           </div>
@@ -1233,17 +1233,6 @@
             ${navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора")}
             ${navItem("knowledge",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"База знаний")}
 
-            <div class="sidebar-divider"></div>
-
-            <!-- Кнопка свёртки/развёртки — всегда видна -->
-            <button class="sidebar-nav-item sidebar-toggle-btn" onclick="app.toggleSidebar()" title="${collapsed ? "Развернуть меню" : "Свернуть меню"}">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                ${collapsed
-                  ? `<path d="M13 17l5-5-5-5"/><path d="M6 17l5-5-5-5"/>`
-                  : `<path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/>`}
-              </svg>
-              <span class="sidebar-label">${collapsed ? "Развернуть" : "Свернуть"}</span>
-            </button>
           </nav>
 
           <div class="sidebar-footer">
