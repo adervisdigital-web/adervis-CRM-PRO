@@ -1003,6 +1003,7 @@
       color: var(--text);
       letter-spacing: -.01em;
     }
+    .line-name-input { text-overflow: ellipsis; }
     .line-name-input::placeholder { color: var(--text); opacity: 0.9; }
     .line-name-input:hover { border-color: var(--line); }
     .line-name-input:focus {

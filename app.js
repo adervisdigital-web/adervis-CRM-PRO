@@ -2894,7 +2894,7 @@
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
                   <span style="font-size:20px">✅</span>
                   <div>
-                    <div style="font-weight:900;font-size:15px;color:#86efac">Подписка активна — ${escapeHtml(planLabel)}</div>
+                    <div style="font-weight:900;font-size:15px;color:var(--green)">Подписка активна — ${escapeHtml(planLabel)}</div>
                     ${exp ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">Действует до: ${escapeHtml(expStr)}${daysLeft !== null ? ` (ещё ${daysLeft} дн.)` : ""}</div>` : ""}
                   </div>
                 </div>
@@ -4679,7 +4679,7 @@
           else base += sum;
         });
 
-        const discount = base * Math.max(0, numberValue(state.project.discount, 0)) / 100;
+        const discount = base * Math.min(100, Math.max(0, numberValue(state.project.discount, 0))) / 100;
         const afterDiscount = Math.max(0, base - discount);
         const tax = afterDiscount * taxRateByType(state.project.taxType);
         const total = afterDiscount + tax;
@@ -7807,7 +7807,7 @@
           <div class="panel" style="margin-bottom:14px;border:1px solid rgba(220,38,38,.3);background:rgba(220,38,38,.06);display:flex;align-items:center;gap:12px">
             <div style="font-size:20px;flex:0 0 auto">⚠️</div>
             <div style="flex:1">
-              <div style="font-weight:700;font-size:13px;color:#fca5a5;margin-bottom:2px">Пробный период</div>
+              <div style="font-weight:700;font-size:13px;color:var(--red);margin-bottom:2px">Пробный период</div>
               <div style="font-size:12px;color:var(--muted)">${text}</div>
             </div>
             <button onclick="app.go('plans')" class="btn primary small" style="white-space:nowrap">Выбрать тариф</button>
@@ -7838,7 +7838,7 @@
           .reduce((s, p) => s + (p.total || 0), 0);
         const totalProfit = projects.reduce((s, p) => s + (p.profit || 0), 0);
         const inWork = projects.filter(p => p.crmStatus === "В работе").length;
-        const closedCount = projects.filter(p => p.crmStatus === "Завершённые").length;
+        const closedCount = projects.filter(p => ["Завершённые","Сдано"].includes(p.crmStatus || "Лид")).length;
 
         const CRM_NEXT = {
           "Лид": "Взять в работу",
@@ -7894,10 +7894,11 @@
             if (t.deadline && t.deadline >= todayStr && t.deadline <= in7Str && t.status !== "Готово")
               upcomingDeadlines.push({ name: t.title, date: t.deadline, type: "Задача" });
           });
-          state.tasks.forEach(t => {
-            if (t.deadline && t.deadline >= todayStr && t.deadline <= in7Str && t.status !== "Готово")
-              upcomingDeadlines.push({ name: t.title, date: t.deadline, type: "Задача" });
-          });
+        });
+        // Глобальные задачи — отдельно от цикла проектов (иначе дублирование N раз)
+        state.tasks.forEach(t => {
+          if (t.deadline && t.deadline >= todayStr && t.deadline <= in7Str && t.status !== "Готово")
+            upcomingDeadlines.push({ name: t.title, date: t.deadline, type: "Задача" });
         });
         upcomingDeadlines.sort((a,b) => a.date.localeCompare(b.date));
         const uniqueDeadlines = upcomingDeadlines.filter((d,i,arr) => i === arr.findIndex(x => x.name===d.name && x.date===d.date));
@@ -8124,7 +8125,7 @@
                         </div>
                         <div>
                           <div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Прибыль</div>
-                          <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums;color:${(project.profit||0)>=0?"var(--green)":"var(--red)"}">${money(project.profit||0)}</div>
+                          <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums;color:${(project.profit||0)>0?"var(--green)":(project.profit||0)<0?"var(--red)":"var(--muted)"}">${money(project.profit||0)}</div>
                         </div>` : ""}
                         ${isCurrent ? `<span class="status-pill green" style="font-size:11px;margin-left:auto">текущий</span>` : ""}
                       </div>
@@ -9937,7 +9938,7 @@
               </div>
             </div>
 
-            <div class="kanban">
+            <div class="kanban" style="grid-template-columns:repeat(${CRM_STATUSES.length},minmax(220px,1fr));overflow-x:auto">
               ${CRM_STATUSES.map(status => {
                 const list = projects.filter(project => (project.crmStatus || "Лид") === status);
 
