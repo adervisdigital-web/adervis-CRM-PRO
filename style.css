@@ -1569,7 +1569,7 @@
 
     /* ── GLOBAL SEARCH ──────────────────────────── */
     .search-modal {
-      position: fixed; inset: 0; z-index: 600;
+      position: fixed; inset: 0; z-index: var(--z-search);
       background: rgba(7,11,20,.75); backdrop-filter: blur(8px);
       display: flex; align-items: flex-start; justify-content: center;
       padding-top: 80px;
@@ -1594,8 +1594,8 @@
     .profile-dd {
       position: absolute; top: calc(100% + 10px); right: 0;
       width: 230px; background: var(--panel); border: 1px solid var(--line);
-      border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.45);
-      z-index: 300; overflow: hidden; display: none;
+      border-radius: 16px; box-shadow: var(--elev-3);
+      z-index: var(--z-notif); overflow: hidden; display: none;
     }
     .profile-dd.open { display: block; animation: fadeIn .15s ease; }
     [data-theme="light"] .profile-dd { box-shadow: 0 8px 32px rgba(0,0,0,.15); }
@@ -2821,7 +2821,7 @@
     .modal-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,.55);
-      z-index: 500;
+      z-index: var(--z-modal);
       display: flex; align-items: center; justify-content: center;
       -webkit-backdrop-filter: blur(6px);
       backdrop-filter: blur(6px);
@@ -3080,7 +3080,7 @@
     .task-modal-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,.55);
-      z-index: 500;
+      z-index: var(--z-modal);
       display: flex; align-items: center; justify-content: center;
       -webkit-backdrop-filter: blur(6px);
       backdrop-filter: blur(6px);
@@ -3181,7 +3181,7 @@
 
     /* ── AUTH GATE ─────────────────────────────────── */
     .auth-gate {
-      position: fixed; inset: 0; z-index: 999;
+      position: fixed; inset: 0; z-index: var(--z-auth);
       display: flex; align-items: center; justify-content: center;
       background: var(--bg);
       background-image: radial-gradient(circle at top left, rgba(124,58,237,.18), transparent 40%),
@@ -3328,7 +3328,7 @@
     }
     .estimate-nav-tooltip-fixed {
       position: fixed;
-      z-index: 9999;
+      z-index: var(--z-tooltip);
       pointer-events: none;
       background: rgba(10, 13, 28, .92);
       -webkit-backdrop-filter: blur(16px);
@@ -3828,8 +3828,8 @@ body.portal-mode .nav { display: none !important; }
 /* ── Offline banner ─────────────────────────────────── */
 .offline-banner {
   display: none;
-  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
-  background: #dc2626; color: #fff;
+  position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-auth);
+  background: var(--red); color: #fff;
   padding: 10px 16px;
   align-items: center; justify-content: center; gap: 8px;
   font-size: 14px; font-weight: 600;

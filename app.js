@@ -3017,6 +3017,8 @@
 
         _buyingPlan = planId;
         render();
+        // Авто-сброс если платёж завис (нет ответа 30 сек)
+        const _buyTimeout = setTimeout(() => { if (_buyingPlan === planId) { _buyingPlan = null; render(); } }, 30000);
 
         try {
           const { url } = getSupabaseConfig();
@@ -3038,9 +3040,11 @@
           }
 
           const { paymentUrl } = await resp.json();
+          clearTimeout(_buyTimeout);
           trackGoal("payment_click", { planId });
           window.location.href = paymentUrl;
         } catch (e) {
+          clearTimeout(_buyTimeout);
           toast("Ошибка оплаты: " + e.message);
           _buyingPlan = null;
           render();
@@ -4272,7 +4276,8 @@
       }
 
       function getStage(stageId) {
-        return state.stages.find(x => x.id === stageId) || state.stages[0];
+        const stages = state.stages || DEFAULT_STAGES;
+        return stages.find(x => x.id === stageId) || stages[0] || { id: "pre", name: "Этап", color: "#6c00ff", desc: "" };
       }
 
       function getItemStageName(itemData) {
@@ -11520,11 +11525,13 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           if (data.paymentUrl) {
             location.href = data.paymentUrl;
           } else {
-            if (btn) { btn.disabled = false; btn.textContent = `💳 Оплатить ${money(_portalData.advance_amount)}`; }
+            const amtLabel = _portalData?.advance_amount ? `💳 Оплатить ${money(_portalData.advance_amount)}` : '💳 Оплатить';
+            if (btn) { btn.disabled = false; btn.textContent = amtLabel; }
             alert('Ошибка: ' + (data.error || 'Не удалось создать платёж'));
           }
         } catch(e) {
-          if (btn) { btn.disabled = false; btn.textContent = `💳 Оплатить ${money(_portalData.advance_amount)}`; }
+          const amtLabel = _portalData?.advance_amount ? `💳 Оплатить ${money(_portalData.advance_amount)}` : '💳 Оплатить';
+          if (btn) { btn.disabled = false; btn.textContent = amtLabel; }
           alert('Ошибка сети. Попробуйте ещё раз.');
         }
       }
@@ -13558,5 +13565,14 @@ Email: ______________________            Email: ______________________
       window.addEventListener('online', () => {
         const b = document.getElementById('offlineBanner');
         if (b) b.style.display = 'none';
+      });
+
+      // Принудительное localStorage-сохранение перед закрытием вкладки
+      // (pagehide надёжнее beforeunload на мобиле/iOS)
+      window.addEventListener('pagehide', () => {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+      });
+      window.addEventListener('beforeunload', () => {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
       });
     })();
