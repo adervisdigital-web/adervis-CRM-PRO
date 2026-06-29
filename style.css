@@ -319,7 +319,7 @@
       font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
     }
     .sidebar-user-name { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.2; }
-    .sidebar-user-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+    .sidebar-user-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
     /* ── Topbar icon buttons ───────────────────────────────── */
     .topbar-icon-btn {
@@ -947,15 +947,19 @@
 
     .summary-total {
       margin-top: 16px;
-      padding: 16px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, rgba(124, 58, 237, .22), rgba(37, 99, 235, .18));
+      padding: 16px 18px;
+      border-radius: 14px;
+      background: rgba(108, 0, 255, .1);
+      border: 1px solid rgba(108, 0, 255, .2);
       display: grid;
-      gap: 4px;
+      gap: 3px;
     }
 
     .summary-total strong {
-      font-size: 30px;
+      font-size: 28px;
+      font-family: var(--font-display);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -.03em;
     }
 
     .empty {
@@ -1583,7 +1587,7 @@
     .search-result-icon { width: 32px; height: 32px; border-radius: 8px; flex: 0 0 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
     .search-result-name { font-size: 13px; font-weight: 600; }
     .search-result-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
-    .search-section { padding: 8px 16px 4px; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .search-section { padding: 8px 16px 4px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 
     /* ── PROFILE DROPDOWN ───────────────────────── */
     .profile-dd-wrap { position: relative; }
@@ -1923,8 +1927,8 @@
     }
     .deal-pay-fill {
       height: 100%; border-radius: 999px;
-      background: linear-gradient(90deg, var(--primary), var(--green));
-      transition: width .4s ease;
+      background: var(--green);
+      transition: width .4s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .deal-tabs {
       display: flex; gap: 4px; border-top: 1px solid var(--line);
@@ -1936,7 +1940,7 @@
       border: none; background: transparent;
       color: var(--muted); font-size: 13px; font-weight: 600;
       padding: 10px 14px; cursor: pointer; white-space: nowrap;
-      border-bottom: 3px solid transparent;
+      border-bottom: 2px solid transparent;
       transition: .15s; border-radius: 0;
     }
     .deal-tab:hover { color: var(--text); }
@@ -2009,15 +2013,15 @@
     .db-stat-warn { background: rgba(234,88,12,.05); }
     .db-stat-icon { display: none; }
     .db-stat-label {
-      font-size: 10px; color: var(--muted); font-weight: 700;
-      text-transform: uppercase; letter-spacing: .05em;
+      font-size: 11px; color: var(--muted); font-weight: 600;
+      text-transform: uppercase; letter-spacing: .04em;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;
     }
     .db-stat-value {
       font-size: 18px; font-weight: 900; letter-spacing: -.02em;
       font-variant-numeric: tabular-nums; line-height: 1.2; margin-bottom: 2px;
     }
-    .db-stat-delta { font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .db-stat-delta { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .db-stat-delta.pos { color: var(--green); }
     .db-stat-delta.neg { color: var(--red); }
     .db-stat-delta.neu { color: var(--muted); }
@@ -2424,7 +2428,7 @@
       background: var(--panel2); border: 1px solid var(--line);
     }
     .deal-stat-item { display: flex; flex-direction: column; align-items: flex-end; }
-    .deal-stat-item span { font-size: 10px; color: var(--muted); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .deal-stat-item span { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
     .deal-stat-item strong { font-size: 15px; font-weight: 900; }
     .deal-stat-sep { width: 1px; height: 28px; background: var(--line); flex: 0 0 auto; }
     .crm-select-pill {
@@ -2743,7 +2747,7 @@
     .fin-subtab {
       padding: 10px 16px; border: none; background: transparent;
       color: var(--muted); font-size: 13px; font-weight: 600;
-      cursor: pointer; border-bottom: 3px solid transparent;
+      cursor: pointer; border-bottom: 2px solid transparent;
       transition: .15s;
     }
     .fin-subtab.active { color: var(--primary2); border-bottom-color: var(--primary2); }
@@ -3307,7 +3311,7 @@
     .notif-item:not(.unread) .notif-dot { background: transparent; }
     .notif-body { font-size: 12px; line-height: 1.45; }
     .notif-body strong { display: block; font-size: 13px; margin-bottom: 2px; }
-    .notif-time { font-size: 10px; color: var(--muted); margin-top: 3px; }
+    .notif-time { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
     /* ── ESTIMATE NAV TOOLTIP ──────────────────────── */
     .estimate-nav-btn {

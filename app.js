@@ -3213,7 +3213,7 @@
             <div class="modal-box" style="width:min(520px,calc(100vw - 24px));padding:24px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
                 <div>
-                  <div style="font-size:11px;font-weight:850;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Шаг ${idx + 1} из ${total}</div>
+                  <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Шаг ${idx + 1} из ${total}</div>
                   <h2 style="margin:4px 0 0;font-size:19px">Знакомство с ADERVIS CRM</h2>
                 </div>
                 <button onclick="app.closeHelpModal()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto">×</button>
@@ -6051,7 +6051,7 @@
               </div>
 
               <div class="field" style="margin-bottom:14px">
-                <label style="font-size:11px;color:var(--muted);font-weight:850;letter-spacing:.04em">СУММА, ₽ *</label>
+                <label style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.04em">СУММА, ₽ *</label>
                 <input class="modal-amount-input ${m.amount && !isValid ? "invalid" : ""}"
                   type="number" min="0" placeholder="0"
                   value="${escapeHtml(m.amount)}"
@@ -7527,7 +7527,7 @@
 
             ${newBriefs.length ? `
               <div style="margin-bottom:14px">
-                <h2 style="font-size:14px;font-weight:850;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px">
+                <h2 style="font-size:14px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px">
                   Новые заявки (${newBriefs.length})
                 </h2>
                 <div style="display:flex;flex-direction:column;gap:10px">
@@ -7538,7 +7538,7 @@
 
             ${done.length ? `
               <div>
-                <h2 style="font-size:14px;font-weight:850;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px">
+                <h2 style="font-size:14px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px">
                   Конвертировано в сделки (${done.length})
                 </h2>
                 <div style="display:flex;flex-direction:column;gap:10px">
@@ -8048,22 +8048,22 @@
                         </div>
                       </div>
 
-                      <div style="display:flex;gap:16px;margin-top:10px;align-items:flex-end">
+                      <div style="display:flex;gap:14px;margin-top:10px;align-items:flex-end;flex-wrap:wrap">
                         <div>
-                          <div style="font-size:10px;color:var(--muted);font-weight:850;letter-spacing:.04em">СМЕТА</div>
-                          <div style="font-size:16px;font-weight:900;margin-top:2px">${money(project.total)}</div>
+                          <div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Смета</div>
+                          <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums">${money(project.total)}</div>
                         </div>
                         <div>
-                          <div style="font-size:10px;color:var(--muted);font-weight:850;letter-spacing:.04em">ОПЛАЧЕНО</div>
-                          <div style="font-size:16px;font-weight:900;margin-top:2px;color:${project.paid > 0 ? "var(--green)" : "var(--muted)"}">${money(project.paid || 0)}</div>
+                          <div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Оплачено</div>
+                          <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums;color:${project.paid > 0 ? "var(--green)" : "var(--muted)"}">${money(project.paid || 0)}</div>
                         </div>
                         ${project.expensesTotal > 0 ? `<div>
-                          <div style="font-size:10px;color:var(--muted);font-weight:850;letter-spacing:.04em">РАСХОДЫ</div>
-                          <div style="font-size:16px;font-weight:900;margin-top:2px;color:var(--red)">${money(project.expensesTotal)}</div>
+                          <div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Расходы</div>
+                          <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums;color:var(--red)">${money(project.expensesTotal)}</div>
                         </div>
                         <div>
-                          <div style="font-size:10px;color:var(--muted);font-weight:850;letter-spacing:.04em">ПРИБЫЛЬ</div>
-                          <div style="font-size:16px;font-weight:900;margin-top:2px;color:${(project.profit||0)>=0?"var(--green)":"var(--red)"}">${money(project.profit||0)}</div>
+                          <div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Прибыль</div>
+                          <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums;color:${(project.profit||0)>=0?"var(--green)":"var(--red)"}">${money(project.profit||0)}</div>
                         </div>` : ""}
                         ${isCurrent ? `<span class="status-pill green" style="font-size:11px;margin-left:auto">текущий</span>` : ""}
                       </div>
@@ -8326,7 +8326,7 @@
               <div class="pkg-card-top">
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                   ${cat ? `<span class="pkg-cat-badge" data-cat="${escapeHtml(cat)}">${catMeta.icon || ""} ${escapeHtml(catMeta.label || cat)}</span>` : ""}
-                  ${tier && tc.label ? `<span style="font-size:10px;font-weight:850;padding:2px 9px;border-radius:99px;background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>` : ""}
+                  ${tier && tc.label ? `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>` : ""}
                 </div>
                 ${pkg.id.startsWith("package_") ? `<button class="btn danger small" onclick="event.stopPropagation();app.deletePackage('${pkg.id}')" title="Удалить пакет" style="padding:4px 8px;font-size:11px">✕</button>` : ""}
               </div>
@@ -9812,7 +9812,7 @@
                     </div>
                     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                       <span class="status-pill" style="font-size:10px">${escapeHtml(event.type)}</span>
-                      <span style="font-size:12px;font-weight:850;${calDateClass(event.date)}">${event.date === today ? "Сегодня" : escapeHtml(formatDate(event.date))}</span>
+                      <span style="font-size:12px;font-weight:700;${calDateClass(event.date)}">${event.date === today ? "Сегодня" : escapeHtml(formatDate(event.date))}</span>
                     </div>
                   </div>
                 </article>
@@ -12018,7 +12018,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <button onclick="app.closeEditTransactionModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
               </div>
               <div class="field" style="margin-bottom:14px">
-                <label style="font-size:11px;color:var(--muted);font-weight:850;letter-spacing:.04em">СУММА, ₽ *</label>
+                <label style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.04em">СУММА, ₽ *</label>
                 <input class="modal-amount-input" type="number" min="0" value="${escapeHtml(String(m.amount))}" oninput="app.setEditTransactionField('amount',this.value)">
               </div>
               <div class="grid two" style="margin-bottom:14px">
