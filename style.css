@@ -1679,16 +1679,19 @@
       border-top: 1px solid var(--line);
       -webkit-backdrop-filter: blur(20px) saturate(180%);
       backdrop-filter: blur(20px) saturate(180%);
-      padding: 8px 4px env(safe-area-inset-bottom, 8px);
+      padding: 6px
+              max(4px, env(safe-area-inset-right, 4px))
+              max(8px, env(safe-area-inset-bottom, 8px))
+              max(4px, env(safe-area-inset-left, 4px));
       gap: 0;
       align-items: center;
     }
     [data-theme="light"] .mobile-bottom-nav { background: rgba(255,255,255,.96); }
     .mbn-item {
       flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 3px; padding: 2px 2px 4px; border: none; background: none;
+      gap: 3px; padding: 6px 2px 4px; border: none; background: none;
       color: var(--muted); font-size: 10px; font-weight: 700; cursor: pointer;
-      transition: .15s; min-width: 0; overflow: hidden; position: relative;
+      transition: .15s; min-width: 44px; min-height: 44px; overflow: hidden; position: relative;
     }
     .mbn-item.active { color: var(--primary2); }
     .mbn-item.active::after {
@@ -2138,11 +2141,13 @@
 
     /* ── DEAL CONTEXT MENU ───────────────────────── */
     .deal-menu-btn {
-      width: 26px; height: 26px; padding: 0;
+      width: 32px; height: 32px; padding: 6px;
       display: grid; place-items: center;
       border: 1px solid transparent; background: transparent;
       border-radius: 7px; color: var(--muted);
       cursor: pointer; flex-shrink: 0;
+      /* touch area расширен через padding, визуальный размер через иконку */
+      min-width: 32px; min-height: 32px;
       opacity: 0;
       transition: opacity .15s, background .15s, border-color .15s, color .15s;
     }
@@ -3121,7 +3126,7 @@
       background: rgba(22,163,74,.12); border: 1px solid rgba(22,163,74,.25);
       border-radius: 999px; padding: 4px 10px; white-space: nowrap;
     }
-    .admin-indicator::before { content: "●"; color: #22c55e; font-size: 8px; }
+    .admin-indicator::before { content: "●"; color: var(--green); font-size: 8px; }
     .presence-dot {
       display: inline-flex; align-items: center; justify-content: center;
       width: 26px; height: 26px; border-radius: 50%;
@@ -3150,7 +3155,7 @@
     }
     .sync-badge {
       display: inline-flex; align-items: center; gap: 4px;
-      font-size: 11px; color: #22c55e;
+      font-size: 11px; color: var(--green);
       background: rgba(22,163,74,.1); border-radius: 999px;
       padding: 2px 8px;
     }
@@ -3436,7 +3441,7 @@
       font-size: 10px; font-weight: 900; border-radius: 999px;
       padding: 2px 10px; margin-bottom: 8px; text-transform: uppercase;
     }
-    .plan-save { font-size: 11px; color: #22c55e; font-weight: 700; margin-top: 4px; }
+    .plan-save { font-size: 11px; color: var(--green); font-weight: 700; margin-top: 4px; }
 
     /* ── KNOWLEDGE BASE ────────────────────────────── */
     .kb-new-card {

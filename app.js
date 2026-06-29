@@ -1532,6 +1532,7 @@
         _authTab = ["login","register","forgot"].includes(tab) ? tab : "login";
         _authFields.error = "";
         _authFields.forgotSent = false;
+        _authFields.showPassword = false; // сбрасываем видимость пароля при смене таба
         renderAuthGateEl();
       }
 
@@ -1547,9 +1548,12 @@
 
       async function authSubmit() {
         const f = _authFields;
+        if (f.loading) return; // двойной клик / Enter+click
         if (!f.email || !f.password) { f.error = "Введите email и пароль"; renderAuthGateEl(); return; }
         if (!_supabase) { f.error = "Supabase не настроен — настройте в разделе Настройки"; renderAuthGateEl(); return; }
         if (_authTab === "register" && !f.consent) { f.error = "Необходимо принять Оферту и Политику конфиденциальности"; renderAuthGateEl(); return; }
+        // базовая валидация email
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) { f.error = "Некорректный email"; renderAuthGateEl(); return; }
         f.loading = true; f.error = ""; renderAuthGateEl();
 
         if (_authTab === "register") {
@@ -4264,7 +4268,8 @@
 
       function money(value) {
         const amount = Math.round(numberValue(value, 0));
-        return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(amount) + " " + (state.project.currency || "₽");
+        const currency = state.project?.currency || "₽";
+        return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(amount) + " " + currency;
       }
 
       function highlightText(text, query) {
@@ -13121,6 +13126,8 @@ Email: ______________________            Email: ______________________
             redo();
           }
           if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+            const active = document.activeElement;
+            if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT")) return;
             e.preventDefault();
             openSearch();
           }
