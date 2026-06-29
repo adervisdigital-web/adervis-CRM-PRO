@@ -1938,7 +1938,13 @@
         if (!el) return;
         q = (q || "").toLowerCase().trim();
         if (!q) {
-          el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Начните вводить — ищем по сделкам, клиентам и задачам</div>`;
+          el.innerHTML = `
+            <div style="padding:20px 16px 8px">
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                ${["Сделки","Клиенты","Задачи","Финансы"].map(h=>`<span style="font-size:11px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;color:var(--muted)">${h}</span>`).join("")}
+              </div>
+              <div style="font-size:12px;color:var(--hint);margin-top:12px;padding:0 2px">Поиск по всем сделкам, клиентам и задачам</div>
+            </div>`;
           return;
         }
         const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1959,12 +1965,31 @@
             results.push({ type: "task", icon: "✅", color: "rgba(8,145,178,.15)", name: t.title, sub: `${t.status||""} · ${t.deadline ? formatDate(t.deadline) : "без срока"}`, action: `app.go('deal');app.setDealView('tasks');app.closeSearch()` });
           }
         });
-        if (!results.length) { el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Ничего не найдено по «${escapeHtml(q)}»</div>`; return; }
-        el.innerHTML = results.slice(0,12).map(r => `
-          <div class="search-result" onclick="${r.action}">
-            <div class="search-result-icon" style="background:${r.color}">${r.icon}</div>
-            <div><div class="search-result-name">${hl(r.name)}</div><div class="search-result-sub">${hl(r.sub)}</div></div>
-          </div>`).join("");
+        if (!results.length) {
+          el.innerHTML = `
+            <div style="padding:32px 20px;text-align:center">
+              <div style="font-size:28px;margin-bottom:10px;opacity:.4">🔍</div>
+              <div style="color:var(--text);font-size:13px;font-weight:600;margin-bottom:4px">Ничего не найдено</div>
+              <div style="color:var(--muted);font-size:12px">Нет результатов по «${escapeHtml(q)}»</div>
+            </div>`;
+          return;
+        }
+        // Группируем по типам
+        const groups = [
+          { key: "deal",   label: "Сделки"  },
+          { key: "client", label: "Клиенты" },
+          { key: "task",   label: "Задачи"  },
+        ];
+        el.innerHTML = groups.map(g => {
+          const items = results.filter(r => r.type === g.key).slice(0, 5);
+          if (!items.length) return "";
+          return `<div class="search-section">${g.label}</div>` +
+            items.map(r => `
+              <div class="search-result" onclick="${r.action}">
+                <div class="search-result-icon" style="background:${r.color}">${r.icon}</div>
+                <div><div class="search-result-name">${hl(r.name)}</div><div class="search-result-sub">${hl(r.sub)}</div></div>
+              </div>`).join("");
+        }).join("");
       }
 
       /* ─── DUPLICATE DEAL ─── */
@@ -10686,33 +10711,40 @@
       function renderWelcome() {
         return `
           <div class="welcome-screen">
-            <h1>Добро пожаловать в ADERVIS CRM</h1>
-            <p>Ведите клиентов от первого звонка до закрытия сделки — смета, КП и финансы в одном месте.</p>
+            <div style="display:inline-flex;align-items:center;gap:10px;background:var(--primary-bg);border:1px solid rgba(108,0,255,.2);border-radius:99px;padding:6px 16px;margin-bottom:24px">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--primary)"></div>
+              <span style="font-size:13px;color:var(--primary2);font-weight:600">14 дней бесплатно · карта не нужна</span>
+            </div>
+            <h1 style="font-size:32px;letter-spacing:-.04em;margin-bottom:10px">Добро пожаловать<br>в ADERVIS CRM</h1>
+            <p style="font-size:15px;max-width:460px;margin:0 auto 36px">Сметы, КП, финансы и задачи для видеопродакшна —<br>всё в одном рабочем инструменте.</p>
 
             <div class="welcome-steps">
               <div class="welcome-step">
                 <div class="welcome-step-num">1</div>
                 <h3>Добавь клиента</h3>
-                <p>Введи имя, телефон и компанию. Один клиент — одна сделка.</p>
+                <p>Имя, телефон, компания. Один клиент — любое количество сделок.</p>
               </div>
               <div class="welcome-step">
                 <div class="welcome-step-num">2</div>
                 <h3>Собери смету</h3>
-                <p>Выбери пакет или добавь услуги из каталога. Цены адаптируй под задачу.</p>
+                <p>Выбери пакет или добавь позиции из каталога. Калькулятор считает автоматически.</p>
               </div>
               <div class="welcome-step">
                 <div class="welcome-step-num">3</div>
                 <h3>Отправь КП</h3>
-                <p>Сформируй коммерческое предложение в один клик и отправь клиенту.</p>
+                <p>Клиентский портал с вашим предложением — за один клик.</p>
               </div>
               <div class="welcome-step">
                 <div class="welcome-step-num">4</div>
-                <h3>Закрой сделку</h3>
-                <p>Веди статусы, фиксируй оплаты, контролируй прибыль по каждому проекту.</p>
+                <h3>Закрой и получи</h3>
+                <p>Статусы, оплаты, прибыль. Вся воронка перед глазами.</p>
               </div>
             </div>
 
-            <button class="btn primary" style="font-size:16px;padding:14px 32px" onclick="app.startWizard()">Создать первую сделку</button>
+            <button class="btn primary" style="font-size:15px;padding:13px 36px;border-radius:12px" onclick="app.startWizard()">
+              Создать первую сделку
+            </button>
+            <div style="margin-top:14px;font-size:12px;color:var(--muted)">или нажмите <kbd style="border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-size:11px;color:var(--text)">Ctrl+N</kbd></div>
           </div>
         `;
       }
