@@ -7994,8 +7994,11 @@
                     <div class="deal-list-row ${isCurrent?"current":""}" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету">
                       <input type="checkbox" class="crm-cb no-print" ${(state.crmSelected||{})[project.id]?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">
                       <div class="health-dot ${healthClass}" style="flex:0 0 auto" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
-                      <span class="status-pill" style="font-size:10px;flex:0 0 auto">${escapeHtml(project.crmStatus||"Лид")}</span>
-                      <div class="deal-list-name">${escapeHtml(project.name)}</div>
+                      <span class="status-pill" style="font-size:11px;flex:0 0 auto">${escapeHtml(project.crmStatus||"Лид")}</span>
+                      <div class="deal-list-name" style="display:flex;align-items:center;gap:6px;min-width:0">
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(project.name)}</span>
+                        ${(project.tags||[]).slice(0,2).map(t=>`<span style="font-size:10px;background:rgba(108,0,255,.12);border-radius:99px;padding:1px 6px;color:var(--primary2);white-space:nowrap;flex-shrink:0">${escapeHtml(t)}</span>`).join("")}
+                      </div>
                       <div class="deal-list-client">${escapeHtml(project.client||"—")}</div>
                       <div class="deal-list-budget">${money(project.total)}</div>
                       <div class="deal-list-deadline" style="color:${u&&u.level!=="ok"?u.color:"var(--muted)"}">${project.deadline?formatDate(project.deadline):"—"}</div>

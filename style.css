@@ -515,7 +515,7 @@
       color: var(--text);
       border-radius: 12px;
       padding: 9px 13px;
-      transition: .16s ease;
+      transition: background .16s ease, border-color .16s ease, color .16s ease, transform .12s ease;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -1050,7 +1050,7 @@
       border-radius: 14px;
       background: var(--panel2);
       cursor: pointer;
-      transition: .15s ease;
+      transition: border-color .15s ease, transform .12s ease;
     }
 
     .home-client-card:hover {
@@ -1581,7 +1581,8 @@
     }
     .search-result {
       display: flex; align-items: center; gap: 12px;
-      padding: 10px 16px; cursor: pointer; transition: .1s;
+      padding: 10px 16px; cursor: pointer;
+      transition: background .1s;
     }
     .search-result:hover { background: rgba(124,58,237,.1); }
     .search-result-icon { width: 32px; height: 32px; border-radius: 8px; flex: 0 0 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
@@ -1617,7 +1618,7 @@
       display: flex; align-items: center; gap: 10px;
       width: 100%; padding: 9px 16px; border: none; background: none;
       color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer;
-      text-align: left; transition: .12s;
+      text-align: left; transition: background .12s, color .12s;
     }
     .pd-item:hover { background: rgba(124,58,237,.08); color: var(--primary2); }
     .pd-item.danger { color: var(--red); }
@@ -1691,7 +1692,7 @@
       flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 3px; padding: 6px 2px 4px; border: none; background: none;
       color: var(--muted); font-size: 10px; font-weight: 700; cursor: pointer;
-      transition: .15s; min-width: 44px; min-height: 44px; overflow: hidden; position: relative;
+      transition: color .15s, transform .1s; min-width: 44px; min-height: 44px; overflow: hidden; position: relative;
     }
     .mbn-item.active { color: var(--primary2); }
     .mbn-item.active::after {
@@ -2175,6 +2176,7 @@
       transition: background .1s, color .1s;
     }
     .dcm-item:hover { background: rgba(255,255,255,.06); }
+    [data-theme="light"] .dcm-item:hover { background: rgba(0,0,0,.05); }
     .dcm-item svg { flex-shrink: 0; opacity: .7; }
     .dcm-item:hover svg { opacity: 1; }
     .dcm-green { color: #4ade80; }
@@ -2385,8 +2387,11 @@
     .estimate-section-title h2 { margin: 0; font-size: 18px; }
 
     /* ── PAGE ANIMATIONS ─────────────────────────── */
-    #appContent { animation: pageFadeIn .2s ease; }
-    @keyframes pageFadeIn { from { opacity: .7; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    #appContent { animation: pageFadeIn .22s cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes pageFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
     .deal-card, .project-card, .client-card, .item, .package-card {
       transition: transform .15s ease, border-color .15s, box-shadow .15s;
@@ -2912,7 +2917,7 @@
       box-shadow: 0 20px 60px rgba(0,0,0,.4); z-index: 300;
       display: none; flex-direction: column; gap: 2px;
     }
-    .global-add-menu.open { display: flex; }
+    .global-add-menu.open { display: flex; animation: fadeSlideDown .15s cubic-bezier(0.16, 1, 0.3, 1); }
     .global-add-menu-item {
       padding: 11px 14px; border-radius: 10px; border: none;
       background: transparent; color: var(--text); text-align: left;
@@ -3923,6 +3928,16 @@ body.portal-mode .nav { display: none !important; }
   color: var(--red);
   border-color: rgba(220,38,38,.4);
 }
+
+/* ═══════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES (собраны вместе для ясности)
+═══════════════════════════════════════════════════════ */
+[data-theme="light"] .modal-overlay,
+[data-theme="light"] .task-modal-overlay { background: rgba(0,0,0,.3); }
+
+[data-theme="light"] .deal-ctx-menu { box-shadow: 0 4px 24px rgba(0,0,0,.12); }
+
+[data-theme="light"] .dsp-step.done .dsp-pill { background: rgba(22,163,74,.1); border-color: rgba(22,163,74,.35); color: #15803d; }
 
 /* ═══════════════════════════════════════════════════════
    GLOBAL SCROLLBAR STYLE
