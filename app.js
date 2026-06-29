@@ -1974,6 +1974,18 @@
             </div>`;
           return;
         }
+        // Сортировка: точное совпадение выше, потом по длине
+        results.sort((a, b) => {
+          const aExact = a.name.toLowerCase() === q;
+          const bExact = b.name.toLowerCase() === q;
+          if (aExact && !bExact) return -1;
+          if (!aExact && bExact) return 1;
+          const aStarts = a.name.toLowerCase().startsWith(q);
+          const bStarts = b.name.toLowerCase().startsWith(q);
+          if (aStarts && !bStarts) return -1;
+          if (!aStarts && bStarts) return 1;
+          return a.name.length - b.name.length;
+        });
         // Группируем по типам
         const groups = [
           { key: "deal",   label: "Сделки"  },
@@ -1981,14 +1993,17 @@
           { key: "task",   label: "Задачи"  },
         ];
         el.innerHTML = groups.map(g => {
-          const items = results.filter(r => r.type === g.key).slice(0, 5);
+          const all = results.filter(r => r.type === g.key);
+          const items = all.slice(0, 5);
           if (!items.length) return "";
-          return `<div class="search-section">${g.label}</div>` +
+          const more = all.length - 5;
+          return `<div class="search-section">${g.label}${all.length > 5 ? ` <span style="font-weight:400;opacity:.6">(${all.length})</span>` : ""}</div>` +
             items.map(r => `
               <div class="search-result" onclick="${r.action}">
                 <div class="search-result-icon" style="background:${r.color}">${r.icon}</div>
                 <div><div class="search-result-name">${hl(r.name)}</div><div class="search-result-sub">${hl(r.sub)}</div></div>
-              </div>`).join("");
+              </div>`).join("") +
+            (more > 0 ? `<div style="padding:6px 16px 8px;font-size:11px;color:var(--muted)">и ещё ${more} результатов</div>` : "");
         }).join("");
       }
 
@@ -3796,6 +3811,7 @@
           projectSort: "updatedDesc",
           crmFilter: "all",
           clientDetailId: "",
+          clientsFilter: "",
           financeModal: null,
           packageEditModal: null,
           crmView: "grid",
@@ -9089,14 +9105,20 @@
         if (state.clientDetailId) return renderClientDetail(state.clientDetailId);
 
         const clients = state.clients || [];
+        const clientQ = (state.clientsFilter || "").toLowerCase();
+        const filteredClients = clientQ
+          ? clients.filter(c => (c.name + c.company + c.phone + c.email).toLowerCase().includes(clientQ))
+          : clients;
         return `
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Клиенты</h1>
-                <p>Нажми на клиента, чтобы открыть его профиль и проекты.</p>
+                <h1>Клиенты ${clients.length ? `<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:4px">${clients.length}</span>` : ""}</h1>
               </div>
-              ${clients.length ? `<button class="btn small green no-print" onclick="app.exportClientsXlsx()">Excel</button>` : ""}
+              <div style="display:flex;gap:8px;align-items:center">
+                ${clients.length > 4 ? `<input placeholder="Поиск клиентов..." value="${escapeHtml(state.clientsFilter || "")}" oninput="state.clientsFilter=this.value;app.render()" style="width:180px;padding:7px 12px;font-size:13px">` : ""}
+                ${clients.length ? `<button class="btn small green no-print" onclick="app.exportClientsXlsx()">Excel</button>` : ""}
+              </div>
             </div>
 
             ${state.clientDraft ? renderClientDraft() : ""}
@@ -9106,7 +9128,7 @@
                 <div class="kb-new-icon">+</div>
                 <div class="kb-new-label">Новый клиент</div>
               </div>
-              ${clients.length ? clients.map(client => `
+              ${filteredClients.length ? filteredClients.map(client => `
                   <article class="client-card" style="cursor:pointer" onclick="app.openClientModal('${client.id}')">
                     <div class="line-head">
                       <div>
@@ -9124,7 +9146,7 @@
                       <button class="btn small" onclick="event.stopPropagation();app.openClientDetail('${client.id}')">Проекты →</button>
                     </div>
                   </article>
-                `).join("") : ""}
+                `).join("") : (!clientQ ? `<div class="empty" style="grid-column:1/-1"><strong>Нет клиентов</strong><p>Создайте первого клиента или добавьте его при создании сделки</p></div>` : `<div class="empty" style="grid-column:1/-1">Нет клиентов по запросу «${escapeHtml(clientQ)}»</div>`)}
             </div>
           </div>
         `;
@@ -10794,7 +10816,7 @@
                       <span class="status-pill">${escapeHtml(c.status || "new")}</span>
                     </div>
                   </div>
-                `).join("") : `<div class="empty">Клиентов пока нет</div>`}
+                `).join("") : `<div class="empty"><strong>Клиентов пока нет</strong><p>Добавьте первого клиента — или создайте сделку, клиент появится автоматически</p></div>`}
               </div>
             `}
           `;
