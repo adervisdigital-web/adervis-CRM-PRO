@@ -840,6 +840,9 @@
                     body: "{}",
                   }).catch(() => {});
                 }
+                if (localStorage.getItem("adervis_tour_done") !== "1") {
+                  setTimeout(startTour, 700);
+                }
               }
             }, 1200);
           }
@@ -1183,7 +1186,7 @@
 
         const navItem = (view, icon, label, badge, extraId, extraClass) => `
           <button class="sidebar-nav-item ${v === view ? "active" : ""} ${extraClass||""}" onclick="app.go('${view}')"
-            ${extraId ? `id="${extraId}"` : ""} title="${label}">
+            ${extraId ? `id="${extraId}"` : ""} data-tour="${view}" title="${label}">
             ${icon}
             <span class="sidebar-label">${label}</span>
             ${badge ? `<span class="sidebar-badge">${badge}</span>` : ""}
@@ -1214,7 +1217,7 @@
             ${navItem("home",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>`,"Дашборд")}
 
             <button class="sidebar-nav-item ${v==="deal"?"active":""} estimate-nav-btn" id="navEstimateBtn"
-              onclick="app.go('deal')" title="Смета${activeProject?" — "+activeProject:""}">
+              onclick="app.go('deal')" data-tour="deal" title="Смета${activeProject?" — "+activeProject:""}">
               <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
               <span class="sidebar-label">
                 Смета
@@ -1261,6 +1264,74 @@
         const collapsed = localStorage.getItem("sidebar_collapsed") === "1";
         localStorage.setItem("sidebar_collapsed", collapsed ? "0" : "1");
         renderSidebar();
+      }
+
+      /* ─── ОБУЧАЮЩИЙ ТУР (spotlight) ─── */
+      const TOUR_STEPS = [
+        { sel: '[data-tour="home"]', title: "Дашборд", text: "Выручка, воронка сделок и ближайшие дедлайны — обзор студии за 10 секунд." },
+        { sel: '[data-tour="deal"]', title: "Смета", text: "Калькулятор: собирайте смету проекта из каталога услуг или готового пакета." },
+        { sel: '[data-tour="catalog"]', title: "Каталог", text: "Все услуги и цены вашей студии — под себя, можно редактировать." },
+        { sel: '[data-tour="clients"]', title: "Клиенты", text: "База клиентов и история сделок с каждым из них." },
+        { sel: '[data-tour="global-finances"]', title: "Финансы", text: "Доходы, расходы и прибыль по всем проектам." },
+        { sel: '[data-tour="contracts"]', title: "Договора", text: "Шаблоны договоров и электронная подпись для клиентов." }
+      ];
+      let _tourStep = -1;
+
+      function startTour() {
+        if (window.innerWidth < 900) return; // тур — только для desktop sidebar
+        if (!document.querySelector(TOUR_STEPS[0].sel)) return;
+        _tourStep = 0;
+        renderTourStep();
+        window.addEventListener("resize", _tourReposition);
+      }
+
+      function _tourReposition() {
+        if (_tourStep >= 0) renderTourStep();
+      }
+
+      function renderTourStep() {
+        const overlay = document.getElementById("tourOverlay");
+        if (!overlay) return;
+        const step = TOUR_STEPS[_tourStep];
+        const target = step && document.querySelector(step.sel);
+        if (!step || !target) { endTour(); return; }
+
+        const r = target.getBoundingClientRect();
+        const pad = 6;
+        const isLast = _tourStep === TOUR_STEPS.length - 1;
+        const popoverTop = Math.min(Math.max(r.top, 12), window.innerHeight - 190);
+        const popoverLeft = Math.min(r.right + 16, window.innerWidth - 286);
+
+        overlay.innerHTML = `
+          <div class="tour-spotlight" style="top:${r.top - pad}px;left:${r.left - pad}px;width:${r.width + pad * 2}px;height:${r.height + pad * 2}px"></div>
+          <div class="tour-popover" style="top:${popoverTop}px;left:${popoverLeft}px">
+            <h4>${escapeHtml(step.title)}</h4>
+            <p>${escapeHtml(step.text)}</p>
+            <div class="tour-popover-footer">
+              <div class="tour-dots">${TOUR_STEPS.map((_, i) => `<span class="tour-dot ${i === _tourStep ? "active" : ""}"></span>`).join("")}</div>
+              <div class="tour-popover-actions">
+                <button class="btn" style="font-size:12px;padding:5px 10px" onclick="app.skipTour()">Пропустить</button>
+                <button class="btn primary" style="font-size:12px;padding:5px 12px" onclick="app.nextTourStep()">${isLast ? "Готово" : "Далее"}</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function nextTourStep() {
+        _tourStep++;
+        if (_tourStep >= TOUR_STEPS.length) { endTour(); return; }
+        renderTourStep();
+      }
+
+      function skipTour() { endTour(); }
+
+      function endTour() {
+        _tourStep = -1;
+        const overlay = document.getElementById("tourOverlay");
+        if (overlay) overlay.innerHTML = "";
+        window.removeEventListener("resize", _tourReposition);
+        localStorage.setItem("adervis_tour_done", "1");
       }
 
       function renderAdminTopbar() {
@@ -1820,6 +1891,10 @@
             <button class="help-dd-item" onclick="app.openHelpModal();app.toggleHelpDd(false)">
               <span class="help-dd-item-icon" style="background:rgba(124,58,237,.15)">✨</span>
               <div><div>Начало работы</div>${seen ? `<div class="hdi-sub" style="color:var(--green)">Завершено ✓</div>` : `<div class="hdi-sub">Быстрый старт</div>`}</div>
+            </button>
+            <button class="help-dd-item" onclick="app.toggleHelpDd(false);app.startTour()">
+              <span class="help-dd-item-icon" style="background:rgba(22,163,74,.15)">🎯</span>
+              <div><div>Тур по интерфейсу</div><div class="hdi-sub">Подсветка разделов меню</div></div>
             </button>
             <button class="help-dd-item" onclick="app.go('knowledge');app.toggleHelpDd(false)">
               <span class="help-dd-item-icon" style="background:rgba(37,99,235,.15)">📚</span>
@@ -3316,6 +3391,7 @@
       }
       function closeHelpModal() {
         state.helpModal = false;
+        localStorage.setItem("adervis_onboarded", "1");
         renderModal();
       }
       function helpNext() {
@@ -13539,6 +13615,9 @@ Email: ______________________            Email: ______________________
         closeHelpModal,
         helpNext,
         helpPrev,
+        startTour,
+        nextTourStep,
+        skipTour,
         setHelpSlide,
 
         renderKnowledge,
