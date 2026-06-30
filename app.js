@@ -19,7 +19,7 @@
         animation: "✨ Графика / анимация",
         marketing: "📣 Маркетинг",
         management: "🗂 Менеджмент",
-        logistics: "🚚 Логистика",
+        expenses: "💸 Расходы",
         ai: "🤖 ИИ / Нейросети",
         event: "🎪 Мероприятия",
         custom: "➕ Свои позиции"
@@ -29,7 +29,6 @@
         "Техника и оборудование",
         "Подписки и ПО",
         "ИИ / Нейросети",
-        "Команда",
         "Локация и студия",
         "Транспорт и логистика",
         "Питание",
@@ -37,6 +36,18 @@
         "Музыка и лицензии",
         "Реклама и продвижение",
         "Прочее"
+      ];
+
+      const SIDEBAR_NAV_DEFS = [
+        { id: "home", label: "Дашборд" },
+        { id: "deal", label: "Смета" },
+        { id: "packages", label: "Пакеты" },
+        { id: "catalog", label: "Каталог" },
+        { id: "clients", label: "Клиенты" },
+        { id: "global-finances", label: "Финансы" },
+        { id: "global-calendar", label: "Календарь" },
+        { id: "contracts", label: "Договора" },
+        { id: "knowledge", label: "База знаний" }
       ];
 
       const TAX_OPTIONS = [
@@ -166,11 +177,19 @@
         item("publication_support", "marketing", "Помощь с публикацией", "Подготовка файла, описания, обложки и базовая публикация.", "fixed", 2500, "публикация", { stage: "marketing", tags: ["публикация"] }),
         item("copywriting", "marketing", "Текст для публикации", "Короткое описание / пост к ролику.", "fixed", 1500, "пост", { stage: "marketing", tags: ["копирайтинг"] }),
 
-        item("transport", "logistics", "Транспорт по городу", "Минимальная логистика по Перми.", "perDay", 2000, "день", { stage: "shoot", tags: ["транспорт"] }),
-        item("food", "logistics", "Питание команды", "Минимальный перекус / питание на съёмке.", "fixed+qty", 350, "чел", { stage: "shoot", tags: ["питание"] }),
-        item("location_rent", "logistics", "Аренда простой локации", "Недорогая локация / помещение.", "perDay", 3000, "день", { stage: "shoot", tags: ["локация"] }),
-        item("studio_basic", "logistics", "Студия базовая", "Базовая студия / помещение для записи интервью или контента.", "perDay", 5000, "день", { stage: "shoot", tags: ["студия"] }),
-        item("props", "logistics", "Реквизит минимальный", "Небольшие предметы и расходники.", "fixed", 2000, "пакет", { stage: "shoot", tags: ["реквизит"] }),
+        item("transport", "expenses", "Транспорт по городу", "Минимальная логистика по Перми.", "perDay", 2000, "день", { stage: "shoot", tags: ["транспорт"] }),
+        item("food", "expenses", "Питание команды", "Минимальный перекус / питание на съёмке.", "fixed+qty", 350, "чел", { stage: "shoot", tags: ["питание"] }),
+        item("location_rent", "expenses", "Аренда простой локации", "Недорогая локация / помещение.", "perDay", 3000, "день", { stage: "shoot", tags: ["локация"] }),
+        item("studio_basic", "expenses", "Студия базовая", "Базовая студия / помещение для записи интервью или контента.", "perDay", 5000, "день", { stage: "shoot", tags: ["студия"] }),
+        item("props", "expenses", "Реквизит минимальный", "Небольшие предметы и расходники.", "fixed", 2000, "пакет", { stage: "shoot", tags: ["реквизит"] }),
+
+        item("transfer_taxi", "expenses", "Трансфер / такси", "Поездки команды и оборудования на площадку и обратно.", "fixed+qty", 1500, "поездка", { stage: "shoot", tags: ["трансфер", "такси"] }),
+        item("parking_fee", "expenses", "Парковка", "Платная парковка на съёмочный день.", "fixed+qty", 300, "день", { stage: "shoot", tags: ["парковка"] }),
+        item("subscription_service", "expenses", "Подписка на сервис", "ПО, стоки, музыкальные библиотеки и другие сервисы по подписке.", "fixed", 2000, "мес", { stage: "pre", tags: ["подписка", "по"] }),
+        item("equipment_rent_external", "expenses", "Аренда стороннего оборудования", "Техника, которой нет в своём парке — берётся в сторонней аренде.", "fixed+qty", 5000, "день", { stage: "shoot", tags: ["аренда", "техника"] }),
+        item("per_diem", "expenses", "Суточные / командировочные", "Расходы на команду в выездных проектах.", "fixed+qty", 1000, "чел/день", { stage: "shoot", tags: ["суточные", "командировка"] }),
+        item("misc_expense", "expenses", "Прочий расход", "Произвольная статья расхода — впишите сумму вручную.", "fixed", 0, "пакет", { stage: "pre", tags: ["расход"] }),
+
         item("makeup", "shoot", "Визажист / грим", "Базовый макияж для интервью или съёмки эксперта.", "crewShift", 4000, "смена", {
           stage: "shoot", rates: { hour: 800, half: 3000, full: 4000, long: 6000, premium: 9000, overtimeHour: 650 }, tags: ["визаж"]
         }),
@@ -646,7 +665,26 @@
         return /^(\+7|7|8)\d{10}$/.test(cleaned);
       }
 
+      function maskPhoneFocus(input) {
+        if (!input.value) input.value = "+7 ";
+      }
+
+      function maskPhoneInput(input) {
+        let digits = input.value.replace(/\D/g, "");
+        if (!digits) { input.value = ""; return; }
+        if (digits[0] === "8") digits = "7" + digits.slice(1);
+        if (digits[0] !== "7") digits = "7" + digits;
+        digits = digits.slice(0, 11);
+        let out = "+7";
+        if (digits.length > 1) out += " " + digits.slice(1, 4);
+        if (digits.length > 4) out += " " + digits.slice(4, 7);
+        if (digits.length > 7) out += "-" + digits.slice(7, 9);
+        if (digits.length > 9) out += "-" + digits.slice(9, 11);
+        input.value = out;
+      }
+
       function checkPhoneField(input) {
+        if (input.value.replace(/\D/g, "") === "7") input.value = "";
         const val = input.value;
         let msg = input.parentElement.querySelector(".field-error-msg");
         if (!validatePhone(val)) {
@@ -998,7 +1036,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen"]);
 
       async function _loadCloudState() {
         if (!_supabase || !_adminSession) return;
@@ -1200,6 +1238,29 @@
           return cnt;
         })();
 
+        const navRenderers = {
+          home: () => navItem("home",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>`,"Дашборд"),
+          deal: () => `
+            <button class="sidebar-nav-item ${v==="deal"?"active":""} estimate-nav-btn" id="navEstimateBtn"
+              onclick="app.go('deal')" data-tour="deal" title="Смета${activeProject?" — "+activeProject:""}">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
+              <span class="sidebar-label">
+                Смета
+                ${activeProject ? `<small class="sidebar-project-hint">${escapeHtml(activeProject)}</small>` : ""}
+              </span>
+            </button>`,
+          packages: () => navItem("packages",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg>`,"Пакеты"),
+          catalog: () => navItem("catalog",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>`,"Каталог"),
+          clients: () => navItem("clients",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>`,"Клиенты"),
+          "global-finances": () => navItem("global-finances",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg>`,"Финансы"),
+          "global-calendar": () => navItem("global-calendar",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>`,"Календарь","","","", overdueCount ? `badge${overdueCount}` : ""),
+          contracts: () => navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора"),
+          knowledge: () => navItem("knowledge",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"База знаний")
+        };
+
+        const navConfig = getSidebarNavConfig();
+        const navItemsHtml = navConfig.filter(x => !x.hidden && navRenderers[x.id]).map(x => navRenderers[x.id]()).join("");
+
         el.innerHTML = `
           <div class="sidebar-header">
             <div class="sidebar-brand" onclick="app.toggleSidebar()" title="${collapsed ? "Развернуть меню" : "Свернуть меню"}" style="cursor:pointer">
@@ -1214,28 +1275,11 @@
           </div>
 
           <nav class="sidebar-nav">
-            ${navItem("home",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>`,"Дашборд")}
-
-            <button class="sidebar-nav-item ${v==="deal"?"active":""} estimate-nav-btn" id="navEstimateBtn"
-              onclick="app.go('deal')" data-tour="deal" title="Смета${activeProject?" — "+activeProject:""}">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
-              <span class="sidebar-label">
-                Смета
-                ${activeProject ? `<small class="sidebar-project-hint">${escapeHtml(activeProject)}</small>` : ""}
-              </span>
+            ${navItemsHtml}
+            <button class="sidebar-nav-item sidebar-nav-edit-btn no-print" id="sidebarNavEditBtn" onclick="app.toggleSidebarNavPopover(event)" title="Настроить меню">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>
+              <span class="sidebar-label">Настроить меню</span>
             </button>
-
-            ${navItem("packages",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg>`,"Пакеты")}
-            ${navItem("catalog",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>`,"Каталог")}
-
-            <div class="sidebar-divider"></div>
-
-            ${navItem("clients",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>`,"Клиенты")}
-            ${navItem("global-finances",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg>`,"Финансы")}
-            ${navItem("global-calendar",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>`,"Календарь","","","", overdueCount ? `badge${overdueCount}` : "")}
-            ${navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора")}
-            ${navItem("knowledge",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"База знаний")}
-
           </nav>
 
           <div class="sidebar-footer">
@@ -1264,6 +1308,94 @@
         const collapsed = localStorage.getItem("sidebar_collapsed") === "1";
         localStorage.setItem("sidebar_collapsed", collapsed ? "0" : "1");
         renderSidebar();
+      }
+
+      /* ─── НАСТРОЙКА МЕНЮ САЙДБАРА (показ/скрытие, порядок) ─── */
+      function getSidebarNavConfig() {
+        let saved;
+        try { saved = JSON.parse(localStorage.getItem("sidebar_nav_config") || "null"); } catch { saved = null; }
+        const defaultIds = SIDEBAR_NAV_DEFS.map(x => x.id);
+        if (!Array.isArray(saved)) return defaultIds.map(id => ({ id, hidden: false }));
+        const known = new Set(saved.map(x => x.id));
+        const merged = saved.filter(x => defaultIds.includes(x.id));
+        defaultIds.forEach(id => { if (!known.has(id)) merged.push({ id, hidden: false }); });
+        return merged;
+      }
+
+      function saveSidebarNavConfig(config) {
+        localStorage.setItem("sidebar_nav_config", JSON.stringify(config));
+      }
+
+      let _sidebarNavPopoverOpen = false;
+      let _sidebarNavDragId = null;
+
+      function toggleSidebarNavPopover(event) {
+        event && event.stopPropagation();
+        _sidebarNavPopoverOpen = !_sidebarNavPopoverOpen;
+        renderSidebarNavPopover();
+        if (_sidebarNavPopoverOpen) {
+          setTimeout(() => document.addEventListener("click", _closeSidebarNavPopover, { once: true }), 10);
+        }
+      }
+
+      function _closeSidebarNavPopover() {
+        _sidebarNavPopoverOpen = false;
+        renderSidebarNavPopover();
+      }
+
+      function renderSidebarNavPopover() {
+        const el = document.getElementById("sidebarNavPopover");
+        if (!el) return;
+        if (!_sidebarNavPopoverOpen) { el.innerHTML = ""; return; }
+        const btn = document.getElementById("sidebarNavEditBtn");
+        if (!btn) { el.innerHTML = ""; return; }
+        const r = btn.getBoundingClientRect();
+        const config = getSidebarNavConfig();
+        el.innerHTML = `
+          <div class="sidebar-nav-config" style="left:${r.left}px;bottom:${window.innerHeight - r.top + 6}px" onclick="event.stopPropagation()">
+            <div class="sidebar-nav-config-title">Пункты меню</div>
+            ${config.map(item => {
+              const def = SIDEBAR_NAV_DEFS.find(x => x.id === item.id);
+              if (!def) return "";
+              return `
+                <div class="sidebar-nav-config-row" draggable="true"
+                  ondragstart="app.sidebarNavDragStart('${item.id}')"
+                  ondragover="event.preventDefault()"
+                  ondrop="app.sidebarNavDrop('${item.id}')">
+                  <span class="sidebar-nav-drag-handle" title="Перетащи для сортировки">⠿</span>
+                  <span class="sidebar-nav-config-label">${escapeHtml(def.label)}</span>
+                  <button class="sidebar-nav-switch ${item.hidden ? "" : "on"}" onclick="app.toggleSidebarNavItemHidden('${item.id}')" aria-label="${item.hidden ? "Показать" : "Скрыть"} «${escapeHtml(def.label)}»"></button>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `;
+      }
+
+      function toggleSidebarNavItemHidden(id) {
+        const config = getSidebarNavConfig();
+        const item = config.find(x => x.id === id);
+        if (!item) return;
+        item.hidden = !item.hidden;
+        saveSidebarNavConfig(config);
+        renderSidebar();
+        renderSidebarNavPopover();
+      }
+
+      function sidebarNavDragStart(id) { _sidebarNavDragId = id; }
+
+      function sidebarNavDrop(targetId) {
+        if (!_sidebarNavDragId || _sidebarNavDragId === targetId) { _sidebarNavDragId = null; return; }
+        const config = getSidebarNavConfig();
+        const fromIdx = config.findIndex(x => x.id === _sidebarNavDragId);
+        const toIdx = config.findIndex(x => x.id === targetId);
+        _sidebarNavDragId = null;
+        if (fromIdx < 0 || toIdx < 0) return;
+        const [moved] = config.splice(fromIdx, 1);
+        config.splice(toIdx, 0, moved);
+        saveSidebarNavConfig(config);
+        renderSidebar();
+        renderSidebarNavPopover();
       }
 
       /* ─── ОБУЧАЮЩИЙ ТУР (spotlight) ─── */
@@ -1808,10 +1940,74 @@
         localStorage.setItem("adervis_us_" + uid, JSON.stringify({ ...cur, ...patch }));
       }
 
+      /* ─── TOPBAR DROPDOWNS: взаимное закрытие ─── */
+      function _closeOtherTopbarDropdowns(except) {
+        if (except !== "profile" && _profileDdOpen) {
+          _profileDdOpen = false;
+          document.removeEventListener("click", _closeProfileDd);
+          renderProfileDd();
+        }
+        if (except !== "help" && _helpDdOpen) {
+          _helpDdOpen = false;
+          document.removeEventListener("click", _closeHelpDd);
+          renderHelpDd();
+        }
+        if (except !== "notif" && state.notifPopupOpen) {
+          state.notifPopupOpen = false;
+          document.removeEventListener("click", _closeNotifOnOutside);
+          const el = document.getElementById("notifPopupContainer");
+          if (el) el.innerHTML = "";
+        }
+        if (except !== "addMenu") closeGlobalMenu();
+      }
+
+      /* ─── PWA INSTALL ─── */
+      let _deferredInstallPrompt = null;
+      const PWA_DISMISS_KEY = 'adervis_pwa_install_dismissed_at';
+      const PWA_DISMISS_DAYS = 14;
+
+      function renderPwaInstallBanner() {
+        const el = document.getElementById('pwaInstallBanner');
+        if (!el) return;
+        if (!_deferredInstallPrompt) { el.innerHTML = ''; return; }
+        const dismissedAt = Number(localStorage.getItem(PWA_DISMISS_KEY) || 0);
+        if (dismissedAt && Date.now() - dismissedAt < PWA_DISMISS_DAYS * 86400000) { el.innerHTML = ''; return; }
+        el.innerHTML = `
+          <div class="pwa-install-toast">
+            <img src="logo-icon.svg" alt="" class="pwa-install-toast-icon">
+            <div class="pwa-install-toast-text">
+              <strong>Установите ADERVIS CRM</strong>
+              <span>Быстрый доступ с рабочего стола, без браузера</span>
+            </div>
+            <button class="btn primary small" onclick="app.installPWA()">Установить</button>
+            <button class="pwa-install-toast-close" onclick="app.dismissPwaInstallBanner()" aria-label="Закрыть">&times;</button>
+          </div>
+        `;
+      }
+
+      function dismissPwaInstallBanner() {
+        localStorage.setItem(PWA_DISMISS_KEY, String(Date.now()));
+        renderPwaInstallBanner();
+      }
+
+      async function installPWA() {
+        if (!_deferredInstallPrompt) {
+          toast('Установка недоступна в этом браузере — используйте значок установки в адресной строке');
+          return;
+        }
+        _deferredInstallPrompt.prompt();
+        await _deferredInstallPrompt.userChoice;
+        _deferredInstallPrompt = null;
+        renderProfileDd();
+        renderPwaInstallBanner();
+      }
+
       /* ─── PROFILE DROPDOWN ─── */
       let _profileDdOpen = false;
       function toggleProfileDd(force) {
-        _profileDdOpen = force !== undefined ? force : !_profileDdOpen;
+        const next = force !== undefined ? force : !_profileDdOpen;
+        _closeOtherTopbarDropdowns("profile");
+        _profileDdOpen = next;
         renderProfileDd();
         if (_profileDdOpen) {
           setTimeout(() => document.addEventListener("click", _closeProfileDd, { once: true }), 10);
@@ -1849,6 +2045,7 @@
             <button class="pd-item" onclick="app.go('profile');app.toggleProfileDd(false)" title="Ваш аккаунт, аватар, смена пароля"><span class="pd-item-icon">👤</span>Мой профиль</button>
             <button class="pd-item" onclick="app.go('settings');app.toggleProfileDd(false)" title="Supabase, тема, экспорт данных"><span class="pd-item-icon">⚙️</span>Настройки</button>
             <button class="pd-item" onclick="app.go('support');app.toggleProfileDd(false)" title="Контакты и поддержка"><span class="pd-item-icon">💬</span>Поддержка</button>
+            ${_deferredInstallPrompt ? `<button class="pd-item" onclick="app.installPWA();app.toggleProfileDd(false)" title="Установить ADERVIS CRM как приложение на компьютер"><span class="pd-item-icon">📥</span>Установить приложение</button>` : ""}
             ${_isSuperAdmin() ? `<button class="pd-item" onclick="app.go('admin');app.toggleProfileDd(false)" style="background:rgba(220,38,38,.08)" title="Панель администратора"><span class="pd-item-icon">🔐</span>Admin Panel</button>` : ""}
             ${(() => {
               const daysLeft = getSubscriptionDaysLeft();
@@ -1872,7 +2069,9 @@
       /* ─── HELP DROPDOWN ─── */
       let _helpDdOpen = false;
       function toggleHelpDd(force) {
-        _helpDdOpen = force !== undefined ? force : !_helpDdOpen;
+        const next = force !== undefined ? force : !_helpDdOpen;
+        _closeOtherTopbarDropdowns("help");
+        _helpDdOpen = next;
         renderHelpDd();
         if (_helpDdOpen) {
           setTimeout(() => document.addEventListener("click", _closeHelpDd, { once: true }), 10);
@@ -2285,7 +2484,9 @@
       }
 
       function toggleNotifPopup() {
-        state.notifPopupOpen = !state.notifPopupOpen;
+        const next = !state.notifPopupOpen;
+        _closeOtherTopbarDropdowns("notif");
+        state.notifPopupOpen = next;
         if (state.notifPopupOpen) {
           // Mark all as read
           (state.notifications || []).forEach(n => n.read = true);
@@ -3901,6 +4102,8 @@
           finSearch: "",
           finTypeFilter: "all",
           crmSelected: {},
+          crmSelectMode: false,
+          taskDetailsOpen: {},
           crmTagFilter: "",
           telegramChatIds: [],
           clientMode: false,
@@ -3917,7 +4120,6 @@
           priceHistory: {},
           versions: [],
           savedProjects: [],
-          dealTemplates: [],
           clients: [],
           clientDraft: null,
           activeProjectId: "",
@@ -4071,6 +4273,7 @@
           date: expense?.date || todayIso(),
           category: expense?.category || "",
           note: expense?.note || "",
+          paid: Boolean(expense?.paid),
           createdAt: expense?.createdAt || new Date().toISOString()
         };
       }
@@ -4168,6 +4371,8 @@
           dealView: old.dealView || "estimate",
           wizard: null,
           crmFilter: old.crmFilter || "all",
+          crmSelectMode: false,
+          taskDetailsOpen: {},
           recentlyAdded: "",
           mainMenuOpen: false,
           clientModal: null,
@@ -4430,6 +4635,7 @@
           id: itemData.id,
           qty: 1,
           price,
+          cost: itemData.category === "expenses" ? price : 0,
           days: numberValue(state.project.days, 1),
           people: 1,
           stageId: itemData.stage || "pre",
@@ -4767,13 +4973,19 @@
         const t = totals();
         const paid = (state.payments || []).reduce((sum, payment) => sum + numberValue(payment.amount, 0), 0);
         const expenses = (state.expenses || []).reduce((sum, expense) => sum + numberValue(expense.amount, 0), 0);
+        const expensesPaid = (state.expenses || []).filter(e => e.paid).reduce((sum, expense) => sum + numberValue(expense.amount, 0), 0);
         const teamPayouts = (state.team || []).reduce((sum, member) => sum + numberValue(member.payout, 0), 0);
-        const totalExpenses = expenses + teamPayouts;
+        const teamPayoutsPaid = (state.team || []).filter(m => m.paid).reduce((sum, member) => sum + numberValue(member.payout, 0), 0);
+        const lineCosts = Object.values(state.selected || {}).reduce((sum, line) => sum + numberValue(line.cost, 0), 0);
+        const totalExpenses = expenses + teamPayouts + lineCosts;
+        const totalExpensesPaid = expensesPaid + teamPayoutsPaid;
         const debt = Math.max(0, t.total - paid);
         const profit = t.total - totalExpenses;
         const margin = t.total > 0 ? profit / t.total * 100 : 0;
+        const profitFact = t.total - totalExpensesPaid;
+        const marginFact = t.total > 0 ? profitFact / t.total * 100 : 0;
 
-        return { estimateTotal: t.total, withOptional: t.withOptional, paid, debt, expenses, teamPayouts, totalExpenses, profit, margin };
+        return { estimateTotal: t.total, withOptional: t.withOptional, paid, debt, expenses, expensesPaid, teamPayouts, teamPayoutsPaid, lineCosts, totalExpenses, totalExpensesPaid, profit, margin, profitFact, marginFact };
       }
 
       function stageTotal(stageId, includeOptional = false) {
@@ -4794,6 +5006,7 @@
 
       function filteredItems() {
         let items = state.tab === "hidden" ? hiddenItemsList() : allItems(false);
+        items = items.filter(x => !x.catalogSourceId);
 
         if (state.tab !== "all") {
           if (state.tab === "favorites") items = items.filter(x => state.favorites[x.id]);
@@ -5088,6 +5301,76 @@
         render();
       }
 
+      function catalogItemQty(id) {
+        if (!state.selected[id]) return 0;
+        const itemData = findItem(id, true);
+        if (itemData && itemData.calcModel === "fixed+qty") {
+          return Math.max(1, Math.round(numberValue(state.selected[id].qty, 1)));
+        }
+        let count = 1;
+        (state.customItems || []).forEach(ci => { if (ci.catalogSourceId === id && state.selected[ci.id]) count++; });
+        return count;
+      }
+
+      function catalogAddOne(id) {
+        if (!state.selected[id]) { addItem(id); return; }
+
+        const itemData = findItem(id, true);
+        const line = state.selected[id];
+        if (!itemData || !line) return;
+
+        // У позиций с моделью "fixed+qty" (например "Трансфер") количество уже встроено
+        // в саму строку — просто увеличиваем "Кол-во", без создания второй карточки.
+        if (itemData.calcModel === "fixed+qty") {
+          saveHistory();
+          const oldQty = Math.max(1, Math.round(numberValue(line.qty, 1)));
+          const newQty = oldQty + 1;
+          if (numberValue(line.cost, 0) > 0) line.cost = Math.round(numberValue(line.cost, 0) / oldQty * newQty);
+          line.qty = newQty;
+          save();
+          render();
+          return;
+        }
+
+        saveHistory();
+        const newId = uid("custom_line");
+        const customItem = deepClone(itemData);
+        customItem.id = newId;
+        customItem.category = itemData.category || "custom";
+        customItem.section = itemData.section || CAT.custom;
+        customItem.catalogSourceId = id;
+        customItem.price = numberValue(line.price, getCatalogPrice(itemData));
+
+        state.customItems.unshift(customItem);
+        state.selected[newId] = { ...deepClone(line), id: newId };
+
+        const index = state.estimateOrder.indexOf(id);
+        state.estimateOrder.splice(index >= 0 ? index + 1 : state.estimateOrder.length, 0, newId);
+
+        save();
+        render();
+      }
+
+      function catalogRemoveOne(id) {
+        const itemData = findItem(id, true);
+        const line = state.selected[id];
+
+        if (itemData && line && itemData.calcModel === "fixed+qty" && numberValue(line.qty, 1) > 1) {
+          saveHistory();
+          const oldQty = Math.max(1, Math.round(numberValue(line.qty, 1)));
+          const newQty = oldQty - 1;
+          if (numberValue(line.cost, 0) > 0) line.cost = Math.round(numberValue(line.cost, 0) / oldQty * newQty);
+          line.qty = newQty;
+          save();
+          render();
+          return;
+        }
+
+        const dup = (state.customItems || []).find(ci => ci.catalogSourceId === id && state.selected[ci.id]);
+        if (dup) removeItem(dup.id);
+        else if (state.selected[id]) removeItem(id);
+      }
+
       function removeItem(id) {
         saveHistory();
         delete state.selected[id];
@@ -5256,6 +5539,7 @@
         const numericKeys = [
           "qty",
           "price",
+          "cost",
           "days",
           "people",
           "hours",
@@ -5669,13 +5953,13 @@
         render();
       }
 
-      function createTask(status) {
+      function createTask(status, deadlineOverride) {
         state.tasks.unshift(normalizeTask({
           title: "Новая задача",
           status: status || "Новая",
           priority: "Средний",
           assignee: state.project.manager || "",
-          deadline: state.project.deadline || "",
+          deadline: deadlineOverride || state.project.deadline || "",
           note: ""
         }));
         state.view = "deal";
@@ -5683,6 +5967,12 @@
         toast("Задача добавлена");
         save();
         render();
+      }
+
+      function setTaskDetailsOpen(id, isOpen) {
+        if (!state.taskDetailsOpen) state.taskDetailsOpen = {};
+        if (isOpen) state.taskDetailsOpen[id] = true;
+        else delete state.taskDetailsOpen[id];
       }
 
       function updateTask(id, key, value) {
@@ -5932,13 +6222,15 @@
 
       function clearCrmSelect() {
         state.crmSelected = {};
+        state.crmSelectMode = false;
         render();
       }
 
       function selectAllCrmVisible() {
         const filter = state.crmFilter || "all";
         (state.savedProjects || []).forEach(p => {
-          if (filter === "all" || (p.crmStatus || "Лид") === filter) state.crmSelected[p.id] = true;
+          const status = p.crmStatus || "Лид";
+          if (filter === "all" ? status !== "Завершённые" : status === filter) state.crmSelected[p.id] = true;
         });
         render();
       }
@@ -5970,7 +6262,10 @@
 
       function toggleGlobalMenu() {
         const menu = document.getElementById("globalAddMenu");
-        if (menu) menu.classList.toggle("open");
+        if (!menu) return;
+        const willOpen = !menu.classList.contains("open");
+        _closeOtherTopbarDropdowns("addMenu");
+        menu.classList.toggle("open", willOpen);
       }
 
       function closeGlobalMenu() {
@@ -6413,44 +6708,6 @@
         render();
       }
 
-      function saveDealAsTemplate() {
-        const proj = state.savedProjects.find(p => p.id === state.activeProjectId);
-        if (!proj) { toast("Нет активной сделки"); return; }
-        const name = prompt("Название шаблона:", proj.name || "Шаблон");
-        if (!name) return;
-        state.dealTemplates = state.dealTemplates || [];
-        state.dealTemplates.push({
-          id: uid("tmpl"),
-          name: name.trim(),
-          createdAt: new Date().toISOString(),
-          lines: deepClone(state.items || []),
-          stages: deepClone(state.stages),
-          packages: deepClone(state.packages || []),
-          project: { ...deepClone(state.project), id: "", client: "", clientId: "", name: name.trim(), createdAt: "" }
-        });
-        save();
-        toast(`Шаблон «${name}» сохранён`);
-      }
-
-      function loadDealFromTemplate(templateId) {
-        if (checkTrialDealLimit()) return;
-        const tmpl = (state.dealTemplates || []).find(t => t.id === templateId);
-        if (!tmpl) return;
-        state.activeProjectId = "";
-        state.items = deepClone(tmpl.lines || []);
-        state.stages = deepClone(tmpl.stages || DEFAULT_STAGES);
-        state.project = { ...deepClone(tmpl.project), id: uid("proj"), createdAt: new Date().toISOString(), name: tmpl.name };
-        state.payments = []; state.expenses = []; state.tasks = []; state.team = [];
-        state.view = "deal"; state.dealView = "estimate";
-        save(); render();
-        toast(`Шаблон «${tmpl.name}» загружен — заполните клиента и сохраните`);
-      }
-
-      function deleteDealTemplate(templateId) {
-        if (!confirm("Удалить шаблон?")) return;
-        state.dealTemplates = (state.dealTemplates || []).filter(t => t.id !== templateId);
-        save(); render();
-      }
 
       function wizardSetData(key, value) {
         if (!state.wizard) return;
@@ -6648,6 +6905,13 @@
         }
       }
 
+      function selectDealFromMenu(id) {
+        closeDealMenu();
+        state.crmSelectMode = true;
+        state.crmSelected[id] = true;
+        render();
+      }
+
       function finishDeal(id) {
         closeDealMenu();
         const project = (state.savedProjects || []).find(p => p.id === id);
@@ -6759,6 +7023,84 @@
           }
         };
         reader.readAsText(file);
+        event.target.value = "";
+      }
+
+      function exportCatalogXlsx() {
+        if (!window.XLSX) { toast("Библиотека XLSX не загрузилась"); return; }
+        const ids = selectedIds();
+        if (!ids.length) { toast("В смете пока нет отмеченных позиций"); return; }
+
+        const rows = ids.map((id, i) => {
+          const itemData = findItem(id, true);
+          const line = state.selected[id];
+          if (!itemData || !line) return null;
+          return {
+            "№": i + 1,
+            "Название": line.lineName || itemData.name,
+            "Категория": itemData.section || "",
+            "Кол-во": numberValue(line.qty, 1),
+            "Ед.": itemData.unit || "",
+            "Цена": Math.round(numberValue(line.price, 0)),
+            "Итого": Math.round(lineTotal(id))
+          };
+        }).filter(Boolean);
+
+        const grandTotal = rows.reduce((sum, r) => sum + r["Итого"], 0);
+        rows.push({ "№": "", "Название": "ИТОГО", "Категория": "", "Кол-во": "", "Ед.": "", "Цена": "", "Итого": grandTotal });
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws["!cols"] = [{ wch: 5 }, { wch: 40 }, { wch: 16 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 12 }];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Позиции сметы");
+        XLSX.writeFile(wb, `позиции-сметы-${todayIso()}.xlsx`);
+        toast(`Экспортировано ${rows.length - 1} позиций`);
+      }
+
+      function importCatalogXlsx(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        if (!window.XLSX) { toast("Библиотека XLSX не загрузилась"); event.target.value = ""; return; }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const wb = XLSX.read(data, { type: "array" });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+            let added = 0;
+            rows.forEach(row => {
+              const name = String(row["Название"] || row["название"] || row["Name"] || "").trim();
+              if (!name || name === "ИТОГО") return;
+              const price = numberValue(row["Цена"] || row["цена"] || row["Price"] || 0, 0);
+              const unit = String(row["Ед."] || row["ед."] || "шт").trim() || "шт";
+              state.customItems.unshift({
+                id: uid("custom"),
+                category: "custom",
+                section: CAT.custom,
+                name,
+                desc: "",
+                calcModel: "fixed+qty",
+                price,
+                unit,
+                stage: "pre",
+                tags: [],
+                rates: {}
+              });
+              added++;
+            });
+
+            save();
+            render();
+            toast(added ? `Добавлено ${added} позиций в «Свои»` : "Не найдено подходящих строк — нужна колонка «Название»");
+          } catch (error) {
+            alert("Не удалось импортировать файл: " + error.message);
+          }
+        };
+        reader.readAsArrayBuffer(file);
         event.target.value = "";
       }
 
@@ -7907,7 +8249,8 @@
         }));
 
         const tagFilter = state.crmTagFilter || "";
-        const visibleItems = (filter === "all" ? projects : projects.filter(p => (p.crmStatus || "Лид") === filter))
+        const activeProjects = projects.filter(p => (p.crmStatus || "Лид") !== "Завершённые");
+        const visibleItems = (filter === "all" ? activeProjects : projects.filter(p => (p.crmStatus || "Лид") === filter))
           .filter(p => !tagFilter || (p.tags || []).includes(tagFilter));
 
         const totalPipeline = projects.filter(p => !["Сдано", "Завершённые"].includes(p.crmStatus || "Лид"))
@@ -8062,7 +8405,7 @@
               <div class="crm-home-funnel">
                 <div class="funnel-stage ${filter === "all" ? "active" : ""}" onclick="app.setCrmFilter('all')">
                   <h3>Все</h3>
-                  <div class="fs-count">${projects.length}</div>
+                  <div class="fs-count">${activeProjects.length}</div>
                 </div>
                 ${stageData.map(s => `
                   <div class="funnel-stage ${filter === s.status ? "active" : ""}" onclick="app.setCrmFilter('${s.status}')">
@@ -8092,7 +8435,7 @@
               ${(() => {
                 const selIds = Object.keys(state.crmSelected || {});
                 const selCount = selIds.length;
-                return selCount > 0 ? `
+                return state.crmSelectMode && selCount > 0 ? `
                   <div class="no-print" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--panel2);border:1px solid var(--primary);border-radius:12px;margin-bottom:12px">
                     <span style="font-size:13px;font-weight:750;color:var(--primary)">Выбрано: ${selCount}</span>
                     <select id="crmBulkStatusSel" style="padding:6px 10px;border-radius:8px;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text)">
@@ -8117,7 +8460,7 @@
                   const healthClass = margin >= 40 ? "green" : margin >= 20 ? "yellow" : margin > 0 ? "red" : "grey";
                   return `
                     <div class="deal-list-row ${isCurrent?"current":""}" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету">
-                      <input type="checkbox" class="crm-cb no-print" ${(state.crmSelected||{})[project.id]?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">
+                      ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${(state.crmSelected||{})[project.id]?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">` : ""}
                       <div class="health-dot ${healthClass}" style="flex:0 0 auto" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
                       <span class="status-pill" style="font-size:11px;flex:0 0 auto">${escapeHtml(project.crmStatus||"Лид")}</span>
                       <div class="deal-list-name" style="display:flex;align-items:center;gap:6px;min-width:0">
@@ -8151,8 +8494,8 @@
                   return `
                     <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.openDeal('${projectIdSafe}')" style="cursor:pointer" title="Открыть смету">
                       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-                        <input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
-                          style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">
+                        ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
+                          style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">` : ""}
                         <div style="min-width:0;flex:1">
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
                           ${project.client ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>` : ""}
@@ -8171,6 +8514,10 @@
                             <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.duplicateDeal('${projectIdSafe}')">
                               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H3a1 1 0 00-1 1v9h1V2h8V1zm2 2H5a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V4a1 1 0 00-1-1zm0 11H5V4h8v10z"/></svg>
                               Дублировать
+                            </button>
+                            <button class="dcm-item" onclick="event.stopPropagation();app.selectDealFromMenu('${projectIdSafe}')">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 1v10h10V3H3zm2.3 5.4l1.8 1.8 3.6-3.6.7.7-4.3 4.3-2.5-2.5.7-.7z"/></svg>
+                              Выбрать
                             </button>
                             <div class="dcm-sep"></div>
                             <button class="dcm-item dcm-green" onclick="event.stopPropagation();app.finishDeal('${projectIdSafe}')">
@@ -8271,14 +8618,18 @@
                 <div class="deal-pay-fill" style="width:${payPct}%"></div>
               </div>
               ${f.debt > 0 ? `<div class="summary-line"><span>Долг</span><strong style="color:var(--orange)">${money(f.debt)}</strong></div>` : ""}
-              <div class="summary-line"><span>Расходы</span><strong>${money(f.totalExpenses)}</strong></div>
+              <div class="summary-line"><span>Расходы (план)</span><strong>${money(f.totalExpenses)}</strong></div>
+              ${f.lineCosts > 0 ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них себестоимость позиций</span><strong>${money(f.lineCosts)}</strong></div>` : ""}
+              ${f.totalExpensesPaid !== f.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них оплачено (факт)</span><strong>${money(f.totalExpensesPaid)}</strong></div>` : ""}
               <div class="summary-line">
-                <span>Прибыль</span>
-                <strong>${money(f.profit)}</strong>
+                <span>Прибыль (план)</span>
+                <strong style="${f.profit < 0 ? "color:var(--red)" : ""}">${money(f.profit)}</strong>
               </div>
+              ${f.totalExpensesPaid !== f.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>Прибыль (факт)</span><strong>${money(f.profitFact)}</strong></div>` : ""}
               <div style="margin-top:8px">
                 <span class="margin-badge ${marginClass}">${margin}% маржа</span>
               </div>
+              ${f.profit < 0 ? `<div class="no-print" style="margin-top:10px;padding:9px 12px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;font-size:12px;font-weight:700;color:var(--red)">⚠️ Смета в минусе: себестоимость и расходы превышают цену для клиента</div>` : ""}
             </div>
 
             <div class="toolbar no-print" style="margin-top:16px">
@@ -8538,27 +8889,35 @@
       }
 
       function renderCatalog() {
-        const tabs = [
+        const quickTabs = [
           ["all", "Все"],
           ["favorites", "Избранное"],
-          ["creative", "Креатив"],
-          ["pre", "Подготовка"],
-          ["shoot", "Съёмка"],
-          ["photo", "Фото"],
-          ["equipment", "Техника"],
-          ["post", "Пост"],
-          ["sound", "Звук"],
-          ["animation", "Графика"],
-          ["marketing", "Маркетинг"],
-          ["management", "Менеджмент"],
-          ["logistics", "Логистика"],
-          ["ai", "ИИ / AI"],
-          ["event", "Мероприятия"],
           ["custom", "Свои"],
           ["hidden", "Скрытые"]
         ];
+        const categoryTabs = [
+          ["creative", "💡 Креатив"],
+          ["pre", "🧠 Подготовка"],
+          ["shoot", "🎥 Съёмка"],
+          ["photo", "📸 Фото"],
+          ["equipment", "🧰 Техника"],
+          ["post", "✂️ Пост"],
+          ["sound", "🎙 Звук"],
+          ["animation", "✨ Графика"],
+          ["marketing", "📣 Маркетинг"],
+          ["management", "🗂 Менеджмент"],
+          ["ai", "🤖 ИИ / AI"],
+          ["event", "🎪 Мероприятия"],
+          ["expenses", "💸 Расходы"]
+        ];
 
         const hidden = hiddenItemsList();
+
+        const catCounts = {};
+        Object.keys(state.selected || {}).forEach(id => {
+          const itemData = findItem(id, true);
+          if (itemData) catCounts[itemData.category] = (catCounts[itemData.category] || 0) + 1;
+        });
 
         return `
           <div class="layout">
@@ -8570,9 +8929,14 @@
                 </div>
 
                 <div class="toolbar no-print">
-                  <button class="btn" onclick="app.createCustomItem()">+ Своя позиция</button>
-                  <button class="btn" onclick="app.exportCatalog()">Экспорт каталога</button>
-                  <button class="btn" onclick="document.getElementById('importCatalogInput').click()">Импорт каталога</button>
+                  <button class="btn" onclick="app.exportCatalogXlsx()" title="Экспорт позиций из сметы в Excel">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Экспорт в Excel
+                  </button>
+                  <button class="btn" onclick="document.getElementById('importCatalogXlsxInput').click()" title="Импорт позиций из Excel в «Свои»">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Импорт из Excel
+                  </button>
                 </div>
               </div>
 
@@ -8597,18 +8961,35 @@
                 ${field("Всего найдено", `<input readonly value="${filteredItems().length}">`)}
               </div>
 
-              <div class="tabs">
-                ${tabs.map(([id, label]) => `
+              <div class="tabs" style="margin-top:6px">
+                ${quickTabs.map(([id, label]) => `
                   <button class="tab ${state.tab === id ? "active" : ""}" onclick="app.setTab('${id}')">${escapeHtml(label)}</button>
                 `).join("")}
               </div>
 
-              ${state.tab === "hidden" && hidden.length ? `
-                <div class="hidden-bar">Скрытые позиции не показываются в общем каталоге. Их можно восстановить.</div>
-              ` : ""}
+              <div class="catalog-body">
+                <aside class="catalog-cat-sidebar no-print">
+                  ${categoryTabs.map(([id, label]) => `
+                    <button class="catalog-cat-item ${id === "expenses" ? "danger" : ""} ${state.tab === id ? "active" : ""}" onclick="app.setTab('${id}')">
+                      <span>${escapeHtml(label)}</span>
+                      ${catCounts[id] ? `<span class="catalog-cat-count">${catCounts[id]}</span>` : ""}
+                    </button>
+                  `).join("")}
+                  <button class="catalog-cat-item catalog-cat-add" onclick="app.createCustomItem()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    <span>Своя позиция</span>
+                  </button>
+                </aside>
 
-              <div class="list">
-                ${filteredItems().length ? filteredItems().map(renderCatalogItem).join("") : `<div class="empty">Ничего не найдено</div>`}
+                <div class="catalog-body-main">
+                  ${state.tab === "hidden" && hidden.length ? `
+                    <div class="hidden-bar">Скрытые позиции не показываются в общем каталоге. Их можно восстановить.</div>
+                  ` : ""}
+
+                  <div class="catalog-grid">
+                    ${filteredItems().length ? filteredItems().map(renderCatalogItem).join("") : `<div class="empty">Ничего не найдено</div>`}
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -8618,7 +8999,8 @@
       }
 
       function renderCatalogItem(itemData) {
-        const selected = Boolean(state.selected[itemData.id]);
+        const qty = catalogItemQty(itemData.id);
+        const selected = qty > 0;
         const hidden = isHiddenItem(itemData.id);
         const custom = itemData.category === "custom";
 
@@ -8652,13 +9034,14 @@
                   <button class="btn small danger" onclick="app.permanentlyDeleteItem('${itemData.id}')">Удалить навсегда</button>
                 </div>
               ` : `
-                <div>
-                  ${selected
-                    ? `<button class="btn small danger" onclick="app.removeItem('${itemData.id}')">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                        Убрать
-                       </button>`
-                    : `<button class="btn small primary" onclick="app.addItem('${itemData.id}')">
+                <div style="display:flex;align-items:center;gap:6px">
+                  ${qty > 0
+                    ? `<div class="catalog-qty-stepper catalog-qty-pop">
+                         <button type="button" class="catalog-qty-btn" onclick="app.catalogRemoveOne('${itemData.id}')" title="Меньше" aria-label="Уменьшить количество">−</button>
+                         <span class="catalog-qty-value">${qty}</span>
+                         <button type="button" class="catalog-qty-btn" onclick="app.catalogAddOne('${itemData.id}')" title="Больше" aria-label="Увеличить количество">+</button>
+                       </div>`
+                    : `<button class="btn small primary catalog-add-btn" onclick="app.catalogAddOne('${itemData.id}')">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                         Добавить
                        </button>`
@@ -8760,11 +9143,9 @@
                     <div style="font-size:22px;font-weight:900;color:var(--text)">${money(t.total)}</div>
                     <div style="font-size:11px;color:var(--muted);margin-top:1px">${totalItems} позиц.${t.optional ? ` · опции +${money(t.optional)}` : ""}</div>
                   </div>
-                  ${inDeal ? "" : `
-                    <select data-autosave data-scope="project" data-key="taxType" style="width:auto;padding:5px 9px;font-size:12px;border-radius:10px;margin-left:4px">
-                      ${taxOptionsHtml(state.project.taxType)}
-                    </select>
-                  `}
+                  <select data-autosave data-scope="project" data-key="taxType" style="width:auto;padding:5px 9px;font-size:12px;border-radius:10px;margin-left:4px">
+                    ${taxOptionsHtml(state.project.taxType)}
+                  </select>
                 </div>
                 <div class="toolbar no-print" style="gap:5px;flex-direction:row;flex-wrap:wrap">
                   <button class="btn small" onclick="app.toggleAllEstimate()" title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}">${allStagesCollapsed ? "⊞" : "⊟"}</button>
@@ -8854,7 +9235,8 @@
               ${state.stages.map(stage => optionValueHtml(stage.id, stage.name, stageId)).join("")}
             </select>
           `),
-          field("Цена", `<input type="number" data-autosave data-scope="line" data-id="${id}" data-key="price" value="${escapeHtml(line.price)}">`)
+          field("Цена", `<input type="number" data-autosave data-scope="line" data-id="${id}" data-key="price" value="${escapeHtml(line.price)}">`),
+          `<div class="field no-print"><label>Себестоимость</label><input type="number" data-autosave data-scope="line" data-id="${id}" data-key="cost" value="${escapeHtml(line.cost || 0)}" placeholder="0" title="Внутренняя себестоимость — клиенту не показывается"></div>`
         ];
 
         if (itemData.calcModel === "crewShift" || itemData.calcModel === "perDay") {
@@ -8896,6 +9278,12 @@
                   </button>
                 </div>
                 <div class="line-total-note">${line.optional ? "Не входит в итог" : "В итоге"}</div>
+                ${numberValue(line.cost, 0) > 0 ? (() => {
+                  const margin = total - numberValue(line.cost, 0);
+                  const marginPct = total > 0 ? Math.round(margin / total * 100) : 0;
+                  const mColor = marginPct >= 40 ? "var(--green)" : marginPct >= 20 ? "var(--yellow)" : "var(--red)";
+                  return `<div class="line-margin-note no-print" title="Маржа по строке: цена минус себестоимость, клиенту не видна" style="font-size:11px;font-weight:700;color:${mColor};margin-top:2px">Маржа: ${money(margin)} (${marginPct}%)</div>`;
+                })() : ""}
               </div>
             </div>
 
@@ -9271,7 +9659,7 @@
                 ${field("Имя / название", `<input value="${escapeHtml(client.name)}" onchange="app.updateClientField('${client.id}','name',this.value)">`)}
                 ${field("Компания", `<input value="${escapeHtml(client.company||"")}" onchange="app.updateClientField('${client.id}','company',this.value)">`)}
                 ${field("Город", `<input value="${escapeHtml(client.city||"")}" onchange="app.updateClientField('${client.id}','city',this.value)">`)}
-                ${field("Телефон", `<input value="${escapeHtml(client.phone||"")}" onchange="app.updateClientField('${client.id}','phone',this.value)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00"> `)}
+                ${field("Телефон", `<input value="${escapeHtml(client.phone||"")}" onfocus="app.maskPhoneFocus(this)" oninput="app.maskPhoneInput(this)" onchange="app.updateClientField('${client.id}','phone',this.value)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00"> `)}
                 ${field("Email", `<input value="${escapeHtml(client.email||"")}" onchange="app.updateClientField('${client.id}','email',this.value)" placeholder="mail@example.com">`)}
                 ${field("Источник", `<input value="${escapeHtml(client.source||"")}" onchange="app.updateClientField('${client.id}','source',this.value)" placeholder="Рекомендация, инстаграм...">`)}
               </div>
@@ -9331,7 +9719,7 @@
               ${field("Имя / название", `<input data-live data-scope="clientDraft" data-key="name" value="${escapeHtml(client.name)}">`)}
               ${field("Компания", `<input data-live data-scope="clientDraft" data-key="company" value="${escapeHtml(client.company)}">`)}
               ${field("Город", `<input data-live data-scope="clientDraft" data-key="city" value="${escapeHtml(client.city)}">`)}
-              ${field("Телефон", `<input data-live data-scope="clientDraft" data-key="phone" value="${escapeHtml(client.phone)}" onblur="app.checkPhoneField(this)">`)}
+              ${field("Телефон", `<input data-live data-scope="clientDraft" data-key="phone" value="${escapeHtml(client.phone)}" onfocus="app.maskPhoneFocus(this)" oninput="app.maskPhoneInput(this)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00">`)}
               ${field("Email", `<input data-live data-scope="clientDraft" data-key="email" value="${escapeHtml(client.email)}">`)}
               ${field("Источник", `<input data-live data-scope="clientDraft" data-key="source" value="${escapeHtml(client.source)}">`)}
             </div>
@@ -9499,9 +9887,7 @@
             </div>
 
             <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
-              <select class="task-mini-select" data-autosave data-scope="task" data-id="${task.id}" data-key="status">
-                ${TASK_STATUSES.map(s => `<option value="${s}" ${task.status===s?"selected":""}>${s}</option>`).join("")}
-              </select>
+              <span style="font-size:11px;color:var(--muted)">Приоритет:</span>
               <select class="task-mini-select" data-autosave data-scope="task" data-id="${task.id}" data-key="priority"
                 style="background:${pBg};border-color:${pColor}40;color:${pColor};font-weight:600">
                 ${PRIORITIES.map(p => `<option value="${p}" ${task.priority===p?"selected":""}>${p}</option>`).join("")}
@@ -9510,7 +9896,7 @@
               ${task.assignee ? `<span style="font-size:11px;color:var(--muted)">${escapeHtml(task.assignee)}</span>` : ""}
             </div>
 
-            <details style="margin-top:6px">
+            <details style="margin-top:6px" ${(state.taskDetailsOpen||{})[task.id] ? "open" : ""} ontoggle="app.setTaskDetailsOpen('${task.id}', this.open)">
               <summary style="font-size:11px;color:var(--muted);cursor:pointer;padding:4px 0">
                 ▸ Подробнее
               </summary>
@@ -9853,6 +10239,12 @@
               ${field("Сумма", `<input type="number" data-autosave data-scope="expense" data-id="${expense.id}" data-key="amount" value="${escapeHtml(expense.amount)}">`)}
               ${field("Дата", `<input type="date" data-autosave data-scope="expense" data-id="${expense.id}" data-key="date" value="${escapeHtml(expense.date)}">`)}
               ${field("Категория", `<input data-autosave data-scope="expense" data-id="${expense.id}" data-key="category" value="${escapeHtml(expense.category)}">`)}
+              ${field("Оплачено", `
+                <select data-autosave data-scope="expense" data-id="${expense.id}" data-key="paid" title="Незаполненный расход всё равно учитывается в прогнозной марже как план">
+                  ${optionValueHtml("", "Нет — план", expense.paid ? "1" : "")}
+                  ${optionValueHtml("1", "Да — факт", expense.paid ? "1" : "")}
+                </select>
+              `)}
             </div>
             <div style="margin-top:10px">${field("Комментарий", `<textarea data-autosave data-scope="expense" data-id="${expense.id}" data-key="note">${escapeHtml(expense.note)}</textarea>`)}</div>
             <div class="toolbar no-print" style="margin-top:10px">
@@ -10002,15 +10394,6 @@
               <div class="toolbar no-print">
                 <button class="btn primary" onclick="app.saveCurrentProject()">Сохранить текущий в CRM</button>
                 <button class="btn" onclick="app.go('projects')">Список проектов</button>
-                ${(state.dealTemplates||[]).length ? `<div style="position:relative;display:inline-block" id="tmplDdWrap">
-                  <button class="btn" onclick="document.getElementById('tmplDd').style.display=document.getElementById('tmplDd').style.display==='block'?'none':'block'">📋 Шаблоны ▾</button>
-                  <div id="tmplDd" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px;min-width:200px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,.15)">
-                    ${(state.dealTemplates||[]).map(t => `<div style="display:flex;align-items:center;gap:6px;padding:4px 0">
-                      <button class="btn small" style="flex:1;text-align:left" onclick="app.loadDealFromTemplate('${t.id}');document.getElementById('tmplDd').style.display='none'">${escapeHtml(t.name)}</button>
-                      <button class="btn small" style="color:var(--red);padding:4px 7px" onclick="app.deleteDealTemplate('${t.id}')">×</button>
-                    </div>`).join("")}
-                  </div>
-                </div>` : ""}
               </div>
             </div>
 
@@ -10082,7 +10465,7 @@
             ${(() => { setTimeout(_loadPortalAdvanceStatus, 0); return ''; })()}
             ` : ''}
 
-            <div class="grid three no-print client-hidden">
+            <div class="grid two no-print client-hidden">
               ${field("Шаблон", `
                 <select data-autosave data-scope="project" data-key="proposalTemplate">
                   ${Object.keys(state.proposalTemplates).map(key => optionValueHtml(key, state.proposalTemplates[key].name, state.project.proposalTemplate)).join("")}
@@ -10092,11 +10475,6 @@
                 <select data-autosave data-scope="project" data-key="proposalMode">
                   ${optionValueHtml("detailed", "Подробный", state.project.proposalMode)}
                   ${optionValueHtml("short", "Краткий", state.project.proposalMode)}
-                </select>
-              `)}
-              ${field("Налог", `
-                <select data-autosave data-scope="project" data-key="taxType">
-                  ${taxOptionsHtml(state.project.taxType)}
                 </select>
               `)}
             </div>
@@ -10678,7 +11056,7 @@
                 <h1>Календарь</h1>
                 <p class="cal-header-sub">Дедлайны, задачи и финансы по всем проектам.</p>
               </div>
-              <button class="btn primary cal-add-btn" onclick="app.createTask()">+ Задача</button>
+              <button class="btn primary cal-add-btn" onclick="app.createTask('', '${escapeHtml(state.calendarSelectedDay || "")}')">+ Задача</button>
             </div>
 
             <!-- Навигация: месяц/год ← → + Сегодня -->
@@ -10875,7 +11253,7 @@
             ${w.clientMode === "new" ? `
               <div class="grid two">
                 ${field("Имя / название *", `<input id="wz_name" value="${escapeHtml(w.name)}" oninput="app.wizardSetField('name',this.value)" placeholder="Иван Петров или ООО Компания">`)}
-                ${field("Телефон", `<input id="wz_phone" value="${escapeHtml(w.phone)}" oninput="app.wizardSetField('phone',this.value)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00">`)}
+                ${field("Телефон", `<input id="wz_phone" value="${escapeHtml(w.phone)}" onfocus="app.maskPhoneFocus(this)" oninput="app.maskPhoneInput(this);app.wizardSetField('phone',this.value)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00">`)}
               </div>
               <div style="margin-top:12px">
                 ${field("Компания", `<input value="${escapeHtml(w.company)}" oninput="app.wizardSetField('company',this.value)" placeholder="Название компании (необязательно)">`)}
@@ -10921,12 +11299,13 @@
           const pkgFilter = w.pkgFilter || "all";
 
           function pkgCategory(pkg) {
-            if (pkg.id.startsWith("ai_")) return "ai";
-            if (pkg.id.startsWith("event_")) return "event";
+            if (pkg.id.startsWith("ai_") || pkg.cat === "ai") return "ai";
+            if (pkg.id.startsWith("event_") || pkg.cat === "events") return "event";
+            if (pkg.cat === "photo") return "photo";
             return "video";
           }
 
-          const catLabels = { all: "Все пакеты", video: "Видео / Фото", event: "Мероприятия", ai: "ИИ / AI" };
+          const catLabels = { all: "Все пакеты", video: "Видео", photo: "Фото", event: "Мероприятия", ai: "ИИ / AI" };
           const catCounts = {};
           (state.packages || []).forEach(p => {
             const c = pkgCategory(p);
@@ -10955,8 +11334,8 @@
             <div class="wizard-pkg-grid" style="grid-template-columns:repeat(auto-fill,minmax(210px,1fr))">
               ${visiblePkgs.map(pkg => {
                 const cat = pkgCategory(pkg);
-                const catColor = cat === "ai" ? "rgba(124,58,237,.18)" : cat === "event" ? "rgba(8,145,178,.12)" : "rgba(37,99,235,.1)";
-                const catLabel = cat === "ai" ? "ИИ" : cat === "event" ? "Мероприятие" : "Видео";
+                const catColor = cat === "ai" ? "rgba(124,58,237,.18)" : cat === "event" ? "rgba(8,145,178,.12)" : cat === "photo" ? "rgba(217,119,6,.14)" : "rgba(37,99,235,.1)";
+                const catLabel = cat === "ai" ? "ИИ" : cat === "event" ? "Мероприятие" : cat === "photo" ? "Фото" : "Видео";
                 return `
                   <div class="wizard-pkg-card" onclick="app.finishWizardWithPackage('${pkg.id}')">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px">
@@ -11063,7 +11442,7 @@
             <div class="deal-compact-row">
               <div class="deal-nav-group">
                 <button class="btn small" onclick="app.go('home')">← Сделки</button>
-                <div id="dealBarSwitcher">${renderDealSwitcherHtml()}</div>
+                <div id="dealBarSwitcher">${renderDealSwitcherButtonHtml()}</div>
                 ${state.project.client ? `<span class="badge" style="font-size:11px">${escapeHtml(state.project.client)}</span>` : ""}
                 <span class="margin-badge ${marginClass}" style="font-size:10px">${margin}% маржа</span>
                 <span class="status-pill" style="font-size:11px">${escapeHtml(state.project.crmStatus || "Лид")}</span>
@@ -11090,7 +11469,6 @@
                   ` : ""}
                 </div>
               </div>
-              <button class="btn small no-print" onclick="app.saveDealAsTemplate()" title="Сохранить текущую сделку как шаблон для будущих сделок">📋 В шаблон</button>
             </div>
 
             <div class="deal-stage-progress no-print">
@@ -12294,7 +12672,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <div class="grid two" style="margin-bottom:12px">
                 ${field("Имя / название *", `<input value="${escapeHtml(m.name || "")}" oninput="app.setClientModalField('name',this.value)" placeholder="Имя клиента">`)}
                 ${field("Компания", `<input value="${escapeHtml(m.company || "")}" oninput="app.setClientModalField('company',this.value)">`)}
-                ${field("Телефон", `<input value="${escapeHtml(m.phone || "")}" oninput="app.setClientModalField('phone',this.value)" placeholder="+7...">`)}
+                ${field("Телефон", `<input value="${escapeHtml(m.phone || "")}" onfocus="app.maskPhoneFocus(this)" oninput="app.maskPhoneInput(this);app.setClientModalField('phone',this.value)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00">`)}
                 ${field("Email", `<input value="${escapeHtml(m.email || "")}" oninput="app.setClientModalField('email',this.value)" placeholder="mail@...">`)}
                 ${field("Город", `<input value="${escapeHtml(m.city || "")}" oninput="app.setClientModalField('city',this.value)">`)}
                 ${field("Статус", `<select onchange="app.setClientModalField('status',this.value)">
@@ -12329,27 +12707,79 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       /* ═══════════════════════════════════════════════════════
          СДЕЛКА MODAL (редактировать сделку из карточки)
       ═══════════════════════════════════════════════════════ */
+      let _dealSwitcherQuery = "";
       function toggleDealSwitcher(e) {
         e && e.stopPropagation();
         state.dealSwitcherOpen = !state.dealSwitcherOpen;
-        renderDealBar();
+        if (state.dealSwitcherOpen) {
+          _dealSwitcherQuery = "";
+          renderDealBar();
+          setTimeout(() => document.getElementById("dealSwitcherSearch")?.focus(), 60);
+        } else {
+          renderDealBar();
+        }
       }
       function closeDealSwitcher() {
         if (!state.dealSwitcherOpen) return;
         state.dealSwitcherOpen = false;
         renderDealBar();
       }
+      function filterDealSwitcher(value) {
+        _dealSwitcherQuery = value;
+        const list = document.getElementById("dealSwitcherList");
+        if (list) list.innerHTML = renderDealSwitcherListHtml();
+      }
       function switchDeal(projectId) {
         state.dealSwitcherOpen = false;
         openDeal(projectId);
       }
       function renderDealBar() {
-        const el = document.getElementById("dealBarSwitcher");
-        if (!el) return;
-        el.innerHTML = renderDealSwitcherHtml();
+        const btnEl = document.getElementById("dealBarSwitcher");
+        if (btnEl) btnEl.innerHTML = renderDealSwitcherButtonHtml();
+        const overlayEl = document.getElementById("dealSwitcherOverlay");
+        if (overlayEl) overlayEl.innerHTML = renderDealSwitcherOverlayHtml();
       }
-      function renderDealSwitcherHtml() {
+      function _dealSwitcherFilteredProjects() {
         const projects = (state.savedProjects || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        const q = _dealSwitcherQuery.trim().toLowerCase();
+        if (!q) return projects;
+        return projects.filter(p => (p.name || "").toLowerCase().includes(q) || (p.client || "").toLowerCase().includes(q));
+      }
+      function _dealSwitcherItemHtml(p) {
+        const cur = state.activeProjectId;
+        const isActive = p.id === cur;
+        const u = p.deadline ? deadlineUrgency(p.deadline) : null;
+        return `
+          <div class="deal-switcher-item ${isActive ? "active" : ""}" onclick="app.switchDeal('${p.id.replace(/'/g, "")}')">
+            <div class="deal-switcher-item-name">${escapeHtml(p.name || "Без названия")}</div>
+            <div class="deal-switcher-item-sub">
+              ${p.client ? `<span>${escapeHtml(p.client)}</span>` : ""}
+              <span class="status-pill" style="font-size:10px;padding:1px 7px">${escapeHtml(p.crmStatus || "Лид")}</span>
+              ${p.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${escapeHtml(formatDate(p.deadline))}</span>` : ""}
+            </div>
+          </div>
+        `;
+      }
+      function renderDealSwitcherListHtml() {
+        const projects = _dealSwitcherFilteredProjects();
+        if (!projects.length) {
+          return `<div class="deal-switcher-panel-empty">Ничего не найдено</div>`;
+        }
+        const active = projects.filter(p => (p.crmStatus || "Лид") !== "Завершённые");
+        const completed = projects.filter(p => (p.crmStatus || "Лид") === "Завершённые");
+        return `
+          ${active.length ? `
+            <div class="deal-switcher-section-label">В работе (${active.length})</div>
+            ${active.map(_dealSwitcherItemHtml).join("")}
+          ` : ""}
+          ${completed.length ? `
+            <div class="deal-switcher-section-label">Завершённые (${completed.length})</div>
+            ${completed.map(_dealSwitcherItemHtml).join("")}
+          ` : ""}
+        `;
+      }
+      function renderDealSwitcherButtonHtml() {
+        const projects = (state.savedProjects || []);
         const cur = state.activeProjectId;
         const curProj = projects.find(p => p.id === cur);
         return `
@@ -12358,26 +12788,24 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <span class="deal-switcher-btn-label">${escapeHtml((curProj && curProj.name) || state.project.name || "Без названия")}</span>
               <span class="deal-switcher-chevron ${state.dealSwitcherOpen ? "open" : ""}">▼</span>
             </button>
-            ${state.dealSwitcherOpen ? `
-              <div class="deal-switcher-dropdown">
-                ${projects.map((p, i) => {
-                  const isActive = p.id === cur;
-                  const clientObj = p.clientId ? (state.clients || []).find(c => c.id === p.clientId) : null;
-                  const u = p.deadline ? deadlineUrgency(p.deadline) : null;
-                  return `
-                    <div class="deal-switcher-item ${isActive ? "active" : ""}" onclick="app.switchDeal('${p.id.replace(/'/g, "")}')">
-                      <div class="deal-switcher-item-name">${escapeHtml(p.name || "Без названия")}</div>
-                      <div class="deal-switcher-item-sub">
-                        ${p.client ? `<span>${escapeHtml(p.client)}</span>` : ""}
-                        <span class="status-pill" style="font-size:10px;padding:1px 7px">${escapeHtml(p.crmStatus || "Лид")}</span>
-                        ${p.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${escapeHtml(formatDate(p.deadline))}</span>` : ""}
-                      </div>
-                    </div>
-                  `;
-                }).join("")}
-              </div>
-              <div onclick="app.closeDealSwitcher()" style="position:fixed;inset:0;z-index:1000;"></div>
-            ` : ""}
+          </div>
+        `;
+      }
+      function renderDealSwitcherOverlayHtml() {
+        if (!state.dealSwitcherOpen) return "";
+        const sidebarEl = document.getElementById("appSidebar");
+        const panelLeft = sidebarEl ? sidebarEl.offsetWidth : 0;
+        return `
+          <div class="deal-switcher-backdrop" onclick="app.closeDealSwitcher()"></div>
+          <div class="deal-switcher-panel" style="left:${panelLeft}px" onclick="event.stopPropagation()">
+            <div class="deal-switcher-panel-header">
+              <h3>Все сделки</h3>
+              <button class="deal-switcher-panel-close" onclick="app.closeDealSwitcher()" aria-label="Закрыть">&times;</button>
+            </div>
+            <div class="deal-switcher-search-wrap">
+              <input id="dealSwitcherSearch" class="deal-switcher-search" type="text" placeholder="Поиск по названию или клиенту…" value="${escapeHtml(_dealSwitcherQuery)}" oninput="app.filterDealSwitcher(this.value)">
+            </div>
+            <div class="deal-switcher-panel-list" id="dealSwitcherList">${renderDealSwitcherListHtml()}</div>
           </div>
         `;
       }
@@ -13143,6 +13571,7 @@ Email: ______________________            Email: ______________________
                   <textarea class="contract-editor" onchange="app.updateContractField('${c.id}','body',this.value)">${escapeHtml(c.body||"")}</textarea>
                 </div>
                 <p class="mini-note" style="margin-top:8px">Изменения сохраняются автоматически при выходе из поля. Нажми «Печать / PDF» для экспорта.</p>
+                <p class="mini-note" style="margin-top:2px">ℹ️ Шаблон носит справочный характер и не является юридической консультацией — перед отправкой клиенту рекомендуем проверить текст у юриста.</p>
               </div>
             `;
           }
@@ -13154,6 +13583,7 @@ Email: ______________________            Email: ______________________
               <div>
                 <h1>Договоры</h1>
                 <p>База шаблонов и готовых договоров. Редактируй под каждый проект.</p>
+                <p class="mini-note" style="margin-top:4px">ℹ️ Шаблоны носят справочный характер и не являются юридической консультацией — перед использованием с клиентами рекомендуем проверить текст у юриста.</p>
               </div>
               <div class="toolbar no-print">
                 <button class="btn primary" onclick="app.createBlankContract()">+ Пустой договор</button>
@@ -13287,6 +13717,7 @@ Email: ______________________            Email: ______________________
             else if (state.packageEditModal) closePackageEditModal();
             else if (state.helpModal) closeHelpModal();
             else if (state.mainMenuOpen) { state.mainMenuOpen = false; renderModal(); }
+            else if (state.dealSwitcherOpen) closeDealSwitcher();
           }
           // Ctrl+N — новая сделка (кроме полей ввода)
           if ((e.ctrlKey || e.metaKey) && e.key === "n") {
@@ -13340,6 +13771,9 @@ Email: ______________________            Email: ______________________
 
         const importCatalogInput = document.getElementById("importCatalogInput");
         if (importCatalogInput) importCatalogInput.addEventListener("change", importCatalog);
+
+        const importCatalogXlsxInput = document.getElementById("importCatalogXlsxInput");
+        if (importCatalogXlsxInput) importCatalogXlsxInput.addEventListener("change", importCatalogXlsx);
       }
 
       function initTheme() {
@@ -13367,6 +13801,8 @@ Email: ______________________            Email: ______________________
         toggleClientMode,
 
         addItem,
+        catalogAddOne,
+        catalogRemoveOne,
         removeItem,
         duplicateEstimateLine,
         duplicateToCustom,
@@ -13408,6 +13844,8 @@ Email: ______________________            Email: ______________________
         updateClientDraft,
         saveClientDraft,
         checkPhoneField,
+        maskPhoneFocus,
+        maskPhoneInput,
         cancelClientDraft,
         selectClient,
         deleteClient,
@@ -13423,6 +13861,7 @@ Email: ______________________            Email: ______________________
         createTask,
         updateTask,
         deleteTask,
+        setTaskDetailsOpen,
 
         createPayment,
         updatePayment,
@@ -13443,6 +13882,8 @@ Email: ______________________            Email: ______________________
         importData,
         exportCatalog,
         importCatalog,
+        exportCatalogXlsx,
+        importCatalogXlsx,
         exportXlsx,
         copyProposalText,
         printProposal,
@@ -13503,6 +13944,7 @@ Email: ______________________            Email: ______________________
         openDeal,
         toggleDealMenu,
         closeDealMenu,
+        selectDealFromMenu,
         finishDeal,
 
         calSetMonth,
@@ -13539,6 +13981,7 @@ Email: ______________________            Email: ______________________
 
         toggleDealSwitcher,
         closeDealSwitcher,
+        filterDealSwitcher,
         switchDeal,
 
         openDealModal,
@@ -13590,9 +14033,6 @@ Email: ______________________            Email: ______________________
         renderAdminPanel,
         renderActivityLog,
         _logActivity,
-        saveDealAsTemplate,
-        loadDealFromTemplate,
-        deleteDealTemplate,
         loadAdminPanel,
         adminSetSubscription,
         adminCreatePromo,
@@ -13648,7 +14088,13 @@ Email: ______________________            Email: ______________________
         getAgencyId,
         exitLocalModeAndLogin,
         toggleProfileDd,
+        installPWA,
+        dismissPwaInstallBanner,
         toggleSidebar,
+        toggleSidebarNavPopover,
+        toggleSidebarNavItemHidden,
+        sidebarNavDragStart,
+        sidebarNavDrop,
         toggleHelpDd,
         toggleCurrencyDd,
         selectCurrency,
@@ -13728,5 +14174,18 @@ Email: ______________________            Email: ______________________
       });
       window.addEventListener('beforeunload', () => {
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+      });
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        _deferredInstallPrompt = e;
+        renderProfileDd();
+        setTimeout(renderPwaInstallBanner, 1500);
+      });
+      window.addEventListener('appinstalled', () => {
+        _deferredInstallPrompt = null;
+        renderProfileDd();
+        renderPwaInstallBanner();
+        toast('✓ ADERVIS CRM установлен как приложение');
       });
     })();
