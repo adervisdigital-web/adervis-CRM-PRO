@@ -6870,7 +6870,6 @@
           company: client.company || "",
           phone: client.phone || "",
           projectName: client.name + " — проект",
-          projectType: "Видео",
           deadline: "",
         };
         state.view = "wizard";
@@ -6901,7 +6900,6 @@
           company: "",
           phone: "",
           projectName: "",
-          projectType: "Видео",
           deadline: d30.toISOString().slice(0, 10),
           pkgFilter: "all",
         };
@@ -6999,7 +6997,6 @@
             clientId: w.clientId || "",
             city: client ? (client.city || "") : "",
             deadline: w.deadline || "",
-            type: w.projectType || "Видео",
             crmStatus: "Лид"
           },
           activeClientId: w.clientId || "",
@@ -11758,13 +11755,8 @@
         if (w.step === 2) {
           body = `
             <h2 style="margin-bottom:18px">О проекте</h2>
-            <div class="grid two">
+            <div>
               ${field("Название проекта *", `<input value="${escapeHtml(w.projectName)}" oninput="app.wizardSetField('projectName',this.value)" placeholder="Рекламный ролик для Компании">`)}
-              ${field("Тип проекта", `
-                <select onchange="app.wizardSetData('projectType',this.value)">
-                  ${["Видео", "Фото", "Motion", "Мероприятие", "Контент-день", "Прочее"].map(t => `<option value="${t}" ${w.projectType === t ? "selected" : ""}>${t}</option>`).join("")}
-                </select>
-              `)}
             </div>
             <div class="grid two" style="margin-top:12px">
               ${field("Дедлайн", `<input type="date" value="${escapeHtml(w.deadline)}" onchange="app.wizardSetData('deadline',this.value)">`)}
