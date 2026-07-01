@@ -4161,7 +4161,16 @@
             deliveryTerms: "Готовые материалы передаются ссылкой на облачное хранилище.",
             expenseBudget: 0,
             includedText: "Базовая работа команды, согласованные этапы, минимальный комплект услуг по смете.",
-            excludedText: "Сложная графика, актёры, студии, расширенная техника, музыка с платной лицензией и дополнительные версии, если они не указаны в смете."
+            excludedText: "Сложная графика, актёры, студии, расширенная техника, музыка с платной лицензией и дополнительные версии, если они не указаны в смете.",
+            proposalClientMode: "name",
+            proposalClientCustom: "",
+            proposalShowCity: true,
+            proposalShowDeadline: true,
+            proposalShowManager: true,
+            proposalShowBudgetComment: true,
+            proposalShowIncluded: true,
+            proposalShowExcluded: true,
+            proposalShowCompanyInfo: true
           },
           company: {
             name: "Adervis",
@@ -5063,6 +5072,24 @@
 
       function getCurrentClient() {
         return getClientById(state.project.clientId || state.activeClientId);
+      }
+
+      function proposalClientDisplay() {
+        const mode = state.project.proposalClientMode || "name";
+        const client = getCurrentClient();
+        if (mode === "custom") return state.project.proposalClientCustom || "Не указано";
+        if (mode === "company") return client?.company || state.project.client || client?.name || "Не указана";
+        return state.project.client || client?.name || "Не указан";
+      }
+
+      function proposalToggle(key, label) {
+        const checked = state.project[key] !== false;
+        return `
+          <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer">
+            <input type="checkbox" data-autosave data-scope="project" data-key="${key}" ${checked ? "checked" : ""} style="width:16px;height:16px;flex:0 0 auto;accent-color:var(--primary)">
+            ${escapeHtml(label)}
+          </label>
+        `;
       }
 
       function createClientFromProject() {
@@ -7084,15 +7111,33 @@
         render();
       }
 
-      function dragStart(id) {
+      function dragStart(event, id) {
         draggedLineId = id;
+        event.currentTarget.classList.add("dragging");
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
       }
 
-      function dragOver(event) {
+      function dragOver(event, targetId) {
         event.preventDefault();
+        if (!draggedLineId || draggedLineId === targetId) return;
+        if (!event.currentTarget.classList.contains("drag-over")) {
+          document.querySelectorAll(".item.drag-over").forEach(el => el.classList.remove("drag-over"));
+          event.currentTarget.classList.add("drag-over");
+        }
       }
 
-      function dropOn(targetId) {
+      function dragLeaveLine(event) {
+        event.currentTarget.classList.remove("drag-over");
+      }
+
+      function dragEndLine(event) {
+        event.currentTarget.classList.remove("dragging");
+        event.currentTarget.draggable = false;
+        document.querySelectorAll(".item.drag-over").forEach(el => el.classList.remove("drag-over"));
+      }
+
+      function dropOn(event, targetId) {
+        event.currentTarget.classList.remove("drag-over");
         if (!draggedLineId || draggedLineId === targetId) return;
 
         saveHistory();
@@ -7486,7 +7531,7 @@
           state.company.name || "Adervis",
           "",
           `Коммерческое предложение: ${state.project.name || "Проект"}`,
-          `Клиент: ${state.project.client || "не указан"}`,
+          `Клиент: ${proposalClientDisplay()}`,
           `Город: ${state.project.city || ""}`,
           "",
           rows,
@@ -9543,10 +9588,10 @@
         const gridClass = mainFields.length >= 4 ? "four" : mainFields.length === 3 ? "three" : "two";
 
         return `
-          <article class="item ${line.optional ? "optional" : ""}" draggable="true" ondragstart="app.dragStart('${id}')" ondragover="app.dragOver(event)" ondrop="app.dropOn('${id}')">
+          <article class="item ${line.optional ? "optional" : ""}" ondragstart="app.dragStart(event,'${id}')" ondragover="app.dragOver(event,'${id}')" ondragleave="app.dragLeaveLine(event)" ondrop="app.dropOn(event,'${id}')" ondragend="app.dragEndLine(event)">
             <div class="item-top">
               <div style="display:flex;gap:12px;flex:1;min-width:0">
-                <div class="drag-handle no-print" title="Перетащи для сортировки">☰</div>
+                <div class="drag-handle no-print" title="Перетащи для сортировки" onmousedown="this.closest('.item').draggable=true" onmouseup="this.closest('.item').draggable=false">☰</div>
                 <div style="flex:1;min-width:0">
                   <input class="line-name-input" type="text" data-autosave data-scope="line" data-id="${id}" data-key="lineName" value="${escapeHtml(line.lineName || "")}" placeholder="${escapeHtml(itemData.name)}" title="Нажми, чтобы переименовать позицию" style="color:var(--text);font-weight:750;font-size:15px">
                   ${!collapsed ? `<textarea class="line-desc-input" data-autosave data-scope="line" data-id="${id}" data-key="editedDesc" placeholder="${escapeHtml(itemData.desc)}" title="Нажми чтобы отредактировать описание" style="color:var(--muted);font-size:12px">${escapeHtml(line.editedDesc || "")}</textarea>` : ""}
@@ -10874,6 +10919,29 @@
               ${field("Не включено", `<textarea data-autosave data-scope="project" data-key="excludedText">${escapeHtml(state.project.excludedText)}</textarea>`)}
             </div>
 
+            <div class="no-print client-hidden" style="margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)">
+              <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px">Что показывать в КП</div>
+              <div class="grid two" style="margin-bottom:14px">
+                ${field("Клиент показывать как", `
+                  <select data-autosave data-scope="project" data-key="proposalClientMode">
+                    ${optionValueHtml("name", "Имя клиента", state.project.proposalClientMode)}
+                    ${optionValueHtml("company", "Компания", state.project.proposalClientMode)}
+                    ${optionValueHtml("custom", "Своё значение", state.project.proposalClientMode)}
+                  </select>
+                `)}
+                ${state.project.proposalClientMode === "custom" ? field("Своё значение", `<input data-autosave data-scope="project" data-key="proposalClientCustom" value="${escapeHtml(state.project.proposalClientCustom)}" placeholder="Например: ООО «Ромашка»">`) : ""}
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:12px 22px">
+                ${proposalToggle("proposalShowCity", "Город")}
+                ${proposalToggle("proposalShowDeadline", "Дедлайн")}
+                ${proposalToggle("proposalShowManager", "Менеджер")}
+                ${proposalToggle("proposalShowBudgetComment", "Комментарий к бюджету")}
+                ${proposalToggle("proposalShowIncluded", "Блок «Что входит»")}
+                ${proposalToggle("proposalShowExcluded", "Блок «Что не входит»")}
+                ${proposalToggle("proposalShowCompanyInfo", "Информация о компании")}
+              </div>
+            </div>
+
             <div class="proposal-preview">
               ${renderProposalPrint()}
             </div>
@@ -10887,7 +10955,6 @@
         const showDetails = state.project.proposalMode !== "short" && template.showDetails;
         const mainIds = selectedIds().filter(id => !state.selected[id]?.optional);
         const optionalIds = selectedIds().filter(id => state.selected[id]?.optional);
-        const client = getCurrentClient();
         const companyLogo = String(state.company.logoUrl || "logo-icon.svg").trim();
 
         return `
@@ -10908,10 +10975,10 @@
             <table>
               <tbody>
                 <tr><td><strong>Проект</strong></td><td>${escapeHtml(state.project.name || "Видео-проект")}</td></tr>
-                <tr><td><strong>Клиент</strong></td><td>${escapeHtml(state.project.client || client?.name || "Не указан")}</td></tr>
-                ${state.project.city ? `<tr><td><strong>Город</strong></td><td>${escapeHtml(state.project.city)}</td></tr>` : ""}
-                ${state.project.deadline ? `<tr><td><strong>Дедлайн</strong></td><td>${escapeHtml(formatDate(state.project.deadline))}</td></tr>` : ""}
-                ${state.project.manager ? `<tr><td><strong>Менеджер</strong></td><td>${escapeHtml(state.project.manager)}</td></tr>` : ""}
+                <tr><td><strong>Клиент</strong></td><td>${escapeHtml(proposalClientDisplay())}</td></tr>
+                ${state.project.city && state.project.proposalShowCity !== false ? `<tr><td><strong>Город</strong></td><td>${escapeHtml(state.project.city)}</td></tr>` : ""}
+                ${state.project.deadline && state.project.proposalShowDeadline !== false ? `<tr><td><strong>Дедлайн</strong></td><td>${escapeHtml(formatDate(state.project.deadline))}</td></tr>` : ""}
+                ${state.project.manager && state.project.proposalShowManager !== false ? `<tr><td><strong>Менеджер</strong></td><td>${escapeHtml(state.project.manager)}</td></tr>` : ""}
               </tbody>
             </table>
 
@@ -10937,16 +11004,20 @@
               </tbody>
             </table>
 
-            ${state.project.budgetComment ? `
+            ${state.project.budgetComment && state.project.proposalShowBudgetComment !== false ? `
               <h2>Комментарий к бюджету</h2>
               <p>${escapeHtml(state.project.budgetComment)}</p>
             ` : ""}
 
-            <h2>Что входит</h2>
-            <p>${escapeHtml(state.project.includedText || "")}</p>
+            ${state.project.proposalShowIncluded !== false ? `
+              <h2>Что входит</h2>
+              <p>${escapeHtml(state.project.includedText || "")}</p>
+            ` : ""}
 
-            <h2>Что не входит</h2>
-            <p>${escapeHtml(state.project.excludedText || "")}</p>
+            ${state.project.proposalShowExcluded !== false ? `
+              <h2>Что не входит</h2>
+              <p>${escapeHtml(state.project.excludedText || "")}</p>
+            ` : ""}
 
             <h2>Условия</h2>
             <table>
@@ -10957,7 +11028,7 @@
               </tbody>
             </table>
 
-            ${state.company.details || state.company.terms || state.company.requisites ? `
+            ${(state.company.details || state.company.terms || state.company.requisites) && state.project.proposalShowCompanyInfo !== false ? `
               <h2>Информация о компании</h2>
               ${state.company.details ? `<p>${escapeHtml(state.company.details)}</p>` : ""}
               ${state.company.terms ? `<p>${escapeHtml(state.company.terms)}</p>` : ""}
@@ -13068,9 +13139,19 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const idx = (state.clients || []).findIndex(c => c.id === m.id);
         if (idx >= 0) {
           state.clients[idx] = normalizeClient({ ...state.clients[idx], ...m, updatedAt: new Date().toISOString() });
-          // Синхронизируем имя клиента во всех сделках
+          // Синхронизируем имя клиента во всех связанных сделках — включая архивный
+          // снапшот и текущую открытую смету, а не только верхнеуровневое поле карточки
           (state.savedProjects || []).forEach(p => {
-            if (p.clientId === m.id) p.client = m.name || p.client;
+            if (p.clientId !== m.id) return;
+            p.client = m.name || p.client;
+            if (p.snapshot && p.snapshot.project) {
+              p.snapshot.project.client = p.client;
+              p.snapshot.project.clientId = m.id;
+            }
+            if (p.id === state.activeProjectId) {
+              state.project.client = p.client;
+              state.project.clientId = m.id;
+            }
           });
         }
         // Сохраняем дедлайн проекта если открыто из карточки сделки
@@ -13270,6 +13351,29 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!state.dealModal) return;
         state.dealModal[key] = value;
       }
+      function linkDealClient(projectId, clientId) {
+        const proj = (state.savedProjects || []).find(p => p.id === projectId);
+        if (!proj) return;
+        const client = clientId ? (state.clients || []).find(c => c.id === clientId) : null;
+        proj.clientId = client ? client.id : "";
+        proj.client = client ? client.name : proj.client;
+        if (proj.snapshot && proj.snapshot.project) {
+          proj.snapshot.project.clientId = proj.clientId;
+          proj.snapshot.project.client = proj.client;
+        }
+        if (proj.id === state.activeProjectId) {
+          state.project.clientId = proj.clientId;
+          state.project.client = proj.client;
+        }
+        if (state.dealModal && state.dealModal.id === projectId) {
+          state.dealModal.clientId = proj.clientId;
+          state.dealModal.client = proj.client;
+        }
+        toast(client ? `Сделка привязана к клиенту «${client.name}»` : "Сделка отвязана от клиента");
+        save();
+        renderModal();
+        render();
+      }
       function _addDealTag(val) {
         if (!state.dealModal) return;
         const tag = (val || "").trim().toLowerCase();
@@ -13334,7 +13438,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               </div>
               <div class="grid two" style="margin-bottom:12px">
                 ${field("Название сделки *", `<input value="${escapeHtml(m.name || "")}" oninput="app.setDealModalField('name',this.value)" placeholder="Название проекта">`)}
-                ${field("Клиент", `<input value="${escapeHtml(m.client || "")}" readonly style="opacity:.65;cursor:not-allowed" title="Клиент изменяется в карточке клиента">`)}
+                ${field("Клиент", `
+                  <select onchange="app.linkDealClient('${escapeHtml(m.id)}', this.value)" title="Привяжи к клиенту из справочника — тогда переименование клиента подтянется сюда автоматически">
+                    ${!m.clientId && m.client ? `<option value="" selected>${escapeHtml(m.client)} (не привязан)</option>` : `<option value="">— не привязан —</option>`}
+                    ${(state.clients || []).map(c => optionValueHtml(c.id, c.company ? `${c.name} · ${c.company}` : c.name, m.clientId)).join("")}
+                  </select>
+                `)}
                 ${field("Статус воронки", `<select onchange="app.setDealModalField('crmStatus',this.value)">
                   ${CRM_STATUSES.map(s => `<option value="${s}" ${m.crmStatus === s ? "selected" : ""}>${s}</option>`).join("")}
                 </select>`)}
@@ -14339,6 +14448,8 @@ Email: ______________________            Email: ______________________
 
         dragStart,
         dragOver,
+        dragLeaveLine,
+        dragEndLine,
         dropOn,
 
         undo,
@@ -14434,6 +14545,7 @@ Email: ______________________            Email: ______________________
         openDealModal,
         closeDealModal,
         setDealModalField,
+        linkDealClient,
         saveDealModal,
 
         openTaskModal,
