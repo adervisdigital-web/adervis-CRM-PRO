@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /?portal=
+Disallow: /?brief=
+
+Sitemap: https://app.adervis.ru/sitemap.xml
