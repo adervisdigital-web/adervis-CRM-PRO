@@ -1762,49 +1762,58 @@
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) { f.error = "Некорректный email"; renderAuthGateEl(); return; }
         f.loading = true; f.error = ""; renderAuthGateEl();
 
-        if (_authTab === "register") {
-          if ((f.inviteCode || "").trim()) _pendingInviteCode = f.inviteCode.trim();
-          const { data: signUpData, error } = await _supabase.auth.signUp({ email: f.email, password: f.password,
-            options: { data: { name: f.name } } });
-          f.loading = false;
-          if (error) { f.error = error.message; _pendingInviteCode = ""; renderAuthGateEl(); return; }
-          if (!signUpData.session) {
-            if (!signUpData.user) {
-              _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `Этот email уже зарегистрирован. Войдите с вашим паролем или воспользуйтесь «Забыли пароль?».`, loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
+        try {
+          if (_authTab === "register") {
+            if ((f.inviteCode || "").trim()) _pendingInviteCode = f.inviteCode.trim();
+            const { data: signUpData, error } = await _supabase.auth.signUp({ email: f.email, password: f.password,
+              options: { data: { name: f.name } } });
+            f.loading = false;
+            if (error) { f.error = error.message; _pendingInviteCode = ""; renderAuthGateEl(); return; }
+            if (!signUpData.session) {
+              if (!signUpData.user) {
+                _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `Этот email уже зарегистрирован. Войдите с вашим паролем или воспользуйтесь «Забыли пароль?».`, loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
+                _authTab = "login"; renderAuthGateEl(); return;
+              }
+              _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `📧 Письмо отправлено на ${f.email}. Перейдите по ссылке в письме для активации, затем войдите здесь.`, loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
               _authTab = "login"; renderAuthGateEl(); return;
             }
-            _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `📧 Письмо отправлено на ${f.email}. Перейдите по ссылке в письме для активации, затем войдите здесь.`, loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
-            _authTab = "login"; renderAuthGateEl(); return;
-          }
-          f.error = ""; _authFields = { email: "", password: "", name: "", inviteCode: "", error: "✅ Аккаунт создан! Войдите ниже.", loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
-          _authTab = "login"; renderAuthGateEl();
-        } else {
-          const now = Date.now();
-          if (_loginLockUntil > now) {
-            const secs = Math.ceil((_loginLockUntil - now) / 1000);
+            f.error = ""; _authFields = { email: "", password: "", name: "", inviteCode: "", error: "✅ Аккаунт создан! Войдите ниже.", loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
+            _authTab = "login"; renderAuthGateEl();
+          } else {
+            const now = Date.now();
+            if (_loginLockUntil > now) {
+              const secs = Math.ceil((_loginLockUntil - now) / 1000);
+              f.loading = false;
+              f.error = `Слишком много попыток. Подождите ${secs} сек.`;
+              renderAuthGateEl(); return;
+            }
+            const rememberMe = f.rememberMe;
+            const { error } = await _supabase.auth.signInWithPassword({ email: f.email, password: f.password });
             f.loading = false;
-            f.error = `Слишком много попыток. Подождите ${secs} сек.`;
-            renderAuthGateEl(); return;
+            if (error) {
+              _loginFailCount++;
+              if (_loginFailCount >= 3) { _loginLockUntil = Date.now() + 30000; _loginFailCount = 0; }
+              f.error = error.message === "Invalid login credentials" ? "Неверный email или пароль" : error.message;
+              renderAuthGateEl(); return;
+            }
+            _loginFailCount = 0; _loginLockUntil = 0;
+            if (!rememberMe) {
+              // pagehide fires on mobile (beforeunload is unreliable on iOS/Android).
+              // Remove token synchronously — async signOut() won't finish before page dies.
+              window.addEventListener("pagehide", () => {
+                const { url } = getSupabaseConfig();
+                const ref = (url.match(/https?:\/\/([^.]+)\./) || [])[1];
+                if (ref) localStorage.removeItem(`sb-${ref}-auth-token`);
+              }, { once: true });
+            }
           }
-          const rememberMe = f.rememberMe;
-          const { error } = await _supabase.auth.signInWithPassword({ email: f.email, password: f.password });
+        } catch (e) {
+          // Без этого catch — при брошенном (не возвращённом как {error}) исключении
+          // f.loading оставался true навсегда: кнопка зависала на "Подождите..." без
+          // единого сообщения, форму можно было починить только перезагрузкой страницы.
           f.loading = false;
-          if (error) {
-            _loginFailCount++;
-            if (_loginFailCount >= 3) { _loginLockUntil = Date.now() + 30000; _loginFailCount = 0; }
-            f.error = error.message === "Invalid login credentials" ? "Неверный email или пароль" : error.message;
-            renderAuthGateEl(); return;
-          }
-          _loginFailCount = 0; _loginLockUntil = 0;
-          if (!rememberMe) {
-            // pagehide fires on mobile (beforeunload is unreliable on iOS/Android).
-            // Remove token synchronously — async signOut() won't finish before page dies.
-            window.addEventListener("pagehide", () => {
-              const { url } = getSupabaseConfig();
-              const ref = (url.match(/https?:\/\/([^.]+)\./) || [])[1];
-              if (ref) localStorage.removeItem(`sb-${ref}-auth-token`);
-            }, { once: true });
-          }
+          f.error = "Не удалось подключиться к серверу. Проверьте интернет-соединение и попробуйте ещё раз." + (e && e.message ? ` (${e.message})` : "");
+          renderAuthGateEl();
         }
       }
 
@@ -1813,13 +1822,19 @@
         if (!f.email) { f.error = "Введите email"; renderAuthGateEl(); return; }
         if (!_supabase) { f.error = "Supabase не настроен"; renderAuthGateEl(); return; }
         f.loading = true; f.error = ""; renderAuthGateEl();
-        const { error } = await _supabase.auth.resetPasswordForEmail(f.email, {
-          redirectTo: location.origin + location.pathname + '?type=recovery',
-        });
-        f.loading = false;
-        if (error) { f.error = error.message; renderAuthGateEl(); return; }
-        f.forgotSent = true;
-        renderAuthGateEl();
+        try {
+          const { error } = await _supabase.auth.resetPasswordForEmail(f.email, {
+            redirectTo: location.origin + location.pathname + '?type=recovery',
+          });
+          f.loading = false;
+          if (error) { f.error = error.message; renderAuthGateEl(); return; }
+          f.forgotSent = true;
+          renderAuthGateEl();
+        } catch (e) {
+          f.loading = false;
+          f.error = "Не удалось подключиться к серверу. Проверьте интернет-соединение и попробуйте ещё раз." + (e && e.message ? ` (${e.message})` : "");
+          renderAuthGateEl();
+        }
       }
 
       async function oauthSignIn(provider) {
@@ -1827,11 +1842,16 @@
           _authFields.error = "Supabase не настроен — настройте в разделе Настройки";
           renderAuthGateEl(); return;
         }
-        const { error } = await _supabase.auth.signInWithOAuth({
-          provider,
-          options: { redirectTo: location.origin + location.pathname }
-        });
-        if (error) { _authFields.error = error.message; renderAuthGateEl(); }
+        try {
+          const { error } = await _supabase.auth.signInWithOAuth({
+            provider,
+            options: { redirectTo: location.origin + location.pathname }
+          });
+          if (error) { _authFields.error = error.message; renderAuthGateEl(); }
+        } catch (e) {
+          _authFields.error = "Не удалось подключиться к серверу. Проверьте интернет-соединение и попробуйте ещё раз." + (e && e.message ? ` (${e.message})` : "");
+          renderAuthGateEl();
+        }
       }
 
       let _vkidInited = false;
