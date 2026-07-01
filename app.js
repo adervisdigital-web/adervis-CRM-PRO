@@ -4119,6 +4119,7 @@
           hiddenItems: {},
           permanentlyDeleted: {},
           catalogPrices: {},
+          catalogOverrides: {},
           priceHistory: {},
           versions: [],
           savedProjects: [],
@@ -4332,6 +4333,7 @@
           stageCollapsed: deepClone(project?.stageCollapsed || {}),
           customItems: deepClone(project?.customItems || []),
           catalogPrices: deepClone(project?.catalogPrices || {}),
+          catalogOverrides: deepClone(project?.catalogOverrides || {}),
           hiddenItems: deepClone(project?.hiddenItems || {}),
           stages: deepClone(project?.stages || DEFAULT_STAGES),
           versions: deepClone(project?.versions || []),
@@ -4386,6 +4388,7 @@
           hiddenItems: old.hiddenItems || {},
           permanentlyDeleted: old.permanentlyDeleted || {},
           catalogPrices: old.catalogPrices || {},
+          catalogOverrides: old.catalogOverrides || {},
           priceHistory: old.priceHistory || {},
           versions: Array.isArray(old.versions) ? old.versions : [],
           favorites: old.favorites || {},
@@ -4454,6 +4457,7 @@
           permanentlyDeleted: state.permanentlyDeleted || {},
           favorites: state.favorites || {},
           catalogPrices: state.catalogPrices || {},
+          catalogOverrides: state.catalogOverrides || {},
           priceHistory: state.priceHistory || {},
           clients: Array.isArray(state.clients) ? state.clients.map(normalizeClient) : [],
           savedProjects: Array.isArray(state.savedProjects) ? state.savedProjects.map(p => { const n = normalizeSavedProject(p); n.deadline = sanitizeDate(n.deadline); if (n.snapshot && n.snapshot.project) n.snapshot.project.deadline = sanitizeDate(n.snapshot.project.deadline); return n; }) : [],
@@ -4587,7 +4591,12 @@
       }
 
       function allItems(includeHidden = false) {
-        const items = [...BASE_ITEMS, ...(state.customItems || [])].filter(x => !state.permanentlyDeleted?.[x.id]);
+        const items = [...BASE_ITEMS, ...(state.customItems || [])]
+          .filter(x => !state.permanentlyDeleted?.[x.id])
+          .map(x => {
+            const ov = state.catalogOverrides?.[x.id];
+            return ov ? { ...x, ...ov } : x;
+          });
         return includeHidden ? items : items.filter(x => !state.hiddenItems?.[x.id]);
       }
 
@@ -5138,6 +5147,7 @@
           stageCollapsed: deepClone(state.stageCollapsed),
           customItems: deepClone(state.customItems),
           catalogPrices: deepClone(state.catalogPrices),
+          catalogOverrides: deepClone(state.catalogOverrides),
           hiddenItems: deepClone(state.hiddenItems),
           stages: deepClone(state.stages),
           versions: deepClone(state.versions),
@@ -5339,6 +5349,7 @@
           clients: deepClone(state.clients),
           savedProjects: deepClone(state.savedProjects),
           catalogPrices: deepClone(state.catalogPrices),
+          catalogOverrides: deepClone(state.catalogOverrides),
           priceHistory: deepClone(state.priceHistory),
           customItems: deepClone(state.customItems),
           hiddenItems: deepClone(state.hiddenItems),
@@ -5727,6 +5738,25 @@
         }
 
         toast("Цена сброшена к базе");
+        save();
+        render();
+      }
+
+      // Редактирование названия/описания/этапа/единицы у встроенной позиции каталога
+      // (не у "своих" — у тех уже есть updateCustomItem). Хранится отдельно от BASE_ITEMS,
+      // накладывается поверх в allItems() — оригинал в коде не трогаем.
+      function updateCatalogOverride(id, key, value) {
+        const base = BASE_ITEMS.find(x => x.id === id);
+        if (!base) return;
+        if (!state.catalogOverrides) state.catalogOverrides = {};
+        const current = { ...(state.catalogOverrides[id] || {}) };
+
+        if (value === base[key]) delete current[key];
+        else current[key] = value;
+
+        if (Object.keys(current).length) state.catalogOverrides[id] = current;
+        else delete state.catalogOverrides[id];
+
         save();
         render();
       }
@@ -6680,6 +6710,12 @@
         else if (state.packageEditModal) { el.innerHTML = renderPackageEditModal(); }
         else if (state.catalogEditId) { el.innerHTML = renderCatalogEditModal(); }
         else { el.innerHTML = ""; }
+        // renderModal() иногда вызывается отдельно от полного render() (напр. открытие
+        // модалки каталога через openCatalogEdit) — без этого свежие data-autosave/
+        // data-live поля внутри модалки оставались без обработчиков до следующего render().
+        // Область — только сама модалка, чтобы не навешивать вторые обработчики на
+        // #appContent при render(), который и так уже вызывает bindDynamicInputs() сам.
+        bindDynamicInputs(el);
       }
 
       function renderFinanceModal() {
@@ -7000,6 +7036,7 @@
           clients: deepClone(state.clients),
           savedProjects: deepClone(state.savedProjects),
           catalogPrices: deepClone(state.catalogPrices),
+          catalogOverrides: deepClone(state.catalogOverrides),
           priceHistory: deepClone(state.priceHistory),
           customItems: deepClone(state.customItems),
           hiddenItems: deepClone(state.hiddenItems),
@@ -7232,6 +7269,7 @@
       function exportCatalog() {
         downloadJson(`adervis-catalog-${todayIso()}.json`, {
           catalogPrices: state.catalogPrices,
+          catalogOverrides: state.catalogOverrides,
           customItems: state.customItems,
           hiddenItems: state.hiddenItems,
           favorites: state.favorites,
@@ -7249,6 +7287,7 @@
           try {
             const imported = JSON.parse(reader.result);
             state.catalogPrices = imported.catalogPrices || state.catalogPrices || {};
+            state.catalogOverrides = imported.catalogOverrides || state.catalogOverrides || {};
             state.customItems = imported.customItems || state.customItems || [];
             state.hiddenItems = imported.hiddenItems || state.hiddenItems || {};
             state.favorites = imported.favorites || state.favorites || {};
@@ -7812,8 +7851,8 @@
         if (_helpDdOpen) renderHelpDd();
       }
 
-      function bindDynamicInputs() {
-        document.querySelectorAll("[data-autosave]").forEach(input => {
+      function bindDynamicInputs(root) {
+        (root || document).querySelectorAll("[data-autosave]").forEach(input => {
           input.addEventListener("change", event => {
             const el = event.currentTarget;
             const scope = el.dataset.scope;
@@ -7825,6 +7864,7 @@
             if (scope === "company") updateCompany(key, value);
             if (scope === "line") updateLine(id, key, value);
             if (scope === "custom") updateCustomItem(id, key, value);
+            if (scope === "catalogOverride") updateCatalogOverride(id, key, value);
             if (scope === "clientDraft") updateClientDraft(key, value);
             if (scope === "task") updateTask(id, key, value);
             if (scope === "payment") updatePayment(id, key, value);
@@ -7834,7 +7874,7 @@
           });
         });
 
-        document.querySelectorAll("[data-live]").forEach(input => {
+        (root || document).querySelectorAll("[data-live]").forEach(input => {
           input.addEventListener("input", event => {
             const el = event.currentTarget;
             const scope = el.dataset.scope;
@@ -7846,6 +7886,7 @@
             if (scope === "company") updateCompany(key, value);
             if (scope === "line") updateLine(id, key, value);
             if (scope === "custom") updateCustomItem(id, key, value);
+            if (scope === "catalogOverride") updateCatalogOverride(id, key, value);
             if (scope === "clientDraft") updateClientDraft(key, value);
             if (scope === "task") updateTask(id, key, value);
             if (scope === "payment") updatePayment(id, key, value);
@@ -9016,14 +9057,25 @@
             ${field("Единица", `<input data-autosave data-scope="custom" data-id="${id}" data-key="unit" value="${escapeHtml(itemData.unit || "шт")}">`)}
           </div>
         ` : `
-          <p style="font-size:13px;color:var(--muted);margin:0 0 16px;line-height:1.6">${escapeHtml(itemData.desc)}</p>
-          <div class="badges" style="margin-bottom:16px">
-            <span class="badge">${escapeHtml(itemData.section)}</span>
-            <span class="badge">Этап: ${escapeHtml(getItemStageName(itemData))}</span>
-            <span class="badge">Модель: ${escapeHtml(itemData.calcModel)}</span>
-            <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
-            ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>` : ""}
+          <div style="margin-bottom:14px">
+            ${field("Название", `<input data-autosave data-scope="catalogOverride" data-id="${id}" data-key="name" value="${escapeHtml(itemData.name)}">`)}
           </div>
+          <div style="margin-bottom:14px">
+            ${field("Описание", `<textarea data-autosave data-scope="catalogOverride" data-id="${id}" data-key="desc" style="min-height:64px;resize:vertical">${escapeHtml(itemData.desc || "")}</textarea>`)}
+          </div>
+          <div class="grid two" style="margin-bottom:14px">
+            ${field("Этап", `
+              <select data-autosave data-scope="catalogOverride" data-id="${id}" data-key="stage">
+                ${state.stages.map(s => optionValueHtml(s.id, s.name, itemData.stage || "pre")).join("")}
+              </select>
+            `)}
+            ${field("Единица", `<input data-autosave data-scope="catalogOverride" data-id="${id}" data-key="unit" value="${escapeHtml(itemData.unit || "шт")}">`)}
+          </div>
+          ${isPassthroughCostItem(itemData) ? `
+            <div class="badges" style="margin-bottom:14px">
+              <span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>
+            </div>
+          ` : ""}
           <div>
             ${field("Цена, ₽", `<input type="number" class="catalog-price-input" value="${currentPrice}" onchange="app.updateCatalogPrice('${id}', this.value)" style="font-size:20px;font-weight:800;padding:12px 14px">`)}
           </div>
