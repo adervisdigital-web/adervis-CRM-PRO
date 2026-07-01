@@ -34,6 +34,25 @@ Deno.serve(async (req) => {
       .filter(Boolean);
   }
 
+  // Rate-limit: без JWT (--no-verify-jwt), единственная защита от спама — знание
+  // portalId/agencyId, а оба встроены в публичные ссылки (КП-портал, бриф-форма),
+  // которые агентство само раздаёт клиентам. Без этого лимита кто угодно, зная
+  // ссылку, мог дёргать этот эндпоинт бесконечно и заваливать Telegram агентства
+  // фейковыми уведомлениями. Throttle-метка хранится в самом agency_state —
+  // тот же паттерн, что _botSessions в telegram-webhook.
+  async function isThrottled(agencyId: string, key: string, windowMs: number): Promise<boolean> {
+    const { data } = await supabase.from("agency_state").select("state_json").eq("id", agencyId).maybeSingle();
+    const st: any = { ...(data?.state_json || {}) };
+    const throttle: any = { ...(st._notifyThrottle || {}) };
+    const last = throttle[key] || 0;
+    const now = Date.now();
+    if (now - last < windowMs) return true;
+    throttle[key] = now;
+    st._notifyThrottle = throttle;
+    await supabase.from("agency_state").upsert({ id: agencyId, state_json: st, updated_at: new Date().toISOString() });
+    return false;
+  }
+
   async function sendToAll(chatIds: string[], text: string): Promise<void> {
     for (const chatId of chatIds) {
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -59,6 +78,10 @@ Deno.serve(async (req) => {
 
     if (!portal?.agency_id) return ok("portal not found");
 
+    // Раз в 30 мин на портал — совпадает с намерением клиентского localStorage-гейта
+    // в app.js, но применяется на сервере, поэтому не обходится прямым вызовом API.
+    if (await isThrottled(portal.agency_id, `portal_${body.portalId}`, 30 * 60 * 1000)) return ok("throttled");
+
     const chatIds = await getTelegramIds(portal.agency_id);
     if (!chatIds.length) return ok("no recipients");
 
@@ -76,6 +99,11 @@ Deno.serve(async (req) => {
 
   if (body.type === "brief_submitted" && body.agencyId && body.briefData) {
     const d = body.briefData;
+
+    // Раз в 60 сек на агентство — двум настоящим брифам подряд от разных клиентов
+    // это не помешает, а скриптовый спам фейковыми данными в body.briefData душит.
+    if (await isThrottled(body.agencyId, "brief_submitted", 60 * 1000)) return ok("throttled");
+
     const chatIds = await getTelegramIds(body.agencyId);
     if (!chatIds.length) return ok("no recipients");
 
