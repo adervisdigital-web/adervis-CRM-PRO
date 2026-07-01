@@ -8967,7 +8967,9 @@
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">` : ""}
                         <div style="min-width:0;flex:1">
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
-                          ${project.client ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>` : ""}
+                          ${project.clientId
+                            ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>`
+                            : `<div style="font-size:11px;color:var(--yellow);font-weight:700;margin-top:2px" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Клиент не привязан"}</div>`}
                         </div>
                         <div style="display:flex;gap:4px;align-items:center;flex:0 0 auto;position:relative">
                           <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
@@ -11156,7 +11158,7 @@
                           ondragstart="app.onKanbanDragStart(event,'${project.id}','crm')"
                           ondragend="document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('dragover'))">
                           <h3>${escapeHtml(project.name)}</h3>
-                          <p>${escapeHtml(project.client || "Клиент не указан")}</p>
+                          <p${project.clientId ? "" : ` style="color:var(--yellow);font-weight:700" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно"`}>${project.clientId ? escapeHtml(project.client) : `⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Клиент не привязан"}`}</p>
                           <div class="badges">
                             <span class="badge">${money(project.total)}</span>
                             ${project.deadline ? `<span class="badge">${formatDate(project.deadline)}</span>` : ""}
