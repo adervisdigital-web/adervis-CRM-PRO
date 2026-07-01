@@ -1150,12 +1150,16 @@
           .on("broadcast", { event: "state-sync" }, ({ payload }) => {
             if (!payload || !payload.data) return;
             if (payload.sender && payload.sender === myEmail) return;
-            const incoming = payload.data;
-            SYNC_SKIP_KEYS.forEach(k => { if (k in state) incoming[k] = state[k]; });
-            Object.assign(state, incoming);
-            _needsNormalize = true;
-            render();
-            toast("🔄 Обновление от " + (payload.sender || "коллеги"));
+            const active = document.activeElement;
+            if (active && active.matches && active.matches("[data-live], [data-autosave]")) {
+              // Пользователь прямо сейчас печатает в это поле — полная замена state
+              // снапшотом коллеги стёрла бы ещё не отправленный символ (broadcastState
+              // из save() debounce'ится на 1200мс) без единого предупреждения. Откладываем
+              // применение снапшота до потери фокуса этим полем.
+              active.addEventListener("blur", () => _applyRemoteStateSync(payload), { once: true });
+              return;
+            }
+            _applyRemoteStateSync(payload);
           })
           .on("presence", { event: "sync" }, () => {
             const presState = _realtimeChannel.presenceState();
@@ -1179,6 +1183,15 @@
               await _realtimeChannel.track({ email: myEmail });
             }
           });
+      }
+
+      function _applyRemoteStateSync(payload) {
+        const incoming = payload.data;
+        SYNC_SKIP_KEYS.forEach(k => { if (k in state) incoming[k] = state[k]; });
+        Object.assign(state, incoming);
+        _needsNormalize = true;
+        render();
+        toast("🔄 Обновление от " + (payload.sender || "коллеги"));
       }
 
       function broadcastState() {
