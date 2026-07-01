@@ -1052,6 +1052,39 @@
       border-style: dashed;
     }
 
+    .item {
+      transition: opacity .2s ease, transform .2s cubic-bezier(0.4,0,0.2,1), border-color .2s ease;
+    }
+
+    .item.dragging {
+      opacity: .35;
+      transform: scale(.97);
+    }
+
+    .item.drag-over {
+      position: relative;
+    }
+
+    .item.drag-over::before {
+      content: "";
+      position: absolute;
+      left: 12px; right: 12px; top: -7px;
+      height: 3px;
+      border-radius: 99px;
+      background: var(--primary);
+      box-shadow: 0 0 10px rgba(124, 58, 237, .65);
+      animation: dragIndicatorPulse 1s ease-in-out infinite;
+    }
+
+    @keyframes dragIndicatorPulse {
+      0%, 100% { opacity: .7; }
+      50% { opacity: 1; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .item.drag-over::before { animation: none; }
+    }
+
     .item-top,
     .line-head {
       display: flex;
@@ -1271,6 +1304,18 @@
       cursor: grab;
       user-select: none;
       flex: 0 0 auto;
+      transition: color .15s ease, border-color .15s ease, background .15s ease;
+    }
+
+    .drag-handle:hover {
+      color: var(--text);
+      border-color: var(--primary2);
+      background: rgba(124, 58, 237, .08);
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+      background: rgba(124, 58, 237, .16);
     }
 
     .proposal-preview {
