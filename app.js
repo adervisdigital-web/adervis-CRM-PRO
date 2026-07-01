@@ -7742,6 +7742,29 @@
         const root = document.getElementById("appContent");
         if (!root) return;
 
+        // render() полностью пересоздаёт #appContent через innerHTML — любой сфокусированный
+        // инпут (поиск, data-live/data-autosave поля) теряет фокус на каждый вызов, из-за чего
+        // при вводе можно напечатать только один символ за раз. Запоминаем, что было в фокусе
+        // (и позицию курсора), и восстанавливаем после перерисовки.
+        let _focusSelector = null, _focusSelRange = null;
+        (() => {
+          const active = document.activeElement;
+          if (!active || !root.contains(active)) return;
+          if (!["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName)) return;
+          if (active.id) {
+            _focusSelector = "#" + CSS.escape(active.id);
+          } else if (active.dataset.scope && active.dataset.key) {
+            const idPart = active.dataset.id ? `[data-id="${CSS.escape(active.dataset.id)}"]` : "";
+            _focusSelector = `[data-scope="${CSS.escape(active.dataset.scope)}"]${idPart}[data-key="${CSS.escape(active.dataset.key)}"]`;
+          } else if (active.className && typeof active.className === "string") {
+            const cls = "." + active.className.trim().split(/\s+/).map(c => CSS.escape(c)).join(".");
+            if (cls !== "." && document.querySelectorAll(cls).length === 1) _focusSelector = cls;
+          }
+          if (_focusSelector && typeof active.selectionStart === "number") {
+            _focusSelRange = [active.selectionStart, active.selectionEnd];
+          }
+        })();
+
         const views = {
           home: renderHome,
           deal: renderDeal,
@@ -7842,6 +7865,15 @@
               </div>
             </div>
           `;
+        }
+        if (_focusSelector) {
+          const restored = root.querySelector(_focusSelector);
+          if (restored) {
+            restored.focus({ preventScroll: true });
+            if (_focusSelRange && typeof restored.setSelectionRange === "function") {
+              try { restored.setSelectionRange(_focusSelRange[0], _focusSelRange[1]); } catch(_) {}
+            }
+          }
         }
         bindDynamicInputs();
         renderModal();
