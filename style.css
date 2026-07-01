@@ -84,6 +84,15 @@
       box-sizing: border-box;
     }
 
+    /* Единый видимый focus-индикатор для клавиатурной навигации (WCAG 2.1 AA §2.4.7).
+       :focus-visible (не :focus) — рамка появляется только при Tab, не при клике мышью.
+       Работает глобально, поверх любых локальных outline:none (input/select/textarea и т.п.) */
+    :focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -4432,3 +4441,28 @@ body.portal-mode .nav { display: none !important; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.22); }
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.14); }
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,.24); }
+
+/* ═══════════════════════════════════════════════════════
+   TOUCH TARGETS — расширенная (невидимая) зона касания 44×44px
+   для мелких icon-кнопок, без изменения их визуального размера
+   (иначе плотные тулбары карточек/каталога сломались бы). Только
+   для touch-устройств — на мыши точность и так достаточна.
+═══════════════════════════════════════════════════════ */
+@media (hover: none) and (pointer: coarse) {
+  .topbar-icon-btn,
+  .deal-menu-btn,
+  .line-collapse-btn,
+  .catalog-action-btn {
+    position: relative;
+  }
+  .topbar-icon-btn::after,
+  .deal-menu-btn::after,
+  .line-collapse-btn::after,
+  .catalog-action-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 44px; height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
