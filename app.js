@@ -1,7 +1,7 @@
 ﻿    (() => {
       "use strict";
 
-      const APP_VERSION = "4.2";
+      const APP_VERSION = "4.3";
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
       const LAST_AGENCY_KEY = "adervis_last_agency_id";
@@ -1589,7 +1589,7 @@
 
             <div class="auth-stats-row">
               <div><strong>7</strong><span>дней бесплатно</span></div>
-              <div><strong>от 890₽</strong><span>в месяц</span></div>
+              <div><strong>от 490₽</strong><span>в месяц</span></div>
               <div><strong>∞</strong><span>сделок</span></div>
             </div>
             <p style="margin:14px 0 0;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">🔒 Карта не нужна для пробного периода — платите только если решите остаться</p>
@@ -2574,10 +2574,10 @@
       ═══════════════════════════════════════════════════════ */
       const PLANS = [
         { id: "trial",  label: "Пробный",    price: 0,   period: "7 дней бесплатно", save: "",             months: 0,  maxUsers: 1 },
-        { id: "month1", label: "Месяц",       price: 890, period: "в месяц",            save: "",             months: 1,  maxUsers: 1 },
-        { id: "month3", label: "3 месяца",    price: 740, period: "в месяц",            save: "Экономия 17%", months: 3,  maxUsers: 3, popular: true },
-        { id: "month6", label: "6 месяцев",   price: 640, period: "в месяц",            save: "Экономия 28%", months: 6,  maxUsers: 5 },
-        { id: "year",   label: "Год",         price: 520, period: "в месяц",            save: "Экономия 42%", months: 12, maxUsers: 10 }
+        { id: "month1", label: "Месяц",       price: 490, period: "в месяц",            save: "",             months: 1,  maxUsers: 1 },
+        { id: "month3", label: "3 месяца",    price: 390, period: "в месяц",            save: "Экономия 20%", months: 3,  maxUsers: 3, popular: true },
+        { id: "month6", label: "6 месяцев",   price: 340, period: "в месяц",            save: "Экономия 31%", months: 6,  maxUsers: 5 },
+        { id: "year",   label: "Год",         price: 290, period: "в месяц",            save: "Экономия 41%", months: 12, maxUsers: 10 }
       ];
 
       // ─── ADMIN PANEL ─────────────────────────────────────────────────────────
@@ -2610,8 +2610,8 @@
             trial: _adminAgencies.filter(a => a.subscription_status === "trial").length,
             newThisMonth: _adminAgencies.filter(a => a.created_at && new Date(a.created_at) >= month1).length,
             mrr: _adminAgencies.filter(a => a.subscription_status === "active").reduce((s, a) => {
-              const m = { month1: 890, month3: 790, month6: 640, year: 520 };
-              return s + (m[a.subscription_plan] || 890);
+              const plan = PLANS.find(p => p.id === a.subscription_plan);
+              return s + (plan ? plan.price : PLANS.find(p => p.id === "month1").price);
             }, 0)
           };
         } catch(e) {
@@ -3010,9 +3010,9 @@
         const planFeatures = {
           trial:  ["До 5 активных сделок", "CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Telegram-бот уведомления", "AI генерация КП", "Web Push", "1 пользователь"],
           month1: ["Всё из пробного", "Безлимитные сделки", "Финансы и аналитика", "Экспорт Excel", "Договоры", "1 пользователь"],
-          month3: ["Всё из «Месяца»", "До 3 пользователей", "Командная работа", "Синхронизация", "Экономия 17%", "Поддержка"],
-          month6: ["Всё из «3 мес»", "До 5 пользователей", "Расширенная аналитика", "Версии смет", "Пакеты услуг", "Экономия 28%"],
-          year:   ["Всё из «6 мес»", "До 10 пользователей", "Максимум функций", "API доступ", "Брендирование КП", "Экономия 42%"]
+          month3: ["Всё из «Месяца»", "До 3 пользователей", "Командная работа", "Синхронизация", "Экономия 20%", "Поддержка"],
+          month6: ["Всё из «3 мес»", "До 5 пользователей", "Расширенная аналитика", "Версии смет", "Пакеты услуг", "Экономия 31%"],
+          year:   ["Всё из «6 мес»", "До 10 пользователей", "Максимум функций", "API доступ", "Брендирование КП", "Экономия 41%"]
         };
         const promoValid = _promoState && typeof _promoState === "object";
         const cards = PLANS.map(p => {
@@ -3060,10 +3060,10 @@
                 <tr style="border-bottom:2px solid var(--line)">
                   <th style="text-align:left;padding:10px 12px;font-size:13px;min-width:180px">Функция</th>
                   ${hdr("Пробный<br><span style='font-weight:400;color:var(--muted)'>7 дней</span>","trial")}
-                  ${hdr("Месяц<br><span style='font-weight:400;color:var(--muted)'>890 ₽</span>","month1")}
-                  ${hdr("3 месяца 🔥<br><span style='font-weight:400;color:var(--muted)'>740 ₽/мес</span>","month3")}
-                  ${hdr("6 месяцев<br><span style='font-weight:400;color:var(--muted)'>640 ₽/мес</span>","month6")}
-                  ${hdr("Год<br><span style='font-weight:400;color:var(--muted)'>520 ₽/мес</span>","year")}
+                  ${hdr("Месяц<br><span style='font-weight:400;color:var(--muted)'>490 ₽</span>","month1")}
+                  ${hdr("3 месяца 🔥<br><span style='font-weight:400;color:var(--muted)'>390 ₽/мес</span>","month3")}
+                  ${hdr("6 месяцев<br><span style='font-weight:400;color:var(--muted)'>340 ₽/мес</span>","month6")}
+                  ${hdr("Год<br><span style='font-weight:400;color:var(--muted)'>290 ₽/мес</span>","year")}
                 </tr>
               </thead>
               <tbody>
@@ -3117,12 +3117,12 @@
                 ${group("Цена")}
                 ${row("Стоимость в месяц",
                   [`<span style='color:var(--green);font-weight:700'>0 ₽</span>`,
-                   "890 ₽","<b style='color:var(--primary)'>740 ₽</b>","640 ₽","520 ₽"])}
+                   "490 ₽","<b style='color:var(--primary)'>390 ₽</b>","340 ₽","290 ₽"])}
                 ${row("Экономия vs месяца",
                   [no,no,
-                   `<span style='color:var(--green);font-weight:700'>−17%</span>`,
-                   `<span style='color:var(--green);font-weight:700'>−28%</span>`,
-                   `<span style='color:var(--green);font-weight:700'>−42%</span>`])}
+                   `<span style='color:var(--green);font-weight:700'>−20%</span>`,
+                   `<span style='color:var(--green);font-weight:700'>−31%</span>`,
+                   `<span style='color:var(--green);font-weight:700'>−41%</span>`])}
               </tbody>
             </table>
           </div>`;
@@ -6841,7 +6841,7 @@
         if (!_userProfile || _userProfile.subscription_status !== "trial") return false;
         const count = (state.savedProjects || []).length;
         if (count < TRIAL_DEAL_LIMIT) return false;
-        toast(`🔒 Пробный период: максимум ${TRIAL_DEAL_LIMIT} сделки. Перейдите на платный план — от 890 ₽/мес.`);
+        toast(`🔒 Пробный период: максимум ${TRIAL_DEAL_LIMIT} сделки. Перейдите на платный план — от 490 ₽/мес.`);
         setTimeout(() => { state.view = "plans"; render(); }, 1800);
         return true;
       }
@@ -8344,7 +8344,7 @@
             btn: "Создать КП"
           },
           {
-            label: 'Оформите подписку — от 890 ₽/мес',
+            label: 'Оформите подписку — от 490 ₽/мес',
             done: false,
             action: "app.go('plans')",
             btn: "Тарифы"

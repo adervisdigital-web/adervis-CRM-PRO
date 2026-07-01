@@ -1788,15 +1788,11 @@
       .admin-indicator { max-width: 90px; font-size: 10px; padding: 3px 7px; }
       .profile-avatar-btn { width: 28px; height: 28px; font-size: 12px; }
 
-      /* Profile page mobile: tiers scrollable row */
-      .grid.five {
-        grid-template-columns: repeat(5, minmax(200px, 1fr));
-        overflow-x: auto; -webkit-overflow-scrolling: touch;
-        padding-bottom: 8px; scrollbar-width: none;
-      }
-      .grid.five::-webkit-scrollbar { display: none; }
-      .plan-card { padding: 12px; }
-
+      /* Profile page mobile: тарифы — один столбец, карточки на всю ширину.
+         Раньше был горизонтальный скролл с обрезанными по краям карточками —
+         на узких экранах выглядело как визуальная ошибка. */
+      .grid.five { grid-template-columns: 1fr; }
+      .plan-card { padding: 16px; }
 
       /* Section title on mobile */
       .section-title { gap: 10px; }
