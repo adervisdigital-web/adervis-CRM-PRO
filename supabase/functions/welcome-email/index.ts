@@ -5,7 +5,7 @@ const REPLY_TO = "adervis.digital@gmail.com";
 const APP_URL = "https://app.adervis.ru";
 
 const cors = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://app.adervis.ru",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 

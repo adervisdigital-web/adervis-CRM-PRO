@@ -7,7 +7,7 @@ const GEMINI_MODEL = "gemini-2.5-flash-lite";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const cors = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://app.adervis.ru",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 

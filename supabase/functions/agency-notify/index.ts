@@ -5,7 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Deployed with --no-verify-jwt.
 
 const cors = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://app.adervis.ru",
   "Access-Control-Allow-Headers": "content-type, apikey, authorization",
 };
 
