@@ -1007,10 +1007,10 @@
             const date = new Date(data.advance_paid_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
             el.innerHTML = `
               <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.25);border-radius:12px">
-                <span style="font-size:20px">✅</span>
+                <span class="fs-20">✅</span>
                 <div>
                   <div style="font-size:12px;font-weight:800;color:var(--green)">Аванс оплачен клиентом</div>
-                  <div style="font-size:12px;color:var(--muted)">${date} · ${amount} ₽</div>
+                  <div class="u-meta">${date} · ${amount} ₽</div>
                 </div>
               </div>`;
           } else {
@@ -1019,7 +1019,7 @@
                 <span style="font-size:18px">⏳</span>
                 <div>
                   <div style="font-size:12px;font-weight:700;color:var(--yellow,#d97706)">Аванс не оплачен</div>
-                  <div style="font-size:12px;color:var(--muted)">Сумма аванса: ${amount} ₽ · Ожидаем оплату клиента</div>
+                  <div class="u-meta">Сумма аванса: ${amount} ₽ · Ожидаем оплату клиента</div>
                 </div>
               </div>`;
           }
@@ -1323,7 +1323,7 @@
               <div class="sidebar-user-avatar" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff">${initials}</div>
               <span class="sidebar-label" style="min-width:0;overflow:hidden;text-align:left">
                 <div style="font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">${escapeHtml(name)}</div>
-                <div style="font-size:12px;color:var(--muted)">${escapeHtml(subLabel || "Активна")}</div>
+                <div class="u-meta">${escapeHtml(subLabel || "Активна")}</div>
               </span>
             </button>
             <button class="sidebar-nav-item" onclick="app.adminLogout()" title="Выйти">
@@ -1600,7 +1600,7 @@
               </div>
               <div>
                 <div style="font-weight:900;font-size:20px;letter-spacing:-.3px">ADERVIS CRM</div>
-                <div style="font-size:12px;color:var(--muted)">CRM для видеопродакшна</div>
+                <div class="u-meta">CRM для видеопродакшна</div>
               </div>
             </div>
 
@@ -1633,14 +1633,14 @@
                 <p style="margin:0 0 8px;font-size:13px;line-height:1.55;color:var(--fg)">"Раньше вели всё в таблицах — постоянно теряли задачи и забывали про дедлайны. Теперь вся студия в одном месте, и смету клиенту отправляю прямо из CRM за 5 минут."</p>
                 <div style="display:flex;align-items:center;gap:8px">
                   <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">А</div>
-                  <div><div style="font-size:12px;font-weight:700">Андрей К.</div><div style="font-size:12px;color:var(--muted)">Руководитель видеостудии, Москва</div></div>
+                  <div><div style="font-size:12px;font-weight:700">Андрей К.</div><div class="u-meta">Руководитель видеостудии, Москва</div></div>
                 </div>
               </div>
               <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
                 <p style="margin:0 0 8px;font-size:13px;line-height:1.55;color:var(--fg)">"Калькулятор смет — огонь. Показываю клиенту КП прямо на встрече, он сразу видит позиции и может что-то убрать. Конверсия в оплату выросла заметно."</p>
                 <div style="display:flex;align-items:center;gap:8px">
                   <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#10b981,#0ea5e9);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">М</div>
-                  <div><div style="font-size:12px;font-weight:700">Мария Д.</div><div style="font-size:12px;color:var(--muted)">Продюсер, продакшн-агентство</div></div>
+                  <div><div style="font-size:12px;font-weight:700">Мария Д.</div><div class="u-meta">Продюсер, продакшн-агентство</div></div>
                 </div>
               </div>
             </div>
@@ -1661,7 +1661,7 @@
                       </div>
                       <div>
                         <div style="font-weight:900;font-size:15px">ADERVIS CRM</div>
-                        <div style="font-size:12px;color:var(--muted)">CRM для видеопродакшна</div>
+                        <div class="u-meta">CRM для видеопродакшна</div>
                       </div>
                     </div>
                     <h3 style="font-size:16px;margin:0 0 8px">Сброс пароля</h3>
@@ -1699,7 +1699,7 @@
                     </div>
                     <div>
                       <div style="font-weight:900;font-size:15px">ADERVIS CRM</div>
-                      <div style="font-size:12px;color:var(--muted)">CRM для видеопродакшна</div>
+                      <div class="u-meta">CRM для видеопродакшна</div>
                     </div>
                   </div>
 
@@ -1715,7 +1715,7 @@
                     <input placeholder="Ваше имя" value="${escapeHtml(f.name)}" oninput="app.setAuthField('name',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()">
                   </div>
                   <div class="field" style="margin-bottom:12px">
-                    <label style="display:flex;align-items:center;gap:6px">Код приглашения <span style="font-size:12px;color:var(--muted);font-weight:normal">(если вас пригласили в команду)</span></label>
+                    <label class="u-flex-ac-g6">Код приглашения <span style="font-size:12px;color:var(--muted);font-weight:normal">(если вас пригласили в команду)</span></label>
                     <input placeholder="Вставьте код от руководителя (необязательно)" value="${escapeHtml(f.inviteCode||"")}" oninput="app.setAuthField('inviteCode',this.value)" style="font-family:monospace;font-size:12px">
                   </div>` : ""}
 
@@ -1755,11 +1755,11 @@
                       <span style="font-size:13px">Продолжить с Google</span>
                     </button>
                   </div>
-                  ${(localStorage.getItem('vk_app_id') || _DEFAULT_VK_APP_ID) ? `<div id="vkid-one-tap" style="margin-top:8px"></div>` : ''}
+                  ${(localStorage.getItem('vk_app_id') || _DEFAULT_VK_APP_ID) ? `<div id="vkid-one-tap" class="mt-8"></div>` : ''}
 
                   <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:12px;color:var(--muted)">
                     Adervis · ИНН 592110786536 ·
-                    <a href="mailto:adervis.digital@gmail.com" style="color:var(--muted)">adervis.digital@gmail.com</a>
+                    <a href="mailto:adervis.digital@gmail.com" class="u-muted">adervis.digital@gmail.com</a>
                   </div>
                 </div>
               </div>
@@ -2112,7 +2112,7 @@
                 : "";
               return `<button class="pd-item" style="background:rgba(124,58,237,.08);border-radius:10px" onclick="app.gotoSubscription();app.toggleProfileDd(false)" title="Тарифы, оплата, история платежей">
               <span class="pd-item-icon">💳</span>
-              <span style="flex:1">Тарифный план</span>
+              <span class="u-flex1">Тарифный план</span>
               ${urgentBadge}
             </button>`;
             })()}
@@ -2788,9 +2788,9 @@
       }
 
       function renderAdminPanel() {
-        if (!_isSuperAdmin()) return `<div class="panel"><p style="color:var(--muted)">Доступ запрещён.</p></div>`;
-        if (_adminLoading) return `<div class="panel" style="text-align:center;padding:48px"><div class="spinner" style="margin:0 auto 12px"></div><p style="color:var(--muted)">Загрузка...</p></div>`;
-        if (!_adminAgencies) { loadAdminPanel(); return `<div class="panel"><p style="color:var(--muted)">Загрузка...</p></div>`; }
+        if (!_isSuperAdmin()) return `<div class="panel"><p class="u-muted">Доступ запрещён.</p></div>`;
+        if (_adminLoading) return `<div class="panel" style="text-align:center;padding:48px"><div class="spinner" style="margin:0 auto 12px"></div><p class="u-muted">Загрузка...</p></div>`;
+        if (!_adminAgencies) { loadAdminPanel(); return `<div class="panel"><p class="u-muted">Загрузка...</p></div>`; }
         const s = _adminStats || {};
 
         const statusColor = { trial: "rgba(202,138,4,.15)", active: "rgba(22,163,74,.15)", expired: "rgba(220,38,38,.12)", blocked: "rgba(220,38,38,.2)", "": "var(--panel2)" };
@@ -2803,7 +2803,7 @@
               <div style="display:flex;align-items:center;gap:14px">
                 <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#dc2626,#7c3aed);display:grid;place-items:center;font-size:20px">🔐</div>
                 <div>
-                  <h1 style="margin:0;font-size:20px">Admin Panel</h1>
+                  <h1 class="u-title-20">Admin Panel</h1>
                   <p style="margin:0;font-size:12px;color:var(--muted)">adervis.digital@gmail.com</p>
                 </div>
               </div>
@@ -2859,7 +2859,7 @@
                           ${(a.email||"?")[0].toUpperCase()}
                         </div>
                         <!-- Info -->
-                        <div style="flex:1;min-width:0">
+                        <div class="u-flex1-min0">
                           <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.email||"—")}</div>
                           <div style="font-size:12px;color:var(--muted);margin-top:2px">
                             Зарег.: ${a.created_at ? new Date(a.created_at).toLocaleDateString("ru-RU") : "—"}
@@ -2908,7 +2908,7 @@
                               <input type="date" value="${escapeHtml(_adminEditSub.expires||"")}" onchange="app._setEditSub('expires',this.value)">
                             </div>
                           </div>
-                          <div style="display:flex;gap:8px">
+                          <div class="u-flex-g8">
                             <button class="btn primary small" onclick="app.adminSetSubscription()">Сохранить</button>
                             <button class="btn small" onclick="app._closeEditSub()">Отмена</button>
                           </div>
@@ -2939,7 +2939,7 @@
                 <div style="display:flex;flex-direction:column;gap:8px">
                   ${(_adminPromoCodes||[]).map(p => `
                     <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid var(--line);border-radius:12px;${p.active===false?"opacity:.55":""}">
-                      <div style="flex:1;min-width:0">
+                      <div class="u-flex1-min0">
                         <div style="display:flex;align-items:center;gap:8px">
                           <span style="font-family:monospace;font-size:14px;font-weight:900">${escapeHtml(p.code)}</span>
                           <span style="font-size:13px;font-weight:700;color:#a78bfa">${p.discount||0}%</span>
@@ -2984,8 +2984,8 @@
                 <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:32px;height:32px;object-fit:contain">
               </div>
               <div>
-                <h1 style="margin:0;font-size:20px">Поддержка и контакты</h1>
-                <div style="font-size:13px;color:var(--muted)">ADERVIS CRM · автоматизация для видеопродакшна</div>
+                <h1 class="u-title-20">Поддержка и контакты</h1>
+                <div class="u-meta-13">ADERVIS CRM · автоматизация для видеопродакшна</div>
               </div>
             </div>
 
@@ -2993,45 +2993,45 @@
               <a href="mailto:adervis.digital@gmail.com" class="support-card" style="text-decoration:none">
                 <div class="support-card-icon" style="background:rgba(37,99,235,.12);color:var(--blue)">✉</div>
                 <div>
-                  <div style="font-weight:700;font-size:14px;color:var(--text)">Email-поддержка</div>
-                  <div style="font-size:13px;color:var(--muted)">adervis.digital@gmail.com</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:3px">Ответим в течение 24 часов</div>
+                  <div class="u-label-strong">Email-поддержка</div>
+                  <div class="u-meta-13">adervis.digital@gmail.com</div>
+                  <div class="u-meta-mt3">Ответим в течение 24 часов</div>
                 </div>
               </a>
 
               <a href="https://t.me/adervisdigital" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
                 <div class="support-card-icon" style="background:rgba(0,136,204,.12);color:#29b6f6">▶</div>
                 <div>
-                  <div style="font-weight:700;font-size:14px;color:var(--text)">Telegram</div>
-                  <div style="font-size:13px;color:var(--muted)">@adervisdigital</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:3px">Быстрые вопросы и обновления</div>
+                  <div class="u-label-strong">Telegram</div>
+                  <div class="u-meta-13">@adervisdigital</div>
+                  <div class="u-meta-mt3">Быстрые вопросы и обновления</div>
                 </div>
               </a>
 
               <a href="https://adervis.ru/docs" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
                 <div class="support-card-icon" style="background:rgba(22,163,74,.12);color:var(--green)">📄</div>
                 <div>
-                  <div style="font-weight:700;font-size:14px;color:var(--text)">Документы</div>
-                  <div style="font-size:13px;color:var(--muted)">Оферта и Политика конфиденциальности</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:3px">adervis.ru/docs</div>
+                  <div class="u-label-strong">Документы</div>
+                  <div class="u-meta-13">Оферта и Политика конфиденциальности</div>
+                  <div class="u-meta-mt3">adervis.ru/docs</div>
                 </div>
               </a>
 
               <button class="support-card" onclick="app.openHelpModal()" style="border:none;cursor:pointer;text-align:left;width:100%">
                 <div class="support-card-icon" style="background:rgba(124,58,237,.12);color:var(--primary)">✨</div>
                 <div>
-                  <div style="font-weight:700;font-size:14px;color:var(--text)">Помощь и обучение</div>
-                  <div style="font-size:13px;color:var(--muted)">Быстрый старт — как начать работать в CRM</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:3px">Онбординг, подсказки, видео-инструкции</div>
+                  <div class="u-label-strong">Помощь и обучение</div>
+                  <div class="u-meta-13">Быстрый старт — как начать работать в CRM</div>
+                  <div class="u-meta-mt3">Онбординг, подсказки, видео-инструкции</div>
                 </div>
               </button>
 
               <a href="mailto:adervis.digital@gmail.com?subject=${encodeURIComponent('Отзыв о ADERVIS CRM')}&body=${encodeURIComponent('Привет! Делюсь впечатлением от продукта:\n\n[напишите пару предложений — что понравилось, что помогло в работе]\n\nМожно указать моё имя и компанию рядом с отзывом на сайте? (да/нет)')}" class="support-card" style="text-decoration:none">
                 <div class="support-card-icon" style="background:rgba(246,189,58,.14);color:var(--yellow)">⭐</div>
                 <div>
-                  <div style="font-weight:700;font-size:14px;color:var(--text)">Оставить отзыв о продукте</div>
-                  <div style="font-size:13px;color:var(--muted)">Поделитесь впечатлением — поможет нам стать лучше</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:3px">Лучшие отзывы (с вашего согласия) опубликуем на сайте</div>
+                  <div class="u-label-strong">Оставить отзыв о продукте</div>
+                  <div class="u-meta-13">Поделитесь впечатлением — поможет нам стать лучше</div>
+                  <div class="u-meta-mt3">Лучшие отзывы (с вашего согласия) опубликуем на сайте</div>
                 </div>
               </a>
             </div>
@@ -3040,19 +3040,19 @@
               <h3 style="margin:0 0 14px;font-size:15px">Реквизиты</h3>
               <div style="display:grid;gap:8px;font-size:13px">
                 <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
-                  <span style="color:var(--muted)">Организация</span>
+                  <span class="u-muted">Организация</span>
                   <span>Самозанятый</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
-                  <span style="color:var(--muted)">ИНН</span>
+                  <span class="u-muted">ИНН</span>
                   <span style="font-family:monospace">592110786536</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
-                  <span style="color:var(--muted)">Email</span>
+                  <span class="u-muted">Email</span>
                   <a href="mailto:adervis.digital@gmail.com" style="color:var(--primary2)">adervis.digital@gmail.com</a>
                 </div>
                 <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
-                  <span style="color:var(--muted)">Приложение</span>
+                  <span class="u-muted">Приложение</span>
                   <a href="https://app.adervis.ru" target="_blank" rel="noopener" style="color:var(--primary2)">app.adervis.ru</a>
                 </div>
               </div>
@@ -3089,8 +3089,8 @@
           const priceHtml = p.price === 0
             ? `<div style="font-size:28px;font-weight:900;color:var(--green);line-height:1">Бесплатно</div><div style="font-size:12px;color:var(--muted);margin-bottom:16px">${escapeHtml(p.period)}</div>`
             : discountedPrice !== null
-              ? `<div style="font-size:13px;color:var(--muted);text-decoration:line-through;line-height:1">${p.price} ₽</div><div style="font-size:28px;font-weight:900;color:var(--green);line-height:1.1">${discountedPrice} ₽</div><div style="font-size:12px;color:var(--muted)">${escapeHtml(p.period)}</div><div style="font-size:12px;color:var(--green);font-weight:700;margin-bottom:16px">−${_promoState.discount}% по промокоду</div>`
-              : `<div style="font-size:28px;font-weight:900;line-height:1">${p.price} ₽</div><div style="font-size:12px;color:var(--muted)">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:12px;color:var(--primary2);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)}</div>` : `<div style="margin-bottom:16px"></div>`}`;
+              ? `<div style="font-size:13px;color:var(--muted);text-decoration:line-through;line-height:1">${p.price} ₽</div><div style="font-size:28px;font-weight:900;color:var(--green);line-height:1.1">${discountedPrice} ₽</div><div class="u-meta">${escapeHtml(p.period)}</div><div style="font-size:12px;color:var(--green);font-weight:700;margin-bottom:16px">−${_promoState.discount}% по промокоду</div>`
+              : `<div style="font-size:28px;font-weight:900;line-height:1">${p.price} ₽</div><div class="u-meta">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:12px;color:var(--primary2);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)}</div>` : `<div class="mb-16"></div>`}`;
           return `
           <div class="plan-card" style="border-radius:18px;border:2px solid ${border};background:${bg};padding:20px 16px;display:flex;flex-direction:column;position:relative;min-width:0">
             ${p.popular && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">🔥 Популярный</div>` : ""}
@@ -3190,7 +3190,7 @@
         return `
           <div class="panel">
             <div class="section-title" style="margin-bottom:24px">
-              <div><h1 style="margin:0">Тарифный план</h1><p style="margin:4px 0 0;color:var(--muted)">Оплата через ЮKassa — карта, СБП, ЮМани</p></div>
+              <div><h1 class="m-0">Тарифный план</h1><p style="margin:4px 0 0;color:var(--muted)">Оплата через ЮKassa — карта, СБП, ЮМани</p></div>
               <button class="btn small" onclick="app.go('profile')">← Профиль</button>
             </div>
             <div class="grid five" style="gap:14px;margin-bottom:20px">
@@ -3230,7 +3230,7 @@
             subStatusBlock = `
               <div style="background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                  <span style="font-size:20px">✅</span>
+                  <span class="fs-20">✅</span>
                   <div>
                     <div style="font-weight:900;font-size:15px;color:var(--green)">Подписка активна — ${escapeHtml(planLabel)}</div>
                     ${exp ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">Действует до: ${escapeHtml(expStr)}${daysLeft !== null ? ` (ещё ${daysLeft} дн.)` : ""}</div>` : ""}
@@ -3242,7 +3242,7 @@
             subStatusBlock = `
               <div style="background:rgba(202,138,4,.1);border:1px solid rgba(202,138,4,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                  <span style="font-size:20px">${urgency ? "⚠️" : "⏳"}</span>
+                  <span class="fs-20">${urgency ? "⚠️" : "⏳"}</span>
                   <div>
                     <div style="font-weight:900;font-size:15px;color:${urgency ? "var(--red)" : "var(--yellow)"}">Пробный период${daysLeft !== null ? ` — осталось ${daysLeft} дн.` : ""}</div>
                     ${exp ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">Истекает: ${escapeHtml(expStr)}</div>` : ""}
@@ -3264,7 +3264,7 @@
             ${_adminSession ? `
             <!-- ── PROFILE SECTION ── -->
             <div class="section-title" style="margin-bottom:20px">
-              <div><h1 style="margin:0">Профиль</h1><p style="margin:4px 0 0;color:var(--muted)">Аккаунт, подписка и настройки</p></div>
+              <div><h1 class="m-0">Профиль</h1><p style="margin:4px 0 0;color:var(--muted)">Аккаунт, подписка и настройки</p></div>
               <div class="toolbar" style="gap:8px">
                 <button class="btn small green" onclick="app.forceSaveToCloud()">☁️ Синхронизировать</button>
                 <button class="btn small" onclick="app.adminLogout()">→ Выйти</button>
@@ -3309,7 +3309,7 @@
               <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
                 <div>
                   <h2 style="margin:0 0 4px;font-size:15px">💳 Тарифный план</h2>
-                  <div style="font-size:13px;color:var(--muted)">${escapeHtml(subLabel)}${sub && sub.subscription_expires_at ? ` · до ${new Date(sub.subscription_expires_at).toLocaleDateString("ru-RU", {day:"2-digit",month:"short",year:"numeric"})}` : ""}</div>
+                  <div class="u-meta-13">${escapeHtml(subLabel)}${sub && sub.subscription_expires_at ? ` · до ${new Date(sub.subscription_expires_at).toLocaleDateString("ru-RU", {day:"2-digit",month:"short",year:"numeric"})}` : ""}</div>
                 </div>
                 <button class="btn small primary" onclick="app.go('plans')" style="white-space:nowrap">Изменить тариф →</button>
               </div>
@@ -3339,7 +3339,7 @@
                     <code style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0">${escapeHtml(agencyId)}</code>
                     <button class="btn small" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(agencyId)}').then(()=>app._toast('✅ Скопировано!'))">📋</button>
                   </div>
-                  ${onlineList ? `<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span style="font-size:12px;color:var(--muted)">Сейчас онлайн:</span>${onlineList}</div>` : ""}
+                  ${onlineList ? `<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="u-meta">Сейчас онлайн:</span>${onlineList}</div>` : ""}
                 ` : `<p style="font-size:13px;color:var(--muted);margin:0">Вы в команде агентства${onlineList ? ` · Онлайн: ${onlineList}` : ""}</p>`}
               </div>`;
             })()}
@@ -3368,7 +3368,7 @@
                   <code id="refLinkCode" style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0;color:var(--text2)">${refUrl}</code>
                   <button class="btn small primary" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('refLinkCode').textContent.trim()).then(()=>app._toast('✅ Реферальная ссылка скопирована!'))">📋 Копировать</button>
                 </div>
-                <div id="refStats" style="font-size:12px;color:var(--muted)">Загрузка статистики...</div>
+                <div id="refStats" class="u-meta">Загрузка статистики...</div>
               </div>`;
             })() : ''}
 
@@ -3389,7 +3389,7 @@
                   <div style="width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0;margin-top:5px"></div>
                   <div>
                     <div style="font-size:13px;font-weight:700;margin-bottom:2px">${escapeHtml(title)}</div>
-                    <div style="font-size:12px;color:var(--muted)">${escapeHtml(desc)}</div>
+                    <div class="u-meta">${escapeHtml(desc)}</div>
                   </div>
                 </div>`).join("")}
             </div>
@@ -3622,7 +3622,7 @@
                     <div class="ob-slide">
                       <div class="ob-placeholder">${escapeHtml(s.img)}</div>
                       <h3>${escapeHtml(s.title)}</h3>
-                      <p style="color:var(--muted)">${escapeHtml(s.body)}</p>
+                      <p class="u-muted">${escapeHtml(s.body)}</p>
                     </div>
                   `).join("")}
                 </div>
@@ -3693,7 +3693,7 @@
               <div class="section-title">
                 <div style="display:flex;align-items:center;gap:12px">
                   <button class="btn small" onclick="app.kbBack()">← Назад</button>
-                  <h2 style="margin:0">${escapeHtml(doc.title)}</h2>
+                  <h2 class="m-0">${escapeHtml(doc.title)}</h2>
                 </div>
                 <div class="toolbar no-print">
                   <button class="btn small green" onclick="app.kbSave()">Сохранить</button>
@@ -3818,7 +3818,7 @@
           <div class="modal-overlay" onclick="event.target===this&&app.closeAdminModal()">
             <div class="admin-modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-                <h2 style="margin:0;font-size:20px">🔐 Вход для администратора</h2>
+                <h2 class="u-title-20">🔐 Вход для администратора</h2>
                 <button onclick="app.closeAdminModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px">×</button>
               </div>
               <p style="margin:0 0 18px;font-size:13px">Войдите через Supabase Auth для совместного редактирования.</p>
@@ -6884,8 +6884,8 @@
           <div class="modal-overlay">
             <div class="modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-                <h2 style="margin:0;font-size:20px">${isPayment ? "Поступление" : "Расход"}</h2>
-                <button onclick="app.closeFinanceModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
+                <h2 class="u-title-20">${isPayment ? "Поступление" : "Расход"}</h2>
+                <button onclick="app.closeFinanceModal()" class="u-modal-close">×</button>
               </div>
 
               <div class="modal-type-switch">
@@ -8112,7 +8112,7 @@
                 <div style="display:flex;flex-direction:column;gap:8px">
                   ${skel("100px", 20, 6)} ${skel("220px", 12)}
                 </div>
-                <div style="display:flex;gap:8px">
+                <div class="u-flex-g8">
                   ${skel("120px", 36, 10)} ${skel("88px", 36, 10)}
                 </div>
               </div>
@@ -8158,7 +8158,7 @@
                 </div>
                 <div>
                   <div style="font-size:18px;font-weight:900;line-height:1.2">ADERVIS CRM</div>
-                  <div style="font-size:12px;color:var(--muted)">Видеопродакшн</div>
+                  <div class="u-meta">Видеопродакшн</div>
                 </div>
               </div>
               <div class="brief-card">
@@ -8471,7 +8471,7 @@
             ` : ''}
 
             ${newBriefs.length ? `
-              <div style="margin-bottom:14px">
+              <div class="mb-14">
                 <h2 style="font-size:14px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px">
                   Новые заявки (${newBriefs.length})
                 </h2>
@@ -8666,7 +8666,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
               <div>
                 <div style="font-weight:700;font-size:14px;margin-bottom:2px">🚀 Начало работы</div>
-                <div style="font-size:12px;color:var(--muted)">${done} из ${steps.length - 1} шагов выполнено</div>
+                <div class="u-meta">${done} из ${steps.length - 1} шагов выполнено</div>
               </div>
               <button onclick="localStorage.setItem('_onboardingDismissed','1');app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Скрыть">×</button>
             </div>
@@ -8693,9 +8693,9 @@
         return `
           <div class="panel" style="margin-bottom:14px;border:1px solid rgba(220,38,38,.3);background:rgba(220,38,38,.06);display:flex;align-items:center;gap:12px">
             <div style="font-size:20px;flex:0 0 auto">⚠️</div>
-            <div style="flex:1">
+            <div class="u-flex1">
               <div style="font-weight:700;font-size:13px;color:var(--red);margin-bottom:2px">Пробный период</div>
-              <div style="font-size:12px;color:var(--muted)">${text}</div>
+              <div class="u-meta">${text}</div>
             </div>
             <button onclick="app.go('plans')" class="btn primary small" style="white-space:nowrap">Выбрать тариф</button>
           </div>`;
@@ -8895,7 +8895,7 @@
             })()}
             ${visibleItems.length ? `
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-                <span style="font-size:13px;color:var(--muted)">${visibleItems.length} ${visibleItems.length===1?"сделка":visibleItems.length<5?"сделки":"сделок"}${tagFilter?` · тег: ${escapeHtml(tagFilter)}`:""}</span>
+                <span class="u-meta-13">${visibleItems.length} ${visibleItems.length===1?"сделка":visibleItems.length<5?"сделки":"сделок"}${tagFilter?` · тег: ${escapeHtml(tagFilter)}`:""}</span>
                 <div class="deal-view-toggle no-print">
                   <button class="deal-view-btn ${(state.crmView||"grid")==="grid"?"active":""}" onclick="app.setCrmView('grid')" title="Плитка">⊞</button>
                   <button class="deal-view-btn ${state.crmView==="list"?"active":""}" onclick="app.setCrmView('list')" title="Список">☰</button>
@@ -9097,7 +9097,7 @@
                 <strong style="${f.profit < 0 ? "color:var(--red)" : ""}">${money(f.profit)}</strong>
               </div>
               ${f.totalExpensesPaid !== f.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>Прибыль (факт)</span><strong>${money(f.profitFact)}</strong></div>` : ""}
-              <div style="margin-top:8px">
+              <div class="mt-8">
                 <span class="margin-badge ${marginClass}">${margin}% маржа</span>
               </div>
               ${f.profit < 0 ? `<div class="no-print" style="margin-top:10px;padding:9px 12px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;font-size:12px;font-weight:700;color:var(--red)">⚠️ Смета в минусе: себестоимость и расходы превышают цену для клиента</div>` : ""}
@@ -9229,7 +9229,7 @@
             ${field("Название", `<input data-autosave data-scope="custom" data-id="${id}" data-key="name" value="${escapeHtml(itemData.name)}">`)}
             ${field("Цена, ₽", `<input type="number" data-autosave data-scope="custom" data-id="${id}" data-key="price" value="${escapeHtml(itemData.price)}">`)}
           </div>
-          <div style="margin-bottom:14px">
+          <div class="mb-14">
             ${field("Описание", `<textarea data-autosave data-scope="custom" data-id="${id}" data-key="desc" style="min-height:64px;resize:vertical">${escapeHtml(itemData.desc || "")}</textarea>`)}
           </div>
           <div class="grid three">
@@ -9246,10 +9246,10 @@
             ${field("Единица", `<input data-autosave data-scope="custom" data-id="${id}" data-key="unit" value="${escapeHtml(itemData.unit || "шт")}">`)}
           </div>
         ` : `
-          <div style="margin-bottom:14px">
+          <div class="mb-14">
             ${field("Название", `<input data-autosave data-scope="catalogOverride" data-id="${id}" data-key="name" value="${escapeHtml(itemData.name)}">`)}
           </div>
-          <div style="margin-bottom:14px">
+          <div class="mb-14">
             ${field("Описание", `<textarea data-autosave data-scope="catalogOverride" data-id="${id}" data-key="desc" style="min-height:64px;resize:vertical">${escapeHtml(itemData.desc || "")}</textarea>`)}
           </div>
           <div class="grid two" style="margin-bottom:14px">
@@ -9310,7 +9310,7 @@
             <div class="modal-box" style="max-width:520px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                 <h2 style="margin:0;font-size:18px">${m.isCustom ? "Редактировать пакет" : "Просмотр пакета"}</h2>
-                <button onclick="app.closePackageEditModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
+                <button onclick="app.closePackageEditModal()" class="u-modal-close">×</button>
               </div>
 
               ${m.isCustom ? `
@@ -9343,9 +9343,9 @@
                 <input value="${escapeHtml(m.note)}" oninput="app.setPackageEditField('note',this.value)" placeholder="Необязательно">
               </div>
               ` : `
-              <div style="margin-bottom:16px">
+              <div class="mb-16">
                 <div style="font-size:13px;color:var(--muted);margin-bottom:6px">${escapeHtml(m.desc)}</div>
-                <div style="font-size:12px;color:var(--muted)">Для: ${escapeHtml(m.goodFor)}</div>
+                <div class="u-meta">Для: ${escapeHtml(m.goodFor)}</div>
               </div>
               `}
 
@@ -9353,7 +9353,7 @@
               <div style="margin-bottom:18px;padding:12px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)">
                 <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Состав пакета (${pkgItems.length} позиций)</div>
                 <div style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto">
-                  ${pkgItems.map(x => `<div style="font-size:12px">✓ ${escapeHtml(x.name)}</div>`).join("")}
+                  ${pkgItems.map(x => `<div class="fs-12">✓ ${escapeHtml(x.name)}</div>`).join("")}
                 </div>
               </div>` : ""}
 
@@ -9657,7 +9657,7 @@
                   <button class="btn small danger" onclick="app.permanentlyDeleteItem('${itemData.id}')">Удалить навсегда</button>
                 </div>
               ` : `
-                <div style="display:flex;align-items:center;gap:6px">
+                <div class="u-flex-ac-g6">
                   ${qty > 0
                     ? `<div class="catalog-qty-stepper catalog-qty-pop">
                          <button type="button" class="catalog-qty-btn" onclick="app.catalogRemoveOne('${itemData.id}')" title="Меньше" aria-label="Уменьшить количество">−</button>
@@ -9694,7 +9694,7 @@
         return `
           <article class="item ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}" onclick="app._onCatalogCardClick(event,'${itemData.id}')" style="cursor:pointer">
             <div class="line-head">
-              <div style="flex:1">
+              <div class="u-flex1">
                 <div class="grid two">
                   ${field("Название", `<input data-autosave data-scope="custom" data-id="${itemData.id}" data-key="name" value="${escapeHtml(itemData.name)}">`)}
                   ${field("Цена", `<input type="number" data-autosave data-scope="custom" data-id="${itemData.id}" data-key="price" value="${escapeHtml(itemData.price)}">`)}
@@ -9713,7 +9713,7 @@
                   `)}
                 </div>
 
-                <div style="margin-top:12px">
+                <div class="mt-12">
                   ${field("Описание", `<textarea data-autosave data-scope="custom" data-id="${itemData.id}" data-key="desc">${escapeHtml(itemData.desc)}</textarea>`)}
                 </div>
               </div>
@@ -9884,8 +9884,8 @@
 
         mainFields.push(
           field("Ответственный", `
-            <div style="display:flex;align-items:center;gap:6px">
-              <select data-autosave data-scope="line" data-id="${id}" data-key="assigneeId" style="flex:1">
+            <div class="u-flex-ac-g6">
+              <select data-autosave data-scope="line" data-id="${id}" data-key="assigneeId" class="u-flex1">
                 ${optionValueHtml("", "— не назначен —", line.assigneeId)}
                 ${state.companyTeam.map(m => optionValueHtml(m.id, m.role ? `${m.name} — ${m.role}` : m.name, line.assigneeId)).join("")}
               </select>
@@ -9901,7 +9901,7 @@
             <div class="item-top">
               <div style="display:flex;gap:12px;flex:1;min-width:0">
                 <div class="drag-handle no-print" title="Перетащи для сортировки" onmousedown="this.closest('.item').draggable=true" onmouseup="this.closest('.item').draggable=false">☰</div>
-                <div style="flex:1;min-width:0">
+                <div class="u-flex1-min0">
                   <input class="line-name-input" type="text" data-autosave data-scope="line" data-id="${id}" data-key="lineName" value="${escapeHtml(line.lineName || "")}" placeholder="${escapeHtml(itemData.name)}" title="Нажми, чтобы переименовать позицию" style="color:var(--text);font-weight:750;font-size:15px">
                   ${!collapsed ? `<textarea class="line-desc-input" data-autosave data-scope="line" data-id="${id}" data-key="editedDesc" placeholder="${escapeHtml(itemData.desc)}" title="Нажми чтобы отредактировать описание" style="color:var(--muted);font-size:12px">${escapeHtml(line.editedDesc || "")}</textarea>` : ""}
 
@@ -9946,12 +9946,12 @@
                 if (!bd.rows.length) return "";
                 if (bd.rows.length === 1 && bd.rows[0].label === "Фиксированная стоимость") return "";
                 return `<div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.15);border-radius:10px;padding:10px 14px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-                  <div style="font-size:12px;color:var(--muted)">${bd.rows.map(r=>`<span>${escapeHtml(r.label)}: <strong>${money(r.value)}</strong></span>`).join(" · ")}</div>
+                  <div class="u-meta">${bd.rows.map(r=>`<span>${escapeHtml(r.label)}: <strong>${money(r.value)}</strong></span>`).join(" · ")}</div>
                   <div style="font-weight:900;font-size:14px;white-space:nowrap">= ${money(bd.total)}</div>
                 </div>`;
               })()}
 
-              <details style="margin-top:10px" ${(state.lineCommentsOpen && id in state.lineCommentsOpen ? state.lineCommentsOpen[id] : (line.clientComment || line.internalComment)) ? "open" : ""} ontoggle="app.setLineCommentsOpen('${id}', this.open)">
+              <details class="mt-10" ${(state.lineCommentsOpen && id in state.lineCommentsOpen ? state.lineCommentsOpen[id] : (line.clientComment || line.internalComment)) ? "open" : ""} ontoggle="app.setLineCommentsOpen('${id}', this.open)">
                 <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:750;padding:4px 0">💬 Комментарий для клиента / внутренняя заметка</summary>
                 <div class="grid two" style="margin-top:8px;gap:8px">
                   <div class="field" style="margin:0">
@@ -10280,7 +10280,7 @@
                 <div>
                   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                     <button class="btn small" onclick="app.closeClientDetail()">← Все клиенты</button>
-                    <h1 style="margin:0">${escapeHtml(client.name)}</h1>
+                    <h1 class="m-0">${escapeHtml(client.name)}</h1>
                     <select style="border-radius:999px;padding:6px 10px;font-size:12px;font-weight:750;background:rgba(124,58,237,.16);border:1px solid rgba(124,58,237,.3);color:var(--text)" onchange="app.updateClientField('${client.id}','status',this.value)">
                       ${["new", "active", "vip", "paused", "lost"].map(s => `<option value="${s}" ${client.status === s ? "selected" : ""}>${{new:"Новый",active:"Активный",vip:"VIP",paused:"Пауза",lost:"Потерян"}[s]||s}</option>`).join("")}
                     </select>
@@ -10311,15 +10311,15 @@
                 ${field("Email", `<input value="${escapeHtml(client.email||"")}" onchange="app.updateClientField('${client.id}','email',this.value)" placeholder="mail@example.com">`)}
                 ${field("Источник", `<input value="${escapeHtml(client.source||"")}" onchange="app.updateClientField('${client.id}','source',this.value)" placeholder="Рекомендация, инстаграм...">`)}
               </div>
-              <div style="margin-top:12px">
+              <div class="mt-12">
                 ${field("Заметка о клиенте", `<textarea onchange="app.updateClientField('${client.id}','note',this.value)" placeholder="Предпочтения, условия, важные детали...">${escapeHtml(client.note||"")}</textarea>`)}
               </div>
               ${client.requisites ? `
-                <div style="margin-top:12px">
+                <div class="mt-12">
                   ${field("Реквизиты", `<textarea onchange="app.updateClientField('${client.id}','requisites',this.value)">${escapeHtml(client.requisites||"")}</textarea>`)}
                 </div>
               ` : `
-                <div style="margin-top:10px">
+                <div class="mt-10">
                   <button class="btn small" onclick="this.parentElement.innerHTML='<textarea onchange=\\'app.updateClientField(\\'${client.id}\\',\\'requisites\\',this.value)\\'></textarea>';this.previousElementSibling?.remove()">+ Добавить реквизиты</button>
                 </div>
               `}
@@ -10342,9 +10342,9 @@
                       <p>${escapeHtml(formatDate(project.updatedAt))} · ${escapeHtml(project.crmStatus || "")}</p>
                     </div>
                     <div style="display:flex;align-items:center;gap:12px">
-                      <div style="text-align:right">
+                      <div class="ta-right">
                         <div style="font-weight:900">${money(project.total)}</div>
-                        <div style="font-size:12px;color:var(--muted)">оплачено ${money(project.paid)}</div>
+                        <div class="u-meta">оплачено ${money(project.paid)}</div>
                       </div>
                       <span class="status-pill">${escapeHtml(project.crmStatus || project.status)}</span>
                     </div>
@@ -10372,7 +10372,7 @@
               ${field("Источник", `<input data-live data-scope="clientDraft" data-key="source" value="${escapeHtml(client.source)}">`)}
             </div>
 
-            <div style="margin-top:12px">
+            <div class="mt-12">
               ${field("Заметка", `<textarea data-live data-scope="clientDraft" data-key="note">${escapeHtml(client.note)}</textarea>`)}
 
             </div>
@@ -10535,13 +10535,13 @@
             </div>
 
             <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
-              <span style="font-size:12px;color:var(--muted)">Приоритет:</span>
+              <span class="u-meta">Приоритет:</span>
               <select class="task-mini-select" data-autosave data-scope="task" data-id="${task.id}" data-key="priority"
                 style="background:${pBg};border-color:${pColor}40;color:${pColor};font-weight:600">
                 ${PRIORITIES.map(p => `<option value="${p}" ${task.priority===p?"selected":""}>${p}</option>`).join("")}
               </select>
               ${task.deadline ? `<span class="badge" style="${isOverdue?"color:var(--red);border-color:rgba(220,38,38,.4)":""}">${isOverdue?"!" : ""}${escapeHtml(formatDate(task.deadline))}</span>` : ""}
-              ${task.assignee ? `<span style="font-size:12px;color:var(--muted)">${escapeHtml(task.assignee)}</span>` : ""}
+              ${task.assignee ? `<span class="u-meta">${escapeHtml(task.assignee)}</span>` : ""}
             </div>
 
             <details style="margin-top:6px" ${(state.taskDetailsOpen||{})[task.id] ? "open" : ""} ontoggle="app.setTaskDetailsOpen('${task.id}', this.open)">
@@ -10786,7 +10786,7 @@
                       <th>Описание</th>
                       <th>Категория / метод</th>
                       <th>Тип</th>
-                      <th style="text-align:right">Сумма</th>
+                      <th class="ta-right">Сумма</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -10796,7 +10796,7 @@
                       const projId = escapeHtml(state.activeProjectId || "");
                       const openEdit = `app.openEditTransaction('${escapeHtml(tx.id)}','${txType}','${projId}')`;
                       return `
-                      <tr style="cursor:pointer" onclick="${openEdit}" title="Нажмите чтобы редактировать">
+                      <tr class="u-pointer" onclick="${openEdit}" title="Нажмите чтобы редактировать">
                         <td style="color:var(--muted);font-size:12px;white-space:nowrap" onclick="${openEdit}">${escapeHtml(formatDate(tx.date))}</td>
                         <td onclick="event.stopPropagation()">
                           <input style="background:transparent;border:none;border-bottom:1px solid transparent;width:100%;font-size:13px;color:var(--text)"
@@ -10806,13 +10806,13 @@
                             onmouseleave="this.style.borderBottomColor='transparent'"
                             onclick="event.stopPropagation()">
                         </td>
-                        <td style="font-size:12px;color:var(--muted)" onclick="event.stopPropagation()">
+                        <td class="u-meta" onclick="event.stopPropagation()">
                           ${tx._type === "income"
                             ? `<input style="background:transparent;border:none;font-size:12px;color:var(--muted);width:100%"
                                 value="${escapeHtml(tx.method || "")}" placeholder="Наличные, перевод..."
                                 data-autosave data-scope="payment" data-id="${tx.id}" data-key="method"
                                 onclick="event.stopPropagation()">`
-                            : tx.category ? `<span class="fin-category-badge">${escapeHtml(tx.category)}</span>` : `<span style="color:var(--muted)">—</span>`
+                            : tx.category ? `<span class="fin-category-badge">${escapeHtml(tx.category)}</span>` : `<span class="u-muted">—</span>`
                           }
                         </td>
                         <td onclick="${openEdit}">
@@ -10871,7 +10871,7 @@
               ${field("Дата", `<input type="date" data-autosave data-scope="payment" data-id="${payment.id}" data-key="date" value="${escapeHtml(payment.date)}">`)}
               ${field("Метод", `<input data-autosave data-scope="payment" data-id="${payment.id}" data-key="method" value="${escapeHtml(payment.method)}">`)}
             </div>
-            <div style="margin-top:10px">${field("Комментарий", `<textarea data-autosave data-scope="payment" data-id="${payment.id}" data-key="note">${escapeHtml(payment.note)}</textarea>`)}</div>
+            <div class="mt-10">${field("Комментарий", `<textarea data-autosave data-scope="payment" data-id="${payment.id}" data-key="note">${escapeHtml(payment.note)}</textarea>`)}</div>
             <div class="toolbar no-print" style="margin-top:10px">
               <button class="btn danger small" onclick="app.deletePayment('${payment.id}')">Удалить</button>
             </div>
@@ -10894,7 +10894,7 @@
                 </select>
               `)}
             </div>
-            <div style="margin-top:10px">${field("Комментарий", `<textarea data-autosave data-scope="expense" data-id="${expense.id}" data-key="note">${escapeHtml(expense.note)}</textarea>`)}</div>
+            <div class="mt-10">${field("Комментарий", `<textarea data-autosave data-scope="expense" data-id="${expense.id}" data-key="note">${escapeHtml(expense.note)}</textarea>`)}</div>
             <div class="toolbar no-print" style="margin-top:10px">
               <button class="btn danger small" onclick="app.deleteExpense('${expense.id}')">Удалить</button>
             </div>
@@ -10975,7 +10975,7 @@
 
               ${payout > 0 ? `
                 <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-                  <span style="font-size:12px;color:var(--muted)">Быстро:</span>
+                  <span class="u-meta">Быстро:</span>
                   <button class="btn small no-print" onclick="app.updateTeamMember('${member.id}','paidAmount',${Math.round(payout * 0.5)})" title="50% предоплата">50%</button>
                   <button class="btn small no-print" onclick="app.updateTeamMember('${member.id}','paidAmount',${payout})" title="Выплатить полностью">100%</button>
                   ${paidAmount > 0 ? `<button class="btn small no-print" onclick="app.updateTeamMember('${member.id}','paidAmount',0)" title="Сбросить">Сброс</button>` : ""}
@@ -10988,7 +10988,7 @@
               ` : ""}
             </div>
 
-            <div style="margin-top:10px">
+            <div class="mt-10">
               ${field("Заметка", `<textarea data-autosave data-scope="team" data-id="${member.id}" data-key="note" style="min-height:52px">${escapeHtml(member.note)}</textarea>`)}
             </div>
 
@@ -11033,16 +11033,16 @@
               ${field("Телефон", `<input data-autosave data-scope="companyTeam" data-id="${member.id}" data-key="phone" onfocus="app.maskPhoneFocus(this)" oninput="app.maskPhoneInput(this)" value="${escapeHtml(member.phone)}" placeholder="+7 900 000-00-00">`)}
             </div>
 
-            <div style="margin-top:10px">
+            <div class="mt-10">
               ${field("Ставка по умолчанию", `<input type="number" data-autosave data-scope="companyTeam" data-id="${member.id}" data-key="rate" value="${escapeHtml(member.rate)}" placeholder="0">`)}
             </div>
 
-            <div style="margin-top:10px">
+            <div class="mt-10">
               ${field("Заметка", `<textarea data-autosave data-scope="companyTeam" data-id="${member.id}" data-key="note">${escapeHtml(member.note)}</textarea>`)}
             </div>
 
             ${linked.length ? `
-              <div style="margin-top:10px">
+              <div class="mt-10">
                 <label style="display:block;font-size:12px;color:var(--muted);font-weight:750;margin-bottom:6px">Занят в текущей смете</label>
                 <div class="badges">${linked.map(x => `<span class="badge">${escapeHtml(x.line.lineName || x.itemData.name)}</span>`).join("")}</div>
               </div>
@@ -11578,7 +11578,7 @@
                 ${state.gFinDatePreset === "custom" ? `
                   <div class="date-range-inputs">
                     <input type="date" value="${escapeHtml(state.gFinDateFrom)}" onchange="app.setGFinDateFrom(this.value)" title="С">
-                    <span style="color:var(--muted)">—</span>
+                    <span class="u-muted">—</span>
                     <input type="date" value="${escapeHtml(state.gFinDateTo)}" onchange="app.setGFinDateTo(this.value)" title="По">
                   </div>
                 ` : ""}
@@ -11696,7 +11696,7 @@
               ${state.gFinDatePreset === "custom" ? `
                 <div class="date-range-inputs">
                   <input type="date" value="${escapeHtml(state.gFinDateFrom)}" onchange="app.setGFinDateFrom(this.value)" title="С">
-                  <span style="color:var(--muted)">—</span>
+                  <span class="u-muted">—</span>
                   <input type="date" value="${escapeHtml(state.gFinDateTo)}" onchange="app.setGFinDateTo(this.value)" title="По">
                 </div>
               ` : ""}
@@ -11712,16 +11712,16 @@
                     <th>Описание</th>
                     <th>Категория / статья</th>
                     <th>Тип</th>
-                    <th style="text-align:right">Сумма</th>
+                    <th class="ta-right">Сумма</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${filtered.length ? filtered.map(tx => `
-                    <tr style="cursor:pointer" title="Нажми для редактирования" onclick="app.openEditTransaction('${tx.id}','${tx._type}','${tx.projectId}')">
+                    <tr class="u-pointer" title="Нажми для редактирования" onclick="app.openEditTransaction('${tx.id}','${tx._type}','${tx.projectId}')">
                       <td style="color:var(--muted);font-size:12px;white-space:nowrap">${escapeHtml(formatDate(tx.date))}</td>
                       <td style="font-size:12px;font-weight:750;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(tx.projectName || "—")}</td>
                       <td style="max-width:200px">${escapeHtml(tx.title)}</td>
-                      <td style="font-size:12px">
+                      <td class="fs-12">
                         ${tx._type === "income"
                           ? `<span class="type-badge income">${escapeHtml(tx.method || "")}</span>`
                           : tx.category ? `<span class="fin-category-badge">${escapeHtml(tx.category)}</span>` : "—"
@@ -11737,11 +11737,11 @@
                 ${filtered.length ? `
                   <tfoot class="fin-table-footer">
                     <tr>
-                      <td colspan="5" style="font-size:12px;color:var(--muted)">Итого получено</td>
+                      <td colspan="5" class="u-meta">Итого получено</td>
                       <td class="amount-cell income" style="text-align:right">+${money(filtered.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
                     </tr>
                     <tr>
-                      <td colspan="5" style="font-size:12px;color:var(--muted)">Итого расходов</td>
+                      <td colspan="5" class="u-meta">Итого расходов</td>
                       <td class="amount-cell expense" style="text-align:right">−${money(filtered.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
                     </tr>
                   </tfoot>
@@ -11907,7 +11907,7 @@
                       <h4>${escapeHtml(ev.title)}</h4>
                       <p>${escapeHtml(ev.project || "")}${ev.amount ? ` · ${money(ev.amount)}` : ""} · <span style="color:${typeColor[ev.type]};font-weight:750">${typeLabel[ev.type] || ""}</span></p>
                     </div>
-                    ${ev.projectId ? `<span style="font-size:12px;color:var(--muted)">→</span>` : ""}
+                    ${ev.projectId ? `<span class="u-meta">→</span>` : ""}
                   </div>
                 `).join("") : `<div class="empty" style="padding:12px">Событий нет</div>`}
               </div>
@@ -11945,9 +11945,9 @@
                     <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid ${isToday ? "rgba(124,58,237,.4)" : "var(--line)"};cursor:${ev.projectId ? "pointer" : "default"};transition:.12s"
                       onclick="${ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : `app.calSelectDay('${ev.date}')`}">
                       <div style="width:8px;height:8px;border-radius:50%;background:${typeColor[ev.type]};flex:0 0 8px"></div>
-                      <div style="flex:1;min-width:0">
+                      <div class="u-flex1-min0">
                         <div style="font-size:13px;font-weight:750;${isPast&&!isToday?"opacity:.6":""}overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(ev.title)}</div>
-                        <div style="font-size:12px;color:var(--muted)">${formatDate(ev.date)}${ev.project ? ` · ${escapeHtml(ev.project)}` : ""}${ev.amount ? ` · ${money(ev.amount)}` : ""}</div>
+                        <div class="u-meta">${formatDate(ev.date)}${ev.project ? ` · ${escapeHtml(ev.project)}` : ""}${ev.amount ? ` · ${money(ev.amount)}` : ""}</div>
                       </div>
                       <span style="font-size:12px;color:${typeColor[ev.type]};font-weight:750;flex:0 0 auto;white-space:nowrap">${escapeHtml(typeLabel[ev.type]||"")}</span>
                     </div>`;
@@ -12018,7 +12018,7 @@
         if (w.step === 1) {
           const clients = state.clients || [];
           body = `
-            <h2 style="margin-bottom:18px">Кто клиент?</h2>
+            <h2 class="mb-18">Кто клиент?</h2>
 
             <div class="grid two" style="margin-bottom:18px">
               <button class="tab ${w.clientMode === "new" ? "active" : ""}" onclick="app.wizardSetData('clientMode','new')">Новый клиент</button>
@@ -12030,7 +12030,7 @@
                 ${field("Имя / название *", `<input id="wz_name" value="${escapeHtml(w.name)}" oninput="app.wizardSetField('name',this.value)" placeholder="Иван Петров или ООО Компания">`)}
                 ${field("Телефон", `<input id="wz_phone" value="${escapeHtml(w.phone)}" onfocus="app.maskPhoneFocus(this)" oninput="app.maskPhoneInput(this);app.wizardSetField('phone',this.value)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00">`)}
               </div>
-              <div style="margin-top:12px">
+              <div class="mt-12">
                 ${field("Компания", `<input value="${escapeHtml(w.company)}" oninput="app.wizardSetField('company',this.value)" placeholder="Название компании (необязательно)">`)}
               </div>
             ` : `
@@ -12039,7 +12039,7 @@
                   <div class="client-select-item ${w.clientId === c.id ? "selected" : ""}" onclick="app.wizardSetData('clientId','${c.id}')">
                     <div>
                       <strong>${escapeHtml(c.name)}</strong>
-                      ${c.company ? `<br><small style="color:var(--muted)">${escapeHtml(c.company)}</small>` : ""}
+                      ${c.company ? `<br><small class="u-muted">${escapeHtml(c.company)}</small>` : ""}
                     </div>
                     <div class="badges">
                       ${c.phone ? `<span class="badge">${escapeHtml(c.phone)}</span>` : ""}
@@ -12054,7 +12054,7 @@
 
         if (w.step === 2) {
           body = `
-            <h2 style="margin-bottom:18px">О проекте</h2>
+            <h2 class="mb-18">О проекте</h2>
             <div>
               ${field("Название проекта *", `<input value="${escapeHtml(w.projectName)}" oninput="app.wizardSetField('projectName',this.value)" placeholder="Рекламный ролик для Компании">`)}
             </div>
@@ -12088,7 +12088,7 @@
 
           body = `
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:6px">
-              <h2 style="margin:0">Выбери пакет услуг</h2>
+              <h2 class="m-0">Выбери пакет услуг</h2>
               <span class="mini-note">${(state.packages || []).length} пакетов</span>
             </div>
             <p class="mini-note" style="margin-bottom:14px">Смета заполнится автоматически. Цены — стартовые, всё можно скорректировать.</p>
@@ -12323,7 +12323,7 @@
               ${field("Условия", `<textarea data-autosave data-scope="company" data-key="terms">${escapeHtml(state.company.terms)}</textarea>`)}
             </div>
 
-            <div style="margin-top:14px">
+            <div class="mt-14">
               ${field("Реквизиты", `<textarea data-autosave data-scope="company" data-key="requisites">${escapeHtml(state.company.requisites)}</textarea>`)}
             </div>
 
@@ -12385,7 +12385,7 @@
               <p style="margin-bottom:6px;font-size:13px">
                 Подключите Supabase для: входа пользователей по email/паролю, облачного хранения данных, управления подписками и совместного редактирования.
               </p>
-              <details style="margin-bottom:14px">
+              <details class="mb-14">
                 <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:700">📋 SQL — создать таблицы в Supabase (нажмите чтобы раскрыть)</summary>
                 <pre style="font-size:12px;background:rgba(0,0,0,.15);border-radius:10px;padding:12px;margin-top:10px;overflow-x:auto;white-space:pre-wrap;line-height:1.5">-- ═══════════════════════════════════════════════════
 -- ADERVIS CRM — Схема базы данных v4.2
@@ -12478,7 +12478,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 </div>
                 <div class="grid two" style="margin-bottom:14px">
                   <div class="field">
-                    <label>VK App ID <span style="font-size:12px;color:var(--muted)">(для авторизации через VK)</span></label>
+                    <label>VK App ID <span class="u-meta">(для авторизации через VK)</span></label>
                     <input id="vk_app_id_input" placeholder="12345678" value="${escapeHtml((localStorage.getItem('vk_app_id') || _DEFAULT_VK_APP_ID) || '')}">
                   </div>
                 </div>
@@ -12528,7 +12528,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <div style="width:56px;height:56px;border-radius:16px;background:var(--primary);display:grid;place-items:center;flex-shrink:0;box-shadow:0 6px 20px rgba(108,0,255,.35)">
                   <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
                 </div>
-                <div style="flex:1;min-width:0">
+                <div class="u-flex1-min0">
                   <h2 style="margin:0 0 4px;font-size:16px">📲 Установить ADERVIS CRM</h2>
                   <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.6">Работает как полноценное приложение — быстрый запуск с рабочего стола, без вкладки браузера, поддержка push-уведомлений.</p>
                 </div>
@@ -12549,23 +12549,23 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <div style="background:rgba(124,58,237,.08);border-radius:10px;padding:10px 14px">
                   <div style="font-size:18px;margin-bottom:4px">⚡</div>
                   <div style="font-size:12px;font-weight:700;margin-bottom:2px">Быстрый запуск</div>
-                  <div style="font-size:12px;color:var(--muted)">Иконка на рабочем столе или в доке, открывается мгновенно</div>
+                  <div class="u-meta">Иконка на рабочем столе или в доке, открывается мгновенно</div>
                 </div>
                 <div style="background:rgba(37,99,235,.08);border-radius:10px;padding:10px 14px">
                   <div style="font-size:18px;margin-bottom:4px">🔔</div>
                   <div style="font-size:12px;font-weight:700;margin-bottom:2px">Push-уведомления</div>
-                  <div style="font-size:12px;color:var(--muted)">Дедлайны и события даже когда приложение закрыто</div>
+                  <div class="u-meta">Дедлайны и события даже когда приложение закрыто</div>
                 </div>
                 <div style="background:rgba(22,163,74,.08);border-radius:10px;padding:10px 14px">
                   <div style="font-size:18px;margin-bottom:4px">📱</div>
                   <div style="font-size:12px;font-weight:700;margin-bottom:2px">Мобильный доступ</div>
-                  <div style="font-size:12px;color:var(--muted)">Работает на iOS (Safari → Добавить на экран) и Android</div>
+                  <div class="u-meta">Работает на iOS (Safari → Добавить на экран) и Android</div>
                 </div>
               </div>
             </div>
 
             <div style="margin-top:18px;padding:10px 14px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-              <span style="font-size:12px;color:var(--muted)">ADERVIS CRM</span>
+              <span class="u-meta">ADERVIS CRM</span>
               <span style="font-size:12px;color:var(--muted);opacity:.55">v${APP_VERSION}</span>
             </div>
 
@@ -12609,7 +12609,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <button class="btn small" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(feedUrl)}').then(()=>app._toast('✅ Ссылка скопирована!'))">📋 Копировать</button>
                   <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none;white-space:nowrap">📱 Открыть на iPhone</a>
                 </div>
-                <details style="font-size:12px;color:var(--muted)">
+                <details class="u-meta">
                   <summary style="cursor:pointer;font-weight:600;margin-bottom:8px">Как подключить?</summary>
                   <div style="padding:10px 0;line-height:1.7">
                     <b>iPhone:</b> нажмите «Открыть на iPhone» → Календарь предложит подписаться → «Добавить».<br>
@@ -12664,7 +12664,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!_portalLoaded) {
           return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">
             <span class="ai-spinner" style="width:32px;height:32px;border-width:3px"></span>
-            <p style="color:var(--muted)">Загрузка...</p>
+            <p class="u-muted">Загрузка...</p>
           </div>`;
         }
         if (!_portalData) {
@@ -12686,7 +12686,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 </div>
                 <div>
                   <div style="font-weight:900;font-size:17px;letter-spacing:-.2px">Adervis</div>
-                  <div style="font-size:12px;color:var(--muted)">Коммерческое предложение</div>
+                  <div class="u-meta">Коммерческое предложение</div>
                 </div>
               </div>
 
@@ -12721,7 +12721,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 ${d.excluded_text ? `
                   <div class="portal-section">
                     <h3>Не входит в стоимость</h3>
-                    <p style="color:var(--muted)">${escapeHtml(d.excluded_text).replace(/\n/g,'<br>')}</p>
+                    <p class="u-muted">${escapeHtml(d.excluded_text).replace(/\n/g,'<br>')}</p>
                   </div>
                 ` : ''}
 
@@ -12735,7 +12735,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <div style="margin-top:24px;padding:18px;background:var(--panel2);border:1px solid var(--line);border-radius:14px">
                     <p style="font-size:13px;font-weight:700;margin:0 0 12px">Электронная подпись</p>
                     <div class="field" style="margin-bottom:10px">
-                      <label style="font-size:12px;color:var(--muted)">Ваше ФИО (для подтверждения)</label>
+                      <label class="u-meta">Ваше ФИО (для подтверждения)</label>
                       <input id="esignName" type="text" placeholder="Иванов Иван Иванович" style="width:100%;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px">
                     </div>
                     <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px">
@@ -12760,10 +12760,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                     <div style="font-size:13px;font-weight:700;margin-bottom:4px">💳 Онлайн-оплата аванса</div>
                     ${d.advance_paid_at ? `
                       <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:12px 14px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:10px">
-                        <span style="font-size:20px">✅</span>
+                        <span class="fs-20">✅</span>
                         <div>
                           <div style="font-weight:800;color:var(--green);font-size:13px">Аванс оплачен</div>
-                          <div style="font-size:12px;color:var(--muted)">${new Date(d.advance_paid_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</div>
+                          <div class="u-meta">${new Date(d.advance_paid_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</div>
                         </div>
                         <div style="margin-left:auto;font-size:18px;font-weight:900;color:var(--green)">${money(d.advance_amount)}</div>
                       </div>
@@ -12787,7 +12787,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
               <div style="text-align:center;padding:24px 0 8px;font-size:12px;color:var(--muted)">
                 Adervis · Digital Creative Agency ·
-                <a href="mailto:adervis.digital@gmail.com" style="color:var(--muted)">adervis.digital@gmail.com</a>
+                <a href="mailto:adervis.digital@gmail.com" class="u-muted">adervis.digital@gmail.com</a>
               </div>
             </div>
           </div>
@@ -13364,8 +13364,8 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           <div class="modal-overlay" onclick="event.target===this&&app.closeEditTransactionModal()">
             <div class="modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-                <h2 style="margin:0;font-size:20px">Редактировать ${isIncome ? "поступление" : "расход"}</h2>
-                <button onclick="app.closeEditTransactionModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
+                <h2 class="u-title-20">Редактировать ${isIncome ? "поступление" : "расход"}</h2>
+                <button onclick="app.closeEditTransactionModal()" class="u-modal-close">×</button>
               </div>
               <div class="field" style="margin-bottom:14px">
                 <label style="font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.04em">СУММА, ₽ *</label>
@@ -13396,7 +13396,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
                 <button class="btn danger small" onclick="app.deleteEditTransaction()">Удалить</button>
-                <div style="display:flex;gap:8px">
+                <div class="u-flex-g8">
                   <button class="btn" onclick="app.closeEditTransactionModal()">Отмена</button>
                   <button class="modal-save-btn ${isIncome ? "income" : "expense"}" onclick="app.saveEditTransaction()">Сохранить</button>
                 </div>
@@ -13493,8 +13493,8 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           <div class="modal-overlay" onclick="event.target===this&&app.closeClientModal()">
             <div class="modal-box" style="width:min(560px,calc(100vw - 32px))">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-                <h2 style="margin:0;font-size:20px">${m.id ? "Редактировать клиента" : "Новый клиент"}</h2>
-                <button onclick="app.closeClientModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
+                <h2 class="u-title-20">${m.id ? "Редактировать клиента" : "Новый клиент"}</h2>
+                <button onclick="app.closeClientModal()" class="u-modal-close">×</button>
               </div>
               <div class="grid two" style="margin-bottom:12px">
                 ${field("Имя / название *", `<input value="${escapeHtml(m.name || "")}" oninput="app.setClientModalField('name',this.value)" placeholder="Имя клиента">`)}
@@ -13517,11 +13517,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 ${field("Заметка", `<textarea style="min-height:72px" oninput="app.setClientModalField('note',this.value)" placeholder="Предпочтения, условия...">${escapeHtml(m.note || "")}</textarea>`)}
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-                <div style="display:flex;gap:8px">
+                <div class="u-flex-g8">
                   ${m.id ? `<button class="btn small" onclick="app.closeClientModal();app.openClientDetail('${m.id}')">Проекты →</button>` : ""}
                   ${m.id ? `<button class="btn danger small" onclick="app.closeClientModal();app.deleteClient('${m.id}')">Удалить клиента</button>` : ""}
                 </div>
-                <div style="display:flex;gap:8px">
+                <div class="u-flex-g8">
                   <button class="btn" onclick="app.closeClientModal()">Отмена</button>
                   <button class="btn primary" onclick="app.saveClientModal()">${m.id ? "Сохранить" : "Добавить"}</button>
                 </div>
@@ -13749,10 +13749,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           <div class="modal-overlay" onclick="event.target===this&&app.closeDealModal()">
             <div class="modal-box" style="width:min(560px,calc(100vw - 32px))">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:8px">
-                <h2 style="margin:0;font-size:20px">Редактировать сделку</h2>
+                <h2 class="u-title-20">Редактировать сделку</h2>
                 <div style="display:flex;align-items:center;gap:8px">
                   <button class="btn small" onclick="app.quickContractFromDeal('${escapeHtml(m.id)}')" title="Создать договор с данными этой сделки">📄 Договор</button>
-                  <button onclick="app.closeDealModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
+                  <button onclick="app.closeDealModal()" class="u-modal-close">×</button>
                 </div>
               </div>
               <div class="grid two" style="margin-bottom:12px">
@@ -13866,7 +13866,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             <div class="task-modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
                 <h2 style="margin:0;font-size:18px">Задача</h2>
-                <button onclick="app.closeTaskModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
+                <button onclick="app.closeTaskModal()" class="u-modal-close">×</button>
               </div>
               <div class="field" style="margin-bottom:12px">
                 ${field("Название", `<input value="${escapeHtml(m.title || "")}" oninput="app.setTaskModalField('title',this.value)">`)}
@@ -13895,7 +13895,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                       <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;position:relative">
                         <div style="font-size:13px;color:var(--text);line-height:1.5;white-space:pre-wrap;word-break:break-word">${escapeHtml(c.text)}</div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-                          <span style="font-size:12px;color:var(--muted)">${escapeHtml(c.author || "Я")} · ${new Date(c.createdAt).toLocaleString("ru-RU",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+                          <span class="u-meta">${escapeHtml(c.author || "Я")} · ${new Date(c.createdAt).toLocaleString("ru-RU",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
                           <button onclick="app.deleteTaskComment('${c.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 2px;line-height:1" title="Удалить комментарий">×</button>
                         </div>
                       </div>
