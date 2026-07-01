@@ -1295,7 +1295,7 @@
         el.innerHTML = `
           <div class="sidebar-header">
             <div class="sidebar-brand" onclick="app.toggleSidebar()" title="${collapsed ? "Развернуть меню" : "Свернуть меню"}" style="cursor:pointer">
-              <div class="logo" style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0">
+              <div class="logo" style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">
                 <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:20px;height:20px;object-fit:contain">
               </div>
               <div class="sidebar-label">
@@ -1320,7 +1320,7 @@
               <span class="sidebar-label">Admin Panel</span>
             </button>` : ""}
             <button class="sidebar-nav-item" onclick="app.go('profile')" title="${escapeHtml(name)}">
-              <div class="sidebar-user-avatar" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff">${initials}</div>
+              <div class="sidebar-user-avatar" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff">${initials}</div>
               <span class="sidebar-label" style="min-width:0;overflow:hidden;text-align:left">
                 <div style="font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">${escapeHtml(name)}</div>
                 <div style="font-size:10px;color:var(--muted)">${escapeHtml(subLabel || "Активна")}</div>
@@ -1595,7 +1595,7 @@
         const landingLeft = `
           <div class="auth-gate-left">
             <div class="auth-gate-brand">
-              <div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0">
+              <div style="width:52px;height:52px;border-radius:16px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">
                 <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
               </div>
               <div>
@@ -1632,7 +1632,7 @@
               <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
                 <p style="margin:0 0 8px;font-size:13px;line-height:1.55;color:var(--fg)">"Раньше вели всё в таблицах — постоянно теряли задачи и забывали про дедлайны. Теперь вся студия в одном месте, и смету клиенту отправляю прямо из CRM за 5 минут."</p>
                 <div style="display:flex;align-items:center;gap:8px">
-                  <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">А</div>
+                  <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">А</div>
                   <div><div style="font-size:12px;font-weight:700">Андрей К.</div><div style="font-size:11px;color:var(--muted)">Руководитель видеостудии, Москва</div></div>
                 </div>
               </div>
@@ -1656,7 +1656,7 @@
                 <div class="auth-gate-right">
                   <div class="auth-gate-box">
                     <div class="auth-gate-logo">
-                      <div class="logo" style="width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center">
+                      <div class="logo" style="width:36px;height:36px;border-radius:11px;background:var(--primary);display:grid;place-items:center">
                         <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:24px;height:24px;object-fit:contain">
                       </div>
                       <div>
@@ -1694,7 +1694,7 @@
               <div class="auth-gate-right">
                 <div class="auth-gate-box">
                   <div class="auth-gate-logo">
-                    <div class="logo" style="width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center">
+                    <div class="logo" style="width:36px;height:36px;border-radius:11px;background:var(--primary);display:grid;place-items:center">
                       <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:24px;height:24px;object-fit:contain">
                     </div>
                     <div>
@@ -2088,7 +2088,7 @@
           ${localMode ? `
             <div style="padding:14px 16px">
               <div style="font-size:13px;font-weight:750;margin-bottom:10px">Локальный режим</div>
-              <button class="pd-item" style="padding:9px 0;width:100%;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--blue));color:#fff;justify-content:center" onclick="app.exitLocalModeAndLogin();app.toggleProfileDd(false)">🔐 Войти / Зарегистрироваться</button>
+              <button class="pd-item" style="padding:9px 0;width:100%;border-radius:10px;background:var(--primary);color:#fff;justify-content:center" onclick="app.exitLocalModeAndLogin();app.toggleProfileDd(false)">🔐 Войти / Зарегистрироваться</button>
             </div>
           ` : `
             <div class="pd-head">
@@ -2855,7 +2855,7 @@
                       <!-- User row -->
                       <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;flex-wrap:wrap">
                         <!-- Avatar -->
-                        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;font-size:14px;font-weight:900;color:#fff;flex-shrink:0">
+                        <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:14px;font-weight:900;color:#fff;flex-shrink:0">
                           ${(a.email||"?")[0].toUpperCase()}
                         </div>
                         <!-- Info -->
@@ -2980,7 +2980,7 @@
         return `
           <div class="panel" style="max-width:680px;margin:0 auto">
             <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px">
-              <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0">
+              <div style="width:48px;height:48px;border-radius:14px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">
                 <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:32px;height:32px;object-fit:contain">
               </div>
               <div>
@@ -3093,7 +3093,7 @@
               : `<div style="font-size:28px;font-weight:900;line-height:1">${p.price} ₽</div><div style="font-size:11px;color:var(--muted)">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:11px;color:var(--primary2);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)}</div>` : `<div style="margin-bottom:16px"></div>`}`;
           return `
           <div class="plan-card" style="border-radius:18px;border:2px solid ${border};background:${bg};padding:20px 16px;display:flex;flex-direction:column;position:relative;min-width:0">
-            ${p.popular && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--primary),var(--blue));color:#fff;font-size:10px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">🔥 Популярный</div>` : ""}
+            ${p.popular && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:10px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">🔥 Популярный</div>` : ""}
             ${isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:10px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">✓ Активен</div>` : ""}
             <div style="font-size:14px;font-weight:900;margin-bottom:10px">${escapeHtml(p.label)}</div>
             ${priceHtml}
@@ -3276,7 +3276,7 @@
               <h2 style="margin-top:0;font-size:15px">Фото и имя</h2>
               <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
                 <div style="position:relative;flex:0 0 80px">
-                  <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:flex;align-items:center;justify-content:center;color:#fff;overflow:hidden;box-shadow:0 6px 20px rgba(124,58,237,.35)">
+                  <div style="width:80px;height:80px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;overflow:hidden;box-shadow:0 6px 20px rgba(124,58,237,.35)">
                     ${avatarHtml}
                   </div>
                 </div>
@@ -3345,7 +3345,7 @@
             })()}
             ` : `
             <div style="text-align:center;padding:32px 24px;margin-bottom:24px;background:var(--panel2);border-radius:16px;border:1px solid var(--line)">
-              <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--blue));display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;margin:0 auto 16px;box-shadow:0 8px 28px rgba(124,58,237,.4)">A</div>
+              <div style="width:72px;height:72px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;margin:0 auto 16px;box-shadow:0 8px 28px rgba(124,58,237,.4)">A</div>
               <h2 style="margin:0 0 6px;font-size:20px">Войдите в ADERVIS CRM</h2>
               <p style="color:var(--muted);margin:0 0 18px;font-size:14px">Облачное хранение · Синхронизация · Подписка</p>
               <button class="btn primary" onclick="app.exitLocalModeAndLogin()" style="padding:12px 28px;font-size:15px;width:100%;max-width:280px">🔐 Войти / Зарегистрироваться</button>
@@ -7984,7 +7984,7 @@
           root.innerHTML = `
             <div style="min-height:60vh;display:flex;align-items:center;justify-content:center;padding:32px">
               <div style="text-align:center;max-width:460px">
-                <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;margin:0 auto 20px">
+                <div style="width:64px;height:64px;border-radius:18px;background:var(--primary);display:grid;place-items:center;margin:0 auto 20px">
                   <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:42px;height:42px;object-fit:contain">
                 </div>
                 <h2 style="margin:0 0 10px;font-size:22px">Что-то пошло не так</h2>
@@ -8620,7 +8620,7 @@
                       <span style="font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;flex:0 0 auto">${money(c.total)}</span>
                     </div>
                     <div style="height:3px;background:var(--line);border-radius:999px">
-                      <div style="height:100%;width:${Math.round(c.total/maxC*100)}%;background:linear-gradient(90deg,var(--primary),var(--blue));border-radius:999px"></div>
+                      <div style="height:100%;width:${Math.round(c.total/maxC*100)}%;background:var(--primary);border-radius:999px"></div>
                     </div>
                   </div>`).join('')}
               </div>` : ''}
@@ -8671,7 +8671,7 @@
               <button onclick="localStorage.setItem('_onboardingDismissed','1');app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Скрыть">×</button>
             </div>
             <div style="height:4px;background:var(--line);border-radius:999px;margin-bottom:12px">
-              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--primary),var(--blue));border-radius:999px;transition:.4s"></div>
+              <div style="height:100%;width:${pct}%;background:var(--primary);border-radius:999px;transition:.4s"></div>
             </div>
             ${steps.map(s => `
               <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
@@ -11189,7 +11189,7 @@
               </div>
 
               <div class="toolbar">
-                <button class="btn" id="aiProposalBtn" onclick="app.generateProposalAI()" style="background:linear-gradient(135deg,#7c3aed,#2563eb);border-color:transparent;color:#fff">✨ Сгенерировать с ИИ</button>
+                <button class="btn" id="aiProposalBtn" onclick="app.generateProposalAI()" style="background:var(--primary);border-color:transparent;color:#fff">✨ Сгенерировать с ИИ</button>
                 <button class="btn" onclick="app.copyProposalText()">Скопировать текст</button>
                 <button class="btn blue" onclick="app.downloadProposalPDF()">Печать / PDF</button>
                 <button class="btn green" onclick="app.exportXlsx()">Excel</button>
@@ -12525,7 +12525,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             <!-- PWA Установка -->
             <div class="panel" style="margin-top:18px;box-shadow:none;background:linear-gradient(135deg,rgba(124,58,237,.10),rgba(37,99,235,.08));border:1px solid rgba(124,58,237,.25)">
               <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-                <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0;box-shadow:0 6px 20px rgba(108,0,255,.35)">
+                <div style="width:56px;height:56px;border-radius:16px;background:var(--primary);display:grid;place-items:center;flex-shrink:0;box-shadow:0 6px 20px rgba(108,0,255,.35)">
                   <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
                 </div>
                 <div style="flex:1;min-width:0">
@@ -12681,7 +12681,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           <div class="portal-wrap">
             <div class="portal-inner">
               <div class="portal-header">
-                <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0">
+                <div style="width:46px;height:46px;border-radius:14px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">
                   <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:30px;height:30px;object-fit:contain">
                 </div>
                 <div>
