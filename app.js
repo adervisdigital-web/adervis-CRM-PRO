@@ -5054,6 +5054,9 @@
         if (state.tab !== "all") {
           if (state.tab === "favorites") items = items.filter(x => state.favorites[x.id]);
           else if (state.tab === "custom") items = items.filter(x => x.category === "custom");
+          // «Расходы» дополнительно показывает сквозные AI-подписки/кредиты из вкладки «ИИ» —
+          // те же карточки, без дублирования данных, просто попадают в оба фильтра
+          else if (state.tab === "expenses") items = items.filter(x => isPassthroughCostItem(x));
           else if (state.tab !== "hidden") items = items.filter(x => x.category === state.tab);
         }
 
@@ -9007,7 +9010,7 @@
             <span class="badge">Этап: ${escapeHtml(getItemStageName(itemData))}</span>
             <span class="badge">Модель: ${escapeHtml(itemData.calcModel)}</span>
             <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
-            ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">💸 Расход, не доход</span>` : ""}
+            ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>` : ""}
           </div>
           <div class="grid two">
             ${field("Цена, ₽", `<input type="number" class="catalog-price-input" value="${currentPrice}" onchange="app.updateCatalogPrice('${id}', this.value)" style="font-size:18px;font-weight:700">`)}
@@ -9379,7 +9382,7 @@
                   <span class="badge">Этап: ${escapeHtml(getItemStageName(itemData))}</span>
                   <span class="badge">Модель: ${escapeHtml(itemData.calcModel)}</span>
                   <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
-                  ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">💸 Расход, не доход</span>` : ""}
+                  ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>` : ""}
                   ${state.favorites[itemData.id] ? `<span class="status-pill">★ избранное</span>` : ""}
                 </div>
               </div>
@@ -9640,7 +9643,7 @@
                     <span class="badge" style="background:${stageColor}22;color:${stageColor};border-color:${stageColor}44">${escapeHtml(itemData.section)}</span>
                     <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
                     ${line.optional ? `<span class="status-pill yellow">опция</span>` : `<span class="status-pill green">основная</span>`}
-                    ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Расход агентства — по умолчанию не приносит прибыль, себестоимость = цене">💸 Расход</span>` : ""}
+                    ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Расход агентства — по умолчанию не приносит прибыль, себестоимость = цене">Расходы</span>` : ""}
                   </div>
                 </div>
               </div>
