@@ -9602,7 +9602,10 @@
                   </select>
                 </div>
                 <div class="toolbar no-print" style="gap:5px;flex-direction:row;flex-wrap:wrap">
-                  <button class="btn small" onclick="app.toggleAllEstimate()" title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}">${allStagesCollapsed ? "⊞" : "⊟"}</button>
+                  <button class="btn small estimate-collapse-all-btn ${allStagesCollapsed ? "collapsed" : ""}" onclick="app.toggleAllEstimate()" title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
+                    ${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}
+                  </button>
                   <button class="btn small" onclick="app.go('catalog')">+ Услуги</button>
                   <button class="btn small" onclick="app.go('packages')">+ Пакет</button>
                   ${inDeal ? "" : `<button class="btn small" onclick="app.createVersion()">Версия</button>`}
@@ -9653,7 +9656,8 @@
               </div>
               <div style="display:flex;align-items:center;gap:12px">
                 <div class="price" style="font-size:20px">${money(stageSum)}</div>
-                <button class="btn small no-print" onclick="app.toggleStageCollapse('${stage.id}')">
+                <button class="btn small no-print stage-collapse-btn ${isCollapsed ? "collapsed" : ""}" onclick="app.toggleStageCollapse('${stage.id}')">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
                   ${isCollapsed ? "Развернуть" : "Свернуть"}
                 </button>
               </div>

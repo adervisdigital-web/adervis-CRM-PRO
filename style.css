@@ -4340,6 +4340,18 @@ body.portal-mode .nav { display: none !important; }
 .line-collapse-btn.collapsed { transform: rotate(180deg); }
 .line-collapse-btn.collapsed:hover { transform: rotate(180deg); }
 
+/* Тот же шеврон, что и line-collapse-btn, но на кнопках с текстом (этап / всё
+   целиком) — крутится только сама иконка, не вся кнопка, иначе текст перевернётся */
+.stage-collapse-btn svg,
+.estimate-collapse-all-btn svg {
+  transition: transform .2s;
+  flex-shrink: 0;
+}
+.stage-collapse-btn.collapsed svg,
+.estimate-collapse-all-btn.collapsed svg {
+  transform: rotate(180deg);
+}
+
 .line-details {
   max-height: 2000px;
   opacity: 1;
