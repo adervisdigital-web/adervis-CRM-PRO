@@ -1037,7 +1037,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","catalogEditId"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","catalogEditId","helpModal","notifPopupOpen","summaryOpen"]);
 
       async function _loadCloudState() {
         if (!_supabase || !_adminSession) return;
@@ -4170,6 +4170,7 @@
             proposalShowBudgetComment: true,
             proposalShowIncluded: true,
             proposalShowExcluded: true,
+            proposalShowNote: true,
             proposalShowCompanyInfo: true
           },
           company: {
@@ -4355,6 +4356,7 @@
           debt: numberValue(project?.debt, 0),
           expensesTotal: numberValue(project?.expensesTotal, 0),
           profit: numberValue(project?.profit, 0),
+          revenue: numberValue(project?.revenue, numberValue(project?.total, 0)),
           createdAt: project?.createdAt || project?.at || new Date().toISOString(),
           updatedAt: project?.updatedAt || project?.at || new Date().toISOString(),
           note: project?.note || "",
@@ -5140,7 +5142,8 @@
           paid: f.paid,
           debt: f.debt,
           expensesTotal: f.totalExpenses,
-          profit: f.profit
+          profit: f.profit,
+          revenue: f.revenue
         };
       }
 
@@ -5180,6 +5183,7 @@
               debt: f.debt,
               expensesTotal: f.totalExpenses,
               profit: f.profit,
+              revenue: f.revenue,
               updatedAt: now,
               snapshot
             });
@@ -5208,6 +5212,7 @@
           debt: f.debt,
           expensesTotal: f.totalExpenses,
           profit: f.profit,
+          revenue: f.revenue,
           createdAt: state.project.createdAt || now,
           updatedAt: now,
           snapshot
@@ -6019,6 +6024,11 @@
           state.project.clientId = "";
           state.activeClientId = "";
         }
+        // Чистим ссылку и в архивных сделках, не только в активной
+        (state.savedProjects || []).forEach(p => {
+          if (p.clientId === id) p.clientId = "";
+          if (p.snapshot?.project?.clientId === id) p.snapshot.project.clientId = "";
+        });
 
         toast("Клиент удалён");
         save();
@@ -6253,6 +6263,12 @@
         if (!confirm("Удалить участника из команды?")) return;
         state.companyTeam = state.companyTeam.filter(x => x.id !== id);
         Object.values(state.selected || {}).forEach(line => { if (line.assigneeId === id) line.assigneeId = ""; });
+        // Чистим ссылку и в архивных сметах, не только в активной
+        (state.savedProjects || []).forEach(p => {
+          if (p.snapshot?.selected) {
+            Object.values(p.snapshot.selected).forEach(line => { if (line.assigneeId === id) line.assigneeId = ""; });
+          }
+        });
         save();
         render();
       }
@@ -6483,6 +6499,7 @@
             debt: f.debt,
             expensesTotal: f.totalExpenses,
             profit: f.profit,
+            revenue: f.revenue,
             updatedAt: new Date().toISOString(),
             snapshot: snap
           });
@@ -8662,7 +8679,7 @@
                   const u = project.deadline ? deadlineUrgency(project.deadline) : null;
                   const nextLabel = CRM_NEXT[project.crmStatus || "Лид"];
                   const projectIdSafe = project.id.replace(/'/g,"");
-                  const margin = project.total > 0 ? Math.round((project.profit||0)/project.total*100) : 0;
+                  const margin = project.revenue > 0 ? Math.round((project.profit||0)/project.revenue*100) : 0;
                   const healthClass = margin >= 40 ? "green" : margin >= 20 ? "yellow" : margin > 0 ? "red" : "grey";
                   return `
                     <div class="deal-list-row ${isCurrent?"current":""}" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету">
@@ -8685,7 +8702,7 @@
               </div>
               ` : `<div class="grid three">
                 ${visibleItems.map(project => {
-                  const margin = project.total > 0 ? Math.round((project.profit || 0) / project.total * 100) : 0;
+                  const margin = project.revenue > 0 ? Math.round((project.profit || 0) / project.revenue * 100) : 0;
                   const healthClass = margin >= 40 ? "green" : margin >= 20 ? "yellow" : margin > 0 ? "red" : "grey";
                   const nextLabel = CRM_NEXT[project.crmStatus || "Лид"];
                   const isCurrent = project.id === state.activeProjectId;
@@ -10919,6 +10936,10 @@
               ${field("Не включено", `<textarea data-autosave data-scope="project" data-key="excludedText">${escapeHtml(state.project.excludedText)}</textarea>`)}
             </div>
 
+            <div class="no-print client-hidden" style="margin-top:14px">
+              ${field("Примечание", `<textarea data-autosave data-scope="project" data-key="proposalNote" style="min-height:72px">${escapeHtml(state.project.proposalNote)}</textarea>`)}
+            </div>
+
             <div class="no-print client-hidden" style="margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)">
               <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px">Что показывать в КП</div>
               <div class="grid two" style="margin-bottom:14px">
@@ -10938,6 +10959,7 @@
                 ${proposalToggle("proposalShowBudgetComment", "Комментарий к бюджету")}
                 ${proposalToggle("proposalShowIncluded", "Блок «Что входит»")}
                 ${proposalToggle("proposalShowExcluded", "Блок «Что не входит»")}
+                ${proposalToggle("proposalShowNote", "Примечание")}
                 ${proposalToggle("proposalShowCompanyInfo", "Информация о компании")}
               </div>
             </div>
@@ -11024,7 +11046,7 @@
               <tbody>
                 <tr><td><strong>Оплата</strong></td><td>${escapeHtml(state.project.paymentTerms || "")}</td></tr>
                 <tr><td><strong>Передача материалов</strong></td><td>${escapeHtml(state.project.deliveryTerms || "")}</td></tr>
-                <tr><td><strong>Примечание</strong></td><td>${escapeHtml(state.project.proposalNote || "")}</td></tr>
+                ${state.project.proposalNote && state.project.proposalShowNote !== false ? `<tr><td><strong>Примечание</strong></td><td>${escapeHtml(state.project.proposalNote)}</td></tr>` : ""}
               </tbody>
             </table>
 
