@@ -4271,6 +4271,12 @@ body.portal-mode .nav { display: none !important; }
 }
 .toast-close:hover { opacity: 1; }
 .toast.show { pointer-events: auto; }
+.toast-undo {
+  background: none; border: none; color: var(--primary);
+  font-size: 13px; font-weight: 700; cursor: pointer; padding: 0 8px;
+  flex-shrink: 0; pointer-events: auto; white-space: nowrap;
+}
+.toast-undo:hover { text-decoration: underline; }
 
 /* ── View fade on section switch ───────────────────── */
 @keyframes viewFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }

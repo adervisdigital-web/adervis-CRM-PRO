@@ -4654,6 +4654,37 @@
         toast._timer = setTimeout(() => el.classList.remove("show"), 3500);
       }
 
+      // Тост с кнопкой «Отменить» на 5 сек — замена confirm() для удаления клиента/
+      // платежа/сделки: действие выполняется сразу, откатить можно одним кликом,
+      // вместо блокирующего диалога, который всё равно жмут не глядя.
+      let _pendingUndo = null;
+      function toastUndo(message, restoreFn) {
+        const el = document.getElementById("toast");
+        if (!el) return;
+        clearTimeout(toast._timer);
+        if (_pendingUndo) clearTimeout(_pendingUndo.timer);
+        el.innerHTML = `<span class="toast-msg">${escapeHtml(message)}</span><button class="toast-undo" onclick="app.undoLastDelete()">↩ Отменить</button><button class="toast-close" onclick="app.dismissUndo()" aria-label="Закрыть">&times;</button>`;
+        el.classList.add("show");
+        _pendingUndo = { restore: restoreFn, timer: setTimeout(() => { el.classList.remove("show"); _pendingUndo = null; }, 5000) };
+      }
+
+      function undoLastDelete() {
+        if (!_pendingUndo) return;
+        clearTimeout(_pendingUndo.timer);
+        const restore = _pendingUndo.restore;
+        _pendingUndo = null;
+        const el = document.getElementById("toast");
+        if (el) el.classList.remove("show");
+        restore();
+      }
+
+      function dismissUndo() {
+        if (_pendingUndo) clearTimeout(_pendingUndo.timer);
+        _pendingUndo = null;
+        const el = document.getElementById("toast");
+        if (el) el.classList.remove("show");
+      }
+
       function allItems(includeHidden = false) {
         const items = [...BASE_ITEMS, ...(state.customItems || [])]
           .filter(x => !state.permanentlyDeleted?.[x.id])
@@ -5384,24 +5415,42 @@
       }
 
       function deleteSavedProject(id) {
-        if (!confirm("Удалить сохранённый проект?")) return;
-        state.savedProjects = state.savedProjects.filter(project => project.id !== id);
-        if (state.activeProjectId === id) state.activeProjectId = "";
-        toast("Проект удалён");
+        const idx = (state.savedProjects || []).findIndex(p => p.id === id);
+        if (idx === -1) return;
+        const removed = state.savedProjects[idx];
+        const wasActive = state.activeProjectId === id;
+        state.savedProjects.splice(idx, 1);
+        if (wasActive) state.activeProjectId = "";
         save();
         render();
+        toastUndo("Проект удалён", () => {
+          state.savedProjects.splice(idx, 0, removed);
+          if (wasActive) state.activeProjectId = id;
+          save();
+          render();
+          toast("Удаление отменено");
+        });
       }
 
       function deleteDealFromModal(id) {
-        const proj = (state.savedProjects || []).find(p => p.id === id);
-        const name = (proj && proj.name) || "эту сделку";
-        if (!confirm(`Удалить сделку «${name}»? Это действие нельзя отменить.`)) return;
+        const idx = (state.savedProjects || []).findIndex(p => p.id === id);
+        if (idx === -1) return;
+        const removed = state.savedProjects[idx];
+        const name = removed.name || "Сделка";
+        const wasActive = state.activeProjectId === id;
+
         state.dealModal = null;
-        state.savedProjects = state.savedProjects.filter(p => p.id !== id);
-        if (state.activeProjectId === id) state.activeProjectId = "";
-        toast("Сделка удалена");
+        state.savedProjects.splice(idx, 1);
+        if (wasActive) state.activeProjectId = "";
         save();
         render();
+        toastUndo(`Сделка «${name}» удалена`, () => {
+          state.savedProjects.splice(idx, 0, removed);
+          if (wasActive) state.activeProjectId = id;
+          save();
+          render();
+          toast("Удаление отменено");
+        });
       }
 
       function newProject() {
@@ -6125,10 +6174,16 @@
       }
 
       function deleteClient(id) {
-        if (!confirm("Удалить клиента?")) return;
+        const idx = (state.clients || []).findIndex(x => x.id === id);
+        if (idx === -1) return;
+        const removed = state.clients[idx];
+        const wasActive = state.project.clientId === id;
+        const affected = (state.savedProjects || [])
+          .filter(p => p.clientId === id || p.snapshot?.project?.clientId === id)
+          .map(p => ({ id: p.id, clientId: p.clientId === id, snapshotClientId: p.snapshot?.project?.clientId === id }));
 
-        state.clients = (state.clients || []).filter(x => x.id !== id);
-        if (state.project.clientId === id) {
+        state.clients.splice(idx, 1);
+        if (wasActive) {
           state.project.clientId = "";
           state.activeClientId = "";
         }
@@ -6138,9 +6193,21 @@
           if (p.snapshot?.project?.clientId === id) p.snapshot.project.clientId = "";
         });
 
-        toast("Клиент удалён");
         save();
         render();
+        toastUndo("Клиент удалён", () => {
+          state.clients.splice(idx, 0, removed);
+          if (wasActive) { state.project.clientId = id; state.activeClientId = id; }
+          affected.forEach(a => {
+            const p = (state.savedProjects || []).find(x => x.id === a.id);
+            if (!p) return;
+            if (a.clientId) p.clientId = id;
+            if (a.snapshotClientId && p.snapshot?.project) p.snapshot.project.clientId = id;
+          });
+          save();
+          render();
+          toast("Удаление отменено");
+        });
       }
 
       function createTask(status, deadlineOverride) {
@@ -6216,11 +6283,20 @@
       }
 
       function deletePayment(id) {
-        if (!confirm("Удалить платёж?")) return;
-        state.payments = state.payments.filter(x => x.id !== id);
+        const idx = (state.payments || []).findIndex(x => x.id === id);
+        if (idx === -1) return;
+        const removed = state.payments[idx];
+        state.payments.splice(idx, 1);
         _syncFinancesToSaved();
         save();
         render();
+        toastUndo("Платёж удалён", () => {
+          state.payments.splice(idx, 0, removed);
+          _syncFinancesToSaved();
+          save();
+          render();
+          toast("Удаление отменено");
+        });
       }
 
       function createExpense() {
@@ -14638,6 +14714,8 @@ Email: ______________________            Email: ______________________
         createPayment,
         updatePayment,
         deletePayment,
+        undoLastDelete,
+        dismissUndo,
 
         createExpense,
         updateExpense,
