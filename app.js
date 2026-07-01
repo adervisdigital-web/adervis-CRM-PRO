@@ -1052,7 +1052,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","catalogEditId","helpModal","notifPopupOpen","summaryOpen"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","notifPopupOpen","summaryOpen"]);
 
       async function _loadCloudState() {
         if (!_supabase || !_adminSession) return;
@@ -4170,6 +4170,7 @@
           crmSelected: {},
           crmSelectMode: false,
           taskDetailsOpen: {},
+          lineCommentsOpen: {},
           crmTagFilter: "",
           telegramChatIds: [],
           clientMode: false,
@@ -4474,6 +4475,7 @@
           crmFilter: old.crmFilter || "all",
           crmSelectMode: false,
           taskDetailsOpen: {},
+          lineCommentsOpen: {},
           recentlyAdded: "",
           mainMenuOpen: false,
           clientModal: null,
@@ -6230,6 +6232,15 @@
         if (!state.taskDetailsOpen) state.taskDetailsOpen = {};
         if (isOpen) state.taskDetailsOpen[id] = true;
         else delete state.taskDetailsOpen[id];
+      }
+
+      // Явно запоминаем открыт/закрыт ли <details> с комментариями строки сметы —
+      // раньше состояние выводилось из наличия текста (clientComment || internalComment),
+      // из-за чего render() (напр. от чужого realtime-снапшота) мог схлопнуть только что
+      // открытый пустой <details> прямо во время печати и увести фокус в никуда.
+      function setLineCommentsOpen(id, isOpen) {
+        if (!state.lineCommentsOpen) state.lineCommentsOpen = {};
+        state.lineCommentsOpen[id] = isOpen;
       }
 
       function updateTask(id, key, value) {
@@ -9934,7 +9945,7 @@
                 </div>`;
               })()}
 
-              <details style="margin-top:10px" ${(line.clientComment || line.internalComment) ? "open" : ""}>
+              <details style="margin-top:10px" ${(state.lineCommentsOpen && id in state.lineCommentsOpen ? state.lineCommentsOpen[id] : (line.clientComment || line.internalComment)) ? "open" : ""} ontoggle="app.setLineCommentsOpen('${id}', this.open)">
                 <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:750;padding:4px 0">💬 Комментарий для клиента / внутренняя заметка</summary>
                 <div class="grid two" style="margin-top:8px;gap:8px">
                   <div class="field" style="margin:0">
@@ -14710,6 +14721,7 @@ Email: ______________________            Email: ______________________
         updateTask,
         deleteTask,
         setTaskDetailsOpen,
+        setLineCommentsOpen,
 
         createPayment,
         updatePayment,
