@@ -791,20 +791,27 @@
         _dataLoading = true;
         renderAdminTopbar();
         render();
-        await _loadUserProfile(session.user.id, session.user.email);
-        // Сохранить реферальный код, если пользователь пришёл по ref-ссылке
-        await _applyReferralCode(session.user.id);
-        // Если в браузере данные другого агентства (или нет записи о предыдущем пользователе)
-        // — чистим localStorage чтобы новый пользователь не видел чужие сделки/клиентов.
-        // Для нового пользователя defaultState() ставит view: "crm" — этого достаточно.
-        const currentAgencyId = getAgencyId();
-        const lastAgencyId = localStorage.getItem(LAST_AGENCY_KEY);
-        if (!lastAgencyId || lastAgencyId !== currentAgencyId) {
-          state = defaultState();
-          localStorage.removeItem(STORAGE_KEY);
+        try {
+          await _loadUserProfile(session.user.id, session.user.email);
+          // Сохранить реферальный код, если пользователь пришёл по ref-ссылке
+          await _applyReferralCode(session.user.id);
+          // Если в браузере данные другого агентства (или нет записи о предыдущем пользователе)
+          // — чистим localStorage чтобы новый пользователь не видел чужие сделки/клиентов.
+          // Для нового пользователя defaultState() ставит view: "crm" — этого достаточно.
+          const currentAgencyId = getAgencyId();
+          const lastAgencyId = localStorage.getItem(LAST_AGENCY_KEY);
+          if (!lastAgencyId || lastAgencyId !== currentAgencyId) {
+            state = defaultState();
+            localStorage.removeItem(STORAGE_KEY);
+          }
+          localStorage.setItem(LAST_AGENCY_KEY, currentAgencyId);
+          await _loadCloudState();
+        } catch (e) {
+          // Без этого catch — при брошенном исключении (сеть/CSP/таймаут) _dataLoading
+          // оставался true навсегда: пользователь после УСПЕШНОГО входа зависал на
+          // loading-заставке без единого сообщения, чинилось только перезагрузкой страницы.
+          console.warn("User login data load:", e);
         }
-        localStorage.setItem(LAST_AGENCY_KEY, currentAgencyId);
-        await _loadCloudState();
         _dataLoading = false;
         _initRealtimeChannel();
         renderAdminTopbar();
@@ -962,19 +969,23 @@
       async function _loadRefStats() {
         const el = document.getElementById('refStats');
         if (!el || !_supabase) return;
-        const { data, error } = await _supabase.rpc('get_referral_stats');
-        if (error || !data || !data[0]) {
-          el.textContent = 'Бонус +30 дней будет начислен автоматически после первой оплаты приглашённого.';
-          return;
-        }
-        const s = data[0];
-        const invited = Number(s.total_invited) || 0;
-        const paid    = Number(s.total_paid)    || 0;
-        const bonus   = Number(s.bonus_days_earned) || 0;
-        if (invited === 0) {
-          el.textContent = 'Вы ещё никого не пригласили. Поделитесь ссылкой — получите +30 дней за каждого оплатившего.';
-        } else {
-          el.innerHTML = `Приглашено: <b>${invited}</b> &nbsp;·&nbsp; Оплатили: <b>${paid}</b> &nbsp;·&nbsp; Бонус заработан: <b>+${bonus} дн.</b>`;
+        try {
+          const { data, error } = await _supabase.rpc('get_referral_stats');
+          if (error || !data || !data[0]) {
+            el.textContent = 'Бонус +30 дней будет начислен автоматически после первой оплаты приглашённого.';
+            return;
+          }
+          const s = data[0];
+          const invited = Number(s.total_invited) || 0;
+          const paid    = Number(s.total_paid)    || 0;
+          const bonus   = Number(s.bonus_days_earned) || 0;
+          if (invited === 0) {
+            el.textContent = 'Вы ещё никого не пригласили. Поделитесь ссылкой — получите +30 дней за каждого оплатившего.';
+          } else {
+            el.innerHTML = `Приглашено: <b>${invited}</b> &nbsp;·&nbsp; Оплатили: <b>${paid}</b> &nbsp;·&nbsp; Бонус заработан: <b>+${bonus} дн.</b>`;
+          }
+        } catch (e) {
+          el.textContent = 'Не удалось загрузить статистику. Обновите страницу.';
         }
       }
 
@@ -983,33 +994,37 @@
         if (!el || !_supabase) return;
         const portalId = state.project && state.project.portalId;
         if (!portalId) { el.remove(); return; }
-        const { data, error } = await _supabase
-          .from('client_portals')
-          .select('advance_amount, advance_paid_at, advance_payment_id')
-          .eq('id', portalId)
-          .maybeSingle();
-        if (error || !data) { el.remove(); return; }
-        if (!data.advance_amount || data.advance_amount <= 0) { el.remove(); return; }
-        const amount = data.advance_amount.toLocaleString('ru-RU');
-        if (data.advance_paid_at) {
-          const date = new Date(data.advance_paid_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-          el.innerHTML = `
-            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.25);border-radius:12px">
-              <span style="font-size:20px">✅</span>
-              <div>
-                <div style="font-size:12px;font-weight:800;color:var(--green)">Аванс оплачен клиентом</div>
-                <div style="font-size:11px;color:var(--muted)">${date} · ${amount} ₽</div>
-              </div>
-            </div>`;
-        } else {
-          el.innerHTML = `
-            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(234,179,8,.07);border:1px solid rgba(234,179,8,.25);border-radius:12px">
-              <span style="font-size:18px">⏳</span>
-              <div>
-                <div style="font-size:12px;font-weight:700;color:var(--yellow,#d97706)">Аванс не оплачен</div>
-                <div style="font-size:11px;color:var(--muted)">Сумма аванса: ${amount} ₽ · Ожидаем оплату клиента</div>
-              </div>
-            </div>`;
+        try {
+          const { data, error } = await _supabase
+            .from('client_portals')
+            .select('advance_amount, advance_paid_at, advance_payment_id')
+            .eq('id', portalId)
+            .maybeSingle();
+          if (error || !data) { el.remove(); return; }
+          if (!data.advance_amount || data.advance_amount <= 0) { el.remove(); return; }
+          const amount = data.advance_amount.toLocaleString('ru-RU');
+          if (data.advance_paid_at) {
+            const date = new Date(data.advance_paid_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+            el.innerHTML = `
+              <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.25);border-radius:12px">
+                <span style="font-size:20px">✅</span>
+                <div>
+                  <div style="font-size:12px;font-weight:800;color:var(--green)">Аванс оплачен клиентом</div>
+                  <div style="font-size:11px;color:var(--muted)">${date} · ${amount} ₽</div>
+                </div>
+              </div>`;
+          } else {
+            el.innerHTML = `
+              <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(234,179,8,.07);border:1px solid rgba(234,179,8,.25);border-radius:12px">
+                <span style="font-size:18px">⏳</span>
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:var(--yellow,#d97706)">Аванс не оплачен</div>
+                  <div style="font-size:11px;color:var(--muted)">Сумма аванса: ${amount} ₽ · Ожидаем оплату клиента</div>
+                </div>
+              </div>`;
+          }
+        } catch (e) {
+          el.remove();
         }
       }
 
@@ -1518,16 +1533,22 @@
         if (!_supabase) { toast("❌ Supabase не настроен. Укажите URL и ключ в Настройках."); return; }
         state.adminModal.loading = true;
         render();
-        const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-          state.adminModal.loading = false;
-          state.adminModal.error = error.message || "Ошибка входа";
+        try {
+          const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+          if (error) {
+            state.adminModal.loading = false;
+            state.adminModal.error = error.message || "Ошибка входа";
+            render();
+            return;
+          }
+          state.adminModal = null;
+          toast("✅ Вы вошли как " + email);
           render();
-          return;
+        } catch (e) {
+          state.adminModal.loading = false;
+          state.adminModal.error = "Не удалось подключиться к серверу. Проверьте интернет-соединение и попробуйте ещё раз.";
+          render();
         }
-        state.adminModal = null;
-        toast("✅ Вы вошли как " + email);
-        render();
       }
 
       async function adminLogout() {
@@ -2663,17 +2684,23 @@
         if (!f.code.trim()) { toast("Введите код"); return; }
         if (!f.discount || f.discount <= 0) { toast("Введите скидку %"); return; }
         f.loading = true; render();
-        const { error } = await _supabase.rpc("admin_create_promo", {
-          p_code: f.code.trim(),
-          p_discount: Number(f.discount),
-          p_max_uses: Number(f.maxUses) || 100,
-          p_expires: f.expires || null
-        });
-        f.loading = false;
-        if (error) { f.error = error.message; render(); return; }
-        toast("Промокод создан: " + f.code.toUpperCase());
-        _adminPromoForm = { code: "", discount: 0, expires: "", maxUses: 100, loading: false, error: "" };
-        loadAdminPanel();
+        try {
+          const { error } = await _supabase.rpc("admin_create_promo", {
+            p_code: f.code.trim(),
+            p_discount: Number(f.discount),
+            p_max_uses: Number(f.maxUses) || 100,
+            p_expires: f.expires || null
+          });
+          f.loading = false;
+          if (error) { f.error = error.message; render(); return; }
+          toast("Промокод создан: " + f.code.toUpperCase());
+          _adminPromoForm = { code: "", discount: 0, expires: "", maxUses: 100, loading: false, error: "" };
+          loadAdminPanel();
+        } catch (e) {
+          f.loading = false;
+          f.error = "Ошибка сети. Попробуйте ещё раз.";
+          render();
+        }
       }
 
       async function adminTogglePromo(id, active) {
@@ -3405,20 +3432,24 @@
         if (!code || !_supabase) return;
         _promoState = "checking";
         render();
-        const { data, error } = await _supabase
-          .from("promo_codes")
-          .select("code,discount_percent,max_uses,uses_count,expires_at")
-          .eq("code", code)
-          .eq("is_active", true)
-          .single();
-        if (error || !data) {
+        try {
+          const { data, error } = await _supabase
+            .from("promo_codes")
+            .select("code,discount_percent,max_uses,uses_count,expires_at")
+            .eq("code", code)
+            .eq("is_active", true)
+            .single();
+          if (error || !data) {
+            _promoState = "invalid";
+          } else if (data.max_uses !== null && data.uses_count >= data.max_uses) {
+            _promoState = "invalid";
+          } else if (data.expires_at && new Date(data.expires_at) < new Date()) {
+            _promoState = "invalid";
+          } else {
+            _promoState = { code: data.code, discount: data.discount_percent };
+          }
+        } catch (e) {
           _promoState = "invalid";
-        } else if (data.max_uses !== null && data.uses_count >= data.max_uses) {
-          _promoState = "invalid";
-        } else if (data.expires_at && new Date(data.expires_at) < new Date()) {
-          _promoState = "invalid";
-        } else {
-          _promoState = { code: data.code, discount: data.discount_percent };
         }
         render();
       }
@@ -12699,16 +12730,21 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const signerName = (document.getElementById('esignName')?.value || "").trim();
         const btn = document.querySelector('.portal-wrap .btn.primary');
         if (btn) { btn.disabled = true; btn.textContent = 'Отправка...'; }
-        const { error } = await _supabase
-          .rpc('approve_client_portal', { p_portal_id: _portalId });
-        if (!error) {
-          _portalData.deal_status = 'Согласовано';
-          _portalData.approved_at = new Date().toISOString();
-          if (signerName) _portalData.signer_name = signerName;
-          render();
-        } else {
+        try {
+          const { error } = await _supabase
+            .rpc('approve_client_portal', { p_portal_id: _portalId });
+          if (!error) {
+            _portalData.deal_status = 'Согласовано';
+            _portalData.approved_at = new Date().toISOString();
+            if (signerName) _portalData.signer_name = signerName;
+            render();
+          } else {
+            if (btn) { btn.disabled = false; btn.textContent = '✅ Подписать и утвердить КП'; }
+            alert('Ошибка: ' + error.message);
+          }
+        } catch (e) {
           if (btn) { btn.disabled = false; btn.textContent = '✅ Подписать и утвердить КП'; }
-          alert('Ошибка: ' + error.message);
+          alert('Ошибка сети. Проверьте соединение и попробуйте ещё раз.');
         }
       }
 
