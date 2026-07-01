@@ -225,12 +225,10 @@ letter-spacing: -0.02em;
 
 ## 10. Что сейчас нужно изменить в коде
 
-| Проблема | Файл | Действие |
-|---------|------|---------|
-| `font-family: Inter` | style.css:64 | → `DM Sans` |
-| Google Fonts import | index.html:40 | → `DM Sans` + `Space Grotesk` |
-| `--radius: 18px` | style.css:16 | → `16px` |
-| Числа в KPI без tabular-nums | style.css | Добавить `font-variant-numeric: tabular-nums` |
+Все пункты из предыдущей версии этого раздела (шрифт Inter→DM Sans, Google Fonts import,
+`--radius` 18px→16px, tabular-nums для KPI-чисел) актуализированы и подтверждены
+исправленными на 02.07.2026 — код уже соответствует §3-4. Раздел пуст до следующего
+системного изменения дизайна.
 
 ---
 

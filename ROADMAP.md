@@ -113,5 +113,5 @@
 | VK App ID | 54626328 |
 | Google Client ID | 341227937040-j9f41teqgu87n0f5qbd0j08qf7u1605d.apps.googleusercontent.com |
 | Деплой | GitHub Pages (push в main → автодеплой) |
-| Edge Functions | agency-notify, ai-proposal, create-payment, create-portal-payment, deadline-push-notify, send-portal-email, subscription-reminder, telegram-notify, telegram-webhook, vk-auth, web-push-send, yookassa-webhook |
-| Стек | Vanilla JS (app.js ~12 200 строк), style.css, Supabase, ЮKassa, Resend |
+| Edge Functions | agency-notify, ai-proposal, calendar-feed, create-payment, create-portal-payment, deadline-push-notify, delete-account, send-portal-email, subscription-reminder, telegram-notify, telegram-webhook, vk-auth, web-push-send, welcome-email, yookassa-webhook |
+| Стек | Vanilla JS (app.js ~15 000 строк), style.css, Supabase, ЮKassa, Resend |
