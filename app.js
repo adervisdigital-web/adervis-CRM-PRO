@@ -4727,7 +4727,7 @@
           iterations: 0,
 
           editedDesc: "",
-          lineName: "",
+          lineName: itemData.name,
           assigneeId: ""
         };
 
@@ -9012,9 +9012,8 @@
             <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
             ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>` : ""}
           </div>
-          <div class="grid two">
-            ${field("Цена, ₽", `<input type="number" class="catalog-price-input" value="${currentPrice}" onchange="app.updateCatalogPrice('${id}', this.value)" style="font-size:18px;font-weight:700">`)}
-            ${field("Базовая цена", `<input type="number" value="${numberValue(itemData.price, 0)}" readonly style="opacity:.5">`)}
+          <div>
+            ${field("Цена, ₽", `<input type="number" class="catalog-price-input" value="${currentPrice}" onchange="app.updateCatalogPrice('${id}', this.value)" style="font-size:20px;font-weight:800;padding:12px 14px">`)}
           </div>
         `;
 
@@ -9286,41 +9285,47 @@
                 </div>
               </div>
 
-              <div class="grid four">
-                ${field("Поиск", `<input value="${escapeHtml(state.search)}" oninput="app.setSearch(this.value)" placeholder="монтаж, оператор, свет...">`)}
-                ${field("Фильтр", `
-                  <select onchange="app.setFilter(this.value)">
-                    ${optionValueHtml("all", "Все", state.filter)}
-                    ${optionValueHtml("selected", "В смете", state.filter)}
-                    ${optionValueHtml("edited", "Изменённые цены", state.filter)}
-                    ${optionValueHtml("hourly", "С почасовым расчётом", state.filter)}
-                  </select>
-                `)}
-                ${field("Сортировка", `
-                  <select onchange="app.setSort(this.value)">
-                    ${optionValueHtml("name", "По названию", state.sort)}
-                    ${optionValueHtml("priceAsc", "Цена ↑", state.sort)}
-                    ${optionValueHtml("priceDesc", "Цена ↓", state.sort)}
-                    ${optionValueHtml("category", "Категория", state.sort)}
-                  </select>
-                `)}
-                ${field("Всего найдено", `<input readonly value="${filteredItems().length}">`)}
-              </div>
-
-              <div class="tabs" style="margin-top:6px">
-                ${quickTabs.map(([id, label]) => `
-                  <button class="tab ${state.tab === id ? "active" : ""}" onclick="app.setTab('${id}')">${escapeHtml(label)}</button>
-                `).join("")}
+              <div class="catalog-toolbar no-print">
+                <div class="catalog-search-wrap">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  <input class="catalog-search-input" value="${escapeHtml(state.search)}" oninput="app.setSearch(this.value)" placeholder="Поиск: монтаж, оператор, свет...">
+                </div>
+                <select class="catalog-toolbar-select" onchange="app.setFilter(this.value)" title="Фильтр">
+                  ${optionValueHtml("all", "Все", state.filter)}
+                  ${optionValueHtml("selected", "В смете", state.filter)}
+                  ${optionValueHtml("edited", "Изменённые цены", state.filter)}
+                  ${optionValueHtml("hourly", "С почасовым расчётом", state.filter)}
+                </select>
+                <select class="catalog-toolbar-select" onchange="app.setSort(this.value)" title="Сортировка">
+                  ${optionValueHtml("name", "По названию", state.sort)}
+                  ${optionValueHtml("priceAsc", "Цена ↑", state.sort)}
+                  ${optionValueHtml("priceDesc", "Цена ↓", state.sort)}
+                  ${optionValueHtml("category", "Категория", state.sort)}
+                </select>
+                <span class="catalog-found-count">${filteredItems().length} найдено</span>
               </div>
 
               <div class="catalog-body">
                 <aside class="catalog-cat-sidebar no-print">
-                  ${categoryTabs.map(([id, label]) => `
-                    <button class="catalog-cat-item ${id === "expenses" ? "danger" : ""} ${state.tab === id ? "active" : ""}" onclick="app.setTab('${id}')">
-                      <span>${escapeHtml(label)}</span>
-                      ${catCounts[id] ? `<span class="catalog-cat-count">${catCounts[id]}</span>` : ""}
-                    </button>
-                  `).join("")}
+                  <div class="catalog-cat-group">
+                    ${quickTabs.map(([id, label]) => `
+                      <button class="catalog-cat-item ${state.tab === id ? "active" : ""}" onclick="app.setTab('${id}')">
+                        <span>${escapeHtml(label)}</span>
+                      </button>
+                    `).join("")}
+                  </div>
+
+                  <div class="catalog-cat-divider"></div>
+
+                  <div class="catalog-cat-group">
+                    ${categoryTabs.map(([id, label]) => `
+                      <button class="catalog-cat-item ${id === "expenses" ? "danger" : ""} ${state.tab === id ? "active" : ""}" onclick="app.setTab('${id}')">
+                        <span>${escapeHtml(label)}</span>
+                        ${catCounts[id] ? `<span class="catalog-cat-count">${catCounts[id]}</span>` : ""}
+                      </button>
+                    `).join("")}
+                  </div>
+
                   <button class="catalog-cat-item catalog-cat-add" onclick="app.createCustomItem()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                     <span>Своя позиция</span>
@@ -9590,6 +9595,10 @@
         const line = state.selected[id];
         if (!itemData || !line) return "";
 
+        // Авторемонт старых строк (добавлены до того, как lineName стал реальным значением,
+        // а не placeholder'ом) — иначе имя выглядит написанным, но стирается при первом клике
+        if (!line.lineName) line.lineName = itemData.name;
+
         const stageId = line.stageId || itemData.stage;
         const total = lineTotal(id);
         const collapsed = Boolean(state.lineCollapsed?.[id]);
@@ -9665,7 +9674,7 @@
               </div>
             </div>
 
-            ${collapsed ? "" : `
+            <div class="line-details ${collapsed ? "line-details-collapsed" : ""}">
               <div class="grid ${gridClass}" style="margin-top:14px">
                 ${mainFields.join("")}
               </div>
@@ -9674,7 +9683,11 @@
 
               ${(() => {
                 const bd = lineBreakdown(id);
+                // Для простого фиксированного тарифа breakdown — это одна строка,
+                // повторяющая уже показанную "Цену" дословно. Показываем формулу
+                // только когда в ней реально есть расчёт (дни × ставка, часы и т.п.)
                 if (!bd.rows.length) return "";
+                if (bd.rows.length === 1 && bd.rows[0].label === "Фиксированная стоимость") return "";
                 return `<div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.15);border-radius:10px;padding:10px 14px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
                   <div style="font-size:12px;color:var(--muted)">${bd.rows.map(r=>`<span>${escapeHtml(r.label)}: <strong>${money(r.value)}</strong></span>`).join(" · ")}</div>
                   <div style="font-weight:900;font-size:14px;white-space:nowrap">= ${money(bd.total)}</div>
@@ -9694,7 +9707,7 @@
                   </div>
                 </div>
               </details>
-            `}
+            </div>
 
             <div class="line-action-bar no-print">
               <button class="btn small" onclick="app.toggleOptional('${id}')" style="font-size:11px">${line.optional ? "В основные" : "В опции"}</button>
