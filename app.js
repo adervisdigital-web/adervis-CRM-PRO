@@ -1010,7 +1010,7 @@
                 <span style="font-size:20px">✅</span>
                 <div>
                   <div style="font-size:12px;font-weight:800;color:var(--green)">Аванс оплачен клиентом</div>
-                  <div style="font-size:11px;color:var(--muted)">${date} · ${amount} ₽</div>
+                  <div style="font-size:12px;color:var(--muted)">${date} · ${amount} ₽</div>
                 </div>
               </div>`;
           } else {
@@ -1019,7 +1019,7 @@
                 <span style="font-size:18px">⏳</span>
                 <div>
                   <div style="font-size:12px;font-weight:700;color:var(--yellow,#d97706)">Аванс не оплачен</div>
-                  <div style="font-size:11px;color:var(--muted)">Сумма аванса: ${amount} ₽ · Ожидаем оплату клиента</div>
+                  <div style="font-size:12px;color:var(--muted)">Сумма аванса: ${amount} ₽ · Ожидаем оплату клиента</div>
                 </div>
               </div>`;
           }
@@ -1320,10 +1320,10 @@
               <span class="sidebar-label">Admin Panel</span>
             </button>` : ""}
             <button class="sidebar-nav-item" onclick="app.go('profile')" title="${escapeHtml(name)}">
-              <div class="sidebar-user-avatar" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff">${initials}</div>
+              <div class="sidebar-user-avatar" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff">${initials}</div>
               <span class="sidebar-label" style="min-width:0;overflow:hidden;text-align:left">
                 <div style="font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">${escapeHtml(name)}</div>
-                <div style="font-size:10px;color:var(--muted)">${escapeHtml(subLabel || "Активна")}</div>
+                <div style="font-size:12px;color:var(--muted)">${escapeHtml(subLabel || "Активна")}</div>
               </span>
             </button>
             <button class="sidebar-nav-item" onclick="app.adminLogout()" title="Выйти">
@@ -1515,7 +1515,7 @@
           el.innerHTML = `
             ${presenceHtml}
             <span class="admin-indicator" style="${!active ? "border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.08)" : ""}">
-              ${escapeHtml(name)}${subLabel ? ` <span style="font-weight:500;opacity:.75;font-size:10px">· ${escapeHtml(subLabel)}</span>` : ""}
+              ${escapeHtml(name)}${subLabel ? ` <span style="font-weight:500;opacity:.75;font-size:12px">· ${escapeHtml(subLabel)}</span>` : ""}
             </span>
           `;
         } else {
@@ -1626,21 +1626,21 @@
               <div><strong>от 490₽</strong><span>в месяц</span></div>
               <div><strong>∞</strong><span>сделок</span></div>
             </div>
-            <p style="margin:14px 0 0;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">🔒 Карта не нужна для пробного периода — платите только если решите остаться</p>
+            <p style="margin:14px 0 0;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px">🔒 Карта не нужна для пробного периода — платите только если решите остаться</p>
 
             <div style="margin-top:28px;display:flex;flex-direction:column;gap:10px">
               <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
                 <p style="margin:0 0 8px;font-size:13px;line-height:1.55;color:var(--fg)">"Раньше вели всё в таблицах — постоянно теряли задачи и забывали про дедлайны. Теперь вся студия в одном месте, и смету клиенту отправляю прямо из CRM за 5 минут."</p>
                 <div style="display:flex;align-items:center;gap:8px">
                   <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">А</div>
-                  <div><div style="font-size:12px;font-weight:700">Андрей К.</div><div style="font-size:11px;color:var(--muted)">Руководитель видеостудии, Москва</div></div>
+                  <div><div style="font-size:12px;font-weight:700">Андрей К.</div><div style="font-size:12px;color:var(--muted)">Руководитель видеостудии, Москва</div></div>
                 </div>
               </div>
               <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
                 <p style="margin:0 0 8px;font-size:13px;line-height:1.55;color:var(--fg)">"Калькулятор смет — огонь. Показываю клиенту КП прямо на встрече, он сразу видит позиции и может что-то убрать. Конверсия в оплату выросла заметно."</p>
                 <div style="display:flex;align-items:center;gap:8px">
                   <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#10b981,#0ea5e9);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">М</div>
-                  <div><div style="font-size:12px;font-weight:700">Мария Д.</div><div style="font-size:11px;color:var(--muted)">Продюсер, продакшн-агентство</div></div>
+                  <div><div style="font-size:12px;font-weight:700">Мария Д.</div><div style="font-size:12px;color:var(--muted)">Продюсер, продакшн-агентство</div></div>
                 </div>
               </div>
             </div>
@@ -1661,7 +1661,7 @@
                       </div>
                       <div>
                         <div style="font-weight:900;font-size:15px">ADERVIS CRM</div>
-                        <div style="font-size:11px;color:var(--muted)">CRM для видеопродакшна</div>
+                        <div style="font-size:12px;color:var(--muted)">CRM для видеопродакшна</div>
                       </div>
                     </div>
                     <h3 style="font-size:16px;margin:0 0 8px">Сброс пароля</h3>
@@ -1699,7 +1699,7 @@
                     </div>
                     <div>
                       <div style="font-weight:900;font-size:15px">ADERVIS CRM</div>
-                      <div style="font-size:11px;color:var(--muted)">CRM для видеопродакшна</div>
+                      <div style="font-size:12px;color:var(--muted)">CRM для видеопродакшна</div>
                     </div>
                   </div>
 
@@ -1715,7 +1715,7 @@
                     <input placeholder="Ваше имя" value="${escapeHtml(f.name)}" oninput="app.setAuthField('name',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()">
                   </div>
                   <div class="field" style="margin-bottom:12px">
-                    <label style="display:flex;align-items:center;gap:6px">Код приглашения <span style="font-size:10px;color:var(--muted);font-weight:normal">(если вас пригласили в команду)</span></label>
+                    <label style="display:flex;align-items:center;gap:6px">Код приглашения <span style="font-size:12px;color:var(--muted);font-weight:normal">(если вас пригласили в команду)</span></label>
                     <input placeholder="Вставьте код от руководителя (необязательно)" value="${escapeHtml(f.inviteCode||"")}" oninput="app.setAuthField('inviteCode',this.value)" style="font-family:monospace;font-size:12px">
                   </div>` : ""}
 
@@ -1757,7 +1757,7 @@
                   </div>
                   ${(localStorage.getItem('vk_app_id') || _DEFAULT_VK_APP_ID) ? `<div id="vkid-one-tap" style="margin-top:8px"></div>` : ''}
 
-                  <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:11px;color:var(--muted)">
+                  <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:12px;color:var(--muted)">
                     Adervis · ИНН 592110786536 ·
                     <a href="mailto:adervis.digital@gmail.com" style="color:var(--muted)">adervis.digital@gmail.com</a>
                   </div>
@@ -2108,7 +2108,7 @@
               const s = _userProfile && _userProfile.subscription_status;
               const isUrgent = !active || (s === "trial" && daysLeft !== null && daysLeft <= 7);
               const urgentBadge = isUrgent
-                ? `<span style="font-size:10px;background:rgba(220,38,38,.18);color:var(--red);border-radius:99px;padding:2px 8px;font-weight:750;white-space:nowrap">${s === "expired" || s === "cancelled" ? "Оплатить" : `⚠ ${daysLeft} д.`}</span>`
+                ? `<span style="font-size:12px;background:rgba(220,38,38,.18);color:var(--red);border-radius:99px;padding:2px 8px;font-weight:750;white-space:nowrap">${s === "expired" || s === "cancelled" ? "Оплатить" : `⚠ ${daysLeft} д.`}</span>`
                 : "";
               return `<button class="pd-item" style="background:rgba(124,58,237,.08);border-radius:10px" onclick="app.gotoSubscription();app.toggleProfileDd(false)" title="Тарифы, оплата, история платежей">
               <span class="pd-item-icon">💳</span>
@@ -2271,7 +2271,7 @@
           el.innerHTML = `
             <div style="padding:20px 16px 8px">
               <div style="display:flex;flex-wrap:wrap;gap:6px">
-                ${["Сделки","Клиенты","Задачи","Финансы"].map(h=>`<span style="font-size:11px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;color:var(--muted)">${h}</span>`).join("")}
+                ${["Сделки","Клиенты","Задачи","Финансы"].map(h=>`<span style="font-size:12px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;color:var(--muted)">${h}</span>`).join("")}
               </div>
               <div style="font-size:12px;color:var(--hint);margin-top:12px;padding:0 2px">Поиск по всем сделкам, клиентам и задачам</div>
             </div>`;
@@ -2333,7 +2333,7 @@
                 <div class="search-result-icon" style="background:${r.color}">${r.icon}</div>
                 <div><div class="search-result-name">${hl(r.name)}</div><div class="search-result-sub">${hl(r.sub)}</div></div>
               </div>`).join("") +
-            (more > 0 ? `<div style="padding:6px 16px 8px;font-size:11px;color:var(--muted)">и ещё ${more} результатов</div>` : "");
+            (more > 0 ? `<div style="padding:6px 16px 8px;font-size:12px;color:var(--muted)">и ещё ${more} результатов</div>` : "");
         }).join("");
       }
 
@@ -2454,13 +2454,13 @@
                   const discountedPrice = promoValid ? Math.round(p.price * (1 - _promoState.discount / 100)) : null;
                   return `
                     <div style="background:var(--panel2);border:1px solid ${p.popular ? "var(--primary)" : "var(--line)"};border-radius:16px;padding:18px 22px;min-width:140px;flex:1;max-width:180px;position:relative">
-                      ${p.popular ? `<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:2px 10px">Популярный</div>` : ""}
+                      ${p.popular ? `<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:2px 10px">Популярный</div>` : ""}
                       <div style="font-size:13px;font-weight:700;margin-bottom:6px">${p.label}</div>
                       ${discountedPrice !== null
                         ? `<div style="font-size:14px;color:var(--muted);text-decoration:line-through;line-height:1">${p.price}₽</div><div style="font-size:22px;font-weight:900;color:var(--green);margin-bottom:2px">${discountedPrice}₽</div>`
                         : `<div style="font-size:22px;font-weight:900;margin-bottom:2px">${p.price}₽</div>`}
-                      <div style="font-size:10px;color:var(--muted);margin-bottom:10px">${p.period}</div>
-                      ${p.save ? `<div style="font-size:10px;color:var(--green);margin-bottom:8px">${p.save}</div>` : ""}
+                      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${p.period}</div>
+                      ${p.save ? `<div style="font-size:12px;color:var(--green);margin-bottom:8px">${p.save}</div>` : ""}
                       <button class="btn primary" style="width:100%;padding:9px;font-size:13px" onclick="app.buyPlan('${p.id}')" ${isLoading ? "disabled" : ""}>
                         ${isLoading ? "⏳..." : "Оплатить →"}
                       </button>
@@ -2582,7 +2582,7 @@
             <div class="notif-popup-header">
               <strong>Уведомления</strong>
               <div style="display:flex;gap:8px;align-items:center">
-                ${notifs.length ? `<button style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer" onclick="app.clearNotifs()">Очистить</button>` : ""}
+                ${notifs.length ? `<button style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer" onclick="app.clearNotifs()">Очистить</button>` : ""}
                 <button onclick="app.toggleNotifPopup()" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1;padding:0 2px">×</button>
               </div>
             </div>
@@ -2825,7 +2825,7 @@
               ].map(([label, val, color]) => `
                 <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
                   <div style="font-size:22px;font-weight:900;color:${color||"var(--text)"};font-variant-numeric:tabular-nums">${val}</div>
-                  <div style="font-size:11px;color:var(--muted);margin-top:3px;font-weight:600">${label}</div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:3px;font-weight:600">${label}</div>
                 </div>`).join("")}
             </div>
 
@@ -2861,19 +2861,19 @@
                         <!-- Info -->
                         <div style="flex:1;min-width:0">
                           <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.email||"—")}</div>
-                          <div style="font-size:11px;color:var(--muted);margin-top:2px">
+                          <div style="font-size:12px;color:var(--muted);margin-top:2px">
                             Зарег.: ${a.created_at ? new Date(a.created_at).toLocaleDateString("ru-RU") : "—"}
                             ${a.last_sign_in_at ? ` · Вход: ${new Date(a.last_sign_in_at).toLocaleDateString("ru-RU")}` : ""}
                           </div>
                         </div>
                         <!-- Status + plan + expiry -->
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0">
-                          <span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:${statusColor[ast]||"var(--panel2)"};color:${statusText[ast]||"var(--muted)"}">
+                          <span style="padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;background:${statusColor[ast]||"var(--panel2)"};color:${statusText[ast]||"var(--muted)"}">
                             ${_adminSubLabel(ast)}
                           </span>
                           ${a.subscription_plan ? `<span style="font-size:12px;font-weight:600;color:var(--muted)">${_adminPlanLabel(a.subscription_plan)}</span>` : ""}
-                          ${a.subscription_expires_at ? `<span style="font-size:11px;color:${isExpired?"var(--red)":"var(--muted)"}">${daysLeft}</span>` : ""}
-                          ${!a.email_confirmed ? `<span title="Email не подтверждён" style="font-size:11px;color:var(--yellow)">⚠ email</span>` : ""}
+                          ${a.subscription_expires_at ? `<span style="font-size:12px;color:${isExpired?"var(--red)":"var(--muted)"}">${daysLeft}</span>` : ""}
+                          ${!a.email_confirmed ? `<span title="Email не подтверждён" style="font-size:12px;color:var(--yellow)">⚠ email</span>` : ""}
                         </div>
                         <!-- Actions -->
                         <div style="display:flex;gap:6px;flex-shrink:0">
@@ -2943,11 +2943,11 @@
                         <div style="display:flex;align-items:center;gap:8px">
                           <span style="font-family:monospace;font-size:14px;font-weight:900">${escapeHtml(p.code)}</span>
                           <span style="font-size:13px;font-weight:700;color:#a78bfa">${p.discount||0}%</span>
-                          <span style="padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;background:${p.active!==false?"rgba(22,163,74,.12)":"rgba(220,38,38,.1)"};color:${p.active!==false?"#4ade80":"var(--red)"}">
+                          <span style="padding:2px 8px;border-radius:99px;font-size:12px;font-weight:700;background:${p.active!==false?"rgba(22,163,74,.12)":"rgba(220,38,38,.1)"};color:${p.active!==false?"#4ade80":"var(--red)"}">
                             ${p.active!==false?"Активен":"Отключён"}
                           </span>
                         </div>
-                        <div style="font-size:11px;color:var(--muted);margin-top:4px">
+                        <div style="font-size:12px;color:var(--muted);margin-top:4px">
                           Использован: ${p.uses||0} / ${p.max_uses||"∞"}
                           ${p.expires_at ? ` · до ${new Date(p.expires_at).toLocaleDateString("ru-RU")}` : ""}
                         </div>
@@ -3087,18 +3087,18 @@
           const border = isCurrent ? "var(--green)" : p.popular ? "var(--primary)" : "var(--line)";
           const bg = isCurrent ? "rgba(22,163,74,.06)" : p.popular ? "rgba(124,58,237,.05)" : "var(--panel2)";
           const priceHtml = p.price === 0
-            ? `<div style="font-size:28px;font-weight:900;color:var(--green);line-height:1">Бесплатно</div><div style="font-size:11px;color:var(--muted);margin-bottom:16px">${escapeHtml(p.period)}</div>`
+            ? `<div style="font-size:28px;font-weight:900;color:var(--green);line-height:1">Бесплатно</div><div style="font-size:12px;color:var(--muted);margin-bottom:16px">${escapeHtml(p.period)}</div>`
             : discountedPrice !== null
-              ? `<div style="font-size:13px;color:var(--muted);text-decoration:line-through;line-height:1">${p.price} ₽</div><div style="font-size:28px;font-weight:900;color:var(--green);line-height:1.1">${discountedPrice} ₽</div><div style="font-size:11px;color:var(--muted)">${escapeHtml(p.period)}</div><div style="font-size:11px;color:var(--green);font-weight:700;margin-bottom:16px">−${_promoState.discount}% по промокоду</div>`
-              : `<div style="font-size:28px;font-weight:900;line-height:1">${p.price} ₽</div><div style="font-size:11px;color:var(--muted)">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:11px;color:var(--primary2);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)}</div>` : `<div style="margin-bottom:16px"></div>`}`;
+              ? `<div style="font-size:13px;color:var(--muted);text-decoration:line-through;line-height:1">${p.price} ₽</div><div style="font-size:28px;font-weight:900;color:var(--green);line-height:1.1">${discountedPrice} ₽</div><div style="font-size:12px;color:var(--muted)">${escapeHtml(p.period)}</div><div style="font-size:12px;color:var(--green);font-weight:700;margin-bottom:16px">−${_promoState.discount}% по промокоду</div>`
+              : `<div style="font-size:28px;font-weight:900;line-height:1">${p.price} ₽</div><div style="font-size:12px;color:var(--muted)">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:12px;color:var(--primary2);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)}</div>` : `<div style="margin-bottom:16px"></div>`}`;
           return `
           <div class="plan-card" style="border-radius:18px;border:2px solid ${border};background:${bg};padding:20px 16px;display:flex;flex-direction:column;position:relative;min-width:0">
-            ${p.popular && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:10px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">🔥 Популярный</div>` : ""}
-            ${isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:10px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">✓ Активен</div>` : ""}
+            ${p.popular && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">🔥 Популярный</div>` : ""}
+            ${isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">✓ Активен</div>` : ""}
             <div style="font-size:14px;font-weight:900;margin-bottom:10px">${escapeHtml(p.label)}</div>
             ${priceHtml}
             <div style="flex:1;display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
-              ${feats.map(f => `<div style="font-size:12px;display:flex;align-items:flex-start;gap:5px"><span style="color:${isCurrent ? "var(--green)" : "var(--primary2)"};flex-shrink:0;font-size:11px;margin-top:1px">✓</span><span>${escapeHtml(f)}</span></div>`).join("")}
+              ${feats.map(f => `<div style="font-size:12px;display:flex;align-items:flex-start;gap:5px"><span style="color:${isCurrent ? "var(--green)" : "var(--primary2)"};flex-shrink:0;font-size:12px;margin-top:1px">✓</span><span>${escapeHtml(f)}</span></div>`).join("")}
             </div>
             <button class="btn ${p.popular && !isCurrent ? "primary" : "small"}" style="width:100%;white-space:normal;line-height:1.25;text-align:center;${btnOff ? "opacity:.55;cursor:not-allowed" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
               ${btnLabel}
@@ -3111,7 +3111,7 @@
         const hdr = (label, id) => `<th style="text-align:center;padding:10px 8px;font-size:12px;font-weight:700;white-space:nowrap;${colStyle(id)}">${label}</th>`;
         const cell = (val, id) => `<td style="text-align:center;padding:9px 8px;${colStyle(id)}">${val}</td>`;
         const row = (label, vals) => `<tr><td style="padding:9px 12px;font-size:13px;color:var(--text2)">${label}</td>${PLANS.map((p,i) => cell(vals[i], p.id)).join("")}</tr>`;
-        const group = (title) => `<tr><td colspan="6" style="padding:10px 12px 4px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:var(--panel2);border-top:1px solid var(--line)">${title}</td></tr>`;
+        const group = (title) => `<tr><td colspan="6" style="padding:10px 12px 4px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:var(--panel2);border-top:1px solid var(--line)">${title}</td></tr>`;
 
         const compTable = `
           <div style="overflow-x:auto;margin-top:32px">
@@ -3365,7 +3365,7 @@
                   Поделитесь ссылкой с другой видеостудией или фрилансером. Когда они оплатят любой тариф — вы получите <b>+30 дней</b> к подписке бесплатно.
                 </p>
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-                  <code id="refLinkCode" style="flex:1;font-size:11px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0;color:var(--text2)">${refUrl}</code>
+                  <code id="refLinkCode" style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0;color:var(--text2)">${refUrl}</code>
                   <button class="btn small primary" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('refLinkCode').textContent.trim()).then(()=>app._toast('✅ Реферальная ссылка скопирована!'))">📋 Копировать</button>
                 </div>
                 <div id="refStats" style="font-size:12px;color:var(--muted)">Загрузка статистики...</div>
@@ -3389,7 +3389,7 @@
                   <div style="width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0;margin-top:5px"></div>
                   <div>
                     <div style="font-size:13px;font-weight:700;margin-bottom:2px">${escapeHtml(title)}</div>
-                    <div style="font-size:11px;color:var(--muted)">${escapeHtml(desc)}</div>
+                    <div style="font-size:12px;color:var(--muted)">${escapeHtml(desc)}</div>
                   </div>
                 </div>`).join("")}
             </div>
@@ -3610,7 +3610,7 @@
             <div class="modal-box" style="width:min(520px,calc(100vw - 24px));padding:24px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
                 <div>
-                  <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Шаг ${idx + 1} из ${total}</div>
+                  <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Шаг ${idx + 1} из ${total}</div>
                   <h2 style="margin:4px 0 0;font-size:19px">Знакомство с ADERVIS CRM</h2>
                 </div>
                 <button onclick="app.closeHelpModal()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto">×</button>
@@ -3748,7 +3748,7 @@
             <div class="tabs" style="margin-bottom:20px">
               ${Object.entries(KB_CATS).map(([k, v]) => {
                 const cnt = k === "all" ? docs.length : docs.filter(d => d.cat === k).length;
-                return `<button class="tab ${catFilter===k?"active":""}" onclick="app.kbSetCat('${k}')">${v} <span style="opacity:.6;font-size:11px">${cnt}</span></button>`;
+                return `<button class="tab ${catFilter===k?"active":""}" onclick="app.kbSetCat('${k}')">${v} <span style="opacity:.6;font-size:12px">${cnt}</span></button>`;
               }).join("")}
             </div>
 
@@ -3840,7 +3840,7 @@
                   ${m.loading ? "Входим..." : "Войти"}
                 </button>
               </div>
-              <p style="font-size:11px;color:var(--muted);margin:12px 0 0;text-align:center">
+              <p style="font-size:12px;color:var(--muted);margin:12px 0 0;text-align:center">
                 Управление пользователями — в панели Supabase.<br>Настройте URL и ключ в разделе Настройки.
               </p>
             </div>
@@ -6894,13 +6894,13 @@
               </div>
 
               <div class="field" style="margin-bottom:14px">
-                <label style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.04em">СУММА, ₽ *</label>
+                <label style="font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.04em">СУММА, ₽ *</label>
                 <input class="modal-amount-input ${m.amount && !isValid ? "invalid" : ""}"
                   type="number" min="0" placeholder="0"
                   value="${escapeHtml(m.amount)}"
                   oninput="app.setFinanceModalField('amount',this.value)"
                   id="finModalAmount">
-                ${m.amount && !isValid ? `<span style="color:var(--red);font-size:11px;display:block;margin-top:3px">Должно быть больше нуля</span>` : ""}
+                ${m.amount && !isValid ? `<span style="color:var(--red);font-size:12px;display:block;margin-top:3px">Должно быть больше нуля</span>` : ""}
               </div>
 
               <div class="field" style="margin-bottom:14px">
@@ -7271,7 +7271,7 @@
               const d = new Date(e.date);
               const ds = d.toLocaleDateString("ru-RU", { day:"2-digit", month:"short" }) + " " + d.toLocaleTimeString("ru-RU", { hour:"2-digit", minute:"2-digit" });
               return `<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)">
-                <div style="font-size:11px;color:var(--muted);white-space:nowrap;padding-top:2px;min-width:80px">${escapeHtml(ds)}</div>
+                <div style="font-size:12px;color:var(--muted);white-space:nowrap;padding-top:2px;min-width:80px">${escapeHtml(ds)}</div>
                 <div style="font-size:13px">${escapeHtml(e.text)}</div>
               </div>`;
             }).join("")}
@@ -7993,7 +7993,7 @@
                   <button class="btn primary" onclick="app.go('home')">На главную</button>
                   <button class="btn" onclick="location.reload()">Обновить страницу</button>
                 </div>
-                <div style="margin-top:20px;padding:12px;background:var(--panel2);border-radius:10px;font-size:11px;color:var(--muted);font-family:monospace;text-align:left;word-break:break-all">${escapeHtml(String(err))}</div>
+                <div style="margin-top:20px;padding:12px;background:var(--panel2);border-radius:10px;font-size:12px;color:var(--muted);font-family:monospace;text-align:left;word-break:break-all">${escapeHtml(String(err))}</div>
                 <div style="margin-top:16px;font-size:12px;color:var(--muted)">
                   Если ошибка повторяется — напишите нам: <a href="mailto:adervis.digital@gmail.com" style="color:var(--primary2)">adervis.digital@gmail.com</a>
                 </div>
@@ -8263,7 +8263,7 @@
                 </button>
                 ${f.error ? `<p class="brief-error">${escapeHtml(f.error)}</p>` : ''}
               </div>
-              <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:20px">
+              <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:20px">
                 Powered by <strong>ADERVIS CRM</strong> · Данные используются только для связи с вами
               </p>
             </div>
@@ -8510,7 +8510,7 @@
               </div>
               <div style="display:flex;gap:6px;flex-shrink:0;align-items:center">
                 ${isConverted
-                  ? `<span class="status-pill" style="background:rgba(22,163,74,.12);color:#16a34a;font-size:11px">✓ Сделка</span>`
+                  ? `<span class="status-pill" style="background:rgba(22,163,74,.12);color:#16a34a;font-size:12px">✓ Сделка</span>`
                   : `<button class="btn primary small" onclick="app.convertBriefToDeal('${b.id}')">Создать сделку</button>`}
                 <button class="btn small" onclick="app.deleteBrief('${b.id}')" title="Удалить" style="padding:5px 8px;font-size:14px;color:var(--muted)">×</button>
               </div>
@@ -8612,12 +8612,12 @@
               </svg>
               ${topClients.length ? `
               <div class="db-analytics-top">
-                <div style="font-size:10px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Топ клиентов</div>
+                <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Топ клиентов</div>
                 ${topClients.map(c => `
                   <div style="margin-bottom:8px">
                     <div style="display:flex;justify-content:space-between;gap:6px;margin-bottom:3px">
-                      <span style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${escapeHtml(c.name)}</span>
-                      <span style="font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;flex:0 0 auto">${money(c.total)}</span>
+                      <span style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${escapeHtml(c.name)}</span>
+                      <span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;flex:0 0 auto">${money(c.total)}</span>
                     </div>
                     <div style="height:3px;background:var(--line);border-radius:999px">
                       <div style="height:100%;width:${Math.round(c.total/maxC*100)}%;background:var(--primary);border-radius:999px"></div>
@@ -8675,9 +8675,9 @@
             </div>
             ${steps.map(s => `
               <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
-                <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${s.done ? 'var(--green)' : 'var(--line)'};background:${s.done ? 'rgba(22,163,74,.15)' : 'transparent'};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:10px;color:var(--green)">${s.done ? '✓' : ''}</div>
+                <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${s.done ? 'var(--green)' : 'var(--line)'};background:${s.done ? 'rgba(22,163,74,.15)' : 'transparent'};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:12px;color:var(--green)">${s.done ? '✓' : ''}</div>
                 <div style="flex:1;font-size:13px;${s.done ? 'text-decoration:line-through;opacity:.5' : ''}">${s.label}</div>
-                ${!s.done ? `<button onclick="${s.action}" class="btn small primary" style="padding:4px 10px;font-size:11px;white-space:nowrap">${s.btn}</button>` : ''}
+                ${!s.done ? `<button onclick="${s.action}" class="btn small primary" style="padding:4px 10px;font-size:12px;white-space:nowrap">${s.btn}</button>` : ''}
               </div>
             `).join('')}
           </div>`;
@@ -8890,7 +8890,7 @@
               const allTags = [...new Set((visibleItems.flatMap(p => p.tags || [])))].sort();
               return allTags.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">
                 ${tagFilter ? `<button class="btn small" onclick="app.setCrmTagFilter('')" style="background:var(--primary);color:#fff;border-color:var(--primary)">× ${escapeHtml(tagFilter)}</button>` : ""}
-                ${allTags.filter(t => t !== tagFilter).map(t => `<button class="btn small" onclick="app.setCrmTagFilter('${escapeHtml(t)}')" style="border-radius:99px;font-size:11px">${escapeHtml(t)}</button>`).join("")}
+                ${allTags.filter(t => t !== tagFilter).map(t => `<button class="btn small" onclick="app.setCrmTagFilter('${escapeHtml(t)}')" style="border-radius:99px;font-size:12px">${escapeHtml(t)}</button>`).join("")}
               </div>` : "";
             })()}
             ${visibleItems.length ? `
@@ -8931,17 +8931,17 @@
                     <div class="deal-list-row ${isCurrent?"current":""}" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету">
                       ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${(state.crmSelected||{})[project.id]?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">` : ""}
                       <div class="health-dot ${healthClass}" style="flex:0 0 auto" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
-                      <span class="status-pill" style="font-size:11px">${escapeHtml(project.crmStatus||"Лид")}</span>
+                      <span class="status-pill" style="font-size:12px">${escapeHtml(project.crmStatus||"Лид")}</span>
                       <div class="deal-list-name" style="display:flex;align-items:center;gap:6px;min-width:0">
                         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${escapeHtml(project.name)}</span>
-                        ${(project.tags||[]).slice(0,2).map(t=>`<span style="font-size:10px;background:rgba(108,0,255,.12);border-radius:99px;padding:1px 6px;color:var(--primary2);white-space:nowrap;flex-shrink:0">${escapeHtml(t)}</span>`).join("")}
+                        ${(project.tags||[]).slice(0,2).map(t=>`<span style="font-size:12px;background:rgba(108,0,255,.12);border-radius:99px;padding:1px 6px;color:var(--primary2);white-space:nowrap;flex-shrink:0">${escapeHtml(t)}</span>`).join("")}
                       </div>
                       <div class="deal-list-client">${escapeHtml(project.client||"—")}</div>
                       <div class="deal-list-budget">${money(project.total)}</div>
                       <div class="deal-list-deadline" style="color:${u&&u.level!=="ok"?u.color:"var(--muted)"}">${project.deadline?formatDate(project.deadline):"—"}</div>
                       <div class="deal-list-actions" onclick="event.stopPropagation()">
                         <button class="btn small" onclick="app.openDealModal('${projectIdSafe}')" title="Редактировать сделку">Ред.</button>
-                        ${nextLabel?`<button class="next-action-btn" onclick="app.advanceCrmStatus('${projectIdSafe}')" title="${nextLabel}" style="font-size:11px;padding:4px 8px">${nextLabel} →</button>`:""}
+                        ${nextLabel?`<button class="next-action-btn" onclick="app.advanceCrmStatus('${projectIdSafe}')" title="${nextLabel}" style="font-size:12px;padding:4px 8px">${nextLabel} →</button>`:""}
                       </div>
                     </div>`;
                 }).join("")}
@@ -8969,11 +8969,11 @@
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
                           ${project.clientId
                             ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>`
-                            : `<div style="font-size:11px;color:var(--yellow);font-weight:700;margin-top:2px" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Клиент не привязан"}</div>`}
+                            : `<div style="font-size:12px;color:var(--yellow);font-weight:700;margin-top:2px" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Клиент не привязан"}</div>`}
                         </div>
                         <div style="display:flex;gap:4px;align-items:center;flex:0 0 auto;position:relative">
                           <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
-                          <span class="status-pill" style="font-size:11px">${escapeHtml(project.crmStatus || "Лид")}</span>
+                          <span class="status-pill" style="font-size:12px">${escapeHtml(project.crmStatus || "Лид")}</span>
                           <button class="deal-menu-btn" onclick="app.toggleDealMenu('${projectIdSafe}',event)" title="Действия со сделкой">
                             <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
                           </button>
@@ -9006,29 +9006,29 @@
 
                       <div style="display:flex;gap:14px;margin-top:10px;align-items:flex-end;flex-wrap:wrap">
                         <div>
-                          <div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Смета</div>
+                          <div style="font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Смета</div>
                           <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums">${money(project.total)}</div>
                         </div>
                         <div>
-                          <div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Оплачено</div>
+                          <div style="font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Оплачено</div>
                           <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums;color:${project.paid > 0 ? "var(--green)" : "var(--muted)"}">${money(project.paid || 0)}</div>
                         </div>
                         ${project.expensesTotal > 0 ? `<div>
-                          <div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Расходы</div>
+                          <div style="font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Расходы</div>
                           <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums;color:var(--red)">${money(project.expensesTotal)}</div>
                         </div>
                         <div>
-                          <div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Прибыль</div>
+                          <div style="font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Прибыль</div>
                           <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums;color:${(project.profit||0)>0?"var(--green)":(project.profit||0)<0?"var(--red)":"var(--muted)"}">${money(project.profit||0)}</div>
                         </div>` : ""}
-                        ${isCurrent ? `<span class="status-pill green" style="font-size:11px;margin-left:auto">текущий</span>` : ""}
+                        ${isCurrent ? `<span class="status-pill green" style="font-size:12px;margin-left:auto">текущий</span>` : ""}
                       </div>
                       <div class="deal-pay-bar" style="margin-top:8px;width:100%">
                         <div class="deal-pay-fill" style="width:${payPct}%"></div>
                       </div>
-                      <div style="font-size:11px;margin-top:6px;font-weight:750;color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
-                      ${project.note ? `<div style="font-size:11px;color:var(--muted);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%" title="${escapeHtml(project.note)}">💬 ${escapeHtml(project.note)}</div>` : ""}
-                      ${(project.tags||[]).length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${(project.tags||[]).map(t=>`<span style="font-size:10px;background:rgba(124,58,237,.12);border-radius:99px;padding:1px 7px;color:var(--primary2);cursor:pointer" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
+                      <div style="font-size:12px;margin-top:6px;font-weight:750;color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
+                      ${project.note ? `<div style="font-size:12px;color:var(--muted);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%" title="${escapeHtml(project.note)}">💬 ${escapeHtml(project.note)}</div>` : ""}
+                      ${(project.tags||[]).length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${(project.tags||[]).map(t=>`<span style="font-size:12px;background:rgba(124,58,237,.12);border-radius:99px;padding:1px 7px;color:var(--primary2);cursor:pointer" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
 
                       <div class="deal-card-footer">
                         ${nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge" onclick="event.stopPropagation()">Завершено</span>`}
@@ -9276,7 +9276,7 @@
               <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:20px">
                 <div style="min-width:0">
                   <h2 style="margin:0 0 4px;font-size:18px;line-height:1.3">${escapeHtml(itemData.name)}</h2>
-                  ${custom ? `<span class="status-pill" style="font-size:10px">Своя позиция</span>` : `<span class="badge">${escapeHtml(itemData.section)}</span>`}
+                  ${custom ? `<span class="status-pill" style="font-size:12px">Своя позиция</span>` : `<span class="badge">${escapeHtml(itemData.section)}</span>`}
                 </div>
                 <button class="modal-close" onclick="app.closeCatalogEdit()" style="flex-shrink:0">&times;</button>
               </div>
@@ -9351,7 +9351,7 @@
 
               ${pkgItems.length ? `
               <div style="margin-bottom:18px;padding:12px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)">
-                <div style="font-size:11px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Состав пакета (${pkgItems.length} позиций)</div>
+                <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Состав пакета (${pkgItems.length} позиций)</div>
                 <div style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto">
                   ${pkgItems.map(x => `<div style="font-size:12px">✓ ${escapeHtml(x.name)}</div>`).join("")}
                 </div>
@@ -9413,9 +9413,9 @@
               <div class="pkg-card-top">
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                   ${cat ? `<span class="pkg-cat-badge" data-cat="${escapeHtml(cat)}">${catMeta.icon || ""} ${escapeHtml(catMeta.label || cat)}</span>` : ""}
-                  ${tier && tc.label ? `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>` : ""}
+                  ${tier && tc.label ? `<span style="font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px;background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>` : ""}
                 </div>
-                ${pkg.id.startsWith("package_") ? `<button class="btn danger small" onclick="event.stopPropagation();app.deletePackage('${pkg.id}')" title="Удалить пакет" style="padding:4px 8px;font-size:11px">✕</button>` : ""}
+                ${pkg.id.startsWith("package_") ? `<button class="btn danger small" onclick="event.stopPropagation();app.deletePackage('${pkg.id}')" title="Удалить пакет" style="padding:4px 8px;font-size:12px">✕</button>` : ""}
               </div>
 
               <h3 class="pkg-card-name">${escapeHtml(pkg.name)}</h3>
@@ -9463,9 +9463,9 @@
 
             <!-- Категориальные табы -->
             <div class="tabs" style="margin-bottom:20px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px">
-              <button class="tab ${pkgCatFilter==="all"?"active":""}" onclick="app.setPkgCatFilter('all')">Все ${allPkgs.length ? `<span style="opacity:.6;font-size:11px">${allPkgs.length}</span>` : ""}</button>
+              <button class="tab ${pkgCatFilter==="all"?"active":""}" onclick="app.setPkgCatFilter('all')">Все ${allPkgs.length ? `<span style="opacity:.6;font-size:12px">${allPkgs.length}</span>` : ""}</button>
               ${allCatsWithData.map(cat => `
-                <button class="tab ${pkgCatFilter===cat?"active":""}" onclick="app.setPkgCatFilter('${cat}')" style="white-space:nowrap">${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)} <span style="opacity:.6;font-size:11px">${groups[cat].length}</span></button>
+                <button class="tab ${pkgCatFilter===cat?"active":""}" onclick="app.setPkgCatFilter('${cat}')" style="white-space:nowrap">${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)} <span style="opacity:.6;font-size:12px">${groups[cat].length}</span></button>
               `).join("")}
             </div>
 
@@ -9764,7 +9764,7 @@
                 <div style="flex:1;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
                   <div>
                     <div style="font-size:22px;font-weight:900;color:var(--text)">${money(t.total)}</div>
-                    <div style="font-size:11px;color:var(--muted);margin-top:1px">${totalItems} позиц.${t.optional ? ` · опции +${money(t.optional)}` : ""}</div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:1px">${totalItems} позиц.${t.optional ? ` · опции +${money(t.optional)}` : ""}</div>
                   </div>
                   <select data-autosave data-scope="project" data-key="taxType" style="width:auto;padding:5px 9px;font-size:12px;border-radius:10px;margin-left:4px">
                     ${taxOptionsHtml(state.project.taxType)}
@@ -9926,7 +9926,7 @@
                   const margin = total - numberValue(line.cost, 0);
                   const marginPct = total > 0 ? Math.round(margin / total * 100) : 0;
                   const mColor = marginPct >= 40 ? "var(--green)" : marginPct >= 20 ? "var(--yellow)" : "var(--red)";
-                  return `<div class="line-margin-note no-print" title="Маржа по строке: цена минус себестоимость, клиенту не видна" style="font-size:11px;font-weight:700;color:${mColor};margin-top:2px">Маржа: ${money(margin)} (${marginPct}%)</div>`;
+                  return `<div class="line-margin-note no-print" title="Маржа по строке: цена минус себестоимость, клиенту не видна" style="font-size:12px;font-weight:700;color:${mColor};margin-top:2px">Маржа: ${money(margin)} (${marginPct}%)</div>`;
                 })() : ""}
               </div>
             </div>
@@ -9967,7 +9967,7 @@
             </div>
 
             <div class="line-action-bar no-print">
-              <button class="btn small" onclick="app.toggleOptional('${id}')" style="font-size:11px">${line.optional ? "В основные" : "В опции"}</button>
+              <button class="btn small" onclick="app.toggleOptional('${id}')" style="font-size:12px">${line.optional ? "В основные" : "В опции"}</button>
               <div style="display:flex;gap:4px;margin-left:auto">
                 <button class="catalog-action-btn" onclick="app.duplicateEstimateLine('${id}')" title="Дублировать позицию">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
@@ -10344,7 +10344,7 @@
                     <div style="display:flex;align-items:center;gap:12px">
                       <div style="text-align:right">
                         <div style="font-weight:900">${money(project.total)}</div>
-                        <div style="font-size:11px;color:var(--muted)">оплачено ${money(project.paid)}</div>
+                        <div style="font-size:12px;color:var(--muted)">оплачено ${money(project.paid)}</div>
                       </div>
                       <span class="status-pill">${escapeHtml(project.crmStatus || project.status)}</span>
                     </div>
@@ -10535,17 +10535,17 @@
             </div>
 
             <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
-              <span style="font-size:11px;color:var(--muted)">Приоритет:</span>
+              <span style="font-size:12px;color:var(--muted)">Приоритет:</span>
               <select class="task-mini-select" data-autosave data-scope="task" data-id="${task.id}" data-key="priority"
                 style="background:${pBg};border-color:${pColor}40;color:${pColor};font-weight:600">
                 ${PRIORITIES.map(p => `<option value="${p}" ${task.priority===p?"selected":""}>${p}</option>`).join("")}
               </select>
               ${task.deadline ? `<span class="badge" style="${isOverdue?"color:var(--red);border-color:rgba(220,38,38,.4)":""}">${isOverdue?"!" : ""}${escapeHtml(formatDate(task.deadline))}</span>` : ""}
-              ${task.assignee ? `<span style="font-size:11px;color:var(--muted)">${escapeHtml(task.assignee)}</span>` : ""}
+              ${task.assignee ? `<span style="font-size:12px;color:var(--muted)">${escapeHtml(task.assignee)}</span>` : ""}
             </div>
 
             <details style="margin-top:6px" ${(state.taskDetailsOpen||{})[task.id] ? "open" : ""} ontoggle="app.setTaskDetailsOpen('${task.id}', this.open)">
-              <summary style="font-size:11px;color:var(--muted);cursor:pointer;padding:4px 0">
+              <summary style="font-size:12px;color:var(--muted);cursor:pointer;padding:4px 0">
                 ▸ Подробнее
               </summary>
               <div style="margin-top:10px;display:grid;gap:8px">
@@ -10695,10 +10695,10 @@
                   <div class="fin-sub">
                     ${(() => {
                       const budget = state.project.expenseBudget || 0;
-                      if (!budget) return `<button class="btn small no-print" style="margin-top:4px;font-size:11px" onclick="app._setExpenseBudget()">+ Бюджет</button>`;
+                      if (!budget) return `<button class="btn small no-print" style="margin-top:4px;font-size:12px" onclick="app._setExpenseBudget()">+ Бюджет</button>`;
                       const over = f.totalExpenses - budget;
                       const pct = Math.round(f.totalExpenses / budget * 100);
-                      return `<span style="color:${over>0?"var(--red)":"var(--muted)"}">Бюджет: ${money(budget)} (${pct}%)</span>${over>0?` <span style="color:var(--red);font-size:10px">⚠ +${money(over)}</span>`:""}`;
+                      return `<span style="color:${over>0?"var(--red)":"var(--muted)"}">Бюджет: ${money(budget)} (${pct}%)</span>${over>0?` <span style="color:var(--red);font-size:12px">⚠ +${money(over)}</span>`:""}`;
                     })()}
                   </div>
                 </div>
@@ -10765,12 +10765,12 @@
                               <div style="width:10px;height:${incH}px;background:var(--green);border-radius:3px 3px 0 0;opacity:.85"></div>
                               <div style="width:10px;height:${expH}px;background:var(--red);border-radius:3px 3px 0 0;opacity:.7"></div>
                             </div>
-                            <span style="font-size:9px;color:var(--muted);white-space:nowrap">${label}</span>
+                            <span style="font-size:12px;color:var(--muted);white-space:nowrap">${label}</span>
                           </div>
                         `;
                       }).join("")}
                     </div>
-                    <div style="display:flex;gap:12px;font-size:10px;color:var(--muted);margin-top:6px">
+                    <div style="display:flex;gap:12px;font-size:12px;color:var(--muted);margin-top:6px">
                       <span><span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:2px;margin-right:3px"></span>Поступления</span>
                       <span><span style="display:inline-block;width:8px;height:8px;background:var(--red);opacity:.7;border-radius:2px;margin-right:3px"></span>Расходы</span>
                     </div>
@@ -10963,7 +10963,7 @@
             <div style="margin-top:14px;padding:12px;background:var(--panel2);border-radius:12px;border:1px solid var(--line)">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
                 <span style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Выплата</span>
-                <span style="font-size:11px;font-weight:700;color:${statusColor}">
+                <span style="font-size:12px;font-weight:700;color:${statusColor}">
                   ${isFullyPaid ? "✓ Оплачено полностью" : paidAmount > 0 ? `${paidPct}% выплачено` : "Не выплачено"}
                 </span>
               </div>
@@ -11093,7 +11093,7 @@
                       <p>${escapeHtml(event.meta)}</p>
                     </div>
                     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-                      <span class="status-pill" style="font-size:10px">${escapeHtml(event.type)}</span>
+                      <span class="status-pill" style="font-size:12px">${escapeHtml(event.type)}</span>
                       <span style="font-size:12px;font-weight:700;${calDateClass(event.date)}">${event.date === today ? "Сегодня" : escapeHtml(formatDate(event.date))}</span>
                     </div>
                   </div>
@@ -11204,7 +11204,7 @@
 
             ${state.project.portalId ? `
             <div id="portalAdvanceStatus" class="no-print client-hidden" style="margin-bottom:14px">
-              <div style="font-size:11px;color:var(--muted);padding:8px 0">⏳ Загрузка статуса аванса...</div>
+              <div style="font-size:12px;color:var(--muted);padding:8px 0">⏳ Загрузка статуса аванса...</div>
             </div>
             ${(() => { setTimeout(_loadPortalAdvanceStatus, 0); return ''; })()}
             ` : ''}
@@ -11604,7 +11604,7 @@
                       `;
                     }).join("")}
                   </div>
-                  <div style="display:flex;gap:16px;font-size:11px;color:var(--muted);margin-top:8px">
+                  <div style="display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:8px">
                     <span><span style="display:inline-block;width:10px;height:10px;background:var(--green);border-radius:2px;margin-right:4px"></span>Поступления</span>
                     <span><span style="display:inline-block;width:10px;height:10px;background:var(--red);opacity:.7;border-radius:2px;margin-right:4px"></span>Расходы</span>
                     <span><span style="display:inline-block;width:10px;height:10px;background:var(--primary2);opacity:.5;border-radius:2px;margin-right:4px"></span>Прибыль</span>
@@ -11877,7 +11877,7 @@
                       ${dayEvs.slice(0, 4).map(ev => `<span class="cal-dot-item ${ev.type}" title="${escapeHtml(ev.title)}"></span>`).join("")}
                     </div>
                     ${dayEvs.slice(0, MAX_LABELS).map(ev => `<span class="cal-event-label ${ev.type}">${escapeHtml(ev.title.slice(0,22))}</span>`).join("")}
-                    ${dayEvs.length > MAX_LABELS ? `<span style="font-size:9px;color:var(--muted);display:block;margin-top:1px">+${dayEvs.length - MAX_LABELS} ещё</span>` : ""}
+                    ${dayEvs.length > MAX_LABELS ? `<span style="font-size:12px;color:var(--muted);display:block;margin-top:1px">+${dayEvs.length - MAX_LABELS} ещё</span>` : ""}
                   </div>
                 `;
               }).join("")}
@@ -11889,7 +11889,7 @@
               <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--blue)"></div>Задача</div>
               <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--green)"></div>Поступление</div>
               <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--orange)"></div>Расход</div>
-              <div class="cal-legend-item" style="margin-left:auto;font-size:11px;color:var(--muted)">Всего событий: ${events.length}</div>
+              <div class="cal-legend-item" style="margin-left:auto;font-size:12px;color:var(--muted)">Всего событий: ${events.length}</div>
             </div>
 
             <!-- Selected day panel -->
@@ -11907,7 +11907,7 @@
                       <h4>${escapeHtml(ev.title)}</h4>
                       <p>${escapeHtml(ev.project || "")}${ev.amount ? ` · ${money(ev.amount)}` : ""} · <span style="color:${typeColor[ev.type]};font-weight:750">${typeLabel[ev.type] || ""}</span></p>
                     </div>
-                    ${ev.projectId ? `<span style="font-size:11px;color:var(--muted)">→</span>` : ""}
+                    ${ev.projectId ? `<span style="font-size:12px;color:var(--muted)">→</span>` : ""}
                   </div>
                 `).join("") : `<div class="empty" style="padding:12px">Событий нет</div>`}
               </div>
@@ -11931,9 +11931,9 @@
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px">
                   <span style="font-size:12px;font-weight:750;color:var(--muted);margin-right:2px">${calAllMode ? yr + " год" : monthNames[mo-1] + " " + yr}:</span>
                   <div style="display:flex;gap:4px;flex-wrap:wrap">
-                    ${typeFilters.map(f => `<button style="padding:4px 10px;font-size:11px;font-weight:750;border-radius:99px;border:1px solid ${calTypeFilter===f.id?"var(--primary)":"var(--line)"};background:${calTypeFilter===f.id?"rgba(124,58,237,.15)":"transparent"};color:${calTypeFilter===f.id?"var(--primary2)":"var(--muted)"};cursor:pointer" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
+                    ${typeFilters.map(f => `<button style="padding:4px 10px;font-size:12px;font-weight:750;border-radius:99px;border:1px solid ${calTypeFilter===f.id?"var(--primary)":"var(--line)"};background:${calTypeFilter===f.id?"rgba(124,58,237,.15)":"transparent"};color:${calTypeFilter===f.id?"var(--primary2)":"var(--muted)"};cursor:pointer" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
                   </div>
-                  <span style="font-size:11px;color:var(--muted);margin-left:auto">${listEvents.length} событий</span>
+                  <span style="font-size:12px;color:var(--muted);margin-left:auto">${listEvents.length} событий</span>
                 </div>
                 ${!listEvents.length
                   ? `<p style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0">Нет событий${calTypeFilter!=="all"?" по выбранному типу":calAllMode?"":" в этом месяце"}. Нажми на день, чтобы добавить задачу.</p>`
@@ -11947,9 +11947,9 @@
                       <div style="width:8px;height:8px;border-radius:50%;background:${typeColor[ev.type]};flex:0 0 8px"></div>
                       <div style="flex:1;min-width:0">
                         <div style="font-size:13px;font-weight:750;${isPast&&!isToday?"opacity:.6":""}overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(ev.title)}</div>
-                        <div style="font-size:11px;color:var(--muted)">${formatDate(ev.date)}${ev.project ? ` · ${escapeHtml(ev.project)}` : ""}${ev.amount ? ` · ${money(ev.amount)}` : ""}</div>
+                        <div style="font-size:12px;color:var(--muted)">${formatDate(ev.date)}${ev.project ? ` · ${escapeHtml(ev.project)}` : ""}${ev.amount ? ` · ${money(ev.amount)}` : ""}</div>
                       </div>
-                      <span style="font-size:10px;color:${typeColor[ev.type]};font-weight:750;flex:0 0 auto;white-space:nowrap">${escapeHtml(typeLabel[ev.type]||"")}</span>
+                      <span style="font-size:12px;color:${typeColor[ev.type]};font-weight:750;flex:0 0 auto;white-space:nowrap">${escapeHtml(typeLabel[ev.type]||"")}</span>
                     </div>`;
                   }).join("")}
                   </div>`
@@ -11996,7 +11996,7 @@
             <button class="btn primary" style="font-size:15px;padding:13px 36px;border-radius:12px" onclick="app.startWizard()">
               Создать первую сделку
             </button>
-            <div style="margin-top:14px;font-size:12px;color:var(--muted)">или нажмите <kbd style="border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-size:11px;color:var(--text)">Ctrl+N</kbd></div>
+            <div style="margin-top:14px;font-size:12px;color:var(--muted)">или нажмите <kbd style="border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-size:12px;color:var(--text)">Ctrl+N</kbd></div>
           </div>
         `;
       }
@@ -12110,11 +12110,11 @@
                   <div class="wizard-pkg-card" onclick="app.finishWizardWithPackage('${pkg.id}')">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px">
                       <h3 style="margin:0;font-size:14px">${escapeHtml(pkg.name)}</h3>
-                      <span style="font-size:10px;padding:3px 7px;border-radius:999px;background:${catColor};white-space:nowrap;color:var(--muted)">${catLabel}</span>
+                      <span style="font-size:12px;padding:3px 7px;border-radius:999px;background:${catColor};white-space:nowrap;color:var(--muted)">${catLabel}</span>
                     </div>
                     <p style="font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.4">${escapeHtml(pkg.desc)}</p>
                     <div style="font-size:13px;font-weight:900;color:var(--primary2)">${escapeHtml(pkg.priceLabel || "")}</div>
-                    ${pkg.goodFor ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">${escapeHtml(pkg.goodFor)}</div>` : ""}
+                    ${pkg.goodFor ? `<div style="font-size:12px;color:var(--muted);margin-top:4px">${escapeHtml(pkg.goodFor)}</div>` : ""}
                   </div>
                 `;
               }).join("")}
@@ -12213,10 +12213,10 @@
               <div class="deal-nav-group">
                 <button class="btn small" onclick="app.go('home')">← Сделки</button>
                 <div id="dealBarSwitcher">${renderDealSwitcherButtonHtml()}</div>
-                ${state.project.client ? `<span class="badge" style="font-size:11px">${escapeHtml(state.project.client)}</span>` : ""}
-                <span class="margin-badge ${marginClass}" style="font-size:10px">${margin}% маржа</span>
-                <span class="status-pill" style="font-size:11px">${escapeHtml(state.project.crmStatus || "Лид")}</span>
-                ${(() => { const u = deadlineUrgency(state.project.deadline); if (!u || u.level === "ok") return ""; return `<span style="font-size:11px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px">⚡ ${escapeHtml(u.label)}</span>`; })()}
+                ${state.project.client ? `<span class="badge" style="font-size:12px">${escapeHtml(state.project.client)}</span>` : ""}
+                <span class="margin-badge ${marginClass}" style="font-size:12px">${margin}% маржа</span>
+                <span class="status-pill" style="font-size:12px">${escapeHtml(state.project.crmStatus || "Лид")}</span>
+                ${(() => { const u = deadlineUrgency(state.project.deadline); if (!u || u.level === "ok") return ""; return `<span style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px">⚡ ${escapeHtml(u.label)}</span>`; })()}
               </div>
 
               <div class="deal-actions-group">
@@ -12387,7 +12387,7 @@
               </p>
               <details style="margin-bottom:14px">
                 <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:700">📋 SQL — создать таблицы в Supabase (нажмите чтобы раскрыть)</summary>
-                <pre style="font-size:10px;background:rgba(0,0,0,.15);border-radius:10px;padding:12px;margin-top:10px;overflow-x:auto;white-space:pre-wrap;line-height:1.5">-- ═══════════════════════════════════════════════════
+                <pre style="font-size:12px;background:rgba(0,0,0,.15);border-radius:10px;padding:12px;margin-top:10px;overflow-x:auto;white-space:pre-wrap;line-height:1.5">-- ═══════════════════════════════════════════════════
 -- ADERVIS CRM — Схема базы данных v4.2
 -- Выполнить один раз в Supabase SQL Editor
 -- ═══════════════════════════════════════════════════
@@ -12478,7 +12478,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 </div>
                 <div class="grid two" style="margin-bottom:14px">
                   <div class="field">
-                    <label>VK App ID <span style="font-size:10px;color:var(--muted)">(для авторизации через VK)</span></label>
+                    <label>VK App ID <span style="font-size:12px;color:var(--muted)">(для авторизации через VK)</span></label>
                     <input id="vk_app_id_input" placeholder="12345678" value="${escapeHtml((localStorage.getItem('vk_app_id') || _DEFAULT_VK_APP_ID) || '')}">
                   </div>
                 </div>
@@ -12491,7 +12491,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <div style="background:rgba(0,0,0,.06);border-radius:12px;padding:14px;font-size:13px">
                   <strong>Ваша подписка:</strong>
                   <span style="margin-left:8px">${escapeHtml(getSubscriptionLabel())}</span>
-                  ${_userProfile.subscription_expires_at ? `<span style="color:var(--muted);margin-left:8px;font-size:11px">до ${escapeHtml(new Date(_userProfile.subscription_expires_at).toLocaleDateString("ru-RU"))}</span>` : ""}
+                  ${_userProfile.subscription_expires_at ? `<span style="color:var(--muted);margin-left:8px;font-size:12px">до ${escapeHtml(new Date(_userProfile.subscription_expires_at).toLocaleDateString("ru-RU"))}</span>` : ""}
                   <br><br>
                   <strong>Управление пользователями:</strong>
                   <p style="margin:6px 0 0;font-size:12px;line-height:1.5">
@@ -12549,24 +12549,24 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <div style="background:rgba(124,58,237,.08);border-radius:10px;padding:10px 14px">
                   <div style="font-size:18px;margin-bottom:4px">⚡</div>
                   <div style="font-size:12px;font-weight:700;margin-bottom:2px">Быстрый запуск</div>
-                  <div style="font-size:11px;color:var(--muted)">Иконка на рабочем столе или в доке, открывается мгновенно</div>
+                  <div style="font-size:12px;color:var(--muted)">Иконка на рабочем столе или в доке, открывается мгновенно</div>
                 </div>
                 <div style="background:rgba(37,99,235,.08);border-radius:10px;padding:10px 14px">
                   <div style="font-size:18px;margin-bottom:4px">🔔</div>
                   <div style="font-size:12px;font-weight:700;margin-bottom:2px">Push-уведомления</div>
-                  <div style="font-size:11px;color:var(--muted)">Дедлайны и события даже когда приложение закрыто</div>
+                  <div style="font-size:12px;color:var(--muted)">Дедлайны и события даже когда приложение закрыто</div>
                 </div>
                 <div style="background:rgba(22,163,74,.08);border-radius:10px;padding:10px 14px">
                   <div style="font-size:18px;margin-bottom:4px">📱</div>
                   <div style="font-size:12px;font-weight:700;margin-bottom:2px">Мобильный доступ</div>
-                  <div style="font-size:11px;color:var(--muted)">Работает на iOS (Safari → Добавить на экран) и Android</div>
+                  <div style="font-size:12px;color:var(--muted)">Работает на iOS (Safari → Добавить на экран) и Android</div>
                 </div>
               </div>
             </div>
 
             <div style="margin-top:18px;padding:10px 14px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
               <span style="font-size:12px;color:var(--muted)">ADERVIS CRM</span>
-              <span style="font-size:11px;color:var(--muted);opacity:.55">v${APP_VERSION}</span>
+              <span style="font-size:12px;color:var(--muted);opacity:.55">v${APP_VERSION}</span>
             </div>
 
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
@@ -12605,7 +12605,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 </p>
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
                   <input readonly onclick="this.select()" value="${escapeHtml(feedUrl)}"
-                    style="flex:1;font-size:11px;min-width:0;background:rgba(0,0,0,.15);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--fg);cursor:text">
+                    style="flex:1;font-size:12px;min-width:0;background:rgba(0,0,0,.15);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--fg);cursor:text">
                   <button class="btn small" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(feedUrl)}').then(()=>app._toast('✅ Ссылка скопирована!'))">📋 Копировать</button>
                   <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none;white-space:nowrap">📱 Открыть на iPhone</a>
                 </div>
@@ -12763,7 +12763,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                         <span style="font-size:20px">✅</span>
                         <div>
                           <div style="font-weight:800;color:var(--green);font-size:13px">Аванс оплачен</div>
-                          <div style="font-size:11px;color:var(--muted)">${new Date(d.advance_paid_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</div>
+                          <div style="font-size:12px;color:var(--muted)">${new Date(d.advance_paid_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</div>
                         </div>
                         <div style="margin-left:auto;font-size:18px;font-weight:900;color:var(--green)">${money(d.advance_amount)}</div>
                       </div>
@@ -12777,7 +12777,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                         style="padding:14px;font-size:14px;font-weight:800">
                         💳 Оплатить ${money(d.advance_amount)}
                       </button>
-                      <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5">
+                      <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5">
                         Безопасная оплата через ЮKassa · Карта, СБП, ЮMoney
                       </p>
                     `}
@@ -13368,7 +13368,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <button onclick="app.closeEditTransactionModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
               </div>
               <div class="field" style="margin-bottom:14px">
-                <label style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.04em">СУММА, ₽ *</label>
+                <label style="font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.04em">СУММА, ₽ *</label>
                 <input class="modal-amount-input" type="number" min="0" value="${escapeHtml(String(m.amount))}" oninput="app.setEditTransactionField('amount',this.value)">
               </div>
               <div class="grid two" style="margin-bottom:14px">
@@ -13582,7 +13582,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             <div class="deal-switcher-item-name">${escapeHtml(p.name || "Без названия")}</div>
             <div class="deal-switcher-item-sub">
               ${p.client ? `<span>${escapeHtml(p.client)}</span>` : ""}
-              <span class="status-pill" style="font-size:10px;padding:1px 7px">${escapeHtml(p.crmStatus || "Лид")}</span>
+              <span class="status-pill" style="font-size:12px;padding:1px 7px">${escapeHtml(p.crmStatus || "Лид")}</span>
               ${p.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${escapeHtml(formatDate(p.deadline))}</span>` : ""}
             </div>
           </div>
@@ -13793,7 +13793,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <button class="btn primary" onclick="app.saveDealModal()">Сохранить</button>
               </div>
               <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);text-align:center">
-                <button onclick="app.deleteDealFromModal('${escapeHtml(m.id)}')" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline;opacity:.6;padding:4px 8px" title="Удалить сделку навсегда">Удалить сделку</button>
+                <button onclick="app.deleteDealFromModal('${escapeHtml(m.id)}')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;opacity:.6;padding:4px 8px" title="Удалить сделку навсегда">Удалить сделку</button>
               </div>
             </div>
           </div>
@@ -13895,7 +13895,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                       <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;position:relative">
                         <div style="font-size:13px;color:var(--text);line-height:1.5;white-space:pre-wrap;word-break:break-word">${escapeHtml(c.text)}</div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-                          <span style="font-size:11px;color:var(--muted)">${escapeHtml(c.author || "Я")} · ${new Date(c.createdAt).toLocaleString("ru-RU",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+                          <span style="font-size:12px;color:var(--muted)">${escapeHtml(c.author || "Я")} · ${new Date(c.createdAt).toLocaleString("ru-RU",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
                           <button onclick="app.deleteTaskComment('${c.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 2px;line-height:1" title="Удалить комментарий">×</button>
                         </div>
                       </div>
@@ -14463,7 +14463,7 @@ Email: ______________________            Email: ______________________
                      onmouseout="this.style.borderColor='var(--line)'">
                   <div style="font-size:20px;margin-bottom:8px">📄</div>
                   <h3 style="font-size:13px;margin:0 0 4px">${escapeHtml(tpl.name)}</h3>
-                  <p style="font-size:11px;margin:0">${escapeHtml(tpl.desc)}</p>
+                  <p style="font-size:12px;margin:0">${escapeHtml(tpl.desc)}</p>
                   <span class="badge" style="margin-top:8px;display:inline-flex">${escapeHtml(tpl.category)}</span>
                 </div>
               `).join("")}
@@ -14489,7 +14489,7 @@ Email: ______________________            Email: ______________________
                       <span class="badge">${escapeHtml(c.category||"Прочее")}</span>
                     </div>
                     ${c.desc ? `<p style="font-size:12px;margin:0 0 8px">${escapeHtml(c.desc)}</p>` : ""}
-                    <p style="font-size:11px;margin:0;color:var(--muted)">Обновлён: ${formatDate(c.updatedAt)}</p>
+                    <p style="font-size:12px;margin:0;color:var(--muted)">Обновлён: ${formatDate(c.updatedAt)}</p>
                     <div class="toolbar no-print" style="margin-top:10px">
                       <button class="btn small" onclick="event.stopPropagation();app.printContract('${c.id}')">Печать / PDF</button>
                       <button class="btn danger small" onclick="event.stopPropagation();app.deleteContract('${c.id}')">Удалить</button>
