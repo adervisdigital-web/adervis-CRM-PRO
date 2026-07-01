@@ -5657,6 +5657,10 @@
         } else {
           if (!state.permanentlyDeleted) state.permanentlyDeleted = {};
           state.permanentlyDeleted[id] = true;
+          // Позиция больше никогда не пройдёт фильтр permanentlyDeleted в allItems() —
+          // без этого override/цена молча оседали в state навсегда как мёртвые данные
+          if (state.catalogOverrides) delete state.catalogOverrides[id];
+          if (state.catalogPrices) delete state.catalogPrices[id];
         }
         delete state.hiddenItems[id];
         delete state.selected[id];
