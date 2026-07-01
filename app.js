@@ -196,11 +196,11 @@
         }),
 
         // ── ИИ / Нейросети ───────────────────────────────────────────────
-        item("ai_sub_service", "ai", "Подписка на AI-сервис", "Месячная подписка на AI-инструмент. Выбери сервис в строке сметы: Higgsfield, Syntex, Runway, Midjourney и др.", "fixed", 1990, "мес.", { stage: "pre", tags: ["ИИ", "подписка", "сервис"] }),
-        item("ai_sub_higgsfield", "ai", "Подписка Higgsfield", "Месячная подписка на Higgsfield.ai — генерация плавного видеоряда с управлением камерой.", "fixed", 1890, "мес.", { stage: "pre", tags: ["ИИ", "Higgsfield", "подписка"] }),
-        item("ai_sub_syntex", "ai", "Подписка Syntex", "Месячная подписка на Syntex — AI-генерация визуального ряда под продукт.", "fixed", 1490, "мес.", { stage: "pre", tags: ["ИИ", "Syntex", "подписка"] }),
-        item("ai_credits_1000", "ai", "AI-кредиты (1000 шт)", "Пакет 1000 кредитов/токенов для AI-генерации видео или изображений.", "fixed+qty", 2200, "пакет", { stage: "pre", tags: ["ИИ", "кредиты", "токены"] }),
-        item("ai_credits_5000", "ai", "AI-кредиты (5000 шт)", "Пакет 5000 кредитов — базовый объём для полноценного AI-видеопроекта.", "fixed", 9900, "пакет", { stage: "pre", tags: ["ИИ", "кредиты"] }),
+        item("ai_sub_service", "ai", "Подписка на AI-сервис", "Месячная подписка на AI-инструмент. Выбери сервис в строке сметы: Higgsfield, Syntex, Runway, Midjourney и др.", "fixed", 1990, "мес.", { stage: "pre", tags: ["ИИ", "подписка", "сервис"], passthroughCost: true }),
+        item("ai_sub_higgsfield", "ai", "Подписка Higgsfield", "Месячная подписка на Higgsfield.ai — генерация плавного видеоряда с управлением камерой.", "fixed", 1890, "мес.", { stage: "pre", tags: ["ИИ", "Higgsfield", "подписка"], passthroughCost: true }),
+        item("ai_sub_syntex", "ai", "Подписка Syntex", "Месячная подписка на Syntex — AI-генерация визуального ряда под продукт.", "fixed", 1490, "мес.", { stage: "pre", tags: ["ИИ", "Syntex", "подписка"], passthroughCost: true }),
+        item("ai_credits_1000", "ai", "AI-кредиты (1000 шт)", "Пакет 1000 кредитов/токенов для AI-генерации видео или изображений.", "fixed+qty", 2200, "пакет", { stage: "pre", tags: ["ИИ", "кредиты", "токены"], passthroughCost: true }),
+        item("ai_credits_5000", "ai", "AI-кредиты (5000 шт)", "Пакет 5000 кредитов — базовый объём для полноценного AI-видеопроекта.", "fixed", 9900, "пакет", { stage: "pre", tags: ["ИИ", "кредиты"], passthroughCost: true }),
         item("ai_prompt_writing", "ai", "Написание промптов / раскадровка AI", "Разработка промптов, сценарий для AI, подбор референсов, раскадровка локаций.", "creativeWork", 5000, "проект", { stage: "pre", tags: ["ИИ", "промпты", "раскадровка"] }),
         item("ai_video_generation", "ai", "AI-генерация видеоряда", "Генерация видеоряда через AI-инструменты, отбор и подготовка кадров для монтажа.", "fixed", 10000, "проект", { stage: "post", tags: ["ИИ", "генерация", "видео"] }),
         item("ai_motion_graphics", "ai", "Моушн-дизайн и AI-графика", "Создание дополнительной графики, всплывающих элементов, титров на основе AI.", "fixed", 10000, "пакет", { stage: "post", tags: ["ИИ", "моушн", "графика"] }),
@@ -4661,6 +4661,12 @@
         return itemData && itemData.calcModel === "fixed+qty";
       }
 
+      // Позиции-расходы (аренда, подписки, AI-кредиты) агентство не перепродаёт с наценкой —
+      // по умолчанию себестоимость равна цене (маржа 0), пока не поправят вручную.
+      function isPassthroughCostItem(itemData) {
+        return !!itemData && (itemData.category === "expenses" || itemData.passthroughCost === true);
+      }
+
       function defaultLineForItem(itemData) {
         const price = getCatalogPrice(itemData);
         const rates = getEffectiveRates(itemData);
@@ -4669,7 +4675,7 @@
           id: itemData.id,
           qty: 1,
           price,
-          cost: itemData.category === "expenses" ? price : 0,
+          cost: isPassthroughCostItem(itemData) ? price : 0,
           days: numberValue(state.project.days, 1),
           people: 1,
           stageId: itemData.stage || "pre",
@@ -9001,6 +9007,7 @@
             <span class="badge">Этап: ${escapeHtml(getItemStageName(itemData))}</span>
             <span class="badge">Модель: ${escapeHtml(itemData.calcModel)}</span>
             <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
+            ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">💸 Расход, не доход</span>` : ""}
           </div>
           <div class="grid two">
             ${field("Цена, ₽", `<input type="number" class="catalog-price-input" value="${currentPrice}" onchange="app.updateCatalogPrice('${id}', this.value)" style="font-size:18px;font-weight:700">`)}
@@ -9354,6 +9361,7 @@
                   <span class="badge">Этап: ${escapeHtml(getItemStageName(itemData))}</span>
                   <span class="badge">Модель: ${escapeHtml(itemData.calcModel)}</span>
                   <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
+                  ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">💸 Расход, не доход</span>` : ""}
                   ${state.favorites[itemData.id] ? `<span class="status-pill">★ избранное</span>` : ""}
                 </div>
               </div>
@@ -9614,6 +9622,7 @@
                     <span class="badge" style="background:${stageColor}22;color:${stageColor};border-color:${stageColor}44">${escapeHtml(itemData.section)}</span>
                     <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
                     ${line.optional ? `<span class="status-pill yellow">опция</span>` : `<span class="status-pill green">основная</span>`}
+                    ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Расход агентства — по умолчанию не приносит прибыль, себестоимость = цене">💸 Расход</span>` : ""}
                   </div>
                 </div>
               </div>
