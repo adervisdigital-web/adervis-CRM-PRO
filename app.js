@@ -5241,8 +5241,12 @@
       function loadSavedProject(id) {
         const saved = state.savedProjects.find(project => project.id === id);
         if (!saved) return;
+        if (saved.id === state.activeProjectId) { render(); return; }
 
-        if (selectedIds().length && !confirm("Открыть сохранённый проект? Текущие несохранённые изменения могут быть потеряны.")) return;
+        // Переключаемся без диалога подтверждения — просто гарантируем, что текущий
+        // проект уже сохранён (снимаем pending debounce и сохраняем немедленно)
+        if (autoSaveTimer) clearTimeout(autoSaveTimer);
+        flushActiveProjectToSaved();
 
         const snapshot = saved.snapshot || {};
 
@@ -5327,7 +5331,8 @@
       }
 
       function newProject() {
-        if (selectedIds().length && !confirm("Создать новый проект? Текущая несохранённая смета будет очищена.")) return;
+        if (autoSaveTimer) clearTimeout(autoSaveTimer);
+        flushActiveProjectToSaved();
 
         const keep = {
           company: deepClone(state.company),
@@ -6484,35 +6489,42 @@
 
       let autoSaveTimer = null;
 
+      // Немедленно (без debounce) переносит текущий открытый проект в state.savedProjects.
+      // Используется и из debounced-автосейва, и перед переключением на другой проект —
+      // чтобы переключаться можно было без confirm-диалога "точно сохранить?".
+      function flushActiveProjectToSaved() {
+        if (!state.activeProjectId) return;
+        const existing = state.savedProjects.find(p => p.id === state.activeProjectId);
+        if (!existing) return;
+        const snap = currentProjectSnapshot();
+        const f = financeTotals();
+        Object.assign(existing, {
+          name: state.project.name || "Проект",
+          client: state.project.client || "",
+          clientId: state.project.clientId || "",
+          status: state.project.status || "Черновик",
+          crmStatus: state.project.crmStatus || "Лид",
+          priority: state.project.priority || "Средний",
+          deadline: state.project.deadline || "",
+          total: snap.total || 0,
+          paid: f.paid,
+          debt: f.debt,
+          expensesTotal: f.totalExpenses,
+          profit: f.profit,
+          revenue: f.revenue,
+          updatedAt: new Date().toISOString(),
+          snapshot: snap
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
       function scheduleAutoSave() {
         if (isUndoing) return;
         const ind = document.getElementById("autoSaveIndicator");
         if (ind) { ind.textContent = "Сохранение..."; ind.className = "autosave-indicator saving show"; }
         if (autoSaveTimer) clearTimeout(autoSaveTimer);
         autoSaveTimer = setTimeout(() => {
-          if (!state.activeProjectId) return;
-          const existing = state.savedProjects.find(p => p.id === state.activeProjectId);
-          if (!existing) return;
-          const snap = currentProjectSnapshot();
-          const f = financeTotals();
-          Object.assign(existing, {
-            name: state.project.name || "Проект",
-            client: state.project.client || "",
-            clientId: state.project.clientId || "",
-            status: state.project.status || "Черновик",
-            crmStatus: state.project.crmStatus || "Лид",
-            priority: state.project.priority || "Средний",
-            deadline: state.project.deadline || "",
-            total: snap.total || 0,
-            paid: f.paid,
-            debt: f.debt,
-            expensesTotal: f.totalExpenses,
-            profit: f.profit,
-            revenue: f.revenue,
-            updatedAt: new Date().toISOString(),
-            snapshot: snap
-          });
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          flushActiveProjectToSaved();
           const ind2 = document.getElementById("autoSaveIndicator");
           if (ind2) {
             ind2.textContent = "Сохранено";
