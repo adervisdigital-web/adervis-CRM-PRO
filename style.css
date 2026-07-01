@@ -1396,6 +1396,25 @@
       margin-bottom: 14px;
     }
 
+    .catalog-section-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0 12px;
+      font-size: 11px;
+      font-weight: 750;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .catalog-section-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
     .pill-count {
       display: inline-flex;
       align-items: center;

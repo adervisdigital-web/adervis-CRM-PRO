@@ -9329,15 +9329,33 @@
                     <div class="hidden-bar">Скрытые позиции не показываются в общем каталоге. Их можно восстановить.</div>
                   ` : ""}
 
-                  <div class="catalog-grid">
-                    ${filteredItems().length ? filteredItems().map(renderCatalogItem).join("") : `<div class="empty">Ничего не найдено</div>`}
-                  </div>
+                  ${state.tab === "ai" ? renderAiCatalogGrid(filteredItems()) : `
+                    <div class="catalog-grid">
+                      ${filteredItems().length ? filteredItems().map(renderCatalogItem).join("") : `<div class="empty">Ничего не найдено</div>`}
+                    </div>
+                  `}
                 </div>
               </div>
             </section>
 
             ${renderSummary()}
           </div>
+        `;
+      }
+
+      // Вкладка «ИИ / AI» смешивает платные услуги (генерация, монтаж, консультации)
+      // и сквозные расходы агентства (подписки, кредиты) — разделяем визуально,
+      // чтобы не путать одно с другим при подборе позиций.
+      function renderAiCatalogGrid(items) {
+        if (!items.length) return `<div class="empty">Ничего не найдено</div>`;
+        const services = items.filter(x => !isPassthroughCostItem(x));
+        const costs = items.filter(x => isPassthroughCostItem(x));
+        return `
+          ${services.length ? `<div class="catalog-grid">${services.map(renderCatalogItem).join("")}</div>` : ""}
+          ${costs.length ? `
+            <div class="catalog-section-divider">💸 Подписки и AI-кредиты — расходы, не услуги с наценкой</div>
+            <div class="catalog-grid">${costs.map(renderCatalogItem).join("")}</div>
+          ` : ""}
         `;
       }
 
