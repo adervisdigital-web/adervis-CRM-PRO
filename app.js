@@ -44,6 +44,7 @@
         { id: "packages", label: "Пакеты" },
         { id: "catalog", label: "Каталог" },
         { id: "clients", label: "Клиенты" },
+        { id: "company-team", label: "Команда" },
         { id: "global-finances", label: "Финансы" },
         { id: "global-calendar", label: "Календарь" },
         { id: "contracts", label: "Договора" },
@@ -831,7 +832,7 @@
             }
           } else {
             // First-time user — create profile
-            const trial_expires = new Date(Date.now() + 14 * 86400000).toISOString();
+            const trial_expires = new Date(Date.now() + 7 * 86400000).toISOString();
             const inviteCode = (_pendingInviteCode || "").trim();
             let agencyId = inviteCode || userId;
             let joinedTeam = inviteCode && inviteCode !== userId;
@@ -866,9 +867,9 @@
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
                 toast("👥 Вы присоединились к агентству!");
               } else {
-                pushNotification("info", "👋 Добро пожаловать в ADERVIS CRM!", "14 дней бесплатно и без карты. Начните с создания первой сделки!", "");
+                pushNotification("info", "👋 Добро пожаловать в ADERVIS CRM!", "7 дней бесплатно и без карты. Начните с создания первой сделки!", "");
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-                toast("🎉 Аккаунт создан! 14 дней бесплатного доступа.");
+                toast("🎉 Аккаунт создан! 7 дней бесплатного доступа.");
                 // Приветственный email — fire-and-forget, не блокируем UI
                 if (_adminSession) {
                   const { url: _sbUrl } = getSupabaseConfig();
@@ -1036,7 +1037,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","catalogEditId"]);
 
       async function _loadCloudState() {
         if (!_supabase || !_adminSession) return;
@@ -1185,6 +1186,7 @@
         "global-calendar": ["Календарь", "Задачи и дедлайны"],
         contracts: ["Договора", "Шаблоны и база"],
         clients: ["Клиенты", null],
+        "company-team": ["Команда", "Сотрудники и фрилансеры"],
         knowledge: ["База знаний", "Скрипты и шаблоны"],
         profile: ["Профиль", "Аккаунт и подписка"],
         settings: ["Настройки", "Параметры системы"],
@@ -1252,6 +1254,7 @@
           packages: () => navItem("packages",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg>`,"Пакеты"),
           catalog: () => navItem("catalog",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>`,"Каталог"),
           clients: () => navItem("clients",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>`,"Клиенты"),
+          "company-team": () => navItem("company-team",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm5-1a2 2 0 100-4 2 2 0 000 4zM1 13.5c0-2.5 2.2-4 4.5-4s4.5 1.5 4.5 4H1zm9-3.3c1.9.4 3 1.6 3 3.3h-2c0-1.2-.4-2.3-1-3.3z"/></svg>`,"Команда"),
           "global-finances": () => navItem("global-finances",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg>`,"Финансы"),
           "global-calendar": () => navItem("global-calendar",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>`,"Календарь","","","", overdueCount ? `badge${overdueCount}` : ""),
           contracts: () => navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора"),
@@ -1585,7 +1588,7 @@
             </div>
 
             <div class="auth-stats-row">
-              <div><strong>14</strong><span>дней бесплатно</span></div>
+              <div><strong>7</strong><span>дней бесплатно</span></div>
               <div><strong>от 890₽</strong><span>в месяц</span></div>
               <div><strong>∞</strong><span>сделок</span></div>
             </div>
@@ -2045,7 +2048,6 @@
             <button class="pd-item" onclick="app.go('profile');app.toggleProfileDd(false)" title="Ваш аккаунт, аватар, смена пароля"><span class="pd-item-icon">👤</span>Мой профиль</button>
             <button class="pd-item" onclick="app.go('settings');app.toggleProfileDd(false)" title="Supabase, тема, экспорт данных"><span class="pd-item-icon">⚙️</span>Настройки</button>
             <button class="pd-item" onclick="app.go('support');app.toggleProfileDd(false)" title="Контакты и поддержка"><span class="pd-item-icon">💬</span>Поддержка</button>
-            ${_deferredInstallPrompt ? `<button class="pd-item" onclick="app.installPWA();app.toggleProfileDd(false)" title="Установить ADERVIS CRM как приложение на компьютер"><span class="pd-item-icon">📥</span>Установить приложение</button>` : ""}
             ${_isSuperAdmin() ? `<button class="pd-item" onclick="app.go('admin');app.toggleProfileDd(false)" style="background:rgba(220,38,38,.08)" title="Панель администратора"><span class="pd-item-icon">🔐</span>Admin Panel</button>` : ""}
             ${(() => {
               const daysLeft = getSubscriptionDaysLeft();
@@ -2571,7 +2573,7 @@
          ПРОФИЛЬ И ТАРИФЫ
       ═══════════════════════════════════════════════════════ */
       const PLANS = [
-        { id: "trial",  label: "Пробный",    price: 0,   period: "14 дней бесплатно", save: "",             months: 0,  maxUsers: 1 },
+        { id: "trial",  label: "Пробный",    price: 0,   period: "7 дней бесплатно", save: "",             months: 0,  maxUsers: 1 },
         { id: "month1", label: "Месяц",       price: 890, period: "в месяц",            save: "",             months: 1,  maxUsers: 1 },
         { id: "month3", label: "3 месяца",    price: 740, period: "в месяц",            save: "Экономия 17%", months: 3,  maxUsers: 3, popular: true },
         { id: "month6", label: "6 месяцев",   price: 640, period: "в месяц",            save: "Экономия 28%", months: 6,  maxUsers: 5 },
@@ -3057,7 +3059,7 @@
               <thead>
                 <tr style="border-bottom:2px solid var(--line)">
                   <th style="text-align:left;padding:10px 12px;font-size:13px;min-width:180px">Функция</th>
-                  ${hdr("Пробный<br><span style='font-weight:400;color:var(--muted)'>14 дней</span>","trial")}
+                  ${hdr("Пробный<br><span style='font-weight:400;color:var(--muted)'>7 дней</span>","trial")}
                   ${hdr("Месяц<br><span style='font-weight:400;color:var(--muted)'>890 ₽</span>","month1")}
                   ${hdr("3 месяца 🔥<br><span style='font-weight:400;color:var(--muted)'>740 ₽/мес</span>","month3")}
                   ${hdr("6 месяцев<br><span style='font-weight:400;color:var(--muted)'>640 ₽/мес</span>","month6")}
@@ -3287,7 +3289,7 @@
               <h2 style="margin:0 0 6px;font-size:20px">Войдите в ADERVIS CRM</h2>
               <p style="color:var(--muted);margin:0 0 18px;font-size:14px">Облачное хранение · Синхронизация · Подписка</p>
               <button class="btn primary" onclick="app.exitLocalModeAndLogin()" style="padding:12px 28px;font-size:15px;width:100%;max-width:280px">🔐 Войти / Зарегистрироваться</button>
-              <p style="font-size:12px;color:var(--muted);margin:12px 0 0">14 дней бесплатно · Без карты · Данные не удаляются</p>
+              <p style="font-size:12px;color:var(--muted);margin:12px 0 0">7 дней бесплатно · Без карты · Данные не удаляются</p>
             </div>
             `}
 
@@ -4122,6 +4124,8 @@
           savedProjects: [],
           clients: [],
           clientDraft: null,
+          companyTeam: [],
+          catalogEditId: "",
           activeProjectId: "",
           activeClientId: "",
           stages: deepClone(DEFAULT_STAGES),
@@ -4279,13 +4283,31 @@
       }
 
       function normalizeTeamMember(member) {
+        const payout = numberValue(member?.payout, member?.rate || 0);
+        // Миграция: если было paid:true без paidAmount — считаем полностью оплаченным
+        const paidAmount = member?.paidAmount !== undefined
+          ? numberValue(member.paidAmount, 0)
+          : (member?.paid ? payout : 0);
         return {
           id: member?.id || uid("team"),
           name: member?.name || "Участник",
           role: member?.role || "",
           rate: numberValue(member?.rate, 0),
-          payout: numberValue(member?.payout, member?.rate || 0),
-          paid: Boolean(member?.paid),
+          payout,
+          paidAmount,
+          note: member?.note || "",
+          companyTeamId: member?.companyTeamId || "",
+          createdAt: member?.createdAt || new Date().toISOString()
+        };
+      }
+
+      function normalizeCompanyTeamMember(member) {
+        return {
+          id: member?.id || uid("ct"),
+          name: member?.name || "Участник",
+          role: member?.role || "",
+          phone: member?.phone || "",
+          rate: numberValue(member?.rate, 0),
           note: member?.note || "",
           createdAt: member?.createdAt || new Date().toISOString()
         };
@@ -4357,6 +4379,7 @@
           versions: Array.isArray(old.versions) ? old.versions : [],
           favorites: old.favorites || {},
           clients: Array.isArray(old.clients) ? old.clients.map(normalizeClient) : [],
+          companyTeam: Array.isArray(old.companyTeam) ? old.companyTeam.map(normalizeCompanyTeamMember) : [],
           savedProjects: Array.isArray(old.savedProjects) ? old.savedProjects.map(normalizeSavedProject) : [],
           tasks: Array.isArray(old.tasks) ? old.tasks.map(normalizeTask) : [],
           payments: Array.isArray(old.payments) ? old.payments.map(normalizePayment) : [],
@@ -4687,7 +4710,8 @@
           iterations: 0,
 
           editedDesc: "",
-          lineName: ""
+          lineName: "",
+          assigneeId: ""
         };
 
         if (itemData.calcModel === "fixed+qty") {
@@ -4975,17 +4999,19 @@
         const expenses = (state.expenses || []).reduce((sum, expense) => sum + numberValue(expense.amount, 0), 0);
         const expensesPaid = (state.expenses || []).filter(e => e.paid).reduce((sum, expense) => sum + numberValue(expense.amount, 0), 0);
         const teamPayouts = (state.team || []).reduce((sum, member) => sum + numberValue(member.payout, 0), 0);
-        const teamPayoutsPaid = (state.team || []).filter(m => m.paid).reduce((sum, member) => sum + numberValue(member.payout, 0), 0);
+        const teamPayoutsPaid = (state.team || []).reduce((sum, member) => sum + numberValue(member.paidAmount, 0), 0);
         const lineCosts = Object.values(state.selected || {}).reduce((sum, line) => sum + numberValue(line.cost, 0), 0);
         const totalExpenses = expenses + teamPayouts + lineCosts;
         const totalExpensesPaid = expensesPaid + teamPayoutsPaid;
         const debt = Math.max(0, t.total - paid);
-        const profit = t.total - totalExpenses;
-        const margin = t.total > 0 ? profit / t.total * 100 : 0;
-        const profitFact = t.total - totalExpensesPaid;
-        const marginFact = t.total > 0 ? profitFact / t.total * 100 : 0;
+        // Налог уходит государству — прибыль считаем от выручки без налога
+        const revenue = t.afterDiscount;
+        const profit = revenue - totalExpenses;
+        const margin = revenue > 0 ? profit / revenue * 100 : 0;
+        const profitFact = revenue - totalExpensesPaid;
+        const marginFact = revenue > 0 ? profitFact / revenue * 100 : 0;
 
-        return { estimateTotal: t.total, withOptional: t.withOptional, paid, debt, expenses, expensesPaid, teamPayouts, teamPayoutsPaid, lineCosts, totalExpenses, totalExpensesPaid, profit, margin, profitFact, marginFact };
+        return { estimateTotal: t.total, revenue, withOptional: t.withOptional, paid, debt, expenses, expensesPaid, teamPayouts, teamPayoutsPaid, lineCosts, totalExpenses, totalExpensesPaid, profit, margin, profitFact, marginFact };
       }
 
       function stageTotal(stageId, includeOptional = false) {
@@ -5584,6 +5610,25 @@
           }
         }
 
+        const line = state.selected[id];
+
+        // Назначен ответственный → автозаполнить себестоимость из его выплаты
+        if (key === "assigneeId" && value) {
+          const tm = _resolveTeamMember(value);
+          if (tm && numberValue(tm.payout, 0) > 0 && numberValue(line.cost, 0) === 0) {
+            line.cost = numberValue(tm.payout, 0);
+          }
+        }
+
+        // Изменена себестоимость → обновить выплату ответственного в Команде
+        if (key === "cost" && line.assigneeId) {
+          const tm = _resolveTeamMember(line.assigneeId);
+          if (tm) {
+            tm.payout = numberValue(value, 0);
+            _syncFinancesToSaved();
+          }
+        }
+
         save();
         render();
       }
@@ -6059,9 +6104,12 @@
       }
 
       function createTeamMember() {
-        state.team.unshift(normalizeTeamMember({ name: "Новый участник", role: "", rate: 0, payout: 0, paid: false, note: "" }));
+        const cm = normalizeCompanyTeamMember({ name: "Новый участник", role: "", phone: "", rate: 0, note: "" });
+        state.companyTeam.unshift(cm);
+        const member = normalizeTeamMember({ name: cm.name, role: cm.role, rate: cm.rate, payout: 0, paid: false, note: "", companyTeamId: cm.id });
+        state.team.unshift(member);
         _syncFinancesToSaved();
-        toast("Участник добавлен");
+        toast("Участник добавлен в проект и в раздел «Команда»");
         save();
         render();
       }
@@ -6070,9 +6118,28 @@
         const member = state.team.find(x => x.id === id);
         if (!member) return;
 
-        if (["rate", "payout"].includes(key)) member[key] = numberValue(value, 0);
-        else if (key === "paid") member[key] = Boolean(value);
+        if (["rate", "payout", "paidAmount"].includes(key)) member[key] = Math.max(0, numberValue(value, 0));
         else member[key] = value;
+
+        // Синхронизируем имя/роль/ставку → глобальный справочник
+        if (member.companyTeamId && ["name", "role", "rate"].includes(key)) {
+          const cm = (state.companyTeam || []).find(x => x.id === member.companyTeamId);
+          if (cm) cm[key] = key === "rate" ? numberValue(value, 0) : value;
+        }
+
+        // Изменена выплата → обновить себестоимость на привязанных строках сметы
+        if (key === "payout") {
+          const newCost = Math.max(0, numberValue(value, 0));
+          // Ищем companyTeamId: прямой или по имени в глобальном справочнике
+          const ctId = member.companyTeamId ||
+            (state.companyTeam || []).find(x => x.name === member.name)?.id || "";
+          if (ctId && !member.companyTeamId) member.companyTeamId = ctId; // авторемонт
+          if (ctId) {
+            Object.values(state.selected || {}).forEach(line => {
+              if (line.assigneeId === ctId) line.cost = newCost;
+            });
+          }
+        }
 
         _syncFinancesToSaved();
         save();
@@ -6083,6 +6150,96 @@
         if (!confirm("Удалить участника?")) return;
         state.team = state.team.filter(x => x.id !== id);
         _syncFinancesToSaved();
+        save();
+        render();
+      }
+
+      function linesForTeamMember(memberId) {
+        return selectedIds()
+          .map(id => ({ id, line: state.selected[id], itemData: findItem(id, true) }))
+          .filter(x => x.line && x.itemData && x.line.assigneeId === memberId);
+      }
+
+      // Найти state.team запись для участника companyTeam с фолбэком по имени
+      // и авторемонтом companyTeamId если он не был установлен
+      function _resolveTeamMember(companyTeamId) {
+        if (!companyTeamId) return null;
+        let tm = (state.team || []).find(t => t.companyTeamId === companyTeamId);
+        if (tm) return tm;
+        // Фолбэк: матч по имени из глобального справочника
+        const cm = (state.companyTeam || []).find(x => x.id === companyTeamId);
+        if (cm) {
+          tm = (state.team || []).find(t => !t.companyTeamId && t.name === cm.name);
+          if (tm) tm.companyTeamId = companyTeamId; // авторемонт ссылки
+        }
+        return tm || null;
+      }
+
+      function addTeamMemberFromRoster(companyMemberId) {
+        const cm = (state.companyTeam || []).find(x => x.id === companyMemberId);
+        if (!cm) { toast("Выберите участника из списка"); return; }
+        state.team.unshift(normalizeTeamMember({ name: cm.name, role: cm.role, rate: cm.rate, payout: 0, paid: false, note: "", companyTeamId: cm.id }));
+        _syncFinancesToSaved();
+        toast(`${cm.name} добавлен в команду проекта`);
+        save();
+        render();
+      }
+
+      function createCompanyTeamMember() {
+        state.companyTeam.unshift(normalizeCompanyTeamMember({ name: "Новый участник", role: "", phone: "", rate: 0, note: "" }));
+        toast("Участник добавлен в команду");
+        save();
+        render();
+      }
+
+      function updateCompanyTeamMember(id, key, value) {
+        const member = state.companyTeam.find(x => x.id === id);
+        if (!member) return;
+
+        if (key === "rate") member[key] = numberValue(value, 0);
+        else member[key] = value;
+
+        // Обратная синхронизация → текущий проект
+        if (["name", "role", "rate"].includes(key)) {
+          (state.team || []).forEach(tm => {
+            if (tm.companyTeamId === id) {
+              tm[key] = key === "rate" ? numberValue(value, 0) : value;
+            }
+          });
+          // Синхронизация → все сохранённые проекты в снэпшотах
+          (state.savedProjects || []).forEach(p => {
+            if (p.snapshot && Array.isArray(p.snapshot.team)) {
+              p.snapshot.team.forEach(tm => {
+                if (tm.companyTeamId === id) {
+                  tm[key] = key === "rate" ? numberValue(value, 0) : value;
+                }
+              });
+            }
+          });
+        }
+
+        save();
+        render();
+      }
+
+      function deleteCompanyTeamMember(id) {
+        if (!confirm("Удалить участника из команды?")) return;
+        state.companyTeam = state.companyTeam.filter(x => x.id !== id);
+        Object.values(state.selected || {}).forEach(line => { if (line.assigneeId === id) line.assigneeId = ""; });
+        save();
+        render();
+      }
+
+      function assignNewTeamMemberToLine(id) {
+        const line = state.selected[id];
+        const itemData = findItem(id, true);
+        if (!line || !itemData) return;
+
+        const member = normalizeCompanyTeamMember({ name: "Новый участник", role: line.lineName || itemData.name, phone: "", rate: 0, note: "" });
+        state.companyTeam.unshift(member);
+        line.assigneeId = member.id;
+
+        toast("Участник добавлен в команду и назначен на позицию");
         save();
         render();
       }
@@ -6456,6 +6613,7 @@
         else if (state.editTransactionModal) { el.innerHTML = renderEditTransactionModal(); }
         else if (state.financeModal) { el.innerHTML = renderFinanceModal(); }
         else if (state.packageEditModal) { el.innerHTML = renderPackageEditModal(); }
+        else if (state.catalogEditId) { el.innerHTML = renderCatalogEditModal(); }
         else { el.innerHTML = ""; }
       }
 
@@ -7456,6 +7614,7 @@
           catalog: renderCatalog,
           estimate: renderEstimate,
           clients: renderClients,
+          "company-team": renderCompanyTeam,
           projects: renderProjects,
           tasks: renderTasks,
           finance: renderFinance,
@@ -7483,7 +7642,7 @@
         });
 
         // Update mobile bottom nav active states
-        const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","knowledge","catalog","packages","contracts","support"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions","crm"], mbnFinances: ["global-finances","global-calendar"] };
+        const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","company-team","knowledge","catalog","packages","contracts","support"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions","crm"], mbnFinances: ["global-finances","global-calendar"] };
         Object.entries(mbnViewMap).forEach(([id, views]) => {
           const el = document.getElementById(id);
           if (el) el.classList.toggle("active", views.includes(state.view));
@@ -7591,6 +7750,7 @@
             if (scope === "payment") updatePayment(id, key, value);
             if (scope === "expense") updateExpense(id, key, value);
             if (scope === "team") updateTeamMember(id, key, value);
+            if (scope === "companyTeam") updateCompanyTeamMember(id, key, value);
           });
         });
 
@@ -7611,6 +7771,7 @@
             if (scope === "payment") updatePayment(id, key, value);
             if (scope === "expense") updateExpense(id, key, value);
             if (scope === "team") updateTeamMember(id, key, value);
+            if (scope === "companyTeam") updateCompanyTeamMember(id, key, value);
           });
         });
       }
@@ -8462,9 +8623,9 @@
                     <div class="deal-list-row ${isCurrent?"current":""}" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету">
                       ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${(state.crmSelected||{})[project.id]?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">` : ""}
                       <div class="health-dot ${healthClass}" style="flex:0 0 auto" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
-                      <span class="status-pill" style="font-size:11px;flex:0 0 auto">${escapeHtml(project.crmStatus||"Лид")}</span>
+                      <span class="status-pill" style="font-size:11px">${escapeHtml(project.crmStatus||"Лид")}</span>
                       <div class="deal-list-name" style="display:flex;align-items:center;gap:6px;min-width:0">
-                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(project.name)}</span>
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${escapeHtml(project.name)}</span>
                         ${(project.tags||[]).slice(0,2).map(t=>`<span style="font-size:10px;background:rgba(108,0,255,.12);border-radius:99px;padding:1px 6px;color:var(--primary2);white-space:nowrap;flex-shrink:0">${escapeHtml(t)}</span>`).join("")}
                       </div>
                       <div class="deal-list-client">${escapeHtml(project.client||"—")}</div>
@@ -8580,7 +8741,7 @@
       function renderSummary() {
         const t = totals();
         const f = financeTotals();
-        const margin = f.estimateTotal > 0 ? Math.round(f.profit / f.estimateTotal * 100) : 0;
+        const margin = f.revenue > 0 ? Math.round(f.profit / f.revenue * 100) : 0;
         const marginClass = margin >= 40 ? "good" : margin >= 20 ? "ok" : "bad";
         const payPct = t.total > 0 ? Math.min(100, Math.round(f.paid / t.total * 100)) : 0;
 
@@ -8688,6 +8849,122 @@
         toast("Пакет обновлён");
         renderModal();
         render();
+      }
+
+      function _onCatalogCardClick(event, id) {
+        if (event.target.closest("button, input, select, textarea, label, .catalog-qty-stepper")) return;
+        openCatalogEdit(id);
+      }
+
+      function openCatalogEdit(id) {
+        state.catalogEditId = id;
+        renderModal();
+      }
+
+      function closeCatalogEdit() {
+        state.catalogEditId = "";
+        renderModal();
+      }
+
+      function renderCatalogEditModal() {
+        const id = state.catalogEditId;
+        const itemData = findItem(id, true);
+        if (!itemData) { state.catalogEditId = ""; return ""; }
+
+        const custom = itemData.category === "custom" || !!state.customItems.find(x => x.id === id);
+        const qty = catalogItemQty(id);
+        const isFav = !!state.favorites[id];
+        const isHidden = isHiddenItem(id);
+        const currentPrice = getCatalogPrice(itemData);
+
+        const actionsHtml = `
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">
+            ${isHidden ? `
+              <button class="btn small green" onclick="app.restoreCatalogItem('${id}');app.closeCatalogEdit()">↩ Восстановить</button>
+              <button class="btn small danger" onclick="app.permanentlyDeleteItem('${id}');app.closeCatalogEdit()">Удалить навсегда</button>
+            ` : `
+              ${qty > 0
+                ? `<div class="catalog-qty-stepper catalog-qty-pop" style="flex-shrink:0">
+                     <button type="button" class="catalog-qty-btn" onclick="app.catalogRemoveOne('${id}')">−</button>
+                     <span class="catalog-qty-value">${qty}</span>
+                     <button type="button" class="catalog-qty-btn" onclick="app.catalogAddOne('${id}')">+</button>
+                   </div>`
+                : `<button class="btn primary" onclick="app.catalogAddOne('${id}');app.closeCatalogEdit()">
+                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                     Добавить в смету
+                   </button>`
+              }
+              <button class="catalog-action-btn ${isFav ? "active" : ""}" onclick="app.toggleFavorite('${id}')" title="${isFav ? "Убрать из избранного" : "В избранное"}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="${isFav ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              </button>
+              ${!custom ? `
+                <button class="catalog-action-btn" onclick="app.resetCatalogPrice('${id}');app.closeCatalogEdit()" title="Сбросить цену к базовой">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 101.77-5.5"/><path d="M3 3v4h4"/></svg>
+                </button>
+                <button class="catalog-action-btn" onclick="app.duplicateToCustom('${id}');app.closeCatalogEdit()" title="Скопировать в свои позиции">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                </button>
+                <button class="catalog-action-btn danger" onclick="app.hideCatalogItem('${id}');app.closeCatalogEdit()" title="Скрыть из каталога">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                </button>
+              ` : `
+                <button class="btn small danger" onclick="app.deleteCustomItem('${id}')" title="Удалить свою позицию">Удалить</button>
+              `}
+            `}
+          </div>
+        `;
+
+        const contentHtml = custom ? `
+          <div class="grid two" style="margin-bottom:14px">
+            ${field("Название", `<input data-autosave data-scope="custom" data-id="${id}" data-key="name" value="${escapeHtml(itemData.name)}">`)}
+            ${field("Цена, ₽", `<input type="number" data-autosave data-scope="custom" data-id="${id}" data-key="price" value="${escapeHtml(itemData.price)}">`)}
+          </div>
+          <div style="margin-bottom:14px">
+            ${field("Описание", `<textarea data-autosave data-scope="custom" data-id="${id}" data-key="desc" style="min-height:64px;resize:vertical">${escapeHtml(itemData.desc || "")}</textarea>`)}
+          </div>
+          <div class="grid three">
+            ${field("Категория", `
+              <select data-autosave data-scope="custom" data-id="${id}" data-key="category">
+                ${Object.keys(CAT).map(key => optionValueHtml(key, CAT[key], itemData.category)).join("")}
+              </select>
+            `)}
+            ${field("Этап", `
+              <select data-autosave data-scope="custom" data-id="${id}" data-key="stage">
+                ${state.stages.map(s => optionValueHtml(s.id, s.name, itemData.stage || "pre")).join("")}
+              </select>
+            `)}
+            ${field("Единица", `<input data-autosave data-scope="custom" data-id="${id}" data-key="unit" value="${escapeHtml(itemData.unit || "шт")}">`)}
+          </div>
+        ` : `
+          <p style="font-size:13px;color:var(--muted);margin:0 0 16px;line-height:1.6">${escapeHtml(itemData.desc)}</p>
+          <div class="badges" style="margin-bottom:16px">
+            <span class="badge">${escapeHtml(itemData.section)}</span>
+            <span class="badge">Этап: ${escapeHtml(getItemStageName(itemData))}</span>
+            <span class="badge">Модель: ${escapeHtml(itemData.calcModel)}</span>
+            <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
+          </div>
+          <div class="grid two">
+            ${field("Цена, ₽", `<input type="number" class="catalog-price-input" value="${currentPrice}" onchange="app.updateCatalogPrice('${id}', this.value)" style="font-size:18px;font-weight:700">`)}
+            ${field("Базовая цена", `<input type="number" value="${numberValue(itemData.price, 0)}" readonly style="opacity:.5">`)}
+          </div>
+        `;
+
+        return `
+          <div class="modal-overlay" onclick="app.closeCatalogEdit()">
+            <div class="modal-box" style="max-width:520px;width:calc(100vw - 32px)" onclick="event.stopPropagation()">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:20px">
+                <div style="min-width:0">
+                  <h2 style="margin:0 0 4px;font-size:18px;line-height:1.3">${escapeHtml(itemData.name)}</h2>
+                  ${custom ? `<span class="status-pill" style="font-size:10px">Своя позиция</span>` : `<span class="badge">${escapeHtml(itemData.section)}</span>`}
+                </div>
+                <button class="modal-close" onclick="app.closeCatalogEdit()" style="flex-shrink:0">&times;</button>
+              </div>
+
+              ${contentHtml}
+              ${actionsHtml}
+            </div>
+          </div>
+        `;
       }
 
       function renderPackageEditModal() {
@@ -9007,7 +9284,7 @@
         if (custom) return renderCustomCatalogItem(itemData, selected, hidden);
 
         return `
-          <article class="item ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}">
+          <article class="item ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}" onclick="app._onCatalogCardClick(event,'${itemData.id}')" style="cursor:pointer">
             <div class="item-top">
               <div>
                 <h3>${highlightText(itemData.name)}</h3>
@@ -9069,7 +9346,7 @@
 
       function renderCustomCatalogItem(itemData, selected, hidden) {
         return `
-          <article class="item ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}">
+          <article class="item ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}" onclick="app._onCatalogCardClick(event,'${itemData.id}')" style="cursor:pointer">
             <div class="line-head">
               <div style="flex:1">
                 <div class="grid two">
@@ -9250,6 +9527,18 @@
             field("Кол-во", `<input type="number" min="0" step="1" data-autosave data-scope="line" data-id="${id}" data-key="qty" value="${escapeHtml(line.qty)}">`)
           );
         }
+
+        mainFields.push(
+          field("Ответственный", `
+            <div style="display:flex;align-items:center;gap:6px">
+              <select data-autosave data-scope="line" data-id="${id}" data-key="assigneeId" style="flex:1">
+                ${optionValueHtml("", "— не назначен —", line.assigneeId)}
+                ${state.companyTeam.map(m => optionValueHtml(m.id, m.role ? `${m.name} — ${m.role}` : m.name, line.assigneeId)).join("")}
+              </select>
+              <button type="button" class="catalog-action-btn no-print" onclick="app.assignNewTeamMemberToLine('${id}')" title="Добавить нового участника и назначить на эту позицию">+</button>
+            </div>
+          `)
+        );
 
         const gridClass = mainFields.length >= 4 ? "four" : mainFields.length === 3 ? "three" : "two";
 
@@ -9978,7 +10267,7 @@
       function renderFinance() {
         const f = financeTotals();
         const t = totals();
-        const margin = f.estimateTotal > 0 ? Math.round(f.profit / f.estimateTotal * 100) : 0;
+        const margin = f.revenue > 0 ? Math.round(f.profit / f.revenue * 100) : 0;
         const marginClass = margin >= 40 ? "good" : margin >= 20 ? "ok" : "bad";
         const payPct = t.total > 0 ? Math.min(100, Math.round(f.paid / t.total * 100)) : 0;
         const half = Math.round(t.total / 2);
@@ -10262,50 +10551,146 @@
             <div class="section-title">
               <div>
                 <h1>Команда проекта</h1>
-                <p>Участники проекта, роли, ставки и выплаты.</p>
+                <p>Ставки и выплаты участников по этому проекту.</p>
               </div>
               <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.createTeamMember()">+ Участник</button>
-                <button class="btn" onclick="app.saveCurrentProject()">Сохранить проект</button>
+                <button class="btn primary" onclick="app.createTeamMember()">+ Пустой участник</button>
               </div>
             </div>
+
+            ${(state.companyTeam || []).length ? `
+              <div class="calc-box no-print" style="margin-bottom:18px">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <label style="font-size:12px;color:var(--muted);font-weight:750;white-space:nowrap">Добавить из команды:</label>
+                  <select id="rosterAddSelect" style="flex:1;min-width:180px">
+                    <option value="">— выбрать участника —</option>
+                    ${state.companyTeam.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.role ? m.name + " — " + m.role : m.name)}</option>`).join("")}
+                  </select>
+                  <button class="btn primary small" onclick="app.addTeamMemberFromRoster(document.getElementById('rosterAddSelect').value)">Добавить</button>
+                </div>
+              </div>
+            ` : ""}
 
             <div class="grid three">
               <div class="calc-box"><h3>Участников</h3><div class="price">${state.team.length}</div></div>
-              <div class="calc-box"><h3>Выплаты</h3><div class="price">${money(f.teamPayouts)}</div></div>
-              <div class="calc-box"><h3>Не оплачено</h3><div class="price">${money(state.team.filter(x => !x.paid).reduce((s, x) => s + numberValue(x.payout, 0), 0))}</div></div>
+              <div class="calc-box"><h3>Выплачено</h3><div class="price" style="color:var(--green)">${money(f.teamPayoutsPaid)}</div></div>
+              <div class="calc-box"><h3>Остаток</h3><div class="price" style="color:${f.teamPayouts - f.teamPayoutsPaid > 0 ? "var(--red)" : "var(--muted)"}">${money(Math.max(0, f.teamPayouts - f.teamPayoutsPaid))}</div></div>
             </div>
 
             <div class="grid three" style="margin-top:18px">
-              ${state.team.length ? state.team.map(renderTeamCard).join("") : `<div class="empty">Команда пока не добавлена</div>`}
+              ${state.team.length ? state.team.map(renderTeamCard).join("") : `<div class="empty">Команда пока не добавлена — выбери из справочника выше или нажми «+ Пустой участник»</div>`}
             </div>
           </div>
         `;
       }
 
       function renderTeamCard(member) {
+        const payout = numberValue(member.payout, 0);
+        const paidAmount = numberValue(member.paidAmount, 0);
+        const remaining = Math.max(0, payout - paidAmount);
+        const paidPct = payout > 0 ? Math.round(paidAmount / payout * 100) : 0;
+        const isFullyPaid = paidAmount >= payout && payout > 0;
+        const statusColor = isFullyPaid ? "var(--green)" : paidAmount > 0 ? "var(--yellow)" : "var(--muted)";
+
         return `
           <article class="team-card">
             ${field("Имя", `<input data-autosave data-scope="team" data-id="${member.id}" data-key="name" value="${escapeHtml(member.name)}">`)}
 
             <div class="grid two" style="margin-top:10px">
               ${field("Роль", `<input data-autosave data-scope="team" data-id="${member.id}" data-key="role" value="${escapeHtml(member.role)}">`)}
-              ${field("Ставка", `<input type="number" data-autosave data-scope="team" data-id="${member.id}" data-key="rate" value="${escapeHtml(member.rate)}">`)}
-              ${field("Выплата", `<input type="number" data-autosave data-scope="team" data-id="${member.id}" data-key="payout" value="${escapeHtml(member.payout)}">`)}
-              ${field("Оплачено", `
-                <select data-autosave data-scope="team" data-id="${member.id}" data-key="paid">
-                  ${optionValueHtml("", "Нет", member.paid ? "1" : "")}
-                  ${optionValueHtml("1", "Да", member.paid ? "1" : "")}
-                </select>
-              `)}
+              ${field("Ставка/час", `<input type="number" data-autosave data-scope="team" data-id="${member.id}" data-key="rate" value="${escapeHtml(member.rate)}" placeholder="0">`)}
+            </div>
+
+            <div style="margin-top:14px;padding:12px;background:var(--panel2);border-radius:12px;border:1px solid var(--line)">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <span style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Выплата</span>
+                <span style="font-size:11px;font-weight:700;color:${statusColor}">
+                  ${isFullyPaid ? "✓ Оплачено полностью" : paidAmount > 0 ? `${paidPct}% выплачено` : "Не выплачено"}
+                </span>
+              </div>
+
+              <div class="grid two" style="gap:8px;margin-bottom:10px">
+                ${field("Сумма выплаты, ₽", `<input type="number" data-autosave data-scope="team" data-id="${member.id}" data-key="payout" value="${payout}" placeholder="0" style="font-weight:700">`)}
+                ${field("Выплачено, ₽", `<input type="number" data-autosave data-scope="team" data-id="${member.id}" data-key="paidAmount" value="${paidAmount}" placeholder="0">`)}
+              </div>
+
+              ${payout > 0 ? `
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                  <span style="font-size:12px;color:var(--muted)">Быстро:</span>
+                  <button class="btn small no-print" onclick="app.updateTeamMember('${member.id}','paidAmount',${Math.round(payout * 0.5)})" title="50% предоплата">50%</button>
+                  <button class="btn small no-print" onclick="app.updateTeamMember('${member.id}','paidAmount',${payout})" title="Выплатить полностью">100%</button>
+                  ${paidAmount > 0 ? `<button class="btn small no-print" onclick="app.updateTeamMember('${member.id}','paidAmount',0)" title="Сбросить">Сброс</button>` : ""}
+                  ${remaining > 0 && paidAmount > 0 ? `<span style="font-size:12px;color:var(--red);font-weight:700;margin-left:auto">Остаток: ${money(remaining)}</span>` : ""}
+                </div>
+
+                <div style="margin-top:8px;height:4px;background:var(--line);border-radius:99px;overflow:hidden">
+                  <div style="height:100%;width:${paidPct}%;background:${statusColor};border-radius:99px;transition:width .3s"></div>
+                </div>
+              ` : ""}
             </div>
 
             <div style="margin-top:10px">
-              ${field("Заметка", `<textarea data-autosave data-scope="team" data-id="${member.id}" data-key="note">${escapeHtml(member.note)}</textarea>`)}
+              ${field("Заметка", `<textarea data-autosave data-scope="team" data-id="${member.id}" data-key="note" style="min-height:52px">${escapeHtml(member.note)}</textarea>`)}
             </div>
 
             <div class="toolbar no-print" style="margin-top:10px">
               <button class="btn danger small" onclick="app.deleteTeamMember('${member.id}')">Удалить</button>
+            </div>
+          </article>
+        `;
+      }
+
+      function renderCompanyTeam() {
+        const team = state.companyTeam || [];
+
+        return `
+          <div class="panel">
+            <div class="section-title">
+              <div>
+                <h1>Команда ${team.length ? `<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:4px">${team.length}</span>` : ""}</h1>
+                <p>Сотрудники и фрилансеры агентства — назначаются «Ответственным» на строках сметы.</p>
+              </div>
+              <div class="toolbar no-print">
+                <button class="btn primary" onclick="app.createCompanyTeamMember()">+ Участник</button>
+              </div>
+            </div>
+
+            <div class="grid three">
+              ${team.length ? team.map(renderCompanyTeamCard).join("") : `<div class="empty" style="grid-column:1/-1"><strong>Команда пока пуста</strong><p>Добавьте сотрудников и фрилансеров — потом их можно будет назначать на позиции сметы как «Ответственного»</p></div>`}
+            </div>
+          </div>
+        `;
+      }
+
+      function renderCompanyTeamCard(member) {
+        const linked = state.activeProjectId ? linesForTeamMember(member.id) : [];
+
+        return `
+          <article class="team-card">
+            ${field("Имя", `<input data-autosave data-scope="companyTeam" data-id="${member.id}" data-key="name" value="${escapeHtml(member.name)}">`)}
+
+            <div class="grid two" style="margin-top:10px">
+              ${field("Роль", `<input data-autosave data-scope="companyTeam" data-id="${member.id}" data-key="role" value="${escapeHtml(member.role)}" placeholder="Оператор, монтажёр...">`)}
+              ${field("Телефон", `<input data-autosave data-scope="companyTeam" data-id="${member.id}" data-key="phone" onfocus="app.maskPhoneFocus(this)" oninput="app.maskPhoneInput(this)" value="${escapeHtml(member.phone)}" placeholder="+7 900 000-00-00">`)}
+            </div>
+
+            <div style="margin-top:10px">
+              ${field("Ставка по умолчанию", `<input type="number" data-autosave data-scope="companyTeam" data-id="${member.id}" data-key="rate" value="${escapeHtml(member.rate)}" placeholder="0">`)}
+            </div>
+
+            <div style="margin-top:10px">
+              ${field("Заметка", `<textarea data-autosave data-scope="companyTeam" data-id="${member.id}" data-key="note">${escapeHtml(member.note)}</textarea>`)}
+            </div>
+
+            ${linked.length ? `
+              <div style="margin-top:10px">
+                <label style="display:block;font-size:12px;color:var(--muted);font-weight:750;margin-bottom:6px">Занят в текущей смете</label>
+                <div class="badges">${linked.map(x => `<span class="badge">${escapeHtml(x.line.lineName || x.itemData.name)}</span>`).join("")}</div>
+              </div>
+            ` : ""}
+
+            <div class="toolbar no-print" style="margin-top:10px">
+              <button class="btn danger small" onclick="app.deleteCompanyTeamMember('${member.id}')">Удалить</button>
             </div>
           </article>
         `;
@@ -11190,7 +11575,7 @@
           <div class="welcome-screen">
             <div style="display:inline-flex;align-items:center;gap:10px;background:var(--primary-bg);border:1px solid rgba(108,0,255,.2);border-radius:99px;padding:6px 16px;margin-bottom:24px">
               <div style="width:8px;height:8px;border-radius:50%;background:var(--primary)"></div>
-              <span style="font-size:13px;color:var(--primary2);font-weight:600">14 дней бесплатно · карта не нужна</span>
+              <span style="font-size:13px;color:var(--primary2);font-weight:600">7 дней бесплатно · карта не нужна</span>
             </div>
             <h1 style="font-size:32px;letter-spacing:-.04em;margin-bottom:10px">Добро пожаловать<br>в ADERVIS CRM</h1>
             <p style="font-size:15px;max-width:460px;margin:0 auto 36px">Сметы, КП, финансы и задачи для видеопродакшна —<br>всё в одном рабочем инструменте.</p>
@@ -11394,7 +11779,7 @@
         const paid = f.paid;
         const total = t.total || 1;
         const payPct = Math.min(100, Math.round(paid / total * 100));
-        const margin = f.estimateTotal > 0 ? Math.round(f.profit / f.estimateTotal * 100) : 0;
+        const margin = f.revenue > 0 ? Math.round(f.profit / f.revenue * 100) : 0;
 
         const marginClass = margin >= 40 ? "good" : margin >= 20 ? "ok" : "bad";
         const marginLabel = margin >= 40 ? "Высокая маржа" : margin >= 20 ? "Средняя маржа" : "Низкая маржа";
@@ -11629,7 +12014,7 @@ create table if not exists profiles (
   agency_id text,                   -- UUID агентства (= id владельца)
   subscription_status text default 'trial',
   subscription_plan text default 'pro',
-  subscription_expires_at timestamptz default (now() + interval '14 days'),
+  subscription_expires_at timestamptz default (now() + interval '7 days'),
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -11750,6 +12135,48 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <p style="font-size:12px;color:var(--muted);margin-top:8px">
                 Модель: <b>gemini-2.5-flash-lite</b> · Лимит бесплатного тарифа: 1000 запросов/день, 15 запросов/мин. Более чем достаточно для одного агентства.
               </p>
+            </div>
+
+            <!-- PWA Установка -->
+            <div class="panel" style="margin-top:18px;box-shadow:none;background:linear-gradient(135deg,rgba(124,58,237,.10),rgba(37,99,235,.08));border:1px solid rgba(124,58,237,.25)">
+              <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--primary),var(--blue));display:grid;place-items:center;flex-shrink:0;box-shadow:0 6px 20px rgba(108,0,255,.35)">
+                  <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
+                </div>
+                <div style="flex:1;min-width:0">
+                  <h2 style="margin:0 0 4px;font-size:16px">📲 Установить ADERVIS CRM</h2>
+                  <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.6">Работает как полноценное приложение — быстрый запуск с рабочего стола, без вкладки браузера, поддержка push-уведомлений.</p>
+                </div>
+                <div style="flex-shrink:0">
+                  ${(() => {
+                    const isStandalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
+                    if (isStandalone) {
+                      return `<span class="sync-badge" style="font-size:13px;padding:8px 16px">✓ Уже установлено</span>`;
+                    }
+                    if (_deferredInstallPrompt) {
+                      return `<button class="btn primary" onclick="app.installPWA()" style="font-size:14px;padding:10px 24px">Установить →</button>`;
+                    }
+                    return `<span style="font-size:12px;color:var(--muted);display:block;max-width:220px;line-height:1.5">Откройте в Chrome / Edge и нажмите «Установить» в адресной строке браузера</span>`;
+                  })()}
+                </div>
+              </div>
+              <div class="grid three" style="margin-top:16px;gap:10px">
+                <div style="background:rgba(124,58,237,.08);border-radius:10px;padding:10px 14px">
+                  <div style="font-size:18px;margin-bottom:4px">⚡</div>
+                  <div style="font-size:12px;font-weight:700;margin-bottom:2px">Быстрый запуск</div>
+                  <div style="font-size:11px;color:var(--muted)">Иконка на рабочем столе или в доке, открывается мгновенно</div>
+                </div>
+                <div style="background:rgba(37,99,235,.08);border-radius:10px;padding:10px 14px">
+                  <div style="font-size:18px;margin-bottom:4px">🔔</div>
+                  <div style="font-size:12px;font-weight:700;margin-bottom:2px">Push-уведомления</div>
+                  <div style="font-size:11px;color:var(--muted)">Дедлайны и события даже когда приложение закрыто</div>
+                </div>
+                <div style="background:rgba(22,163,74,.08);border-radius:10px;padding:10px 14px">
+                  <div style="font-size:18px;margin-bottom:4px">📱</div>
+                  <div style="font-size:12px;font-weight:700;margin-bottom:2px">Мобильный доступ</div>
+                  <div style="font-size:11px;color:var(--muted)">Работает на iOS (Safari → Добавить на экран) и Android</div>
+                </div>
+              </div>
             </div>
 
             <div style="margin-top:18px;padding:10px 14px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
@@ -12720,7 +13147,6 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         }
       }
       function closeDealSwitcher() {
-        if (!state.dealSwitcherOpen) return;
         state.dealSwitcherOpen = false;
         renderDealBar();
       }
@@ -12731,6 +13157,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       }
       function switchDeal(projectId) {
         state.dealSwitcherOpen = false;
+        renderDealBar();
         openDeal(projectId);
       }
       function renderDealBar() {
@@ -12740,17 +13167,18 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (overlayEl) overlayEl.innerHTML = renderDealSwitcherOverlayHtml();
       }
       function _dealSwitcherFilteredProjects() {
-        const projects = (state.savedProjects || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        const projects = (state.savedProjects || []).slice();
         const q = _dealSwitcherQuery.trim().toLowerCase();
-        if (!q) return projects;
-        return projects.filter(p => (p.name || "").toLowerCase().includes(q) || (p.client || "").toLowerCase().includes(q));
+        return q
+          ? projects.filter(p => (p.name || "").toLowerCase().includes(q) || (p.client || "").toLowerCase().includes(q))
+          : projects;
       }
-      function _dealSwitcherItemHtml(p) {
+      function _dealSwitcherItemHtml(p, extraClass) {
         const cur = state.activeProjectId;
         const isActive = p.id === cur;
         const u = p.deadline ? deadlineUrgency(p.deadline) : null;
         return `
-          <div class="deal-switcher-item ${isActive ? "active" : ""}" onclick="app.switchDeal('${p.id.replace(/'/g, "")}')">
+          <div class="deal-switcher-item ${isActive ? "active" : ""} ${extraClass || ""}" onclick="app.switchDeal('${p.id.replace(/'/g, "")}')">
             <div class="deal-switcher-item-name">${escapeHtml(p.name || "Без названия")}</div>
             <div class="deal-switcher-item-sub">
               ${p.client ? `<span>${escapeHtml(p.client)}</span>` : ""}
@@ -12765,16 +13193,24 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!projects.length) {
           return `<div class="deal-switcher-panel-empty">Ничего не найдено</div>`;
         }
-        const active = projects.filter(p => (p.crmStatus || "Лид") !== "Завершённые");
-        const completed = projects.filter(p => (p.crmStatus || "Лид") === "Завершённые");
+        const crmOrder = idx => { const i = CRM_STATUSES.indexOf(idx); return i < 0 ? 99 : i; };
+        const active = projects
+          .filter(p => (p.crmStatus || "Лид") !== "Завершённые")
+          .sort((a, b) => {
+            const d = crmOrder(a.crmStatus || "Лид") - crmOrder(b.crmStatus || "Лид");
+            return d !== 0 ? d : (b.updatedAt || "").localeCompare(a.updatedAt || "");
+          });
+        const completed = projects
+          .filter(p => (p.crmStatus || "Лид") === "Завершённые")
+          .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
         return `
           ${active.length ? `
-            <div class="deal-switcher-section-label">В работе (${active.length})</div>
-            ${active.map(_dealSwitcherItemHtml).join("")}
+            <div class="deal-switcher-section-label active-label">В работе (${active.length})</div>
+            ${active.map(p => _dealSwitcherItemHtml(p, "active-deal")).join("")}
           ` : ""}
           ${completed.length ? `
-            <div class="deal-switcher-section-label">Завершённые (${completed.length})</div>
-            ${completed.map(_dealSwitcherItemHtml).join("")}
+            <div class="deal-switcher-section-label completed-label" style="margin-top:8px">Завершённые (${completed.length})</div>
+            ${completed.map(p => _dealSwitcherItemHtml(p, "completed-deal")).join("")}
           ` : ""}
         `;
       }
@@ -13711,6 +14147,7 @@ Email: ______________________            Email: ______________________
             toggleHelpDd(false);
             if (state.financeModal) closeFinanceModal();
             else if (state.taskModal) { state.taskModal = null; renderModal(); }
+            else if (state.catalogEditId) { state.catalogEditId = ""; renderModal(); }
             else if (state.clientModal) closeClientModal();
             else if (state.dealModal) { state.dealModal = null; renderModal(); render(); }
             else if (state.editTransactionModal) closeEditTransactionModal();
@@ -13874,6 +14311,16 @@ Email: ______________________            Email: ______________________
         createTeamMember,
         updateTeamMember,
         deleteTeamMember,
+        addTeamMemberFromRoster,
+        assignNewTeamMemberToLine,
+
+        openCatalogEdit,
+        closeCatalogEdit,
+        _onCatalogCardClick,
+
+        createCompanyTeamMember,
+        updateCompanyTeamMember,
+        deleteCompanyTeamMember,
 
         exportData,
         exportMonthlyReport,

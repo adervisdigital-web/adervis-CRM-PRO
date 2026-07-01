@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
             Привет, ${name}! 👋
           </p>
           <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6">
-            Вы зарегистрировались в ADERVIS CRM. У вас есть <strong style="color:#6c00ff">14 дней бесплатного пробного периода</strong> — без привязки карты.
+            Вы зарегистрировались в ADERVIS CRM. У вас есть <strong style="color:#6c00ff">7 дней бесплатного пробного периода</strong> — без привязки карты.
           </p>
         </td></tr>
 
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       from: RESEND_FROM,
       to: user.email,
-      subject: "Добро пожаловать в ADERVIS CRM — ваши 14 дней начались",
+      subject: "Добро пожаловать в ADERVIS CRM — ваши 7 дней начались",
       html,
       reply_to: REPLY_TO,
     }),

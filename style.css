@@ -98,6 +98,7 @@
 
     body {
       margin: 0;
+      overflow-x: hidden;
       font-family: var(--font-ui);
       background:
         radial-gradient(circle at top left, rgba(108, 0, 255, .12), transparent 40%),
@@ -2313,17 +2314,30 @@
     .deal-list-row:last-child { border-bottom: none; }
     .deal-list-row:hover { background: var(--panel2); }
     .deal-list-row.current { background: rgba(124,58,237,.06); }
+    .deal-list-row .status-pill { flex: 0 0 108px; text-align: center; justify-content: center; }
     .deal-list-name { font-size: 14px; font-weight: 600; flex: 1 1 160px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .deal-list-client { font-size: 12px; color: var(--muted); flex: 1 1 120px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .deal-list-budget { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 90px; text-align: right; }
+    .deal-list-client { font-size: 12px; color: var(--muted); flex: 0 0 140px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .deal-list-budget { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 96px; text-align: right; }
     .deal-list-deadline { font-size: 11px; color: var(--muted); flex: 0 0 80px; text-align: right; white-space: nowrap; }
-    .deal-list-actions { display: flex; gap: 6px; flex: 0 0 auto; align-items: center; }
+    .deal-list-actions { display: flex; gap: 6px; flex: 0 0 230px; align-items: center; justify-content: flex-end; }
     .deal-view-toggle { display: flex; gap: 2px; }
     .deal-view-btn { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; cursor: pointer; font-size: 13px; color: var(--muted); transition: .12s; }
     .deal-view-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    @media (max-width: 900px) {
+      /* На планшете actions-колонка — auto, не фиксированная */
+      .deal-list-actions { flex: 0 0 auto; }
+      .deal-list-client { flex: 0 0 110px; }
+    }
     @media (max-width: 600px) {
       .deal-list-client { display: none; }
       .deal-list-deadline { display: none; }
+      /* На мобиле actions — минимальные: только кнопка действия, без Ред. */
+      .deal-list-actions { flex: 0 0 auto; gap: 4px; }
+      .deal-list-actions .btn.small { display: none; }
+      .deal-list-budget { flex: 0 0 72px; }
+      .deal-list-name { font-size: 13px; }
+      /* Панель — меньше паддинг на мобиле */
+      .panel { padding: 12px; }
     }
 
     .crm-home-funnel {
@@ -2758,6 +2772,8 @@
       color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
     }
     .deal-switcher-section-label:first-child { padding-top: 4px; }
+    .deal-switcher-section-label.active-label { color: var(--green); }
+    .deal-switcher-section-label.completed-label { color: var(--red); }
     .deal-switcher-item {
       display: flex; flex-direction: column; gap: 3px;
       padding: 10px 12px; border-radius: 9px;
@@ -2765,6 +2781,9 @@
     }
     .deal-switcher-item:hover { background: var(--panel2); }
     .deal-switcher-item.active { background: rgba(124,58,237,.13); }
+    .deal-switcher-item.active-deal { border-left: 2px solid var(--green); }
+    .deal-switcher-item.completed-deal { border-left: 2px solid var(--red); opacity: .75; }
+    .deal-switcher-item.completed-deal:hover { opacity: 1; }
     .deal-switcher-item-name {
       font-size: 13px; font-weight: 800;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
