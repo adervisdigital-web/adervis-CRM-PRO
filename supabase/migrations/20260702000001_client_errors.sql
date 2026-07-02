@@ -16,11 +16,13 @@ create table if not exists public.client_errors (
 alter table public.client_errors enable row level security;
 
 -- Писать могут все, включая незалогиненных — ошибки на auth gate важнее прочих
+drop policy if exists "client_errors_insert_all" on public.client_errors;
 create policy "client_errors_insert_all" on public.client_errors
   for insert to anon, authenticated
   with check (true);
 
 -- Читать — только супер-админ (_is_super_admin() создана миграциями admin panel 20260629*)
+drop policy if exists "client_errors_select_admin" on public.client_errors;
 create policy "client_errors_select_admin" on public.client_errors
   for select to authenticated
   using (_is_super_admin());
