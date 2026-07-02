@@ -3857,9 +3857,16 @@
         toast("Документ дублирован"); save(); render();
       }
       function kbDelete(id) {
-        if (!confirm("Удалить документ?")) return;
-        state.knowledgeDocs = (state.knowledgeDocs || []).filter(d => d.id !== id);
-        state.kbView = "list"; toast("Документ удалён"); save(); render();
+        const idx = (state.knowledgeDocs || []).findIndex(d => d.id === id);
+        if (idx < 0) return;
+        const removed = state.knowledgeDocs[idx];
+        state.knowledgeDocs = state.knowledgeDocs.filter(d => d.id !== id);
+        state.kbView = "list"; save(); render();
+        toastUndo("Документ удалён", () => {
+          state.knowledgeDocs.splice(idx, 0, removed);
+          save(); render();
+          toast("Удаление отменено");
+        });
       }
 
       function renderAdminModalHtml() {
@@ -5700,9 +5707,17 @@
       }
 
       function permanentlyDeleteItem(id) {
-        if (!confirm("Удалить позицию навсегда? Она исчезнет даже из вкладки «Скрытые».")) return;
         saveHistory();
         const isCustom = state.customItems.some(x => x.id === id);
+        const snap = {
+          customIdx: isCustom ? state.customItems.findIndex(x => x.id === id) : -1,
+          customItem: isCustom ? state.customItems.find(x => x.id === id) : null,
+          override: state.catalogOverrides ? state.catalogOverrides[id] : undefined,
+          price: state.catalogPrices ? state.catalogPrices[id] : undefined,
+          hidden: state.hiddenItems[id],
+          line: state.selected[id],
+          orderIdx: state.estimateOrder.indexOf(id)
+        };
         if (isCustom) {
           state.customItems = state.customItems.filter(x => x.id !== id);
         } else {
@@ -5716,9 +5731,22 @@
         delete state.hiddenItems[id];
         delete state.selected[id];
         state.estimateOrder = state.estimateOrder.filter(x => x !== id);
-        toast("Позиция удалена навсегда");
         save();
         render();
+        toastUndo("Позиция удалена навсегда", () => {
+          if (isCustom) {
+            state.customItems.splice(Math.max(snap.customIdx, 0), 0, snap.customItem);
+          } else {
+            delete state.permanentlyDeleted[id];
+            if (snap.override !== undefined) (state.catalogOverrides = state.catalogOverrides || {})[id] = snap.override;
+            if (snap.price !== undefined) (state.catalogPrices = state.catalogPrices || {})[id] = snap.price;
+          }
+          if (snap.hidden) state.hiddenItems[id] = snap.hidden;
+          if (snap.line) state.selected[id] = snap.line;
+          if (snap.orderIdx >= 0) state.estimateOrder.splice(snap.orderIdx, 0, id);
+          save(); render();
+          toast("Удаление отменено");
+        });
       }
 
       function toggleFavorite(id) {
@@ -5977,6 +6005,7 @@
         const version = state.versions.find(x => x.id === id);
         if (!version) return;
         if (!confirm("Восстановить эту версию сметы?")) return;
+        saveHistory(); // Ctrl+Z возвращает смету к состоянию до восстановления версии
 
         state.selected = deepClone(version.selected || {});
         state.estimateOrder = deepClone(version.estimateOrder || Object.keys(state.selected));
@@ -5995,22 +6024,40 @@
       }
 
       function deleteVersion(id) {
-        if (!confirm("Удалить версию?")) return;
+        const idx = state.versions.findIndex(x => x.id === id);
+        if (idx < 0) return;
+        const removed = state.versions[idx];
         state.versions = state.versions.filter(x => x.id !== id);
         save();
         render();
+        toastUndo("Версия удалена", () => {
+          state.versions.splice(idx, 0, removed);
+          save(); render();
+          toast("Удаление отменено");
+        });
       }
 
       function clearEstimate() {
-        if (!confirm("Очистить смету?")) return;
+        if (!Object.keys(state.selected || {}).length && !(state.estimateOrder || []).length) return;
         saveHistory();
+        const snap = {
+          selected: state.selected, estimateOrder: state.estimateOrder,
+          lineCollapsed: state.lineCollapsed, stageCollapsed: state.stageCollapsed
+        };
         state.selected = {};
         state.estimateOrder = [];
         state.lineCollapsed = {};
         state.stageCollapsed = {};
-        toast("Смета очищена");
         save();
         render();
+        toastUndo("Смета очищена", () => {
+          state.selected = snap.selected;
+          state.estimateOrder = snap.estimateOrder;
+          state.lineCollapsed = snap.lineCollapsed;
+          state.stageCollapsed = snap.stageCollapsed;
+          save(); render();
+          toast("Очистка отменена");
+        });
       }
 
       function resetAllData() {
@@ -6065,12 +6112,23 @@
       }
 
       function deleteCustomItem(id) {
-        if (!confirm("Удалить свою позицию?")) return;
+        const idx = state.customItems.findIndex(x => x.id === id);
+        if (idx < 0) return;
+        const removed = state.customItems[idx];
+        const line = state.selected[id];
+        const orderIdx = state.estimateOrder.indexOf(id);
         state.customItems = state.customItems.filter(x => x.id !== id);
         delete state.selected[id];
         state.estimateOrder = state.estimateOrder.filter(x => x !== id);
         save();
         render();
+        toastUndo("Позиция удалена", () => {
+          state.customItems.splice(idx, 0, removed);
+          if (line) state.selected[id] = line;
+          if (orderIdx >= 0) state.estimateOrder.splice(orderIdx, 0, id);
+          save(); render();
+          toast("Удаление отменено");
+        });
       }
 
       function applyPackage(pkgId) {
@@ -6119,11 +6177,17 @@
 
       function deletePackage(id) {
         if (!id.startsWith("package_")) return;
-        if (!confirm("Удалить этот пакет?")) return;
+        const idx = state.packages.findIndex(p => p.id === id);
+        if (idx < 0) return;
+        const removed = state.packages[idx];
         state.packages = state.packages.filter(p => p.id !== id);
-        toast("Пакет удалён");
         save();
         render();
+        toastUndo("Пакет удалён", () => {
+          state.packages.splice(idx, 0, removed);
+          save(); render();
+          toast("Удаление отменено");
+        });
       }
 
       function createClient() {
@@ -6308,10 +6372,17 @@
       }
 
       function deleteTask(id) {
-        if (!confirm("Удалить задачу?")) return;
+        const idx = state.tasks.findIndex(x => x.id === id);
+        if (idx < 0) return;
+        const removed = state.tasks[idx];
         state.tasks = state.tasks.filter(x => x.id !== id);
         save();
         render();
+        toastUndo("Задача удалена", () => {
+          state.tasks.splice(idx, 0, removed);
+          save(); render();
+          toast("Удаление отменено");
+        });
       }
 
       // Синхронизирует paid/debt/profit и snapshot платежей/расходов в savedProjects
@@ -6383,11 +6454,19 @@
       }
 
       function deleteExpense(id) {
-        if (!confirm("Удалить расход?")) return;
+        const idx = state.expenses.findIndex(x => x.id === id);
+        if (idx < 0) return;
+        const removed = state.expenses[idx];
         state.expenses = state.expenses.filter(x => x.id !== id);
         _syncFinancesToSaved();
         save();
         render();
+        toastUndo("Расход удалён", () => {
+          state.expenses.splice(idx, 0, removed);
+          _syncFinancesToSaved();
+          save(); render();
+          toast("Удаление отменено");
+        });
       }
 
       function createTeamMember() {
@@ -6434,11 +6513,19 @@
       }
 
       function deleteTeamMember(id) {
-        if (!confirm("Удалить участника?")) return;
+        const idx = state.team.findIndex(x => x.id === id);
+        if (idx < 0) return;
+        const removed = state.team[idx];
         state.team = state.team.filter(x => x.id !== id);
         _syncFinancesToSaved();
         save();
         render();
+        toastUndo("Участник удалён из проекта", () => {
+          state.team.splice(idx, 0, removed);
+          _syncFinancesToSaved();
+          save(); render();
+          toast("Удаление отменено");
+        });
       }
 
       function linesForTeamMember(memberId) {
@@ -6510,17 +6597,30 @@
       }
 
       function deleteCompanyTeamMember(id) {
-        if (!confirm("Удалить участника из команды?")) return;
+        const idx = state.companyTeam.findIndex(x => x.id === id);
+        if (idx < 0) return;
+        const removed = state.companyTeam[idx];
+        const unassigned = []; // ссылки на строки со сброшенным assigneeId — для отката
         state.companyTeam = state.companyTeam.filter(x => x.id !== id);
-        Object.values(state.selected || {}).forEach(line => { if (line.assigneeId === id) line.assigneeId = ""; });
+        Object.values(state.selected || {}).forEach(line => {
+          if (line.assigneeId === id) { line.assigneeId = ""; unassigned.push(line); }
+        });
         // Чистим ссылку и в архивных сметах, не только в активной
         (state.savedProjects || []).forEach(p => {
           if (p.snapshot?.selected) {
-            Object.values(p.snapshot.selected).forEach(line => { if (line.assigneeId === id) line.assigneeId = ""; });
+            Object.values(p.snapshot.selected).forEach(line => {
+              if (line.assigneeId === id) { line.assigneeId = ""; unassigned.push(line); }
+            });
           }
         });
         save();
         render();
+        toastUndo("Участник удалён из команды", () => {
+          state.companyTeam.splice(idx, 0, removed);
+          unassigned.forEach(line => { line.assigneeId = id; });
+          save(); render();
+          toast("Удаление отменено");
+        });
       }
 
       function assignNewTeamMemberToLine(id) {
@@ -6702,12 +6802,16 @@
       function bulkDeleteDeals() {
         const ids = Object.keys(state.crmSelected || {});
         if (!ids.length) return;
-        if (!confirm(`Удалить ${ids.length} выбранных сделок? Это действие необратимо.`)) return;
+        const prev = state.savedProjects; // filter создаёт новый массив — старый остаётся для отката
         state.savedProjects = state.savedProjects.filter(p => !state.crmSelected[p.id]);
         state.crmSelected = {};
-        toast(`Удалено ${ids.length} сделок`);
         save();
         render();
+        toastUndo(`Удалено сделок: ${ids.length}`, () => {
+          state.savedProjects = prev;
+          save(); render();
+          toast("Удаление отменено");
+        });
       }
 
       function toggleGlobalMenu() {
@@ -7465,7 +7569,7 @@
             render();
             toast("Данные импортированы");
           } catch (error) {
-            alert("Не удалось импортировать файл: " + error.message);
+            toast("⚠️ Не удалось импортировать файл: " + error.message);
           }
         };
         reader.readAsText(file);
@@ -7507,7 +7611,7 @@
             render();
             toast("Каталог импортирован");
           } catch (error) {
-            alert("Не удалось импортировать каталог: " + error.message);
+            toast("⚠️ Не удалось импортировать каталог: " + error.message);
           }
         };
         reader.readAsText(file);
@@ -7585,7 +7689,7 @@
             render();
             toast(added ? `Добавлено ${added} позиций в «Свои»` : "Не найдено подходящих строк — нужна колонка «Название»");
           } catch (error) {
-            alert("Не удалось импортировать файл: " + error.message);
+            toast("⚠️ Не удалось импортировать файл: " + error.message);
           }
         };
         reader.readAsArrayBuffer(file);
@@ -12321,7 +12425,7 @@
         if (!file) return;
 
         if (!file.type.startsWith("image/")) {
-          alert("Выбери файл изображения: SVG, PNG, JPG или WEBP.");
+          toast("⚠️ Выберите файл изображения: SVG, PNG, JPG или WEBP");
           event.target.value = "";
           return;
         }
@@ -12888,7 +12992,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       async function approvePortal() {
         if (!_supabase || !_portalId || !_portalData) return;
         const consent = document.getElementById('esignConsent');
-        if (consent && !consent.checked) { alert('Пожалуйста, подтвердите согласие с условиями КП'); return; }
+        if (consent && !consent.checked) { toast("Пожалуйста, подтвердите согласие с условиями КП"); return; }
         const signerName = (document.getElementById('esignName')?.value || "").trim();
         const btn = document.querySelector('.portal-wrap .btn.primary');
         if (btn) { btn.disabled = true; btn.textContent = 'Отправка...'; }
@@ -12902,11 +13006,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             render();
           } else {
             if (btn) { btn.disabled = false; btn.textContent = '✅ Подписать и утвердить КП'; }
-            alert('Ошибка: ' + error.message);
+            toast("⚠️ Ошибка: " + error.message);
           }
         } catch (e) {
           if (btn) { btn.disabled = false; btn.textContent = '✅ Подписать и утвердить КП'; }
-          alert('Ошибка сети. Проверьте соединение и попробуйте ещё раз.');
+          toast("⚠️ Ошибка сети. Проверьте соединение и попробуйте ещё раз");
         }
       }
 
@@ -12926,12 +13030,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           } else {
             const amtLabel = _portalData?.advance_amount ? `💳 Оплатить ${money(_portalData.advance_amount)}` : '💳 Оплатить';
             if (btn) { btn.disabled = false; btn.textContent = amtLabel; }
-            alert('Ошибка: ' + (data.error || 'Не удалось создать платёж'));
+            toast("⚠️ Ошибка: " + (data.error || "Не удалось создать платёж"));
           }
         } catch(e) {
           const amtLabel = _portalData?.advance_amount ? `💳 Оплатить ${money(_portalData.advance_amount)}` : '💳 Оплатить';
           if (btn) { btn.disabled = false; btn.textContent = amtLabel; }
-          alert('Ошибка сети. Попробуйте ещё раз.');
+          toast("⚠️ Ошибка сети. Попробуйте ещё раз");
         }
       }
 
@@ -13080,9 +13184,16 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             card.style.opacity = '0';
             setTimeout(() => {
               const taskId = wrap.dataset.taskId;
-              if (taskId && confirm('Удалить задачу?')) {
+              const idx = taskId ? state.tasks.findIndex(t => t.id === taskId) : -1;
+              if (idx >= 0) {
+                const removed = state.tasks[idx];
                 state.tasks = state.tasks.filter(t => t.id !== taskId);
                 save(); render();
+                toastUndo("Задача удалена", () => {
+                  state.tasks.splice(idx, 0, removed);
+                  save(); render();
+                  toast("Удаление отменено");
+                });
               } else {
                 card.style.transition = 'transform .2s ease';
                 card.style.transform = '';
@@ -13390,21 +13501,48 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       function deleteEditTransaction() {
         const m = state.editTransactionModal;
         if (!m) return;
-        if (!confirm("Удалить транзакцию?")) return;
+        let restore = null;
         if (m.projectId === state.activeProjectId) {
-          if (m._type === "income") state.payments = state.payments.filter(t => t.id !== m.editId);
-          else state.expenses = state.expenses.filter(t => t.id !== m.editId);
+          const arr = m._type === "income" ? state.payments : state.expenses;
+          const idx = arr.findIndex(t => t.id === m.editId);
+          if (idx >= 0) {
+            const removed = arr[idx];
+            if (m._type === "income") state.payments = state.payments.filter(t => t.id !== m.editId);
+            else state.expenses = state.expenses.filter(t => t.id !== m.editId);
+            restore = () => {
+              (m._type === "income" ? state.payments : state.expenses).splice(idx, 0, removed);
+            };
+          }
         } else {
           const proj = state.savedProjects.find(p => p.id === m.projectId);
           if (proj && proj.snapshot) {
-            if (m._type === "income") { proj.snapshot.payments = (proj.snapshot.payments || []).filter(t => t.id !== m.editId); proj.paid = (proj.snapshot.payments || []).reduce((s, p) => s + numberValue(p.amount, 0), 0); }
-            else { proj.snapshot.expenses = (proj.snapshot.expenses || []).filter(t => t.id !== m.editId); proj.expensesTotal = (proj.snapshot.expenses || []).reduce((s, e) => s + numberValue(e.amount, 0), 0); }
+            const key = m._type === "income" ? "payments" : "expenses";
+            const idx = (proj.snapshot[key] || []).findIndex(t => t.id === m.editId);
+            const recalc = () => {
+              if (m._type === "income") proj.paid = (proj.snapshot.payments || []).reduce((s, p) => s + numberValue(p.amount, 0), 0);
+              else proj.expensesTotal = (proj.snapshot.expenses || []).reduce((s, e) => s + numberValue(e.amount, 0), 0);
+            };
+            if (idx >= 0) {
+              const removed = proj.snapshot[key][idx];
+              proj.snapshot[key] = proj.snapshot[key].filter(t => t.id !== m.editId);
+              recalc();
+              restore = () => {
+                proj.snapshot[key].splice(idx, 0, removed);
+                recalc();
+              };
+            }
           }
         }
-        toast("Транзакция удалена");
         state.editTransactionModal = null;
         save();
         render();
+        if (restore) {
+          toastUndo("Транзакция удалена", () => {
+            restore();
+            save(); render();
+            toast("Удаление отменено");
+          });
+        }
       }
       function setEditTransactionField(key, value) {
         if (!state.editTransactionModal) return;
@@ -14434,11 +14572,17 @@ Email: ______________________            Email: ______________________
       }
 
       function deleteContract(id) {
-        if (!confirm("Удалить договор?")) return;
-        state.contracts = (state.contracts || []).filter(c => c.id !== id);
-        toast("Договор удалён");
+        const idx = (state.contracts || []).findIndex(c => c.id === id);
+        if (idx < 0) return;
+        const removed = state.contracts[idx];
+        state.contracts = state.contracts.filter(c => c.id !== id);
         save();
         render();
+        toastUndo("Договор удалён", () => {
+          state.contracts.splice(idx, 0, removed);
+          save(); render();
+          toast("Удаление отменено");
+        });
       }
 
       function printContract(id) {
