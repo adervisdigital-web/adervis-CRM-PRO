@@ -1,4 +1,4 @@
-const CACHE_NAME = "adervis-crm-v20";
+const CACHE_NAME = "adervis-crm-v21";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -8,7 +8,11 @@ const STATIC_ASSETS = [
   "./logo-icon.svg",
   "./icon-192.png",
   "./icon-512.png",
-  "./apple-touch-icon.png"
+  "./apple-touch-icon.png",
+  "./fonts/dmsans-latin.woff2",
+  "./fonts/dmsans-latin-ext.woff2",
+  "./fonts/spacegrotesk-latin.woff2",
+  "./fonts/spacegrotesk-latin-ext.woff2"
 ];
 
 self.addEventListener("install", event => {
