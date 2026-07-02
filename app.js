@@ -10700,6 +10700,10 @@
                 style="background:${pBg};border-color:${pColor}40;color:${pColor};font-weight:600">
                 ${PRIORITIES.map(p => `<option value="${p}" ${task.priority===p?"selected":""}>${p}</option>`).join("")}
               </select>
+              <select class="task-mini-select" title="Переместить в колонку"
+                onchange="app.setKanbanStatus('task','${task.id}',this.value)">
+                ${TASK_STATUSES.map(s => `<option value="${s}" ${task.status===s?"selected":""}>${s}</option>`).join("")}
+              </select>
               ${task.deadline ? `<span class="badge" style="${isOverdue?"color:var(--red);border-color:rgba(220,38,38,.4)":""}">${isOverdue?"!" : ""}${escapeHtml(formatDate(task.deadline))}</span>` : ""}
               ${task.assignee ? `<span class="u-meta">${escapeHtml(task.assignee)}</span>` : ""}
             </div>
@@ -11328,6 +11332,10 @@
                             <button class="btn primary small" onclick="app.loadSavedProject('${project.id}')">Открыть</button>
                             <button class="btn small" onclick="app.createClientPortal('${project.id}')" title="Создать ссылку КП для клиента">🔗 КП-ссылка</button>
                           </div>
+                          <select class="task-mini-select no-print" style="margin-top:8px;max-width:100%" title="Переместить в этап"
+                            onchange="app.setKanbanStatus('crm','${project.id}',this.value)">
+                            ${CRM_STATUSES.map(s => `<option value="${s}" ${(project.crmStatus || "Лид") === s ? "selected" : ""}>${s}</option>`).join("")}
+                          </select>
                         </article>
                       `).join("") : `<div class="empty kanban-drop-hint">Пусто</div>`}
                     </div>
@@ -13141,6 +13149,28 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           }
         }
         _dragItemId = null; _dragScope = null;
+      }
+
+      // Смена этапа селектом на карточке — HTML5 drag-and-drop не работает на
+      // тач-экранах, нативный select открывает системный пикер и на мобиле
+      function setKanbanStatus(scope, id, newStatus) {
+        if (scope === 'crm') {
+          if (!CRM_STATUSES.includes(newStatus)) return;
+          const proj = (state.savedProjects || []).find(p => p.id === id);
+          if (proj && proj.crmStatus !== newStatus) {
+            proj.crmStatus = newStatus;
+            save(); saveToCloud(); render();
+            toast('Статус сделки: ' + newStatus);
+            sendTelegramNotification(`📋 <b>${escapeHtml(proj.name || "Сделка")}</b>\nСтатус: ${escapeHtml(newStatus)}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
+          }
+        } else if (scope === 'task') {
+          if (!TASK_STATUSES.includes(newStatus)) return;
+          const task = (state.tasks || []).find(t => t.id === id);
+          if (task && task.status !== newStatus) {
+            task.status = newStatus;
+            save(); render();
+          }
+        }
       }
 
       /* ═══════════════════════════════════════════════════════
@@ -15034,6 +15064,7 @@ Email: ______________________            Email: ______________________
 
         onKanbanDragStart,
         onKanbanDrop,
+        setKanbanStatus,
 
         generateProposalAI,
 
