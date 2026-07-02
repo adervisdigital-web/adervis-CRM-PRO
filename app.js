@@ -2697,20 +2697,26 @@
       let _adminLoading = false;
       let _adminPromoForm = { code: "", discount: 0, expires: "", maxUses: 100, loading: false, error: "" };
       let _adminEditSub = null; // { agencyId, status, plan, expires }
+      let _adminErrors = null; // сырые строки client_errors
+      let _adminErrorsFilter = { q: "", kind: "" };
+      let _adminErrorExpanded = null; // ключ развёрнутой группы
 
       async function loadAdminPanel() {
         if (!_isSuperAdmin() || !_supabase) return;
         _adminLoading = true; render();
         try {
-          const [agRes, promoRes] = await Promise.all([
+          const [agRes, promoRes, errRes] = await Promise.all([
             _supabase.rpc("admin_get_all_users"),
-            _supabase.rpc("admin_get_promo_codes")
+            _supabase.rpc("admin_get_promo_codes"),
+            _supabase.from("client_errors").select("*").order("created_at", { ascending: false }).limit(300)
           ]);
           if (agRes.error) throw new Error("admin_get_all_users: " + agRes.error.message);
           if (promoRes.error) throw new Error("admin_get_promo_codes: " + promoRes.error.message);
+          if (errRes.error) throw new Error("client_errors: " + errRes.error.message);
           // admin_get_all_users возвращает json → data уже является массивом
           _adminAgencies = Array.isArray(agRes.data) ? agRes.data : (agRes.data || []);
           _adminPromoCodes = Array.isArray(promoRes.data) ? promoRes.data : (promoRes.data || []);
+          _adminErrors = errRes.data || [];
           const now = new Date();
           const month1 = new Date(now.getFullYear(), now.getMonth(), 1);
           _adminStats = {
@@ -2728,6 +2734,7 @@
           toast("Ошибка: " + e.message);
           _adminAgencies = []; // предотвратить render-loop
           _adminPromoCodes = [];
+          _adminErrors = [];
         }
         _adminLoading = false; render();
       }
@@ -2886,7 +2893,7 @@
 
             <!-- Tabs -->
             <div style="display:flex;gap:4px;margin-bottom:20px;background:var(--panel2);padding:4px;border-radius:12px;width:fit-content">
-              ${[["users","👥 Пользователи"],["promos","🎁 Промокоды"]].map(([k,l]) => `
+              ${[["users","👥 Пользователи"],["promos","🎁 Промокоды"],["errors","🐞 Ошибки" + ((_adminErrors||[]).length ? ` (${_adminErrors.length})` : "")]].map(([k,l]) => `
                 <button onclick="app._setAdminTab('${k}')"
                   style="padding:8px 18px;border-radius:9px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:.15s;
                   background:${_adminPanelTab===k?"var(--primary)":"transparent"};
@@ -3014,6 +3021,61 @@
                 </div>
               ` : `<div style="text-align:center;padding:24px;color:var(--muted)">Промокодов пока нет</div>`}
             ` : ""}
+
+            <!-- Errors tab -->
+            ${_adminPanelTab === "errors" ? (() => {
+              const rows = _adminErrors || [];
+              const last24h = rows.filter(r => Date.now() - new Date(r.created_at).getTime() < 86400000).length;
+              const agenciesAffected = new Set(rows.filter(r => r.agency_id).map(r => r.agency_id)).size;
+              const groups = _adminErrorGroups();
+              return `
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px">
+                  ${_adminStatCard("Всего записей", rows.length, "")}
+                  ${_adminStatCard("За 24ч", last24h, last24h > 0 ? "yellow" : "green")}
+                  ${_adminStatCard("Уникальных", groups.length, "blue")}
+                  ${_adminStatCard("Агентств задето", agenciesAffected, "purple")}
+                </div>
+                <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+                  <input type="text" placeholder="Поиск по тексту ошибки..." value="${escapeHtml(_adminErrorsFilter.q)}"
+                    oninput="app._setErrorsFilter('q',this.value)" style="flex:1;min-width:180px">
+                  <select onchange="app._setErrorsFilter('kind',this.value)">
+                    <option value="">Все типы</option>
+                    <option value="error" ${_adminErrorsFilter.kind === "error" ? "selected" : ""}>error</option>
+                    <option value="promise" ${_adminErrorsFilter.kind === "promise" ? "selected" : ""}>promise</option>
+                  </select>
+                </div>
+                ${groups.length ? groups.map(g => {
+                  const expanded = _adminErrorExpanded === g.key;
+                  return `
+                    <div style="border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden">
+                      <button data-key="${escapeHtml(g.key)}" onclick="app._toggleErrorGroup(this.dataset.key)"
+                        style="width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:12px 16px;display:flex;align-items:center;gap:10px">
+                        <span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;flex-shrink:0;
+                          background:${g.kind === "error" ? "rgba(220,38,38,.12)" : "rgba(234,88,12,.12)"};
+                          color:${g.kind === "error" ? "var(--text-danger)" : "var(--text-warning)"}">${g.kind}</span>
+                        <span class="u-flex1-min0" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-family:var(--font-mono)">${escapeHtml(g.message || "")}</span>
+                        <span style="font-size:12px;font-weight:800;color:var(--muted);flex-shrink:0">×${g.count}</span>
+                        ${g.agencies.size ? `<span style="font-size:12px;color:var(--muted);flex-shrink:0">${g.agencies.size} аг.</span>` : ""}
+                        <span style="font-size:11px;color:var(--hint);flex-shrink:0">${expanded ? "▲" : "▼"}</span>
+                      </button>
+                      ${expanded ? `
+                        <div style="border-top:1px solid var(--line);padding:12px 16px;background:var(--panel2);display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto">
+                          ${g.rows.slice(0, 30).map(r => {
+                            const email = _agencyEmailById(r.agency_id);
+                            return `
+                            <div style="font-size:12px;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:6px">
+                              ${new Date(r.created_at).toLocaleString("ru-RU")}
+                              ${r.source ? ` · ${escapeHtml(r.source)}` : ""}
+                              ${r.agency_id ? ` · ${email ? escapeHtml(email) : "аг. " + escapeHtml(r.agency_id.slice(0, 8)) + "…"}` : " · аноним"}
+                            </div>`;
+                          }).join("")}
+                          ${g.rows.length > 30 ? `<div style="font-size:12px;color:var(--muted)">...ещё ${g.rows.length - 30}</div>` : ""}
+                        </div>
+                      ` : ""}
+                    </div>`;
+                }).join("") : `<div style="text-align:center;padding:24px;color:var(--muted)">${rows.length ? "Ничего не найдено по фильтру" : "Ошибок нет 🎉"}</div>`}
+              `;
+            })() : ""}
           </div>`;
       }
 
@@ -3026,6 +3088,37 @@
       }
 
       function _setAdminTab(tab) { _adminPanelTab = tab; render(); }
+      function _setErrorsFilter(k, v) { _adminErrorsFilter[k] = v; render(); }
+      function _toggleErrorGroup(key) { _adminErrorExpanded = _adminErrorExpanded === key ? null : key; render(); }
+      function _agencyEmailById(agencyId) {
+        if (!agencyId) return null;
+        const a = (_adminAgencies || []).find(x => x.agency_id === agencyId);
+        return a ? a.email : null;
+      }
+      // Группировка сырых client_errors по (kind + первые 120 символов сообщения) —
+      // одна и та же ошибка у разных юзеров/сессий иначе тонет в списке дублей
+      function _adminErrorGroups() {
+        const rows = _adminErrors || [];
+        const q = (_adminErrorsFilter.q || "").toLowerCase().trim();
+        const kindF = _adminErrorsFilter.kind || "";
+        const filtered = rows.filter(r =>
+          (!kindF || r.kind === kindF) &&
+          (!q || (r.message || "").toLowerCase().includes(q))
+        );
+        const map = new Map();
+        for (const r of filtered) {
+          const key = r.kind + "|" + (r.message || "").slice(0, 120);
+          if (!map.has(key)) {
+            map.set(key, { key, kind: r.kind, message: r.message, count: 0, lastSeen: r.created_at, agencies: new Set(), rows: [] });
+          }
+          const g = map.get(key);
+          g.count++;
+          g.rows.push(r);
+          if (r.agency_id) g.agencies.add(r.agency_id);
+          if (r.created_at > g.lastSeen) g.lastSeen = r.created_at;
+        }
+        return Array.from(map.values()).sort((a, b) => b.count - a.count);
+      }
       function _openEditSub(agencyId, status, plan, expires) { _adminEditSub = { agencyId, status, plan, expires }; render(); }
       function _closeEditSub() { _adminEditSub = null; render(); }
       function _setEditSub(k, v) { if (_adminEditSub) { _adminEditSub[k] = v; render(); } }
@@ -15287,6 +15380,8 @@ Email: ______________________            Email: ______________________
         _closeEditSub,
         _setEditSub,
         _setPromoForm,
+        _setErrorsFilter,
+        _toggleErrorGroup,
         forceSaveToCloud,
         openChangePassword,
         submitChangePassword,
