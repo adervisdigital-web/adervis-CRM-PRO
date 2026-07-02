@@ -712,6 +712,7 @@
       let _userProfile = null;   // { subscription_status, subscription_plan, subscription_expires_at, agency_id }
       let _cloudSaveTimer = null;
       let _cloudDirty = false; // последний upsert в agency_state упал — есть несинхронизированные изменения
+      let _justRegistered = false; // true между созданием профиля и первым рендером — триггер демо-сделки
       let _onlineUsers = [];
       let _authChecking = true;
       let _dataLoading = false; // true while loading profile + cloud state from Supabase
@@ -847,6 +848,9 @@
           }
           localStorage.setItem(LAST_AGENCY_KEY, currentAgencyId);
           await _loadCloudState();
+          // Демо-сделка для брэнд-нового аккаунта — после сброса state и загрузки
+          // (пустого) облака, иначе снапшот бы её стёр. Аха-момент вместо пустого экрана.
+          if (_justRegistered) { _justRegistered = false; _seedDemoDeal(); }
         } catch (e) {
           // Без этого catch — при брошенном исключении (сеть/CSP/таймаут) _dataLoading
           // оставался true навсегда: пользователь после УСПЕШНОГО входа зависал на
@@ -908,7 +912,7 @@
             await _supabase.from("profiles").upsert(newProfile);
             _userProfile = newProfile;
             _pendingInviteCode = "";
-            if (!joinedTeam) { trackGoal("registration"); trackGoal("trial_started"); }
+            if (!joinedTeam) { trackGoal("registration"); trackGoal("trial_started"); _justRegistered = true; }
             setTimeout(() => {
               if (joinedTeam) {
                 pushNotification("info", "👥 Вы вошли в команду!", "Теперь вы работаете в общем рабочем пространстве агентства.", "");
@@ -1691,7 +1695,7 @@
             <div class="auth-stats-row">
               <div><strong>7</strong><span>дней бесплатно</span></div>
               <div><strong>от 490₽</strong><span>в месяц</span></div>
-              <div><strong>∞</strong><span>сделок на платном</span></div>
+              <div><strong>∞</strong><span>сделок</span></div>
             </div>
             <p style="margin:14px 0 0;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px">🔒 Карта не нужна для пробного периода — платите только если решите остаться</p>
 
@@ -7298,15 +7302,58 @@
         render();
       }
 
-      const TRIAL_DEAL_LIMIT = 5;
-
+      // Лимит сделок на триале убран (решение 02.07.2026): барьер — только 7 дней,
+      // enforced в isSubscriptionActive()/save(). Функция оставлена как no-op, чтобы
+      // не трогать 4 места вызова; количество сделок в триале больше не ограничено.
       function checkTrialDealLimit() {
-        if (!_userProfile || _userProfile.subscription_status !== "trial") return false;
-        const count = (state.savedProjects || []).length;
-        if (count < TRIAL_DEAL_LIMIT) return false;
-        toast(`🔒 Пробный период: максимум ${TRIAL_DEAL_LIMIT} сделки. Перейдите на платный план — от 490 ₽/мес.`);
-        setTimeout(() => { state.view = "plans"; render(); }, 1800);
-        return true;
+        return false;
+      }
+
+      // Демо-сделка после регистрации: готовая смета + клиент + аванс, чтобы новый
+      // пользователь сразу увидел, как выглядит заполненная CRM, а не пустой экран.
+      // Клеймится __demo, имя с префиксом «Демо:» — безопасно удалить.
+      function _seedDemoDeal() {
+        try {
+          if ((state.savedProjects || []).length) return; // не трогаем реальные данные
+          const ids = ["director", "dop", "camera_pro", "edit", "color"].filter(id => findItem(id, true));
+          if (ids.length < 3) return;
+
+          const now = new Date().toISOString();
+          const projId = uid("proj");
+          const clientId = uid("client");
+
+          state.clients = state.clients || [];
+          state.clients.unshift(normalizeClient({
+            id: clientId, name: "Бренд «Вкус»", company: "ООО «Вкус»",
+            phone: "+7 900 000-00-00", email: "demo@example.com",
+            note: "Демо-клиент — можно удалить", status: "new"
+          }));
+
+          state.activeProjectId = projId;
+          state.project = {
+            ...state.project, id: projId,
+            name: "Демо: рекламный ролик для бренда",
+            client: "Бренд «Вкус»", clientId,
+            crmStatus: "КП отправлено", status: "В работе",
+            priority: "Высокий", days: 2, createdAt: now,
+            deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
+          };
+          state.selected = {};
+          state.estimateOrder = [];
+          ids.forEach(id => { state.selected[id] = defaultLineForItem(findItem(id, true)); state.estimateOrder.push(id); });
+
+          const t = totals();
+          state.payments = [normalizePayment({ title: "Аванс 50%", amount: Math.round((t.total || 0) * 0.5), date: todayIso(), method: "Счёт", note: "Демо-платёж" })];
+          state.expenses = [];
+
+          state.savedProjects = state.savedProjects || [];
+          state.savedProjects.unshift({ id: projId, __demo: true, createdAt: now });
+          flushActiveProjectToSaved(); // достраивает поля + snapshot корректно
+
+          state.view = "home";
+          save();
+          saveToCloud();
+        } catch (e) { console.warn("seedDemoDeal:", e); }
       }
 
       function startWizard() {
@@ -8915,14 +8962,18 @@
 
       function renderUpgradeBanner(projects) {
         if (!_userProfile || _userProfile.subscription_status !== 'trial') return '';
-        const remaining = TRIAL_DEAL_LIMIT - projects.length;
-        if (remaining > 1) return '';
-        const text = remaining <= 0
-          ? 'Лимит пробного периода исчерпан — новые сделки заблокированы'
-          : `Осталось ${remaining} место из ${TRIAL_DEAL_LIMIT} — переходите, пока есть клиенты`;
+        // Триал ограничен только временем (7 дней), не количеством сделок. Мягкий
+        // напоминающий баннер показываем в последние 3 дня, не раньше.
+        const exp = _userProfile.subscription_expires_at;
+        if (!exp) return '';
+        const days = Math.ceil((new Date(exp) - new Date()) / 86400000);
+        if (days > 3) return '';
+        const text = days <= 0
+          ? 'Пробный период закончился — оформите подписку, чтобы продолжить работу'
+          : `Пробный период заканчивается ${days === 1 ? 'завтра' : `через ${days} дн.`} — оформите подписку, чтобы не потерять доступ`;
         return `
           <div class="panel" style="margin-bottom:14px;border:1px solid rgba(220,38,38,.3);background:rgba(220,38,38,.06);display:flex;align-items:center;gap:12px">
-            <div style="font-size:20px;flex:0 0 auto">⚠️</div>
+            <div style="font-size:20px;flex:0 0 auto">⏳</div>
             <div class="u-flex1">
               <div style="font-weight:700;font-size:13px;color:var(--red);margin-bottom:2px">Пробный период</div>
               <div class="u-meta">${text}</div>
@@ -13027,6 +13078,13 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 Adervis · Digital Creative Agency ·
                 <a href="mailto:adervis.digital@gmail.com" class="u-muted">adervis.digital@gmail.com</a>
               </div>
+              <a href="https://app.adervis.ru/${d.agency_id ? `?ref=${encodeURIComponent(d.agency_id)}` : ''}" target="_blank" rel="noopener"
+                 style="display:flex;align-items:center;justify-content:center;gap:6px;padding:0 0 24px;font-size:12px;color:var(--muted);text-decoration:none">
+                <span style="width:16px;height:16px;border-radius:5px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">
+                  <img src="logo-icon.svg" alt="" style="width:11px;height:11px;object-fit:contain" onerror="this.style.display='none'">
+                </span>
+                Сделано в <strong style="color:var(--text2);font-weight:700">ADERVIS&nbsp;CRM</strong> — CRM для видеопродакшн-студий
+              </a>
             </div>
           </div>
         `;
@@ -15135,6 +15193,7 @@ Email: ______________________            Email: ______________________
         onKanbanDragStart,
         onKanbanDrop,
         setKanbanStatus,
+        seedDemoDeal: _seedDemoDeal,
 
         generateProposalAI,
 
