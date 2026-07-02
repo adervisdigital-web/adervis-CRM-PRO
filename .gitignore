@@ -9,3 +9,6 @@ client_secret_*.json
 .DS_Store
 Thumbs.db
 .vscode/
+
+# QA-артефакты локальных Playwright-тестов (tests/run.js)
+tests/screenshots/
