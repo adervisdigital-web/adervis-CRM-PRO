@@ -3641,7 +3641,10 @@
       display: flex; align-items: flex-start; gap: 12px;
     }
     .auth-feat-icon {
-      font-size: 20px; flex-shrink: 0; margin-top: 1px;
+      width: 28px; height: 28px; flex-shrink: 0; margin-top: 1px;
+      display: grid; place-items: center;
+      background: rgba(124, 58, 237, .12); border-radius: 8px;
+      color: var(--primary2);
     }
     .auth-features-list li div {
       display: flex; flex-direction: column; gap: 2px;
@@ -4308,6 +4311,7 @@ body.portal-mode .nav { display: none !important; }
   align-items: center; justify-content: center; gap: 8px;
   font-size: 14px; font-weight: 600;
 }
+.offline-banner svg { vertical-align: -2px; margin-right: 4px; }
 
 /* ── Mobile UX — touch targets & table overflow ─────── */
 @media (max-width: 640px) {

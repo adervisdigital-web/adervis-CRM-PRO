@@ -1675,12 +1675,12 @@
             <p style="font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 28px">Сделки, сметы, КП, финансы, договоры и задачи —<br>всё в одном инструменте, созданном продакшном для продакшна.</p>
 
             <ul class="auth-features-list">
-              <li><span class="auth-feat-icon">📋</span><div><strong>Калькулятор смет</strong><span>Считайте смету за минуты с пакетами услуг</span></div></li>
-              <li><span class="auth-feat-icon">💼</span><div><strong>Воронка продаж</strong><span>Ведите сделки от брифа до получения оплаты</span></div></li>
-              <li><span class="auth-feat-icon">💰</span><div><strong>Финансы и аналитика</strong><span>Доходы, расходы, рентабельность каждого проекта</span></div></li>
-              <li><span class="auth-feat-icon">📅</span><div><strong>Задачи и дедлайны</strong><span>Командный календарь с push-уведомлениями</span></div></li>
-              <li><span class="auth-feat-icon">📄</span><div><strong>Договоры и КП</strong><span>Готовые шаблоны и онлайн-портал для клиента</span></div></li>
-              <li><span class="auth-feat-icon">✈️</span><div><strong>Управление из Telegram</strong><span>Сделки, финансы и статистика прямо в боте</span></div></li>
+              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg></span><div><strong>Калькулятор смет</strong><span>Считайте смету за минуты с пакетами услуг</span></div></li>
+              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2h13l-5 6v5.5l-3-1.5V8l-5-6z"/></svg></span><div><strong>Воронка продаж</strong><span>Ведите сделки от брифа до получения оплаты</span></div></li>
+              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg></span><div><strong>Финансы и аналитика</strong><span>Доходы, расходы, рентабельность каждого проекта</span></div></li>
+              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg></span><div><strong>Задачи и дедлайны</strong><span>Командный календарь с push-уведомлениями</span></div></li>
+              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 011.06 2.56L5.12 11H3v-2.12l7.44-7.44A1.5 1.5 0 0111.5 1zM2 12.5V15h2.5l.1-.1-2.4-2.4-.2.1z"/></svg></span><div><strong>Договоры и КП</strong><span>Готовые шаблоны и онлайн-портал для клиента</span></div></li>
+              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M15 1L1 6.9l4.7 1.8L13.5 3 7.2 9.5 7 14l2.5-3.1 3.6 2.8L15 1z"/></svg></span><div><strong>Управление из Telegram</strong><span>Сделки, финансы и статистика прямо в боте</span></div></li>
             </ul>
 
             <div style="display:flex;gap:10px;align-items:flex-start;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:12px;padding:12px 14px;margin-bottom:24px">
@@ -10681,7 +10681,7 @@
 
         return `
           <div class="swipe-wrap" data-task-id="${task.id}">
-            <div class="swipe-delete-bg">🗑</div>
+            <div class="swipe-delete-bg"><svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg></div>
           <article class="task-card" style="padding:12px 14px"
             draggable="true"
             ondragstart="app.onKanbanDragStart(event,'${task.id}','task')"

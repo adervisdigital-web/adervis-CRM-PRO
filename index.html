@@ -132,21 +132,21 @@
             <button class="topbar-add-btn" id="globalAddBtn" title="Создать новое">+</button>
             <div class="global-add-menu" id="globalAddMenu">
               <button class="global-add-menu-item" onclick="app.startWizard();app.closeGlobalMenu()">
-                <span class="icon" style="background:rgba(124,58,237,.18)">⭑</span>Новая сделка
+                <span class="icon" style="background:rgba(124,58,237,.18);color:#c4b5fd"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.3l2 4.1 4.5.7-3.3 3.2.8 4.5L8 11.6l-4 2.2.8-4.5L1.5 6.1 6 5.4z"/></svg></span>Новая сделка
               </button>
               <div class="global-add-menu-divider"></div>
               <button class="global-add-menu-item" onclick="app.openFinanceModal('payment');app.closeGlobalMenu()">
-                <span class="icon" style="background:rgba(22,163,74,.18);color:#86efac">+</span>Поступление
+                <span class="icon" style="background:rgba(22,163,74,.18);color:#86efac"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M7 3h2v4h4v2H9v4H7V9H3V7h4z"/></svg></span>Поступление
               </button>
               <button class="global-add-menu-item" onclick="app.openFinanceModal('expense');app.closeGlobalMenu()">
-                <span class="icon" style="background:rgba(220,38,38,.15);color:#fca5a5">−</span>Расход
+                <span class="icon" style="background:rgba(220,38,38,.15);color:#fca5a5"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M3 7h10v2H3z"/></svg></span>Расход
               </button>
               <div class="global-add-menu-divider"></div>
               <button class="global-add-menu-item" onclick="app.createTask();app.closeGlobalMenu()">
-                <span class="icon" style="background:rgba(8,145,178,.18)">☐</span>Задача
+                <span class="icon" style="background:rgba(8,145,178,.18);color:#67e8f9"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1.5 1.5v9h9v-9h-9zM5 8.2l2 2 4-4.2-1-1L7 8.2 6 7.2 5 8.2z"/></svg></span>Задача
               </button>
               <button class="global-add-menu-item" onclick="app.createClient();app.go('clients');app.closeGlobalMenu()">
-                <span class="icon" style="background:rgba(202,138,4,.18)">☺</span>Новый клиент
+                <span class="icon" style="background:rgba(202,138,4,.18);color:#fde68a"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg></span>Новый клиент
               </button>
             </div>
           </div>
@@ -204,7 +204,7 @@
   </footer>
 
   <div id="offlineBanner" class="offline-banner">
-    <span>📡 Нет соединения с интернетом — изменения сохраняются локально</span>
+    <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22"/><path d="M8.5 16.4a5 5 0 016.4-.6"/><path d="M5 12.5a10 10 0 015.2-2.7"/><path d="M16.6 12.9a10 10 0 012.4 1.7"/><path d="M12 20h.01"/></svg>Нет соединения с интернетом — изменения сохраняются локально</span>
   </div>
   <input type="file" id="importJsonInput" accept="application/json" hidden>
   <input type="file" id="importCatalogInput" accept="application/json" hidden>
