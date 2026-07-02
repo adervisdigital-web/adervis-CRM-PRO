@@ -7011,9 +7011,18 @@
         render();
       }
 
+      let _lastModalKey = null;   // какая модалка была открыта в прошлый renderModal()
+      let _modalReturnFocus = null; // куда вернуть фокус после закрытия
+
       function renderModal() {
         const el = document.getElementById("modalContainer");
         if (!el) return;
+        const modalKey =
+          state.mainMenuOpen ? "mainMenu" : state.helpModal ? "help" :
+          state.adminModal ? "admin" : state.clientModal ? "client" :
+          state.dealModal ? "deal" : state.taskModal ? "task" :
+          state.editTransactionModal ? "editTx" : state.financeModal ? "finance" :
+          state.packageEditModal ? "package" : state.catalogEditId ? "catalog" : null;
         if (state.mainMenuOpen) { el.innerHTML = renderMainMenuModal(); }
         else if (state.helpModal) { el.innerHTML = renderHelpModal(); }
         else if (state.adminModal) { el.innerHTML = renderAdminModalHtml(); }
@@ -7031,6 +7040,45 @@
         // Область — только сама модалка, чтобы не навешивать вторые обработчики на
         // #appContent при render(), который и так уже вызывает bindDynamicInputs() сам.
         bindDynamicInputs(el);
+        _enhanceModalA11y(el, modalKey);
+      }
+
+      // Диалоговая семантика + фокус-менеджмент для всех модалок централизованно.
+      // Фокус переносится только при ОТКРЫТИИ модалки (смена modalKey), а не на каждый
+      // re-render — иначе фокус улетал бы с поля ввода на каждый символ.
+      function _enhanceModalA11y(container, modalKey) {
+        const overlay = container.querySelector(".modal-overlay");
+        const freshlyOpened = modalKey && modalKey !== _lastModalKey;
+        if (overlay) {
+          const box = overlay.querySelector(".modal-box, .admin-modal-box, .client-modal-box, .deal-modal-box") || overlay.firstElementChild;
+          overlay.setAttribute("role", "dialog");
+          overlay.setAttribute("aria-modal", "true");
+          const heading = overlay.querySelector("h1, h2, h3");
+          if (heading && !overlay.hasAttribute("aria-label")) {
+            overlay.setAttribute("aria-label", heading.textContent.trim());
+          }
+          if (box && !box.hasAttribute("tabindex")) box.setAttribute("tabindex", "-1");
+          // Фокус-ловушка Tab внутри модалки (свежий элемент каждый render — стека нет)
+          overlay.addEventListener("keydown", e => {
+            if (e.key !== "Tab") return;
+            const items = overlay.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+            if (!items.length) return;
+            const first = items[0], last = items[items.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+          });
+          if (freshlyOpened) {
+            _modalReturnFocus = document.activeElement;
+            if (box) box.focus();
+          }
+        } else if (!modalKey && _lastModalKey) {
+          // Модалка закрылась — вернуть фокус тому, кто её открыл
+          if (_modalReturnFocus && document.body.contains(_modalReturnFocus)) {
+            try { _modalReturnFocus.focus(); } catch (e) {}
+          }
+          _modalReturnFocus = null;
+        }
+        _lastModalKey = modalKey;
       }
 
       function renderFinanceModal() {
@@ -7045,7 +7093,7 @@
             <div class="modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                 <h2 class="u-title-20">${isPayment ? "Поступление" : "Расход"}</h2>
-                <button onclick="app.closeFinanceModal()" class="u-modal-close">×</button>
+                <button onclick="app.closeFinanceModal()" class="u-modal-close" aria-label="Закрыть">×</button>
               </div>
 
               <div class="modal-type-switch">
@@ -9477,7 +9525,7 @@
             <div class="modal-box" style="max-width:520px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                 <h2 style="margin:0;font-size:18px">${m.isCustom ? "Редактировать пакет" : "Просмотр пакета"}</h2>
-                <button onclick="app.closePackageEditModal()" class="u-modal-close">×</button>
+                <button onclick="app.closePackageEditModal()" class="u-modal-close" aria-label="Закрыть">×</button>
               </div>
 
               ${m.isCustom ? `
@@ -13596,7 +13644,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             <div class="modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                 <h2 class="u-title-20">Редактировать ${isIncome ? "поступление" : "расход"}</h2>
-                <button onclick="app.closeEditTransactionModal()" class="u-modal-close">×</button>
+                <button onclick="app.closeEditTransactionModal()" class="u-modal-close" aria-label="Закрыть">×</button>
               </div>
               <div class="field" style="margin-bottom:14px">
                 <label style="font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.04em">СУММА, ₽ *</label>
@@ -13725,7 +13773,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             <div class="modal-box" style="width:min(560px,calc(100vw - 32px))">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                 <h2 class="u-title-20">${m.id ? "Редактировать клиента" : "Новый клиент"}</h2>
-                <button onclick="app.closeClientModal()" class="u-modal-close">×</button>
+                <button onclick="app.closeClientModal()" class="u-modal-close" aria-label="Закрыть">×</button>
               </div>
               <div class="grid two" style="margin-bottom:12px">
                 ${field("Имя / название *", `<input value="${escapeHtml(m.name || "")}" oninput="app.setClientModalField('name',this.value)" placeholder="Имя клиента">`)}
@@ -13983,7 +14031,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <h2 class="u-title-20">Редактировать сделку</h2>
                 <div style="display:flex;align-items:center;gap:8px">
                   <button class="btn small" onclick="app.quickContractFromDeal('${escapeHtml(m.id)}')" title="Создать договор с данными этой сделки">📄 Договор</button>
-                  <button onclick="app.closeDealModal()" class="u-modal-close">×</button>
+                  <button onclick="app.closeDealModal()" class="u-modal-close" aria-label="Закрыть">×</button>
                 </div>
               </div>
               <div class="grid two" style="margin-bottom:12px">
@@ -14097,7 +14145,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             <div class="task-modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
                 <h2 style="margin:0;font-size:18px">Задача</h2>
-                <button onclick="app.closeTaskModal()" class="u-modal-close">×</button>
+                <button onclick="app.closeTaskModal()" class="u-modal-close" aria-label="Закрыть">×</button>
               </div>
               <div class="field" style="margin-bottom:12px">
                 ${field("Название", `<input value="${escapeHtml(m.title || "")}" oninput="app.setTaskModalField('title',this.value)">`)}
