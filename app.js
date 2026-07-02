@@ -711,6 +711,7 @@
       let _broadcastTimer = null;
       let _userProfile = null;   // { subscription_status, subscription_plan, subscription_expires_at, agency_id }
       let _cloudSaveTimer = null;
+      let _cloudDirty = false; // последний upsert в agency_state упал — есть несинхронизированные изменения
       let _onlineUsers = [];
       let _authChecking = true;
       let _dataLoading = false; // true while loading profile + cloud state from Supabase
@@ -786,6 +787,46 @@
       function trackGoal(name, params) {
         try { window.ym && window.ym(109706942, "reachGoal", name, params); } catch(e) {}
       }
+
+      /* ── Телеметрия клиентских ошибок ──────────────────────────────────────
+         Пишет в public.client_errors (INSERT-only RLS, читает только супер-админ,
+         см. migrations/client_errors.sql). Лимит 5 ошибок на сессию, дедупликация
+         по тексту. Телеметрия никогда не должна ломать само приложение. */
+      let _errReported = 0;
+      let _errToastShown = false;
+      const _errSeen = new Set();
+      function _reportClientError(kind, message, source) {
+        try {
+          const msg = String(message || "").slice(0, 1000);
+          // "Script error." — кросс-доменная ошибка без деталей; ResizeObserver — шум браузера
+          if (!msg || msg === "Script error." || msg.includes("ResizeObserver loop")) return;
+          const key = msg.slice(0, 120);
+          if (_errReported >= 5 || _errSeen.has(key)) return;
+          _errSeen.add(key);
+          _errReported++;
+          if (_supabase) {
+            _supabase.from("client_errors").insert({
+              kind,
+              message: msg,
+              source: String(source || "").slice(0, 300),
+              url: (location.pathname + location.search).slice(0, 300),
+              ua: navigator.userAgent.slice(0, 300),
+              agency_id: _adminSession ? getAgencyId() : null
+            }).then(() => {});
+          }
+          if (kind === "error" && !_errToastShown) {
+            _errToastShown = true;
+            toast("⚠️ Что-то пошло не так. Если приложение работает неправильно — обновите страницу.");
+          }
+        } catch (e) { /* молча */ }
+      }
+      window.onerror = (msg, src, line, col, err) => {
+        _reportClientError("error", (err && err.stack) || msg, `${src || ""}:${line || 0}:${col || 0}`);
+      };
+      window.addEventListener("unhandledrejection", (e) => {
+        const r = e && e.reason;
+        _reportClientError("promise", (r && (r.stack || r.message)) || String(r), "");
+      });
 
       async function _onUserLoggedIn(session) {
         _dataLoading = true;
@@ -1072,6 +1113,19 @@
         } catch(e) { console.warn("Cloud load:", e); }
       }
 
+      function _setCloudSaveIndicator(ok) {
+        const ind = document.getElementById("autoSaveIndicator");
+        if (!ind) return;
+        if (!ok) {
+          ind.textContent = "⚠ Не в облаке";
+          ind.className = "autosave-indicator cloud-error show";
+        } else {
+          ind.textContent = "Сохранено";
+          ind.className = "autosave-indicator show";
+          setTimeout(() => { ind.classList.remove("show"); }, 2000);
+        }
+      }
+
       function saveToCloud() {
         if (!_supabase || !_adminSession) return;
         const agencyId = getAgencyId();
@@ -1079,8 +1133,21 @@
         _cloudSaveTimer = setTimeout(async () => {
           const data = Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k)));
           try {
-            await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: new Date().toISOString() });
-          } catch(e) { console.warn("Cloud save:", e); }
+            // supabase-js v2 не бросает исключение — ошибка приходит в результате
+            const { error } = await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: new Date().toISOString() });
+            if (error) throw error;
+            if (_cloudDirty) {
+              _cloudDirty = false;
+              _setCloudSaveIndicator(true);
+              toast("☁️ Синхронизировано с облаком");
+            }
+          } catch(e) {
+            const firstFail = !_cloudDirty;
+            _cloudDirty = true;
+            _setCloudSaveIndicator(false);
+            if (firstFail) toast("⚠️ Не удалось сохранить в облако — изменения пока хранятся локально");
+            console.warn("Cloud save:", e);
+          }
         }, 3000);
       }
 
@@ -1624,26 +1691,10 @@
             <div class="auth-stats-row">
               <div><strong>7</strong><span>дней бесплатно</span></div>
               <div><strong>от 490₽</strong><span>в месяц</span></div>
-              <div><strong>∞</strong><span>сделок</span></div>
+              <div><strong>∞</strong><span>сделок на платном</span></div>
             </div>
             <p style="margin:14px 0 0;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px">🔒 Карта не нужна для пробного периода — платите только если решите остаться</p>
 
-            <div style="margin-top:28px;display:flex;flex-direction:column;gap:10px">
-              <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
-                <p style="margin:0 0 8px;font-size:13px;line-height:1.55;color:var(--fg)">"Раньше вели всё в таблицах — постоянно теряли задачи и забывали про дедлайны. Теперь вся студия в одном месте, и смету клиенту отправляю прямо из CRM за 5 минут."</p>
-                <div style="display:flex;align-items:center;gap:8px">
-                  <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">А</div>
-                  <div><div style="font-size:12px;font-weight:700">Андрей К.</div><div class="u-meta">Руководитель видеостудии, Москва</div></div>
-                </div>
-              </div>
-              <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
-                <p style="margin:0 0 8px;font-size:13px;line-height:1.55;color:var(--fg)">"Калькулятор смет — огонь. Показываю клиенту КП прямо на встрече, он сразу видит позиции и может что-то убрать. Конверсия в оплату выросла заметно."</p>
-                <div style="display:flex;align-items:center;gap:8px">
-                  <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#10b981,#0ea5e9);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">М</div>
-                  <div><div style="font-size:12px;font-weight:700">Мария Д.</div><div class="u-meta">Продюсер, продакшн-агентство</div></div>
-                </div>
-              </div>
-            </div>
           </div>
         `;
 
@@ -6712,9 +6763,14 @@
           flushActiveProjectToSaved();
           const ind2 = document.getElementById("autoSaveIndicator");
           if (ind2) {
-            ind2.textContent = "Сохранено";
-            ind2.className = "autosave-indicator show";
-            setTimeout(() => { ind2.classList.remove("show"); }, 2000);
+            if (_cloudDirty) {
+              // локально сохранено, но облако отстаёт — не врать «Сохранено»
+              _setCloudSaveIndicator(false);
+            } else {
+              ind2.textContent = "Сохранено";
+              ind2.className = "autosave-indicator show";
+              setTimeout(() => { ind2.classList.remove("show"); }, 2000);
+            }
           }
         }, 2000);
       }
@@ -15046,6 +15102,7 @@ Email: ______________________            Email: ______________________
       window.addEventListener('online', () => {
         const b = document.getElementById('offlineBanner');
         if (b) b.style.display = 'none';
+        if (_cloudDirty) saveToCloud(); // ретрай несохранённого облачного стейта после реконнекта
       });
 
       // Принудительное localStorage-сохранение перед закрытием вкладки

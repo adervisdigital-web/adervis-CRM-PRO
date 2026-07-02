@@ -3195,6 +3195,7 @@
     [data-theme="light"] .autosave-indicator { color: #15803d; }
     .autosave-indicator.show { opacity: 1; }
     .autosave-indicator.saving { color: var(--muted); opacity: 1; }
+    .autosave-indicator.cloud-error { color: var(--red); opacity: 1; }
 
     /* ── DEAL STAGE PROGRESS ─────────────────────── */
     .deal-stage-progress {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "adervis-crm-v18";
+const CACHE_NAME = "adervis-crm-v19";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
