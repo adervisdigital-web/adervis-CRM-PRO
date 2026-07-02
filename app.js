@@ -3419,7 +3419,7 @@
                   <code id="refLinkCode" style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0;color:var(--text2)">${refUrl}</code>
                   <button class="btn small primary" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('refLinkCode').textContent.trim()).then(()=>app._toast('✅ Реферальная ссылка скопирована!'))">📋 Копировать</button>
                 </div>
-                <div id="refStats" class="u-meta">Загрузка статистики...</div>
+                <div id="refStats" class="u-meta" aria-busy="true"><div class="skeleton" style="height:14px;width:240px"></div></div>
               </div>`;
             })() : ''}
 
@@ -8588,11 +8588,18 @@
         if (!_briefsLoaded) {
           _loadBriefs();
           return `
-            <div class="panel">
-              <div style="text-align:center;padding:48px 24px;color:var(--muted)">
-                <div style="font-size:32px;margin-bottom:12px">⏳</div>
-                <p>Загружаем заявки...</p>
+            <div aria-busy="true">
+              <div class="panel" style="margin-bottom:14px">
+                <div class="skeleton" style="height:22px;width:38%;margin-bottom:10px"></div>
+                <div class="skeleton" style="height:14px;width:60%;margin-bottom:16px"></div>
+                <div class="skeleton" style="height:44px"></div>
               </div>
+              ${[0, 1, 2].map(() => `
+                <div class="panel" style="margin-bottom:10px">
+                  <div class="skeleton" style="height:16px;width:45%;margin-bottom:10px"></div>
+                  <div class="skeleton" style="height:12px;width:70%;margin-bottom:8px"></div>
+                  <div class="skeleton" style="height:12px;width:30%"></div>
+                </div>`).join("")}
             </div>`;
         }
         const link = getBriefLink();
@@ -11372,7 +11379,7 @@
 
             ${state.project.portalId ? `
             <div id="portalAdvanceStatus" class="no-print client-hidden" style="margin-bottom:14px">
-              <div style="font-size:12px;color:var(--muted);padding:8px 0">⏳ Загрузка статуса аванса...</div>
+              <div style="padding:8px 0" aria-busy="true"><div class="skeleton" style="height:14px;width:200px"></div></div>
             </div>
             ${(() => { setTimeout(_loadPortalAdvanceStatus, 0); return ''; })()}
             ` : ''}
