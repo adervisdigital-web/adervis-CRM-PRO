@@ -7666,8 +7666,26 @@
         event.target.value = "";
       }
 
-      function exportCatalogXlsx() {
-        if (!window.XLSX) { toast("Библиотека XLSX не загрузилась"); return; }
+      // Ленивая подгрузка xlsx (~880 КБ) — нужна ~1% сессий (экспорт/импорт Excel),
+      // не грузим её в критический путь всем посетителям. Пиннинг + SRI как у остальных CDN.
+      let _xlsxPromise = null;
+      function _ensureXLSX() {
+        if (window.XLSX) return Promise.resolve(true);
+        if (_xlsxPromise) return _xlsxPromise;
+        _xlsxPromise = new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+          s.integrity = "sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw";
+          s.crossOrigin = "anonymous";
+          s.onload = () => resolve(true);
+          s.onerror = () => { _xlsxPromise = null; reject(new Error("xlsx load failed")); };
+          document.head.appendChild(s);
+        });
+        return _xlsxPromise;
+      }
+
+      async function exportCatalogXlsx() {
+        try { await _ensureXLSX(); } catch(e) { toast("⚠️ Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
         const ids = selectedIds();
         if (!ids.length) { toast("В смете пока нет отмеченных позиций"); return; }
 
@@ -7698,10 +7716,10 @@
         toast(`Экспортировано ${rows.length - 1} позиций`);
       }
 
-      function importCatalogXlsx(event) {
+      async function importCatalogXlsx(event) {
         const file = event.target.files && event.target.files[0];
         if (!file) return;
-        if (!window.XLSX) { toast("Библиотека XLSX не загрузилась"); event.target.value = ""; return; }
+        try { await _ensureXLSX(); } catch(e) { toast("⚠️ Не удалось загрузить библиотеку Excel — проверьте соединение"); event.target.value = ""; return; }
 
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -7752,11 +7770,8 @@
           .slice(0, 80) || "project";
       }
 
-      function exportXlsx() {
-        if (!window.XLSX) {
-          toast("Библиотека XLSX не загрузилась");
-          return;
-        }
+      async function exportXlsx() {
+        try { await _ensureXLSX(); } catch(e) { toast("⚠️ Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
 
         const ids = selectedIds();
         const t = totals();
@@ -7892,8 +7907,8 @@
         toast("Файл сохранён");
       }
 
-      function exportMonthlyReport(yearMonth) {
-        if (!window.XLSX) { toast("Библиотека XLSX не загрузилась"); return; }
+      async function exportMonthlyReport(yearMonth) {
+        try { await _ensureXLSX(); } catch(e) { toast("⚠️ Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
         const [year, month] = yearMonth ? yearMonth.split("-").map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
         const monthStr = `${year}-${String(month).padStart(2, "0")}`;
         const ML = ["","Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
@@ -7930,8 +7945,8 @@
         toast(`Отчёт за ${ML[month]} ${year} сохранён`);
       }
 
-      function exportClientsXlsx() {
-        if (!window.XLSX) { toast("Библиотека XLSX не загрузилась"); return; }
+      async function exportClientsXlsx() {
+        try { await _ensureXLSX(); } catch(e) { toast("⚠️ Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
         const clients = state.clients || [];
         if (!clients.length) { toast("Нет клиентов для экспорта"); return; }
         const rows = clients.map(c => {
