@@ -92,9 +92,20 @@
 ---
 
 ## ⚠️ Технический долг (не критично)
-- Race condition в Telegram-сессиях (read-modify-write без транзакции) — редкий случай
-- EF используют `deno.land/std@0.177.0` — старая версия, не критично
-- `SUPER_ADMIN_EMAIL` хардкод в client JS — информационная утечка, low risk
+- [x] Race condition в Telegram-сессиях/сделках/транзакциях (read-modify-write без
+  транзакции) — исправлено 03.07.2026: 4 RPC-функции (`bot_session_set/clear`,
+  `bot_add_deal`, `bot_add_transaction`, `bot_update_deal_status`) делают
+  `SELECT ... FOR UPDATE` + мутацию + `UPDATE` одним атомарным вызовом в Postgres
+  вместо select+upsert из Edge Function. Затрагивало не только сессии бота, а весь
+  `state_json` blob — параллельный запрос (второе сообщение в Telegram или
+  сохранение из веб-CRM) мог затереть чужие изменения. Migration
+  `20260703000001_telegram_state_race_fix.sql`, задеплоено.
+- ~~EF используют `deno.land/std@0.177.0`~~ — неактуально, все функции уже на
+  `Deno.serve()` + `esm.sh/@supabase/supabase-js@2`, без deno.land/std импортов
+  (проверено 03.07.2026, было исправлено раньше без записи в этот файл)
+- ~~`SUPER_ADMIN_EMAIL` хардкод в client JS~~ — неактуально, email уже base64
+  (`atob(...)`) в `_isSuperAdmin()`, реальная проверка прав всегда на сервере
+  (`_is_super_admin()` в Postgres); проверено 03.07.2026
 
 ---
 

@@ -165,61 +165,37 @@ Deno.serve(async (req) => {
     return s || null;
   }
 
+  // Все 4 функции ниже пишут через RPC (atomic SELECT...FOR UPDATE внутри Postgres),
+  // а не через select+upsert из Deno — иначе параллельный запрос (второе сообщение
+  // в Telegram или сохранение из веб-CRM того же agency_state) мог затереть чужие
+  // изменения между чтением и записью (lost update). См. migration
+  // 20260703000001_telegram_state_race_fix.sql
   async function writeSession(agencyId: string, session: any | null): Promise<void> {
-    const { data } = await supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
-    const st: any = { ...(data?.state_json || {}) };
-    if (!st._botSessions) st._botSessions = {};
-    if (session === null) delete st._botSessions[String(chatId)];
-    else st._botSessions[String(chatId)] = { ...session, ts: Date.now() };
-    await supabase.from("agency_state").upsert({ id: agencyId, state_json: st, updated_at: new Date().toISOString() });
+    if (session === null) {
+      await supabase.rpc("bot_session_clear", { p_agency_id: agencyId, p_chat_id: String(chatId) });
+    } else {
+      await supabase.rpc("bot_session_set", {
+        p_agency_id: agencyId, p_chat_id: String(chatId), p_session: { ...session, ts: Date.now() },
+      });
+    }
   }
 
   // ── State writers ───────────────────────────────────────────────────────────
 
   async function addDeal(agencyId: string, deal: any): Promise<void> {
-    const { data } = await supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
-    const st: any = { ...(data?.state_json || {}) };
-    if (!st._botSessions) st._botSessions = {};
-    delete st._botSessions[String(chatId)];
-    st.savedProjects = [deal, ...(st.savedProjects || [])];
-    await supabase.from("agency_state").upsert({ id: agencyId, state_json: st, updated_at: new Date().toISOString() });
+    await supabase.rpc("bot_add_deal", { p_agency_id: agencyId, p_chat_id: String(chatId), p_deal: deal });
   }
 
   async function addTransaction(agencyId: string, txType: "income" | "expense", tx: any, projectId: string | null): Promise<void> {
-    const { data } = await supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
-    const st: any = { ...(data?.state_json || {}) };
-    if (!st._botSessions) st._botSessions = {};
-    delete st._botSessions[String(chatId)];
-
-    if (projectId) {
-      const proj = (st.savedProjects || []).find((p: any) => p.id === projectId);
-      if (proj) {
-        if (!proj.snapshot) proj.snapshot = {};
-        if (txType === "income") {
-          proj.snapshot.payments = [tx, ...(proj.snapshot.payments || [])];
-          proj.paid = (proj.paid || 0) + tx.amount;
-        } else {
-          proj.snapshot.expenses = [tx, ...(proj.snapshot.expenses || [])];
-          proj.expensesTotal = (proj.expensesTotal || 0) + tx.amount;
-        }
-        proj.updatedAt = new Date().toISOString();
-      }
-    } else {
-      if (txType === "income") st.payments = [tx, ...(st.payments || [])];
-      else st.expenses = [tx, ...(st.expenses || [])];
-    }
-
-    await supabase.from("agency_state").upsert({ id: agencyId, state_json: st, updated_at: new Date().toISOString() });
+    await supabase.rpc("bot_add_transaction", {
+      p_agency_id: agencyId, p_chat_id: String(chatId), p_tx_type: txType, p_tx: tx, p_project_id: projectId,
+    });
   }
 
   async function updateDealStatus(agencyId: string, dealId: string, newStatus: string): Promise<void> {
-    const { data } = await supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
-    const st: any = { ...(data?.state_json || {}) };
-    if (!st._botSessions) st._botSessions = {};
-    delete st._botSessions[String(chatId)];
-    const proj = (st.savedProjects || []).find((p: any) => p.id === dealId);
-    if (proj) { proj.crmStatus = newStatus; proj.updatedAt = new Date().toISOString(); }
-    await supabase.from("agency_state").upsert({ id: agencyId, state_json: st, updated_at: new Date().toISOString() });
+    await supabase.rpc("bot_update_deal_status", {
+      p_agency_id: agencyId, p_chat_id: String(chatId), p_deal_id: dealId, p_new_status: newStatus,
+    });
   }
 
   async function startChangeStatusFlow(agencyId: string, projs: any[]) {
