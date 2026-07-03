@@ -3785,6 +3785,34 @@
         }
       }
 
+      // Для настоящей карточки задачи (renderTaskCard, мини-канбан внутри сделки) —
+      // в отличие от syncTaskModalToGoogle(), тут нет черновика: task уже часть
+      // state.tasks с автосохранением полей, коммитить нечего.
+      async function syncTaskToGoogle(taskId) {
+        const task = (state.tasks || []).find(t => t.id === taskId);
+        if (!task) return;
+        if (!_googleCalStatus || !_googleCalStatus.connected) { toast("Сначала подключите Google Calendar в Настройках"); return; }
+        if (!task.deadline) { toast("Сначала укажите дедлайн задачи"); return; }
+        const btn = document.getElementById(`taskSyncGoogleBtn_${taskId}`);
+        if (btn) { btn.disabled = true; btn.textContent = "⏳ Синхронизация..."; }
+        try {
+          const { url } = getSupabaseConfig();
+          const resp = await fetch(`${url}/functions/v1/google-calendar-sync-task`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
+            body: JSON.stringify({ action: "upsert", task: { id: task.id, title: task.title, deadline: task.deadline, googleEventId: task.googleEventId } }),
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.error || "Ошибка синхронизации");
+          if (data.needsReconnect) { _googleCalStatus = { connected: false }; throw new Error("Доступ к Google Calendar истёк — переподключите в Настройках"); }
+          updateTask(task.id, "googleEventId", data.googleEventId);
+          toast("📅 Задача синхронизирована с Google Calendar");
+        } catch (e) {
+          render();
+          toast("Ошибка: " + e.message);
+        }
+      }
+
       async function forceSaveToCloud() {
         if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
         const agencyId = getAgencyId();
@@ -11082,6 +11110,7 @@
                   ${field("Дедлайн", `<input type="date" data-autosave data-scope="task" data-id="${task.id}" data-key="deadline" value="${escapeHtml(task.deadline)}">`)}
                 </div>
                 ${field("Комментарий", `<textarea data-autosave data-scope="task" data-id="${task.id}" data-key="note" style="min-height:60px">${escapeHtml(task.note)}</textarea>`)}
+                ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn_${task.id}" class="btn small" onclick="app.syncTaskToGoogle('${task.id}')">${task.googleEventId ? "🔄 Обновить в Google Calendar" : "📅 В Google Calendar"}</button>` : ""}
               </div>
             </details>
           </article>
@@ -15482,6 +15511,7 @@ Email: ______________________            Email: ______________________
         connectGoogleCalendar,
         disconnectGoogleCalendar,
         syncTaskModalToGoogle,
+        syncTaskToGoogle,
 
         oauthSignIn,
 
