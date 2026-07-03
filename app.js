@@ -3813,6 +3813,37 @@
         }
       }
 
+      // Дедлайн сделки (state.project.deadline) — отдельная сущность от задач,
+      // своя привязка к Google-событию через state.project.googleEventId, дублируется
+      // в соответствующую запись state.savedProjects для сохранения между сессиями.
+      async function syncProjectDeadlineToGoogle() {
+        if (!state.activeProjectId) { toast("Сначала сохраните сделку"); return; }
+        if (!_googleCalStatus || !_googleCalStatus.connected) { toast("Сначала подключите Google Calendar в Настройках"); return; }
+        if (!state.project.deadline) { toast("Сначала укажите дедлайн"); return; }
+        const btn = document.getElementById("projectSyncGoogleBtn");
+        if (btn) { btn.disabled = true; btn.textContent = "⏳ Синхронизация..."; }
+        try {
+          const { url } = getSupabaseConfig();
+          const resp = await fetch(`${url}/functions/v1/google-calendar-sync-task`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
+            body: JSON.stringify({ action: "upsert", task: { id: state.activeProjectId, title: `Дедлайн: ${state.project.name}`, deadline: state.project.deadline, googleEventId: state.project.googleEventId } }),
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.error || "Ошибка синхронизации");
+          if (data.needsReconnect) { _googleCalStatus = { connected: false }; throw new Error("Доступ к Google Calendar истёк — переподключите в Настройках"); }
+          state.project.googleEventId = data.googleEventId;
+          const saved = state.savedProjects.find(p => p.id === state.activeProjectId);
+          if (saved) saved.googleEventId = data.googleEventId;
+          save();
+          toast("📅 Дедлайн синхронизирован с Google Calendar");
+          render();
+        } catch (e) {
+          render();
+          toast("Ошибка: " + e.message);
+        }
+      }
+
       async function forceSaveToCloud() {
         if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
         const agencyId = getAgencyId();
@@ -4755,6 +4786,7 @@
           manager: project?.manager || "",
           tags: Array.isArray(project?.tags) ? project.tags : [],
           activity: Array.isArray(project?.activity) ? project.activity : [],
+          googleEventId: project?.googleEventId || "",
           snapshot
         };
       }
@@ -8392,6 +8424,12 @@
             ${field("Дедлайн", `<input type="date" data-autosave data-scope="project" data-key="deadline" value="${escapeHtml(state.project.deadline)}">`)}
             ${field("Менеджер", `<input data-autosave data-scope="project" data-key="manager" value="${escapeHtml(state.project.manager)}">`)}
           </div>
+
+          ${_googleCalStatus && _googleCalStatus.connected && state.activeProjectId && state.project.deadline ? `
+            <div style="margin-top:10px">
+              <button id="projectSyncGoogleBtn" class="btn small" onclick="app.syncProjectDeadlineToGoogle()">${state.project.googleEventId ? "🔄 Обновить дедлайн в Google Calendar" : "📅 Дедлайн в Google Calendar"}</button>
+            </div>
+          ` : ""}
 
           <div class="grid two" style="margin-top:14px">
             ${field("Скидка, %", `<input type="number" min="0" max="100" data-autosave data-scope="project" data-key="discount" value="${escapeHtml(state.project.discount)}">`)}
@@ -15512,6 +15550,7 @@ Email: ______________________            Email: ______________________
         disconnectGoogleCalendar,
         syncTaskModalToGoogle,
         syncTaskToGoogle,
+        syncProjectDeadlineToGoogle,
 
         oauthSignIn,
 
