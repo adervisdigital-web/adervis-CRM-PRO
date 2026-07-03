@@ -3737,6 +3737,8 @@
             toast("⚠️ Доступ к Google Calendar истёк — подключите заново в Настройках");
           } else if (Array.isArray(data.events)) {
             _googleCalEvents = data.events;
+          } else if (data.error) {
+            console.error("loadGoogleCalendarEvents:", data);
           }
           _googleCalEventsLoadedAt = Date.now();
           render();
