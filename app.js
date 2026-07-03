@@ -5782,7 +5782,14 @@
         if (wasActive) state.activeProjectId = "";
         save();
         render();
+        // Как в deleteTask() — Google-событие удаляем только после окна отмены (5с),
+        // иначе Undo восстановит проект со ссылкой на уже удалённое в Google событие.
+        let googleDeleteTimer = null;
+        if (removed.googleEventId && _googleCalStatus && _googleCalStatus.connected) {
+          googleDeleteTimer = setTimeout(() => _deleteGoogleCalendarEvent(removed), 5100);
+        }
         toastUndo("Проект удалён", () => {
+          if (googleDeleteTimer) clearTimeout(googleDeleteTimer);
           state.savedProjects.splice(idx, 0, removed);
           if (wasActive) state.activeProjectId = id;
           save();
@@ -6260,6 +6267,14 @@
 
       function updateProject(key, value) {
         const numericKeys = ["days", "discount"];
+        // Дедлайн сделки стёрли вручную — как и для задач, убираем висящее
+        // событие в Google вместо того чтобы оставлять устаревшую запись.
+        if (key === "deadline" && !value && state.project.googleEventId) {
+          _deleteGoogleCalendarEvent({ id: state.activeProjectId, googleEventId: state.project.googleEventId });
+          state.project.googleEventId = "";
+          const saved = state.savedProjects.find(p => p.id === state.activeProjectId);
+          if (saved) saved.googleEventId = "";
+        }
         state.project[key] = numericKeys.includes(key) ? numberValue(value, 0) : value;
         if (key === "client") state.project.clientId = "";
         save();
@@ -6664,6 +6679,12 @@
       function updateTask(id, key, value) {
         const task = state.tasks.find(x => x.id === id);
         if (!task) return;
+        // Дедлайн стёрли вручную — синхронизированное событие в Google больше
+        // не соответствует задаче, убираем его вместо того чтобы оставлять висеть.
+        if (key === "deadline" && !value && task.googleEventId) {
+          _deleteGoogleCalendarEvent(task);
+          task.googleEventId = "";
+        }
         task[key] = value;
         task.updatedAt = new Date().toISOString();
         save();
