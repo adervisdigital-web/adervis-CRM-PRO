@@ -3666,6 +3666,11 @@
           _googleCalStatus = { connected: false };
         }
         render();
+        // Приложение может открыться сразу на календаре (state.view восстановлен из
+        // прошлой сессии) — тогда go('global-calendar') не сработает, подгружаем сами.
+        if (_googleCalStatus.connected && (state.view === "calendar" || state.view === "global-calendar")) {
+          loadGoogleCalendarEvents();
+        }
       }
 
       async function connectGoogleCalendar() {
@@ -6880,7 +6885,7 @@
         state.view = view;
         save();
         render();
-        if (view === "calendar") loadGoogleCalendarEvents();
+        if (view === "calendar" || view === "global-calendar") loadGoogleCalendarEvents();
       }
 
       function setTab(tab) {
@@ -12304,6 +12309,7 @@
           state.payments.filter(p => p.date).forEach(p => events.push({ date: p.date, title: p.title, type: "payment", project: state.project.name, projectId: state.activeProjectId, amount: p.amount }));
           state.expenses.filter(e => e.date).forEach(e => events.push({ date: e.date, title: e.title, type: "expense", project: state.project.name, projectId: state.activeProjectId, amount: e.amount }));
         }
+        (_googleCalEvents || []).forEach(ev => events.push({ date: ev.date, title: ev.title, type: "google", project: "Google Calendar", projectId: "", htmlLink: ev.htmlLink }));
 
         /* Индекс событий по дате */
         const eventsByDay = {};
@@ -12340,8 +12346,8 @@
         /* События выбранного дня */
         const selEvents = selDay ? (eventsByDay[selDay] || []) : [];
 
-        const typeLabel = { deadline: "Дедлайн", task: "Задача", payment: "Платёж", expense: "Расход" };
-        const typeColor = { deadline: "var(--red)", task: "var(--blue)", payment: "var(--green)", expense: "var(--orange)" };
+        const typeLabel = { deadline: "Дедлайн", task: "Задача", payment: "Платёж", expense: "Расход", google: "Google" };
+        const typeColor = { deadline: "var(--red)", task: "var(--blue)", payment: "var(--green)", expense: "var(--orange)", google: "var(--primary)" };
 
         setTimeout(() => {
           const scroller = document.getElementById("calMonthsScroll");
@@ -12415,6 +12421,7 @@
               <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--blue)"></div>Задача</div>
               <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--green)"></div>Поступление</div>
               <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--orange)"></div>Расход</div>
+              ${(_googleCalEvents || []).length ? `<div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--primary)"></div>Google Calendar</div>` : ""}
               <div class="cal-legend-item" style="margin-left:auto;font-size:12px;color:var(--muted)">Всего событий: ${events.length}</div>
             </div>
 
@@ -12426,14 +12433,14 @@
                   <button class="btn small" onclick="app.calSelectDay('')">×</button>
                 </div>
                 ${selEvents.length ? selEvents.map(ev => `
-                  <div class="cal-day-event-row" style="cursor:${ev.projectId ? "pointer" : "default"}"
-                    onclick="${ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : ""}">
+                  <div class="cal-day-event-row" style="cursor:${ev.projectId || ev.htmlLink ? "pointer" : "default"}"
+                    onclick="${ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : ev.htmlLink ? `window.open('${escapeHtml(ev.htmlLink)}','_blank')` : ""}">
                     <div class="cal-day-event-type" style="background:${typeColor[ev.type]}"></div>
                     <div class="cal-day-event-info">
                       <h4>${escapeHtml(ev.title)}</h4>
                       <p>${escapeHtml(ev.project || "")}${ev.amount ? ` · ${money(ev.amount)}` : ""} · <span style="color:${typeColor[ev.type]};font-weight:750">${typeLabel[ev.type] || ""}</span></p>
                     </div>
-                    ${ev.projectId ? `<span class="u-meta">→</span>` : ""}
+                    ${ev.projectId || ev.htmlLink ? `<span class="u-meta">→</span>` : ""}
                   </div>
                 `).join("") : `<div class="empty" style="padding:12px">Событий нет</div>`}
               </div>
@@ -12447,6 +12454,7 @@
                 { id: "task", label: "Задачи" },
                 { id: "payment", label: "Платежи" },
                 { id: "expense", label: "Расходы" },
+                ...((_googleCalEvents || []).length ? [{ id: "google", label: "Google" }] : []),
               ];
               const listEvents = (calAllMode ? [...events] : events.filter(ev => ev.date && ev.date.startsWith(`${yr}-${padZ(mo)}`)))
                 .filter(ev => calTypeFilter === "all" || ev.type === calTypeFilter)
@@ -12469,7 +12477,7 @@
                     const isPast = ev.date < today;
                     return `
                     <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid ${isToday ? "rgba(124,58,237,.4)" : "var(--line)"};cursor:${ev.projectId ? "pointer" : "default"};transition:.12s"
-                      onclick="${ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : `app.calSelectDay('${ev.date}')`}">
+                      onclick="${ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : ev.htmlLink ? `window.open('${escapeHtml(ev.htmlLink)}','_blank')` : `app.calSelectDay('${ev.date}')`}">
                       <div style="width:8px;height:8px;border-radius:50%;background:${typeColor[ev.type]};flex:0 0 8px"></div>
                       <div class="u-flex1-min0">
                         <div style="font-size:13px;font-weight:750;${isPast&&!isToday?"opacity:.6":""}overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(ev.title)}</div>

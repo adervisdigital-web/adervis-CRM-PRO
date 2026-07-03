@@ -3115,6 +3115,7 @@
     .cal-dot-item.task { background: var(--blue); }
     .cal-dot-item.payment { background: var(--green); }
     .cal-dot-item.expense { background: var(--orange); }
+    .cal-dot-item.google { background: var(--primary); }
     .cal-event-label {
       display: block; font-size: 12px; font-weight: 600;
       padding: 2px 4px; border-radius: 4px; margin-top: 2px;
@@ -3124,10 +3125,12 @@
     .cal-event-label.task { background: rgba(37,99,235,.18); color: var(--text-info); }
     .cal-event-label.payment { background: rgba(22,163,74,.18); color: var(--text-success); }
     .cal-event-label.expense { background: rgba(234,88,12,.18); color: var(--text-warning); }
+    .cal-event-label.google { background: rgba(124,58,237,.18); color: var(--primary2); }
     [data-theme="light"] .cal-event-label.deadline { color: var(--text-danger); }
     [data-theme="light"] .cal-event-label.task { color: var(--text-info); }
     [data-theme="light"] .cal-event-label.payment { color: var(--text-success); }
     [data-theme="light"] .cal-event-label.expense { color: var(--text-warning); }
+    [data-theme="light"] .cal-event-label.google { color: var(--primary2); }
     .cal-legend {
       display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;
       padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px;
