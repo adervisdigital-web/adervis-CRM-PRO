@@ -726,6 +726,9 @@
       let _loginFailCount = 0;
       let _loginLockUntil = 0;
       let _needsNormalize = true; // true after any state mutation; normalizeState() runs in render() only when set
+      let _googleCalStatus = null; // null=ещё не проверяли | {connected:false} | {connected:true,email}
+      let _googleCalEvents = [];   // кэш событий личного Google Calendar для renderCalendar
+      let _googleCalEventsLoadedAt = 0;
       let _briefAgencyId = (new URLSearchParams(location.search).get('brief') || '').trim();
       let _portalId = (new URLSearchParams(location.search).get('portal') || '').trim();
       if (_portalId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(_portalId)) _portalId = '';
@@ -862,6 +865,8 @@
         renderAdminTopbar();
         render();
         checkPaymentReturn();
+        checkGoogleCalendarReturn();
+        _loadGoogleCalendarStatus();
       }
 
       async function _loadUserProfile(userId, email) {
@@ -3644,6 +3649,135 @@
         }, 2500);
       }
 
+      /* ═══════════════════════════════════════════════════════
+         GOOGLE CALENDAR — личное подключение (двусторонняя синхронизация)
+      ═══════════════════════════════════════════════════════ */
+      async function _loadGoogleCalendarStatus() {
+        if (!_supabase || !_adminSession) { _googleCalStatus = null; return; }
+        try {
+          const { data, error } = await _supabase
+            .from("google_calendar_connections")
+            .select("google_email,connected_at")
+            .eq("user_id", _adminSession.user.id)
+            .maybeSingle();
+          if (error) throw error;
+          _googleCalStatus = data ? { connected: true, email: data.google_email || "" } : { connected: false };
+        } catch (e) {
+          _googleCalStatus = { connected: false };
+        }
+        render();
+      }
+
+      async function connectGoogleCalendar() {
+        if (!_adminSession) { toast("Войдите в аккаунт"); return; }
+        const btn = document.getElementById("googleCalConnectBtn");
+        if (btn) { btn.disabled = true; btn.textContent = "⏳ Подключение..."; }
+        try {
+          const { url } = getSupabaseConfig();
+          const resp = await fetch(`${url}/functions/v1/google-calendar-connect`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
+          });
+          const data = await resp.json();
+          if (!resp.ok || !data.authUrl) throw new Error(data.error || "Не удалось подключить Google Calendar");
+          location.href = data.authUrl;
+        } catch (e) {
+          toast("Ошибка: " + e.message);
+          if (btn) { btn.disabled = false; btn.textContent = "🔗 Подключить Google Calendar"; }
+        }
+      }
+
+      async function disconnectGoogleCalendar() {
+        if (!_adminSession) return;
+        try {
+          const { error } = await _supabase.from("google_calendar_connections").delete().eq("user_id", _adminSession.user.id);
+          if (error) throw error;
+          _googleCalStatus = { connected: false };
+          _googleCalEvents = [];
+          toast("Google Calendar отключён");
+          render();
+        } catch (e) {
+          toast("Ошибка отключения: " + e.message);
+        }
+      }
+
+      function checkGoogleCalendarReturn() {
+        const params = new URLSearchParams(window.location.search);
+        const connected = params.get("google_connected");
+        const err = params.get("google_calendar_error");
+        if (!connected && !err) return;
+        history.replaceState({}, "", window.location.pathname);
+        if (connected) {
+          toast("✅ Google Calendar подключён");
+          _loadGoogleCalendarStatus();
+        } else {
+          toast("⚠️ Не удалось подключить Google Calendar (" + err + ")");
+        }
+      }
+
+      // Кэш на минуту — renderCalendar() может вызываться очень часто (любой render()),
+      // сам fetch запускается только из go('calendar') и после подключения/отключения.
+      async function loadGoogleCalendarEvents(force) {
+        if (!_adminSession || !_googleCalStatus || !_googleCalStatus.connected) return;
+        if (!force && Date.now() - _googleCalEventsLoadedAt < 60000) return;
+        try {
+          const { url } = getSupabaseConfig();
+          const resp = await fetch(`${url}/functions/v1/google-calendar-events`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
+          });
+          const data = await resp.json();
+          if (data.needsReconnect) {
+            _googleCalStatus = { connected: false };
+            toast("⚠️ Доступ к Google Calendar истёк — подключите заново в Настройках");
+          } else if (Array.isArray(data.events)) {
+            _googleCalEvents = data.events;
+          }
+          _googleCalEventsLoadedAt = Date.now();
+          render();
+        } catch (e) { /* Google Calendar недоступен — CRM-календарь работает и без него */ }
+      }
+
+      async function _deleteGoogleCalendarEvent(task) {
+        if (!_adminSession || !task.googleEventId) return;
+        try {
+          const { url } = getSupabaseConfig();
+          await fetch(`${url}/functions/v1/google-calendar-sync-task`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
+            body: JSON.stringify({ action: "delete", task: { id: task.id, googleEventId: task.googleEventId } }),
+          });
+        } catch (e) { /* не критично */ }
+      }
+
+      async function syncTaskModalToGoogle() {
+        const m = state.taskModal;
+        if (!m) return;
+        if (!_googleCalStatus || !_googleCalStatus.connected) { toast("Сначала подключите Google Calendar в Настройках"); return; }
+        if (!m.deadline) { toast("Сначала укажите дедлайн задачи"); return; }
+        const persisted = _commitTaskModal();
+        if (!persisted) return;
+        const btn = document.getElementById("taskSyncGoogleBtn");
+        if (btn) { btn.disabled = true; btn.textContent = "⏳ Синхронизация..."; }
+        try {
+          const { url } = getSupabaseConfig();
+          const resp = await fetch(`${url}/functions/v1/google-calendar-sync-task`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
+            body: JSON.stringify({ action: "upsert", task: { id: persisted.id, title: persisted.title, deadline: persisted.deadline, googleEventId: persisted.googleEventId } }),
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.error || "Ошибка синхронизации");
+          if (data.needsReconnect) { _googleCalStatus = { connected: false }; throw new Error("Доступ к Google Calendar истёк — переподключите в Настройках"); }
+          state.taskModal = null;
+          updateTask(persisted.id, "googleEventId", data.googleEventId);
+          toast("📅 Задача синхронизирована с Google Calendar");
+        } catch (e) {
+          save(); render();
+          toast("Ошибка: " + e.message);
+        }
+      }
+
       async function forceSaveToCloud() {
         if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
         const agencyId = getAgencyId();
@@ -4483,6 +4617,7 @@
           deadline: task?.deadline || "",
           note: task?.note || "",
           comments: Array.isArray(task?.comments) ? task.comments : [],
+          googleEventId: task?.googleEventId || "",
           createdAt: task?.createdAt || new Date().toISOString(),
           updatedAt: task?.updatedAt || new Date().toISOString()
         };
@@ -6475,7 +6610,14 @@
         state.tasks = state.tasks.filter(x => x.id !== id);
         save();
         render();
+        // Google-событие удаляем только после истечения окна отмены (toastUndo — 5с),
+        // иначе Undo восстановит задачу со ссылкой на уже удалённое в Google событие.
+        let googleDeleteTimer = null;
+        if (removed.googleEventId && _googleCalStatus && _googleCalStatus.connected) {
+          googleDeleteTimer = setTimeout(() => _deleteGoogleCalendarEvent(removed), 5100);
+        }
         toastUndo("Задача удалена", () => {
+          if (googleDeleteTimer) clearTimeout(googleDeleteTimer);
           state.tasks.splice(idx, 0, removed);
           save(); render();
           toast("Удаление отменено");
@@ -6738,6 +6880,7 @@
         state.view = view;
         save();
         render();
+        if (view === "calendar") loadGoogleCalendarEvents();
       }
 
       function setTab(tab) {
@@ -11439,7 +11582,8 @@
           ...(state.project.deadline ? [{ type: "Проект", title: `Дедлайн: ${state.project.name}`, date: state.project.deadline, meta: state.project.client || "", clickable: false }] : []),
           ...state.tasks.filter(x => x.deadline).map(task => ({ type: "Задача", title: task.title, date: task.deadline, meta: `${task.status} · ${task.assignee || "без ответственного"}`, taskId: task.id, clickable: true })),
           ...state.payments.filter(x => x.date).map(payment => ({ type: "Платёж", title: payment.title, date: payment.date, meta: money(payment.amount), clickable: false })),
-          ...state.expenses.filter(x => x.date).map(expense => ({ type: "Расход", title: expense.title, date: expense.date, meta: money(expense.amount), clickable: false }))
+          ...state.expenses.filter(x => x.date).map(expense => ({ type: "Расход", title: expense.title, date: expense.date, meta: money(expense.amount), clickable: false })),
+          ...(_googleCalEvents || []).map(ev => ({ type: "Google", title: ev.title, date: ev.date, meta: "Личный Google Calendar", clickable: false, htmlLink: ev.htmlLink }))
         ].sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
         function calDateClass(date) {
@@ -11464,7 +11608,7 @@
 
             <div class="list">
               ${events.length ? events.map(event => `
-                <article class="calendar-card" ${event.clickable ? `style="cursor:pointer" onclick="app.openTaskModal('${event.taskId}')" title="Открыть задачу"` : ""}>
+                <article class="calendar-card" ${event.clickable ? `style="cursor:pointer" onclick="app.openTaskModal('${event.taskId}')" title="Открыть задачу"` : (event.htmlLink ? `style="cursor:pointer" onclick="window.open('${escapeHtml(event.htmlLink)}','_blank')" title="Открыть в Google Calendar"` : "")}>
                   <div class="line-head">
                     <div>
                       <h3>${escapeHtml(event.title)}</h3>
@@ -13004,6 +13148,26 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               </div>`;
             })()}
 
+            ${_adminSession ? `
+            <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
+              <h2>📆 Google Calendar (личный, двусторонняя синхронизация)</h2>
+              <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+                Подключите свой личный Google-аккаунт: события из него будут видны в календаре CRM,
+                а задачи с дедлайном можно отправлять в него кнопкой в карточке задачи. Подключение
+                приватное — только для вашего логина, коллеги подключают свой аккаунт отдельно.
+              </p>
+              ${_googleCalStatus && _googleCalStatus.connected ? `
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                  <span class="status-pill" style="font-size:12px">✅ Подключено${_googleCalStatus.email ? `: ${escapeHtml(_googleCalStatus.email)}` : ""}</span>
+                  <button class="btn small" onclick="app.disconnectGoogleCalendar()">Отключить</button>
+                </div>
+              ` : `
+                <button id="googleCalConnectBtn" class="btn primary" onclick="app.connectGoogleCalendar()">🔗 Подключить Google Calendar</button>
+                <p class="u-meta" style="margin-top:10px">Приложение пока не прошло верификацию Google — на экране согласия появится
+                  предупреждение «Google не проверил это приложение», это ожидаемо, продолжайте через «Дополнительные настройки».</p>
+              `}
+            </div>` : ""}
+
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2);border-color:rgba(220,38,38,.45)">
               <h2>Опасная зона</h2>
               <p>Сброс удалит все локальные данные приложения в браузере.</p>
@@ -14263,14 +14427,22 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         state.taskModal[key] = value;
         renderModal();
       }
-      function saveTaskModal() {
+      // Переносит черновик state.taskModal в state.tasks (без save()/render()/закрытия
+      // модалки) — общая часть для saveTaskModal() и syncTaskModalToGoogle(), которому
+      // нужно закоммитить свежие поля перед отправкой в Google, не закрывая модалку
+      // если синхронизация упадёт с ошибкой.
+      function _commitTaskModal() {
         const m = state.taskModal;
-        if (!m) return;
+        if (!m) return null;
         const idx = (state.tasks || []).findIndex(t => t.id === m.id);
-        if (idx >= 0) {
-          state.tasks[idx] = normalizeTask({ ...state.tasks[idx], ...m, updatedAt: new Date().toISOString() });
-          toast("Задача обновлена");
-        }
+        if (idx < 0) return null;
+        state.tasks[idx] = normalizeTask({ ...state.tasks[idx], ...m, updatedAt: new Date().toISOString() });
+        return state.tasks[idx];
+      }
+
+      function saveTaskModal() {
+        const persisted = _commitTaskModal();
+        if (persisted) toast("Задача обновлена");
         state.taskModal = null;
         save();
         render();
@@ -14357,6 +14529,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
               <div style="display:flex;justify-content:flex-end;gap:8px">
                 <button class="btn" onclick="app.closeTaskModal()">Отмена</button>
+                ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn" class="btn" onclick="app.syncTaskModalToGoogle()">${m.googleEventId ? "🔄 Обновить в Google Calendar" : "📅 В Google Calendar"}</button>` : ""}
                 <button class="btn primary" onclick="app.saveTaskModal()">Сохранить</button>
               </div>
             </div>
@@ -15295,6 +15468,10 @@ Email: ______________________            Email: ______________________
         createClientPortal,
         subscribeToPush,
         unsubscribeFromPush,
+
+        connectGoogleCalendar,
+        disconnectGoogleCalendar,
+        syncTaskModalToGoogle,
 
         oauthSignIn,
 
