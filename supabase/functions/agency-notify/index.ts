@@ -38,19 +38,15 @@ Deno.serve(async (req) => {
   // portalId/agencyId, а оба встроены в публичные ссылки (КП-портал, бриф-форма),
   // которые агентство само раздаёт клиентам. Без этого лимита кто угодно, зная
   // ссылку, мог дёргать этот эндпоинт бесконечно и заваливать Telegram агентства
-  // фейковыми уведомлениями. Throttle-метка хранится в самом agency_state —
-  // тот же паттерн, что _botSessions в telegram-webhook.
+  // фейковыми уведомлениями. Проверка идёт через RPC с SELECT...FOR UPDATE —
+  // атомарный check-and-set в Postgres, иначе параллельные запросы читали один
+  // и тот же старый timestamp и все проходили throttle разом (TOCTOU). См.
+  // migration 20260703000002_agency_notify_throttle_race_fix.sql
   async function isThrottled(agencyId: string, key: string, windowMs: number): Promise<boolean> {
-    const { data } = await supabase.from("agency_state").select("state_json").eq("id", agencyId).maybeSingle();
-    const st: any = { ...(data?.state_json || {}) };
-    const throttle: any = { ...(st._notifyThrottle || {}) };
-    const last = throttle[key] || 0;
-    const now = Date.now();
-    if (now - last < windowMs) return true;
-    throttle[key] = now;
-    st._notifyThrottle = throttle;
-    await supabase.from("agency_state").upsert({ id: agencyId, state_json: st, updated_at: new Date().toISOString() });
-    return false;
+    const { data } = await supabase.rpc("agency_notify_throttled", {
+      p_agency_id: agencyId, p_key: key, p_window_ms: windowMs,
+    });
+    return !!data;
   }
 
   async function sendToAll(chatIds: string[], text: string): Promise<void> {
