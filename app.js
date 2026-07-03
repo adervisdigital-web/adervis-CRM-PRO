@@ -3745,14 +3745,21 @@
         } catch (e) { /* Google Calendar недоступен — CRM-календарь работает и без него */ }
       }
 
-      async function _deleteGoogleCalendarEvent(task) {
-        if (!_adminSession || !task.googleEventId) return;
+      // googleEventIds — объект { [user_id]: eventId }, т.к. у каждого залогиненного
+      // пользователя свой личный Google Calendar (см. normalizeTask/normalizeSavedProject).
+      function _myGoogleEventId(obj) {
+        return _adminSession ? (obj?.googleEventIds || {})[_adminSession.user.id] || "" : "";
+      }
+
+      async function _deleteGoogleCalendarEvent(entity) {
+        const eventId = _myGoogleEventId(entity);
+        if (!_adminSession || !eventId) return;
         try {
           const { url } = getSupabaseConfig();
           await fetch(`${url}/functions/v1/google-calendar-sync-task`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
-            body: JSON.stringify({ action: "delete", task: { id: task.id, googleEventId: task.googleEventId } }),
+            body: JSON.stringify({ action: "delete", task: { id: entity.id, googleEventId: eventId } }),
           });
         } catch (e) { /* не критично */ }
       }
@@ -3771,13 +3778,13 @@
           const resp = await fetch(`${url}/functions/v1/google-calendar-sync-task`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
-            body: JSON.stringify({ action: "upsert", task: { id: persisted.id, title: persisted.title, deadline: persisted.deadline, googleEventId: persisted.googleEventId } }),
+            body: JSON.stringify({ action: "upsert", task: { id: persisted.id, title: persisted.title, deadline: persisted.deadline, googleEventId: _myGoogleEventId(persisted) } }),
           });
           const data = await resp.json();
           if (!resp.ok) throw new Error(data.error || "Ошибка синхронизации");
           if (data.needsReconnect) { _googleCalStatus = { connected: false }; throw new Error("Доступ к Google Calendar истёк — переподключите в Настройках"); }
           state.taskModal = null;
-          updateTask(persisted.id, "googleEventId", data.googleEventId);
+          updateTask(persisted.id, "googleEventIds", { ...(persisted.googleEventIds || {}), [_adminSession.user.id]: data.googleEventId });
           toast("📅 Задача синхронизирована с Google Calendar");
         } catch (e) {
           save(); render();
@@ -3800,12 +3807,12 @@
           const resp = await fetch(`${url}/functions/v1/google-calendar-sync-task`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
-            body: JSON.stringify({ action: "upsert", task: { id: task.id, title: task.title, deadline: task.deadline, googleEventId: task.googleEventId } }),
+            body: JSON.stringify({ action: "upsert", task: { id: task.id, title: task.title, deadline: task.deadline, googleEventId: _myGoogleEventId(task) } }),
           });
           const data = await resp.json();
           if (!resp.ok) throw new Error(data.error || "Ошибка синхронизации");
           if (data.needsReconnect) { _googleCalStatus = { connected: false }; throw new Error("Доступ к Google Calendar истёк — переподключите в Настройках"); }
-          updateTask(task.id, "googleEventId", data.googleEventId);
+          updateTask(task.id, "googleEventIds", { ...(task.googleEventIds || {}), [_adminSession.user.id]: data.googleEventId });
           toast("📅 Задача синхронизирована с Google Calendar");
         } catch (e) {
           render();
@@ -3814,8 +3821,9 @@
       }
 
       // Дедлайн сделки (state.project.deadline) — отдельная сущность от задач,
-      // своя привязка к Google-событию через state.project.googleEventId, дублируется
-      // в соответствующую запись state.savedProjects для сохранения между сессиями.
+      // своя персональная привязка к Google-событию (googleEventIds, как у задач),
+      // дублируется в соответствующую запись state.savedProjects для сохранения
+      // между сессиями.
       async function syncProjectDeadlineToGoogle() {
         if (!state.activeProjectId) { toast("Сначала сохраните сделку"); return; }
         if (!_googleCalStatus || !_googleCalStatus.connected) { toast("Сначала подключите Google Calendar в Настройках"); return; }
@@ -3827,14 +3835,15 @@
           const resp = await fetch(`${url}/functions/v1/google-calendar-sync-task`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
-            body: JSON.stringify({ action: "upsert", task: { id: state.activeProjectId, title: `Дедлайн: ${state.project.name}`, deadline: state.project.deadline, googleEventId: state.project.googleEventId } }),
+            body: JSON.stringify({ action: "upsert", task: { id: state.activeProjectId, title: `Дедлайн: ${state.project.name}`, deadline: state.project.deadline, googleEventId: _myGoogleEventId(state.project) } }),
           });
           const data = await resp.json();
           if (!resp.ok) throw new Error(data.error || "Ошибка синхронизации");
           if (data.needsReconnect) { _googleCalStatus = { connected: false }; throw new Error("Доступ к Google Calendar истёк — переподключите в Настройках"); }
-          state.project.googleEventId = data.googleEventId;
+          const nextIds = { ...(state.project.googleEventIds || {}), [_adminSession.user.id]: data.googleEventId };
+          state.project.googleEventIds = nextIds;
           const saved = state.savedProjects.find(p => p.id === state.activeProjectId);
-          if (saved) saved.googleEventId = data.googleEventId;
+          if (saved) saved.googleEventIds = nextIds;
           save();
           toast("📅 Дедлайн синхронизирован с Google Calendar");
           render();
@@ -4683,7 +4692,10 @@
           deadline: task?.deadline || "",
           note: task?.note || "",
           comments: Array.isArray(task?.comments) ? task.comments : [],
-          googleEventId: task?.googleEventId || "",
+          // Объект { [user_id]: googleEventId } — не строка: у каждого залогиненного
+          // пользователя свой личный Google Calendar, общее поле привело бы к тому,
+          // что синхронизация одного перезаписывала бы ссылку другого.
+          googleEventIds: (task?.googleEventIds && typeof task.googleEventIds === "object") ? task.googleEventIds : {},
           createdAt: task?.createdAt || new Date().toISOString(),
           updatedAt: task?.updatedAt || new Date().toISOString()
         };
@@ -4786,7 +4798,7 @@
           manager: project?.manager || "",
           tags: Array.isArray(project?.tags) ? project.tags : [],
           activity: Array.isArray(project?.activity) ? project.activity : [],
-          googleEventId: project?.googleEventId || "",
+          googleEventIds: (project?.googleEventIds && typeof project.googleEventIds === "object") ? project.googleEventIds : {},
           snapshot
         };
       }
@@ -5785,7 +5797,7 @@
         // Как в deleteTask() — Google-событие удаляем только после окна отмены (5с),
         // иначе Undo восстановит проект со ссылкой на уже удалённое в Google событие.
         let googleDeleteTimer = null;
-        if (removed.googleEventId && _googleCalStatus && _googleCalStatus.connected) {
+        if (_myGoogleEventId(removed) && _googleCalStatus && _googleCalStatus.connected) {
           googleDeleteTimer = setTimeout(() => _deleteGoogleCalendarEvent(removed), 5100);
         }
         toastUndo("Проект удалён", () => {
@@ -6267,13 +6279,15 @@
 
       function updateProject(key, value) {
         const numericKeys = ["days", "discount"];
-        // Дедлайн сделки стёрли вручную — как и для задач, убираем висящее
-        // событие в Google вместо того чтобы оставлять устаревшую запись.
-        if (key === "deadline" && !value && state.project.googleEventId) {
-          _deleteGoogleCalendarEvent({ id: state.activeProjectId, googleEventId: state.project.googleEventId });
-          state.project.googleEventId = "";
+        // Дедлайн сделки стёрли вручную — как и для задач, убираем повисшее
+        // (моё собственное) событие в Google вместо того чтобы оставлять устаревшую запись.
+        if (key === "deadline" && !value && _myGoogleEventId(state.project)) {
+          _deleteGoogleCalendarEvent({ id: state.activeProjectId, googleEventIds: state.project.googleEventIds });
+          const nextIds = { ...(state.project.googleEventIds || {}) };
+          delete nextIds[_adminSession.user.id];
+          state.project.googleEventIds = nextIds;
           const saved = state.savedProjects.find(p => p.id === state.activeProjectId);
-          if (saved) saved.googleEventId = "";
+          if (saved) saved.googleEventIds = nextIds;
         }
         state.project[key] = numericKeys.includes(key) ? numberValue(value, 0) : value;
         if (key === "client") state.project.clientId = "";
@@ -6679,11 +6693,13 @@
       function updateTask(id, key, value) {
         const task = state.tasks.find(x => x.id === id);
         if (!task) return;
-        // Дедлайн стёрли вручную — синхронизированное событие в Google больше
+        // Дедлайн стёрли вручную — моё синхронизированное событие в Google больше
         // не соответствует задаче, убираем его вместо того чтобы оставлять висеть.
-        if (key === "deadline" && !value && task.googleEventId) {
+        if (key === "deadline" && !value && _myGoogleEventId(task)) {
           _deleteGoogleCalendarEvent(task);
-          task.googleEventId = "";
+          const nextIds = { ...(task.googleEventIds || {}) };
+          delete nextIds[_adminSession.user.id];
+          task.googleEventIds = nextIds;
         }
         task[key] = value;
         task.updatedAt = new Date().toISOString();
@@ -6701,7 +6717,7 @@
         // Google-событие удаляем только после истечения окна отмены (toastUndo — 5с),
         // иначе Undo восстановит задачу со ссылкой на уже удалённое в Google событие.
         let googleDeleteTimer = null;
-        if (removed.googleEventId && _googleCalStatus && _googleCalStatus.connected) {
+        if (_myGoogleEventId(removed) && _googleCalStatus && _googleCalStatus.connected) {
           googleDeleteTimer = setTimeout(() => _deleteGoogleCalendarEvent(removed), 5100);
         }
         toastUndo("Задача удалена", () => {
@@ -8448,7 +8464,7 @@
 
           ${_googleCalStatus && _googleCalStatus.connected && state.activeProjectId && state.project.deadline ? `
             <div style="margin-top:10px">
-              <button id="projectSyncGoogleBtn" class="btn small" onclick="app.syncProjectDeadlineToGoogle()">${state.project.googleEventId ? "🔄 Обновить дедлайн в Google Calendar" : "📅 Дедлайн в Google Calendar"}</button>
+              <button id="projectSyncGoogleBtn" class="btn small" onclick="app.syncProjectDeadlineToGoogle()">${_myGoogleEventId(state.project) ? "🔄 Обновить дедлайн в Google Calendar" : "📅 Дедлайн в Google Calendar"}</button>
             </div>
           ` : ""}
 
@@ -11169,7 +11185,7 @@
                   ${field("Дедлайн", `<input type="date" data-autosave data-scope="task" data-id="${task.id}" data-key="deadline" value="${escapeHtml(task.deadline)}">`)}
                 </div>
                 ${field("Комментарий", `<textarea data-autosave data-scope="task" data-id="${task.id}" data-key="note" style="min-height:60px">${escapeHtml(task.note)}</textarea>`)}
-                ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn_${task.id}" class="btn small" onclick="app.syncTaskToGoogle('${task.id}')">${task.googleEventId ? "🔄 Обновить в Google Calendar" : "📅 В Google Calendar"}</button>` : ""}
+                ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn_${task.id}" class="btn small" onclick="app.syncTaskToGoogle('${task.id}')">${_myGoogleEventId(task) ? "🔄 Обновить в Google Calendar" : "📅 В Google Calendar"}</button>` : ""}
               </div>
             </details>
           </article>
@@ -14627,7 +14643,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
               <div style="display:flex;justify-content:flex-end;gap:8px">
                 <button class="btn" onclick="app.closeTaskModal()">Отмена</button>
-                ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn" class="btn" onclick="app.syncTaskModalToGoogle()">${m.googleEventId ? "🔄 Обновить в Google Calendar" : "📅 В Google Calendar"}</button>` : ""}
+                ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn" class="btn" onclick="app.syncTaskModalToGoogle()">${_myGoogleEventId(m) ? "🔄 Обновить в Google Calendar" : "📅 В Google Calendar"}</button>` : ""}
                 <button class="btn primary" onclick="app.saveTaskModal()">Сохранить</button>
               </div>
             </div>
