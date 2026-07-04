@@ -4406,9 +4406,14 @@ body.portal-mode .nav { display: none !important; }
   .data-table { display: block; overflow-x: auto; }
   .grid.three { grid-template-columns: 1fr 1fr; }
   .grid.four { grid-template-columns: 1fr 1fr; }
-  /* Карточки сделок — всегда одна колонка на телефоне (в 2 колонки название
-     рвётся по слову и всё лепится). Спец-класс перебивает .grid.three выше. */
-  .grid.three.deal-cards-grid { grid-template-columns: 1fr; }
+  /* Карточки сделок/клиентов — всегда одна колонка на телефоне (в 2 колонки
+     название/телефон рвётся и всё лепится). Спец-класс перебивает .grid.three выше. */
+  .grid.three.deal-cards-grid,
+  .grid.three.clients-grid { grid-template-columns: 1fr; }
+  /* В одну колонку большой квадратный «+ добавить» съедает экран — делаем его
+     компактной горизонтальной строкой над списком. */
+  .clients-grid .kb-new-card { min-height: unset; flex-direction: row; justify-content: center; padding: 13px; }
+  .clients-grid .kb-new-icon { width: 32px; height: 32px; font-size: 20px; }
   /* На тач-экране нет hover — кнопка меню сделки (⋮, единственный доступ к
      Редактировать/Дублировать/Удалить) должна быть видна всегда, а не по наведению. */
   .deal-menu-btn { opacity: 1; }

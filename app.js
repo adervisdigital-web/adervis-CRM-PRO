@@ -10917,7 +10917,7 @@
 
             ${state.clientDraft ? renderClientDraft() : ""}
 
-            <div class="grid three">
+            <div class="grid three clients-grid">
               <div class="kb-new-card" onclick="app.openClientModal('')">
                 <div class="kb-new-icon">+</div>
                 <div class="kb-new-label">Новый клиент</div>
