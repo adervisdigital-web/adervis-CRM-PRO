@@ -6318,7 +6318,7 @@
         if (key === "client") state.project.clientId = "";
         save();
         render();
-        if (key === "deadline" && value) _autoSyncProjectDeadlineToGoogle();
+        if ((key === "deadline" && value) || (key === "name" && _myGoogleEventId(state.project))) _autoSyncProjectDeadlineToGoogle();
       }
 
       function updateCompany(key, value) {
@@ -6733,7 +6733,9 @@
         task.updatedAt = new Date().toISOString();
         save();
         render();
-        if (key === "deadline" && value) _autoSyncTaskToGoogle(task);
+        // Дедлайн поставили/сдвинули — пушим. Название переименовали у уже
+        // синхронизированной задачи — обновляем текст события, а не оставляем его устаревшим.
+        if ((key === "deadline" && value) || (key === "title" && _myGoogleEventId(task))) _autoSyncTaskToGoogle(task);
       }
 
       function deleteTask(id) {
