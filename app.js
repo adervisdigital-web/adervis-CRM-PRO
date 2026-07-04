@@ -747,6 +747,7 @@
       let _briefForm = { name:'', phone:'', email:'', company:'', city:'', type:'', format:'', duration:'', desc:'', budget:'', deadline:'', references:'', extra:'', source:'', sending:false, sent:false, error:'' };
       let _briefs = [];
       let _briefsLoaded = false;
+      let _briefExpanded = {}; // { [briefId]: true } — какие карточки заявок раскрыты
 
       const _DEFAULT_SB_URL    = "https://qzeylogyledmhjpzvgkk.supabase.co";
       const _DEFAULT_SB_KEY    = "sb_publishable_E9JgbQiA7namAFiZAAbZEQ_aBn11VgJ";
@@ -9217,9 +9218,13 @@
       function renderBriefCard(b) {
         const isConverted = b.status === 'converted';
         const date = b.submitted_at ? new Date(b.submitted_at).toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+        const expanded = !!_briefExpanded[b.id];
+        const parsed = b.description ? _parseBriefDescription(b.description) : { free: "", fields: [] };
+        const hasDetails = !!(parsed.free || parsed.fields.length);
+        const preview = parsed.free ? (parsed.free.length > 130 ? parsed.free.slice(0, 130) + "…" : parsed.free) : "";
         return `
-          <div class="brief-card-item" style="${isConverted ? 'opacity:.65' : ''}">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px">
+          <div class="brief-card-item ${expanded ? "expanded" : ""}" style="${isConverted ? 'opacity:.65' : ''}">
+            <div class="brief-head" ${hasDetails ? `onclick="app.toggleBriefExpand('${b.id}')" style="cursor:pointer"` : ""}>
               <div style="min-width:0;flex:1">
                 <div style="font-size:15px;font-weight:800">${escapeHtml(b.client_name || 'Без имени')}</div>
                 <div style="font-size:12px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:8px">
@@ -9228,21 +9233,23 @@
                   ${date ? `<span>🕐 ${date}</span>` : ''}
                 </div>
               </div>
-              <div style="display:flex;gap:6px;flex-shrink:0;align-items:center">
+              <div style="display:flex;gap:6px;flex-shrink:0;align-items:center" onclick="event.stopPropagation()">
                 ${isConverted
                   ? `<span class="status-pill" style="background:rgba(22,163,74,.12);color:#16a34a;font-size:12px">✓ Сделка</span>`
                   : `<button class="btn primary small" onclick="app.convertBriefToDeal('${b.id}')">Создать сделку</button>`}
                 <button class="btn small" onclick="app.deleteBrief('${b.id}')" title="Удалить" style="padding:5px 8px;font-size:14px;color:var(--muted)">×</button>
+                ${hasDetails ? `<button class="brief-expand-btn ${expanded ? "open" : ""}" onclick="app.toggleBriefExpand('${b.id}')" title="${expanded ? "Свернуть" : "Подробнее"}" aria-label="${expanded ? "Свернуть" : "Подробнее"}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>` : ""}
               </div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-top:10px">
               ${b.project_type ? `<span style="background:rgba(124,58,237,.1);color:var(--primary2);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.project_type)}</span>` : ''}
               ${b.budget ? `<span style="background:rgba(37,99,235,.1);color:var(--blue);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.budget)}</span>` : ''}
               ${b.deadline ? `<span style="background:rgba(202,138,4,.1);color:var(--yellow);border-radius:6px;padding:2px 8px;font-weight:700">📅 ${escapeHtml(b.deadline)}</span>` : ''}
             </div>
-            ${(() => {
-              if (!b.description) return "";
-              const parsed = _parseBriefDescription(b.description);
+            ${!expanded && preview ? `<p class="brief-preview" onclick="app.toggleBriefExpand('${b.id}')" style="cursor:pointer">${escapeHtml(preview)}</p>` : ""}
+            ${expanded ? (() => {
               const parts = [];
               if (parsed.free) {
                 parts.push(`
@@ -9265,8 +9272,13 @@
                   </div>`);
               }
               return parts.join("");
-            })()}
+            })() : ""}
           </div>`;
+      }
+
+      function toggleBriefExpand(briefId) {
+        _briefExpanded[briefId] = !_briefExpanded[briefId];
+        render();
       }
 
       function renderAnalyticsSection(projects) {
@@ -16045,6 +16057,7 @@ Email: ______________________            Email: ______________________
 
         updateBriefField,
         submitBrief,
+        toggleBriefExpand,
         copyBriefLink,
         convertBriefToDeal,
         deleteBrief,

@@ -4223,6 +4223,22 @@ body.brief-mode #appContent { padding: 0; }
   border-radius: 14px; padding: 16px; transition: .14s;
 }
 .brief-card-item:hover { border-color: rgba(124,58,237,.3); }
+.brief-card-item.expanded { border-color: rgba(124,58,237,.35); }
+
+/* Раскрывающаяся заявка брифа */
+.brief-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-radius: 10px; }
+.brief-expand-btn {
+  width: 30px; height: 30px; flex: 0 0 auto; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+  cursor: pointer; display: grid; place-items: center;
+  transition: transform .18s ease, color .14s, border-color .14s, background .14s;
+}
+.brief-expand-btn:hover { color: var(--primary2); border-color: var(--primary); background: rgba(124,58,237,.08); }
+.brief-expand-btn.open { transform: rotate(180deg); color: var(--primary2); border-color: var(--primary); }
+.brief-preview {
+  margin: 10px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 
 /* Структурированная заявка брифа (вместо одного блока текста) */
 .brief-idea {
