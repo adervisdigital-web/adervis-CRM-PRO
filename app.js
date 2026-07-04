@@ -9179,6 +9179,41 @@
           </div>`;
       }
 
+      // Бриф собирается на форме в одну строку description с подписанными полями
+      // через \n ("Формат: …", "Длительность: …" и т.д.). Разбираем обратно в
+      // структуру: свободный текст идеи + список именованных полей.
+      const _BRIEF_FIELD_META = {
+        "Формат": { icon: "🎬", wide: false },
+        "Длительность": { icon: "⏱", wide: false },
+        "Компания": { icon: "🏢", wide: false },
+        "Город": { icon: "📍", wide: false },
+        "Источник": { icon: "📣", wide: false },
+        "Референсы": { icon: "🔗", wide: true },
+        "Дополнительно": { icon: "💬", wide: true },
+      };
+      function _parseBriefDescription(description) {
+        const labels = Object.keys(_BRIEF_FIELD_META);
+        const labelRe = new RegExp("^(" + labels.join("|") + "):\\s*(.*)$");
+        const lines = String(description || "").split("\n");
+        const freeLines = [];
+        const fields = [];
+        let started = false;
+        for (const line of lines) {
+          const m = line.match(labelRe);
+          if (m) { started = true; fields.push({ label: m[1], value: m[2] }); }
+          else if (!started) freeLines.push(line);
+          else if (fields.length) fields[fields.length - 1].value += "\n" + line; // продолжение значения
+        }
+        return { free: freeLines.join("\n").trim(), fields: fields.filter(f => f.value.trim()) };
+      }
+      // Экранирует текст и превращает URL в кликабельные ссылки.
+      function _linkifyEscaped(text) {
+        return escapeHtml(String(text || "")).replace(
+          /(https?:\/\/[^\s]+)/g,
+          '<a href="$1" target="_blank" rel="noopener" style="color:var(--primary2);word-break:break-all">$1</a>'
+        );
+      }
+
       function renderBriefCard(b) {
         const isConverted = b.status === 'converted';
         const date = b.submitted_at ? new Date(b.submitted_at).toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
@@ -9205,7 +9240,32 @@
               ${b.budget ? `<span style="background:rgba(37,99,235,.1);color:var(--blue);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.budget)}</span>` : ''}
               ${b.deadline ? `<span style="background:rgba(202,138,4,.1);color:var(--yellow);border-radius:6px;padding:2px 8px;font-weight:700">📅 ${escapeHtml(b.deadline)}</span>` : ''}
             </div>
-            ${b.description ? `<p style="margin:10px 0 0;font-size:13px;color:var(--muted);line-height:1.5">${escapeHtml(b.description)}</p>` : ''}
+            ${(() => {
+              if (!b.description) return "";
+              const parsed = _parseBriefDescription(b.description);
+              const parts = [];
+              if (parsed.free) {
+                parts.push(`
+                  <div class="brief-idea">
+                    <span class="brief-field-label">💡 Идея проекта</span>
+                    <p>${_linkifyEscaped(parsed.free)}</p>
+                  </div>`);
+              }
+              if (parsed.fields.length) {
+                parts.push(`
+                  <div class="brief-fields">
+                    ${parsed.fields.map(f => {
+                      const meta = _BRIEF_FIELD_META[f.label] || { icon: "•", wide: false };
+                      return `
+                        <div class="brief-field${meta.wide ? " wide" : ""}">
+                          <span class="brief-field-label">${meta.icon} ${escapeHtml(f.label)}</span>
+                          <span class="brief-field-value">${_linkifyEscaped(f.value)}</span>
+                        </div>`;
+                    }).join("")}
+                  </div>`);
+              }
+              return parts.join("");
+            })()}
           </div>`;
       }
 
