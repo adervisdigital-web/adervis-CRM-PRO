@@ -47,6 +47,7 @@
         { id: "company-team", label: "Команда" },
         { id: "global-finances", label: "Финансы" },
         { id: "global-calendar", label: "Календарь" },
+        { id: "global-tasks", label: "Задачи" },
         { id: "contracts", label: "Договора" },
         { id: "knowledge", label: "База знаний" }
       ];
@@ -1102,7 +1103,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","notifPopupOpen","summaryOpen"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","notifPopupOpen","summaryOpen"]);
 
       async function _loadCloudState() {
         if (!_supabase || !_adminSession) return;
@@ -1339,8 +1340,9 @@
         const overdueCount = (() => {
           let cnt = 0;
           const t = todayIso();
-          (state.savedProjects||[]).forEach(p => { (p.snapshot?.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; }); });
+          (state.savedProjects||[]).forEach(p => { if (p.id !== state.activeProjectId) (p.snapshot?.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; }); });
           (state.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; });
+          (state.globalTasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; });
           return cnt;
         })();
 
@@ -1361,6 +1363,7 @@
           "company-team": () => navItem("company-team",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm5-1a2 2 0 100-4 2 2 0 000 4zM1 13.5c0-2.5 2.2-4 4.5-4s4.5 1.5 4.5 4H1zm9-3.3c1.9.4 3 1.6 3 3.3h-2c0-1.2-.4-2.3-1-3.3z"/></svg>`,"Команда"),
           "global-finances": () => navItem("global-finances",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg>`,"Финансы"),
           "global-calendar": () => navItem("global-calendar",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>`,"Календарь","","","", overdueCount ? `badge${overdueCount}` : ""),
+          "global-tasks": () => navItem("global-tasks",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h2v2H2V3zm4 0h8v1.5H6V3zM2 7h2v2H2V7zm4 .25h8v1.5H6v-1.5zM2 11h2v2H2v-2zm4 .25h8v1.5H6v-1.5z"/></svg>`,"Задачи","","","", overdueCount ? `badge${overdueCount}` : ""),
           contracts: () => navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора"),
           knowledge: () => navItem("knowledge",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"База знаний")
         };
@@ -3774,7 +3777,7 @@
         if (!_googleCalStatus || !_googleCalStatus.connected || !_adminSession || !task.deadline) return;
         try {
           const googleEventId = await _pushGoogleEvent(task.id, task.title, task.deadline, _myGoogleEventId(task));
-          const live = (state.tasks || []).find(t => t.id === task.id);
+          const live = _findLiveTaskById(task.id);
           if (live) { live.googleEventIds = { ...(live.googleEventIds || {}), [_adminSession.user.id]: googleEventId }; save(); render(); }
           toast("📅 Задача синхронизирована с Google Calendar");
         } catch (e) {
@@ -3825,7 +3828,10 @@
         try {
           const googleEventId = await _pushGoogleEvent(persisted.id, persisted.title, persisted.deadline, _myGoogleEventId(persisted));
           state.taskModal = null;
-          updateTask(persisted.id, "googleEventIds", { ...(persisted.googleEventIds || {}), [_adminSession.user.id]: googleEventId });
+          state.taskModalSource = "project";
+          const live = _findLiveTaskById(persisted.id);
+          if (live) live.googleEventIds = { ...(live.googleEventIds || {}), [_adminSession.user.id]: googleEventId };
+          save(); render();
           toast("📅 Задача синхронизирована с Google Calendar");
         } catch (e) {
           save(); render();
@@ -4586,6 +4592,11 @@
           stages: deepClone(DEFAULT_STAGES),
           packages: deepClone(DEFAULT_PACKAGES),
           tasks: [],
+          // Свободные задачи, не привязанные к сделке (раздел «Задачи»). Проектные
+          // задачи по-прежнему живут в snapshot.tasks каждого проекта.
+          globalTasks: [],
+          globalTaskStatusFilter: "active",
+          globalTaskProjectFilter: "all",
           payments: [],
           expenses: [],
           team: [],
@@ -4855,6 +4866,7 @@
           companyTeam: Array.isArray(old.companyTeam) ? old.companyTeam.map(normalizeCompanyTeamMember) : [],
           savedProjects: Array.isArray(old.savedProjects) ? old.savedProjects.map(normalizeSavedProject) : [],
           tasks: Array.isArray(old.tasks) ? old.tasks.map(normalizeTask) : [],
+          globalTasks: Array.isArray(old.globalTasks) ? old.globalTasks.map(normalizeTask) : [],
           payments: Array.isArray(old.payments) ? old.payments.map(normalizePayment) : [],
           expenses: Array.isArray(old.expenses) ? old.expenses.map(normalizeExpense) : [],
           team: Array.isArray(old.team) ? old.team.map(normalizeTeamMember) : [],
@@ -8569,6 +8581,7 @@
           wizard: renderWizard,
           "global-finances": renderGlobalFinances,
           "global-calendar": renderGlobalCalendar,
+          "global-tasks": renderGlobalTasks,
           packages: renderPackages,
           contracts: renderContracts,
           catalog: renderCatalog,
@@ -11151,6 +11164,172 @@
             </div>
           </div>
         `;
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         РАЗДЕЛ «ЗАДАЧИ» — все задачи по проектам + свободные (личные)
+      ═══════════════════════════════════════════════════════ */
+      // Собирает все задачи: свободные (state.globalTasks) + задачи всех проектов.
+      // У активного проекта берём живые state.tasks (снапшот может отставать).
+      function _collectAllTasks() {
+        const rows = [];
+        (state.globalTasks || []).forEach(t => rows.push({ task: t, kind: "global", projectId: "", projectName: "" }));
+        const activeId = state.activeProjectId;
+        let activeIncluded = false;
+        (state.savedProjects || []).forEach(p => {
+          const isActive = !!activeId && p.id === activeId;
+          if (isActive) activeIncluded = true;
+          const tasks = isActive ? state.tasks : ((p.snapshot && p.snapshot.tasks) || []);
+          (tasks || []).forEach(t => rows.push({ task: t, kind: "project", projectId: p.id, projectName: p.name || "Без названия" }));
+        });
+        // Активный проект не найден в savedProjects (несохранён или отдельный) —
+        // всё равно добавляем его живые задачи, иначе они бы потерялись.
+        if (!activeIncluded && (state.tasks || []).length) {
+          const name = (state.project && state.project.name) ? state.project.name : "Текущая смета";
+          state.tasks.forEach(t => rows.push({ task: t, kind: "project", projectId: activeId || "", projectName: name + (activeId ? "" : " (не сохранена)") }));
+        }
+        return rows;
+      }
+
+      function renderGlobalTasks() {
+        const rows = _collectAllTasks();
+        const statusFilter = state.globalTaskStatusFilter || "active";
+        const projectFilter = state.globalTaskProjectFilter || "all";
+        const today = todayIso();
+
+        const total = rows.length;
+        const overdue = rows.filter(r => r.task.deadline && r.task.deadline < today && r.task.status !== "Готово").length;
+        const done = rows.filter(r => r.task.status === "Готово").length;
+
+        let filtered = rows.slice();
+        if (statusFilter === "active") filtered = filtered.filter(r => r.task.status !== "Готово");
+        else if (statusFilter !== "all") filtered = filtered.filter(r => r.task.status === statusFilter);
+        if (projectFilter === "personal") filtered = filtered.filter(r => r.kind === "global");
+        else if (projectFilter !== "all") filtered = filtered.filter(r => r.projectId === projectFilter);
+
+        // Сортировка по дедлайну по возрастанию, задачи без дедлайна — в конец
+        filtered.sort((a, b) => {
+          const da = a.task.deadline || "9999-99-99";
+          const db = b.task.deadline || "9999-99-99";
+          return da < db ? -1 : da > db ? 1 : 0;
+        });
+
+        const projectOpts = (state.savedProjects || []).map(p => ({ id: p.id, name: p.name || "Без названия" }));
+        const statusChips = [{ id: "active", label: "Активные" }, { id: "all", label: "Все" }, ...TASK_STATUSES.map(s => ({ id: s, label: s }))];
+
+        return `
+          <div class="panel">
+            <div class="section-title">
+              <div>
+                <h1>Задачи</h1>
+                <p>Все задачи по проектам и свои личные — в одном месте.</p>
+              </div>
+              <div class="toolbar no-print">
+                <button class="btn primary" onclick="app.createGlobalTask()">+ Своя задача</button>
+              </div>
+            </div>
+
+            <div class="gtask-stats">
+              <div class="gtask-stat"><span class="lbl">Всего</span><span class="val">${total}</span></div>
+              <div class="gtask-stat"><span class="lbl">Просрочено</span><span class="val" style="color:${overdue ? "var(--red)" : "var(--muted)"}">${overdue}</span></div>
+              <div class="gtask-stat"><span class="lbl">Готово</span><span class="val" style="color:${done ? "var(--green)" : "var(--muted)"}">${done}</span></div>
+            </div>
+
+            <div class="gtask-filters no-print">
+              <div class="gtask-chips">
+                ${statusChips.map(c => `<button class="chip ${statusFilter === c.id ? "active" : ""}" onclick="app.setGlobalTaskFilter('status','${c.id}')">${escapeHtml(c.label)}</button>`).join("")}
+              </div>
+              <select class="gtask-project-select" onchange="app.setGlobalTaskFilter('project',this.value)">
+                <option value="all" ${projectFilter === "all" ? "selected" : ""}>Все проекты</option>
+                <option value="personal" ${projectFilter === "personal" ? "selected" : ""}>Личные задачи</option>
+                ${projectOpts.map(p => `<option value="${escapeHtml(p.id)}" ${projectFilter === p.id ? "selected" : ""}>${escapeHtml(p.name)}</option>`).join("")}
+              </select>
+            </div>
+
+            ${filtered.length ? `<div class="gtask-list">
+              ${filtered.map(renderGlobalTaskRow).join("")}
+            </div>` : `<div class="empty">${total ? "Нет задач по этому фильтру." : "Задач пока нет."}<br><button class="btn primary" style="margin-top:12px" onclick="app.createGlobalTask()">+ Добавить свою задачу</button></div>`}
+          </div>
+        `;
+      }
+
+      function renderGlobalTaskRow(row) {
+        const t = row.task;
+        const u = t.deadline ? deadlineUrgency(t.deadline) : null;
+        const done = t.status === "Готово";
+        const isGlobal = row.kind === "global";
+        const statusColor = { "Новая": "var(--muted)", "В работе": "var(--blue)", "На согласовании": "var(--orange)", "Готово": "var(--green)" }[t.status] || "var(--muted)";
+        const idSafe = t.id.replace(/'/g, "");
+        const clickAction = isGlobal ? `app.openGlobalTaskModal('${idSafe}')` : `app.openDealTasks('${(row.projectId||"").replace(/'/g,"")}')`;
+        return `
+          <div class="gtask-row ${done ? "done" : ""}" onclick="${clickAction}" title="${isGlobal ? "Открыть задачу" : "Открыть в проекте"}">
+            ${isGlobal
+              ? `<button class="gtask-check ${done ? "checked" : ""}" onclick="event.stopPropagation();app.toggleGlobalTaskDone('${idSafe}')" title="${done ? "Вернуть в работу" : "Отметить готово"}" aria-label="Готово">${done ? "✓" : ""}</button>`
+              : `<span class="gtask-dot" style="background:${statusColor}" title="${escapeHtml(t.status)}"></span>`}
+            <div class="gtask-main">
+              <div class="gtask-title">${escapeHtml(t.title)}</div>
+              <div class="gtask-meta">
+                <span class="gtask-project ${isGlobal ? "personal" : ""}">${isGlobal ? "★ Личная" : escapeHtml(row.projectName)}</span>
+                ${t.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${escapeHtml(formatDate(t.deadline))}${u && u.level !== "ok" ? " · " + escapeHtml(u.label) : ""}</span>` : ""}
+                ${t.assignee ? `<span>👤 ${escapeHtml(t.assignee)}</span>` : ""}
+              </div>
+            </div>
+            <span class="status-pill" style="font-size:12px;border-color:${statusColor}55;color:${statusColor}">${escapeHtml(t.status)}</span>
+            ${isGlobal
+              ? `<button class="gtask-del no-print" onclick="event.stopPropagation();app.deleteGlobalTask('${idSafe}')" title="Удалить задачу" aria-label="Удалить">✕</button>`
+              : `<span class="u-meta" style="flex:0 0 auto">→</span>`}
+          </div>
+        `;
+      }
+
+      function setGlobalTaskFilter(type, value) {
+        if (type === "status") state.globalTaskStatusFilter = value;
+        else if (type === "project") state.globalTaskProjectFilter = value;
+        render();
+      }
+
+      function createGlobalTask() {
+        const task = normalizeTask({ title: "Новая задача", status: "Новая", priority: "Средний" });
+        if (!Array.isArray(state.globalTasks)) state.globalTasks = [];
+        state.globalTasks.unshift(task);
+        save();
+        openGlobalTaskModal(task.id);
+      }
+
+      function openGlobalTaskModal(taskId) {
+        const task = (state.globalTasks || []).find(t => t.id === taskId);
+        if (!task) { toast("Задача не найдена"); return; }
+        state.taskModalSource = "global";
+        state.taskModal = { ...task };
+        renderModal();
+      }
+
+      function toggleGlobalTaskDone(taskId) {
+        const task = (state.globalTasks || []).find(t => t.id === taskId);
+        if (!task) return;
+        task.status = task.status === "Готово" ? "Новая" : "Готово";
+        task.updatedAt = new Date().toISOString();
+        save();
+        render();
+      }
+
+      function deleteGlobalTask(taskId) {
+        const idx = (state.globalTasks || []).findIndex(t => t.id === taskId);
+        if (idx < 0) return;
+        const removed = state.globalTasks[idx];
+        state.globalTasks.splice(idx, 1);
+        save();
+        render();
+        let googleDeleteTimer = null;
+        if (_myGoogleEventId(removed) && _googleCalStatus && _googleCalStatus.connected) {
+          googleDeleteTimer = setTimeout(() => _deleteGoogleCalendarEvent(removed), 5100);
+        }
+        toastUndo("Задача удалена", () => {
+          if (googleDeleteTimer) clearTimeout(googleDeleteTimer);
+          state.globalTasks.splice(idx, 0, removed);
+          save(); render();
+          toast("Удаление отменено");
+        });
       }
 
       function renderTasks() {
@@ -14011,6 +14190,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <div class="mm-label">Календарь</div>
                   <div class="mm-sub">Дедлайны и задачи</div>
                 </button>
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('global-tasks')">
+                  <span class="mm-icon">✅</span>
+                  <div class="mm-label">Задачи</div>
+                  <div class="mm-sub">Все задачи и свои</div>
+                </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('contracts')">
                   <span class="mm-icon">📄</span>
                   <div class="mm-label">Договоры</div>
@@ -14599,14 +14783,29 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       /* ═══════════════════════════════════════════════════════
          ЗАДАЧА MODAL (открыть задачу из Календаря)
       ═══════════════════════════════════════════════════════ */
+      // Модалка задачи обслуживает и проектные задачи (state.tasks, открыта из
+      // календаря/канбана), и свободные (state.globalTasks, раздел «Задачи»).
+      // taskModalSource говорит, в какую коллекцию писать при сохранении.
+      function _taskModalList() {
+        return state.taskModalSource === "global"
+          ? (Array.isArray(state.globalTasks) ? state.globalTasks : (state.globalTasks = []))
+          : state.tasks;
+      }
+      // Живая задача по id в любой из коллекций (для Google-writeback).
+      function _findLiveTaskById(id) {
+        return (state.tasks || []).find(t => t.id === id) || (state.globalTasks || []).find(t => t.id === id) || null;
+      }
+
       function openTaskModal(taskId) {
         const task = (state.tasks || []).find(t => t.id === taskId);
         if (!task) { toast("Задача не найдена"); return; }
+        state.taskModalSource = "project";
         state.taskModal = { ...task };
         renderModal();
       }
       function closeTaskModal() {
         state.taskModal = null;
+        state.taskModalSource = "project";
         renderModal();
       }
       function setTaskModalField(key, value) {
@@ -14614,17 +14813,18 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         state.taskModal[key] = value;
         renderModal();
       }
-      // Переносит черновик state.taskModal в state.tasks (без save()/render()/закрытия
-      // модалки) — общая часть для saveTaskModal() и syncTaskModalToGoogle(), которому
-      // нужно закоммитить свежие поля перед отправкой в Google, не закрывая модалку
-      // если синхронизация упадёт с ошибкой.
+      // Переносит черновик state.taskModal в нужную коллекцию (без save()/render()/
+      // закрытия модалки) — общая часть для saveTaskModal() и syncTaskModalToGoogle(),
+      // которому нужно закоммитить свежие поля перед отправкой в Google, не закрывая
+      // модалку если синхронизация упадёт с ошибкой.
       function _commitTaskModal() {
         const m = state.taskModal;
         if (!m) return null;
-        const idx = (state.tasks || []).findIndex(t => t.id === m.id);
+        const list = _taskModalList();
+        const idx = list.findIndex(t => t.id === m.id);
         if (idx < 0) return null;
-        state.tasks[idx] = normalizeTask({ ...state.tasks[idx], ...m, updatedAt: new Date().toISOString() });
-        return state.tasks[idx];
+        list[idx] = normalizeTask({ ...list[idx], ...m, updatedAt: new Date().toISOString() });
+        return list[idx];
       }
 
       function saveTaskModal() {
@@ -14643,11 +14843,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!text) return;
         const author = getUserSettings().displayName || "Я";
         const comment = { id: uid("cmt"), text, author, createdAt: new Date().toISOString() };
-        const idx = (state.tasks || []).findIndex(t => t.id === state.taskModal.id);
+        const list = _taskModalList();
+        const idx = list.findIndex(t => t.id === state.taskModal.id);
         if (idx >= 0) {
-          if (!Array.isArray(state.tasks[idx].comments)) state.tasks[idx].comments = [];
-          state.tasks[idx].comments.push(comment);
-          state.taskModal.comments = [...state.tasks[idx].comments];
+          if (!Array.isArray(list[idx].comments)) list[idx].comments = [];
+          list[idx].comments.push(comment);
+          state.taskModal.comments = [...list[idx].comments];
           save();
         }
         renderModal();
@@ -14655,10 +14856,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
       function deleteTaskComment(commentId) {
         if (!state.taskModal) return;
-        const idx = (state.tasks || []).findIndex(t => t.id === state.taskModal.id);
+        const list = _taskModalList();
+        const idx = list.findIndex(t => t.id === state.taskModal.id);
         if (idx >= 0) {
-          state.tasks[idx].comments = (state.tasks[idx].comments || []).filter(c => c.id !== commentId);
-          state.taskModal.comments = [...state.tasks[idx].comments];
+          list[idx].comments = (list[idx].comments || []).filter(c => c.id !== commentId);
+          state.taskModal.comments = [...list[idx].comments];
           save();
         }
         renderModal();
@@ -15696,6 +15898,12 @@ Email: ______________________            Email: ______________________
         closeTaskModal,
         setTaskModalField,
         saveTaskModal,
+
+        createGlobalTask,
+        openGlobalTaskModal,
+        toggleGlobalTaskDone,
+        deleteGlobalTask,
+        setGlobalTaskFilter,
 
         openDealTasks,
 

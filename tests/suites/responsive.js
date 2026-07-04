@@ -5,7 +5,7 @@ const path = require("path");
 const { bootLocal, assert } = require("../harness");
 
 const WIDTHS = [320, 360, 480, 640, 768, 900];
-const VIEWS = ["home", "catalog", "crm", "clients", "tasks"];
+const VIEWS = ["home", "catalog", "crm", "clients", "tasks", "global-tasks"];
 
 // Возвращает {over, tag} — на сколько px документ шире вьюпорта и кто виноват.
 async function overflow(page) {
