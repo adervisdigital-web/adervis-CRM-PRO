@@ -13477,6 +13477,23 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                     `}
                   </div>
                 ` : ''}
+
+                ${(() => {
+                  const { url: sbUrl } = getSupabaseConfig();
+                  if (!sbUrl || !_portalId) return '';
+                  const feedUrl = `${sbUrl}/functions/v1/calendar-feed?portal=${_portalId}`;
+                  const webcalUrl = feedUrl.replace(/^https?:\/\//, 'webcal://');
+                  return `
+                    <div style="margin-top:20px;padding:18px;background:var(--panel2);border:1px solid var(--line);border-radius:14px">
+                      <div style="font-size:13px;font-weight:700;margin-bottom:6px">📅 Дедлайн в своём календаре</div>
+                      <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5">Подпишитесь на ссылку — дедлайн проекта появится в вашем Google Calendar, iPhone или Outlook автоматически, без входа и паролей.</p>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none">📱 Добавить в календарь</a>
+                        <button class="btn small" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(feedUrl)}').then(()=>app._toast('✅ Ссылка скопирована!'))">📋 Копировать ссылку</button>
+                      </div>
+                    </div>
+                  `;
+                })()}
               </div>
 
               <div style="text-align:center;padding:24px 0 8px;font-size:12px;color:var(--muted)">
@@ -13596,6 +13613,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
         const { data, error } = await _supabase.from('client_portals').insert({
           agency_id: getAgencyId(),
+          project_id: projectId,
           deal_name: project.name || '',
           deal_status: project.crmStatus || 'КП отправлено',
           total_price: project.total || 0,

@@ -31,21 +31,42 @@ function foldLine(line: string): string {
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
-
-  if (!token || !/^[0-9a-f-]{36}$/i.test(token)) {
-    return new Response("Bad token", { status: 400 });
-  }
+  const portalId = url.searchParams.get("portal");
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // Читаем state агентства по agency_id = token
+  // Два режима: ?token=<agency_id> — весь агентский фид (Настройки, для команды), либо
+  // ?portal=<portal_id> — публичный read-only фид ровно одной сделки для клиента портала
+  // КП (без OAuth/логина — клиент просто подписывается на ссылку в своём календаре).
+  let agencyId: string;
+  let onlyProjectId: string | null = null;
+  let calName = "ADERVIS CRM — Задачи";
+
+  if (portalId) {
+    if (!/^[0-9a-f-]{36}$/i.test(portalId)) return new Response("Bad token", { status: 400 });
+    const { data: portal, error: portalError } = await supabase
+      .from("client_portals")
+      .select("agency_id, project_id, deal_name")
+      .eq("id", portalId)
+      .maybeSingle();
+    if (portalError || !portal || !portal.agency_id) return new Response("Not found", { status: 404 });
+    agencyId = portal.agency_id as string;
+    onlyProjectId = (portal.project_id as string) || null;
+    calName = `ADERVIS CRM — ${(portal.deal_name as string) || "Проект"}`;
+  } else if (token && /^[0-9a-f-]{36}$/i.test(token)) {
+    agencyId = token;
+  } else {
+    return new Response("Bad token", { status: 400 });
+  }
+
+  // Читаем state агентства
   const { data, error } = await supabase
     .from("agency_state")
     .select("state_json")
-    .eq("id", token)
+    .eq("id", agencyId)
     .single();
 
   if (error || !data) {
@@ -54,8 +75,13 @@ Deno.serve(async (req) => {
 
   const state = data.state_json as Record<string, unknown>;
   const savedProjects = (state.savedProjects as Array<Record<string, unknown>>) || [];
+  const projectsToShow = onlyProjectId
+    ? savedProjects.filter(p => p.id === onlyProjectId)
+    : savedProjects;
 
-  // Собираем события: задачи из всех проектов + дедлайны самих проектов
+  // Собираем события: задачи из всех проектов + дедлайны самих проектов.
+  // Для клиентского портала (portalId) задачи агентства — внутренние, не показываем,
+  // только дедлайн самой сделки.
   type IcsEvent = {
     uid: string;
     date: string;
@@ -66,7 +92,7 @@ Deno.serve(async (req) => {
 
   const events: IcsEvent[] = [];
 
-  for (const proj of savedProjects) {
+  for (const proj of projectsToShow) {
     const projName = (proj.name as string) || "Проект";
     const projId = (proj.id as string) || "";
 
@@ -77,12 +103,14 @@ Deno.serve(async (req) => {
         uid: `deadline-${projId}@adervis.crm`,
         date: projDeadline,
         summary: `📁 Дедлайн: ${projName}`,
-        description: `Сделка: ${projName}\nСтатус: ${(proj.crmStatus as string) || ""}`,
+        description: portalId ? "" : `Сделка: ${projName}\nСтатус: ${(proj.crmStatus as string) || ""}`,
         status: "NEEDS-ACTION",
       });
     }
 
-    // Задачи проекта
+    if (portalId) continue;
+
+    // Задачи проекта (только для агентского agency-wide фида)
     const snapshot = (proj.snapshot as Record<string, unknown>) || {};
     const tasks = (snapshot.tasks as Array<Record<string, unknown>>) || [];
     for (const task of tasks) {
@@ -119,7 +147,7 @@ Deno.serve(async (req) => {
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//ADERVIS CRM//ADERVIS CRM//RU",
-    "X-WR-CALNAME:ADERVIS CRM — Задачи",
+    foldLine(`X-WR-CALNAME:${icsEscape(calName)}`),
     "X-WR-TIMEZONE:Europe/Moscow",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
