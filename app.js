@@ -5742,7 +5742,14 @@
       function loadSavedProject(id) {
         const saved = state.savedProjects.find(project => project.id === id);
         if (!saved) return;
-        if (saved.id === state.activeProjectId) { render(); return; }
+        if (saved.id === state.activeProjectId) {
+          // Проект и так активен — просто открыть его вид сделки, не пересчитывая
+          // остальное состояние. Без этого клик по уже открытой сделке ничего не делал.
+          state.view = "deal";
+          state.dealView = state.dealView || "estimate";
+          render();
+          return;
+        }
 
         // Переключаемся без диалога подтверждения — просто гарантируем, что текущий
         // проект уже сохранён (снимаем pending debounce и сохраняем немедленно)
@@ -6107,9 +6114,18 @@
         render();
       }
 
+      // На узких экранах строки сметы по умолчанию свёрнуты (иначе смета из 5+ позиций —
+      // это 8-10 экранов скролла), пока пользователь явно не задал своё предпочтение.
+      function _lineCollapsedByDefault() {
+        return typeof window !== "undefined" && window.matchMedia && window.matchMedia("(max-width: 640px)").matches;
+      }
+
       function toggleLineCollapse(id) {
-        state.lineCollapsed[id] = !state.lineCollapsed[id];
-        if (!state.lineCollapsed[id]) delete state.lineCollapsed[id];
+        // Инвертируем РЕЗОЛВНУТОЕ состояние (с учётом мобильного дефолта), а не сырое
+        // значение из state — иначе первый тап на мобильном не разворачивал бы строку
+        // (undefined уже читается как «свёрнуто», а !undefined снова даёт «свёрнуто»).
+        const current = state.lineCollapsed[id] !== undefined ? Boolean(state.lineCollapsed[id]) : _lineCollapsedByDefault();
+        state.lineCollapsed[id] = !current;
         save();
         render();
       }
@@ -10516,7 +10532,7 @@
 
         const stageId = line.stageId || itemData.stage;
         const total = lineTotal(id);
-        const collapsed = Boolean(state.lineCollapsed?.[id]);
+        const collapsed = state.lineCollapsed?.[id] !== undefined ? Boolean(state.lineCollapsed[id]) : _lineCollapsedByDefault();
 
         const mainFields = [
           field("Этап", `
@@ -11156,7 +11172,7 @@
                     ondrop="app.onKanbanDrop(event,'${status}','task');this.classList.remove('dragover')">
                     <h3>
                       <span>${escapeHtml(status)} <span class="pill-count">${tasks.length}</span></span>
-                      <button class="btn small no-print" onclick="app.createTask('${status}')" title="Добавить задачу в «${escapeHtml(status)}»">+ Задача</button>
+                      <button class="btn small no-print" onclick="app.createTask('${status}')" title="Добавить задачу в «${escapeHtml(status)}»" aria-label="Добавить задачу в «${escapeHtml(status)}»" style="padding:0 10px">+</button>
                     </h3>
 
                     <div class="list">
@@ -11519,8 +11535,6 @@
               </div>
 
             </section>
-
-            ${renderSummary()}
           </div>
         `;
       }

@@ -1918,7 +1918,6 @@
       /* Admin indicator compact on mobile */
       .admin-indicator { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; padding: 4px 6px; }
 
-      .toolbar { flex-direction: column; align-items: stretch; }
 
       .item-top,
       .section-title,
