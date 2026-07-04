@@ -1,0 +1,20 @@
+-- Регресс от миграции 20260703000003 (security advisor remediation).
+--
+-- Та миграция сделала REVOKE EXECUTE на _is_super_admin() у роли authenticated,
+-- предположив, что функция вызывается ТОЛЬКО изнутри других SECURITY DEFINER
+-- функций (где EXECUTE есть у владельца). Предположение неверно: _is_super_admin()
+-- используется ещё и в RLS-политике client_errors_select_admin
+-- (USING (_is_super_admin())), которая исполняется в контексте роли authenticated
+-- при чтении client_errors супер-админом.
+--
+-- Итог бага: открытие вкладки «Пользователи» / «Ошибки» в Admin Panel падало с
+-- 403 "permission denied for function _is_super_admin" — запрос к client_errors
+-- обрушивал весь Promise.all загрузки панели (admin_get_all_users сам по себе
+-- работал, т.к. он SECURITY DEFINER и зовёт _is_super_admin от владельца).
+--
+-- Функция SECURITY DEFINER и внутри сверяет auth.uid() с почтой супер-админа,
+-- поэтому возврат EXECUTE роли authenticated безопасен: для обычного пользователя
+-- она вернёт false. Прямой вызов через RPC ничего не раскрывает (булев результат).
+-- Advisor снова покажет её как "authenticated executable SECURITY DEFINER" — это
+-- намеренное исключение (нужна для RLS), в одном ряду с get_client_portal и др.
+GRANT EXECUTE ON FUNCTION public._is_super_admin() TO authenticated;
