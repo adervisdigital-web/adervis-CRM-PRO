@@ -69,6 +69,8 @@
 
       const CRM_STATUSES = ["Лид", "Бриф", "КП отправлено", "Согласование", "Договор", "Предоплата", "В работе", "Сдано", "Завершённые"];
       const TASK_STATUSES = ["Новая", "В работе", "На согласовании", "Готово"];
+      // Единая иконка корзины для всех кнопок удаления (та же, что в меню сделки/swipe).
+      const TRASH_SVG = `<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>`;
       const PRIORITIES = ["Низкий", "Средний", "Высокий", "Срочно"];
 
       const DEFAULT_STAGES = [
@@ -3445,7 +3447,7 @@
                       📷 Изменить фото
                       <input type="file" accept="image/*" onchange="app.uploadUserAvatar(event)" style="display:none">
                     </label>
-                    ${us.avatarDataUrl ? `<button class="btn small danger" onclick="app.removeUserAvatar()">Удалить</button>` : ""}
+                    ${us.avatarDataUrl ? `<button class="btn small danger" onclick="app.removeUserAvatar()">${TRASH_SVG} Удалить</button>` : ""}
                   </div>
                   <div class="grid two" style="gap:8px">
                     <div class="field" style="margin:0">
@@ -9237,7 +9239,7 @@
                 ${isConverted
                   ? `<span class="status-pill" style="background:rgba(22,163,74,.12);color:#16a34a;font-size:12px">✓ Сделка</span>`
                   : `<button class="btn primary small" onclick="app.convertBriefToDeal('${b.id}')">Создать сделку</button>`}
-                <button class="btn small" onclick="app.deleteBrief('${b.id}')" title="Удалить" style="padding:5px 8px;font-size:14px;color:var(--muted)">×</button>
+                <button class="icon-del-btn" onclick="app.deleteBrief('${b.id}')" title="Удалить" aria-label="Удалить">${TRASH_SVG}</button>
                 ${hasDetails ? `<button class="brief-expand-btn ${expanded ? "open" : ""}" onclick="app.toggleBriefExpand('${b.id}')" title="${expanded ? "Свернуть" : "Подробнее"}" aria-label="${expanded ? "Свернуть" : "Подробнее"}">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>` : ""}
@@ -9986,7 +9988,7 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                 </button>
               ` : `
-                <button class="btn small danger" onclick="app.deleteCustomItem('${id}')" title="Удалить свою позицию">Удалить</button>
+                <button class="btn small danger" onclick="app.deleteCustomItem('${id}')" title="Удалить свою позицию">${TRASH_SVG} Удалить</button>
               `}
             `}
           </div>
@@ -10183,7 +10185,7 @@
                   ${cat ? `<span class="pkg-cat-badge" data-cat="${escapeHtml(cat)}">${catMeta.icon || ""} ${escapeHtml(catMeta.label || cat)}</span>` : ""}
                   ${tier && tc.label ? `<span style="font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px;background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>` : ""}
                 </div>
-                ${pkg.id.startsWith("package_") ? `<button class="btn danger small" onclick="event.stopPropagation();app.deletePackage('${pkg.id}')" title="Удалить пакет" style="padding:4px 8px;font-size:12px">✕</button>` : ""}
+                ${pkg.id.startsWith("package_") ? `<button class="icon-del-btn" onclick="event.stopPropagation();app.deletePackage('${pkg.id}')" title="Удалить пакет" aria-label="Удалить пакет">${TRASH_SVG}</button>` : ""}
               </div>
 
               <h3 class="pkg-card-name">${escapeHtml(pkg.name)}</h3>
@@ -10492,7 +10494,7 @@
                 ? `<button class="btn danger" onclick="app.removeItem('${itemData.id}')">Убрать из сметы</button>`
                 : `<button class="btn primary" onclick="app.addItem('${itemData.id}')">Добавить</button>`
               }
-              <button class="btn danger" onclick="app.deleteCustomItem('${itemData.id}')">Удалить</button>
+              <button class="btn danger" onclick="app.deleteCustomItem('${itemData.id}')">${TRASH_SVG} Удалить</button>
             </div>
           </article>
         `;
@@ -11095,7 +11097,7 @@
               <div class="toolbar no-print" style="margin-top:14px">
                 <button class="btn primary" onclick="app.startWizardForClient('${client.id}')">+ Новый проект для клиента</button>
                 <button class="btn" onclick="app.openClientEstimate('${client.id}')">Открыть текущую смету</button>
-                <button class="btn danger" onclick="app.deleteClient('${client.id}')">Удалить клиента</button>
+                <button class="btn danger" onclick="app.deleteClient('${client.id}')">${TRASH_SVG} Удалить клиента</button>
               </div>
             </div>
 
@@ -11231,7 +11233,7 @@
                   <div class="toolbar no-print" style="margin-top:14px">
                     <button class="btn primary" onclick="app.loadSavedProject('${project.id}')">Открыть</button>
                     <button class="btn" onclick="app.duplicateSavedProject('${project.id}')">Копия</button>
-                    <button class="btn danger" onclick="app.deleteSavedProject('${project.id}')">Удалить</button>
+                    <button class="btn danger" onclick="app.deleteSavedProject('${project.id}')">${TRASH_SVG} Удалить</button>
                   </div>
                 </article>
               `).join("") : `<div class="empty">Сохранённых проектов пока нет</div>`}
@@ -11350,7 +11352,7 @@
             </div>
             <span class="status-pill" style="font-size:12px;border-color:${statusColor}55;color:${statusColor}">${escapeHtml(t.status)}</span>
             ${isGlobal
-              ? `<button class="gtask-del no-print" onclick="event.stopPropagation();app.deleteGlobalTask('${idSafe}')" title="Удалить задачу" aria-label="Удалить">✕</button>`
+              ? `<button class="icon-del-btn no-print" onclick="event.stopPropagation();app.deleteGlobalTask('${idSafe}')" title="Удалить задачу" aria-label="Удалить">${TRASH_SVG}</button>`
               : `<span class="u-meta" style="flex:0 0 auto">→</span>`}
           </div>
         `;
@@ -11762,9 +11764,9 @@
                         <td class="amount-cell ${txType}" onclick="${openEdit}">
                           ${tx._type === "income" ? "+" : "−"}${money(tx.amount)}
                         </td>
-                        <td style="width:32px" onclick="event.stopPropagation()">
-                          <button class="btn danger small no-print" style="padding:4px 8px"
-                            onclick="event.stopPropagation();${tx._type === "income" ? `app.deletePayment('${tx.id}')` : `app.deleteExpense('${tx.id}')`}">×</button>
+                        <td style="width:40px" onclick="event.stopPropagation()">
+                          <button class="icon-del-btn no-print" title="Удалить" aria-label="Удалить"
+                            onclick="event.stopPropagation();${tx._type === "income" ? `app.deletePayment('${tx.id}')` : `app.deleteExpense('${tx.id}')`}">${TRASH_SVG}</button>
                         </td>
                       </tr>`;
                     }).join("") : `
@@ -11810,7 +11812,7 @@
             </div>
             <div class="mt-10">${field("Комментарий", `<textarea data-autosave data-scope="payment" data-id="${payment.id}" data-key="note">${escapeHtml(payment.note)}</textarea>`)}</div>
             <div class="toolbar no-print" style="margin-top:10px">
-              <button class="btn danger small" onclick="app.deletePayment('${payment.id}')">Удалить</button>
+              <button class="btn danger small" onclick="app.deletePayment('${payment.id}')">${TRASH_SVG} Удалить</button>
             </div>
           </article>
         `;
@@ -11833,7 +11835,7 @@
             </div>
             <div class="mt-10">${field("Комментарий", `<textarea data-autosave data-scope="expense" data-id="${expense.id}" data-key="note">${escapeHtml(expense.note)}</textarea>`)}</div>
             <div class="toolbar no-print" style="margin-top:10px">
-              <button class="btn danger small" onclick="app.deleteExpense('${expense.id}')">Удалить</button>
+              <button class="btn danger small" onclick="app.deleteExpense('${expense.id}')">${TRASH_SVG} Удалить</button>
             </div>
           </article>
         `;
@@ -11930,7 +11932,7 @@
             </div>
 
             <div class="toolbar no-print" style="margin-top:10px">
-              <button class="btn danger small" onclick="app.deleteTeamMember('${member.id}')">Удалить</button>
+              <button class="btn danger small" onclick="app.deleteTeamMember('${member.id}')">${TRASH_SVG} Удалить</button>
             </div>
           </article>
         `;
@@ -11986,7 +11988,7 @@
             ` : ""}
 
             <div class="toolbar no-print" style="margin-top:10px">
-              <button class="btn danger small" onclick="app.deleteCompanyTeamMember('${member.id}')">Удалить</button>
+              <button class="btn danger small" onclick="app.deleteCompanyTeamMember('${member.id}')">${TRASH_SVG} Удалить</button>
             </div>
           </article>
         `;
@@ -12416,7 +12418,7 @@
 
                     <div class="toolbar no-print" style="margin-top:14px">
                       <button class="btn primary" onclick="app.restoreVersion('${version.id}')">Восстановить</button>
-                      <button class="btn danger" onclick="app.deleteVersion('${version.id}')">Удалить</button>
+                      <button class="btn danger" onclick="app.deleteVersion('${version.id}')">${TRASH_SVG} Удалить</button>
                     </div>
                   </article>
                 `).join("")}
@@ -13531,7 +13533,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                     style="flex:1;min-width:130px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input);color:var(--text);font-size:13px;font-family:monospace"
                     oninput="app.setTelegramRecipientField('${r.id}','chatId',this.value)">
                   <button class="btn" onclick="app.testTelegramRecipient('${r.id}')" style="font-size:12px;padding:7px 12px">Проверить</button>
-                  <button class="btn danger" onclick="app.removeTelegramRecipient('${r.id}')" style="font-size:12px;padding:7px 10px">✕</button>
+                  <button class="icon-del-btn" onclick="app.removeTelegramRecipient('${r.id}')" title="Удалить получателя" aria-label="Удалить получателя">${TRASH_SVG}</button>
                 </div>
               `).join("")}
               <button class="btn" onclick="app.addTelegramRecipient()" style="margin-top:4px">+ Добавить получателя</button>
@@ -14449,7 +14451,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <textarea style="min-height:64px" oninput="app.setEditTransactionField('note',this.value)" placeholder="Необязательно">${escapeHtml(m.note || "")}</textarea>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-                <button class="btn danger small" onclick="app.deleteEditTransaction()">Удалить</button>
+                <button class="btn danger small" onclick="app.deleteEditTransaction()">${TRASH_SVG} Удалить</button>
                 <div class="u-flex-g8">
                   <button class="btn" onclick="app.closeEditTransactionModal()">Отмена</button>
                   <button class="modal-save-btn ${isIncome ? "income" : "expense"}" onclick="app.saveEditTransaction()">Сохранить</button>
@@ -14573,7 +14575,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
                 <div class="u-flex-g8">
                   ${m.id ? `<button class="btn small" onclick="app.closeClientModal();app.openClientDetail('${m.id}')">Проекты →</button>` : ""}
-                  ${m.id ? `<button class="btn danger small" onclick="app.closeClientModal();app.deleteClient('${m.id}')">Удалить клиента</button>` : ""}
+                  ${m.id ? `<button class="btn danger small" onclick="app.closeClientModal();app.deleteClient('${m.id}')">${TRASH_SVG} Удалить клиента</button>` : ""}
                 </div>
                 <div class="u-flex-g8">
                   <button class="btn" onclick="app.closeClientModal()">Отмена</button>
@@ -15501,7 +15503,7 @@ Email: ______________________            Email: ______________________
                   </div>
                   <div class="toolbar no-print">
                     <button class="btn green" onclick="app.printContract('${c.id}')">Печать / PDF</button>
-                    <button class="btn danger" onclick="app.deleteContract('${c.id}');app.closeContractEdit()">Удалить</button>
+                    <button class="btn danger" onclick="app.deleteContract('${c.id}');app.closeContractEdit()">${TRASH_SVG} Удалить</button>
                   </div>
                 </div>
                 <div class="field" style="margin-bottom:12px">
@@ -15580,7 +15582,7 @@ Email: ______________________            Email: ______________________
                     <p style="font-size:12px;margin:0;color:var(--muted)">Обновлён: ${formatDate(c.updatedAt)}</p>
                     <div class="toolbar no-print" style="margin-top:10px">
                       <button class="btn small" onclick="event.stopPropagation();app.printContract('${c.id}')">Печать / PDF</button>
-                      <button class="btn danger small" onclick="event.stopPropagation();app.deleteContract('${c.id}')">Удалить</button>
+                      <button class="btn danger small" onclick="event.stopPropagation();app.deleteContract('${c.id}')">${TRASH_SVG} Удалить</button>
                     </div>
                   </article>
                 `).join("")}

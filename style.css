@@ -2621,6 +2621,17 @@
       cursor: pointer; font-size: 16px; line-height: 1; transition: background .14s, color .14s, border-color .14s;
     }
     .gtask-del:hover { background: rgba(220,38,38,.1); color: var(--red); border-color: rgba(220,38,38,.3); }
+
+    /* ── Единая иконочная кнопка удаления (корзина) ─────── */
+    .icon-del-btn {
+      width: 32px; height: 32px; flex: 0 0 auto; padding: 0;
+      display: grid; place-items: center;
+      border: 1px solid var(--line); background: transparent; color: var(--muted);
+      border-radius: 8px; cursor: pointer;
+      transition: background .14s, color .14s, border-color .14s;
+    }
+    .icon-del-btn:hover { background: rgba(220,38,38,.1); color: var(--red); border-color: rgba(220,38,38,.35); }
+    .icon-del-btn svg { display: block; }
     .deal-dup-btn {
       width: 24px; height: 24px; padding: 0;
       border: 1px solid transparent;
