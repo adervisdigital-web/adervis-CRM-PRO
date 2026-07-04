@@ -9620,7 +9620,7 @@
                     </div>`;
                 }).join("")}
               </div>
-              ` : `<div class="grid three">
+              ` : `<div class="grid three deal-cards-grid">
                 ${visibleItems.map(project => {
                   const margin = project.revenue > 0 ? Math.round((project.profit || 0) / project.revenue * 100) : 0;
                   const healthClass = margin >= 40 ? "green" : margin >= 20 ? "yellow" : margin > 0 ? "red" : "grey";
@@ -9636,19 +9636,22 @@
                   const u = project.deadline ? deadlineUrgency(project.deadline) : null;
                   return `
                     <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.openDeal('${projectIdSafe}')" style="cursor:pointer" title="Открыть смету">
-                      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+                      <div class="deal-card-head">
                         ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">` : ""}
-                        <div style="min-width:0;flex:1">
+                        <div class="deal-card-head-main">
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
                           ${project.clientId
-                            ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>`
-                            : `<div style="font-size:12px;color:var(--yellow);font-weight:700;margin-top:2px" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Клиент не привязан"}</div>`}
+                            ? `<div class="deal-card-sub">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>`
+                            : `<div class="deal-card-sub unlinked" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Клиент не привязан"}</div>`}
+                          <div class="deal-card-pills">
+                            <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
+                            <span class="status-pill" style="font-size:12px">${escapeHtml(project.crmStatus || "Лид")}</span>
+                            ${isCurrent ? `<span class="status-pill green" style="font-size:12px">текущий</span>` : ""}
+                          </div>
                         </div>
-                        <div style="display:flex;gap:4px;align-items:center;flex:0 0 auto;position:relative">
-                          <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
-                          <span class="status-pill" style="font-size:12px">${escapeHtml(project.crmStatus || "Лид")}</span>
-                          <button class="deal-menu-btn" onclick="app.toggleDealMenu('${projectIdSafe}',event)" title="Действия со сделкой">
+                        <div class="deal-card-menu-wrap">
+                          <button class="deal-menu-btn" onclick="app.toggleDealMenu('${projectIdSafe}',event)" title="Действия со сделкой" aria-label="Действия со сделкой">
                             <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
                           </button>
                           <div class="deal-ctx-menu" id="dcm-${projectIdSafe}" style="display:none">
@@ -9678,31 +9681,35 @@
                         </div>
                       </div>
 
-                      <div style="display:flex;gap:14px;margin-top:10px;align-items:flex-end;flex-wrap:wrap">
-                        <div>
-                          <div style="font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Смета</div>
-                          <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums">${money(project.total)}</div>
+                      <div class="deal-card-stats">
+                        <div class="deal-card-stat">
+                          <span class="lbl">Смета</span>
+                          <span class="val">${money(project.total)}</span>
                         </div>
-                        <div>
-                          <div style="font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Оплачено</div>
-                          <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums;color:${project.paid > 0 ? "var(--green)" : "var(--muted)"}">${money(project.paid || 0)}</div>
+                        <div class="deal-card-stat">
+                          <span class="lbl">Оплачено</span>
+                          <span class="val" style="color:${project.paid > 0 ? "var(--green)" : "var(--muted)"}">${money(project.paid || 0)}</span>
                         </div>
-                        ${project.expensesTotal > 0 ? `<div>
-                          <div style="font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Расходы</div>
-                          <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums;color:var(--red)">${money(project.expensesTotal)}</div>
+                        ${project.expensesTotal > 0 ? `
+                        <div class="deal-card-stat">
+                          <span class="lbl">Расходы</span>
+                          <span class="val" style="color:var(--red)">${money(project.expensesTotal)}</span>
                         </div>
-                        <div>
-                          <div style="font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase">Прибыль</div>
-                          <div style="font-size:15px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums;color:${(project.profit||0)>0?"var(--green)":(project.profit||0)<0?"var(--red)":"var(--muted)"}">${money(project.profit||0)}</div>
+                        <div class="deal-card-stat">
+                          <span class="lbl">Прибыль</span>
+                          <span class="val" style="color:${(project.profit||0)>0?"var(--green)":(project.profit||0)<0?"var(--red)":"var(--muted)"}">${money(project.profit||0)}</span>
                         </div>` : ""}
-                        ${isCurrent ? `<span class="status-pill green" style="font-size:12px;margin-left:auto">текущий</span>` : ""}
                       </div>
-                      <div class="deal-pay-bar" style="margin-top:8px;width:100%">
+
+                      <div class="deal-pay-bar" style="width:100%">
                         <div class="deal-pay-fill" style="width:${payPct}%"></div>
                       </div>
-                      <div style="font-size:12px;margin-top:6px;font-weight:750;color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
-                      ${project.note ? `<div style="font-size:12px;color:var(--muted);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%" title="${escapeHtml(project.note)}">💬 ${escapeHtml(project.note)}</div>` : ""}
-                      ${(project.tags||[]).length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${(project.tags||[]).map(t=>`<span style="font-size:12px;background:rgba(124,58,237,.12);border-radius:99px;padding:1px 7px;color:var(--primary2);cursor:pointer" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
+
+                      <div class="deal-card-meta">
+                        <div class="deal-card-deadline" style="color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
+                        ${project.note ? `<div class="deal-card-note" title="${escapeHtml(project.note)}">💬 ${escapeHtml(project.note)}</div>` : ""}
+                        ${(project.tags||[]).length ? `<div class="deal-card-tags">${(project.tags||[]).map(t=>`<span class="deal-card-tag" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
+                      </div>
 
                       <div class="deal-card-footer">
                         ${nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge" onclick="event.stopPropagation()">Завершено</span>`}
