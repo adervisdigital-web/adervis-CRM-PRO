@@ -3751,6 +3751,55 @@
         return _adminSession ? (obj?.googleEventIds || {})[_adminSession.user.id] || "" : "";
       }
 
+      // Общее ядро upsert-запроса к google-calendar-sync-task — используется и ручными
+      // кнопками (syncTaskToGoogle и т.п.), и тихой автосинхронизацией ниже, чтобы разбор
+      // ответа (needsReconnect и т.д.) не дублировался в 4+ местах.
+      async function _pushGoogleEvent(id, title, deadline, currentEventId) {
+        const { url } = getSupabaseConfig();
+        const resp = await fetch(`${url}/functions/v1/google-calendar-sync-task`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
+          body: JSON.stringify({ action: "upsert", task: { id, title, deadline, googleEventId: currentEventId } }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || "Ошибка синхронизации");
+        if (data.needsReconnect) { _googleCalStatus = { connected: false }; throw new Error("Доступ к Google Calendar истёк — переподключите в Настройках"); }
+        return data.googleEventId;
+      }
+
+      // Тихая автосинхронизация — вызывается из createTask/updateTask/saveTaskModal при
+      // установке или изменении дедлайна задачи, без клика на кнопку. Если Google Calendar
+      // не подключён — молча ничего не делает, ручные кнопки остаются как fallback.
+      async function _autoSyncTaskToGoogle(task) {
+        if (!_googleCalStatus || !_googleCalStatus.connected || !_adminSession || !task.deadline) return;
+        try {
+          const googleEventId = await _pushGoogleEvent(task.id, task.title, task.deadline, _myGoogleEventId(task));
+          const live = (state.tasks || []).find(t => t.id === task.id);
+          if (live) { live.googleEventIds = { ...(live.googleEventIds || {}), [_adminSession.user.id]: googleEventId }; save(); render(); }
+          toast("📅 Задача синхронизирована с Google Calendar");
+        } catch (e) {
+          toast("⚠️ Google Calendar: " + e.message);
+        }
+      }
+
+      // Тот же принцип, для дедлайна сделки (state.project.deadline) — из updateProject.
+      async function _autoSyncProjectDeadlineToGoogle() {
+        if (!_googleCalStatus || !_googleCalStatus.connected || !_adminSession) return;
+        if (!state.activeProjectId || !state.project.deadline) return;
+        try {
+          const googleEventId = await _pushGoogleEvent(state.activeProjectId, `Дедлайн: ${state.project.name}`, state.project.deadline, _myGoogleEventId(state.project));
+          const nextIds = { ...(state.project.googleEventIds || {}), [_adminSession.user.id]: googleEventId };
+          state.project.googleEventIds = nextIds;
+          const saved = state.savedProjects.find(p => p.id === state.activeProjectId);
+          if (saved) saved.googleEventIds = nextIds;
+          save();
+          toast("📅 Дедлайн синхронизирован с Google Calendar");
+          render();
+        } catch (e) {
+          toast("⚠️ Google Calendar: " + e.message);
+        }
+      }
+
       async function _deleteGoogleCalendarEvent(entity) {
         const eventId = _myGoogleEventId(entity);
         if (!_adminSession || !eventId) return;
@@ -3774,17 +3823,9 @@
         const btn = document.getElementById("taskSyncGoogleBtn");
         if (btn) { btn.disabled = true; btn.textContent = "⏳ Синхронизация..."; }
         try {
-          const { url } = getSupabaseConfig();
-          const resp = await fetch(`${url}/functions/v1/google-calendar-sync-task`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
-            body: JSON.stringify({ action: "upsert", task: { id: persisted.id, title: persisted.title, deadline: persisted.deadline, googleEventId: _myGoogleEventId(persisted) } }),
-          });
-          const data = await resp.json();
-          if (!resp.ok) throw new Error(data.error || "Ошибка синхронизации");
-          if (data.needsReconnect) { _googleCalStatus = { connected: false }; throw new Error("Доступ к Google Calendar истёк — переподключите в Настройках"); }
+          const googleEventId = await _pushGoogleEvent(persisted.id, persisted.title, persisted.deadline, _myGoogleEventId(persisted));
           state.taskModal = null;
-          updateTask(persisted.id, "googleEventIds", { ...(persisted.googleEventIds || {}), [_adminSession.user.id]: data.googleEventId });
+          updateTask(persisted.id, "googleEventIds", { ...(persisted.googleEventIds || {}), [_adminSession.user.id]: googleEventId });
           toast("📅 Задача синхронизирована с Google Calendar");
         } catch (e) {
           save(); render();
@@ -3803,16 +3844,8 @@
         const btn = document.getElementById(`taskSyncGoogleBtn_${taskId}`);
         if (btn) { btn.disabled = true; btn.textContent = "⏳ Синхронизация..."; }
         try {
-          const { url } = getSupabaseConfig();
-          const resp = await fetch(`${url}/functions/v1/google-calendar-sync-task`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
-            body: JSON.stringify({ action: "upsert", task: { id: task.id, title: task.title, deadline: task.deadline, googleEventId: _myGoogleEventId(task) } }),
-          });
-          const data = await resp.json();
-          if (!resp.ok) throw new Error(data.error || "Ошибка синхронизации");
-          if (data.needsReconnect) { _googleCalStatus = { connected: false }; throw new Error("Доступ к Google Calendar истёк — переподключите в Настройках"); }
-          updateTask(task.id, "googleEventIds", { ...(task.googleEventIds || {}), [_adminSession.user.id]: data.googleEventId });
+          const googleEventId = await _pushGoogleEvent(task.id, task.title, task.deadline, _myGoogleEventId(task));
+          updateTask(task.id, "googleEventIds", { ...(task.googleEventIds || {}), [_adminSession.user.id]: googleEventId });
           toast("📅 Задача синхронизирована с Google Calendar");
         } catch (e) {
           render();
@@ -3831,16 +3864,8 @@
         const btn = document.getElementById("projectSyncGoogleBtn");
         if (btn) { btn.disabled = true; btn.textContent = "⏳ Синхронизация..."; }
         try {
-          const { url } = getSupabaseConfig();
-          const resp = await fetch(`${url}/functions/v1/google-calendar-sync-task`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_adminSession.access_token}` },
-            body: JSON.stringify({ action: "upsert", task: { id: state.activeProjectId, title: `Дедлайн: ${state.project.name}`, deadline: state.project.deadline, googleEventId: _myGoogleEventId(state.project) } }),
-          });
-          const data = await resp.json();
-          if (!resp.ok) throw new Error(data.error || "Ошибка синхронизации");
-          if (data.needsReconnect) { _googleCalStatus = { connected: false }; throw new Error("Доступ к Google Calendar истёк — переподключите в Настройках"); }
-          const nextIds = { ...(state.project.googleEventIds || {}), [_adminSession.user.id]: data.googleEventId };
+          const googleEventId = await _pushGoogleEvent(state.activeProjectId, `Дедлайн: ${state.project.name}`, state.project.deadline, _myGoogleEventId(state.project));
+          const nextIds = { ...(state.project.googleEventIds || {}), [_adminSession.user.id]: googleEventId };
           state.project.googleEventIds = nextIds;
           const saved = state.savedProjects.find(p => p.id === state.activeProjectId);
           if (saved) saved.googleEventIds = nextIds;
@@ -6293,6 +6318,7 @@
         if (key === "client") state.project.clientId = "";
         save();
         render();
+        if (key === "deadline" && value) _autoSyncProjectDeadlineToGoogle();
       }
 
       function updateCompany(key, value) {
@@ -6660,19 +6686,21 @@
       }
 
       function createTask(status, deadlineOverride) {
-        state.tasks.unshift(normalizeTask({
+        const task = normalizeTask({
           title: "Новая задача",
           status: status || "Новая",
           priority: "Средний",
           assignee: state.project.manager || "",
           deadline: deadlineOverride || state.project.deadline || "",
           note: ""
-        }));
+        });
+        state.tasks.unshift(task);
         state.view = "deal";
         state.dealView = "tasks";
         toast("Задача добавлена");
         save();
         render();
+        if (task.deadline) _autoSyncTaskToGoogle(task);
       }
 
       function setTaskDetailsOpen(id, isOpen) {
@@ -6705,6 +6733,7 @@
         task.updatedAt = new Date().toISOString();
         save();
         render();
+        if (key === "deadline" && value) _autoSyncTaskToGoogle(task);
       }
 
       function deleteTask(id) {
@@ -12403,6 +12432,9 @@
         /* Собираем все события */
         const events = [];
         state.savedProjects.forEach(proj => {
+          // Активный проект добавляется отдельно ниже из live state.project/tasks/payments/
+          // expenses (актуальнее снапшота) — иначе его дедлайн/платежи/расходы дублируются.
+          if (proj.id === state.activeProjectId) return;
           const snap = proj.snapshot || {};
           if (proj.deadline) events.push({ date: proj.deadline, title: `Дедлайн: ${proj.name}`, type: "deadline", project: proj.name, projectId: proj.id });
           (snap.tasks || []).filter(t => t.deadline).forEach(t => events.push({ date: t.deadline, title: t.title, type: "task", project: proj.name, projectId: proj.id }));
@@ -14560,6 +14592,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         state.taskModal = null;
         save();
         render();
+        if (persisted && persisted.deadline) _autoSyncTaskToGoogle(persisted);
       }
 
       function addTaskComment() {

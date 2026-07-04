@@ -1,7 +1,7 @@
 # ADERVIS CRM — Roadmap
 
 ## Статус: продукт готов принимать платежи и удерживать клиентов, ядро безопасности и надёжности закрыто. Главный барьер — 0 платящих из 10 зарегистрированных
-Последнее обновление: 2026-07-03
+Последнее обновление: 2026-07-04
 
 ---
 
@@ -37,6 +37,9 @@
 ### CRM, сметы, КП, Telegram-бот, финансы
 - [x] Канбан сделок, смета с каталогом/пакетами/версиями/undo-redo, клиентский портал,
   AI-генерация КП (Gemini), PDF/Excel-экспорт, полный Telegram-бот, P&L, аналитика
+- [x] Личная двусторонняя синхронизация с Google Calendar (per-user OAuth, задачи/дедлайны
+  сделок ↔ события, идемпотентно через `googleEventIds`) — задеплоено и живо протестировано
+  03-04.07.2026
 
 ### UX, a11y, производительность
 - [x] Undo-тосты вместо confirm/alert, мобильный канбан (select вместо DnD), a11y
@@ -144,5 +147,16 @@
 | VK App ID | 54626328 |
 | Google Client ID | 341227937040-j9f41teqgu87n0f5qbd0j08qf7u1605d.apps.googleusercontent.com |
 | Деплой | GitHub Pages (push в main → автодеплой) |
-| Edge Functions | agency-notify, ai-proposal, calendar-feed, create-payment, create-portal-payment, deadline-push-notify, delete-account, send-portal-email, subscription-reminder, telegram-notify, telegram-webhook, vk-auth, web-push-send, welcome-email, welcome-sequence, yookassa-webhook |
-| Стек | Vanilla JS (app.js ~15 000 строк), style.css, Supabase, ЮKassa, Resend |
+| Edge Functions | agency-notify, ai-proposal, calendar-feed, create-payment, create-portal-payment, deadline-push-notify, delete-account, google-calendar-connect, google-calendar-callback, google-calendar-events, google-calendar-sync-task, send-portal-email, subscription-reminder, telegram-notify, telegram-webhook, vk-auth, web-push-send, welcome-email, welcome-sequence, yookassa-webhook |
+| Стек | Vanilla JS (app.js ~15 800 строк), style.css, Supabase, ЮKassa, Resend |
+
+---
+
+## Проверка состояния 04.07.2026 (без изменения кода)
+
+`node --check app.js` — чисто. `supabase db advisors --type security` и `--type performance` —
+без новых находок после фичи Google Calendar (новые таблицы `google_oauth_states`/
+`google_calendar_connections` не создали RLS-проблем). Остаются только уже известные
+намеренные/защищённые предупреждения (публичный портал КП, `admin_*` с внутренней
+проверкой прав) и один ручной пункт вне кода — включить Leaked Password Protection в
+Supabase Auth Dashboard (не сделано, пользователь оставил на потом).
