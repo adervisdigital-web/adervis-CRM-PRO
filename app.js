@@ -9397,17 +9397,21 @@
       function renderOnboardingChecklist(projects) {
         if (localStorage.getItem('_onboardingDismissed')) return '';
         if (!_userProfile || _userProfile.subscription_status !== 'trial') return '';
-        const firstDealId = projects.length ? projects[0].id : null;
+        // Демо-сделка (__demo) засеяна автоматически при регистрации — не засчитываем её как
+        // реальный прогресс, иначе шаги «Создайте сделку»/«Добавьте услуги» выглядят
+        // выполненными ещё до первого действия пользователя.
+        const realProjects = projects.filter(p => !p.__demo);
+        const firstDealId = realProjects.length ? realProjects[0].id : null;
         const steps = [
           {
             label: 'Создайте первую сделку',
-            done: projects.length >= 1,
+            done: realProjects.length >= 1,
             action: "app.startWizard()",
             btn: "Создать"
           },
           {
             label: 'Добавьте услуги в смету',
-            done: projects.some(p => p.total > 0),
+            done: realProjects.some(p => p.total > 0),
             action: firstDealId ? `app.loadSavedProject('${firstDealId}')` : "app.startWizard()",
             btn: "Открыть"
           },
