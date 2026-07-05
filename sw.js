@@ -1,4 +1,4 @@
-const CACHE_NAME = "adervis-crm-v43";
+const CACHE_NAME = "adervis-crm-v44";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -12,7 +12,8 @@ const STATIC_ASSETS = [
   "./fonts/dmsans-latin.woff2",
   "./fonts/dmsans-latin-ext.woff2",
   "./fonts/spacegrotesk-latin.woff2",
-  "./fonts/spacegrotesk-latin-ext.woff2"
+  "./fonts/spacegrotesk-latin-ext.woff2",
+  "./fonts/manrope-cyrillic.woff2"
 ];
 
 self.addEventListener("install", event => {
