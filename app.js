@@ -7656,11 +7656,6 @@
         });
       }
 
-      function duplicateDeal() {
-        if (!state.activeProjectId) { toast("Нет активной сделки"); return; }
-        duplicateSavedProject(state.activeProjectId);
-      }
-
       function openClientDetail(clientId) {
         state.clientDetailId = clientId;
         state.view = "clients";
@@ -9096,13 +9091,25 @@
         render();
       }
 
-      async function deleteBrief(briefId) {
-        if (!confirm('Удалить эту заявку?')) return;
-        if (_supabase && _adminSession) {
-          try { await _supabase.from('brief_submissions').delete().eq('id', briefId); } catch(e) { /* ignore */ }
-        }
+      function deleteBrief(briefId) {
+        const idx = (_briefs || []).findIndex(b => b.id === briefId);
+        if (idx === -1) return;
+        const removed = _briefs[idx];
         _briefs = _briefs.filter(b => b.id !== briefId);
         render();
+        // Жёсткий DELETE в Supabase откладываем до закрытия окна отмены (5с) — как в
+        // deleteSavedProject: иначе Undo восстановит заявку только локально, а в БД её уже нет.
+        let dbDeleteTimer = null;
+        if (_supabase && _adminSession) {
+          dbDeleteTimer = setTimeout(() => {
+            _supabase.from('brief_submissions').delete().eq('id', briefId).then(() => {}, () => {});
+          }, 5100);
+        }
+        toastUndo("Заявка удалена", () => {
+          if (dbDeleteTimer) clearTimeout(dbDeleteTimer);
+          _briefs.splice(idx, 0, removed);
+          render();
+        });
       }
 
       function renderBriefs() {
