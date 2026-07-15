@@ -1304,7 +1304,26 @@
         tasks: ["Задачи", null],
         finance: ["Финансы проекта", null],
         estimate: ["Смета", null],
+        "global-tasks": ["Задачи", "Все проекты и личные"],
+        briefs: ["Онлайн-брифы", "Заявки от клиентов"],
+        plans: ["Тарифы", "Подписка и оплата"],
+        projects: ["Проекты", null],
+        team: ["Команда проекта", null],
+        calendar: ["Календарь проекта", null],
+        proposal: ["Коммерческое предложение", null],
+        versions: ["Версии сметы", null],
+        admin: ["Админ-панель", "Пользователи и промокоды"],
       };
+
+      // plural(1,"клиент","клиента","клиентов") → "клиент"; 3 → "клиента"; 11 → "клиентов"
+      function plural(n, one, few, many) {
+        const rest100 = Math.abs(n) % 100;
+        if (rest100 > 10 && rest100 < 20) return many;
+        const rest10 = rest100 % 10;
+        if (rest10 === 1) return one;
+        if (rest10 >= 2 && rest10 <= 4) return few;
+        return many;
+      }
 
       function renderPageTitle() {
         const el = document.getElementById("topbarPageTitle");
@@ -1312,8 +1331,14 @@
         if (!_adminSession || _briefAgencyId || _portalId) { el.innerHTML = ""; return; }
         let [title, sub] = _PAGE_TITLES[state.view] || ["ADERVIS CRM", ""];
         if (state.view === "deal" && state.project?.name) sub = escapeHtml(state.project.name);
-        if (state.view === "clients") sub = `${(state.clients||[]).length} клиентов`;
-        if (state.view === "tasks") sub = `${(state.tasks||[]).length} задач`;
+        if (state.view === "clients") {
+          const n = (state.clients||[]).length;
+          sub = `${n} ${plural(n, "клиент", "клиента", "клиентов")}`;
+        }
+        if (state.view === "tasks") {
+          const n = (state.tasks||[]).length;
+          sub = `${n} ${plural(n, "задача", "задачи", "задач")}`;
+        }
         el.innerHTML = `<h2 class="topbar-page-title-h2">${escapeHtml(title)}</h2>${sub ? `<p class="topbar-page-title-sub">${sub}</p>` : ""}`;
       }
 
@@ -2702,6 +2727,10 @@
         { id: "year",   label: "Год",         price: 290, period: "в месяц",            save: "Экономия 41%", months: 12, maxUsers: 10 }
       ];
 
+      // Лимит AI-генераций КП на пробном тарифе. Дублируется в Edge Function
+      // ai-proposal — там он и решает: клиентская проверка лишь бережёт лишний запрос.
+      const AI_PROPOSAL_TRIAL_LIMIT = 5;
+
       // ─── ADMIN PANEL ─────────────────────────────────────────────────────────
       let _adminPanelTab = "stats";
       let _adminAgencies = null; // null = not loaded
@@ -3229,11 +3258,11 @@
       function renderPlans() {
         const sub = _userProfile;
         const planFeatures = {
-          trial:  ["До 5 активных сделок", "CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Telegram-бот уведомления", "AI генерация КП", "Web Push", "1 пользователь"],
-          month1: ["Всё из пробного", "Безлимитные сделки", "Финансы и аналитика", "Экспорт Excel", "Договоры", "1 пользователь"],
+          trial:  ["Безлимитные сделки", "CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Telegram-бот уведомления", `${AI_PROPOSAL_TRIAL_LIMIT} AI-генераций КП`, "Web Push", "1 пользователь"],
+          month1: ["Всё из пробного", "Безлимитная AI-генерация КП", "Финансы и аналитика", "Экспорт Excel", "Договоры", "1 пользователь"],
           month3: ["Всё из «Месяца»", "До 3 пользователей", "Командная работа", "Синхронизация", "Экономия 20%", "Поддержка"],
           month6: ["Всё из «3 мес»", "До 5 пользователей", "Расширенная аналитика", "Версии смет", "Пакеты услуг", "Экономия 31%"],
-          year:   ["Всё из «6 мес»", "До 10 пользователей", "Максимум функций", "API доступ", "Брендирование КП", "Экономия 41%"]
+          year:   ["Всё из «6 мес»", "До 10 пользователей", "Максимум функций", "Экономия 41%"]
         };
         const promoValid = _promoState && typeof _promoState === "object";
         const cards = PLANS.map(p => {
@@ -7663,6 +7692,13 @@
         render();
       }
 
+      // Флаг живёт только в памяти: реквизиты пустые, сохранять в state нечего —
+      // как только в поле что-то введут, updateClientField сделает их непустыми.
+      function showClientRequisites(clientId) {
+        state.requisitesEditFor = clientId;
+        render();
+      }
+
       function closeClientDetail() {
         state.clientDetailId = "";
         save();
@@ -11095,13 +11131,13 @@
               <div class="mt-12">
                 ${field("Заметка о клиенте", `<textarea onchange="app.updateClientField('${client.id}','note',this.value)" placeholder="Предпочтения, условия, важные детали...">${escapeHtml(client.note||"")}</textarea>`)}
               </div>
-              ${client.requisites ? `
+              ${(client.requisites || state.requisitesEditFor === client.id) ? `
                 <div class="mt-12">
                   ${field("Реквизиты", `<textarea onchange="app.updateClientField('${client.id}','requisites',this.value)">${escapeHtml(client.requisites||"")}</textarea>`)}
                 </div>
               ` : `
                 <div class="mt-10">
-                  <button class="btn small" onclick="this.parentElement.innerHTML='<textarea onchange=\\'app.updateClientField(\\'${client.id}\\',\\'requisites\\',this.value)\\'></textarea>';this.previousElementSibling?.remove()">+ Добавить реквизиты</button>
+                  <button class="btn small" onclick="app.showClientRequisites('${client.id}')">+ Добавить реквизиты</button>
                 </div>
               `}
 
@@ -14080,8 +14116,6 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       /* ═══════════════════════════════════════════════════════
          AI-ПОМОЩНИК КП (Task 15)
       ═══════════════════════════════════════════════════════ */
-      const AI_PROPOSAL_TRIAL_LIMIT = 5;
-
       async function generateProposalAI() {
         if (!_adminSession) { toast('Войдите в аккаунт, чтобы сгенерировать КП с ИИ'); return; }
 
@@ -14118,13 +14152,13 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             throw new Error(err.error || 'Ошибка генерации КП');
           }
 
-          const { includedText, excludedText, proposalNote } = await resp.json();
+          const { includedText, excludedText, proposalNote, aiProposalCount } = await resp.json();
           state.project.includedText = includedText;
           state.project.excludedText = excludedText;
           state.project.proposalNote = proposalNote;
-          if (_userProfile && _userProfile.subscription_status === 'trial') {
-            state.aiProposalCount = (state.aiProposalCount || 0) + 1;
-          }
+          // Счётчик авторитетен на сервере (ai_usage) — локальный лишь отражает его,
+          // чтобы не тратить запрос на заведомо исчерпанный лимит.
+          if (typeof aiProposalCount === 'number') state.aiProposalCount = aiProposalCount;
 
           save(); render();
           toast('✨ КП сгенерировано!');
@@ -15881,6 +15915,7 @@ Email: ______________________            Email: ______________________
         openClientEstimate,
         openClientDetail,
         closeClientDetail,
+        showClientRequisites,
         setGFinFilter,
         setGFinTypeFilter,
         setGFinSubTab,

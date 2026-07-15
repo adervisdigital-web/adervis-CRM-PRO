@@ -6,6 +6,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const GEMINI_MODEL = "gemini-2.5-flash-lite";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
+// Лимит генераций на пробном тарифе. Продублирован в app.js
+// (AI_PROPOSAL_TRIAL_LIMIT) — там он бережёт лишний запрос, решает же он здесь.
+const TRIAL_LIMIT = 5;
+const SUPER_ADMIN_EMAIL = "adervis.digital@gmail.com";
+
 const cors = {
   "Access-Control-Allow-Origin": "https://app.adervis.ru",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -45,6 +50,54 @@ Deno.serve(async (req) => {
     );
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) return json({ error: "Unauthorized" }, 401);
+
+    // service_role: и подписку, и счётчик читаем в обход RLS — пользователь не
+    // должен иметь возможности править ни то, ни другое.
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
+    let trialCount = 0;
+    let onTrial = false;
+
+    if (!isSuperAdmin) {
+      const { data: profile, error: profileErr } = await admin
+        .from("profiles")
+        .select("subscription_status, subscription_expires_at")
+        .eq("id", user.id)
+        .single();
+      if (profileErr || !profile) return json({ error: "Профиль не найден" }, 403);
+
+      // Зеркалит isSubscriptionActive() в app.js: у "active" срок намеренно не
+      // проверяется (см. заметку про истечение платной подписки), у "trial" — да.
+      const expiresAt = profile.subscription_expires_at
+        ? new Date(profile.subscription_expires_at)
+        : null;
+      onTrial = profile.subscription_status === "trial" &&
+        (!expiresAt || expiresAt > new Date());
+      const paid = profile.subscription_status === "active";
+
+      if (!paid && !onTrial) {
+        return json({ error: "Подписка неактивна — генерация КП недоступна" }, 403);
+      }
+
+      if (onTrial) {
+        const { data: usage } = await admin
+          .from("ai_usage")
+          .select("proposal_count")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        trialCount = usage?.proposal_count ?? 0;
+        if (trialCount >= TRIAL_LIMIT) {
+          return json({
+            error: `На пробном тарифе доступно ${TRIAL_LIMIT} генераций КП — лимит исчерпан. Перейдите на платный тариф.`,
+            aiProposalCount: trialCount,
+          }, 403);
+        }
+      }
+    }
 
     const body = await req.json();
     const clientName: string = (body.clientName || "Заказчик").toString().slice(0, 200);
@@ -98,10 +151,19 @@ Deno.serve(async (req) => {
       return json({ error: "Модель вернула неполный ответ" }, 502);
     }
 
+    // Считаем только состоявшиеся генерации: ошибка Gemini не должна съедать попытку.
+    if (onTrial) {
+      const { data: newCount, error: incErr } = await admin
+        .rpc("increment_ai_proposal_count", { p_user_id: user.id });
+      if (incErr) console.error("ai-proposal: increment failed:", incErr);
+      else if (typeof newCount === "number") trialCount = newCount;
+    }
+
     return json({
       includedText: parsed.includedText,
       excludedText: parsed.excludedText,
       proposalNote: parsed.proposalNote,
+      aiProposalCount: trialCount,
     });
   } catch (e) {
     console.error("ai-proposal:", e);
