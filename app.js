@@ -5002,8 +5002,8 @@
           if (!itemData || !line) return;
 
           if (itemData.calcModel === "videoEdit") {
-            const rates = getEffectiveRates(itemData);
-
+            // Тарифы и лимиты «включено» больше не копируются в строку — они читаются
+            // из каталога при расчёте. В строке только параметры заказа.
             if (line.cameraCount === undefined) {
               line.cameraCount = Math.max(1, numberValue(line.sourcePacks, 1));
             }
@@ -5011,25 +5011,6 @@
             if (line.sourceCount === undefined) {
               line.sourceCount = Math.max(1, numberValue(line.sourcePacks, 1));
             }
-
-            if (line.cameraExtraPrice === undefined) {
-              line.cameraExtraPrice = rates.sourcePack || 0;
-            }
-
-            if (line.sourceExtraPrice === undefined) {
-              line.sourceExtraPrice = rates.sourcePack || 0;
-            }
-
-            if (line.durationBlockSec === undefined) line.durationBlockSec = 60;
-            if (line.includedDurationBlocks === undefined) line.includedDurationBlocks = 1;
-            if (line.includedCameras === undefined) line.includedCameras = 1;
-            if (line.includedSources === undefined) line.includedSources = 1;
-            if (line.includedVersions === undefined) line.includedVersions = 1;
-            if (line.includedRevisions === undefined) line.includedRevisions = 1;
-
-            if (line.perMinutePrice === undefined) line.perMinutePrice = rates.perMinute || 0;
-            if (line.extraVersionPrice === undefined) line.extraVersionPrice = rates.extraVersion || 0;
-            if (line.extraRevisionPrice === undefined) line.extraRevisionPrice = rates.extraRevision || 0;
 
             if (!line.videoType) line.videoType = itemData.id === "edit_short" ? "reels" : "standard";
             if (!line.complexity) line.complexity = "standard";
@@ -5245,21 +5226,7 @@
 
           sourcePacks: 1,
           sourceCount: 1,
-          sourceExtraPrice: rates.sourcePack || 0,
-
           cameraCount: 1,
-          cameraExtraPrice: rates.sourcePack || 0,
-
-          durationBlockSec: 60,
-          includedDurationBlocks: 1,
-          includedCameras: 1,
-          includedSources: 1,
-          includedVersions: 1,
-          includedRevisions: 1,
-
-          perMinutePrice: rates.perMinute || 0,
-          extraVersionPrice: rates.extraVersion || 0,
-          extraRevisionPrice: rates.extraRevision || 0,
 
           videoType: itemData.id === "edit_short" ? "reels" : "standard",
           complexity: "standard",
@@ -5339,10 +5306,23 @@
         return Math.max(1, seconds);
       }
 
-      function durationPaidBlocks(line) {
-        const seconds = durationPresetToSeconds(line);
-        const blockSec = Math.max(1, numberValue(line.durationBlockSec, 60));
-        return Math.max(1, Math.ceil(seconds / blockSec));
+      // Оплачиваемые минуты монтажа: неполная минута считается как целая.
+      function durationPaidMinutes(line) {
+        return Math.max(1, Math.ceil(durationPresetToSeconds(line) / 60));
+      }
+
+      // Что входит в базовую цену. Живёт в каталоге (item.included), а не в строке
+      // сметы: это тариф агентства, а не параметр конкретного заказа. В rates класть
+      // нельзя — getEffectiveRates() масштабирует rates от цены и сломал бы лимиты.
+      function editIncluded(itemData) {
+        const inc = itemData?.included || {};
+        // `?? 1` обязателен: numberValue(undefined, 1) вернёт 0, а не 1 —
+        // внутри Number(String(undefined ?? "")) === 0, и fallback не срабатывает.
+        return {
+          minutes: Math.max(0, numberValue(inc.minutes ?? 1, 1)),
+          cameras: Math.max(0, numberValue(inc.cameras ?? 1, 1)),
+          sources: Math.max(0, numberValue(inc.sources ?? 1, 1))
+        };
       }
 
       function videoComplexityFactor(value) {
@@ -5439,28 +5419,30 @@
           const rates = getEffectiveRates(itemData);
 
           const basePrice = Math.max(0, numberValue(line.price, rates.base || price));
-          const durationBlocks = durationPaidBlocks(line);
-          const includedDurationBlocks = Math.max(0, numberValue(line.includedDurationBlocks, 1));
-          const extraDurationBlocks = Math.max(0, durationBlocks - includedDurationBlocks);
-          const perBlockPrice = Math.max(0, numberValue(line.perMinutePrice, rates.perMinute || 0));
+
+          // Тарифы и лимиты «включено в базу» берутся из каталога, а не из строки сметы:
+          // в строке остаются только параметры заказа. Раньше длительность считалась
+          // «блоками» произвольного размера (3 поля на одну мысль) — теперь минуты.
+          const inc = editIncluded(itemData);
+          const paidMinutes = durationPaidMinutes(line);
+          const extraMinutes = Math.max(0, paidMinutes - inc.minutes);
+          const perMinutePrice = Math.max(0, numberValue(rates.perMinute, 0));
 
           const cameraCount = Math.max(1, numberValue(line.cameraCount, 1));
-          const includedCameras = Math.max(0, numberValue(line.includedCameras, 1));
-          const cameraExtraPrice = Math.max(0, numberValue(line.cameraExtraPrice, rates.sourcePack || 0));
-          const extraCameras = Math.max(0, cameraCount - includedCameras);
+          const cameraExtraPrice = Math.max(0, numberValue(rates.sourcePack, 0));
+          const extraCameras = Math.max(0, cameraCount - inc.cameras);
 
           const sourceCount = Math.max(1, numberValue(line.sourceCount, numberValue(line.sourcePacks, 1)));
-          const includedSources = Math.max(0, numberValue(line.includedSources, 1));
-          const sourceExtraPrice = Math.max(0, numberValue(line.sourceExtraPrice, rates.sourcePack || 0));
-          const extraSources = Math.max(0, sourceCount - includedSources);
+          const sourceExtraPrice = Math.max(0, numberValue(rates.sourcePack, 0));
+          const extraSources = Math.max(0, sourceCount - inc.sources);
 
           const extraVersions = Math.max(0, numberValue(line.extraVersions, 0));
-          const extraVersionPrice = Math.max(0, numberValue(line.extraVersionPrice, rates.extraVersion || 0));
+          const extraVersionPrice = Math.max(0, numberValue(rates.extraVersion, 0));
 
           const extraRevisions = Math.max(0, numberValue(line.extraRevisions, 0));
-          const extraRevisionPrice = Math.max(0, numberValue(line.extraRevisionPrice, rates.extraRevision || 0));
+          const extraRevisionPrice = Math.max(0, numberValue(rates.extraRevision, 0));
 
-          const durationExtra = extraDurationBlocks * perBlockPrice;
+          const durationExtra = extraMinutes * perMinutePrice;
           const cameraExtra = extraCameras * cameraExtraPrice;
           const sourceExtra = extraSources * sourceExtraPrice;
           const versionExtra = extraVersions * extraVersionPrice;
@@ -5488,7 +5470,7 @@
             note: `${videoTypeLabel(line.videoType)} · ${complexityLabel(line.complexity)}`
           });
 
-          addBreakdownRow(rows, "Доп. длительность", durationExtra, `${extraDurationBlocks} блок(ов) × ${money(perBlockPrice)}`);
+          addBreakdownRow(rows, "Доп. длительность", durationExtra, `${extraMinutes} ${plural(extraMinutes, "минута", "минуты", "минут")} × ${money(perMinutePrice)}`);
           addBreakdownRow(rows, "Доп. камеры", cameraExtra, `${extraCameras} × ${money(cameraExtraPrice)}`);
           addBreakdownRow(rows, "Доп. исходники", sourceExtra, `${extraSources} × ${money(sourceExtraPrice)}`);
           addBreakdownRow(rows, "Доп. версии", versionExtra, `${extraVersions} × ${money(extraVersionPrice)}`);
@@ -5496,9 +5478,9 @@
           addBreakdownRow(rows, "Сложность", complexityExtra, `Коэффициент ×${factor}`);
           addBreakdownRow(rows, "Срочность", urgentExtra, urgentLabel(line));
 
-          if (durationBlocks <= includedDurationBlocks) warnings.push("Длительность входит в базовый лимит.");
-          if (cameraCount <= includedCameras) warnings.push("Камеры входят в базовый лимит.");
-          if (sourceCount <= includedSources) warnings.push("Исходники входят в базовый лимит.");
+          if (paidMinutes <= inc.minutes) warnings.push("Длительность входит в базовый лимит.");
+          if (cameraCount <= inc.cameras) warnings.push("Камеры входят в базовый лимит.");
+          if (sourceCount <= inc.sources) warnings.push("Исходники входят в базовый лимит.");
         } else if (itemData.calcModel === "creativeWork") {
           const factor = creativeFactor(line.creativeLevel);
           const base = price * factor;
@@ -6238,18 +6220,7 @@
           "customDurationSec",
           "sourcePacks",
           "sourceCount",
-          "sourceExtraPrice",
           "cameraCount",
-          "cameraExtraPrice",
-          "durationBlockSec",
-          "includedDurationBlocks",
-          "includedCameras",
-          "includedSources",
-          "includedVersions",
-          "includedRevisions",
-          "perMinutePrice",
-          "extraVersionPrice",
-          "extraRevisionPrice",
           "extraVersions",
           "extraRevisions",
           "urgentPercent",
@@ -10918,6 +10889,9 @@
         }
 
         if (itemData.calcModel === "videoEdit") {
+          const editRates = getEffectiveRates(itemData);
+          const editInc = editIncluded(itemData);
+          const urgentMode = line.urgentMode || "none";
           return `
             <div class="calc-box">
               <h3>Монтаж</h3>
@@ -10960,43 +10934,29 @@
               </div>
 
               <div class="grid four" style="margin-top:12px">
-                ${field("Размер блока, сек", `<input type="number" min="1" data-autosave data-scope="line" data-id="${id}" data-key="durationBlockSec" value="${escapeHtml(line.durationBlockSec || 60)}">`)}
-                ${field("Блоков включено", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="includedDurationBlocks" value="${escapeHtml(line.includedDurationBlocks ?? 1)}">`)}
-                ${field("Цена доп. блока", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="perMinutePrice" value="${escapeHtml(line.perMinutePrice || 0)}">`)}
-                ${field("Оплачиваемых блоков", `<input readonly value="${durationPaidBlocks(line)}">`)}
-              </div>
-
-              <div class="grid four" style="margin-top:12px">
                 ${field("Камер", `<input type="number" min="1" data-autosave data-scope="line" data-id="${id}" data-key="cameraCount" value="${escapeHtml(line.cameraCount || 1)}">`)}
-                ${field("Камер включено", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="includedCameras" value="${escapeHtml(line.includedCameras ?? 1)}">`)}
-                ${field("Цена доп. камеры", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="cameraExtraPrice" value="${escapeHtml(line.cameraExtraPrice || 0)}">`)}
                 ${field("Исходников", `<input type="number" min="1" data-autosave data-scope="line" data-id="${id}" data-key="sourceCount" value="${escapeHtml(line.sourceCount || line.sourcePacks || 1)}">`)}
-              </div>
-
-              <div class="grid four" style="margin-top:12px">
-                ${field("Исходников включено", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="includedSources" value="${escapeHtml(line.includedSources ?? 1)}">`)}
-                ${field("Цена доп. исходника", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="sourceExtraPrice" value="${escapeHtml(line.sourceExtraPrice || 0)}">`)}
                 ${field("Доп. версии", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="extraVersions" value="${escapeHtml(line.extraVersions)}">`)}
-                ${field("Цена доп. версии", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="extraVersionPrice" value="${escapeHtml(line.extraVersionPrice || 0)}">`)}
+                ${field("Доп. круги правок", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="extraRevisions" value="${escapeHtml(line.extraRevisions)}">`)}
               </div>
 
-              <div class="grid four" style="margin-top:12px">
-                ${field("Доп. круги правок", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="extraRevisions" value="${escapeHtml(line.extraRevisions)}">`)}
-                ${field("Цена доп. правки", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="extraRevisionPrice" value="${escapeHtml(line.extraRevisionPrice || 0)}">`)}
+              <div class="grid ${urgentMode === "none" ? "two" : "four"}" style="margin-top:12px">
                 ${field("Срочность", `
                   <select data-autosave data-scope="line" data-id="${id}" data-key="urgentMode">
-                    ${optionValueHtml("none", "Нет", line.urgentMode || "none")}
-                    ${optionValueHtml("percent", "Процент", line.urgentMode)}
-                    ${optionValueHtml("fixed", "Фикс. сумма", line.urgentMode)}
+                    ${optionValueHtml("none", "Нет", urgentMode)}
+                    ${optionValueHtml("percent", "Процент", urgentMode)}
+                    ${optionValueHtml("fixed", "Фикс. сумма", urgentMode)}
                   </select>
                 `)}
-                ${field("Срочность, %", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="urgentPercent" value="${escapeHtml(line.urgentPercent ?? 30)}">`)}
+                ${urgentMode === "percent" ? field("Срочность, %", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="urgentPercent" value="${escapeHtml(line.urgentPercent ?? 30)}">`) : ""}
+                ${urgentMode === "fixed" ? field("Срочность, сумма", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="urgentFixed" value="${escapeHtml(line.urgentFixed || 0)}">`) : ""}
               </div>
 
-              <div class="grid two" style="margin-top:12px">
-                ${field("Срочность, фикс. сумма", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="urgentFixed" value="${escapeHtml(line.urgentFixed || 0)}">`)}
-                ${field("Включено в базу", `<input readonly value="${escapeHtml(`${line.includedDurationBlocks ?? 1} блок, ${line.includedCameras ?? 1} камера, ${line.includedSources ?? 1} исходник`)}">`)}
-              </div>
+              <p class="mini-note" style="margin-top:12px">
+                Входит в базу: ${escapeHtml(`${editInc.minutes} ${plural(editInc.minutes, "минута", "минуты", "минут")}, ${editInc.cameras} ${plural(editInc.cameras, "камера", "камеры", "камер")}, ${editInc.sources} ${plural(editInc.sources, "исходник", "исходника", "исходников")}`)}.
+                Сверх лимита: минута — ${money(editRates.perMinute || 0)}, камера — ${money(editRates.sourcePack || 0)}, исходник — ${money(editRates.sourcePack || 0)}, версия — ${money(editRates.extraVersion || 0)}, правка — ${money(editRates.extraRevision || 0)}.
+                Тарифы задаются в каталоге услуг.
+              </p>
             </div>
           `;
         }
