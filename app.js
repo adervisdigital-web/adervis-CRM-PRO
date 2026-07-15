@@ -1174,8 +1174,11 @@
         if (!_adminSession) return true; // local mode — no Supabase auth
         if (!_userProfile) return false; // session exists but profile failed to load
         const s = _userProfile.subscription_status;
-        if (s === "active") return true;
-        if (s === "trial") {
+        // Срок проверяется и у платной подписки: раньше "active" пропускал вообще
+        // без проверки, из-за чего оплаченный месяц не заканчивался никогда.
+        // Ночной крон expire-subscriptions-daily переведёт статус в "expired",
+        // но доступ закрывается сразу, не дожидаясь его.
+        if (s === "active" || s === "trial") {
           const exp = _userProfile.subscription_expires_at;
           return !exp || new Date(exp) > new Date();
         }

@@ -70,14 +70,14 @@ Deno.serve(async (req) => {
         .single();
       if (profileErr || !profile) return json({ error: "Профиль не найден" }, 403);
 
-      // Зеркалит isSubscriptionActive() в app.js: у "active" срок намеренно не
-      // проверяется (см. заметку про истечение платной подписки), у "trial" — да.
+      // Зеркалит isSubscriptionActive() в app.js: срок проверяется у обоих
+      // статусов. Пустой expires_at не считаем истёкшим — так же, как на клиенте.
       const expiresAt = profile.subscription_expires_at
         ? new Date(profile.subscription_expires_at)
         : null;
-      onTrial = profile.subscription_status === "trial" &&
-        (!expiresAt || expiresAt > new Date());
-      const paid = profile.subscription_status === "active";
+      const live = !expiresAt || expiresAt > new Date();
+      onTrial = profile.subscription_status === "trial" && live;
+      const paid = profile.subscription_status === "active" && live;
 
       if (!paid && !onTrial) {
         return json({ error: "Подписка неактивна — генерация КП недоступна" }, 403);
