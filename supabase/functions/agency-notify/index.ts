@@ -49,6 +49,14 @@ Deno.serve(async (req) => {
     return !!data;
   }
 
+  // parse_mode:"HTML": данные брифа приходят из ПУБЛИЧНОЙ формы (неаутентифиц.
+  // клиент), а имена/названия могут содержать & < > — без экранирования Telegram
+  // отклоняет сообщение (400) и агентство не получит уведомление, либо в него
+  // просочится HTML-разметка/ссылка из пользовательского ввода.
+  function esc(s: any) {
+    return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
   async function sendToAll(chatIds: string[], text: string): Promise<void> {
     for (const chatId of chatIds) {
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -83,8 +91,8 @@ Deno.serve(async (req) => {
 
     const text =
       `👁 <b>Клиент открыл КП</b>\n\n` +
-      `📋 ${portal.deal_name || "КП"}\n` +
-      `👤 ${portal.client_name || "Клиент"}\n\n` +
+      `📋 ${esc(portal.deal_name) || "КП"}\n` +
+      `👤 ${esc(portal.client_name) || "Клиент"}\n\n` +
       `<i>Хороший момент позвонить!</i>`;
 
     await sendToAll(chatIds, text);
@@ -105,11 +113,11 @@ Deno.serve(async (req) => {
 
     const text =
       `📥 <b>Новый бриф!</b>\n\n` +
-      `👤 <b>${d.name || "Клиент"}</b>\n` +
-      (d.phone ? `📞 ${d.phone}\n` : "") +
-      (d.email ? `✉️ ${d.email}\n` : "") +
-      (d.type ? `🎬 ${d.type}\n` : "") +
-      (d.budget ? `💰 ${d.budget}\n` : "") +
+      `👤 <b>${esc(d.name) || "Клиент"}</b>\n` +
+      (d.phone ? `📞 ${esc(d.phone)}\n` : "") +
+      (d.email ? `✉️ ${esc(d.email)}\n` : "") +
+      (d.type ? `🎬 ${esc(d.type)}\n` : "") +
+      (d.budget ? `💰 ${esc(d.budget)}\n` : "") +
       `\n<i>Откройте CRM → Брифы, чтобы создать сделку.</i>`;
 
     await sendToAll(chatIds, text);
