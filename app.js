@@ -8379,12 +8379,16 @@
         // Payments & expenses for the month
         const payments = [];
         const expenses = [];
+        // Активный проект берём из live-state, а его snapshot в savedProjects
+        // пропускаем — иначе его транзакции попадут в отчёт дважды.
         projects.forEach(p => {
+          if (p.id === state.activeProjectId) return;
           (p.snapshot?.payments || []).forEach(x => { if ((x.date||"").startsWith(monthStr)) payments.push({ Сделка: p.name||"", Клиент: p.client||"", Дата: x.date||"", Сумма: x.amount||0, Комментарий: x.note||"" }); });
           (p.snapshot?.expenses || []).forEach(x => { if ((x.date||"").startsWith(monthStr)) expenses.push({ Сделка: p.name||"", Клиент: p.client||"", Дата: x.date||"", Сумма: x.amount||0, Категория: x.category||"", Комментарий: x.comment||"" }); });
         });
-        (state.payments||[]).forEach(x => { if ((x.date||"").startsWith(monthStr)) payments.push({ Сделка: "—", Клиент: "—", Дата: x.date||"", Сумма: x.amount||0, Комментарий: x.note||"" }); });
-        (state.expenses||[]).forEach(x => { if ((x.date||"").startsWith(monthStr)) expenses.push({ Сделка: "—", Клиент: "—", Дата: x.date||"", Сумма: x.amount||0, Категория: x.category||"", Комментарий: x.comment||"" }); });
+        const activeName = state.activeProjectId ? (state.project.name || "Текущий") : "—";
+        (state.payments||[]).forEach(x => { if ((x.date||"").startsWith(monthStr)) payments.push({ Сделка: activeName, Клиент: state.project.client||"—", Дата: x.date||"", Сумма: x.amount||0, Комментарий: x.note||"" }); });
+        (state.expenses||[]).forEach(x => { if ((x.date||"").startsWith(monthStr)) expenses.push({ Сделка: activeName, Клиент: state.project.client||"—", Дата: x.date||"", Сумма: x.amount||0, Категория: x.category||"", Комментарий: x.comment||"" }); });
 
         const totalRevenue = payments.reduce((s, x) => s + (x.Сумма||0), 0);
         const totalExpenses = expenses.reduce((s, x) => s + (x.Сумма||0), 0);
@@ -9317,15 +9321,18 @@
         }
         const ML = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
 
+        // Активный проект живёт в state.payments/expenses (live) и одновременно
+        // лежит в savedProjects со своим snapshot — считаем только live, иначе
+        // его суммы задваиваются на графике (тот же приём, что в getAllTransactions).
         const revenue = months.map(m => {
           let s = 0;
-          projects.forEach(p => { (p.snapshot?.payments||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; }); });
+          projects.forEach(p => { if (p.id === state.activeProjectId) return; (p.snapshot?.payments||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; }); });
           (state.payments||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; });
           return s;
         });
         const expenseArr = months.map(m => {
           let s = 0;
-          projects.forEach(p => { (p.snapshot?.expenses||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; }); });
+          projects.forEach(p => { if (p.id === state.activeProjectId) return; (p.snapshot?.expenses||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; }); });
           (state.expenses||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; });
           return s;
         });
@@ -9568,13 +9575,15 @@
         projects.forEach(p => {
           if (p.deadline && p.deadline >= todayStr && p.deadline <= in7Str && !["Завершённые","Сдано"].includes(p.crmStatus||"Лид"))
             upcomingDeadlines.push({ name: p.name, date: p.deadline, type: "Проект" });
+          // Активный проект берём из live-state ниже, иначе его задачи задвоятся
+          if (p.id === state.activeProjectId) return;
           (p.snapshot?.tasks||[]).forEach(t => {
             if (t.deadline && t.deadline >= todayStr && t.deadline <= in7Str && t.status !== "Готово")
               upcomingDeadlines.push({ name: t.title, date: t.deadline, type: "Задача" });
           });
         });
-        // Глобальные задачи — отдельно от цикла проектов (иначе дублирование N раз)
-        state.tasks.forEach(t => {
+        // Задачи активного проекта (live) + личные задачи — отдельно от цикла
+        [...(state.tasks||[]), ...(state.globalTasks||[])].forEach(t => {
           if (t.deadline && t.deadline >= todayStr && t.deadline <= in7Str && t.status !== "Готово")
             upcomingDeadlines.push({ name: t.title, date: t.deadline, type: "Задача" });
         });
@@ -9583,10 +9592,15 @@
 
         const overdueCount = (() => {
           let cnt = 0;
+          // Активный проект живёт в state.tasks (live), а не в своём snapshot —
+          // иначе его просроченные задачи считаются дважды. Личные задачи —
+          // globalTasks. Тот же счётчик в сайдбаре собран так же.
           projects.forEach(p => {
+            if (p.id === state.activeProjectId) return;
             (p.snapshot?.tasks||[]).forEach(t => { if (t.deadline && t.deadline < todayStr && t.status !== "Готово") cnt++; });
           });
           (state.tasks||[]).forEach(t => { if (t.deadline && t.deadline < todayStr && t.status !== "Готово") cnt++; });
+          (state.globalTasks||[]).forEach(t => { if (t.deadline && t.deadline < todayStr && t.status !== "Готово") cnt++; });
           return cnt;
         })();
 
