@@ -9964,13 +9964,13 @@
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">` : ""}
                         <div class="deal-card-head-main">
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
-                          ${project.clientId
-                            ? `<div class="deal-card-sub">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>`
-                            : `<div class="deal-card-sub unlinked" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Клиент не привязан"}</div>`}
-                          <div class="deal-card-pills">
+                          <div class="deal-card-statusline">
                             <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
                             <span class="status-pill" style="font-size:12px">${escapeHtml(project.crmStatus || "Лид")}</span>
                             ${isCurrent ? `<span class="status-pill green" style="font-size:12px">текущий</span>` : ""}
+                            ${project.clientId
+                              ? `<span class="deal-card-sub">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</span>`
+                              : `<span class="deal-card-sub unlinked" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Не привязан"}</span>`}
                           </div>
                         </div>
                         <button class="deal-pin-btn ${project.pinned ? "active" : ""} no-print" onclick="event.stopPropagation();app.togglePinDeal('${projectIdSafe}')" title="${project.pinned ? "Открепить" : "Закрепить наверху"}" aria-label="${project.pinned ? "Открепить" : "Закрепить"}" aria-pressed="${project.pinned ? "true" : "false"}">
@@ -10031,11 +10031,12 @@
                         <div class="deal-pay-fill" style="width:${payPct}%"></div>
                       </div>` : ""}
 
+                      ${(project.deadline || project.note || (project.tags||[]).length) ? `
                       <div class="deal-card-meta">
-                        <div class="deal-card-deadline" style="color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
+                        ${project.deadline ? `<div class="deal-card-deadline" style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${escapeHtml(formatDate(project.deadline))}${u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : ""}</div>` : ""}
                         ${project.note ? `<div class="deal-card-note" title="${escapeHtml(project.note)}">💬 ${escapeHtml(project.note)}</div>` : ""}
                         ${(project.tags||[]).length ? `<div class="deal-card-tags">${(project.tags||[]).map(t=>`<span class="deal-card-tag" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
-                      </div>
+                      </div>` : ""}
 
                       <div class="deal-card-footer">
                         ${nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge" onclick="event.stopPropagation()">Завершено</span>`}
