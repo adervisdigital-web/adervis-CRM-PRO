@@ -5922,11 +5922,13 @@
         });
       }
 
-      function newProject() {
-        if (autoSaveTimer) clearTimeout(autoSaveTimer);
-        flushActiveProjectToSaved();
-
-        const keep = {
+      // Глобальные (агентские) данные, которые ПЕРЕЖИВАЮТ создание новой сделки.
+      // Всё остальное в defaultState — либо per-project (project/selected/payments/
+      // tasks/… — сбрасывается намеренно), либо UI-состояние. ВАЖНО: добавляя новое
+      // глобальное поле в state, впиши его сюда, иначе newProject и мастер молча
+      // сотрут его (так и потерялись globalTasks/companyTeam/telegramChatIds/contracts).
+      function _globalDataKeep() {
+        return {
           company: deepClone(state.company),
           clients: deepClone(state.clients),
           savedProjects: deepClone(state.savedProjects),
@@ -5935,10 +5937,25 @@
           priceHistory: deepClone(state.priceHistory),
           customItems: deepClone(state.customItems),
           hiddenItems: deepClone(state.hiddenItems),
+          permanentlyDeleted: deepClone(state.permanentlyDeleted || {}),
           favorites: deepClone(state.favorites),
           packages: deepClone(state.packages),
-          stages: deepClone(state.stages)
+          stages: deepClone(state.stages),
+          globalTasks: deepClone(state.globalTasks || []),
+          companyTeam: deepClone(state.companyTeam || []),
+          contracts: deepClone(state.contracts || []),
+          notifications: deepClone(state.notifications || []),
+          knowledgeDocs: deepClone(state.knowledgeDocs || []),
+          telegramChatIds: deepClone(state.telegramChatIds || []),
+          proposalTemplates: deepClone(state.proposalTemplates)
         };
+      }
+
+      function newProject() {
+        if (autoSaveTimer) clearTimeout(autoSaveTimer);
+        flushActiveProjectToSaved();
+
+        const keep = _globalDataKeep();
 
         const fresh = defaultState();
         state = { ...fresh, ...keep, view: "estimate", project: { ...fresh.project } };
@@ -7884,20 +7901,7 @@
         const client = state.clients.find(x => x.id === w.clientId);
 
         const fresh = defaultState();
-        const keep = {
-          company: deepClone(state.company),
-          clients: deepClone(state.clients),
-          savedProjects: deepClone(state.savedProjects),
-          catalogPrices: deepClone(state.catalogPrices),
-          catalogOverrides: deepClone(state.catalogOverrides),
-          priceHistory: deepClone(state.priceHistory),
-          customItems: deepClone(state.customItems),
-          hiddenItems: deepClone(state.hiddenItems),
-          permanentlyDeleted: deepClone(state.permanentlyDeleted || {}),
-          favorites: deepClone(state.favorites),
-          packages: deepClone(state.packages),
-          stages: deepClone(state.stages)
-        };
+        const keep = _globalDataKeep();
 
         state = {
           ...fresh, ...keep,
