@@ -5798,6 +5798,20 @@
         return saved;
       }
 
+      // Мёрж глобального списка каталога (свои позиции / этапы) со снимком сделки:
+      // берём актуальный глобальный, добавляем из снимка только записи с id, которых
+      // в глобальном уже нет (удалены из каталога, но нужны старой смете).
+      function _mergeCatalogById(current, snap, fallback) {
+        const base = Array.isArray(current) && current.length ? current
+          : (Array.isArray(fallback) ? deepClone(fallback) : []);
+        const result = deepClone(base);
+        const ids = new Set(result.map(x => x && x.id).filter(Boolean));
+        (Array.isArray(snap) ? snap : []).forEach(item => {
+          if (item && item.id && !ids.has(item.id)) { result.push(deepClone(item)); ids.add(item.id); }
+        });
+        return result;
+      }
+
       function loadSavedProject(id) {
         const saved = state.savedProjects.find(project => project.id === id);
         if (!saved) return;
@@ -5836,10 +5850,14 @@
         state.estimateOrder = deepClone(snapshot.estimateOrder || Object.keys(state.selected));
         state.lineCollapsed = deepClone(snapshot.lineCollapsed || {});
         state.stageCollapsed = deepClone(snapshot.stageCollapsed || {});
-        state.customItems = deepClone(snapshot.customItems || state.customItems || []);
-        state.catalogPrices = deepClone(snapshot.catalogPrices || state.catalogPrices || {});
-        state.hiddenItems = deepClone(snapshot.hiddenItems || state.hiddenItems || {});
-        state.stages = deepClone(snapshot.stages || state.stages || DEFAULT_STAGES);
+        // Каталог (свои позиции, цены, скрытые, этапы) — ГЛОБАЛЬНЫЙ. Раньше он
+        // восстанавливался из снимка сделки с приоритетом над текущим: открытие
+        // старой сделки откатывало новые цены/позиции каталога, и следующий save
+        // терял их. Теперь каталог оставляем текущим, а из снимка ДО-восстанавливаем
+        // только свои позиции/этапы, которых уже нет в каталоге (удалены) — чтобы
+        // строки старой сметы на них не осиротели. Цены/скрытые/overrides — глобальные.
+        state.customItems = _mergeCatalogById(state.customItems, snapshot.customItems);
+        state.stages = _mergeCatalogById(state.stages, snapshot.stages, DEFAULT_STAGES);
         state.versions = deepClone(snapshot.versions || state.versions || []);
         state.tasks = deepClone(snapshot.tasks || []);
         state.payments = deepClone(snapshot.payments || []);
