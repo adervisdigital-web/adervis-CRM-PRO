@@ -5279,15 +5279,6 @@
         });
       }
 
-      function durationPresetToMinutes(line) {
-        if (line.durationPreset === "15") return 0.25;
-        if (line.durationPreset === "30") return 0.5;
-        if (line.durationPreset === "60") return 1;
-        if (line.durationPreset === "120") return 2;
-        const seconds = numberValue(line.customDurationSec, 60);
-        return Math.max(0.1, seconds / 60);
-      }
-
       function creativeFactor(value) {
         return ({ simple: .75, standard: 1, advanced: 1.45, premium: 2 }[value]) || 1;
       }
@@ -5311,17 +5302,19 @@
         return Math.max(1, Math.ceil(durationPresetToSeconds(line) / 60));
       }
 
-      // Что входит в базовую цену. Живёт в каталоге (item.included), а не в строке
-      // сметы: это тариф агентства, а не параметр конкретного заказа. В rates класть
-      // нельзя — getEffectiveRates() масштабирует rates от цены и сломал бы лимиты.
+      // В BASE_ITEMS этих ключей нет — дефолт задаёт editIncluded(), он же 1.
+      const INCLUDED_KEYS = ["includedMinutes", "includedCameras", "includedSources"];
+
+      // Что входит в базовую цену. Живёт в каталоге, а не в строке сметы: это тариф
+      // агентства, а не параметр конкретного заказа. В rates класть нельзя —
+      // getEffectiveRates() масштабирует rates от цены и сломал бы лимиты.
       function editIncluded(itemData) {
-        const inc = itemData?.included || {};
         // `?? 1` обязателен: numberValue(undefined, 1) вернёт 0, а не 1 —
         // внутри Number(String(undefined ?? "")) === 0, и fallback не срабатывает.
         return {
-          minutes: Math.max(0, numberValue(inc.minutes ?? 1, 1)),
-          cameras: Math.max(0, numberValue(inc.cameras ?? 1, 1)),
-          sources: Math.max(0, numberValue(inc.sources ?? 1, 1))
+          minutes: Math.max(0, numberValue(itemData?.includedMinutes ?? 1, 1)),
+          cameras: Math.max(0, numberValue(itemData?.includedCameras ?? 1, 1)),
+          sources: Math.max(0, numberValue(itemData?.includedSources ?? 1, 1))
         };
       }
 
@@ -6328,8 +6321,14 @@
         if (!state.catalogOverrides) state.catalogOverrides = {};
         const current = { ...(state.catalogOverrides[id] || {}) };
 
-        if (value === base[key]) delete current[key];
-        else current[key] = value;
+        // Лимиты приходят из <input> строкой — без приведения к числу они не совпали бы
+        // с дефолтом и оседали бы в overrides навсегда.
+        const isIncluded = INCLUDED_KEYS.includes(key);
+        const nextValue = isIncluded ? Math.max(0, Math.round(numberValue(value, 0))) : value;
+        const baseValue = isIncluded ? (base[key] ?? 1) : base[key];
+
+        if (nextValue === baseValue) delete current[key];
+        else current[key] = nextValue;
 
         if (Object.keys(current).length) state.catalogOverrides[id] = current;
         else delete state.catalogOverrides[id];
@@ -6485,7 +6484,7 @@
         const custom = state.customItems.find(x => x.id === id);
         if (!custom) return;
 
-        if (key === "price") custom[key] = Math.max(0, Math.round(numberValue(value, 0)));
+        if (key === "price" || INCLUDED_KEYS.includes(key)) custom[key] = Math.max(0, Math.round(numberValue(value, 0)));
         else if (key === "tags") custom.tags = String(value || "").split(",").map(x => x.trim()).filter(Boolean);
         else if (key === "category") {
           custom.category = value;
@@ -10061,6 +10060,21 @@
           </div>
         `;
 
+        // Лимиты «включено в базовую цену» — тариф агентства, а не параметр заказа,
+        // поэтому правятся здесь, а не в каждой строке сметы. Есть только у монтажа.
+        const inc = editIncluded(itemData);
+        const incScope = custom ? "custom" : "catalogOverride";
+        const includedHtml = itemData.calcModel === "videoEdit" ? `
+          <div style="margin-top:16px">
+            <p class="mini-note" style="margin-bottom:8px">Входит в базовую цену. Всё сверх этого считается по тарифу.</p>
+            <div class="grid three">
+              ${field("Минут", `<input type="number" min="0" data-autosave data-scope="${incScope}" data-id="${id}" data-key="includedMinutes" value="${inc.minutes}">`)}
+              ${field("Камер", `<input type="number" min="0" data-autosave data-scope="${incScope}" data-id="${id}" data-key="includedCameras" value="${inc.cameras}">`)}
+              ${field("Исходников", `<input type="number" min="0" data-autosave data-scope="${incScope}" data-id="${id}" data-key="includedSources" value="${inc.sources}">`)}
+            </div>
+          </div>
+        ` : "";
+
         return `
           <div class="modal-overlay" onclick="app.closeCatalogEdit()">
             <div class="modal-box" style="max-width:520px;width:calc(100vw - 32px)" onclick="event.stopPropagation()">
@@ -10073,6 +10087,7 @@
               </div>
 
               ${contentHtml}
+              ${includedHtml}
               ${actionsHtml}
             </div>
           </div>
@@ -10955,7 +10970,7 @@
               <p class="mini-note" style="margin-top:12px">
                 Входит в базу: ${escapeHtml(`${editInc.minutes} ${plural(editInc.minutes, "минута", "минуты", "минут")}, ${editInc.cameras} ${plural(editInc.cameras, "камера", "камеры", "камер")}, ${editInc.sources} ${plural(editInc.sources, "исходник", "исходника", "исходников")}`)}.
                 Сверх лимита: минута — ${money(editRates.perMinute || 0)}, камера — ${money(editRates.sourcePack || 0)}, исходник — ${money(editRates.sourcePack || 0)}, версия — ${money(editRates.extraVersion || 0)}, правка — ${money(editRates.extraRevision || 0)}.
-                Тарифы задаются в каталоге услуг.
+                Лимиты правятся в каталоге услуг; тарифы сверх лимита следуют за ценой позиции.
               </p>
             </div>
           `;
