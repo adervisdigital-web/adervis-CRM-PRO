@@ -2027,13 +2027,16 @@
 
         try {
           const tokenData = await sdk.Auth.exchangeCode(code, deviceId);
-          if (!tokenData?.id_token) throw new Error('VK не вернул id_token');
+          if (!tokenData?.access_token) throw new Error('VK не вернул access_token');
 
+          // Шлём access_token (а не id_token): vk-auth валидирует его через VK
+          // user_info. id_token декодировался без проверки подписи — любой мог
+          // прислать поддельный и войти в чужой аккаунт.
           const { url: sbUrl, key } = getSupabaseConfig();
           const res = await fetch(`${sbUrl}/functions/v1/vk-auth`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': key },
-            body:    JSON.stringify({ id_token: tokenData.id_token }),
+            body:    JSON.stringify({ access_token: tokenData.access_token }),
           });
           const result = await res.json();
           _authFields.loading = false;

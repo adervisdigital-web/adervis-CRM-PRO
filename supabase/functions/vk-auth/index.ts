@@ -12,12 +12,15 @@ function json(data: unknown, status = 200) {
   });
 }
 
-interface VKIDPayload {
-  sub?:        string | number;
+// VK App ID (client_id) — публичное значение, не секрет. Можно переопределить env.
+const VK_APP_ID = Deno.env.get('VK_APP_ID') ?? '54626328';
+const VK_USER_INFO_URL = 'https://id.vk.com/oauth2/user_info';
+
+interface VKUserInfo {
   user_id?:    string | number;
-  email?:      string;
   first_name?: string;
   last_name?:  string;
+  email?:      string;
   phone?:      string;
 }
 
@@ -25,33 +28,46 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { id_token } = await req.json();
-    if (!id_token) return json({ error: 'Missing id_token' }, 400);
+    const { access_token } = await req.json();
+    if (!access_token) return json({ error: 'Missing access_token' }, 400);
 
-    // Декодируем JWT payload (base64url → JSON)
-    // id_token подписан VK — доверяем ему, т.к. он получен через VKID SDK
-    const parts = id_token.split('.');
-    if (parts.length < 2) return json({ error: 'Некорректный id_token' }, 400);
+    // SECURITY: этот эндпоинт публичный (--no-verify-jwt) и раньше декодировал
+    // присланный id_token БЕЗ проверки подписи — кто угодно мог прислать
+    // самодельный токен с чужим email и получить magiclink к любому аккаунту
+    // (вплоть до super-admin). Теперь единственный источник личности — ответ VK
+    // на реальный access_token: VK сам валидирует токен, подделать нельзя.
+    // (Проверки подписи id_token через JWKS у VK ID нет — публичный ключ не
+    // публикуется; серверная валидация делается именно через user_info.)
+    const infoResp = await fetch(VK_USER_INFO_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    new URLSearchParams({ client_id: VK_APP_ID, access_token }).toString(),
+    });
 
-    let payload: VKIDPayload;
-    try {
-      const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-      payload = JSON.parse(atob(b64));
-    } catch {
-      return json({ error: 'Не удалось декодировать id_token' }, 400);
+    const infoData = await infoResp.json().catch(() => null) as
+      | { user?: VKUserInfo; error?: string; error_description?: string }
+      | VKUserInfo
+      | null;
+
+    if (!infoData || (infoData as { error?: string }).error) {
+      console.error('vk-auth: user_info rejected token', infoResp.status,
+        JSON.stringify(infoData));
+      return json({ error: 'VK не подтвердил токен' }, 401);
     }
 
-    const firstName = payload.first_name ?? '';
-    const lastName  = payload.last_name  ?? '';
-    const vkUserId  = String(payload.sub ?? payload.user_id ?? '');
+    // VK может вернуть данные плоско либо во вложенном user
+    const info: VKUserInfo = (infoData as { user?: VKUserInfo }).user ?? (infoData as VKUserInfo);
+    const firstName = info.first_name ?? '';
+    const lastName  = info.last_name  ?? '';
+    const vkUserId  = String(info.user_id ?? '');
 
     if (!vkUserId) {
-      return json({ error: 'VK не вернул идентификатор пользователя' }, 400);
+      console.error('vk-auth: user_info без user_id', JSON.stringify(infoData));
+      return json({ error: 'VK не вернул идентификатор пользователя' }, 401);
     }
-
-    // Используем email из id_token или создаём синтетический по VK User ID
-    const email = payload.email
-      ? payload.email
+    // Используем email из user_info или создаём синтетический по VK User ID
+    const email = info.email
+      ? info.email
       : `vk${vkUserId}@vk.adervis`;
 
     // Supabase Admin client
