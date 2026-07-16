@@ -3334,6 +3334,34 @@
     .fin-subtab.active { color: var(--primary2); border-bottom-color: var(--primary2); }
     .fin-subtab:hover { color: var(--text); }
 
+    /* ── ВСЕ КП (compact list) ───────────────────── */
+    .kp-list { display: flex; flex-direction: column; gap: 6px; }
+    .kp-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px;
+      background: var(--panel); transition: border-color .12s;
+    }
+    .kp-row:hover { border-color: var(--primary); }
+    .kp-row-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .kp-row-dot.green { background: var(--green); }
+    .kp-row-main { flex: 1; min-width: 0; }
+    .kp-row-name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .kp-row-sub { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .icon-btn {
+      background: none; border: 1px solid var(--line); border-radius: 8px;
+      width: 32px; height: 32px; display: grid; place-items: center;
+      color: var(--muted); cursor: pointer; flex-shrink: 0; transition: .12s;
+    }
+    .icon-btn:hover { color: var(--primary2); border-color: var(--primary); }
+
+    /* ── KPI-плитки в аналитике финансов ─────────── */
+    .kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 16px; }
+    .kpi-tile { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); text-align: center; }
+    .kpi-val { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .kpi-lbl { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    @media (max-width: 768px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 480px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+
     /* ── AUTO-SAVE INDICATOR ─────────────────────── */
     .autosave-indicator {
       font-size: 12px; font-weight: 600;

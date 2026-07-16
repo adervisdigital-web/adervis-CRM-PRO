@@ -44,6 +44,7 @@
         { id: "packages", label: "Пакеты" },
         { id: "catalog", label: "Каталог" },
         { id: "clients", label: "Клиенты" },
+        { id: "proposals", label: "Все КП" },
         { id: "briefs", label: "Онлайн-брифы" },
         { id: "company-team", label: "Команда" },
         { id: "global-finances", label: "Финансы" },
@@ -751,6 +752,9 @@
       let _briefs = [];
       let _briefsLoaded = false;
       let _briefExpanded = {}; // { [briefId]: true } — какие карточки заявок раскрыты
+      let _allPortals = [];          // все КП агентства (client_portals) для раздела «Все КП»
+      let _allPortalsLoaded = false;
+      let _proposalsFilter = "all";  // all | sent | approved | paid
 
       const _DEFAULT_SB_URL    = "https://qzeylogyledmhjpzvgkk.supabase.co";
       const _DEFAULT_SB_KEY    = "sb_publishable_E9JgbQiA7namAFiZAAbZEQ_aBn11VgJ";
@@ -786,6 +790,7 @@
               _userProfile = null;
               _onlineUsers = [];
               _briefs = []; _briefsLoaded = false;
+              _allPortals = []; _allPortalsLoaded = false;
               if (_realtimeChannel) { _realtimeChannel.unsubscribe(); _realtimeChannel = null; }
               renderAdminTopbar();
               render();
@@ -1316,6 +1321,7 @@
         estimate: ["Смета", null],
         "global-tasks": ["Задачи", "Все проекты и личные"],
         briefs: ["Онлайн-брифы", "Заявки от клиентов"],
+        proposals: ["Все КП", "Коммерческие предложения по всем сделкам"],
         plans: ["Тарифы", "Подписка и оплата"],
         projects: ["Проекты", null],
         team: ["Команда проекта", null],
@@ -1399,6 +1405,7 @@
           packages: () => navItem("packages",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg>`,"Пакеты"),
           catalog: () => navItem("catalog",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>`,"Каталог"),
           clients: () => navItem("clients",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>`,"Клиенты"),
+          proposals: () => navItem("proposals",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h5l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.5 1.2V4.5H11L8.5 2.2zM5 7h6v1H5V7zm0 2.5h6v1H5v-1zM5 12h4v1H5v-1z"/></svg>`,"Все КП"),
           briefs: () => navItem("briefs",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h6l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 1v3h3L9 2zM5 7h6v1H5V7zm0 3h6v1H5v-1z"/></svg>`,"Онлайн-брифы"),
           "company-team": () => navItem("company-team",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm5-1a2 2 0 100-4 2 2 0 000 4zM1 13.5c0-2.5 2.2-4 4.5-4s4.5 1.5 4.5 4H1zm9-3.3c1.9.4 3 1.6 3 3.3h-2c0-1.2-.4-2.3-1-3.3z"/></svg>`,"Команда"),
           "global-finances": () => navItem("global-finances",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg>`,"Финансы"),
@@ -1426,13 +1433,13 @@
 
           <nav class="sidebar-nav">
             ${navItemsHtml}
+          </nav>
+
+          <div class="sidebar-footer">
             <button class="sidebar-nav-item sidebar-nav-edit-btn no-print" id="sidebarNavEditBtn" onclick="app.toggleSidebarNavPopover(event)" title="Настроить меню">
               <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>
               <span class="sidebar-label">Настроить меню</span>
             </button>
-          </nav>
-
-          <div class="sidebar-footer">
             ${_isSuperAdmin() ? `
             <button class="sidebar-nav-item" onclick="app.go('admin')" title="Панель администратора" style="color:var(--red);opacity:.7">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
@@ -4898,6 +4905,7 @@
           updatedAt: project?.updatedAt || project?.at || new Date().toISOString(),
           note: project?.note || "",
           manager: project?.manager || "",
+          pinned: !!project?.pinned,
           tags: Array.isArray(project?.tags) ? project.tags : [],
           activity: Array.isArray(project?.activity) ? project.activity : [],
           googleEventIds: (project?.googleEventIds && typeof project.googleEventIds === "object") ? project.googleEventIds : {},
@@ -8059,10 +8067,18 @@
         if (!project) return;
         const prev = project.crmStatus || "Лид";
         if (prev === "Завершённые") { toast("Сделка уже завершена"); return; }
-        project.crmStatus = "Завершённые";
-        if (project.snapshot?.project) project.snapshot.project.crmStatus = "Завершённые";
+        _applyCrmStatus(project, "Завершённые");
         _logActivity(id, `Статус: ${prev} → Завершённые`);
         toast("Сделка завершена ✓");
+        save();
+        render();
+      }
+
+      function togglePinDeal(id) {
+        const proj = (state.savedProjects || []).find(p => p.id === id);
+        if (!proj) return;
+        proj.pinned = !proj.pinned;
+        toast(proj.pinned ? "📌 Сделка закреплена" : "Сделка откреплена");
         save();
         render();
       }
@@ -8682,6 +8698,7 @@
           knowledge: renderKnowledge,
           support: renderSupport,
           briefs: renderBriefs,
+          proposals: renderAllProposals,
           admin: renderAdminPanel
         };
 
@@ -9123,6 +9140,121 @@
           _briefsLoaded = true;
           render();
         } catch(e) { console.warn('Briefs load:', e); _briefsLoaded = true; render(); }
+      }
+
+      async function _loadAllPortals() {
+        if (!_supabase || !_adminSession || _allPortalsLoaded) return;
+        try {
+          const { data } = await _supabase.from('client_portals')
+            .select('id, project_id, deal_name, deal_status, total_price, approved_at, advance_amount, advance_paid_at, signer_name, created_at')
+            .order('created_at', { ascending: false });
+          _allPortals = data || [];
+          _allPortalsLoaded = true;
+          render();
+        } catch (e) { console.warn('Portals load:', e); _allPortalsLoaded = true; render(); }
+      }
+
+      function refreshAllProposals() { _allPortalsLoaded = false; _loadAllPortals(); }
+      function setProposalsFilter(f) { _proposalsFilter = f; render(); }
+
+      function copyPortalLink(portalId) {
+        const link = location.origin + location.pathname + '?portal=' + portalId;
+        try { navigator.clipboard.writeText(link); } catch (e) {}
+        toast('🔗 Ссылка на КП скопирована');
+      }
+
+      function _portalStatus(p) {
+        const approved = !!p.approved_at || p.deal_status === 'Согласовано';
+        const paid = !!p.advance_paid_at;
+        if (paid) return { key: 'paid', label: 'Аванс оплачен', cls: 'green' };
+        if (approved) return { key: 'approved', label: 'Согласовано', cls: 'green' };
+        return { key: 'sent', label: 'Отправлено', cls: '' };
+      }
+
+      function renderAllProposals() {
+        const canCloud = _supabase && _adminSession;
+        if (canCloud && !_allPortalsLoaded) {
+          _loadAllPortals();
+          return `
+            <div aria-busy="true">
+              <div class="panel" style="margin-bottom:14px">
+                <div class="skeleton" style="height:22px;width:34%;margin-bottom:10px"></div>
+                <div class="skeleton" style="height:14px;width:55%"></div>
+              </div>
+              ${[0,1,2,3].map(() => `<div class="panel" style="margin-bottom:8px"><div class="skeleton" style="height:16px;width:60%;margin-bottom:8px"></div><div class="skeleton" style="height:12px;width:40%"></div></div>`).join("")}
+            </div>`;
+        }
+
+        const filter = _proposalsFilter || 'all';
+        const portals = filter === 'all' ? _allPortals : _allPortals.filter(p => _portalStatus(p).key === filter);
+        const withPortal = new Set(_allPortals.map(p => p.project_id).filter(Boolean));
+        const drafts = (state.savedProjects || []).filter(p => !withPortal.has(p.id) && (p.crmStatus || 'Лид') !== 'Завершённые');
+
+        const counts = {
+          all: _allPortals.length,
+          sent: _allPortals.filter(p => _portalStatus(p).key === 'sent').length,
+          approved: _allPortals.filter(p => _portalStatus(p).key === 'approved').length,
+          paid: _allPortals.filter(p => _portalStatus(p).key === 'paid').length,
+        };
+        const totalSum = _allPortals.reduce((s, p) => s + numberValue(p.total_price, 0), 0);
+        const paidSum = _allPortals.filter(p => p.advance_paid_at).reduce((s, p) => s + numberValue(p.advance_amount, 0), 0);
+        const tab = (key, label) => `<button class="fin-subtab ${filter === key ? 'active' : ''}" onclick="app.setProposalsFilter('${key}')">${label} · ${counts[key] ?? 0}</button>`;
+
+        const row = (p) => {
+          const st = _portalStatus(p);
+          const date = p.created_at ? formatDate(p.created_at) : '';
+          return `
+            <div class="kp-row">
+              <div class="kp-row-dot ${st.cls}"></div>
+              <div class="kp-row-main" onclick="app.openDeal('${p.project_id}')" title="Открыть сделку" style="cursor:pointer">
+                <div class="kp-row-name">${escapeHtml(p.deal_name || 'Без названия')}</div>
+                <div class="kp-row-sub">${money(p.total_price || 0)}${p.advance_amount ? ` · аванс ${money(p.advance_amount)}${p.advance_paid_at ? ' ✅' : ''}` : ''}${p.signer_name ? ` · подписал ${escapeHtml(p.signer_name)}` : ''}${date ? ` · ${date}` : ''}</div>
+              </div>
+              <span class="status-pill ${st.cls}" style="font-size:11px;flex-shrink:0">${st.label}</span>
+              <button class="icon-btn no-print" onclick="event.stopPropagation();app.copyPortalLink('${p.id}')" title="Скопировать ссылку на КП" aria-label="Скопировать ссылку">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6.5 9.5l3-3M5 7L3.5 8.5a2.1 2.1 0 003 3L8 10M11 9l1.5-1.5a2.1 2.1 0 00-3-3L8 6"/></svg>
+              </button>
+            </div>`;
+        };
+
+        return `
+          <div class="panel">
+            <div class="section-title">
+              <div>
+                <h1>Все КП</h1>
+                <p>Коммерческие предложения по всем сделкам. Всего на ${money(totalSum)}${paidSum ? ` · авансов оплачено ${money(paidSum)}` : ''}.</p>
+              </div>
+              <div class="toolbar no-print">
+                <button class="btn small" onclick="app.refreshAllProposals()" title="Обновить">↻ Обновить</button>
+              </div>
+            </div>
+
+            ${_allPortals.length ? `
+              <div class="fin-subtab-bar no-print" style="margin-bottom:14px">
+                ${tab('all', 'Все')}${tab('sent', 'Отправлено')}${tab('approved', 'Согласовано')}${tab('paid', 'Оплачено')}
+              </div>
+              <div class="kp-list">
+                ${portals.length ? portals.map(row).join('') : `<div class="empty" style="padding:20px">Нет КП с таким статусом.</div>`}
+              </div>
+            ` : `<div class="empty" style="padding:24px">Пока не создано ни одного КП. Откройте сделку → «Коммерческое предложение» → «Ссылка КП».</div>`}
+
+            ${drafts.length ? `
+              <div style="margin-top:22px">
+                <div class="u-meta" style="text-transform:uppercase;letter-spacing:.04em;font-weight:750;margin-bottom:8px">Без отправленного КП · ${drafts.length}</div>
+                <div class="kp-list">
+                  ${drafts.slice(0, 30).map(d => `
+                    <div class="kp-row">
+                      <div class="kp-row-dot"></div>
+                      <div class="kp-row-main" onclick="app.openDeal('${d.id}')" title="Открыть сделку" style="cursor:pointer">
+                        <div class="kp-row-name">${escapeHtml(d.name || 'Без названия')}</div>
+                        <div class="kp-row-sub">${money(d.total || 0)}${d.client ? ` · ${escapeHtml(d.client)}` : ''} · ${escapeHtml(d.crmStatus || 'Лид')}</div>
+                      </div>
+                      <button class="btn small primary no-print" onclick="event.stopPropagation();app.createClientPortal('${d.id}')" title="Создать и скопировать ссылку КП">Отправить КП</button>
+                    </div>`).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>`;
       }
 
       async function convertBriefToDeal(briefId) {
@@ -9577,7 +9709,9 @@
         const tagFilter = state.crmTagFilter || "";
         const activeProjects = projects.filter(p => (p.crmStatus || "Лид") !== "Завершённые");
         const visibleItems = (filter === "all" ? activeProjects : projects.filter(p => (p.crmStatus || "Лид") === filter))
-          .filter(p => !tagFilter || (p.tags || []).includes(tagFilter));
+          .filter(p => !tagFilter || (p.tags || []).includes(tagFilter))
+          // Закреплённые — наверх; порядок остальных не трогаем (sort стабилен)
+          .slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
 
         const totalPipeline = projects.filter(p => !["Сдано", "Завершённые"].includes(p.crmStatus || "Лид"))
           .reduce((s, p) => s + (p.total || 0), 0);
@@ -9838,6 +9972,7 @@
                             ? `<div class="deal-card-sub">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>`
                             : `<div class="deal-card-sub unlinked" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Клиент не привязан"}</div>`}
                           <div class="deal-card-pills">
+                            ${project.pinned ? `<span title="Закреплено" style="font-size:12px;line-height:1">📌</span>` : ""}
                             <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
                             <span class="status-pill" style="font-size:12px">${escapeHtml(project.crmStatus || "Лид")}</span>
                             ${isCurrent ? `<span class="status-pill green" style="font-size:12px">текущий</span>` : ""}
@@ -9859,6 +9994,10 @@
                             <button class="dcm-item" onclick="event.stopPropagation();app.selectDealFromMenu('${projectIdSafe}')">
                               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 1v10h10V3H3zm2.3 5.4l1.8 1.8 3.6-3.6.7.7-4.3 4.3-2.5-2.5.7-.7z"/></svg>
                               Выбрать
+                            </button>
+                            <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.togglePinDeal('${projectIdSafe}')">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.83 1.02l5.15 5.15c.28.28.02.76-.37.69l-2.4-.44-2.9 2.9.44 2.86c.07.4-.42.66-.7.38L6.4 10.42l-4.1 4.1-.7-.7 4.1-4.1-2.13-2.13c-.28-.28-.02-.77.38-.7l2.86.44 2.9-2.9-.44-2.4c-.07-.4.41-.65.69-.37z"/></svg>
+                              ${project.pinned ? "Открепить" : "Закрепить"}
                             </button>
                             <div class="dcm-sep"></div>
                             <button class="dcm-item dcm-green" onclick="event.stopPropagation();app.finishDeal('${projectIdSafe}')">
@@ -12637,6 +12776,28 @@
                   </div>
                 ` : ""}
               </div>
+
+              ${(() => {
+                const inc = filteredByDate.filter(t => t._type === "income").reduce((s, t) => s + numberValue(t.amount, 0), 0);
+                const exp = filteredByDate.filter(t => t._type === "expense").reduce((s, t) => s + numberValue(t.amount, 0), 0);
+                const prof = inc - exp;
+                const margin = inc > 0 ? Math.round(prof / inc * 100) : 0;
+                const incCount = filteredByDate.filter(t => t._type === "income").length;
+                const avgCheck = incCount > 0 ? Math.round(inc / incCount) : 0;
+                const allTotal = (state.savedProjects || []).reduce((s, p) => s + numberValue(p.total, 0), 0);
+                const allPaid = (state.savedProjects || []).reduce((s, p) => s + numberValue(p.paid, 0), 0);
+                const collect = allTotal > 0 ? Math.round(allPaid / allTotal * 100) : 0;
+                const kpi = (label, val, color) => `<div class="kpi-tile"><div class="kpi-val" style="${color ? `color:${color}` : ""}">${val}</div><div class="kpi-lbl">${label}</div></div>`;
+                return `<div class="kpi-row">
+                  ${kpi("Поступления", money(inc), "var(--green)")}
+                  ${kpi("Расходы", money(exp), "var(--red)")}
+                  ${kpi("Прибыль", money(prof), prof >= 0 ? "var(--primary2)" : "var(--red)")}
+                  ${kpi("Маржа", margin + "%")}
+                  ${kpi("Средний чек", money(avgCheck))}
+                  ${kpi("Собираемость", collect + "%")}
+                </div>`;
+              })()}
+
               ${monthly.length > 0 ? `
                 <div class="analytics-section">
                   <h3>Доход и расходы по месяцам</h3>
@@ -12722,6 +12883,28 @@
                         <div class="category-bar-fill" style="background:${p.profit >= 0 ? "var(--primary2)" : "var(--red)"};width:${Math.round(Math.abs(p.profit)/maxProfit*100)}%"></div>
                       </div>
                       <div class="category-bar-amount" style="color:${p.profit >= 0 ? "var(--primary2)" : "var(--red)"}">${money(p.profit)}</div>
+                    </div>
+                  `).join("") || `<p style="color:var(--muted);font-size:13px">Нет данных</p>`;
+                })()}
+              </div>
+
+              <div class="analytics-section">
+                <h3>Выручка по клиентам (топ-5)</h3>
+                ${(() => {
+                  const byClient = {};
+                  (state.savedProjects || []).forEach(p => {
+                    const c = (p.client || "").trim() || "Без клиента";
+                    byClient[c] = (byClient[c] || 0) + numberValue(p.paid, 0);
+                  });
+                  const entries = Object.entries(byClient).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                  const max = Math.max(...entries.map(e => e[1]), 1);
+                  return entries.map(([k, v]) => `
+                    <div class="category-bar-item">
+                      <div class="category-bar-label" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(k)}</div>
+                      <div style="flex:2;background:var(--line);border-radius:999px;height:8px;overflow:hidden">
+                        <div class="category-bar-fill" style="background:var(--green);width:${Math.round(v / max * 100)}%"></div>
+                      </div>
+                      <div class="category-bar-amount">${money(v)}</div>
                     </div>
                   `).join("") || `<p style="color:var(--muted);font-size:13px">Нет данных</p>`;
                 })()}
@@ -16026,6 +16209,7 @@ Email: ______________________            Email: ______________________
         closeDealMenu,
         selectDealFromMenu,
         finishDeal,
+        togglePinDeal,
 
         calSetMonth,
         calSelectDay,
@@ -16173,6 +16357,9 @@ Email: ______________________            Email: ______________________
         copyBriefLink,
         convertBriefToDeal,
         deleteBrief,
+        setProposalsFilter,
+        refreshAllProposals,
+        copyPortalLink,
 
         buyPlan,
         validatePromo,
