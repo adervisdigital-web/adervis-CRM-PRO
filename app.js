@@ -2509,12 +2509,8 @@
         // Пока проверяем сохранённую сессию — auth gate не показываем (бесшовная загрузка)
         if (_authChecking || !cfg.url || !cfg.key || localMode || _adminSession) {
           el.innerHTML = "";
-          const footer = document.getElementById("requisitesFooter");
-          if (footer) footer.style.display = "";
         } else {
           el.innerHTML = renderAuthGate();
-          const footer = document.getElementById("requisitesFooter");
-          if (footer) footer.style.display = "none";
           _vkidInited = false;
           setTimeout(initVKIDWidget, 50);
         }
@@ -9972,12 +9968,14 @@
                             ? `<div class="deal-card-sub">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</div>`
                             : `<div class="deal-card-sub unlinked" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Клиент не привязан"}</div>`}
                           <div class="deal-card-pills">
-                            ${project.pinned ? `<span title="Закреплено" style="font-size:12px;line-height:1">📌</span>` : ""}
                             <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
                             <span class="status-pill" style="font-size:12px">${escapeHtml(project.crmStatus || "Лид")}</span>
                             ${isCurrent ? `<span class="status-pill green" style="font-size:12px">текущий</span>` : ""}
                           </div>
                         </div>
+                        <button class="deal-pin-btn ${project.pinned ? "active" : ""} no-print" onclick="event.stopPropagation();app.togglePinDeal('${projectIdSafe}')" title="${project.pinned ? "Открепить" : "Закрепить наверху"}" aria-label="${project.pinned ? "Открепить" : "Закрепить"}" aria-pressed="${project.pinned ? "true" : "false"}">
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.83 1.02l5.15 5.15c.28.28.02.76-.37.69l-2.4-.44-2.9 2.9.44 2.86c.07.4-.42.66-.7.38L6.4 10.42l-4.1 4.1-.7-.7 4.1-4.1-2.13-2.13c-.28-.28-.02-.77.38-.7l2.86.44 2.9-2.9-.44-2.4c-.07-.4.41-.65.69-.37z"/></svg>
+                        </button>
                         <div class="deal-card-menu-wrap">
                           <button class="deal-menu-btn" onclick="app.toggleDealMenu('${projectIdSafe}',event)" title="Действия со сделкой" aria-label="Действия со сделкой">
                             <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
@@ -9994,10 +9992,6 @@
                             <button class="dcm-item" onclick="event.stopPropagation();app.selectDealFromMenu('${projectIdSafe}')">
                               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 1v10h10V3H3zm2.3 5.4l1.8 1.8 3.6-3.6.7.7-4.3 4.3-2.5-2.5.7-.7z"/></svg>
                               Выбрать
-                            </button>
-                            <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.togglePinDeal('${projectIdSafe}')">
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.83 1.02l5.15 5.15c.28.28.02.76-.37.69l-2.4-.44-2.9 2.9.44 2.86c.07.4-.42.66-.7.38L6.4 10.42l-4.1 4.1-.7-.7 4.1-4.1-2.13-2.13c-.28-.28-.02-.77.38-.7l2.86.44 2.9-2.9-.44-2.4c-.07-.4.41-.65.69-.37z"/></svg>
-                              ${project.pinned ? "Открепить" : "Закрепить"}
                             </button>
                             <div class="dcm-sep"></div>
                             <button class="dcm-item dcm-green" onclick="event.stopPropagation();app.finishDeal('${projectIdSafe}')">
@@ -13892,6 +13886,13 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <div class="toolbar no-print">
                 <button class="btn danger" onclick="app.resetAllData()">Сбросить всё</button>
               </div>
+            </div>
+
+            <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--line);text-align:center;font-size:12px;color:var(--muted);line-height:1.8">
+              ADERVIS CRM · CRM для видеопродакшн · Самозанятый · ИНН&nbsp;592110786536 ·
+              <a href="mailto:adervis.digital@gmail.com" style="color:var(--muted)">adervis.digital@gmail.com</a> ·
+              <a href="https://adervis.ru/docs" target="_blank" rel="noopener" style="color:var(--muted)">Оферта и политика конфиденциальности</a><br>
+              Доступ предоставляется онлайн сразу после оплаты
             </div>
           </div>
         `;
