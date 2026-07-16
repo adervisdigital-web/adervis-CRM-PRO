@@ -2697,11 +2697,13 @@
       display: grid; place-items: center;
       border: 1px solid transparent; background: transparent;
       border-radius: 7px; color: var(--muted);
-      cursor: pointer; flex-shrink: 0; opacity: .4;
-      transition: opacity .15s, background .15s, color .15s;
+      cursor: pointer; flex-shrink: 0; opacity: 0;
+      transition: opacity .15s, background .15s, border-color .15s, color .15s;
     }
-    .deal-card:hover .deal-pin-btn { opacity: .75; }
-    .deal-pin-btn:hover { opacity: 1; color: var(--primary2); background: var(--panel2); }
+    /* Появляется при наведении на карточку — как кнопка меню «:». Закреплённая
+       (active) остаётся видимой всегда, чтобы было понятно, что закреплено. */
+    .deal-card:hover .deal-pin-btn { opacity: 1; }
+    .deal-pin-btn:hover { background: var(--panel2); border-color: var(--line); color: var(--primary2); }
     .deal-pin-btn.active { opacity: 1; color: var(--primary2); }
     .deal-ctx-menu {
       position: absolute; top: calc(100% + 6px); right: 0;
@@ -4578,6 +4580,7 @@ body.portal-mode .nav { display: none !important; }
   /* На тач-экране нет hover — кнопка меню сделки (⋮, единственный доступ к
      Редактировать/Дублировать/Удалить) должна быть видна всегда, а не по наведению. */
   .deal-menu-btn { opacity: 1; }
+  .deal-pin-btn { opacity: 1; }
   .deal-bar .deal-compact-row { flex-wrap: wrap; gap: 8px; }
   .deal-stats-inline { display: none; }
   .fin-summary-grid { grid-template-columns: 1fr 1fr; }
