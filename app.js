@@ -5528,10 +5528,16 @@
 
         const discount = base * Math.min(100, Math.max(0, numberValue(state.project.discount, 0))) / 100;
         const afterDiscount = Math.max(0, base - discount);
-        const tax = afterDiscount * taxRateByType(state.project.taxType);
+        const taxRate = taxRateByType(state.project.taxType);
+        const tax = afterDiscount * taxRate;
         const total = afterDiscount + tax;
+        // Опции — позиции «сверх сметы». Налог на них тот же (налог по закону
+        // облагает всё), а скидка проекта не распространяется: она договорная на
+        // основной объём. Раньше опции добавлялись голыми — КП обещало клиенту
+        // сумму без налога на опции, а выставлять пришлось бы с ним.
+        const optionalTax = optional * taxRate;
 
-        return { base, optional, discount, afterDiscount, tax, total, withOptional: total + optional };
+        return { base, optional, discount, afterDiscount, tax, total, optionalTax, withOptional: total + optional + optionalTax };
       }
 
       function financeTotals() {
@@ -8330,7 +8336,8 @@
         if (t.discount > 0) AOA.push(["", "", "", "", "", "Скидка:", -Math.round(t.discount)]);
         AOA.push(["", "", "", "", "", "Итог:", Math.round(t.base)]);
         if (t.tax > 0) {
-          const taxLabel = `Налог ${proj.taxType || ""} ${Math.round(taxRateByType(proj.taxType) * 100)}%`;
+          const taxOption = TAX_OPTIONS.find(o => o.id === proj.taxType);
+          const taxLabel = `Налог ${taxOption ? taxOption.label : `${Math.round(taxRateByType(proj.taxType) * 100)}%`}`;
           AOA.push(["", "", "", "", "", taxLabel.trim(), Math.round(t.tax)]);
         }
         AOA.push(["", "", "", "", "", "ОБЩИЙ ИТОГ:", Math.round(t.total)]);
@@ -12287,6 +12294,7 @@
                 <tr><td><strong>Итого</strong></td><td><strong>${money(t.total)}</strong></td></tr>
                 ${t.optional ? `
                   <tr><td>Опции</td><td><strong>${money(t.optional)}</strong></td></tr>
+                  ${t.optionalTax ? `<tr><td>Налог на опции</td><td><strong>${money(t.optionalTax)}</strong></td></tr>` : ""}
                   <tr><td><strong>Итого с опциями</strong></td><td><strong>${money(t.withOptional)}</strong></td></tr>
                 ` : ""}
               </tbody>
