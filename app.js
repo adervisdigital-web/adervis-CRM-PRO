@@ -4334,8 +4334,17 @@
         return `<option value="${escapeHtml(value)}" ${String(value) === String(selected) ? "selected" : ""}>${escapeHtml(label)}</option>`;
       }
 
+      // Локальная дата (не UTC): дедлайны и даты транзакций приходят из
+      // <input type="date">, т.е. в часовом поясе пользователя. toISOString() дал
+      // бы UTC — ночью в МСК (00:00–03:00) это ВЧЕРА: платёж в ночь 1-го числа
+      // уезжал в прошлый месяц, а дедлайн «сегодня» считался просроченным.
+      function localIso(d) {
+        const p = n => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+      }
+
       function todayIso() {
-        return new Date().toISOString().slice(0, 10);
+        return localIso(new Date());
       }
 
       function formatDate(value) {
@@ -7664,7 +7673,7 @@
         const preset = state.gFinDatePreset || "all";
         if (preset === "all") return txs;
         const today = new Date();
-        const fmt = d => d.toISOString().slice(0, 10);
+        const fmt = localIso;
         let from = "", to = fmt(today);
         if (preset === "month") {
           from = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -9590,7 +9599,7 @@
 
         const todayStr = todayIso();
         const in7 = new Date(); in7.setDate(in7.getDate()+7);
-        const in7Str = in7.toISOString().slice(0,10);
+        const in7Str = localIso(in7);
         const upcomingDeadlines = [];
         projects.forEach(p => {
           if (p.deadline && p.deadline >= todayStr && p.deadline <= in7Str && !["Завершённые","Сдано"].includes(p.crmStatus||"Лид"))
