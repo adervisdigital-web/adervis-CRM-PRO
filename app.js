@@ -712,6 +712,7 @@
       let _supabase = null;
       let _realtimeChannel = null;
       let _adminSession = null;
+      let _loggedInUserId = null; // защита от повторной полной загрузки при дублях SIGNED_IN
       let _broadcastTimer = null;
       let _userProfile = null;   // { subscription_status, subscription_plan, subscription_expires_at, agency_id }
       let _cloudSaveTimer = null;
@@ -781,6 +782,7 @@
             _adminSession = session;
             if (session) { _onUserLoggedIn(session); }
             else {
+              _loggedInUserId = null;
               _userProfile = null;
               _onlineUsers = [];
               _briefs = []; _briefsLoaded = false;
@@ -838,6 +840,11 @@
       });
 
       async function _onUserLoggedIn(session) {
+        // Один и тот же вход может прийти дважды (событие SIGNED_IN + форс-переход
+        // после verifyOtp в VK-входе, либо дубль события от supabase-js) — грузим
+        // профиль/облако и поднимаем realtime-канал только раз на пользователя.
+        if (_loggedInUserId === session.user.id) return;
+        _loggedInUserId = session.user.id;
         _dataLoading = true;
         renderAdminTopbar();
         render();
@@ -2051,7 +2058,7 @@
             renderAuthGateEl(); return;
           }
 
-          const { error: otpErr } = await _supabase.auth.verifyOtp({
+          const { data: otpData, error: otpErr } = await _supabase.auth.verifyOtp({
             token_hash: result.token,
             type: 'magiclink',
           });
@@ -2059,8 +2066,18 @@
           if (otpErr) {
             _authFields.error = 'VK вход: ' + otpErr.message;
             renderAuthGateEl();
+            return;
           }
-          // onAuthStateChange обработает успешный вход
+
+          // Обычно вход доводит onAuthStateChange(SIGNED_IN), но при нестабильном
+          // VK-виджете (CSP/timeout, callback в контексте SDK) событие может не
+          // долететь до этой вкладки: сессия пишется в localStorage (после reload
+          // вход есть), а UI висит на гейте. Форсируем переход из результата
+          // verifyOtp, если событие ещё не установило сессию.
+          if (otpData?.session && !_adminSession) {
+            _adminSession = otpData.session;
+            _onUserLoggedIn(otpData.session);
+          }
         } catch(e) {
           _authFields.loading = false;
           _authFields.error = 'VK Auth: ' + (e?.message || 'Ошибка');
