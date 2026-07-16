@@ -7247,13 +7247,23 @@
         render();
       }
 
+      // Смена статуса сделки: держим в синхроне top-level, snapshot и (если сделка
+      // открыта) live state.project. Без обновления state.project статус активной
+      // сделки откатывался при следующем flushActiveProjectToSaved (flush пишет
+      // existing.crmStatus из state.project.crmStatus).
+      function _applyCrmStatus(proj, newStatus) {
+        proj.crmStatus = newStatus;
+        if (proj.snapshot && proj.snapshot.project) proj.snapshot.project.crmStatus = newStatus;
+        if (proj.id === state.activeProjectId) state.project.crmStatus = newStatus;
+      }
+
       function bulkSetCrmStatus(status) {
         if (!status) return;
         const ids = Object.keys(state.crmSelected || {});
         if (!ids.length) return;
         ids.forEach(id => {
           const p = state.savedProjects.find(x => x.id === id);
-          if (p) { const prev = p.crmStatus || "Лид"; p.crmStatus = status; _logActivity(id, `Статус: ${prev} → ${status}`); }
+          if (p) { const prev = p.crmStatus || "Лид"; _applyCrmStatus(p, status); _logActivity(id, `Статус: ${prev} → ${status}`); }
         });
         state.crmSelected = {};
         toast(`Статус «${status}» применён к ${ids.length} сделкам`);
@@ -7987,8 +7997,7 @@
         const idx = order.indexOf(project.crmStatus || "Лид");
         if (idx < order.length - 1) {
           const prev = project.crmStatus || "Лид";
-          project.crmStatus = order[idx + 1];
-          if (project.snapshot?.project) project.snapshot.project.crmStatus = project.crmStatus;
+          _applyCrmStatus(project, order[idx + 1]);
           _logActivity(projectId, `Статус: ${prev} → ${project.crmStatus}`);
           toast(`Статус → ${project.crmStatus}`);
           save();
@@ -14047,7 +14056,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (scope === 'crm') {
           const proj = (state.savedProjects || []).find(p => p.id === _dragItemId);
           if (proj && proj.crmStatus !== newStatus) {
-            proj.crmStatus = newStatus;
+            _applyCrmStatus(proj, newStatus);
             save(); saveToCloud(); render();
             toast('Статус сделки: ' + newStatus);
             sendTelegramNotification(`📋 <b>${escapeHtml(proj.name || "Сделка")}</b>\nСтатус: ${escapeHtml(newStatus)}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
@@ -14069,7 +14078,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           if (!CRM_STATUSES.includes(newStatus)) return;
           const proj = (state.savedProjects || []).find(p => p.id === id);
           if (proj && proj.crmStatus !== newStatus) {
-            proj.crmStatus = newStatus;
+            _applyCrmStatus(proj, newStatus);
             save(); saveToCloud(); render();
             toast('Статус сделки: ' + newStatus);
             sendTelegramNotification(`📋 <b>${escapeHtml(proj.name || "Сделка")}</b>\nСтатус: ${escapeHtml(newStatus)}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
