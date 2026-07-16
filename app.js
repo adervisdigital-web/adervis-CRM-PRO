@@ -10027,9 +10027,9 @@
                         </div>` : ""}
                       </div>
 
-                      <div class="deal-pay-bar" style="width:100%">
+                      ${payPct > 0 ? `<div class="deal-pay-bar" style="width:100%">
                         <div class="deal-pay-fill" style="width:${payPct}%"></div>
-                      </div>
+                      </div>` : ""}
 
                       <div class="deal-card-meta">
                         <div class="deal-card-deadline" style="color:${project.deadline && u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${project.deadline ? escapeHtml(formatDate(project.deadline)) + (u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : "") : "Дедлайн не задан"}</div>
