@@ -75,6 +75,11 @@ Deno.serve(async (req) => {
   function money(n: number) {
     return new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", minimumFractionDigits: 0 }).format(n || 0);
   }
+  // parse_mode:"HTML" — пользовательские названия/имена с & < > ломают разбор,
+  // и Telegram отклоняет всё сообщение (400): бот молча не отвечает. Экранируем.
+  function esc(s: any) {
+    return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
   function todayIso() { return new Date().toISOString().split("T")[0]; }
   function daysUntil(d: string) {
     const now = new Date(); now.setHours(0, 0, 0, 0);
@@ -231,8 +236,8 @@ Deno.serve(async (req) => {
   // ══════════════════════════════════════════════════════════════════════════
 
   function dealSummary(d: any) {
-    return `📋 <b>${d.name || "—"}</b>\n` +
-      `👤 Клиент: ${d.client || "<i>не указан</i>"}\n` +
+    return `📋 <b>${esc(d.name) || "—"}</b>\n` +
+      `👤 Клиент: ${d.client ? esc(d.client) : "<i>не указан</i>"}\n` +
       `💰 Бюджет: ${d.budget ? money(d.budget) : "<i>не указан</i>"}`;
   }
 
@@ -270,7 +275,7 @@ Deno.serve(async (req) => {
         return;
       }
       await writeSession(agencyId, { ...session, step: "client", data: d });
-      await send(`✅ Название: <b>${d.name}</b>\n\nШаг 2 из 3\n\n<b>Клиент</b> — имя или компания:\n<i>(необязательно)</i>`, skipCancelKb("deal"));
+      await send(`✅ Название: <b>${esc(d.name)}</b>\n\nШаг 2 из 3\n\n<b>Клиент</b> — имя или компания:\n<i>(необязательно)</i>`, skipCancelKb("deal"));
       return;
     }
     if (step === "client") {
@@ -282,7 +287,7 @@ Deno.serve(async (req) => {
       }
       await writeSession(agencyId, { ...session, step: "budget", data: d });
       await send(
-        (d.client ? `✅ Клиент: <b>${d.client}</b>\n\n` : "") +
+        (d.client ? `✅ Клиент: <b>${esc(d.client)}</b>\n\n` : "") +
         `Шаг 3 из 3\n\n<b>Бюджет</b> в рублях:\n<i>(необязательно)</i>`,
         skipCancelKb("deal"),
       );
@@ -307,8 +312,8 @@ Deno.serve(async (req) => {
     const sign = txType === "income" ? "+" : "−";
     const icon = txType === "income" ? "💰" : "📤";
     return `${icon} <b>${sign}${money(d.amount)}</b>\n` +
-      `📝 ${d.desc || "<i>без описания</i>"}\n` +
-      `📋 ${d.projectName || "<i>без привязки к сделке</i>"}`;
+      `📝 ${d.desc ? esc(d.desc) : "<i>без описания</i>"}\n` +
+      `📋 ${d.projectName ? esc(d.projectName) : "<i>без привязки к сделке</i>"}`;
   }
 
   function txConfirmKb(txType: string) {
@@ -366,7 +371,7 @@ Deno.serve(async (req) => {
   if (text.startsWith("/start")) {
     await setMyCommands();
     await send(
-      `👋 Привет${firstName ? `, ${firstName}` : ""}!\n\n` +
+      `👋 Привет${firstName ? `, ${esc(firstName)}` : ""}!\n\n` +
       `Это AI-помощник <b>Adervis CRM</b>.\n\n` +
       `Ваш Chat ID:\n<code>${chatId}</code>\n\n` +
       `Скопируйте его в профиль Adervis CRM → «Уведомления».\n` +
@@ -477,8 +482,8 @@ Deno.serve(async (req) => {
       const sign = isIncome ? "+" : "−";
       await send(
         `${icon} <b>Записано!</b>\n\n${sign}${money(d.amount)}` +
-        (d.desc ? `\n📝 ${d.desc}` : "") +
-        (d.projectName ? `\n📋 ${d.projectName}` : "\n📋 Без привязки"),
+        (d.desc ? `\n📝 ${esc(d.desc)}` : "") +
+        (d.projectName ? `\n📋 ${esc(d.projectName)}` : "\n📋 Без привязки"),
         mainKeyboard,
       );
       return new Response("ok", { status: 200 });
@@ -503,7 +508,7 @@ Deno.serve(async (req) => {
       if (!proj) { await writeSession(agencyId, null); await send("Сделка не найдена.", mainKeyboard); return new Response("ok", { status: 200 }); }
       await writeSession(agencyId, { ...session, step: "select_status", dealId, dealName: proj.name });
       await send(
-        `📋 <b>${proj.name}</b>${proj.client ? `\n👤 ${proj.client}` : ""}\nСтатус: <b>${proj.crmStatus || "Лид"}</b>\n\nВыберите новый статус:`,
+        `📋 <b>${esc(proj.name)}</b>${proj.client ? `\n👤 ${esc(proj.client)}` : ""}\nСтатус: <b>${esc(proj.crmStatus) || "Лид"}</b>\n\nВыберите новый статус:`,
         statusKb(),
       );
       return new Response("ok", { status: 200 });
@@ -545,7 +550,7 @@ Deno.serve(async (req) => {
       const lines = deadlines.map(p => {
         const icon = p.days < 0 ? "🔴" : p.days === 0 ? "🔥" : p.days <= 2 ? "⚡" : "📅";
         const when = p.days < 0 ? `просрочено ${Math.abs(p.days)} дн.` : p.days === 0 ? "сегодня!" : `через ${p.days} дн.`;
-        return `${icon} <b>${p.name}</b> — ${when}${p.client ? `\n   👤 ${p.client}` : ""}`;
+        return `${icon} <b>${esc(p.name)}</b> — ${when}${p.client ? `\n   👤 ${esc(p.client)}` : ""}`;
       });
       await send(`📅 <b>Дедлайны — 7 дней:</b>\n\n${lines.join("\n\n")}`, mainKeyboard);
     }
@@ -564,7 +569,7 @@ Deno.serve(async (req) => {
       const lines = Object.entries(byStatus).map(([status, items]) => {
         const total = items.reduce((s, p) => s + (p.total || 0), 0);
         return `<b>${status}</b> · ${items.length} шт.${total ? " · " + money(total) : ""}\n` +
-          items.map(p => `  • ${p.name}${p.client ? " · " + p.client : ""}`).join("\n");
+          items.map(p => `  • ${esc(p.name)}${p.client ? " · " + esc(p.client) : ""}`).join("\n");
       });
       await send(`🗂 <b>Сделки (${active.length}):</b>\n\n${lines.join("\n\n")}`, mainKeyboard);
     }
