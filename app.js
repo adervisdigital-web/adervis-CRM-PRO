@@ -9572,9 +9572,12 @@
         const prevMonthDate = new Date(nowDate.getFullYear(), nowDate.getMonth()-1, 1);
         const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth()+1).padStart(2,"0")}`;
 
+        // Активный проект берём из live (state.payments); его snapshot синхронизирован
+        // с live через _syncFinancesToSaved, поэтому в цикле savedProjects его пропускаем,
+        // иначе суммы месяца задваиваются (см. getAllTransactions).
         function paymentsInMonth(m) {
           let sum = 0;
-          state.savedProjects.forEach(p => { (p.snapshot?.payments||[]).forEach(x => { if (x.date?.startsWith(m)) sum += x.amount||0; }); });
+          state.savedProjects.forEach(p => { if (p.id === state.activeProjectId) return; (p.snapshot?.payments||[]).forEach(x => { if (x.date?.startsWith(m)) sum += x.amount||0; }); });
           state.payments.forEach(x => { if (x.date?.startsWith(m)) sum += x.amount||0; });
           return sum;
         }
@@ -9585,7 +9588,7 @@
 
         function expensesInMonth(m) {
           let s = 0;
-          state.savedProjects.forEach(p => { (p.snapshot?.expenses||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; }); });
+          state.savedProjects.forEach(p => { if (p.id === state.activeProjectId) return; (p.snapshot?.expenses||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; }); });
           (state.expenses||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; });
           return s;
         }
