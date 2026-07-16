@@ -2102,6 +2102,38 @@
     .currency-opt.active { background: rgba(124,58,237,.12); color: var(--primary2); font-weight: 600; }
     .currency-sym { font-size: 15px; font-weight: 900; width: 22px; text-align: center; opacity: .8; }
 
+    /* ── Универсальный кастом-дропдаун (заменяет нативные select на десктопе) ── */
+    .uu-select-wrap { position: relative; }
+    .uu-select-wrap > select.uu-done { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; margin: 0; padding: 0; border: 0; }
+    .uu-select-btn {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      width: 100%; padding: 9px 12px; border: 1px solid var(--line);
+      border-radius: 10px; background: var(--input); color: var(--text);
+      font-size: 13px; font-weight: 600; cursor: pointer; text-align: left;
+      transition: border-color .14s; line-height: 1.3;
+    }
+    .uu-select-btn:hover { border-color: rgba(168,85,247,.5); }
+    .uu-select-btn.uu-open { border-color: var(--primary); }
+    .uu-select-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .uu-select-chev { flex-shrink: 0; opacity: .55; transition: transform .15s; display: grid; place-items: center; }
+    .uu-select-btn.uu-open .uu-select-chev { transform: rotate(180deg); }
+    .uu-select-dd {
+      position: fixed; z-index: 3000; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 12px; overflow-y: auto;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35); padding: 4px;
+      opacity: 0; transform: translateY(-4px); transition: opacity .12s, transform .12s;
+      scrollbar-width: thin;
+    }
+    .uu-select-dd.open { opacity: 1; transform: translateY(0); }
+    .uu-select-opt {
+      display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+      padding: 9px 12px; border: none; background: none; color: var(--text);
+      font-size: 13px; cursor: pointer; border-radius: 8px; transition: background .1s;
+      white-space: nowrap;
+    }
+    .uu-select-opt:hover { background: rgba(124,58,237,.1); }
+    .uu-select-opt.active { background: rgba(124,58,237,.16); color: var(--primary2); font-weight: 700; }
+
     /* ── MOBILE BOTTOM NAV ──────────────────────── */
     .mobile-bottom-nav {
       display: none;

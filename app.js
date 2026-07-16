@@ -8858,7 +8858,99 @@
             if (scope === "companyTeam") updateCompanyTeamMember(id, key, value);
           });
         });
+
+        enhanceSelects(root);
       }
+
+      // ── Универсальный кастом-дропдаун ─────────────────────────────────────
+      // Превращает нативные <select> в красивые выпадашки (как currency) на
+      // десктопе. На тач-устройствах оставляем нативный select — ОС-пикер удобнее
+      // пальцем. Нативный select остаётся в DOM (скрытый) — value, onchange и
+      // data-autosave продолжают работать; мы лишь дублируем выбор в него.
+      let _uuOpen = null;
+      const _UU_CHEV = `<span class="uu-select-chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>`;
+
+      function _uuIsTouch() {
+        return window.matchMedia && window.matchMedia("(hover: none), (max-width: 640px)").matches;
+      }
+
+      function enhanceSelects(root) {
+        _closeUUSelect();
+        if (_uuIsTouch()) return; // на телефоне — нативный select
+        (root || document).querySelectorAll("select:not(.uu-done)").forEach(sel => {
+          sel.classList.add("uu-done");
+          if (sel.multiple || sel.dataset.uuSkip) return;
+          const wrap = document.createElement("div");
+          wrap.className = "uu-select-wrap";
+          const cs = getComputedStyle(sel);
+          wrap.style.display = /inline/.test(cs.display) ? "inline-block" : "block";
+          if (sel.style.width) wrap.style.width = sel.style.width;
+          else if (!/inline/.test(cs.display)) wrap.style.width = "100%";
+          if (sel.style.marginLeft) wrap.style.marginLeft = sel.style.marginLeft;
+          sel.parentNode.insertBefore(wrap, sel);
+          wrap.appendChild(sel);
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "uu-select-btn";
+          if (sel.disabled) btn.disabled = true;
+          const sync = () => {
+            const o = sel.options[sel.selectedIndex];
+            btn.innerHTML = `<span class="uu-select-label">${escapeHtml(o ? o.text : "")}</span>${_UU_CHEV}`;
+          };
+          sync();
+          sel._uuSync = sync;
+          sel.addEventListener("change", sync);
+          btn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); _toggleUUSelect(sel, btn); });
+          wrap.appendChild(btn);
+        });
+      }
+
+      function _toggleUUSelect(sel, btn) {
+        if (_uuOpen && _uuOpen.btn === btn) { _closeUUSelect(); return; }
+        _closeUUSelect();
+        const dd = document.createElement("div");
+        dd.className = "uu-select-dd";
+        Array.from(sel.options).forEach((o, i) => {
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "uu-select-opt" + (i === sel.selectedIndex ? " active" : "");
+          item.textContent = o.text;
+          if (o.disabled) { item.disabled = true; item.style.opacity = ".45"; }
+          item.addEventListener("click", e => {
+            e.stopPropagation();
+            if (o.disabled) return;
+            if (sel.value !== o.value) { sel.value = o.value; sel.dispatchEvent(new Event("change", { bubbles: true })); }
+            if (sel._uuSync) sel._uuSync();
+            _closeUUSelect();
+          });
+          dd.appendChild(item);
+        });
+        document.body.appendChild(dd);
+        const r = btn.getBoundingClientRect();
+        const ddH = Math.min(dd.scrollHeight, 300);
+        dd.style.left = r.left + "px";
+        dd.style.width = r.width + "px";
+        dd.style.maxHeight = "300px";
+        if (r.bottom + ddH + 8 > window.innerHeight && r.top > ddH + 8) dd.style.top = (r.top - ddH - 4) + "px";
+        else dd.style.top = (r.bottom + 4) + "px";
+        requestAnimationFrame(() => dd.classList.add("open"));
+        const active = dd.querySelector(".uu-select-opt.active");
+        if (active) active.scrollIntoView({ block: "nearest" });
+        btn.classList.add("uu-open");
+        _uuOpen = { dd, btn };
+      }
+
+      function _closeUUSelect() {
+        if (!_uuOpen) return;
+        _uuOpen.dd.remove();
+        _uuOpen.btn.classList.remove("uu-open");
+        _uuOpen = null;
+      }
+
+      document.addEventListener("click", () => { if (_uuOpen) _closeUUSelect(); });
+      document.addEventListener("scroll", () => { if (_uuOpen) _closeUUSelect(); }, true);
+      window.addEventListener("resize", () => { if (_uuOpen) _closeUUSelect(); });
+      document.addEventListener("keydown", e => { if (e.key === "Escape" && _uuOpen) _closeUUSelect(); });
 
       function renderLoadingSkeleton() {
         const skel = (w, h, r) => `<span class="skel" style="width:${w};height:${h}px;border-radius:${r || 8}px;margin-bottom:0"></span>`;
