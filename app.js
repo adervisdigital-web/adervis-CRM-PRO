@@ -13797,6 +13797,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <div style="text-align:center;margin-top:24px;padding:22px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3);border-radius:14px">
                     <div style="font-size:36px;margin-bottom:8px">✅</div>
                     <div style="font-weight:800;color:var(--green);font-size:15px">КП утверждено</div>
+                    ${d.signer_name ? `<div style="font-size:12px;color:var(--text2);margin-top:6px">Подписал: <b>${escapeHtml(d.signer_name)}</b></div>` : ''}
                     <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5">Мы получили ваше подтверждение и свяжемся с вами в ближайшее время.</div>
                   </div>
                 `}
@@ -13908,7 +13909,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (btn) { btn.disabled = true; btn.textContent = 'Отправка...'; }
         try {
           const { error } = await _supabase
-            .rpc('approve_client_portal', { p_portal_id: _portalId });
+            .rpc('approve_client_portal', { p_portal_id: _portalId, p_signer_name: signerName });
           if (!error) {
             _portalData.deal_status = 'Согласовано';
             _portalData.approved_at = new Date().toISOString();
