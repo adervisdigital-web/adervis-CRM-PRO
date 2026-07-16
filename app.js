@@ -4622,6 +4622,7 @@
           financeModal: null,
           packageEditModal: null,
           crmView: "grid",
+          crmSort: "default",
           gFinFilter: "all",
           gFinTypeFilter: "all",
           gFinSubTab: "transactions",
@@ -7247,6 +7248,12 @@
         render();
       }
 
+      function setCrmSort(v) {
+        state.crmSort = ["amount", "deadline", "debt", "updated"].includes(v) ? v : "default";
+        save();
+        render();
+      }
+
       function toggleCrmSelect(id) {
         if (!id) return;
         if (state.crmSelected[id]) delete state.crmSelected[id];
@@ -9704,10 +9711,19 @@
 
         const tagFilter = state.crmTagFilter || "";
         const activeProjects = projects.filter(p => (p.crmStatus || "Лид") !== "Завершённые");
+        const sortMode = state.crmSort || "default";
+        const _debt = p => Math.max(0, (p.total || 0) - (p.paid || 0));
+        const sortCmp = {
+          amount:   (a, b) => (b.total || 0) - (a.total || 0),
+          deadline: (a, b) => (a.deadline || "9999-99").localeCompare(b.deadline || "9999-99"),
+          debt:     (a, b) => _debt(b) - _debt(a),
+          updated:  (a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")),
+          default:  () => 0,
+        }[sortMode] || (() => 0);
         const visibleItems = (filter === "all" ? activeProjects : projects.filter(p => (p.crmStatus || "Лид") === filter))
           .filter(p => !tagFilter || (p.tags || []).includes(tagFilter))
-          // Закреплённые — наверх; порядок остальных не трогаем (sort стабилен)
-          .slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+          // Закреплённые — всегда наверх; внутри — по выбранной сортировке (sort стабилен)
+          .slice().sort((a, b) => ((b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)) || sortCmp(a, b));
 
         const totalPipeline = projects.filter(p => !["Сдано", "Завершённые"].includes(p.crmStatus || "Лид"))
           .reduce((s, p) => s + (p.total || 0), 0);
@@ -9893,9 +9909,18 @@
             ${visibleItems.length ? `
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">
                 <span class="u-meta-13">${visibleItems.length} ${visibleItems.length===1?"сделка":visibleItems.length<5?"сделки":"сделок"}${tagFilter?` · тег: ${escapeHtml(tagFilter)}`:""}</span>
-                <div class="deal-view-toggle no-print">
-                  <button class="deal-view-btn ${(state.crmView||"grid")==="grid"?"active":""}" onclick="app.setCrmView('grid')" title="Плитка">⊞</button>
-                  <button class="deal-view-btn ${state.crmView==="list"?"active":""}" onclick="app.setCrmView('list')" title="Список">☰</button>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <select class="deal-sort-select no-print" onchange="app.setCrmSort(this.value)" title="Сортировка сделок">
+                    <option value="default" ${sortMode==="default"?"selected":""}>Порядок по умолчанию</option>
+                    <option value="amount" ${sortMode==="amount"?"selected":""}>Сумма ↓</option>
+                    <option value="deadline" ${sortMode==="deadline"?"selected":""}>Дедлайн ↑</option>
+                    <option value="debt" ${sortMode==="debt"?"selected":""}>Долг ↓</option>
+                    <option value="updated" ${sortMode==="updated"?"selected":""}>Недавно изменённые</option>
+                  </select>
+                  <div class="deal-view-toggle no-print">
+                    <button class="deal-view-btn ${(state.crmView||"grid")==="grid"?"active":""}" onclick="app.setCrmView('grid')" title="Плитка">⊞</button>
+                    <button class="deal-view-btn ${state.crmView==="list"?"active":""}" onclick="app.setCrmView('list')" title="Список">☰</button>
+                  </div>
                 </div>
               </div>
               ${(() => {
@@ -16394,6 +16419,7 @@ Email: ______________________            Email: ______________________
         runSearch,
         setPkgCatFilter: (cat) => { state.pkgCatFilter = cat; render(); },
         setCrmView,
+        setCrmSort,
         openPackageEditModal,
         closePackageEditModal,
         savePackageEdit,
