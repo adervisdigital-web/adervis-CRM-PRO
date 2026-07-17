@@ -4325,6 +4325,42 @@
           .replaceAll("'", "&#039;");
       }
 
+      const EMPTY_ICON_PATHS = {
+        search: `<path fill-rule="evenodd" d="M6.5 2a4.5 4.5 0 100 9 4.5 4.5 0 000-9zM1 6.5a5.5 5.5 0 019.92-3.28l.02.02A5.5 5.5 0 0110.8 9.9l4.14 4.14-1.06 1.06-4.14-4.14A5.5 5.5 0 011 6.5z"/>`,
+        doc: `<path d="M4 1h5l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.5 1.2V4.5H11L8.5 2.2zM5 7h6v1H5V7zm0 2.5h6v1H5v-1zM5 12h4v1H5v-1z"/>`,
+        users: `<path d="M5.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm5-1a2 2 0 100-4 2 2 0 000 4zM1 13.5c0-2.5 2.2-4 4.5-4s4.5 1.5 4.5 4H1zm9-3.3c1.9.4 3 1.6 3 3.3h-2c0-1.2-.4-2.3-1-3.3z"/>`,
+        tasks: `<path d="M2 3h2v2H2V3zm4 0h8v1.5H6V3zM2 7h2v2H2V7zm4 .25h8v1.5H6v-1.5zM2 11h2v2H2v-2zm4 .25h8v1.5H6v-1.5z"/>`,
+        calendar: `<path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/>`,
+        box: `<path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/>`,
+        money: `<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/>`
+      };
+
+      // Единый вид пустых состояний во всех разделах.
+      // opts: { icon, title, text, cta, size: "sm", className, style }
+      // cta — { label, onclick, variant } или массив таких (если путей действительно несколько).
+      // variant: "primary" по умолчанию; "" — вторичное действие вроде сброса фильтра.
+      // Правило: пусто → CTA создания; «нет по фильтру» → только сброс, без создания.
+      // title/text вставляются как HTML — интерполяции экранировать на месте вызова.
+      function emptyState(opts) {
+        const o = opts || {};
+        const cls = ["empty", o.size === "sm" ? "empty--sm" : "", o.className || ""].filter(Boolean).join(" ");
+        const icon = EMPTY_ICON_PATHS[o.icon]
+          ? `<span class="empty__icon"><svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">${EMPTY_ICON_PATHS[o.icon]}</svg></span>`
+          : "";
+        const ctas = o.cta ? (Array.isArray(o.cta) ? o.cta : [o.cta]) : [];
+        const actions = ctas.length
+          ? `<div class="empty__actions no-print">${ctas.map(c =>
+              `<button class="${["btn", c.variant !== undefined ? c.variant : "primary"].filter(Boolean).join(" ")}" onclick="${c.onclick}">${c.label}</button>`
+            ).join("")}</div>`
+          : "";
+        return `<div class="${cls}"${o.style ? ` style="${o.style}"` : ""}>`
+          + icon
+          + (o.title ? `<strong>${o.title}</strong>` : "")
+          + (o.text ? `<p>${o.text}</p>` : "")
+          + actions
+          + `</div>`;
+      }
+
       function safeAvatarSrc(url) {
         if (!url) return "";
         if (/^data:image\/(jpeg|png|webp|gif);base64,/.test(url) || /^https:\/\//.test(url)) {
@@ -9347,9 +9383,13 @@
                 ${tab('all', 'Все')}${tab('sent', 'Отправлено')}${tab('approved', 'Согласовано')}${tab('paid', 'Оплачено')}
               </div>
               <div class="kp-list">
-                ${portals.length ? portals.map(row).join('') : `<div class="empty" style="padding:20px">Нет КП с таким статусом.</div>`}
+                ${portals.length ? portals.map(row).join('') : emptyState({ icon: "search", size: "sm", text: "Нет КП с таким статусом." })}
               </div>
-            ` : `<div class="empty" style="padding:24px">Пока не создано ни одного КП. Откройте сделку → «Коммерческое предложение» → «Ссылка КП».</div>`}
+            ` : emptyState({
+                icon: "doc",
+                title: "КП пока нет",
+                text: "Откройте сделку → «Коммерческое предложение» → «Ссылка КП»."
+              })}
 
             ${drafts.length ? `
               <div style="margin-top:22px">
@@ -10181,10 +10221,18 @@
                 }).join("")}
               </div>`}
             ` : `
-              <div class="empty">
-                ${filter === "all" ? "Сделок пока нет." : `Нет сделок в статусе «${escapeHtml(filter)}».`}
-                <br><button class="btn primary" style="margin-top:12px" onclick="app.startWizard()">+ Новая сделка</button>
-              </div>
+              ${filter === "all"
+                ? emptyState({
+                    icon: "box",
+                    title: "Сделок пока нет",
+                    text: "Создайте первую — по ней можно будет собрать смету, КП и договор.",
+                    cta: { label: "+ Новая сделка", onclick: "app.startWizard()" }
+                  })
+                : emptyState({
+                    icon: "search",
+                    title: `Нет сделок в статусе «${escapeHtml(filter)}»`,
+                    cta: { label: "Показать все", onclick: "app.setCrmFilter('all')", variant: "" }
+                  })}
             `}
           </div>
         `;
@@ -10753,7 +10801,7 @@
 
                   ${state.tab === "ai" ? renderAiCatalogGrid(filteredItems()) : `
                     <div class="catalog-grid">
-                      ${filteredItems().length ? filteredItems().map(renderCatalogItem).join("") : `<div class="empty">Ничего не найдено</div>`}
+                      ${filteredItems().length ? filteredItems().map(renderCatalogItem).join("") : emptyState({ icon: "search", title: "Ничего не найдено", text: "Измените запрос или выберите другую категорию." })}
                     </div>
                   `}
                 </div>
@@ -10769,7 +10817,7 @@
       // и сквозные расходы агентства (подписки, кредиты) — разделяем визуально,
       // чтобы не путать одно с другим при подборе позиций.
       function renderAiCatalogGrid(items) {
-        if (!items.length) return `<div class="empty">Ничего не найдено</div>`;
+        if (!items.length) return emptyState({ icon: "search", title: "Ничего не найдено", text: "Измените запрос или выберите другую категорию." });
         const services = items.filter(x => !isPassthroughCostItem(x));
         const costs = items.filter(x => isPassthroughCostItem(x));
         return `
@@ -10946,15 +10994,15 @@
               <div style="margin-top:6px">
                 ${stagesWithItems.length
                   ? stagesWithItems.map(renderEstimateStage).join("")
-                  : `
-                    <div class="empty" style="padding:40px 30px">
-                      Смета пустая — добавь услуги из каталога или выбери пакет.<br>
-                      <div class="toolbar no-print" style="margin-top:16px;justify-content:center">
-                        <button class="btn primary" onclick="app.go('catalog')">Открыть каталог</button>
-                        <button class="btn" onclick="app.go('packages')">Выбрать пакет</button>
-                      </div>
-                    </div>
-                  `
+                  : emptyState({
+                      icon: "doc",
+                      title: "Смета пустая",
+                      text: "Добавьте услуги из каталога или начните с готового пакета.",
+                      cta: [
+                        { label: "Открыть каталог", onclick: "app.go('catalog')" },
+                        { label: "Выбрать пакет", onclick: "app.go('packages')", variant: "" }
+                      ]
+                    })
                 }
               </div>
             </section>
@@ -11420,7 +11468,18 @@
                       <button class="btn small" onclick="event.stopPropagation();app.openClientDetail('${client.id}')">Проекты →</button>
                     </div>` : ""}
                   </article>`;
-                }).join("") : (!clientQ ? `<div class="empty" style="grid-column:1/-1"><strong>Нет клиентов</strong><p>Создайте первого клиента или добавьте его при создании сделки</p></div>` : `<div class="empty" style="grid-column:1/-1">Нет клиентов по запросу «${escapeHtml(clientQ)}»</div>`)}
+                }).join("") : (!clientQ
+                  ? emptyState({
+                      icon: "users",
+                      title: "Клиентов пока нет",
+                      text: "Создайте первого клиента — или он появится сам при создании сделки.",
+                      style: "grid-column:1/-1"
+                    })
+                  : emptyState({
+                      icon: "search",
+                      title: `Нет клиентов по запросу «${escapeHtml(clientQ)}»`,
+                      style: "grid-column:1/-1"
+                    }))}
             </div>
           </div>
         `;
@@ -11512,7 +11571,7 @@
                   </div>
                 `).join("")}
               </div>
-            ` : `<div class="empty">Проектов с этим клиентом пока нет.</div>`}
+            ` : emptyState({ icon: "box", size: "sm", text: "Проектов с этим клиентом пока нет." })}
           </div>
         `;
       }
@@ -11627,7 +11686,19 @@
                     <button class="btn danger" onclick="app.deleteSavedProject('${project.id}')">${TRASH_SVG} Удалить</button>
                   </div>
                 </article>
-              `).join("") : `<div class="empty">Сохранённых проектов пока нет</div>`}
+              `).join("") : (state.projectFilter !== "all"
+                ? emptyState({
+                    icon: "search",
+                    title: `Нет проектов в статусе «${escapeHtml(state.projectFilter)}»`,
+                    style: "grid-column:1/-1",
+                    cta: { label: "Показать все", onclick: "app.setProjectFilter('all')", variant: "" }
+                  })
+                : emptyState({
+                    icon: "box",
+                    title: "Сохранённых проектов пока нет",
+                    text: "Сохраните текущий проект — он запомнит смету, задачи, финансы и команду.",
+                    style: "grid-column:1/-1"
+                  }))}
             </div>
           </div>
         `;
@@ -11716,8 +11787,13 @@
             ${filtered.length ? `<div class="gtask-list">
               ${filtered.map(renderGlobalTaskRow).join("")}
             </div>` : (total
-              ? `<div class="empty">Нет задач по этому фильтру.</div>`
-              : `<div class="empty">Задач пока нет.<br><button class="btn primary" style="margin-top:12px" onclick="app.createGlobalTask()">+ Добавить свою задачу</button></div>`)}
+              ? emptyState({ icon: "search", title: "Нет задач по этому фильтру" })
+              : emptyState({
+                  icon: "tasks",
+                  title: "Задач пока нет",
+                  text: "Добавьте первую — задачи с дедлайном попадут в календарь.",
+                  cta: { label: "+ Своя задача", onclick: "app.createGlobalTask()" }
+                }))}
           </div>
         `;
       }
@@ -11831,7 +11907,7 @@
                     </h3>
 
                     <div class="list">
-                      ${tasks.length ? tasks.map(renderTaskCard).join("") : `<div class="empty kanban-drop-hint">Пусто</div>`}
+                      ${tasks.length ? tasks.map(renderTaskCard).join("") : emptyState({ size: "sm", text: "Пусто", className: "kanban-drop-hint" })}
                     </div>
                   </div>
                 `;
@@ -12269,7 +12345,11 @@
             </div>
 
             <div class="grid three" style="margin-top:18px">
-              ${state.team.length ? state.team.map(renderTeamCard).join("") : `<div class="empty">Команда пока не добавлена — выбери из справочника выше или нажми «+ Пустой участник»</div>`}
+              ${state.team.length ? state.team.map(renderTeamCard).join("") : emptyState({
+                icon: "users",
+                title: "Команда пока не добавлена",
+                text: "Выберите людей из справочника выше или добавьте пустого участника."
+              })}
             </div>
           </div>
         `;
@@ -12347,7 +12427,12 @@
             </div>
 
             <div class="grid three">
-              ${team.length ? team.map(renderCompanyTeamCard).join("") : `<div class="empty" style="grid-column:1/-1"><strong>Команда пока пуста</strong><p>Добавьте сотрудников и фрилансеров — потом их можно будет назначать на позиции сметы как «Ответственного»</p></div>`}
+              ${team.length ? team.map(renderCompanyTeamCard).join("") : emptyState({
+                icon: "users",
+                title: "Команда пока пуста",
+                text: "Добавьте сотрудников и фрилансеров — потом их можно назначать на позиции сметы как «Ответственного».",
+                style: "grid-column:1/-1"
+              })}
             </div>
           </div>
         `;
@@ -12431,7 +12516,11 @@
                     </div>
                   </div>
                 </article>
-              `).join("") : `<div class="empty">Дат пока нет — добавь задачу с дедлайном</div>`}
+              `).join("") : emptyState({
+                icon: "calendar",
+                title: "Дат пока нет",
+                text: "Добавьте задачу с дедлайном — она появится здесь."
+              })}
             </div>
           </div>
         `;
@@ -12506,7 +12595,7 @@
                             ${CRM_STATUSES.map(s => `<option value="${s}" ${(project.crmStatus || "Лид") === s ? "selected" : ""}>${s}</option>`).join("")}
                           </select>
                         </article>
-                      `).join("") : `<div class="empty kanban-drop-hint">Пусто</div>`}
+                      `).join("") : emptyState({ size: "sm", text: "Пусто", className: "kanban-drop-hint" })}
                     </div>
                   </div>
                 `;
@@ -12700,7 +12789,7 @@
       }
 
       function renderProposalStages(ids, showDetails) {
-        if (!ids.length) return `<div class="empty">В смете пока нет основных позиций</div>`;
+        if (!ids.length) return emptyState({ icon: "doc", size: "sm", text: "В смете пока нет основных позиций" });
 
         return state.stages.map(stage => {
           const stageIds = ids.filter(id => {
@@ -12817,11 +12906,11 @@
                   </article>
                 `).join("")}
               </div>
-            ` : `
-              <div class="empty">
-                Версий пока нет. Нажми «+ Сохранить текущую версию», чтобы зафиксировать состояние сметы.
-              </div>
-            `}
+            ` : emptyState({
+              icon: "doc",
+              title: "Версий пока нет",
+              text: "Нажмите «+ Сохранить текущую версию», чтобы зафиксировать состояние сметы."
+            })}
           </div>
         `;
       }
@@ -13296,7 +13385,7 @@
                     </div>
                     ${ev.projectId || ev.htmlLink ? `<span class="u-meta">→</span>` : ""}
                   </div>
-                `).join("") : `<div class="empty" style="padding:12px">Событий нет</div>`}
+                `).join("") : emptyState({ icon: "calendar", size: "sm", text: "Событий нет" })}
               </div>
             ` : ""}
 
@@ -13434,7 +13523,12 @@
                       <span class="status-pill">${escapeHtml(c.status || "new")}</span>
                     </div>
                   </div>
-                `).join("") : `<div class="empty"><strong>Клиентов пока нет</strong><p>Добавьте первого клиента — или создайте сделку, клиент появится автоматически</p></div>`}
+                `).join("") : emptyState({
+                  icon: "users",
+                  size: "sm",
+                  title: "Клиентов пока нет",
+                  text: "Переключитесь на «Новый клиент» — он сохранится в базу автоматически."
+                })}
               </div>
             `}
           `;
@@ -16031,9 +16125,17 @@ Email: ______________________            Email: ______________________
                   </article>
                 `).join("")}
               </div>
-              ${filtered.length === 0 && activeCat !== "Все" ? `<div class="empty">Нет договоров в категории «${escapeHtml(activeCat)}».</div>` : ""}
+              ${filtered.length === 0 && activeCat !== "Все" ? emptyState({
+                icon: "search",
+                title: `Нет договоров в категории «${escapeHtml(activeCat)}»`,
+                cta: { label: "Показать все", onclick: "app.setContractCatFilter('Все')", variant: "" }
+              }) : ""}
             `;
-            })() : `<div class="empty">Договоров пока нет — выбери шаблон выше или создай пустой.</div>`}
+            })() : emptyState({
+              icon: "doc",
+              title: "Договоров пока нет",
+              text: "Выберите шаблон выше или создайте пустой договор."
+            })}
           </div>
         `;
       }

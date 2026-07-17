@@ -53,6 +53,7 @@
       --muted: #8a8a9e;
       --hint:  #3e3e52;
       --line:  rgba(255, 255, 255, .08);
+      --empty-bg: rgba(255, 255, 255, .015);
 
       --primary:    #6c00ff;
       --primary2:   #9b4dff;
@@ -109,6 +110,7 @@
       --text: #1a2332;
       --muted: #4a5568;
       --line: rgba(30, 41, 59, .14);
+      --empty-bg: rgba(30, 41, 59, .02);
       --input: #ffffff;
       --shadow: 0 2px 12px rgba(0, 0, 0, .09);
       --primary: #5b4ee8;
@@ -1316,7 +1318,7 @@
 
     .empty {
       padding: 40px 24px;
-      border: 1px dashed rgba(255,255,255,.1);
+      border: 1px dashed var(--line);
       border-radius: var(--radius);
       color: var(--muted);
       text-align: center;
@@ -1324,10 +1326,37 @@
       flex-direction: column;
       align-items: center;
       gap: 8px;
-      background: rgba(255,255,255,.015);
+      background: var(--empty-bg);
     }
     .empty strong { color: var(--text); font-size: 15px; font-weight: 700; display: block; }
-    .empty p { margin: 0; font-size: 13px; line-height: 1.5; }
+    .empty p { margin: 0; font-size: 13px; line-height: 1.5; max-width: 46ch; }
+
+    .empty__icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      margin-bottom: 4px;
+      border-radius: 50%;
+      background: var(--primary-bg);
+      color: var(--primary2);
+    }
+    .empty__actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    /* Компактный вариант — внутри колонок канбана, списков и боковых блоков */
+    .empty--sm { padding: 16px 12px; gap: 6px; }
+    .empty--sm .empty__icon { width: 30px; height: 30px; margin-bottom: 0; }
+    .empty--sm .empty__icon svg { width: 15px; height: 15px; }
+    .empty--sm strong { font-size: 13px; }
+    .empty--sm p { font-size: 12px; }
+    .empty--sm .empty__actions { margin-top: 4px; }
 
     .calc-box {
       padding: 14px;
