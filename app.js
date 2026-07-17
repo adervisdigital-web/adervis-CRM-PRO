@@ -5736,6 +5736,19 @@
         return hasLines ? (snapTotal || 0) : numberValue(existingTotal, 0);
       }
 
+      // Обратная сторона той же истории: у сделки из импорта бюджет лежит числом,
+      // а строк сметы нет — totals() честно даёт 0, и внутри сделки всё показывало
+      // «0 ₽», хотя на карточке стоит 241 938 ₽. Выглядело так, будто деньги пропали.
+      // Возвращает { total, budgetOnly }: budgetOnly=true → сумма взята из бюджета
+      // сделки, а не посчитана по позициям (показываем с пометкой).
+      // Только для ОТОБРАЖЕНИЯ — расчёты (КП, налог, маржа) по-прежнему на totals().
+      function displayTotal(t) {
+        if (Object.keys(state.selected || {}).length > 0) return { total: t.total, budgetOnly: false };
+        const saved = (state.savedProjects || []).find(p => p.id === state.activeProjectId);
+        const budget = numberValue(saved && saved.total, 0);
+        return budget > 0 ? { total: budget, budgetOnly: true } : { total: t.total, budgetOnly: false };
+      }
+
       function currentProjectSnapshot() {
         const t = totals();
         const f = financeTotals();
@@ -10266,10 +10279,14 @@
             ${t.discount ? `<div class="summary-line"><span>Скидка ${state.project.discount}%</span><strong>− ${money(t.discount)}</strong></div>` : ""}
             ${t.tax ? `<div class="summary-line"><span>Налог</span><strong>${money(t.tax)}</strong></div>` : ""}
 
-            <div class="summary-total">
-              <span>Итого для клиента</span>
-              <strong>${money(t.total)}</strong>
+            ${(() => {
+              const d = displayTotal(t);
+              return `<div class="summary-total">
+              <span>${d.budgetOnly ? "Бюджет сделки" : "Итого для клиента"}</span>
+              <strong>${money(d.total)}</strong>
             </div>
+            ${d.budgetOnly ? `<div class="summary-line" style="font-size:12px"><span>Смета не разбита на позиции</span></div>` : ""}`;
+            })()}
 
             ${t.optional ? `<div class="summary-line"><span>Опции (+)</span><strong>${money(t.optional)}</strong></div>` : ""}
 
@@ -10971,10 +10988,15 @@
               <!-- Компактная шапка сметы -->
               <div style="display:flex;align-items:center;gap:10px;margin-top:${inDeal ? "0" : "18px"};margin-bottom:10px;flex-wrap:wrap;padding:10px 14px;background:var(--panel2);border-radius:14px;border:1px solid var(--line)">
                 <div style="flex:1;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-                  <div>
-                    <div style="font-size:22px;font-weight:900;color:var(--text)">${money(t.total)}</div>
-                    <div style="font-size:12px;color:var(--muted);margin-top:1px">${totalItems} позиц.${t.optional ? ` · опции +${money(t.optional)}` : ""}</div>
-                  </div>
+                  ${(() => {
+                    const d = displayTotal(t);
+                    return `<div>
+                    <div style="font-size:22px;font-weight:900;color:var(--text)">${money(d.total)}</div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:1px">${d.budgetOnly
+                      ? "бюджет без разбивки"
+                      : `${totalItems} позиц.${t.optional ? ` · опции +${money(t.optional)}` : ""}`}</div>
+                  </div>`;
+                  })()}
                   <select data-autosave data-scope="project" data-key="taxType" style="width:auto;padding:5px 9px;font-size:12px;border-radius:10px;margin-left:4px">
                     ${taxOptionsHtml(state.project.taxType)}
                   </select>
@@ -10994,15 +11016,30 @@
               <div style="margin-top:6px">
                 ${stagesWithItems.length
                   ? stagesWithItems.map(renderEstimateStage).join("")
-                  : emptyState({
-                      icon: "doc",
-                      title: "Смета пустая",
-                      text: "Добавьте услуги из каталога или начните с готового пакета.",
-                      cta: [
-                        { label: "Открыть каталог", onclick: "app.go('catalog')" },
-                        { label: "Выбрать пакет", onclick: "app.go('packages')", variant: "" }
-                      ]
-                    })
+                  : (() => {
+                      // Сделка из импорта: бюджет есть, позиций нет. Не пугаем «пустой сметой»,
+                      // а объясняем, где деньги и зачем вообще разбивать на позиции.
+                      const d = displayTotal(t);
+                      return d.budgetOnly
+                        ? emptyState({
+                            icon: "doc",
+                            title: `Бюджет ${money(d.total)} — без разбивки`,
+                            text: "Сумма перенесена одним числом, позиций нет. Деньги на месте: они видны на карточке, в финансах и в воронке. Разбейте на позиции, если нужно КП для клиента и расчёт маржи.",
+                            cta: [
+                              { label: "Открыть каталог", onclick: "app.go('catalog')" },
+                              { label: "Выбрать пакет", onclick: "app.go('packages')", variant: "" }
+                            ]
+                          })
+                        : emptyState({
+                            icon: "doc",
+                            title: "Смета пустая",
+                            text: "Добавьте услуги из каталога или начните с готового пакета.",
+                            cta: [
+                              { label: "Открыть каталог", onclick: "app.go('catalog')" },
+                              { label: "Выбрать пакет", onclick: "app.go('packages')", variant: "" }
+                            ]
+                          });
+                    })()
                 }
               </div>
             </section>
@@ -13703,10 +13740,13 @@
 
               <div class="deal-actions-group">
                 <div class="deal-stats-inline">
-                  <div class="deal-stat-item">
-                    <span>Итого</span>
-                    <strong>${money(t.total)}</strong>
-                  </div>
+                  ${(() => {
+                    const d = displayTotal(t);
+                    return `<div class="deal-stat-item"${d.budgetOnly ? ` title="Бюджет сделки. Смета не разбита на позиции."` : ""}>
+                    <span>${d.budgetOnly ? "Бюджет" : "Итого"}</span>
+                    <strong>${money(d.total)}</strong>
+                  </div>`;
+                  })()}
                   <div class="deal-stat-sep"></div>
                   <div class="deal-stat-item" title="${payPct}% оплачено">
                     <span>Оплачено ${payPct}%</span>
