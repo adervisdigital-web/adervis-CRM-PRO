@@ -7156,6 +7156,14 @@
         render();
       }
 
+      // Поиск в разделе «Клиенты». Раньше стоял инлайн-обработчик `state.clientsFilter=...`,
+      // но `state` живёт внутри IIFE и в глобальной области недоступен — поиск падал с
+      // ReferenceError. Класс на инпуте нужен, чтобы render() вернул фокус (см. _focusSelector).
+      function setClientsFilter(value) {
+        state.clientsFilter = value;
+        render();
+      }
+
       function setSort(value) {
         state.sort = value;
         save();
@@ -11372,7 +11380,7 @@
                 <h1>Клиенты ${clients.length ? `<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:4px">${clients.length}</span>` : ""}</h1>
               </div>
               <div style="display:flex;gap:8px;align-items:center">
-                ${clients.length > 4 ? `<input placeholder="Поиск клиентов..." value="${escapeHtml(state.clientsFilter || "")}" oninput="state.clientsFilter=this.value;app.render()" style="width:180px;padding:7px 12px;font-size:13px">` : ""}
+                ${clients.length > 4 ? `<input class="clients-search-input" placeholder="Поиск клиентов..." value="${escapeHtml(state.clientsFilter || "")}" oninput="app.setClientsFilter(this.value)" style="width:180px;padding:7px 12px;font-size:13px">` : ""}
                 ${clients.length ? `<button class="btn small green no-print" onclick="app.exportClientsXlsx()">Excel</button>` : ""}
               </div>
             </div>
@@ -16183,6 +16191,7 @@ Email: ______________________            Email: ______________________
         go,
         setTab,
         setSearch,
+        setClientsFilter,
         setFilter,
         setSort,
         setProjectFilter,
