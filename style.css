@@ -3198,7 +3198,6 @@
     }
     .cal-header-title h1 { margin: 0 0 2px; }
     .cal-header-sub { margin: 0; font-size: 13px; color: var(--muted); }
-    .cal-add-btn { flex-shrink: 0; }
 
     /* ── CALENDAR NAV BAR ─────────────────────────── */
     .cal-nav2 {
@@ -3292,6 +3291,25 @@
     .cal-cell.other-month { opacity: .32; }
     .cal-cell.selected { border-color: var(--blue); background: rgba(37,99,235,.1); }
     .cal-cell.weekend .cal-day-num { color: var(--red); opacity: .7; }
+
+    /* «+ Задача» живёт в самой ячейке — так она знает свой день. По наведению,
+       как иконка «Закрепить» на карточке сделки (.deal-pin-btn). */
+    .cal-day-add {
+      position: absolute; top: 4px; right: 4px;
+      width: 22px; height: 22px; padding: 0;
+      display: grid; place-items: center;
+      border: 1px solid transparent; background: transparent;
+      border-radius: 6px; color: var(--muted);
+      cursor: pointer; opacity: 0;
+      transition: opacity .15s, background .15s, border-color .15s, color .15s;
+    }
+    .cal-cell:hover .cal-day-add { opacity: 1; }
+    .cal-day-add:hover {
+      background: var(--primary-bg); border-color: var(--primary2); color: var(--primary2);
+    }
+    .cal-day-add:focus-visible { opacity: 1; outline: 2px solid var(--primary2); outline-offset: 1px; }
+    /* Прошлые/будущие месяцы — не предлагаем ставить туда задачу */
+    .cal-cell.other-month .cal-day-add { display: none; }
     .cal-day-num {
       font-size: 13px; font-weight: 900; color: var(--text);
       display: block; margin-bottom: 4px; line-height: 1;
@@ -4659,6 +4677,10 @@ body.portal-mode .nav { display: none !important; }
      Редактировать/Дублировать/Удалить) должна быть видна всегда, а не по наведению. */
   .deal-menu-btn { opacity: 1; }
   .deal-pin-btn { opacity: 1; }
+  /* Тот же случай для «+» в календаре, но показывать его сразу во всех 42 ячейках —
+     мусор. Тап по дню выбирает его → «+» появляется только в выбранном. */
+  .cal-cell.selected .cal-day-add { opacity: 1; }
+  .cal-day-add { width: 26px; height: 26px; top: 3px; right: 3px; }
   .deal-bar .deal-compact-row { flex-wrap: wrap; gap: 8px; }
   .deal-stats-inline { display: none; }
   .fin-summary-grid { grid-template-columns: 1fr 1fr; }

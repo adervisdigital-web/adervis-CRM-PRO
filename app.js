@@ -13337,13 +13337,13 @@
 
         return `
           <div class="panel">
-            <!-- Шапка: заголовок + кнопка задачи -->
+            <!-- Шапка. Кнопка «+ Задача» переехала в саму ячейку дня: там она знает,
+                 на какой день ставить задачу, и не требует сперва выбрать день. -->
             <div class="cal-header">
               <div class="cal-header-title">
                 <h1>Календарь</h1>
-                <p class="cal-header-sub">Дедлайны, задачи и финансы по всем проектам.</p>
+                <p class="cal-header-sub">Дедлайны, задачи и финансы по всем проектам. Наведите на день, чтобы добавить задачу.</p>
               </div>
-              <button class="btn primary cal-add-btn" onclick="app.createTask('', '${escapeHtml(state.calendarSelectedDay || "")}')">+ Задача</button>
             </div>
 
             <!-- Навигация: месяц/год ← → + Сегодня -->
@@ -13385,6 +13385,9 @@
                 return `
                   <div class="${classes}" onclick="app.calSelectDay('${iso}')" title="${iso}">
                     <span class="cal-day-num">${c.day}</span>
+                    <button class="cal-day-add no-print" onclick="event.stopPropagation();app.createTask('','${iso}')" title="Добавить задачу на ${escapeHtml(formatDate(iso))}" aria-label="Добавить задачу на ${escapeHtml(formatDate(iso))}">
+                      <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.1 2h1.8v5.1H14v1.8H8.9V14H7.1V8.9H2V7.1h5.1V2z"/></svg>
+                    </button>
                     <div class="cal-dots">
                       ${dayEvs.slice(0, 4).map(ev => `<span class="cal-dot-item ${ev.type}" title="${escapeHtml(ev.title)}"></span>`).join("")}
                     </div>
