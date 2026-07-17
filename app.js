@@ -11669,8 +11669,10 @@
               </div>
 
               <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.saveCurrentProject()">Сохранить текущий</button>
-                <button class="btn" onclick="app.newProject()">Новый проект</button>
+                ${(state.savedProjects || []).length ? `
+                  <button class="btn primary" onclick="app.saveCurrentProject()">Сохранить текущий</button>
+                  <button class="btn" onclick="app.newProject()">Новый проект</button>
+                ` : ""}
               </div>
             </div>
 
@@ -11734,7 +11736,11 @@
                     icon: "box",
                     title: "Сохранённых проектов пока нет",
                     text: "Сохраните текущий проект — он запомнит смету, задачи, финансы и команду.",
-                    style: "grid-column:1/-1"
+                    style: "grid-column:1/-1",
+                    cta: [
+                      { label: "Сохранить текущий", onclick: "app.saveCurrentProject()" },
+                      { label: "Новый проект", onclick: "app.newProject()", variant: "" }
+                    ]
                   }))}
             </div>
           </div>
@@ -12358,7 +12364,7 @@
                 <p>Ставки и выплаты участников по этому проекту.</p>
               </div>
               <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.createTeamMember()">+ Пустой участник</button>
+                ${state.team.length ? `<button class="btn primary" onclick="app.createTeamMember()">+ Пустой участник</button>` : ""}
               </div>
             </div>
 
@@ -12385,7 +12391,11 @@
               ${state.team.length ? state.team.map(renderTeamCard).join("") : emptyState({
                 icon: "users",
                 title: "Команда пока не добавлена",
-                text: "Выберите людей из справочника выше или добавьте пустого участника."
+                text: (state.companyTeam || []).length
+                  ? "Выберите людей из справочника выше или добавьте пустого участника."
+                  : "Добавьте участников этого проекта — ставки и выплаты появятся здесь.",
+                style: "grid-column:1/-1",
+                cta: { label: "+ Пустой участник", onclick: "app.createTeamMember()" }
               })}
             </div>
           </div>
@@ -12459,7 +12469,7 @@
                 <p>Сотрудники и фрилансеры агентства — назначаются «Ответственным» на строках сметы.</p>
               </div>
               <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.createCompanyTeamMember()">+ Участник</button>
+                ${team.length ? `<button class="btn primary" onclick="app.createCompanyTeamMember()">+ Участник</button>` : ""}
               </div>
             </div>
 
@@ -12468,7 +12478,8 @@
                 icon: "users",
                 title: "Команда пока пуста",
                 text: "Добавьте сотрудников и фрилансеров — потом их можно назначать на позиции сметы как «Ответственного».",
-                style: "grid-column:1/-1"
+                style: "grid-column:1/-1",
+                cta: { label: "+ Участник", onclick: "app.createCompanyTeamMember()" }
               })}
             </div>
           </div>
@@ -12534,7 +12545,7 @@
                 <p>Сегодня: <strong>${formatDate(today)}</strong> · Все даты текущего проекта.</p>
               </div>
               <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.createTask()">+ Задача</button>
+                ${events.length ? `<button class="btn primary" onclick="app.createTask()">+ Задача</button>` : ""}
                 <button class="btn" onclick="app.setDealView('tasks')">Все задачи</button>
               </div>
             </div>
@@ -12556,7 +12567,8 @@
               `).join("") : emptyState({
                 icon: "calendar",
                 title: "Дат пока нет",
-                text: "Добавьте задачу с дедлайном — она появится здесь."
+                text: "Добавьте задачу с дедлайном — она появится здесь.",
+                cta: { label: "+ Задача", onclick: "app.createTask()" }
               })}
             </div>
           </div>
@@ -12907,7 +12919,7 @@
               </div>
 
               <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.createVersion()">+ Сохранить текущую версию</button>
+                ${state.versions.length ? `<button class="btn primary" onclick="app.createVersion()">+ Сохранить текущую версию</button>` : ""}
                 <button class="btn" onclick="app.go('projects')">Проекты</button>
               </div>
             </div>
@@ -12946,7 +12958,8 @@
             ` : emptyState({
               icon: "doc",
               title: "Версий пока нет",
-              text: "Нажмите «+ Сохранить текущую версию», чтобы зафиксировать состояние сметы."
+              text: "Зафиксируйте текущее состояние сметы — к версии можно будет вернуться в один клик.",
+              cta: { label: "+ Сохранить текущую версию", onclick: "app.createVersion()" }
             })}
           </div>
         `;
@@ -16121,7 +16134,7 @@ Email: ______________________            Email: ______________________
                 <p class="mini-note" style="margin-top:4px">ℹ️ Шаблоны носят справочный характер и не являются юридической консультацией — перед использованием с клиентами рекомендуем проверить текст у юриста.</p>
               </div>
               <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.createBlankContract()">+ Пустой договор</button>
+                ${contracts.length ? `<button class="btn primary" onclick="app.createBlankContract()">+ Пустой договор</button>` : ""}
               </div>
             </div>
 
@@ -16177,7 +16190,8 @@ Email: ______________________            Email: ______________________
             })() : emptyState({
               icon: "doc",
               title: "Договоров пока нет",
-              text: "Выберите шаблон выше или создайте пустой договор."
+              text: "Выберите шаблон выше — или начните с пустого договора.",
+              cta: { label: "+ Пустой договор", onclick: "app.createBlankContract()" }
             })}
           </div>
         `;
