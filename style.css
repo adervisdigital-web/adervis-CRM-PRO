@@ -1279,6 +1279,22 @@
       color: var(--yellow);
     }
 
+    /* Отказ — приглушённый красный, чтобы визуально отделить от активных статусов */
+    .status-pill.lost {
+      color: var(--text-danger);
+      background: rgba(220, 38, 38, .14);
+    }
+    /* Бейдж «Отказ · вернуть в работу» на карточке */
+    .deal-lost-badge {
+      color: var(--text-danger);
+      background: rgba(220, 38, 38, .12);
+      border: 1px solid rgba(220, 38, 38, .3);
+      cursor: pointer;
+    }
+    /* Чип «Отказ» в воронке */
+    .funnel-stage-lost h3 { color: var(--text-danger); }
+    .funnel-stage-lost.active { border-color: rgba(220, 38, 38, .45); }
+
     [data-theme="light"] .status-pill.green {
       color: var(--text-success);
     }

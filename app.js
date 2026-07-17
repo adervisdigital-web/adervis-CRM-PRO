@@ -69,6 +69,12 @@
       ];
 
       const CRM_STATUSES = ["Лид", "Бриф", "КП отправлено", "Согласование", "Договор", "Предоплата", "В работе", "Сдано", "Завершённые"];
+      // Терминальный статус «клиент отказался». СПЕЦИАЛЬНО не входит в CRM_STATUSES —
+      // это не шаг воронки вперёд, а тупик. Исключается из активных, выручки, прогноза,
+      // долга и дедлайнов; карточка остаётся для истории, сделку можно вернуть в работу.
+      const CRM_LOST = "Отказ";
+      // Считается ли статус «неактивным» (сделка ушла из работы: закрыта успешно ИЛИ отказ).
+      const isDealInactive = (status) => status === "Завершённые" || status === CRM_LOST;
       const TASK_STATUSES = ["Новая", "В работе", "На согласовании", "Готово"];
       // Единая иконка корзины для всех кнопок удаления (та же, что в меню сделки/swipe).
       const TRASH_SVG = `<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>`;
@@ -4925,6 +4931,8 @@
           clientId: project?.clientId || project?.project?.clientId || "",
           status: project?.status || project?.project?.status || "Черновик",
           crmStatus: project?.crmStatus || project?.project?.crmStatus || "Лид",
+          // Статус до отказа — чтобы «Вернуть в работу» вернуло сделку туда, где она была.
+          ...(project?.crmStatusBeforeLost ? { crmStatusBeforeLost: project.crmStatusBeforeLost } : {}),
           priority: project?.priority || project?.project?.priority || "Средний",
           deadline: project?.deadline || project?.project?.deadline || "",
           city: project?.city || project?.project?.city || "",
@@ -7355,7 +7363,7 @@
         const filter = state.crmFilter || "all";
         (state.savedProjects || []).forEach(p => {
           const status = p.crmStatus || "Лид";
-          if (filter === "all" ? status !== "Завершённые" : status === filter) state.crmSelected[p.id] = true;
+          if (filter === "all" ? !isDealInactive(status) : status === filter) state.crmSelected[p.id] = true;
         });
         render();
       }
@@ -8156,6 +8164,36 @@
         render();
       }
 
+      // Клиент отказался — сделка уходит из активных и из статистики, но карточка и
+      // история остаются. Запоминаем прежний статус, чтобы «Вернуть в работу» вернуло
+      // сделку туда, где она была, а не в «Лид».
+      function markDealLost(id) {
+        closeDealMenu();
+        const project = (state.savedProjects || []).find(p => p.id === id);
+        if (!project) return;
+        const prev = project.crmStatus || "Лид";
+        if (prev === CRM_LOST) return;
+        project.crmStatusBeforeLost = prev;
+        _applyCrmStatus(project, CRM_LOST);
+        _logActivity(id, `Статус: ${prev} → ${CRM_LOST}`);
+        toast("Сделка помечена как отказ");
+        save();
+        render();
+      }
+
+      function reviveDeal(id) {
+        closeDealMenu();
+        const project = (state.savedProjects || []).find(p => p.id === id);
+        if (!project) return;
+        const back = project.crmStatusBeforeLost || "Лид";
+        _applyCrmStatus(project, back);
+        delete project.crmStatusBeforeLost;
+        _logActivity(id, `Статус: ${CRM_LOST} → ${back} (возврат в работу)`);
+        toast("Сделка возвращена в работу");
+        save();
+        render();
+      }
+
       function togglePinDeal(id) {
         const proj = (state.savedProjects || []).find(p => p.id === id);
         if (!proj) return;
@@ -8557,8 +8595,9 @@
           ["Расходов", totalExpenses],
           ["Прибыль", totalRevenue - totalExpenses],
           [],
-          ["Активных сделок", projects.filter(p => !["Завершённые"].includes(p.crmStatus)).length],
-          ["Завершённых", projects.filter(p => p.crmStatus === "Завершённые").length]
+          ["Активных сделок", projects.filter(p => !isDealInactive(p.crmStatus)).length],
+          ["Завершённых", projects.filter(p => p.crmStatus === "Завершённые").length],
+          ["Отказов", projects.filter(p => p.crmStatus === CRM_LOST).length]
         ];
 
         const wb = XLSX.utils.book_new();
@@ -9362,7 +9401,7 @@
         const filter = _proposalsFilter || 'all';
         const portals = filter === 'all' ? _allPortals : _allPortals.filter(p => _portalStatus(p).key === filter);
         const withPortal = new Set(_allPortals.map(p => p.project_id).filter(Boolean));
-        const drafts = (state.savedProjects || []).filter(p => !withPortal.has(p.id) && (p.crmStatus || 'Лид') !== 'Завершённые');
+        const drafts = (state.savedProjects || []).filter(p => !withPortal.has(p.id) && !isDealInactive(p.crmStatus || 'Лид'));
 
         const counts = {
           all: _allPortals.length,
@@ -9885,7 +9924,7 @@
         }));
 
         const tagFilter = state.crmTagFilter || "";
-        const activeProjects = projects.filter(p => (p.crmStatus || "Лид") !== "Завершённые");
+        const activeProjects = projects.filter(p => !isDealInactive(p.crmStatus || "Лид"));
         const sortMode = state.crmSort || "default";
         const _debt = p => Math.max(0, (p.total || 0) - (p.paid || 0));
         const sortCmp = {
@@ -9900,7 +9939,7 @@
           // Закреплённые — всегда наверх; внутри — по выбранной сортировке (sort стабилен)
           .slice().sort((a, b) => ((b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)) || sortCmp(a, b));
 
-        const totalPipeline = projects.filter(p => !["Сдано", "Завершённые"].includes(p.crmStatus || "Лид"))
+        const totalPipeline = projects.filter(p => !["Сдано", "Завершённые", CRM_LOST].includes(p.crmStatus || "Лид"))
           .reduce((s, p) => s + (p.total || 0), 0);
         const totalProfit = projects.reduce((s, p) => s + (p.profit || 0), 0);
         const inWork = projects.filter(p => p.crmStatus === "В работе").length;
@@ -9915,7 +9954,8 @@
           "Предоплата": "Начать работу",
           "В работе": "Сдать проект",
           "Сдано": "Завершить",
-          "Завершённые": null
+          "Завершённые": null,
+          [CRM_LOST]: null
         };
 
         // ── Dashboard metrics ──────────────────────────────────────────
@@ -9947,7 +9987,7 @@
         const monthExpenses = expensesInMonth(curMonth);
         const monthProfit   = monthRevenue - monthExpenses;
 
-        const totalDebt = projects.filter(p => !["Завершённые"].includes(p.crmStatus||"Лид"))
+        const totalDebt = projects.filter(p => !isDealInactive(p.crmStatus||"Лид"))
           .reduce((s, p) => s + Math.max(0, (p.total||0) - (p.paid||0)), 0);
 
         const avgDeal = closedCount > 0 ? Math.round(projects.filter(p=>p.crmStatus==="Завершённые").reduce((s,p)=>s+(p.total||0),0) / closedCount) : 0;
@@ -9957,7 +9997,7 @@
         const in7Str = localIso(in7);
         const upcomingDeadlines = [];
         projects.forEach(p => {
-          if (p.deadline && p.deadline >= todayStr && p.deadline <= in7Str && !["Завершённые","Сдано"].includes(p.crmStatus||"Лид"))
+          if (p.deadline && p.deadline >= todayStr && p.deadline <= in7Str && !["Завершённые","Сдано",CRM_LOST].includes(p.crmStatus||"Лид"))
             upcomingDeadlines.push({ name: p.name, date: p.deadline, type: "Проект" });
           // Активный проект берём из live-state ниже, иначе его задачи задвоятся
           if (p.id === state.activeProjectId) return;
@@ -10026,7 +10066,7 @@
               <div class="db-stat">
                 <div class="db-stat-label">Воронка</div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>
-                <div class="db-stat-delta neu">${projects.filter(p=>!["Сдано","Завершённые"].includes(p.crmStatus||"Лид")).length} активных</div>
+                <div class="db-stat-delta neu">${projects.filter(p=>!["Сдано","Завершённые",CRM_LOST].includes(p.crmStatus||"Лид")).length} активных</div>
               </div>
               <div class="db-stat">
                 <div class="db-stat-label">В работе</div>
@@ -10040,7 +10080,7 @@
               </div>
               ${(() => {
                 const weights = { "Лид":0.10, "Бриф":0.20, "КП отправлено":0.30, "Согласование":0.50, "Договор":0.70, "Предоплата":0.90, "В работе":0.95, "Сдано":1.0 };
-                const forecast30 = projects.filter(p => !["Завершённые"].includes(p.crmStatus||"Лид")).reduce((s,p) => s + (p.total||0)*(weights[p.crmStatus||"Лид"]||0.10), 0);
+                const forecast30 = projects.filter(p => !isDealInactive(p.crmStatus||"Лид")).reduce((s,p) => s + (p.total||0)*(weights[p.crmStatus||"Лид"]||0.10), 0);
                 return `<div class="db-stat" title="Взвешенная вероятность закрытия сделок из воронки (30 дней)">
                   <div class="db-stat-label">Прогноз 30 дн</div>
                   <div class="db-stat-value" style="color:var(--blue)">${money(Math.round(forecast30))}</div>
@@ -10071,6 +10111,14 @@
                     ${s.total ? `<div class="fs-amount">${money(s.total)}</div>` : ""}
                   </div>
                 `).join("")}
+                ${(() => {
+                  const lost = projects.filter(p => p.crmStatus === CRM_LOST);
+                  return lost.length ? `
+                    <div class="funnel-stage funnel-stage-lost ${filter === CRM_LOST ? "active" : ""}" onclick="app.setCrmFilter('${CRM_LOST}')" title="Сделки, от которых клиент отказался — вне активной статистики">
+                      <h3>Отказ</h3>
+                      <div class="fs-count">${lost.length}</div>
+                    </div>` : "";
+                })()}
               </div>
             </div>
 
@@ -10099,20 +10147,25 @@
                 </div>
               </div>
               ${(() => {
-                const selIds = Object.keys(state.crmSelected || {});
-                const selCount = selIds.length;
-                return state.crmSelectMode && selCount > 0 ? `
+                // Панель показывается ВСЁ ВРЕМЯ в режиме выбора — иначе, сняв последнюю
+                // галочку, пользователь оставался с чекбоксами на карточках и без единой
+                // кнопки, чтобы выйти из режима. Действия над выбором — только когда есть выбор.
+                if (!state.crmSelectMode) return "";
+                const selCount = Object.keys(state.crmSelected || {}).length;
+                return `
                   <div class="no-print" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--panel2);border:1px solid var(--primary);border-radius:12px;margin-bottom:12px">
-                    <span style="font-size:13px;font-weight:750;color:var(--primary)">Выбрано: ${selCount}</span>
+                    <span style="font-size:13px;font-weight:750;color:var(--primary)">${selCount ? `Выбрано: ${selCount}` : "Отметьте сделки галочками"}</span>
+                    ${selCount ? `
                     <select id="crmBulkStatusSel" style="padding:6px 10px;border-radius:8px;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text)">
-                      ${CRM_STATUSES.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("")}
+                      ${[...CRM_STATUSES, CRM_LOST].map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("")}
                     </select>
                     <button class="btn primary small" onclick="app.bulkSetCrmStatus(document.getElementById('crmBulkStatusSel').value)">Применить статус</button>
+                    ` : ""}
                     <button class="btn small" onclick="app.selectAllCrmVisible()">Выбрать все (${visibleItems.length})</button>
-                    <button class="btn small" onclick="app.clearCrmSelect()">Снять выбор</button>
-                    <button class="btn danger small" onclick="app.bulkDeleteDeals()">Удалить (${selCount})</button>
+                    <button class="btn small" onclick="app.clearCrmSelect()">${selCount ? "Снять выбор" : "Выйти"}</button>
+                    ${selCount ? `<button class="btn danger small" onclick="app.bulkDeleteDeals()">Удалить (${selCount})</button>` : ""}
                   </div>
-                ` : "";
+                `;
               })()}
               ${state.crmView === "list" ? `
               <div class="panel" style="padding:0;overflow:hidden">
@@ -10128,7 +10181,7 @@
                     <div class="deal-list-row ${isCurrent?"current":""}" onclick="app.openDeal('${projectIdSafe}')" title="Открыть смету">
                       ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${(state.crmSelected||{})[project.id]?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">` : ""}
                       <div class="health-dot ${healthClass}" style="flex:0 0 auto" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
-                      <span class="status-pill" style="font-size:12px">${escapeHtml(project.crmStatus||"Лид")}</span>
+                      <span class="status-pill ${project.crmStatus === "Отказ" ? "lost" : ""}" style="font-size:12px">${escapeHtml(project.crmStatus||"Лид")}</span>
                       <div class="deal-list-name" style="display:flex;align-items:center;gap:6px;min-width:0">
                         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${escapeHtml(project.name)}</span>
                         ${(project.tags||[]).slice(0,2).map(t=>`<span style="font-size:12px;background:rgba(108,0,255,.12);border-radius:99px;padding:1px 6px;color:var(--primary2);white-space:nowrap;flex-shrink:0">${escapeHtml(t)}</span>`).join("")}
@@ -10166,7 +10219,7 @@
                           <div class="deal-card-name">${escapeHtml(project.name)}</div>
                           <div class="deal-card-statusline">
                             <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
-                            <span class="status-pill" style="font-size:12px">${escapeHtml(project.crmStatus || "Лид")}</span>
+                            <span class="status-pill ${project.crmStatus === "Отказ" ? "lost" : ""}" style="font-size:12px">${escapeHtml(project.crmStatus || "Лид")}</span>
                             ${isCurrent ? `<span class="status-pill green" style="font-size:12px">текущий</span>` : ""}
                             ${project.clientId
                               ? `<span class="deal-card-sub">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</span>`
@@ -10194,10 +10247,21 @@
                               Выбрать
                             </button>
                             <div class="dcm-sep"></div>
+                            ${project.crmStatus === "Отказ" ? `
+                            <button class="dcm-item dcm-green" onclick="event.stopPropagation();app.reviveDeal('${projectIdSafe}')">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3V1L4.5 4 8 7V5a4 4 0 11-4 4H2.5A5.5 5.5 0 108 3z"/></svg>
+                              Вернуть в работу
+                            </button>
+                            ` : `
                             <button class="dcm-item dcm-green" onclick="event.stopPropagation();app.finishDeal('${projectIdSafe}')">
                               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 2.5l-8 8-3-3-1 1 4 4 9-9z"/></svg>
                               Завершить
                             </button>
+                            <button class="dcm-item" onclick="event.stopPropagation();app.markDealLost('${projectIdSafe}')" title="Клиент отказался — уйдёт из активных и статистики, но карточка сохранится">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM4.5 4.5l7 7-1 1-7-7 1-1z"/></svg>
+                              Отметить отказ
+                            </button>
+                            `}
                             <div class="dcm-sep"></div>
                             <button class="dcm-item dcm-danger" onclick="event.stopPropagation();app.closeDealMenu();app.deleteSavedProject('${projectIdSafe}')">
                               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>
@@ -10239,7 +10303,9 @@
                       </div>` : ""}
 
                       <div class="deal-card-footer">
-                        ${nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge" onclick="event.stopPropagation()">Завершено</span>`}
+                        ${project.crmStatus === "Отказ"
+                          ? `<span class="badge deal-lost-badge" onclick="event.stopPropagation();app.reviveDeal('${projectIdSafe}')" title="Вернуть сделку в работу">Отказ · вернуть в работу</span>`
+                          : nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge" onclick="event.stopPropagation()">Завершено</span>`}
                       </div>
                     </div>
                   `;
@@ -13779,7 +13845,7 @@
                 <div id="dealBarSwitcher">${renderDealSwitcherButtonHtml()}</div>
                 ${state.project.client ? `<span class="badge" style="font-size:12px">${escapeHtml(state.project.client)}</span>` : ""}
                 <span class="margin-badge ${marginClass}" style="font-size:12px">${margin}% маржа</span>
-                <span class="status-pill" style="font-size:12px">${escapeHtml(state.project.crmStatus || "Лид")}</span>
+                <span class="status-pill ${state.project.crmStatus === "Отказ" ? "lost" : ""}" style="font-size:12px">${escapeHtml(state.project.crmStatus || "Лид")}</span>
                 ${(() => { const u = deadlineUrgency(state.project.deadline); if (!u || u.level === "ok") return ""; return `<span style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px">⚡ ${escapeHtml(u.label)}</span>`; })()}
               </div>
 
@@ -15460,6 +15526,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 `)}
                 ${field("Статус воронки", `<select onchange="app.setDealModalField('crmStatus',this.value)">
                   ${CRM_STATUSES.map(s => `<option value="${s}" ${m.crmStatus === s ? "selected" : ""}>${s}</option>`).join("")}
+                  <option value="${CRM_LOST}" ${m.crmStatus === CRM_LOST ? "selected" : ""}>${CRM_LOST}</option>
                 </select>`)}
                 ${field("Менеджер", `<input value="${escapeHtml(m.manager || "")}" oninput="app.setDealModalField('manager',this.value)" placeholder="Имя менеджера">`)}
               </div>
@@ -16572,6 +16639,8 @@ Email: ______________________            Email: ______________________
         closeDealMenu,
         selectDealFromMenu,
         finishDeal,
+        markDealLost,
+        reviveDeal,
         togglePinDeal,
 
         calSetMonth,
@@ -16774,7 +16843,7 @@ Email: ______________________            Email: ______________________
         const projects = state.savedProjects || [];
         const tgLines = [];
         projects.forEach(proj => {
-          if (!proj.deadline || ["Сдано", "Завершённые"].includes(proj.crmStatus || "")) return;
+          if (!proj.deadline || ["Сдано", "Завершённые", CRM_LOST].includes(proj.crmStatus || "")) return;
           const u = deadlineUrgency(proj.deadline);
           if (!u || u.level === "ok") return;
           const icon = u.level === "overdue" ? "🔴" : "⚡";
