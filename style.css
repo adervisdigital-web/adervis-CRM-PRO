@@ -1160,6 +1160,13 @@
       position: relative;
     }
 
+    /* Строка ценности клиента на карточке: сделки · оплачено · долг */
+    .client-card-stats {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+      margin-top: 6px; font-size: 12px; font-weight: 700;
+      color: var(--muted); font-variant-numeric: tabular-nums;
+    }
+
     .item.selected {
       border-color: rgba(22, 163, 74, .55);
     }

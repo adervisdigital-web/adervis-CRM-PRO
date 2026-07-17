@@ -10186,6 +10186,8 @@
       function renderSummary() {
         const t = totals();
         const f = financeTotals();
+        // Пустая смета: действия над ней (КП, версия, очистка) бессмысленны — не показываем
+        const hasLines = Object.keys(state.selected || {}).length > 0;
         const margin = f.revenue > 0 ? Math.round(f.profit / f.revenue * 100) : 0;
         const marginClass = margin >= 40 ? "good" : margin >= 20 ? "ok" : "bad";
         const payPct = t.total > 0 ? Math.min(100, Math.round(f.paid / t.total * 100)) : 0;
@@ -10239,10 +10241,10 @@
             </div>
 
             <div class="toolbar no-print" style="margin-top:16px">
-              <button class="btn primary full" onclick="app.go('deal');app.setDealView('proposal')">Сформировать КП</button>
+              ${hasLines ? `<button class="btn primary full" onclick="app.go('deal');app.setDealView('proposal')">Сформировать КП</button>` : ""}
               ${!state.activeProjectId ? `<button class="btn full" onclick="app.saveCurrentProject()">Сохранить сделку</button>` : ""}
-              <button class="btn full" onclick="app.createVersion()">Сохранить версию</button>
-              <button class="btn danger full" onclick="app.clearEstimate()">Очистить смету</button>
+              ${hasLines ? `<button class="btn full" onclick="app.createVersion()">Сохранить версию</button>` : ""}
+              ${hasLines ? `<button class="btn danger full" onclick="app.clearEstimate()">Очистить смету</button>` : ""}
             </div>
           </aside>
         `;
@@ -10695,7 +10697,7 @@
                   <input class="catalog-search-input" value="${escapeHtml(state.search)}" oninput="app.setSearch(this.value)" placeholder="Поиск: монтаж, оператор, свет...">
                 </div>
                 <select class="catalog-toolbar-select" onchange="app.setFilter(this.value)" title="Фильтр">
-                  ${optionValueHtml("all", "Все", state.filter)}
+                  ${optionValueHtml("all", "Без фильтра", state.filter)}
                   ${optionValueHtml("selected", "В смете", state.filter)}
                   ${optionValueHtml("edited", "Изменённые цены", state.filter)}
                   ${optionValueHtml("hourly", "С почасовым расчётом", state.filter)}
@@ -10921,6 +10923,7 @@
                     ${taxOptionsHtml(state.project.taxType)}
                   </select>
                 </div>
+                ${stagesWithItems.length ? `
                 <div class="toolbar no-print" style="gap:5px;flex-direction:row;flex-wrap:wrap">
                   <button class="btn small estimate-collapse-all-btn ${allStagesCollapsed ? "collapsed" : ""}" onclick="app.toggleAllEstimate()" title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
@@ -10929,7 +10932,7 @@
                   <button class="btn small" onclick="app.go('catalog')">+ Услуги</button>
                   <button class="btn small" onclick="app.go('packages')">+ Пакет</button>
                   ${inDeal ? "" : `<button class="btn small" onclick="app.createVersion()">Версия</button>`}
-                </div>
+                </div>` : ""}
               </div>
 
               <div style="margin-top:6px">
@@ -11381,7 +11384,12 @@
                 <div class="kb-new-icon">+</div>
                 <div class="kb-new-label">Новый клиент</div>
               </div>
-              ${filteredClients.length ? filteredClients.map(client => `
+              ${filteredClients.length ? filteredClients.map(client => {
+                  // Ценность клиента сразу на карточке: сколько сделок и сколько денег принёс
+                  const cProjects = (state.savedProjects || []).filter(p => p.clientId === client.id);
+                  const cPaid = cProjects.reduce((s, p) => s + numberValue(p.paid, 0), 0);
+                  const cDebt = cProjects.reduce((s, p) => s + Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), 0);
+                  return `
                   <article class="client-card" style="cursor:pointer" onclick="app.openClientModal('${client.id}')">
                     <div class="line-head">
                       <div>
@@ -11390,16 +11398,21 @@
                       </div>
                       <span class="status-pill">${{new:"Новый",active:"Активный",vip:"VIP",paused:"Пауза",lost:"Потерян"}[client.status] || "Новый"}</span>
                     </div>
+                    <div class="client-card-stats">
+                      <span title="Сделок с клиентом">${cProjects.length} ${plural(cProjects.length, "сделка", "сделки", "сделок")}</span>
+                      ${cPaid ? `<span style="color:var(--green)" title="Всего оплачено клиентом">${money(cPaid)}</span>` : ""}
+                      ${cDebt ? `<span style="color:var(--orange)" title="Долг клиента">долг ${money(cDebt)}</span>` : ""}
+                    </div>
                     <div class="badges" style="margin-top:8px">
                       ${client.phone ? `<span class="badge">📞 ${escapeHtml(client.phone)}</span>` : ""}
                       ${client.email ? `<span class="badge">✉ ${escapeHtml(client.email)}</span>` : ""}
                     </div>
                     ${client.note ? `<p style="font-size:12px;margin-top:8px">${escapeHtml(client.note.slice(0,80))}${client.note.length > 80 ? "…" : ""}</p>` : ""}
-                    <div class="toolbar no-print" style="margin-top:10px">
+                    ${cProjects.length ? `<div class="toolbar no-print" style="margin-top:10px">
                       <button class="btn small" onclick="event.stopPropagation();app.openClientDetail('${client.id}')">Проекты →</button>
-                    </div>
-                  </article>
-                `).join("") : (!clientQ ? `<div class="empty" style="grid-column:1/-1"><strong>Нет клиентов</strong><p>Создайте первого клиента или добавьте его при создании сделки</p></div>` : `<div class="empty" style="grid-column:1/-1">Нет клиентов по запросу «${escapeHtml(clientQ)}»</div>`)}
+                    </div>` : ""}
+                  </article>`;
+                }).join("") : (!clientQ ? `<div class="empty" style="grid-column:1/-1"><strong>Нет клиентов</strong><p>Создайте первого клиента или добавьте его при создании сделки</p></div>` : `<div class="empty" style="grid-column:1/-1">Нет клиентов по запросу «${escapeHtml(clientQ)}»</div>`)}
             </div>
           </div>
         `;
@@ -11671,7 +11684,7 @@
                 <p>Все задачи по проектам и свои личные — в одном месте.</p>
               </div>
               <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.createGlobalTask()">+ Своя задача</button>
+                ${total ? `<button class="btn primary" onclick="app.createGlobalTask()">+ Своя задача</button>` : ""}
               </div>
             </div>
 
@@ -11694,7 +11707,9 @@
 
             ${filtered.length ? `<div class="gtask-list">
               ${filtered.map(renderGlobalTaskRow).join("")}
-            </div>` : `<div class="empty">${total ? "Нет задач по этому фильтру." : "Задач пока нет."}<br><button class="btn primary" style="margin-top:12px" onclick="app.createGlobalTask()">+ Добавить свою задачу</button></div>`}
+            </div>` : (total
+              ? `<div class="empty">Нет задач по этому фильтру.</div>`
+              : `<div class="empty">Задач пока нет.<br><button class="btn primary" style="margin-top:12px" onclick="app.createGlobalTask()">+ Добавить свою задачу</button></div>`)}
           </div>
         `;
       }
