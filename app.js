@@ -5736,6 +5736,28 @@
         return hasLines ? (snapTotal || 0) : numberValue(existingTotal, 0);
       }
 
+      // Согласованный блок финансов при сохранении. Раньше беречь умели только total
+      // (_totalForSave), а debt/revenue/profit брались из financeTotals(), где для
+      // ПУСТОЙ сметы totals()=0 → долг/выручка/прибыль обнулялись при первом же
+      // сохранении, хотя бюджет (total) уцелел. Теперь для сделки-бюджета (без строк)
+      // выводим их из сохранённого бюджета: долг = бюджет − оплата, выручка = бюджет,
+      // прибыль = бюджет − расходы. Оплата/расходы реальны (платежи/затраты живут
+      // отдельно от строк сметы) — их берём из f как есть.
+      function _financeForSave(existingTotal, snapTotal, f) {
+        const total = _totalForSave(existingTotal, snapTotal);
+        if (Object.keys(state.selected || {}).length > 0) {
+          return { total, paid: f.paid, debt: f.debt, expensesTotal: f.totalExpenses, profit: f.profit, revenue: f.revenue };
+        }
+        return {
+          total,
+          paid: f.paid,
+          debt: Math.max(0, total - f.paid),
+          expensesTotal: f.totalExpenses,
+          profit: total - f.totalExpenses,
+          revenue: total
+        };
+      }
+
       // Обратная сторона той же истории: у сделки из импорта бюджет лежит числом,
       // а строк сметы нет — totals() честно даёт 0, и внутри сделки всё показывало
       // «0 ₽», хотя на карточке стоит 241 938 ₽. Выглядело так, будто деньги пропали.
@@ -5811,12 +5833,7 @@
               priority: state.project.priority || "Средний",
               deadline: state.project.deadline || "",
               city: state.project.city || "",
-              total: _totalForSave(existing.total, snapshot.total),
-              paid: f.paid,
-              debt: f.debt,
-              expensesTotal: f.totalExpenses,
-              profit: f.profit,
-              revenue: f.revenue,
+              ..._financeForSave(existing.total, snapshot.total, f),
               updatedAt: now,
               snapshot
             });
@@ -7414,12 +7431,7 @@
           crmStatus: state.project.crmStatus || "Лид",
           priority: state.project.priority || "Средний",
           deadline: state.project.deadline || "",
-          total: _totalForSave(existing.total, snap.total),
-          paid: f.paid,
-          debt: f.debt,
-          expensesTotal: f.totalExpenses,
-          profit: f.profit,
-          revenue: f.revenue,
+          ..._financeForSave(existing.total, snap.total, f),
           updatedAt: new Date().toISOString(),
           snapshot: snap
         });
@@ -15308,7 +15320,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           deadline: project.deadline || "",
           manager: project.manager || "",
           note: project.note || "",
-          tags: project.tags ? [...project.tags] : []
+          tags: project.tags ? [...project.tags] : [],
+          total: project.total || 0,
+          // Смета разбита на позиции? Если да — сумма считается по ним, поле «Бюджет»
+          // не показываем (оно бы конфликтовало с расчётом). Если нет (импорт из
+          // O!task пришёл суммой или пустым) — даём вписать бюджет вручную.
+          hasSmetaLines: Object.keys((project.snapshot || {}).selected || {}).length > 0
         };
         renderModal();
       }
@@ -15371,6 +15388,17 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           proj.manager = m.manager || "";
           proj.note = m.note || "";
           proj.tags = m.tags || [];
+          // Бюджет вручную — только для сделок без разбитой сметы (импорт/пустая смета).
+          // Держим финансы согласованными: долг = бюджет − оплата, выручка = бюджет,
+          // прибыль = бюджет − расходы. _totalForSave потом бережёт это при открытии.
+          if (!m.hasSmetaLines) {
+            const budget = numberValue(m.total, 0);
+            proj.total = budget;
+            proj.debt = Math.max(0, budget - numberValue(proj.paid, 0));
+            proj.revenue = budget;
+            proj.profit = budget - numberValue(proj.expensesTotal, 0);
+            if (proj.snapshot) proj.snapshot.total = budget;
+          }
           if (proj.snapshot && proj.snapshot.project) {
             proj.snapshot.project.deadline = proj.deadline;
             proj.snapshot.project.crmStatus = proj.crmStatus;
@@ -15424,6 +15452,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   oninput="app.setDealModalField('deadline',this.value)"
                   style="width:100%;border-radius:10px;border:1px solid var(--line);background:var(--input);color:var(--text);padding:10px 12px;font-size:14px">
               </div>
+              ${!m.hasSmetaLines ? `
+              <div class="field" style="margin-bottom:14px">
+                ${field("Бюджет сделки, ₽", `<input type="number" inputmode="numeric" value="${escapeHtml(m.total || "")}" oninput="app.setDealModalField('total',this.value)" placeholder="Например, 241938">`)}
+                <p class="mini-note" style="margin-top:6px">Смета не разбита на позиции — укажите общую сумму. Разбейте её на позиции в смете, если нужны КП и расчёт маржи.</p>
+              </div>
+              ` : ""}
               <div class="field" style="margin-bottom:14px">
                 ${field("Заметка", `<textarea style="min-height:72px" oninput="app.setDealModalField('note',this.value)" placeholder="Дополнительная информация...">${escapeHtml(m.note || "")}</textarea>`)}
               </div>
