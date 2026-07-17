@@ -9068,7 +9068,9 @@
       }
 
       document.addEventListener("click", () => { if (_uuOpen) _closeUUSelect(); });
-      document.addEventListener("scroll", () => { if (_uuOpen) _closeUUSelect(); }, true);
+      // Закрываем при прокрутке страницы, но НЕ когда скроллят сам список внутри дропдауна
+      // (иначе колесо внутри списка тут же его схлопывает — «плохо листается»).
+      document.addEventListener("scroll", (e) => { if (_uuOpen && !_uuOpen.dd.contains(e.target)) _closeUUSelect(); }, true);
       window.addEventListener("resize", () => { if (_uuOpen) _closeUUSelect(); });
       document.addEventListener("keydown", e => { if (e.key === "Escape" && _uuOpen) _closeUUSelect(); });
 
@@ -9731,6 +9733,7 @@
           months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
         }
         const ML = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+        const MLfull = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 
         // Активный проект живёт в state.payments/expenses (live) и одновременно
         // лежит в savedProjects со своим snapshot — считаем только live, иначе
@@ -9753,32 +9756,48 @@
         if (totalRev === 0 && totalExp === 0) return '';
 
         const maxVal = Math.max(...revenue, ...expenseArr, 1);
+        const scaleMax = maxVal * 1.15; // запас сверху, чтобы подпись над самым высоким столбцом не упиралась в край
 
-        // SVG bar chart — compact height
-        const W = 600, H = 72, BOT = 14, TOP = 4, chartH = H - BOT - TOP;
-        const gw = W / months.length;
-        const bw = Math.floor(gw * 0.26);
+        // Сгруппированный столбчатый график: тонкие столбцы с округлым верхом на базовой линии,
+        // прямые подписи сумм над выручкой и полные названия месяцев снизу.
+        const W = 760, H = 172;
+        const PADL = 42, PADR = 10, PADT = 26, PADB = 30;
+        const plotW = W - PADL - PADR, plotH = H - PADT - PADB;
+        const baseY = PADT + plotH;
+        const gw = plotW / months.length;
+        const bw = 24, gap = 6;
+
+        const shortNum = v => v >= 1000000 ? (v/1000000).toFixed(v >= 10000000 ? 0 : 1).replace('.0','') + 'М'
+                            : v >= 1000 ? Math.round(v/1000) + 'к' : String(Math.round(v));
+        const barPath = (x, y, w, h, r) => {
+          r = Math.max(0, Math.min(r, w/2, h));
+          return `M${x} ${y+h} L${x} ${y+r} Q${x} ${y} ${x+r} ${y} L${x+w-r} ${y} Q${x+w} ${y} ${x+w} ${y+r} L${x+w} ${y+h} Z`;
+        };
 
         const barsHtml = months.map((m, i) => {
-          const cx = Math.floor(i * gw + gw / 2);
-          const rh = Math.max(revenue[i] > 0 ? 2 : 0, Math.floor(revenue[i] / maxVal * chartH));
-          const eh = Math.max(expenseArr[i] > 0 ? 2 : 0, Math.floor(expenseArr[i] / maxVal * chartH));
-          const label = ML[parseInt(m.split('-')[1]) - 1];
+          const gx = PADL + i * gw;
+          const pairX = gx + (gw - (bw * 2 + gap)) / 2;
+          const rx = pairX, ex = pairX + bw + gap;
+          const rh = revenue[i] > 0 ? Math.max(3, revenue[i] / scaleMax * plotH) : 0;
+          const eh = expenseArr[i] > 0 ? Math.max(3, expenseArr[i] / scaleMax * plotH) : 0;
+          const label = MLfull[parseInt(m.split('-')[1]) - 1];
+          const revLabel = revenue[i] > 0
+            ? `<text x="${rx + bw/2}" y="${baseY - rh - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)" font-family="inherit">${shortNum(revenue[i])}</text>`
+            : '';
           return `
-            <rect x="${cx - bw - 2}" y="${TOP + chartH - rh}" width="${bw}" height="${rh}" rx="3" fill="rgba(34,197,94,.75)">
-              <title>Выручка ${label}: ${money(revenue[i])}</title></rect>
-            <rect x="${cx + 2}" y="${TOP + chartH - eh}" width="${bw}" height="${eh}" rx="3" fill="rgba(239,68,68,.65)">
-              <title>Расходы ${label}: ${money(expenseArr[i])}</title></rect>
-            <text x="${cx}" y="${H - 1}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="inherit">${label}</text>`;
+            ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, 5)}" fill="url(#dbGradRev)"><title>Выручка · ${label}: ${money(revenue[i])}</title></path>` : ''}
+            ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, 5)}" fill="url(#dbGradExp)"><title>Расходы · ${label}: ${money(expenseArr[i])}</title></path>` : ''}
+            ${revLabel}
+            <text x="${gx + gw/2}" y="${H - 9}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="inherit">${label}</text>`;
         }).join('');
 
         const gridLines = [0.4, 0.8].map(f => {
-          const y = TOP + chartH - Math.floor(f * chartH);
-          const val = Math.floor(maxVal * f);
-          const label = val >= 1000000 ? (val/1000000).toFixed(1)+'М' : val >= 1000 ? Math.round(val/1000)+'к' : val;
-          return `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="var(--line)" stroke-width="0.8" stroke-dasharray="4,4"/>
-                  <text x="2" y="${y - 3}" font-size="9" fill="var(--muted)" font-family="inherit">${label}</text>`;
+          const val = maxVal * f;
+          const y = baseY - (val / scaleMax) * plotH;
+          return `<line x1="${PADL}" y1="${y}" x2="${W - PADR}" y2="${y}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3,5"/>
+                  <text x="${PADL - 7}" y="${y + 3.5}" text-anchor="end" font-size="10" fill="var(--muted)" font-family="inherit" opacity="0.85">${shortNum(val)}</text>`;
         }).join('');
+        const baseAxis = `<line x1="${PADL}" y1="${baseY}" x2="${W - PADR}" y2="${baseY}" stroke="var(--line)" stroke-width="1.4"/>`;
 
         // Top clients
         const byClient = {};
@@ -9806,8 +9825,19 @@
               </div>
             </div>
             <div class="db-analytics-body">
-              <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">
+              <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-height:230px">
+                <defs>
+                  <linearGradient id="dbGradRev" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="var(--green)" stop-opacity="0.95"/>
+                    <stop offset="1" stop-color="var(--green)" stop-opacity="0.4"/>
+                  </linearGradient>
+                  <linearGradient id="dbGradExp" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="var(--red)" stop-opacity="0.7"/>
+                    <stop offset="1" stop-color="var(--red)" stop-opacity="0.3"/>
+                  </linearGradient>
+                </defs>
                 ${gridLines}
+                ${baseAxis}
                 ${barsHtml}
               </svg>
               ${topClients.length ? `
@@ -10228,14 +10258,16 @@
                               : `<span class="deal-card-sub unlinked" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Не привязан"}</span>`}
                           </div>
                         </div>
-                        <button class="deal-pin-btn ${project.pinned ? "active" : ""} no-print" onclick="event.stopPropagation();app.togglePinDeal('${projectIdSafe}')" title="${project.pinned ? "Открепить" : "Закрепить наверху"}" aria-label="${project.pinned ? "Открепить" : "Закрепить"}" aria-pressed="${project.pinned ? "true" : "false"}">
-                          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.83 1.02l5.15 5.15c.28.28.02.76-.37.69l-2.4-.44-2.9 2.9.44 2.86c.07.4-.42.66-.7.38L6.4 10.42l-4.1 4.1-.7-.7 4.1-4.1-2.13-2.13c-.28-.28-.02-.77.38-.7l2.86.44 2.9-2.9-.44-2.4c-.07-.4.41-.65.69-.37z"/></svg>
-                        </button>
                         <div class="deal-card-menu-wrap">
                           <button class="deal-menu-btn" onclick="app.toggleDealMenu('${projectIdSafe}',event)" title="Действия со сделкой" aria-label="Действия со сделкой">
                             <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
                           </button>
                           <div class="deal-ctx-menu" id="dcm-${projectIdSafe}" style="display:none">
+                            <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.togglePinDeal('${projectIdSafe}')">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.83 1.02l5.15 5.15c.28.28.02.76-.37.69l-2.4-.44-2.9 2.9.44 2.86c.07.4-.42.66-.7.38L6.4 10.42l-4.1 4.1-.7-.7 4.1-4.1-2.13-2.13c-.28-.28-.02-.77.38-.7l2.86.44 2.9-2.9-.44-2.4c-.07-.4.41-.65.69-.37z"/></svg>
+                              ${project.pinned ? "Открепить" : "Закрепить наверху"}
+                            </button>
+                            <div class="dcm-sep"></div>
                             <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.openDealModal('${projectIdSafe}')">
                               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 011.06 2.56L5.12 11H3v-2.12l7.44-7.44A1.5 1.5 0 0111.5 1zM2 12.5V15h2.5l.1-.1-2.4-2.4-.2.1z"/></svg>
                               Редактировать
@@ -10264,34 +10296,34 @@
                               В архив
                             </button>
                             `}
-                            <div class="dcm-sep"></div>
-                            <button class="dcm-item dcm-danger" onclick="event.stopPropagation();app.closeDealMenu();app.deleteSavedProject('${projectIdSafe}')">
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>
-                              Удалить проект
-                            </button>
                           </div>
                         </div>
                       </div>
 
+                      ${(() => {
+                        const debt = Math.max(0, (project.total || 0) - (project.paid || 0));
+                        const hasExp = project.expensesTotal > 0;
+                        return `
                       <div class="deal-card-stats">
                         <div class="deal-card-stat">
-                          <span class="lbl">Смета</span>
+                          <span class="lbl">Бюджет</span>
                           <span class="val">${money(project.total)}</span>
                         </div>
                         <div class="deal-card-stat">
                           <span class="lbl">Оплачено</span>
                           <span class="val" style="color:${project.paid > 0 ? "var(--green)" : "var(--muted)"}">${money(project.paid || 0)}</span>
                         </div>
-                        ${project.expensesTotal > 0 ? `
+                        <div class="deal-card-stat${hasExp ? "" : " stat-span2"}">
+                          <span class="lbl">Долг</span>
+                          <span class="val" style="color:${debt > 0 ? "var(--orange)" : "var(--green)"}">${money(debt)}</span>
+                        </div>
+                        ${hasExp ? `
                         <div class="deal-card-stat">
                           <span class="lbl">Расходы</span>
                           <span class="val" style="color:var(--red)">${money(project.expensesTotal)}</span>
-                        </div>
-                        <div class="deal-card-stat">
-                          <span class="lbl">Прибыль</span>
-                          <span class="val" style="color:${(project.profit||0)>0?"var(--green)":(project.profit||0)<0?"var(--red)":"var(--muted)"}">${money(project.profit||0)}</span>
                         </div>` : ""}
-                      </div>
+                      </div>`;
+                      })()}
 
                       ${payPct > 0 ? `<div class="deal-pay-bar" style="width:100%">
                         <div class="deal-pay-fill" style="width:${payPct}%"></div>
@@ -10306,7 +10338,11 @@
 
                       <div class="deal-card-footer">
                         ${project.crmStatus === CRM_ARCHIVED
-                          ? `<span class="badge deal-archived-badge" onclick="event.stopPropagation();app.unarchiveDeal('${projectIdSafe}')" title="Вернуть сделку в работу">В архиве · вернуть</span>`
+                          ? `<span class="badge deal-archived-badge" onclick="event.stopPropagation();app.unarchiveDeal('${projectIdSafe}')" title="Вернуть сделку в работу">В архиве · вернуть</span>
+                             <button class="deal-del-btn" onclick="event.stopPropagation();app.deleteSavedProject('${projectIdSafe}')" title="Удалить проект навсегда">
+                               <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>
+                               Удалить
+                             </button>`
                           : nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge" onclick="event.stopPropagation()">Завершено</span>`}
                       </div>
                     </div>
@@ -10840,13 +10876,11 @@
                 </div>
 
                 <div class="toolbar no-print">
-                  <button class="btn" onclick="app.exportCatalogXlsx()" title="Экспорт позиций из сметы в Excel">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Экспорт в Excel
+                  <button class="xlsx-icon-btn" onclick="app.exportCatalogXlsx()" title="Экспорт каталога в Excel (.xlsx)" aria-label="Экспорт каталога в Excel">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg>
                   </button>
-                  <button class="btn" onclick="document.getElementById('importCatalogXlsxInput').click()" title="Импорт позиций из Excel в «Свои»">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Импорт из Excel
+                  <button class="xlsx-icon-btn import" onclick="document.getElementById('importCatalogXlsxInput').click()" title="Импорт позиций из Excel в «Свои»" aria-label="Импорт из Excel">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   </button>
                 </div>
               </div>
@@ -11066,7 +11100,7 @@
                   </div>
                   <div class="toolbar no-print">
                     <button class="btn" onclick="app.go('catalog')">+ Добавить</button>
-                    <button class="btn green" onclick="app.exportXlsx()">Excel</button>
+                    <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать в Excel (.xlsx)" aria-label="Экспорт в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>
                   </div>
                 </div>
                 ${projectFields()}
@@ -11563,7 +11597,7 @@
               </div>
               <div style="display:flex;gap:8px;align-items:center">
                 ${clients.length > 4 ? `<input class="clients-search-input" placeholder="Поиск клиентов..." value="${escapeHtml(state.clientsFilter || "")}" oninput="app.setClientsFilter(this.value)" style="width:180px;padding:7px 12px;font-size:13px">` : ""}
-                ${clients.length ? `<button class="btn small green no-print" onclick="app.exportClientsXlsx()">Excel</button>` : ""}
+                ${clients.length ? `<button class="xlsx-icon-btn no-print" onclick="app.exportClientsXlsx()" title="Скачать клиентов в Excel (.xlsx)" aria-label="Экспорт клиентов в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>` : ""}
               </div>
             </div>
 
@@ -12213,7 +12247,7 @@
                     <p>${escapeHtml(state.project.name || "Проект")} · ${escapeHtml(state.project.client || "Клиент не указан")}</p>
                   </div>
                   <div class="toolbar">
-                    <button class="btn green" onclick="app.exportXlsx()">Excel</button>
+                    <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать в Excel (.xlsx)" aria-label="Экспорт в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>
                     <button class="btn" onclick="app.printInvoice()" title="Сформировать счёт на оплату PDF">🧾 Счёт</button>
                     ${(state.savedProjects||[]).find(p=>p.id===state.activeProjectId)?.debt > 0 ? `<button class="btn" onclick="app.sendDebtReminder()" title="Отправить напоминание о долге в Telegram">📲 Напомнить об оплате</button>` : ""}
                   </div>
@@ -12764,7 +12798,7 @@
                 <button class="btn" id="aiProposalBtn" onclick="app.generateProposalAI()" style="background:var(--primary);border-color:transparent;color:#fff">✨ Сгенерировать с ИИ</button>
                 <button class="btn" onclick="app.copyProposalText()">Скопировать текст</button>
                 <button class="btn blue" onclick="app.downloadProposalPDF()">Печать / PDF</button>
-                <button class="btn green" onclick="app.exportXlsx()">Excel</button>
+                <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать в Excel (.xlsx)" aria-label="Экспорт в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>
                 ${(() => {
                   const cl = getCurrentClient();
                   return cl?.email
@@ -13062,6 +13096,105 @@
         `;
       }
 
+      // Прогноз (run-rate по текущему месяцу) + авто-инсайты для страницы «Финансы».
+      // Считается по всем данным (allTxs, долг по сделкам) — это картина по всему бизнесу,
+      // независимо от выбранного периода фильтра.
+      function financeForecastInsights(allTxs, allDebt, totalIncome, totalExpense) {
+        const projects = state.savedProjects || [];
+        const today = new Date();
+        const curMonthKey = localIso(today).slice(0, 7);
+        const day = today.getDate();
+        const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+        const MNAMES = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
+        const monthTitle = k => `${MNAMES[+k.slice(5,7) - 1]} ${k.slice(0,4)}`;
+        const pl = (n, forms) => { const a = Math.abs(n) % 100, b = a % 10; return forms[(a > 10 && a < 20) ? 2 : (b > 1 && b < 5) ? 1 : (b === 1) ? 0 : 2]; };
+
+        // Текущий месяц: факт и прогноз по темпу
+        const monthTx = allTxs.filter(t => (t.date || "").slice(0, 7) === curMonthKey);
+        const monthIncome  = monthTx.filter(t => t._type === "income").reduce((s, t) => s + numberValue(t.amount, 0), 0);
+        const monthExpense = monthTx.filter(t => t._type === "expense").reduce((s, t) => s + numberValue(t.amount, 0), 0);
+        const projIncome  = day > 0 ? Math.round(monthIncome  / day * daysInMonth) : monthIncome;
+        const projExpense = day > 0 ? Math.round(monthExpense / day * daysInMonth) : monthExpense;
+        const projProfit  = projIncome - projExpense;
+
+        // Доход по месяцам → среднее, лучший месяц, тренд
+        const incByMonth = {};
+        allTxs.filter(t => t._type === "income").forEach(t => { const m = (t.date || "").slice(0, 7); if (m) incByMonth[m] = (incByMonth[m] || 0) + numberValue(t.amount, 0); });
+        const monthKeys = Object.keys(incByMonth).sort();
+        const avgMonthly = monthKeys.length ? Math.round(monthKeys.reduce((s, k) => s + incByMonth[k], 0) / monthKeys.length) : 0;
+        const prevKey = localIso(new Date(today.getFullYear(), today.getMonth() - 1, 1)).slice(0, 7);
+        const prevIncome = incByMonth[prevKey] || 0;
+        const trend = prevIncome > 0 ? Math.round((monthIncome - prevIncome) / prevIncome * 100) : null;
+        const bestKey = monthKeys.reduce((best, k) => incByMonth[k] > (incByMonth[best] || 0) ? k : best, monthKeys[0]);
+
+        // Собираемость и должники
+        const allTotal = projects.reduce((s, p) => s + numberValue(p.total, 0), 0);
+        const allPaid  = projects.reduce((s, p) => s + numberValue(p.paid, 0), 0);
+        const collect = allTotal > 0 ? Math.round(allPaid / allTotal * 100) : 0;
+        // Должники — те же активные сделки, что формируют allDebt (не завершённые/архив).
+        const debtors = projects.filter(p => !isDealInactive(p.crmStatus || "Лид") && Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)) > 0);
+
+        // Крупнейшая категория расходов и маржа
+        const byCat = {};
+        allTxs.filter(t => t._type === "expense").forEach(t => { const k = t.category || "Прочее"; byCat[k] = (byCat[k] || 0) + numberValue(t.amount, 0); });
+        const topCat = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
+        const margin = totalIncome > 0 ? Math.round((totalIncome - totalExpense) / totalIncome * 100) : 0;
+
+        const trendHtml = trend === null
+          ? `<span class="fc-sub">нет данных за прошлый месяц</span>`
+          : `<span class="fin-trend ${trend >= 0 ? "up" : "down"}">${trend >= 0 ? "▲" : "▼"} ${Math.abs(trend)}% к прошлому месяцу</span>`;
+
+        const forecast = `
+          <div class="analytics-section">
+            <h3>Прогноз на этот месяц <span class="fin-h3-note">по темпу за ${day} ${pl(day, ["день","дня","дней"])}</span></h3>
+            <div class="fin-forecast-grid">
+              <div class="fin-forecast-card" title="Ожидаемые поступления к концу месяца по текущему темпу (${money(monthIncome)} за ${day} ${pl(day, ["день","дня","дней"])})">
+                <div class="fc-lbl">Прогноз поступлений</div>
+                <div class="fc-val" style="color:var(--green)">${money(projIncome)}</div>
+                <div class="fc-sub">уже ${money(monthIncome)}</div>
+              </div>
+              <div class="fin-forecast-card" title="Ожидаемая прибыль к концу месяца: прогноз поступлений минус прогноз расходов">
+                <div class="fc-lbl">Прогноз прибыли</div>
+                <div class="fc-val" style="color:${projProfit >= 0 ? "var(--primary2)" : "var(--red)"}">${money(projProfit)}</div>
+                <div class="fc-sub">расходы ~${money(projExpense)}</div>
+              </div>
+              <div class="fin-forecast-card" title="Сколько клиенты ещё должны заплатить по всем сделкам — деньги, которые реально собрать">
+                <div class="fc-lbl">Ожидается к получению</div>
+                <div class="fc-val" style="color:${allDebt > 0 ? "var(--orange)" : "var(--green)"}">${money(allDebt)}</div>
+                <div class="fc-sub">${debtors.length} ${pl(debtors.length, ["сделка","сделки","сделок"])} с долгом</div>
+              </div>
+              <div class="fin-forecast-card" title="Средний доход в месяц за всё время (${monthKeys.length} ${pl(monthKeys.length, ["месяц","месяца","месяцев"])})">
+                <div class="fc-lbl">Средний доход / мес</div>
+                <div class="fc-val">${money(avgMonthly)}</div>
+                <div class="fc-sub">${trendHtml}</div>
+              </div>
+            </div>
+          </div>`;
+
+        const insights = [];
+        if (collect >= 90) insights.push(["✅", "good", `Отличная собираемость — оплачено ${collect}% от суммы всех сделок (${money(allPaid)} из ${money(allTotal)}).`]);
+        else if (collect > 0) insights.push(["⚠️", "warn", `Собираемость ${collect}% — оплачено ${money(allPaid)} из ${money(allTotal)}. Есть смысл напомнить клиентам об оплате.`]);
+        if (bestKey) insights.push(["📈", "good", `Лучший месяц — ${monthTitle(bestKey)}: ${money(incByMonth[bestKey])} поступлений.`]);
+        if (topCat && totalExpense > 0) insights.push(["🧾", "", `Больше всего расходов — «${escapeHtml(topCat[0])}»: ${money(topCat[1])} (${Math.round(topCat[1] / totalExpense * 100)}% всех трат).`]);
+        insights.push([margin >= 50 ? "🟢" : margin >= 25 ? "🟡" : "🔴", "", `Маржа ${margin}% — ${margin >= 50 ? "высокая, бизнес прибыльный" : margin >= 25 ? "нормальная" : "низкая: стоит поднять цены или срезать расходы"}.`]);
+        if (trend !== null) insights.push([trend >= 0 ? "⬆️" : "⬇️", trend >= 0 ? "good" : "warn", `Доход этого месяца ${trend >= 0 ? "выше" : "ниже"} прошлого на ${Math.abs(trend)}%.`]);
+        if (avgMonthly > 0) insights.push(["📅", "", `При текущем темпе за год выйдет около ${money(avgMonthly * 12)} поступлений.`]);
+
+        const insightsHtml = `
+          <div class="analytics-section">
+            <h3>Что важно</h3>
+            <div class="fin-insights">
+              ${insights.map(([ico, tone, text]) => `
+                <div class="fin-insight ${tone}">
+                  <span class="fin-insight-ico">${ico}</span>
+                  <span class="fin-insight-text">${text}</span>
+                </div>`).join("")}
+            </div>
+          </div>`;
+
+        return forecast + insightsHtml;
+      }
+
       function renderGlobalFinances() {
         const allTxs = getAllTransactions();
         const filteredByDate = filterByDateRange(allTxs);
@@ -13081,7 +13214,12 @@
         const totalIncome = allTxs.filter(t => t._type === "income").reduce((s, t) => s + numberValue(t.amount, 0), 0);
         const totalExpense = allTxs.filter(t => t._type === "expense").reduce((s, t) => s + numberValue(t.amount, 0), 0);
         const totalProfit = totalIncome - totalExpense;
-        const allDebt = (state.savedProjects || []).reduce((s, p) => s + numberValue(p.debt, 0), 0);
+        // Долг = только активные сделки (не «Завершённые»/«Архив»), max(0, Бюджет − Оплачено).
+        // Та же формула, что в KPI дашборда «Долг клиентов» — иначе цифры на двух страницах
+        // расходятся (завершённые сделки с остатком от импорта раздували старый счёт по p.debt).
+        const allDebt = (state.savedProjects || [])
+          .filter(p => !isDealInactive(p.crmStatus || "Лид"))
+          .reduce((s, p) => s + Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), 0);
 
         const maxBar = Math.max(...monthly.map(m => Math.max(m.income, m.expense)), 1);
 
@@ -13099,32 +13237,34 @@
                 <p>Все поступления и расходы по всем проектам.</p>
               </div>
               <div class="toolbar no-print">
-                <button class="btn green" onclick="app.exportXlsx()">Excel</button>
+                <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать всё в Excel (.xlsx)" aria-label="Экспорт в Excel">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg>
+                </button>
               </div>
             </div>
 
             <div class="fin-summary-grid" style="margin-bottom:20px">
-              <div class="fin-card income-card">
+              <div class="fin-card income-card u-pointer" title="Сумма всех поступлений по всем проектам. Нажмите, чтобы открыть список поступлений." onclick="app.setGFinTypeFilter('income');app.setGFinSubTab('transactions')">
                 <h3>Всего получено</h3>
                 <div class="fin-amount">${money(totalIncome)}</div>
-                <div class="fin-sub">по всем проектам</div>
+                <div class="fin-sub">по всем проектам →</div>
               </div>
-              <div class="fin-card expense-card">
+              <div class="fin-card expense-card u-pointer" title="Сумма всех расходов по всем проектам. Нажмите, чтобы открыть список расходов." onclick="app.setGFinTypeFilter('expense');app.setGFinSubTab('transactions')">
                 <h3>Всего расходов</h3>
                 <div class="fin-amount">${money(totalExpense)}</div>
-                <div class="fin-sub">по всем проектам</div>
+                <div class="fin-sub">по всем проектам →</div>
               </div>
-              <div class="fin-card profit-card">
+              <div class="fin-card profit-card u-pointer" title="Все поступления минус все расходы. Нажмите, чтобы открыть аналитику." onclick="app.setGFinSubTab('analytics')">
                 <h3>Прибыль</h3>
                 <div class="fin-amount">${money(totalProfit)}</div>
-                <div class="fin-sub">доход − расходы</div>
+                <div class="fin-sub">доход − расходы →</div>
               </div>
-              <div class="fin-card ${allDebt > 0 ? "expense-card" : "income-card"}">
+              <div class="fin-card ${allDebt > 0 ? "expense-card" : "income-card"} u-pointer" title="Сколько клиенты ещё не заплатили по всем сделкам. Нажмите, чтобы перейти к сделкам." onclick="app.go('home')">
                 <h3>Общий долг</h3>
                 <div class="fin-amount" style="color:${allDebt > 0 ? "var(--orange)" : "var(--green)"}">${money(allDebt)}</div>
-                <div class="fin-sub">ещё не оплачено</div>
+                <div class="fin-sub">ещё не оплачено →</div>
               </div>
-              <div class="fin-card">
+              <div class="fin-card u-pointer" title="Всего операций: поступления и расходы. Нажмите, чтобы открыть все транзакции." onclick="app.setGFinTypeFilter('all');app.setGFinSubTab('transactions')">
                 <h3>Транзакций</h3>
                 <div class="fin-amount">${allTxs.length}</div>
                 <div class="fin-sub">${allTxs.filter(t=>t._type==="income").length} поступл. · ${allTxs.filter(t=>t._type==="expense").length} расх.</div>
@@ -13168,16 +13308,18 @@
                 const allTotal = (state.savedProjects || []).reduce((s, p) => s + numberValue(p.total, 0), 0);
                 const allPaid = (state.savedProjects || []).reduce((s, p) => s + numberValue(p.paid, 0), 0);
                 const collect = allTotal > 0 ? Math.round(allPaid / allTotal * 100) : 0;
-                const kpi = (label, val, color) => `<div class="kpi-tile"><div class="kpi-val" style="${color ? `color:${color}` : ""}">${val}</div><div class="kpi-lbl">${label}</div></div>`;
+                const kpi = (label, val, color, hint) => `<div class="kpi-tile"${hint ? ` title="${hint}"` : ""}><div class="kpi-val" style="${color ? `color:${color}` : ""}">${val}</div><div class="kpi-lbl">${label}</div></div>`;
                 return `<div class="kpi-row">
-                  ${kpi("Поступления", money(inc), "var(--green)")}
-                  ${kpi("Расходы", money(exp), "var(--red)")}
-                  ${kpi("Прибыль", money(prof), prof >= 0 ? "var(--primary2)" : "var(--red)")}
-                  ${kpi("Маржа", margin + "%")}
-                  ${kpi("Средний чек", money(avgCheck))}
-                  ${kpi("Собираемость", collect + "%")}
+                  ${kpi("Поступления", money(inc), "var(--green)", "Сумма поступлений за выбранный период")}
+                  ${kpi("Расходы", money(exp), "var(--red)", "Сумма расходов за выбранный период")}
+                  ${kpi("Прибыль", money(prof), prof >= 0 ? "var(--primary2)" : "var(--red)", "Поступления минус расходы за период")}
+                  ${kpi("Маржа", margin + "%", "", "Доля прибыли в поступлениях: прибыль ÷ поступления")}
+                  ${kpi("Средний чек", money(avgCheck), "", "Средняя сумма одного поступления за период")}
+                  ${kpi("Собираемость", collect + "%", "", "Какая доля от сумм всех сделок уже оплачена клиентами")}
                 </div>`;
               })()}
+
+              ${financeForecastInsights(allTxs, allDebt, totalIncome, totalExpense)}
 
               ${monthly.length > 0 ? `
                 <div class="analytics-section">
@@ -13968,7 +14110,7 @@
               <div class="toolbar no-print">
                 <button class="btn primary" onclick="app.exportData()">Экспорт JSON</button>
                 <button class="btn" onclick="document.getElementById('importJsonInput').click()">Импорт JSON</button>
-                <button class="btn green" onclick="app.exportXlsx()">Экспорт Excel</button>
+                <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать все данные в Excel (.xlsx)" aria-label="Экспорт в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>
                 <button class="btn" onclick="app.printProposal()">Печать / PDF</button>
                 <button class="btn" onclick="document.getElementById('importCatalogInput').click()">Импорт каталога</button>
               </div>

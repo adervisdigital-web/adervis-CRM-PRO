@@ -829,7 +829,12 @@
     .grid.three {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-    .grid.three.deal-cards-grid { gap: 11px; }
+    /* Карточки сделок — адаптивная сетка: 4 в ряд на широком экране, дальше
+       автоматически 3 / 2 / 1 по ширине (минимум карточки 320px). */
+    .grid.three.deal-cards-grid {
+      gap: 11px;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    }
 
     .grid.four {
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2174,7 +2179,7 @@
       border: 1px solid var(--line); border-radius: 12px; overflow-y: auto;
       box-shadow: 0 12px 40px rgba(0,0,0,.35); padding: 4px;
       opacity: 0; transform: translateY(-4px); transition: opacity .12s, transform .12s;
-      scrollbar-width: thin;
+      scrollbar-width: thin; overscroll-behavior: contain;
     }
     .uu-select-dd.open { opacity: 1; transform: translateY(0); }
     .uu-select-opt {
@@ -2617,27 +2622,27 @@
 
     .crm-home-funnel {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-      gap: 10px; margin-bottom: 4px;
+      grid-template-columns: repeat(auto-fit, minmax(98px, 1fr));
+      gap: 6px; margin-bottom: 4px;
     }
     .funnel-stage {
-      padding: 14px 12px;
+      padding: 8px 10px;
       border: 1px solid var(--line);
-      border-radius: 14px; background: var(--panel2);
+      border-radius: 11px; background: var(--panel2);
       cursor: pointer; transition: .15s;
     }
     .funnel-stage:hover { border-color: rgba(168,85,247,.5); transform: translateY(-1px); }
     .funnel-stage.active { border-color: var(--primary2); background: rgba(124,58,237,.12); }
-    .funnel-stage h3 { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
-    .funnel-stage .fs-count { font-size: 26px; font-weight: 900; }
-    .funnel-stage .fs-amount { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .funnel-stage h3 { font-size: 11px; color: var(--muted); margin: 0 0 2px; }
+    .funnel-stage .fs-count { font-size: 19px; font-weight: 900; line-height: 1.1; }
+    .funnel-stage .fs-amount { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
     .deal-card {
-      padding: 13px 15px; cursor: pointer;
+      padding: 15px 16px; cursor: pointer;
       transition: border-color .15s, transform .15s, box-shadow .15s;
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 16px;
       background: var(--panel);
-      display: flex; flex-direction: column; gap: 9px;
+      display: flex; flex-direction: column; gap: 11px;
     }
     .deal-card:hover {
       border-color: rgba(168,85,247,.5);
@@ -2647,7 +2652,7 @@
     .deal-card.current { border-color: rgba(22,163,74,.5); box-shadow: 0 0 0 2px rgba(22,163,74,.12); }
     .deal-card.deal-card-selected { border-color: var(--primary); background: rgba(124,58,237,.06); }
     .deal-card-client { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
-    .deal-card-name { font-size: 14px; font-weight: 750; line-height: 1.28; letter-spacing: -.01em; }
+    .deal-card-name { font-size: 15px; font-weight: 750; line-height: 1.3; letter-spacing: -.01em; }
 
     /* ── DEAL CARD (redesign 04.07.2026 — воздух, мягче вес, чёткая иерархия) ── */
     /* Меню пинится в правый угол, имя занимает почти всю ширину; пилюли статуса —
@@ -2661,14 +2666,24 @@
     .deal-card-pills { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
     .deal-card-menu-wrap { flex: 0 0 auto; position: relative; }
 
+    /* Смета/Оплачено (+Расходы/Прибыль) сгруппированы в мягкую вставку с
+       вертикальным разделителем — числа читаются как единый финансовый блок. */
     .deal-card-stats {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 7px 16px;
+      gap: 9px 0;
+      padding: 11px 13px;
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
     }
-    .deal-card-stat { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .deal-card-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .deal-card-stat:nth-child(odd) { padding-right: 13px; }
+    .deal-card-stat:nth-child(even) { padding-left: 13px; border-left: 1px solid var(--line); }
+    /* Долг без соседа-«Расходы» занимает всю ширину строки — без пустой ячейки и разделителя. */
+    .deal-card-stat.stat-span2 { grid-column: 1 / -1; padding-right: 0; padding-left: 0; border-left: none; }
     .deal-card-stat .lbl { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-    .deal-card-stat .val { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; line-height: 1.1; }
+    .deal-card-stat .val { font-size: 15.5px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; line-height: 1.15; }
 
     .deal-card-meta { display: flex; flex-direction: column; gap: 4px; }
     .deal-card-deadline { font-size: 11.5px; font-weight: 650; display: flex; align-items: center; gap: 5px; }
@@ -2751,9 +2766,14 @@
     }
     .deal-card:hover .deal-dup-btn { opacity: 1; }
     .deal-dup-btn:hover { color: var(--text); border-color: var(--line); background: var(--panel2); }
+    /* Действие прижато к низу карточки + тонкий разделитель — во всех карточках
+       ряда кнопка встаёт на одну линию, пустота снизу читается как воздух, а не «дырка». */
     .deal-card-footer {
       display: flex; justify-content: space-between;
       align-items: center; gap: 8px;
+      margin-top: auto;
+      padding-top: 11px;
+      border-top: 1px solid var(--line);
     }
     .next-action-btn {
       padding: 6px 13px; border-radius: 999px; border: none;
@@ -2786,19 +2806,17 @@
     .deal-menu-btn:hover {
       background: var(--panel2); border-color: var(--line); color: var(--text);
     }
-    .deal-pin-btn {
-      width: 32px; height: 32px; padding: 6px;
-      display: grid; place-items: center;
-      border: 1px solid transparent; background: transparent;
-      border-radius: 7px; color: var(--muted);
-      cursor: pointer; flex-shrink: 0; opacity: 0;
-      transition: opacity .15s, background .15s, border-color .15s, color .15s;
+    /* Удаление проекта доступно только в архиве — кнопка рядом с «вернуть». */
+    .deal-del-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 11px; border-radius: 999px;
+      border: 1px solid rgba(220,38,38,.28);
+      background: rgba(220,38,38,.08); color: var(--red);
+      font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+      transition: background .14s, border-color .14s;
     }
-    /* Появляется при наведении на карточку — как кнопка меню «:». Закреплённая
-       (active) остаётся видимой всегда, чтобы было понятно, что закреплено. */
-    .deal-card:hover .deal-pin-btn { opacity: 1; }
-    .deal-pin-btn:hover { background: var(--panel2); border-color: var(--line); color: var(--primary2); }
-    .deal-pin-btn.active { opacity: 1; color: var(--primary2); }
+    .deal-del-btn:hover { background: rgba(220,38,38,.16); border-color: rgba(220,38,38,.5); }
+    .deal-del-btn svg { display: block; }
     .deal-ctx-menu {
       position: absolute; top: calc(100% + 6px); right: 0;
       min-width: 192px;
@@ -3308,8 +3326,8 @@
     .cal-cell.selected { border-color: var(--blue); background: rgba(37,99,235,.1); }
     .cal-cell.weekend .cal-day-num { color: var(--red); opacity: .7; }
 
-    /* «+ Задача» живёт в самой ячейке — так она знает свой день. По наведению,
-       как иконка «Закрепить» на карточке сделки (.deal-pin-btn). */
+    /* «+ Задача» живёт в самой ячейке — так она знает свой день. Появляется
+       по наведению на ячейку (на тач — в выбранном дне). */
     .cal-day-add {
       position: absolute; top: 4px; right: 4px;
       width: 22px; height: 22px; padding: 0;
@@ -3734,7 +3752,7 @@
     /* ── FINANCE PAGE ─────────────────────────────── */
     .fin-summary-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 12px;
       margin-bottom: 20px;
     }
@@ -3750,6 +3768,48 @@
     .fin-card.income-card { border-color: rgba(22,163,74,.35); }
     .fin-card.expense-card { border-color: rgba(220,38,38,.2); }
     .fin-card.profit-card { border-color: rgba(124,58,237,.35); }
+    .fin-card.u-pointer { cursor: pointer; transition: border-color .14s, transform .14s, box-shadow .14s; }
+    .fin-card.u-pointer:hover { border-color: rgba(168,85,247,.55); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(108,0,255,.1); }
+
+    /* Кнопка «Экспорт в Excel» — иконкой */
+    .xlsx-icon-btn {
+      width: 38px; height: 38px; flex: 0 0 auto; display: grid; place-items: center;
+      border: 1px solid rgba(22,163,74,.4); border-radius: 10px;
+      background: rgba(22,163,74,.12); color: var(--green);
+      cursor: pointer; transition: background .14s, border-color .14s, transform .12s;
+    }
+    .xlsx-icon-btn:hover { background: rgba(22,163,74,.2); border-color: var(--green); transform: translateY(-1px); }
+    .xlsx-icon-btn svg { display: block; }
+    /* Импорт — та же иконка-кнопка, но нейтральная (отличать «загрузку внутрь» от зелёного экспорта) */
+    .xlsx-icon-btn.import { border-color: var(--line); background: var(--panel2); color: var(--muted); }
+    .xlsx-icon-btn.import:hover { border-color: rgba(168,85,247,.5); background: var(--panel2); color: var(--text); }
+
+    /* Прогноз */
+    .fin-h3-note { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 6px; }
+    .fin-forecast-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .fin-forecast-card {
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel2);
+    }
+    .fin-forecast-card .fc-lbl { font-size: 11px; color: var(--muted); font-weight: 650; text-transform: uppercase; letter-spacing: .03em; }
+    .fin-forecast-card .fc-val { font-size: 21px; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -.01em; margin: 5px 0 2px; }
+    .fin-forecast-card .fc-sub { font-size: 12px; color: var(--muted); }
+    .fin-trend { font-weight: 700; }
+    .fin-trend.up { color: var(--green); }
+    .fin-trend.down { color: var(--red); }
+
+    /* Инсайты «Что важно» */
+    .fin-insights { display: flex; flex-direction: column; }
+    .fin-insight {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 9px 0; border-bottom: 1px solid var(--line);
+      font-size: 13.5px; line-height: 1.45;
+    }
+    .fin-insight:last-child { border-bottom: none; }
+    .fin-insight-ico { flex: 0 0 auto; font-size: 15px; line-height: 1.35; }
+    .fin-insight-text { color: var(--text); }
+
+    @media (max-width: 900px) { .fin-forecast-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .fin-forecast-grid { grid-template-columns: 1fr; } }
     .fin-row {
       display: flex; justify-content: space-between;
       align-items: flex-start; gap: 12px;
@@ -4692,7 +4752,6 @@ body.portal-mode .nav { display: none !important; }
   /* На тач-экране нет hover — кнопка меню сделки (⋮, единственный доступ к
      Редактировать/Дублировать/Удалить) должна быть видна всегда, а не по наведению. */
   .deal-menu-btn { opacity: 1; }
-  .deal-pin-btn { opacity: 1; }
   /* Тот же случай для «+» в календаре, но показывать его сразу во всех 42 ячейках —
      мусор. Тап по дню выбирает его → «+» появляется только в выбранном. */
   .cal-cell.selected .cal-day-add { opacity: 1; }
