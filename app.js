@@ -10269,9 +10269,19 @@
         const f = financeTotals();
         // Пустая смета: действия над ней (КП, версия, очистка) бессмысленны — не показываем
         const hasLines = Object.keys(state.selected || {}).length > 0;
-        const margin = f.revenue > 0 ? Math.round(f.profit / f.revenue * 100) : 0;
+        // Сделка-бюджет (пустая смета + сохранённый бюджет): долг/прибыль/маржу считаем
+        // от бюджета, а не от нулевой сметы — иначе панель показывала бы нули при живых деньгах.
+        const d = displayTotal(t);
+        const fin = d.budgetOnly ? {
+          ...f,
+          debt: Math.max(0, d.total - f.paid),
+          revenue: d.total,
+          profit: d.total - f.totalExpenses,
+          profitFact: d.total - f.totalExpensesPaid
+        } : f;
+        const margin = fin.revenue > 0 ? Math.round(fin.profit / fin.revenue * 100) : 0;
         const marginClass = margin >= 40 ? "good" : margin >= 20 ? "ok" : "bad";
-        const payPct = t.total > 0 ? Math.min(100, Math.round(f.paid / t.total * 100)) : 0;
+        const payPct = d.total > 0 ? Math.min(100, Math.round(fin.paid / d.total * 100)) : 0;
 
         const stagesWithItems = state.stages
           .map(s => ({ stage: s, sum: stageTotal(s.id, false) }))
@@ -10291,38 +10301,35 @@
             ${t.discount ? `<div class="summary-line"><span>Скидка ${state.project.discount}%</span><strong>− ${money(t.discount)}</strong></div>` : ""}
             ${t.tax ? `<div class="summary-line"><span>Налог</span><strong>${money(t.tax)}</strong></div>` : ""}
 
-            ${(() => {
-              const d = displayTotal(t);
-              return `<div class="summary-total">
+            <div class="summary-total">
               <span>${d.budgetOnly ? "Бюджет сделки" : "Итого для клиента"}</span>
               <strong>${money(d.total)}</strong>
             </div>
-            ${d.budgetOnly ? `<div class="summary-line" style="font-size:12px"><span>Смета не разбита на позиции</span></div>` : ""}`;
-            })()}
+            ${d.budgetOnly ? `<div class="summary-line" style="font-size:12px"><span>Смета не разбита на позиции</span></div>` : ""}
 
             ${t.optional ? `<div class="summary-line"><span>Опции (+)</span><strong>${money(t.optional)}</strong></div>` : ""}
 
             <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
               <div class="summary-line">
                 <span>Оплачено ${payPct}%</span>
-                <strong>${money(f.paid)}</strong>
+                <strong>${money(fin.paid)}</strong>
               </div>
               <div class="deal-pay-bar" style="margin:4px 0 10px">
                 <div class="deal-pay-fill" style="width:${payPct}%"></div>
               </div>
-              ${f.debt > 0 ? `<div class="summary-line"><span>Долг</span><strong style="color:var(--orange)">${money(f.debt)}</strong></div>` : ""}
-              <div class="summary-line"><span>Расходы (план)</span><strong>${money(f.totalExpenses)}</strong></div>
-              ${f.lineCosts > 0 ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них себестоимость позиций</span><strong>${money(f.lineCosts)}</strong></div>` : ""}
-              ${f.totalExpensesPaid !== f.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них оплачено (факт)</span><strong>${money(f.totalExpensesPaid)}</strong></div>` : ""}
+              ${fin.debt > 0 ? `<div class="summary-line"><span>Долг</span><strong style="color:var(--orange)">${money(fin.debt)}</strong></div>` : ""}
+              <div class="summary-line"><span>Расходы (план)</span><strong>${money(fin.totalExpenses)}</strong></div>
+              ${fin.lineCosts > 0 ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них себестоимость позиций</span><strong>${money(fin.lineCosts)}</strong></div>` : ""}
+              ${fin.totalExpensesPaid !== fin.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них оплачено (факт)</span><strong>${money(fin.totalExpensesPaid)}</strong></div>` : ""}
               <div class="summary-line">
                 <span>Прибыль (план)</span>
-                <strong style="${f.profit < 0 ? "color:var(--red)" : ""}">${money(f.profit)}</strong>
+                <strong style="${fin.profit < 0 ? "color:var(--red)" : ""}">${money(fin.profit)}</strong>
               </div>
-              ${f.totalExpensesPaid !== f.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>Прибыль (факт)</span><strong>${money(f.profitFact)}</strong></div>` : ""}
+              ${fin.totalExpensesPaid !== fin.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>Прибыль (факт)</span><strong>${money(fin.profitFact)}</strong></div>` : ""}
               <div class="mt-8">
                 <span class="margin-badge ${marginClass}">${margin}% маржа</span>
               </div>
-              ${f.profit < 0 ? `<div class="no-print" style="margin-top:10px;padding:9px 12px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;font-size:12px;font-weight:700;color:var(--red)">⚠️ Смета в минусе: себестоимость и расходы превышают цену для клиента</div>` : ""}
+              ${fin.profit < 0 ? `<div class="no-print" style="margin-top:10px;padding:9px 12px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;font-size:12px;font-weight:700;color:var(--red)">⚠️ Смета в минусе: себестоимость и расходы превышают цену для клиента</div>` : ""}
             </div>
 
             <div class="toolbar no-print" style="margin-top:16px">
@@ -11032,6 +11039,12 @@
                       // Сделка из импорта: бюджет есть, позиций нет. Не пугаем «пустой сметой»,
                       // а объясняем, где деньги и зачем вообще разбивать на позиции.
                       const d = displayTotal(t);
+                      // Внутри сохранённой сделки даём поставить/изменить бюджет прямо
+                      // отсюда — иначе поле «Бюджет» доступно только из модалки с доски.
+                      const canSetBudget = inDeal && state.activeProjectId;
+                      const budgetBtn = (label) => canSetBudget
+                        ? [{ label, onclick: `app.openDealModal('${state.activeProjectId}')`, variant: "" }]
+                        : [];
                       return d.budgetOnly
                         ? emptyState({
                             icon: "doc",
@@ -11039,16 +11052,20 @@
                             text: "Сумма перенесена одним числом, позиций нет. Деньги на месте: они видны на карточке, в финансах и в воронке. Разбейте на позиции, если нужно КП для клиента и расчёт маржи.",
                             cta: [
                               { label: "Открыть каталог", onclick: "app.go('catalog')" },
-                              { label: "Выбрать пакет", onclick: "app.go('packages')", variant: "" }
+                              { label: "Выбрать пакет", onclick: "app.go('packages')", variant: "" },
+                              ...budgetBtn("Изменить бюджет")
                             ]
                           })
                         : emptyState({
                             icon: "doc",
                             title: "Смета пустая",
-                            text: "Добавьте услуги из каталога или начните с готового пакета.",
+                            text: canSetBudget
+                              ? "Добавьте услуги из каталога, начните с пакета — или укажите общий бюджет сделки одним числом."
+                              : "Добавьте услуги из каталога или начните с готового пакета.",
                             cta: [
                               { label: "Открыть каталог", onclick: "app.go('catalog')" },
-                              { label: "Выбрать пакет", onclick: "app.go('packages')", variant: "" }
+                              { label: "Выбрать пакет", onclick: "app.go('packages')", variant: "" },
+                              ...budgetBtn("Указать бюджет")
                             ]
                           });
                     })()
