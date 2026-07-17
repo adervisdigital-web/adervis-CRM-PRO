@@ -1279,21 +1279,21 @@
       color: var(--yellow);
     }
 
-    /* Отказ — приглушённый красный, чтобы визуально отделить от активных статусов */
-    .status-pill.lost {
-      color: var(--text-danger);
-      background: rgba(220, 38, 38, .14);
+    /* Архив — нейтральный серый: не активный статус, но и не ошибка */
+    .status-pill.archived {
+      color: var(--muted);
+      background: rgba(138, 138, 158, .16);
     }
-    /* Бейдж «Отказ · вернуть в работу» на карточке */
-    .deal-lost-badge {
-      color: var(--text-danger);
-      background: rgba(220, 38, 38, .12);
-      border: 1px solid rgba(220, 38, 38, .3);
+    /* Бейдж «В архиве · вернуть» на карточке */
+    .deal-archived-badge {
+      color: var(--muted);
+      background: rgba(138, 138, 158, .12);
+      border: 1px solid var(--line);
       cursor: pointer;
     }
-    /* Чип «Отказ» в воронке */
-    .funnel-stage-lost h3 { color: var(--text-danger); }
-    .funnel-stage-lost.active { border-color: rgba(220, 38, 38, .45); }
+    /* Чип «Архив» в воронке */
+    .funnel-stage-archived h3 { color: var(--muted); }
+    .funnel-stage-archived.active { border-color: rgba(138, 138, 158, .5); }
 
     [data-theme="light"] .status-pill.green {
       color: var(--text-success);
