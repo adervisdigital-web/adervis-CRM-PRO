@@ -5690,6 +5690,16 @@
         return client;
       }
 
+      // Сумма сделки при пересохранении. Смета может быть ПУСТОЙ, а бюджет лежать
+      // полем total (так импортированы сделки из O!task — там бюджет числом, без
+      // строк сметы). Пересчёт «total = сумма строк» в этом случае молча стирал
+      // бюджет при первом же открытии сделки (так обнулилась «БР - ДОПЫ», 241 938 ₽).
+      // Пустая смета → сохраняем прежнюю сумму; есть строки → считаем по ним.
+      function _totalForSave(existingTotal, snapTotal) {
+        const hasLines = Object.keys(state.selected || {}).length > 0;
+        return hasLines ? (snapTotal || 0) : numberValue(existingTotal, 0);
+      }
+
       function currentProjectSnapshot() {
         const t = totals();
         const f = financeTotals();
@@ -5752,7 +5762,7 @@
               priority: state.project.priority || "Средний",
               deadline: state.project.deadline || "",
               city: state.project.city || "",
-              total: snapshot.total,
+              total: _totalForSave(existing.total, snapshot.total),
               paid: f.paid,
               debt: f.debt,
               expensesTotal: f.totalExpenses,
@@ -7347,7 +7357,7 @@
           crmStatus: state.project.crmStatus || "Лид",
           priority: state.project.priority || "Средний",
           deadline: state.project.deadline || "",
-          total: snap.total || 0,
+          total: _totalForSave(existing.total, snap.total),
           paid: f.paid,
           debt: f.debt,
           expensesTotal: f.totalExpenses,
