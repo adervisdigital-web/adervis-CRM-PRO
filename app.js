@@ -742,6 +742,9 @@
       let _googleCalEvents = [];   // кэш событий личного Google Calendar для renderCalendar
       let _googleCalEventsLoadedAt = 0;
       let _briefAgencyId = (new URLSearchParams(location.search).get('brief') || '').trim();
+      // Тип брифа из ссылки (?type=video|photo|design|ai|general). Валидируется позже
+      // (BRIEF_TYPES ещё не объявлен — TDZ); неизвестное значение упадёт на 'video'.
+      let _briefType = (new URLSearchParams(location.search).get('type') || 'video').trim().toLowerCase();
       let _portalId = (new URLSearchParams(location.search).get('portal') || '').trim();
       if (_portalId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(_portalId)) _portalId = '';
 
@@ -754,10 +757,15 @@
       })();
       let _portalData = null;
       let _portalLoaded = false;
-      let _briefForm = { name:'', phone:'', email:'', company:'', city:'', type:'', format:'', duration:'', desc:'', budget:'', deadline:'', references:'', extra:'', source:'', sending:false, sent:false, error:'' };
+      // Форма брифа теперь template-driven: значения полей лежат в values[fieldId].
+      let _briefForm = { values:{}, sending:false, sent:false, error:'' };
+      let _briefTemplateLoaded = false; // публичная форма: пробовали ли уже подтянуть кастом-шаблон
+      let _briefCustomTemplate = null;  // публичная форма: кастом-шаблон агентства (или null → дефолт)
+      let _briefEditorDraft = null;     // CRM: рабочая копия шаблона в редакторе вопросов
       let _briefs = [];
       let _briefsLoaded = false;
       let _briefExpanded = {}; // { [briefId]: true } — какие карточки заявок раскрыты
+      let _briefTypeTab = 'video'; // CRM: выбранный тип на странице «Онлайн-брифы»
       let _allPortals = [];          // все КП агентства (client_portals) для раздела «Все КП»
       let _allPortalsLoaded = false;
       let _proposalsFilter = "all";  // all | sent | approved | paid
@@ -1148,7 +1156,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","notifPopupOpen","summaryOpen"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","notifPopupOpen","summaryOpen","briefEditorType"]);
 
       async function _loadCloudState() {
         if (!_supabase || !_adminSession) return;
@@ -4743,6 +4751,10 @@
           clientDraft: null,
           companyTeam: [],
           catalogEditId: "",
+          // Кастом-шаблоны онлайн-брифов по типам: { [typeId]: { title, sub, fields:[...] } }.
+          // Пусто → публичная форма показывает встроенный дефолт типа.
+          briefTemplates: {},
+          briefEditorType: "", // открыт ли редактор вопросов брифа (id типа) — транзиентный флаг
           activeProjectId: "",
           activeClientId: "",
           stages: deepClone(DEFAULT_STAGES),
@@ -5054,7 +5066,9 @@
           editTransactionModal: null,
           contractEditId: old.contractEditId || "",
           calendarMonth: old.calendarMonth || "",
-          calendarSelectedDay: ""
+          calendarSelectedDay: "",
+          briefEditorType: "",
+          briefTemplates: (old.briefTemplates && typeof old.briefTemplates === "object") ? old.briefTemplates : {}
         };
 
         if (!migrated.project.crmStatus) migrated.project.crmStatus = "Лид";
@@ -7797,7 +7811,8 @@
           state.adminModal ? "admin" : state.clientModal ? "client" :
           state.dealModal ? "deal" : state.taskModal ? "task" :
           state.editTransactionModal ? "editTx" : state.financeModal ? "finance" :
-          state.packageEditModal ? "package" : state.catalogEditId ? "catalog" : null;
+          state.packageEditModal ? "package" : state.catalogEditId ? "catalog" :
+          state.briefEditorType ? "briefEditor" : null;
         if (state.mainMenuOpen) { el.innerHTML = renderMainMenuModal(); }
         else if (state.helpModal) { el.innerHTML = renderHelpModal(); }
         else if (state.adminModal) { el.innerHTML = renderAdminModalHtml(); }
@@ -7808,6 +7823,7 @@
         else if (state.financeModal) { el.innerHTML = renderFinanceModal(); }
         else if (state.packageEditModal) { el.innerHTML = renderPackageEditModal(); }
         else if (state.catalogEditId) { el.innerHTML = renderCatalogEditModal(); }
+        else if (state.briefEditorType) { el.innerHTML = renderBriefEditorModal(); }
         else { el.innerHTML = ""; }
         // renderModal() иногда вызывается отдельно от полного render() (напр. открытие
         // модалки каталога через openCatalogEdit) — без этого свежие data-autosave/
@@ -9359,6 +9375,162 @@
          ОНЛАЙН-БРИФ — публичная форма и CRM-раздел
       ═══════════════════════════════════════════════════════ */
 
+      /* ═══════════════════════════════════════════════════════
+         ОНЛАЙН-БРИФЫ: типы, редактируемые шаблоны, публичная форма
+         Тип брифа = набор вопросов. Дефолты заданы в коде; агентство может
+         переопределить вопросы (state.briefTemplates[typeId]). Публичная форма
+         читает кастом-шаблон через RPC get_brief_template (с фолбэком на дефолт).
+      ═══════════════════════════════════════════════════════ */
+      const BRIEF_TYPES = [
+        { id:'video',   label:'Видео',  icon:'🎬' },
+        { id:'photo',   label:'Фото',   icon:'📸' },
+        { id:'design',  label:'Дизайн', icon:'🎨' },
+        { id:'ai',      label:'ИИ',     icon:'🤖' },
+        { id:'general', label:'Общий',  icon:'📋' },
+      ];
+      function _isBriefType(id) { return BRIEF_TYPES.some(t => t.id === id); }
+
+      const _BRIEF_BUDGETS = ['Обсудим','До 30 000 ₽','30 000 – 80 000 ₽','80 000 – 200 000 ₽','200 000 – 500 000 ₽','500 000 ₽+'];
+      const _BRIEF_SOURCES = ['Рекомендация','Instagram / ВКонтакте','Google / Яндекс','TikTok / YouTube','Сарафанное радио','Другое'];
+
+      // Поле шаблона. type: section|text|tel|email|textarea|date|select.
+      // half:true → в пару (два в ряд). primary:true → «идея проекта» (свободный
+      // текст, первым в описании). system:'name'|'email'|'phone' → контактное поле
+      // (из него берём client_*, нельзя удалить в редакторе).
+      const _bf = (o) => Object.assign({ type:'text', required:false, half:false, enabled:true, options:[], placeholder:'' }, o);
+
+      function _defaultBriefTemplate(typeId) {
+        const contacts = [
+          _bf({ id:'name',    label:'Ваше имя',               type:'text',  placeholder:'Иван Иванов',      required:true, half:true, system:'name' }),
+          _bf({ id:'phone',   label:'Телефон',                type:'tel',   placeholder:'+7 900 000-00-00', half:true, system:'phone' }),
+          _bf({ id:'email',   label:'Email',                  type:'email', placeholder:'your@email.com',   required:true, half:true, system:'email' }),
+          _bf({ id:'company', label:'Компания / Организация', type:'text',  placeholder:'ООО «Название»',   half:true }),
+        ];
+        const budgetSource = [
+          _bf({ id:'budget', label:'Бюджет',              type:'select', options:_BRIEF_BUDGETS, half:true }),
+          _bf({ id:'source', label:'Откуда узнали о нас?', type:'select', options:_BRIEF_SOURCES, half:true }),
+        ];
+        const T = {
+          video: { title:'Заявка на видеосъёмку', sub:'Расскажите о проекте — мы свяжемся с вами в течение 24 часов и обсудим детали. Чем подробнее опишете задачу, тем точнее будет расчёт.', fields:[
+            _bf({ id:'sec_contacts', type:'section', label:'📋 Контактные данные' }), ...contacts,
+            _bf({ id:'city', label:'Город съёмки', type:'text', placeholder:'Москва' }),
+            _bf({ id:'sec_project', type:'section', label:'🎬 О проекте' }),
+            _bf({ id:'shootType', label:'Тип проекта', type:'select', half:true, options:['Свадьба','Корпоратив','Рекламный ролик','Музыкальный клип','Мероприятие','Репортаж','Презентация / Обзор','Соцсети / Reels','Документальный фильм','Другое'] }),
+            _bf({ id:'format', label:'Формат видео', type:'select', half:true, options:['Горизонтальный (16:9)','Вертикальный (9:16, Reels/Shorts)','Квадратный (1:1)','Несколько форматов','Пока не знаю'] }),
+            _bf({ id:'duration', label:'Примерная длительность', type:'select', half:true, options:['До 30 секунд','30–60 секунд','1–3 минуты','3–10 минут','Более 10 минут','Обсудим'] }),
+            _bf({ id:'deadline', label:'Желаемая дата съёмки', type:'date', half:true }),
+            _bf({ id:'desc', label:'Опишите проект подробно', type:'textarea', primary:true, required:true, placeholder:'Идея, цели видео, аудитория, место съёмки, стиль. Чем больше деталей — тем точнее предложение.' }),
+            _bf({ id:'sec_budget', type:'section', label:'💰 Бюджет и дополнительно' }), ...budgetSource,
+            _bf({ id:'references', label:'Ссылки на референсы', type:'textarea', placeholder:'https://youtube.com/... или описание стиля...' }),
+            _bf({ id:'extra', label:'Дополнительные пожелания', type:'textarea', placeholder:'Особые требования, пожелания к команде, вопросы...' }),
+          ]},
+          photo: { title:'Заявка на фотосъёмку', sub:'Опишите съёмку — мы свяжемся в течение 24 часов и подготовим предложение.', fields:[
+            _bf({ id:'sec_contacts', type:'section', label:'📋 Контактные данные' }), ...contacts,
+            _bf({ id:'city', label:'Город съёмки', type:'text', placeholder:'Москва' }),
+            _bf({ id:'sec_project', type:'section', label:'📸 О съёмке' }),
+            _bf({ id:'shootType', label:'Тип съёмки', type:'select', half:true, options:['Свадьба','Портрет / Личная','Семейная','Предметная / Каталог','Репортаж / Мероприятие','Lookbook / Fashion','Интерьер / Недвижимость','Другое'] }),
+            _bf({ id:'shots', label:'Примерно кадров', type:'select', half:true, options:['До 20','20–50','50–100','100+','Обсудим'] }),
+            _bf({ id:'location', label:'Место съёмки', type:'text', half:true, placeholder:'Студия / улица / адрес' }),
+            _bf({ id:'deadline', label:'Желаемая дата', type:'date', half:true }),
+            _bf({ id:'desc', label:'Опишите задачу', type:'textarea', primary:true, required:true, placeholder:'Что снимаем, для чего, желаемый стиль и настроение, нужна ли обработка/ретушь.' }),
+            _bf({ id:'sec_budget', type:'section', label:'💰 Бюджет и дополнительно' }), ...budgetSource,
+            _bf({ id:'references', label:'Референсы / примеры стиля', type:'textarea', placeholder:'Ссылки или описание...' }),
+            _bf({ id:'extra', label:'Дополнительные пожелания', type:'textarea' }),
+          ]},
+          design: { title:'Заявка на дизайн', sub:'Расскажите о задаче — мы свяжемся в течение 24 часов и обсудим детали.', fields:[
+            _bf({ id:'sec_contacts', type:'section', label:'📋 Контактные данные' }), ...contacts,
+            _bf({ id:'sec_project', type:'section', label:'🎨 О проекте' }),
+            _bf({ id:'designType', label:'Что нужно сделать', type:'select', half:true, options:['Логотип','Фирменный стиль','Дизайн для соцсетей','Презентация','Макет сайта / лендинга','Упаковка','Полиграфия','Другое'] }),
+            _bf({ id:'brand', label:'Есть ли бренд-стиль?', type:'select', half:true, options:['Есть брендбук','Есть логотип','С нуля','Не знаю'] }),
+            _bf({ id:'deadline', label:'Желаемый срок', type:'date', half:true }),
+            _bf({ id:'desc', label:'Опишите задачу', type:'textarea', primary:true, required:true, placeholder:'Что нужно, для чего, кто аудитория, желаемое настроение/стиль, где будет использоваться.' }),
+            _bf({ id:'sec_budget', type:'section', label:'💰 Бюджет и дополнительно' }), ...budgetSource,
+            _bf({ id:'references', label:'Референсы / примеры, что нравится', type:'textarea' }),
+            _bf({ id:'extra', label:'Дополнительные пожелания', type:'textarea' }),
+          ]},
+          ai: { title:'Заявка на ИИ-проект', sub:'Опишите идею — подскажем, что реально сделать с помощью ИИ, и сориентируем по цене.', fields:[
+            _bf({ id:'sec_contacts', type:'section', label:'📋 Контактные данные' }), ...contacts,
+            _bf({ id:'sec_project', type:'section', label:'🤖 О проекте' }),
+            _bf({ id:'aiType', label:'Тип задачи', type:'select', half:true, options:['ИИ-видео / генерация','ИИ-аватар / цифровой ведущий','Генеративная графика','Озвучка / синтез речи','Клонирование голоса','Обработка / апскейл','Другое'] }),
+            _bf({ id:'deadline', label:'Желаемый срок', type:'date', half:true }),
+            _bf({ id:'desc', label:'Опишите идею', type:'textarea', primary:true, required:true, placeholder:'Что хотите получить, где будет использоваться, есть ли исходники (фото / голос / бренд).' }),
+            _bf({ id:'sec_budget', type:'section', label:'💰 Бюджет и дополнительно' }), ...budgetSource,
+            _bf({ id:'references', label:'Референсы / примеры', type:'textarea' }),
+            _bf({ id:'extra', label:'Дополнительные пожелания', type:'textarea' }),
+          ]},
+          general: { title:'Заявка на проект', sub:'Расскажите, что нужно — мы свяжемся с вами в течение 24 часов.', fields:[
+            _bf({ id:'sec_contacts', type:'section', label:'📋 Контактные данные' }), ...contacts,
+            _bf({ id:'sec_project', type:'section', label:'📋 О проекте' }),
+            _bf({ id:'projectType', label:'Что нужно сделать', type:'text', half:true, placeholder:'Видео, фото, дизайн, ИИ, комплекс...' }),
+            _bf({ id:'deadline', label:'Желаемый срок', type:'date', half:true }),
+            _bf({ id:'desc', label:'Опишите задачу', type:'textarea', primary:true, required:true, placeholder:'Чем подробнее опишете задачу, тем точнее будет предложение.' }),
+            _bf({ id:'sec_budget', type:'section', label:'💰 Бюджет и дополнительно' }), ...budgetSource,
+            _bf({ id:'references', label:'Референсы / примеры', type:'textarea' }),
+            _bf({ id:'extra', label:'Дополнительные пожелания', type:'textarea' }),
+          ]},
+        };
+        const base = T[typeId] || T.video;
+        return { title: base.title, sub: base.sub, fields: base.fields.map(x => Object.assign({}, x, { options: (x.options || []).slice() })) };
+      }
+
+      // Итоговый шаблон типа: кастом агентства (store[typeId]) или дефолт.
+      function _resolveBriefTemplate(typeId, store) {
+        const custom = store && store[typeId];
+        if (custom && Array.isArray(custom.fields) && custom.fields.length) {
+          const def = _defaultBriefTemplate(typeId);
+          return { title: custom.title || def.title, sub: custom.sub != null ? custom.sub : def.sub, fields: custom.fields };
+        }
+        return _defaultBriefTemplate(typeId);
+      }
+
+      // Публичная форма: подтягивает кастом-шаблон агентства (RPC). Не блокирует —
+      // сперва показываем дефолт, при успехе перерисовываем с кастомом.
+      async function _loadPublicBriefTemplate() {
+        if (_briefTemplateLoaded) return;
+        _briefTemplateLoaded = true;
+        try {
+          const sb = window.supabase.createClient(_DEFAULT_SB_URL, _DEFAULT_SB_KEY);
+          const { data } = await sb.rpc('get_brief_template', { p_agency_id: _briefAgencyId, p_type: _briefType });
+          if (data && Array.isArray(data.fields) && data.fields.length) { _briefCustomTemplate = data; render(); }
+        } catch (e) { /* нет RPC / нет кастома → остаётся дефолт */ }
+      }
+
+      // HTML одного поля публичной формы.
+      function _briefFieldHtml(field, values) {
+        const v = values[field.id] != null ? values[field.id] : '';
+        if (field.type === 'section') return `<div class="brief-section-title">${escapeHtml(field.label)}</div>`;
+        const label = `<label>${escapeHtml(field.label)}${field.required ? ' *' : ''}</label>`;
+        const on = `oninput="app.updateBriefField('${field.id}',this.value)"`;
+        if (field.type === 'textarea') {
+          return `<div class="field">${label}<textarea class="input" rows="${field.primary ? 5 : 2}" placeholder="${escapeHtml(field.placeholder || '')}" ${on} style="resize:vertical">${escapeHtml(v)}</textarea></div>`;
+        }
+        if (field.type === 'select') {
+          return `<div class="field">${label}<select class="input" onchange="app.updateBriefField('${field.id}',this.value)"><option value="">Выберите...</option>${(field.options || []).map(o => `<option value="${escapeHtml(o)}" ${v === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}</select></div>`;
+        }
+        const inputType = (field.type === 'tel' || field.type === 'email' || field.type === 'date') ? field.type : 'text';
+        return `<div class="field">${label}<input class="input" type="${inputType}" placeholder="${escapeHtml(field.placeholder || '')}" value="${escapeHtml(v)}" ${on}></div>`;
+      }
+
+      // Список полей → HTML. Секции разбивают на группы .brief-fields (как в исходной
+      // форме); half-поля объединяются в пары .brief-row.
+      function _briefFieldsHtml(fields, values) {
+        let html = '', inGroup = false, pending = null;
+        const flushPair = () => { if (pending) { html += `<div class="brief-row">${_briefFieldHtml(pending, values)}</div>`; pending = null; } };
+        const closeGroup = () => { flushPair(); if (inGroup) { html += '</div>'; inGroup = false; } };
+        const openGroup = () => { if (!inGroup) { html += '<div class="brief-fields">'; inGroup = true; } };
+        for (const f of (fields || [])) {
+          if (f.enabled === false) continue;
+          if (f.type === 'section') { closeGroup(); html += `<div class="brief-section-title">${escapeHtml(f.label)}</div>`; continue; }
+          openGroup();
+          if (f.half) {
+            if (pending) { html += `<div class="brief-row">${_briefFieldHtml(pending, values)}${_briefFieldHtml(f, values)}</div>`; pending = null; }
+            else pending = f;
+          } else { flushPair(); html += _briefFieldHtml(f, values); }
+        }
+        closeGroup();
+        return html;
+      }
+
       function renderBriefPage() {
         const f = _briefForm;
         if (f.sent) {
@@ -9375,11 +9547,10 @@
               </div>
             </div>`;
         }
-        const PROJECT_TYPES = ['Свадьба','Корпоратив','Рекламный ролик','Музыкальный клип','Мероприятие','Репортаж','Презентация / Обзор','Социальные сети / Reels','Документальный фильм','Другое'];
-        const BUDGETS = ['Обсудим','До 30 000 ₽','30 000 – 80 000 ₽','80 000 – 200 000 ₽','200 000 – 500 000 ₽','500 000 ₽+'];
-        const SOURCES = ['Рекомендация','Instagram / ВКонтакте','Google / Яндекс','TikTok / YouTube','Сарафанное радио','Другое'];
-        const FORMATS = ['Горизонтальный (16:9)','Вертикальный (9:16, Reels/Shorts)','Квадратный (1:1)','Несколько форматов','Пока не знаю'];
-        const DURATIONS = ['До 30 секунд','30–60 секунд','1–3 минуты','3–10 минут','Более 10 минут','Обсудим'];
+        if (!_briefTemplateLoaded) _loadPublicBriefTemplate();
+        const typeId = _isBriefType(_briefType) ? _briefType : 'video';
+        const store = _briefCustomTemplate ? { [typeId]: _briefCustomTemplate } : null;
+        const tpl = _resolveBriefTemplate(typeId, store);
         return `
           <div class="brief-wrap">
             <div class="brief-inner">
@@ -9394,102 +9565,9 @@
                 </div>
               </div>
               <div class="brief-card">
-                <h1>Заявка на видеосъёмку</h1>
-                <p class="brief-sub">Расскажите о проекте — мы свяжемся с вами в течение 24 часов и обсудим детали. Чем подробнее опишете задачу, тем точнее будет расчёт.</p>
-
-                <div class="brief-section-title">📋 Контактные данные</div>
-                <div class="brief-fields">
-                  <div class="brief-row">
-                    <div class="field">
-                      <label>Ваше имя *</label>
-                      <input class="input" type="text" placeholder="Иван Иванов" value="${escapeHtml(f.name)}" oninput="app.updateBriefField('name',this.value)">
-                    </div>
-                    <div class="field">
-                      <label>Телефон</label>
-                      <input class="input" type="tel" placeholder="+7 900 000-00-00" value="${escapeHtml(f.phone)}" oninput="app.updateBriefField('phone',this.value)">
-                    </div>
-                  </div>
-                  <div class="brief-row">
-                    <div class="field">
-                      <label>Email *</label>
-                      <input class="input" type="email" placeholder="your@email.com" value="${escapeHtml(f.email)}" oninput="app.updateBriefField('email',this.value)">
-                    </div>
-                    <div class="field">
-                      <label>Компания / Организация</label>
-                      <input class="input" type="text" placeholder="ООО «Название»" value="${escapeHtml(f.company||'')}" oninput="app.updateBriefField('company',this.value)">
-                    </div>
-                  </div>
-                  <div class="field">
-                    <label>Город съёмки</label>
-                    <input class="input" type="text" placeholder="Москва" value="${escapeHtml(f.city||'')}" oninput="app.updateBriefField('city',this.value)">
-                  </div>
-                </div>
-
-                <div class="brief-section-title">🎬 О проекте</div>
-                <div class="brief-fields">
-                  <div class="brief-row">
-                    <div class="field">
-                      <label>Тип проекта</label>
-                      <select class="input" onchange="app.updateBriefField('type',this.value)">
-                        <option value="">Выберите...</option>
-                        ${PROJECT_TYPES.map(t => `<option value="${t}" ${f.type===t?'selected':''}>${t}</option>`).join('')}
-                      </select>
-                    </div>
-                    <div class="field">
-                      <label>Формат видео</label>
-                      <select class="input" onchange="app.updateBriefField('format',this.value)">
-                        <option value="">Выберите...</option>
-                        ${FORMATS.map(v => `<option value="${v}" ${(f.format||'')===v?'selected':''}>${v}</option>`).join('')}
-                      </select>
-                    </div>
-                  </div>
-                  <div class="brief-row">
-                    <div class="field">
-                      <label>Примерная длительность</label>
-                      <select class="input" onchange="app.updateBriefField('duration',this.value)">
-                        <option value="">Выберите...</option>
-                        ${DURATIONS.map(d => `<option value="${d}" ${(f.duration||'')===d?'selected':''}>${d}</option>`).join('')}
-                      </select>
-                    </div>
-                    <div class="field">
-                      <label>Желаемая дата съёмки</label>
-                      <input class="input" type="date" value="${f.deadline||''}" oninput="app.updateBriefField('deadline',this.value)">
-                    </div>
-                  </div>
-                  <div class="field">
-                    <label>Опишите проект подробно</label>
-                    <textarea class="input" rows="5" placeholder="Расскажите об идее, целях видео, аудитории, месте съёмки, стиле. Чем больше деталей — тем точнее предложение." oninput="app.updateBriefField('desc',this.value)" style="resize:vertical">${escapeHtml(f.desc)}</textarea>
-                  </div>
-                </div>
-
-                <div class="brief-section-title">💰 Бюджет и дополнительно</div>
-                <div class="brief-fields">
-                  <div class="brief-row">
-                    <div class="field">
-                      <label>Бюджет</label>
-                      <select class="input" onchange="app.updateBriefField('budget',this.value)">
-                        <option value="">Выберите...</option>
-                        ${BUDGETS.map(b => `<option value="${b}" ${f.budget===b?'selected':''}>${b}</option>`).join('')}
-                      </select>
-                    </div>
-                    <div class="field">
-                      <label>Откуда узнали о нас?</label>
-                      <select class="input" onchange="app.updateBriefField('source',this.value)">
-                        <option value="">Выберите...</option>
-                        ${SOURCES.map(s => `<option value="${s}" ${(f.source||'')===s?'selected':''}>${s}</option>`).join('')}
-                      </select>
-                    </div>
-                  </div>
-                  <div class="field">
-                    <label>Ссылки на референсы / примеры работ, которые нравятся</label>
-                    <textarea class="input" rows="2" placeholder="https://youtube.com/... или описание стиля..." oninput="app.updateBriefField('references',this.value)" style="resize:vertical">${escapeHtml(f.references||'')}</textarea>
-                  </div>
-                  <div class="field">
-                    <label>Дополнительные пожелания</label>
-                    <textarea class="input" rows="2" placeholder="Особые требования, пожелания к команде, вопросы..." oninput="app.updateBriefField('extra',this.value)" style="resize:vertical">${escapeHtml(f.extra||'')}</textarea>
-                  </div>
-                </div>
-
+                <h1>${escapeHtml(tpl.title)}</h1>
+                ${tpl.sub ? `<p class="brief-sub">${escapeHtml(tpl.sub)}</p>` : ''}
+                ${_briefFieldsHtml(tpl.fields, f.values)}
                 <button class="brief-submit" onclick="app.submitBrief()" ${f.sending ? 'disabled' : ''}>
                   ${f.sending ? 'Отправляем...' : 'Отправить заявку →'}
                 </button>
@@ -9502,35 +9580,56 @@
           </div>`;
       }
 
-      function updateBriefField(key, value) {
-        _briefForm[key] = value;
+      function updateBriefField(fieldId, value) {
+        _briefForm.values[fieldId] = value;
       }
 
       async function submitBrief() {
         const f = _briefForm;
-        if (!f.name.trim()) { f.error = 'Укажите ваше имя'; render(); return; }
-        if (!f.email.trim() || !f.email.includes('@')) { f.error = 'Укажите корректный email'; render(); return; }
+        const typeId = _isBriefType(_briefType) ? _briefType : 'video';
+        const store = _briefCustomTemplate ? { [typeId]: _briefCustomTemplate } : null;
+        const tpl = _resolveBriefTemplate(typeId, store);
+        const val = (id) => (f.values[id] != null ? String(f.values[id]) : '').trim();
+        const sysField = (role) => tpl.fields.find(x => x.system === role && x.enabled !== false);
+        const name  = (sysField('name')  ? val(sysField('name').id)  : '');
+        const email = (sysField('email') ? val(sysField('email').id) : '');
+        const phone = (sysField('phone') ? val(sysField('phone').id) : '');
+        if (!name) { f.error = 'Укажите ваше имя'; render(); return; }
+        if (!email || !email.includes('@')) { f.error = 'Укажите корректный email'; render(); return; }
+        const missing = tpl.fields.find(x => x.required && x.enabled !== false && x.type !== 'section' && !val(x.id));
+        if (missing) { f.error = `Заполните поле «${missing.label}»`; render(); return; }
+
+        // Описание: свободный текст (primary) первым, затем «Метка: значение».
+        // Системные контакты и бюджет уходят в отдельные колонки — в описание не дублируем.
+        const primary = tpl.fields.find(x => x.primary && x.enabled !== false);
+        const budgetField = tpl.fields.find(x => x.id === 'budget');
+        const descLines = [];
+        if (primary) descLines.push(val(primary.id));
+        for (const x of tpl.fields) {
+          if (x.type === 'section' || x.enabled === false) continue;
+          if (x.system === 'name' || x.system === 'email' || x.system === 'phone') continue;
+          if (primary && x.id === primary.id) continue;
+          if (x.id === 'budget') continue;
+          const value = val(x.id);
+          if (value) descLines.push(`${x.label}: ${value}`);
+        }
+        const description = descLines.filter(Boolean).join('\n');
+        const typeMeta = BRIEF_TYPES.find(t => t.id === typeId);
+        const projectType = typeMeta ? `${typeMeta.label}-бриф` : 'Бриф';
+        const budget = budgetField ? val('budget') : '';
+
         f.sending = true; f.error = ''; render();
         try {
           const sb = window.supabase.createClient(_DEFAULT_SB_URL, _DEFAULT_SB_KEY);
           const { error } = await sb.from('brief_submissions').insert({
             agency_id: _briefAgencyId,
-            client_name: f.name.trim(),
-            client_phone: (f.phone||'').trim(),
-            client_email: f.email.trim(),
-            project_type: f.type,
-            description: [
-              f.desc.trim(),
-              f.format ? `Формат: ${f.format}` : '',
-              f.duration ? `Длительность: ${f.duration}` : '',
-              (f.company||'').trim() ? `Компания: ${f.company}` : '',
-              (f.city||'').trim() ? `Город: ${f.city}` : '',
-              (f.references||'').trim() ? `Референсы: ${f.references}` : '',
-              (f.extra||'').trim() ? `Дополнительно: ${f.extra}` : '',
-              (f.source||'').trim() ? `Источник: ${f.source}` : '',
-            ].filter(Boolean).join('\n'),
-            budget: f.budget,
-            deadline: f.deadline || null,
+            client_name: name,
+            client_phone: phone,
+            client_email: email,
+            project_type: projectType,
+            description,
+            budget,
+            deadline: val('deadline') || null,
             submitted_at: new Date().toISOString()
           });
           f.sending = false;
@@ -9545,7 +9644,7 @@
                 body: JSON.stringify({
                   type: 'brief_submitted',
                   agencyId: _briefAgencyId,
-                  briefData: { name: f.name.trim(), phone: (f.phone||'').trim(), email: f.email.trim(), type: f.type, budget: f.budget },
+                  briefData: { name, phone, email, type: projectType, budget },
                 }),
               }).catch(() => {});
             } catch(e) {}
@@ -9559,17 +9658,17 @@
 
       /* ── CRM: просмотр входящих брифов ── */
 
-      function getBriefLink() {
+      function getBriefLink(typeId) {
         const agencyId = getAgencyId();
         const base = location.origin + location.pathname.replace(/index\.html$/, '');
-        return base + '?brief=' + agencyId;
+        return base + '?brief=' + agencyId + (typeId ? '&type=' + typeId : '');
       }
 
-      function showBriefQR() {
+      function showBriefQR(typeId) {
         const container = document.getElementById("briefQrContainer");
         if (!container) return;
         if (container.style.display !== "none") { container.style.display = "none"; return; }
-        const link = encodeURIComponent(getBriefLink());
+        const link = encodeURIComponent(getBriefLink(typeId));
         container.innerHTML = `
           <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${link}"
             alt="QR-код" style="border-radius:12px;border:4px solid var(--panel2);max-width:200px">
@@ -9577,12 +9676,15 @@
         container.style.display = "block";
       }
 
-      function copyBriefLink() {
-        copyToClipboard(getBriefLink(), 'Ссылка скопирована!');
+      function copyBriefLink(typeId) {
+        copyToClipboard(getBriefLink(typeId), 'Ссылка скопирована!');
       }
 
       async function _loadBriefs() {
-        if (!_supabase || !_adminSession || _briefsLoaded) return;
+        if (_briefsLoaded) return;
+        // Локальный/демо-режим (нет облачной сессии) — показываем страницу с пустым
+        // списком, а не бесконечный скелетон.
+        if (!_supabase || !_adminSession) { _briefsLoaded = true; render(); return; }
         const agencyId = getAgencyId();
         try {
           const { data } = await _supabase.from('brief_submissions')
@@ -9797,31 +9899,50 @@
                 </div>`).join("")}
             </div>`;
         }
-        const link = getBriefLink();
+        const activeType = _isBriefType(_briefTypeTab) ? _briefTypeTab : 'video';
+        const link = getBriefLink(activeType);
+        const typeMeta = BRIEF_TYPES.find(t => t.id === activeType) || BRIEF_TYPES[0];
+        const customized = !!(state.briefTemplates && state.briefTemplates[activeType]);
         const newBriefs = _briefs.filter(b => b.status !== 'converted');
         const done = _briefs.filter(b => b.status === 'converted');
+        const chips = BRIEF_TYPES.map(t => {
+          const isCustom = !!(state.briefTemplates && state.briefTemplates[t.id]);
+          return `<button class="brief-type-chip ${t.id === activeType ? 'active' : ''}" onclick="app.setBriefTypeTab('${t.id}')" title="Бриф «${escapeHtml(t.label)}»">
+            <span class="brief-type-ic">${t.icon}</span><span>${escapeHtml(t.label)}</span>${isCustom ? '<span class="brief-type-dot" title="Вопросы изменены под вас"></span>' : ''}
+          </button>`;
+        }).join('');
         return `
           <div>
             <div class="panel" style="margin-bottom:14px">
               <div class="section-title">
                 <div>
                   <h1>Онлайн-брифы</h1>
-                  <p>Заявки от клиентов по вашей персональной ссылке.</p>
-                </div>
-                <div class="toolbar no-print">
-                  <button class="btn primary" onclick="app.copyBriefLink()">Копировать ссылку</button>
-                  <button class="btn" onclick="app.showBriefQR()" title="QR-код для ссылки">QR-код</button>
+                  <p>Отдельная форма-бриф под каждый тип задач — видео, фото, дизайн, ИИ и общий. Отправьте клиенту ссылку нужного типа, заявка появится ниже.</p>
                 </div>
               </div>
-              <div class="brief-link-box" style="margin-top:14px">
-                <span style="font-size:18px;flex-shrink:0">🔗</span>
-                <span class="brief-link-url">${escapeHtml(link)}</span>
-                <button class="btn small" onclick="app.copyBriefLink()" title="Копировать">Копировать</button>
+              <div class="brief-type-tabs no-print">${chips}</div>
+              <div class="brief-type-panel">
+                <div class="brief-type-panel-head">
+                  <div style="min-width:0">
+                    <div class="brief-type-panel-title">${typeMeta.icon} Бриф «${escapeHtml(typeMeta.label)}»</div>
+                    <div class="u-meta" style="margin-top:2px">${customized ? 'Вопросы изменены под вас' : 'Стандартный набор вопросов'}</div>
+                  </div>
+                  <div class="toolbar no-print">
+                    <button class="btn small" onclick="app.openBriefEditor('${activeType}')">✏️ Редактировать вопросы</button>
+                    <button class="btn small" onclick="app.previewBrief('${activeType}')" title="Открыть форму как клиент (новая вкладка)">Предпросмотр</button>
+                  </div>
+                </div>
+                <div class="brief-link-box" style="margin-top:12px">
+                  <span style="font-size:18px;flex-shrink:0">🔗</span>
+                  <span class="brief-link-url">${escapeHtml(link)}</span>
+                </div>
+                <div class="toolbar no-print" style="margin-top:10px">
+                  <button class="btn primary small" onclick="app.copyBriefLink('${activeType}')">Копировать ссылку</button>
+                  <button class="btn small" onclick="app.showBriefQR('${activeType}')" title="QR-код для ссылки">QR-код</button>
+                  ${customized ? `<button class="btn small danger" onclick="app.resetBriefTemplate('${activeType}')" title="Вернуть стандартные вопросы">Сбросить вопросы</button>` : ''}
+                </div>
+                <div id="briefQrContainer" style="margin-top:14px;display:none;text-align:center"></div>
               </div>
-              <div id="briefQrContainer" style="margin-top:14px;display:none;text-align:center"></div>
-              <p style="font-size:12px;color:var(--muted);margin:10px 0 0">
-                Поделитесь ссылкой с клиентом — он заполнит форму, и заявка появится здесь.
-              </p>
             </div>
 
             ${newBriefs.length === 0 && done.length === 0 ? `
@@ -9859,25 +9980,32 @@
       // Бриф собирается на форме в одну строку description с подписанными полями
       // через \n ("Формат: …", "Длительность: …" и т.д.). Разбираем обратно в
       // структуру: свободный текст идеи + список именованных полей.
-      const _BRIEF_FIELD_META = {
-        "Формат": { icon: "🎬", wide: false },
-        "Длительность": { icon: "⏱", wide: false },
-        "Компания": { icon: "🏢", wide: false },
-        "Город": { icon: "📍", wide: false },
-        "Источник": { icon: "📣", wide: false },
-        "Референсы": { icon: "🔗", wide: true },
-        "Дополнительно": { icon: "💬", wide: true },
-      };
+      // Иконки для распространённых меток (кастомные метки → «•»). Ключи — по вхождению
+      // подстроки, чтобы ловить и переименованные варианты («Референсы / примеры» и т.п.).
+      const _BRIEF_ICON_HINTS = [
+        [/референс|пример|ссылк/i, "🔗"], [/дополнит|пожелан/i, "💬"], [/формат/i, "🎬"],
+        [/длительн|срок|дата|дедлайн/i, "📅"], [/компан|организац/i, "🏢"], [/город|место|локац|адрес/i, "📍"],
+        [/источник|узнал/i, "📣"], [/тип|что нужно|задач/i, "🎯"], [/кадр|фото/i, "🖼"], [/бренд|стиль/i, "🎨"],
+      ];
+      function _briefFieldMeta(label) {
+        const l = String(label || "");
+        let icon = "•";
+        for (const [re, ic] of _BRIEF_ICON_HINTS) { if (re.test(l)) { icon = ic; break; } }
+        const wide = /референс|пример|ссылк|дополнит|пожелан|опиш|задач|идея/i.test(l);
+        return { icon, wide };
+      }
       function _parseBriefDescription(description) {
-        const labels = Object.keys(_BRIEF_FIELD_META);
-        const labelRe = new RegExp("^(" + labels.join("|") + "):\\s*(.*)$");
+        // Любая строка вида «Метка: значение» (метка ≤ 40 симв., «: » с пробелом —
+        // чтобы не спутать с URL «https://»). Всё до первой такой строки — свободный текст.
+        const labelRe = /^([^:\n]{1,40}):\s+(.+)$/;
         const lines = String(description || "").split("\n");
         const freeLines = [];
         const fields = [];
         let started = false;
         for (const line of lines) {
           const m = line.match(labelRe);
-          if (m) { started = true; fields.push({ label: m[1], value: m[2] }); }
+          const looksLabel = m && !/^https?$/i.test(m[1]) && !m[1].includes("//");
+          if (looksLabel) { started = true; fields.push({ label: m[1].trim(), value: m[2] }); }
           else if (!started) freeLines.push(line);
           else if (fields.length) fields[fields.length - 1].value += "\n" + line; // продолжение значения
         }
@@ -9938,7 +10066,7 @@
                 parts.push(`
                   <div class="brief-fields">
                     ${parsed.fields.map(f => {
-                      const meta = _BRIEF_FIELD_META[f.label] || { icon: "•", wide: false };
+                      const meta = _briefFieldMeta(f.label);
                       return `
                         <div class="brief-field${meta.wide ? " wide" : ""}">
                           <span class="brief-field-label">${meta.icon} ${escapeHtml(f.label)}</span>
@@ -9955,6 +10083,159 @@
       function toggleBriefExpand(briefId) {
         _briefExpanded[briefId] = !_briefExpanded[briefId];
         render();
+      }
+
+      /* ── CRM: типы брифов, предпросмотр, редактор вопросов ── */
+
+      function setBriefTypeTab(t) { if (_isBriefType(t)) { _briefTypeTab = t; render(); } }
+
+      function previewBrief(typeId) {
+        // Открыть публичную форму как клиент (новая вкладка).
+        window.open(getBriefLink(_isBriefType(typeId) ? typeId : 'video'), '_blank', 'noopener');
+      }
+
+      function resetBriefTemplate(typeId) {
+        confirmDialog({
+          title: 'Сбросить вопросы?',
+          message: 'Вернуть стандартный набор вопросов для этого типа брифа? Ваши изменения будут удалены.',
+          okText: 'Сбросить', danger: true
+        }).then(ok => {
+          if (!ok) return;
+          if (state.briefTemplates) delete state.briefTemplates[typeId];
+          save(); toast('Вопросы возвращены к стандартным'); render();
+        });
+      }
+
+      function openBriefEditor(typeId) {
+        if (!_isBriefType(typeId)) return;
+        const resolved = _resolveBriefTemplate(typeId, state.briefTemplates);
+        // рабочая копия (глубокая) — отмена не должна трогать сохранённый шаблон
+        _briefEditorDraft = {
+          title: resolved.title,
+          sub: resolved.sub,
+          fields: resolved.fields.map(x => Object.assign({}, x, { options: (x.options || []).slice() })),
+        };
+        state.briefEditorType = typeId;
+        renderModal();
+      }
+      function closeBriefEditor() { state.briefEditorType = ''; _briefEditorDraft = null; renderModal(); }
+
+      // Правки текстовых полей — БЕЗ ре-рендера (иначе теряется фокус ввода).
+      function briefEditorSetMeta(key, value) { if (_briefEditorDraft) _briefEditorDraft[key] = value; }
+      function briefEditorSetField(fid, key, value) {
+        if (!_briefEditorDraft) return;
+        const fld = _briefEditorDraft.fields.find(x => x.id === fid);
+        if (!fld) return;
+        if (key === 'options') fld.options = String(value).split('\n').map(s => s.trim()).filter(Boolean);
+        else fld[key] = value;
+      }
+      // Структурные правки — с ре-рендером модалки.
+      function briefEditorToggle(fid, key) {
+        if (!_briefEditorDraft) return;
+        const fld = _briefEditorDraft.fields.find(x => x.id === fid);
+        if (fld) { fld[key] = !fld[key]; renderModal(); }
+      }
+      function briefEditorSetType(fid, value) {
+        if (!_briefEditorDraft) return;
+        const fld = _briefEditorDraft.fields.find(x => x.id === fid);
+        if (!fld) return;
+        fld.type = value;
+        if (value === 'select' && !(fld.options && fld.options.length)) fld.options = ['Вариант 1', 'Вариант 2'];
+        renderModal();
+      }
+      function briefEditorMove(fid, dir) {
+        if (!_briefEditorDraft) return;
+        const arr = _briefEditorDraft.fields;
+        const i = arr.findIndex(x => x.id === fid), j = i + dir;
+        if (i < 0 || j < 0 || j >= arr.length) return;
+        const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp; renderModal();
+      }
+      function briefEditorRemove(fid) {
+        if (!_briefEditorDraft) return;
+        _briefEditorDraft.fields = _briefEditorDraft.fields.filter(x => x.id !== fid); renderModal();
+      }
+      function briefEditorAdd(kind) {
+        if (!_briefEditorDraft) return;
+        const id = 'q' + Math.random().toString(36).slice(2, 8);
+        _briefEditorDraft.fields.push(kind === 'section'
+          ? _bf({ id, type: 'section', label: 'Новый раздел' })
+          : _bf({ id, type: 'text', label: 'Новый вопрос' }));
+        renderModal();
+      }
+      function saveBriefEditor() {
+        const type = state.briefEditorType;
+        if (!type || !_briefEditorDraft) return;
+        const fields = _briefEditorDraft.fields.filter(x => x.label && x.label.trim());
+        fields.forEach(x => { if (x.type === 'select' && !(x.options && x.options.length)) x.type = 'text'; });
+        if (!fields.some(x => x.system === 'name') || !fields.some(x => x.system === 'email')) {
+          toast('Нужны поля имени и email — они обязательны для связи с клиентом');
+          return;
+        }
+        state.briefTemplates = state.briefTemplates || {};
+        state.briefTemplates[type] = { title: (_briefEditorDraft.title || '').trim(), sub: (_briefEditorDraft.sub || '').trim(), fields };
+        save();
+        state.briefEditorType = ''; _briefEditorDraft = null;
+        toast('Вопросы брифа сохранены');
+        render();
+      }
+
+      function renderBriefEditorModal() {
+        const type = state.briefEditorType;
+        const d = _briefEditorDraft;
+        if (!type || !d) return '';
+        const tm = BRIEF_TYPES.find(t => t.id === type) || { label: type, icon: '📋' };
+        const TYPE_OPTS = [['text','Текст'],['textarea','Большое поле'],['select','Список'],['tel','Телефон'],['email','Email'],['date','Дата']];
+        const fieldRow = (fld, i) => {
+          const isSection = fld.type === 'section';
+          const isSys = !!fld.system;
+          const canEditType = !isSys;
+          return `
+            <div class="bfe-field ${isSection ? 'bfe-section' : ''} ${fld.enabled === false ? 'bfe-off' : ''}">
+              <div class="bfe-row1">
+                <div class="bfe-move">
+                  <button type="button" class="bfe-mini" onclick="app.briefEditorMove('${fld.id}',-1)" ${i === 0 ? 'disabled' : ''} aria-label="Выше">▲</button>
+                  <button type="button" class="bfe-mini" onclick="app.briefEditorMove('${fld.id}',1)" aria-label="Ниже">▼</button>
+                </div>
+                ${isSection ? '<span class="bfe-tag">Раздел</span>' : `<label class="bfe-switch" title="Показывать это поле"><input type="checkbox" ${fld.enabled !== false ? 'checked' : ''} onchange="app.briefEditorToggle('${fld.id}','enabled')"><span></span></label>`}
+                <input class="bfe-label input" value="${escapeHtml(fld.label || '')}" placeholder="${isSection ? 'Заголовок раздела' : 'Текст вопроса'}" oninput="app.briefEditorSetField('${fld.id}','label',this.value)">
+                ${isSys ? '<span class="bfe-tag" title="Идёт в контакты клиента — удалить нельзя">контакт</span>' : `<button type="button" class="bfe-del" onclick="app.briefEditorRemove('${fld.id}')" aria-label="Удалить вопрос">${TRASH_SVG}</button>`}
+              </div>
+              ${isSection ? '' : `
+              <div class="bfe-row2">
+                <select class="bfe-type" onchange="app.briefEditorSetType('${fld.id}',this.value)" ${canEditType ? '' : 'disabled'} aria-label="Тип поля">
+                  ${TYPE_OPTS.map(([v, l]) => `<option value="${v}" ${fld.type === v ? 'selected' : ''}>${l}</option>`).join('')}
+                </select>
+                <label class="bfe-chk"><input type="checkbox" ${fld.required ? 'checked' : ''} onchange="app.briefEditorToggle('${fld.id}','required')"> обязательное</label>
+                <label class="bfe-chk"><input type="checkbox" ${fld.half ? 'checked' : ''} onchange="app.briefEditorToggle('${fld.id}','half')"> в пол-ширины</label>
+              </div>
+              ${fld.type === 'select' ? `<textarea class="bfe-options input" rows="3" placeholder="Варианты списка — по одному на строку" oninput="app.briefEditorSetField('${fld.id}','options',this.value)">${escapeHtml((fld.options || []).join('\n'))}</textarea>` : ''}
+              ${(fld.type === 'text' || fld.type === 'textarea' || fld.type === 'tel' || fld.type === 'email') ? `<input class="bfe-ph input" value="${escapeHtml(fld.placeholder || '')}" placeholder="Подсказка-плейсхолдер внутри поля (необязательно)" oninput="app.briefEditorSetField('${fld.id}','placeholder',this.value)">` : ''}
+              `}
+            </div>`;
+        };
+        return `
+          <div class="modal-overlay" onclick="event.target===this&&app.closeBriefEditor()">
+            <div class="modal-box" style="width:min(680px,calc(100vw - 32px))">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">
+                <div style="min-width:0">
+                  <h2 style="margin:0;font-size:19px">${tm.icon} Вопросы брифа «${escapeHtml(tm.label)}»</h2>
+                  <p class="u-meta" style="margin:3px 0 0">Настройте, что увидит клиент. Изменения применятся к вашей ссылке этого типа.</p>
+                </div>
+                <button onclick="app.closeBriefEditor()" class="u-modal-close" aria-label="Закрыть">×</button>
+              </div>
+              <div class="field" style="margin-bottom:10px"><label>Заголовок формы</label><input class="input" value="${escapeHtml(d.title || '')}" oninput="app.briefEditorSetMeta('title',this.value)"></div>
+              <div class="field" style="margin-bottom:14px"><label>Подзаголовок</label><textarea class="input" rows="2" style="resize:vertical" oninput="app.briefEditorSetMeta('sub',this.value)">${escapeHtml(d.sub || '')}</textarea></div>
+              <div class="bfe-list">${d.fields.map((fld, i) => fieldRow(fld, i)).join('')}</div>
+              <div class="toolbar no-print" style="margin-top:12px;flex-wrap:wrap">
+                <button class="btn small" onclick="app.briefEditorAdd('field')">+ Вопрос</button>
+                <button class="btn small" onclick="app.briefEditorAdd('section')">+ Раздел</button>
+              </div>
+              <div style="display:flex;justify-content:space-between;gap:10px;margin-top:18px;flex-wrap:wrap">
+                <button class="btn small" onclick="app.closeBriefEditor()">Отмена</button>
+                <button class="btn primary" onclick="app.saveBriefEditor()">Сохранить вопросы</button>
+              </div>
+            </div>
+          </div>`;
       }
 
       function renderAnalyticsSection(projects) {
@@ -10429,7 +10710,7 @@
                   <div class="no-print" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--panel2);border:1px solid var(--primary);border-radius:12px;margin-bottom:12px">
                     <span style="font-size:13px;font-weight:750;color:var(--primary)">${selCount ? `Выбрано: ${selCount}` : "Отметьте сделки галочками"}</span>
                     ${selCount ? `
-                    <select id="crmBulkStatusSel" style="padding:6px 10px;border-radius:8px;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text)">
+                    <select id="crmBulkStatusSel" style="padding:6px 32px 6px 10px;border-radius:8px;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text)">
                       ${[...CRM_STATUSES, CRM_ARCHIVED].map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("")}
                     </select>
                     <button class="btn primary small" onclick="app.bulkSetCrmStatus(document.getElementById('crmBulkStatusSel').value)">Применить статус</button>
@@ -11363,7 +11644,7 @@
                       : `${totalItems} позиц.${t.optional ? ` · опции +${money(t.optional)}` : ""}`}</div>
                   </div>`;
                   })()}
-                  <select data-autosave data-scope="project" data-key="taxType" style="width:auto;padding:5px 9px;font-size:12px;border-radius:10px;margin-left:4px">
+                  <select data-autosave data-scope="project" data-key="taxType" style="width:auto;padding:5px 30px 5px 10px;font-size:12px;border-radius:10px;margin-left:4px">
                     ${taxOptionsHtml(state.project.taxType)}
                   </select>
                 </div>
@@ -11914,7 +12195,7 @@
                   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                     <button class="btn small" onclick="app.closeClientDetail()">← Все клиенты</button>
                     <h1 class="m-0">${escapeHtml(client.name)}</h1>
-                    <select style="border-radius:999px;padding:6px 10px;font-size:12px;font-weight:750;background:rgba(124,58,237,.16);border:1px solid rgba(124,58,237,.3);color:var(--text)" onchange="app.updateClientField('${client.id}','status',this.value)">
+                    <select style="border-radius:999px;padding:6px 30px 6px 12px;font-size:12px;font-weight:750;background:rgba(124,58,237,.16);border:1px solid rgba(124,58,237,.3);color:var(--text)" onchange="app.updateClientField('${client.id}','status',this.value)">
                       ${["new", "active", "vip", "paused", "lost"].map(s => `<option value="${s}" ${client.status === s ? "selected" : ""}>${{new:"Новый",active:"Активный",vip:"VIP",paused:"Пауза",lost:"Потерян"}[s]||s}</option>`).join("")}
                     </select>
                   </div>
@@ -13681,10 +13962,10 @@
 
             ${(state.gFinSubTab || "transactions") === "transactions" ? `
             <div class="fin-action-bar no-print" style="margin-bottom:8px;flex-wrap:wrap;gap:8px">
-              <select onchange="app.setGFinFilter(this.value)" style="padding:8px 12px;border-radius:10px;font-size:13px">
+              <select onchange="app.setGFinFilter(this.value)" style="padding:8px 34px 8px 12px;border-radius:10px;font-size:13px">
                 ${projects.map(p => `<option value="${p.id}" ${gFilter===p.id?"selected":""}>${escapeHtml(p.name)}</option>`).join("")}
               </select>
-              <select onchange="app.setGFinTypeFilter(this.value)" style="padding:8px 12px;border-radius:10px;font-size:13px">
+              <select onchange="app.setGFinTypeFilter(this.value)" style="padding:8px 34px 8px 12px;border-radius:10px;font-size:13px">
                 <option value="all" ${typeFilter==="all"?"selected":""}>Все операции</option>
                 <option value="income" ${typeFilter==="income"?"selected":""}>Только поступления</option>
                 <option value="expense" ${typeFilter==="expense"?"selected":""}>Только расходы</option>
@@ -17192,6 +17473,19 @@ Email: ______________________            Email: ______________________
         copyBriefLink,
         convertBriefToDeal,
         deleteBrief,
+        setBriefTypeTab,
+        previewBrief,
+        resetBriefTemplate,
+        openBriefEditor,
+        closeBriefEditor,
+        briefEditorSetMeta,
+        briefEditorSetField,
+        briefEditorToggle,
+        briefEditorSetType,
+        briefEditorMove,
+        briefEditorRemove,
+        briefEditorAdd,
+        saveBriefEditor,
         setProposalsFilter,
         refreshAllProposals,
         copyPortalLink,

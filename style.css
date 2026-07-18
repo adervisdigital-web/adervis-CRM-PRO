@@ -4508,7 +4508,10 @@ body.brief-mode #appContent { padding: 0; }
   border-radius: 12px;
 }
 .brief-idea p { margin: 6px 0 0; font-size: 13.5px; color: var(--text); line-height: 1.6; white-space: pre-line; }
-.brief-fields {
+/* Сетка полей ТОЛЬКО в карточке заявки CRM. Раньше правило было без скоупа и
+   перебивало флекс-раскладку публичной формы (.brief-fields), из-за чего на
+   десктопе контакты лепились в 4 колонки, а textarea вставала в пол-ширины. */
+.brief-card-item .brief-fields {
   margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
 }
 .brief-field {
@@ -4521,8 +4524,94 @@ body.brief-mode #appContent { padding: 0; }
   text-transform: uppercase; letter-spacing: .04em;
 }
 .brief-field-value { font-size: 13px; color: var(--text); line-height: 1.5; white-space: pre-line; word-break: break-word; }
+
+/* ── CRM: селектор типа брифа + панель типа ─────────── */
+.brief-type-tabs {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px;
+}
+.brief-type-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--panel2);
+  color: var(--muted); font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: .14s; position: relative; white-space: nowrap;
+}
+.brief-type-chip:hover { border-color: rgba(124,58,237,.4); color: var(--text); }
+.brief-type-chip.active {
+  background: rgba(124,58,237,.14); border-color: var(--primary);
+  color: var(--primary2);
+}
+.brief-type-ic { font-size: 15px; line-height: 1; }
+.brief-type-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--primary2); flex-shrink: 0;
+}
+.brief-type-panel {
+  margin-top: 16px; padding: 16px; border-radius: 14px;
+  background: var(--panel2); border: 1px solid var(--line);
+}
+.brief-type-panel-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.brief-type-panel-title { font-size: 16px; font-weight: 800; }
+
+/* ── Редактор вопросов брифа (модалка) ──────────────── */
+.bfe-list { display: flex; flex-direction: column; gap: 10px; }
+.bfe-field {
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px; background: var(--panel2);
+  display: flex; flex-direction: column; gap: 9px;
+}
+.bfe-field.bfe-section { background: rgba(124,58,237,.06); border-color: rgba(124,58,237,.22); }
+.bfe-field.bfe-off { opacity: .55; }
+.bfe-row1 { display: flex; align-items: center; gap: 8px; }
+.bfe-row2 { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.bfe-move { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+.bfe-mini {
+  width: 22px; height: 17px; padding: 0; line-height: 1;
+  border: 1px solid var(--line); background: var(--panel);
+  color: var(--muted); border-radius: 5px; cursor: pointer; font-size: 9px;
+}
+.bfe-mini:hover:not(:disabled) { color: var(--primary2); border-color: var(--primary); }
+.bfe-mini:disabled { opacity: .35; cursor: default; }
+.bfe-label { flex: 1; min-width: 0; margin: 0; }
+.bfe-label, .bfe-type, .bfe-options, .bfe-ph { font-size: 13px; }
+.bfe-type { width: auto; padding: 7px 30px 7px 10px; }
+.bfe-options, .bfe-ph { width: 100%; }
+.bfe-chk {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap;
+}
+.bfe-chk input { width: auto; }
+.bfe-tag {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  padding: 3px 8px; border-radius: 6px; background: var(--panel);
+  border: 1px solid var(--line); flex-shrink: 0; white-space: nowrap;
+}
+.bfe-del {
+  width: 30px; height: 30px; flex-shrink: 0; display: grid; place-items: center;
+  border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+  border-radius: 8px; cursor: pointer; transition: .14s;
+}
+.bfe-del:hover { color: var(--red); border-color: rgba(220,38,38,.4); background: rgba(220,38,38,.08); }
+/* Тумблер «показывать поле» */
+.bfe-switch { position: relative; display: inline-flex; flex-shrink: 0; width: 34px; height: 20px; cursor: pointer; }
+.bfe-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.bfe-switch span {
+  position: absolute; inset: 0; border-radius: 999px;
+  background: var(--line); transition: background .15s;
+}
+.bfe-switch span::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--panel); transition: transform .15s;
+}
+.bfe-switch input:checked + span { background: var(--primary); }
+.bfe-switch input:checked + span::after { transform: translateX(14px); }
+
 @media (max-width: 640px) {
-  .brief-fields { grid-template-columns: 1fr; }
+  .brief-card-item .brief-fields { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
   .brief-row { grid-template-columns: 1fr; }
@@ -4790,6 +4879,50 @@ body.portal-mode .nav { display: none !important; }
   select, input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="number"], textarea {
     font-size: 16px;
   }
+}
+
+/* ═══════════════════════════════════════════════════════
+   МОДАЛКИ КАК BOTTOM-SHEET НА ТЕЛЕФОНЕ (DESIGN.md §9)
+   На узких экранах модалка выезжает снизу и прижата к нижней
+   кромке — до неё легко дотянуться большим пальцем, закрытие
+   свайпом/тапом по фону естественнее, чем по центру экрана.
+   Только ≤640px; на планшете/десктопе — центрованная карточка.
+═══════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .modal-overlay,
+  .task-modal-overlay {
+    align-items: flex-end;
+  }
+  /* width:100% !important — единственный способ перебить инлайновые
+     width:min(...)/max-width:... на конкретных модалках (см. app.js);
+     оправданное исключение из «без !important», ограничено мобилой. */
+  .modal-box,
+  .admin-modal-box,
+  .client-modal-box,
+  .deal-modal-box,
+  .task-modal-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92dvh;
+    overflow-y: auto;
+    border-radius: 18px 18px 0 0;
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
+    animation: sheetUp .28s cubic-bezier(.32, .72, 0, 1);
+  }
+  /* Грип-хэндл — визуальный намёк «потяни/закрой» */
+  .modal-box::before,
+  .task-modal-box::before {
+    content: "";
+    display: block;
+    width: 36px; height: 4px;
+    margin: -4px auto 14px;
+    border-radius: 999px;
+    background: var(--line);
+  }
+}
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media (max-width: 640px) and (prefers-reduced-motion: reduce) {
+  .modal-box, .admin-modal-box, .client-modal-box, .deal-modal-box, .task-modal-box { animation: none; }
 }
 
 /* ── Estimate line bottom action bar ────────────────── */
