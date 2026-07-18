@@ -9681,10 +9681,11 @@
       }
 
       async function _loadBriefs() {
-        if (_briefsLoaded) return;
-        // Локальный/демо-режим (нет облачной сессии) — показываем страницу с пустым
-        // списком, а не бесконечный скелетон.
-        if (!_supabase || !_adminSession) { _briefsLoaded = true; render(); return; }
+        // ВАЖНО: не помечать _briefsLoaded при отсутствии сессии — на старте auth ещё
+        // проверяется (_adminSession null), и преждевременный флаг заблокировал бы реальную
+        // загрузку после логина (сбрасывается только при логауте). Просто выходим и
+        // повторим на следующем render(), когда сессия появится.
+        if (!_supabase || !_adminSession || _briefsLoaded) return;
         const agencyId = getAgencyId();
         try {
           const { data } = await _supabase.from('brief_submissions')
