@@ -7,6 +7,7 @@ const { assert, REPO_ROOT } = require("../harness");
 module.exports = async function ({ test }) {
   const index = fs.readFileSync(path.join(REPO_ROOT, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(REPO_ROOT, "style.css"), "utf8");
+  const app = fs.readFileSync(path.join(REPO_ROOT, "app.js"), "utf8");
   const head = index.slice(0, index.indexOf("</head>"));
 
   await test("нет Google Fonts (шрифты self-hosted)", () => {
@@ -19,19 +20,27 @@ module.exports = async function ({ test }) {
     assert(/url\(\s*["']?fonts\/[^)]*\.woff2/.test(css), "нет ссылки на локальный fonts/*.woff2");
   });
 
-  await test("все внешние CDN-скрипты имеют SRI (integrity)", () => {
-    const scripts = [...index.matchAll(/<script\b[^>]*\bsrc="https?:\/\/[^"]+"[^>]*>/g)].map((m) => m[0]);
-    assert(scripts.length >= 2, "ожидались внешние скрипты (supabase/vkid), найдено: " + scripts.length);
-    const noSri = scripts.filter((s) => !/integrity="sha\d+-/.test(s));
-    assert(noSri.length === 0, "внешние скрипты без SRI:\n" + noSri.join("\n"));
+  await test("supabase-js self-hosted; vkid SDK — self-hosted и грузится лениво", () => {
+    // Раньше оба грузились с jsdelivr (внешний CDN = точка отказа + утечка приватности).
+    assert(/<script\b[^>]*\bsrc="vendor\/supabase\.min\.js"/.test(index), "supabase-js не self-hosted (vendor/supabase.min.js)");
+    assert(fs.existsSync(path.join(REPO_ROOT, "vendor/supabase.min.js")), "нет файла vendor/supabase.min.js");
+    // vkid SDK убран из статических <script> — грузится лениво из app.js только на экране входа.
+    assert(!/<script\b[^>]*\bsrc="vendor\/vkid-sdk\.min\.js"/.test(index), "vkid SDK не должен быть статическим <script> — он ленивый");
+    assert(fs.existsSync(path.join(REPO_ROOT, "vendor/vkid-sdk.min.js")), "нет файла vendor/vkid-sdk.min.js");
+    assert(/_ensureVKIDSDK[\s\S]*vendor\/vkid-sdk\.min\.js/.test(app), "app.js не грузит vkid SDK лениво через _ensureVKIDSDK");
+    // В <head> не должно остаться всегда-загружаемых внешних скриптов (xlsx грузится лениво).
+    const externalInHead = [...head.matchAll(/<script\b[^>]*\bsrc="https?:\/\/[^"]+"[^>]*>/g)].map((m) => m[0])
+      .filter((s) => !/mc\.yandex\.ru|metrika/.test(s)); // Метрика — легитимный внешний скрипт
+    assert(externalInHead.length === 0, "в <head> остались внешние CDN-скрипты:\n" + externalInHead.join("\n"));
   });
 
   await test("xlsx не в статичном <head> (ленивая загрузка)", () => {
     assert(!/<script[^>]*xlsx/i.test(head), "xlsx-скрипт найден в <head> — должен грузиться лениво");
   });
 
-  await test("defer на app.js / supabase / vkid / metrika", () => {
-    for (const name of ["app\\.js", "supabase", "vkid", "metrika"]) {
+  await test("defer на статических скриптах (app.js / supabase / metrika)", () => {
+    // vkid здесь нет намеренно — он грузится лениво из app.js, а не статическим тегом.
+    for (const name of ["app\\.js", "supabase", "metrika"]) {
       const m = index.match(new RegExp("<script\\b[^>]*" + name + "[^>]*>"));
       assert(m, "нет скрипта " + name);
       assert(/\bdefer\b/.test(m[0]), name + ": тег без defer → " + m[0]);

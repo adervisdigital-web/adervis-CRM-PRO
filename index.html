@@ -56,8 +56,10 @@
   <noscript><div><img src="https://mc.yandex.ru/watch/109706942" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
 
   <!-- xlsx (~880 КБ) грузится лениво из app.js при первом экспорте/импорте Excel -->
-  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0/dist/umd/supabase.min.js" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@vkid/sdk@2.6.5/dist-sdk/umd/index.js" integrity="sha384-JGx8PqQgTKHJ3NNpGzvGgCAv6O5TuCDWO0tyF5jIrpc/Mr+DTp/5aLa8GD2z7OxX" crossorigin="anonymous"></script>
+  <!-- supabase-js 2.110.0 — self-hosted в vendor/ (раньше jsdelivr), нужен сразу для auth/данных.
+       vkid SDK (~170 КБ) грузится ЛЕНИВО из app.js (_ensureVKIDSDK) только на экране входа
+       с кнопкой VK — залогиненные пользователи его не тянут. Оба кэшируются SW. -->
+  <script defer src="vendor/supabase.min.js"></script>
 
   <link rel="stylesheet" href="style.css">
 </head>

@@ -1,9 +1,11 @@
-const CACHE_NAME = "adervis-crm-v71";
+const CACHE_NAME = "adervis-crm-v72";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./vendor/supabase.min.js",
+  "./vendor/vkid-sdk.min.js",
   "./manifest.json",
   "./logo-icon.svg",
   "./icon-192.png",

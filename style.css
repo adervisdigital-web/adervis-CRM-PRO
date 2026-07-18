@@ -73,8 +73,13 @@
       --text-warning: #fdba74;
 
       /* Darker hue shade — hover-darken for solid buttons, same in both themes */
-      --green-strong: #15803d;
-      --blue-strong:  #1d4ed8;
+      --green-strong:  #15803d;
+      --blue-strong:   #1d4ed8;
+      --yellow-strong: #e6af2e;
+
+      /* VK brand blue — фиксированный фирменный цвет VK, одинаков в обеих темах */
+      --vk-blue:       #0077ff;
+      --vk-blue-hover: #005fcc;
 
       /* Text on a saturated/colored background (buttons, badges) — same in both themes */
       --on-color: #fff;
@@ -970,7 +975,7 @@
       border-color: transparent;
       color: #1a1a1a;
     }
-    .btn.yellow:hover { background: #e6af2e; }
+    .btn.yellow:hover { background: var(--yellow-strong); }
 
     .btn.danger {
       background: var(--red);
@@ -3614,6 +3619,24 @@
       .modal-box { padding: 20px 16px; border-radius: 16px; }
     }
     @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* Единый диалог подтверждения/ввода (confirmDialog/promptDialog) — замена нативных
+       confirm()/prompt(). Наследует .modal-overlay/.modal-box, уже, кнопки справа. */
+    .confirm-dialog-box { width: min(400px, calc(100vw - 32px)); }
+    .confirm-dialog-title { margin: 0 0 8px; }
+    .confirm-dialog-msg {
+      color: var(--text2);
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-line;
+      margin: 0 0 22px;
+    }
+    .confirm-dialog-input { width: 100%; margin: 4px 0 22px; }
+    .confirm-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+    @media (max-width: 480px) {
+      .confirm-dialog-actions { flex-direction: column-reverse; }
+      .confirm-dialog-actions .btn { width: 100%; }
+    }
     .modal-type-switch {
       display: flex; gap: 6px; margin-bottom: 20px;
     }
@@ -4692,9 +4715,9 @@ body.portal-mode .nav { display: none !important; }
   justify-content: center; gap: 10px;
 }
 .oauth-btn.oauth-vk {
-  background: #0077ff; border-color: #0077ff; color: var(--on-color);
+  background: var(--vk-blue); border-color: var(--vk-blue); color: var(--on-color);
 }
-.oauth-btn.oauth-vk:hover { background: #005fcc; border-color: #005fcc; }
+.oauth-btn.oauth-vk:hover { background: var(--vk-blue-hover); border-color: var(--vk-blue-hover); }
 
 /* ── Toast close button ─────────────────────────────── */
 .toast { display: flex; align-items: center; gap: 2px; }

@@ -749,7 +749,7 @@
       (function() {
         const ref = (new URLSearchParams(location.search).get('ref') || '').trim();
         if (ref && /^[0-9a-f-]{36}$/i.test(ref)) {
-          localStorage.setItem('_refCode', ref);
+          lsSet('_refCode', ref);
         }
       })();
       let _portalData = null;
@@ -761,15 +761,36 @@
       let _allPortals = [];          // все КП агентства (client_portals) для раздела «Все КП»
       let _allPortalsLoaded = false;
       let _proposalsFilter = "all";  // all | sent | approved | paid
+      // Пагинация списка сделок: рендерим первые N, «показать ещё» доращивает лимит.
+      // При смене фильтра/тега/сортировки лимит сбрасывается (ключ _crmLimitKey).
+      const CRM_PAGE_SIZE = 30;
+      let _crmVisibleLimit = CRM_PAGE_SIZE;
+      let _crmLimitKey = "";
 
       const _DEFAULT_SB_URL    = "https://qzeylogyledmhjpzvgkk.supabase.co";
       const _DEFAULT_SB_KEY    = "sb_publishable_E9JgbQiA7namAFiZAAbZEQ_aBn11VgJ";
       const _DEFAULT_VK_APP_ID = "54626328";
 
+      // Безопасные обёртки над localStorage. Причины:
+      //  • Safari «Private» и встроенные webview кидают QuotaExceededError даже на первый setItem;
+      //  • при большом state (много сделок) JSON может не влезть в квоту (~5 МБ);
+      //  • доступ к самому объекту localStorage кидает SecurityError в «песочных» iframe.
+      // Раньше это могло уронить поток сохранения. Теперь сбой пишется в консоль и не ломает UI.
+      function lsGet(key) {
+        try { return localStorage.getItem(key); } catch (e) { console.warn("localStorage.getItem", key, e); return null; }
+      }
+      function lsSet(key, value) {
+        try { localStorage.setItem(key, value); return true; }
+        catch (e) { console.warn("localStorage.setItem не удался (квота/приватный режим):", key, e); return false; }
+      }
+      function lsRemove(key) {
+        try { localStorage.removeItem(key); } catch (e) { console.warn("localStorage.removeItem", key, e); }
+      }
+
       function getSupabaseConfig() {
         return {
-          url: localStorage.getItem("sb_url") || _DEFAULT_SB_URL,
-          key: localStorage.getItem("sb_key") || _DEFAULT_SB_KEY
+          url: lsGet("sb_url") || _DEFAULT_SB_URL,
+          key: lsGet("sb_key") || _DEFAULT_SB_KEY
         };
       }
 
@@ -867,12 +888,12 @@
           // — чистим localStorage чтобы новый пользователь не видел чужие сделки/клиентов.
           // Для нового пользователя defaultState() ставит view: "crm" — этого достаточно.
           const currentAgencyId = getAgencyId();
-          const lastAgencyId = localStorage.getItem(LAST_AGENCY_KEY);
+          const lastAgencyId = lsGet(LAST_AGENCY_KEY);
           if (!lastAgencyId || lastAgencyId !== currentAgencyId) {
             state = defaultState();
-            localStorage.removeItem(STORAGE_KEY);
+            lsRemove(STORAGE_KEY);
           }
-          localStorage.setItem(LAST_AGENCY_KEY, currentAgencyId);
+          lsSet(LAST_AGENCY_KEY, currentAgencyId);
           await _loadCloudState();
           // Демо-сделка для брэнд-нового аккаунта — после сброса state и загрузки
           // (пустого) облака, иначе снапшот бы её стёр. Аха-момент вместо пустого экрана.
@@ -944,11 +965,11 @@
             setTimeout(() => {
               if (joinedTeam) {
                 pushNotification("info", "👥 Вы вошли в команду!", "Теперь вы работаете в общем рабочем пространстве агентства.", "");
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                lsSet(STORAGE_KEY, JSON.stringify(state));
                 toast("👥 Вы присоединились к агентству!");
               } else {
                 pushNotification("info", "👋 Добро пожаловать в ADERVIS CRM!", "7 дней бесплатно и без карты. Начните с создания первой сделки!", "");
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                lsSet(STORAGE_KEY, JSON.stringify(state));
                 toast("🎉 Аккаунт создан! 7 дней бесплатного доступа.");
                 // Приветственный email — fire-and-forget, не блокируем UI
                 if (_adminSession) {
@@ -959,7 +980,7 @@
                     body: "{}",
                   }).catch(() => {});
                 }
-                if (localStorage.getItem("adervis_tour_done") !== "1") {
+                if (lsGet("adervis_tour_done") !== "1") {
                   setTimeout(startTour, 700);
                 }
               }
@@ -1102,16 +1123,16 @@
       }
 
       async function _applyReferralCode(userId) {
-        const refCode = localStorage.getItem('_refCode');
+        const refCode = lsGet('_refCode');
         if (!refCode || !_supabase || !_userProfile) return;
         // Не применяем если уже записан или это собственный agency_id
-        if (_userProfile.referred_by_agency_id) { localStorage.removeItem('_refCode'); return; }
-        if (refCode === _userProfile.agency_id) { localStorage.removeItem('_refCode'); return; }
+        if (_userProfile.referred_by_agency_id) { lsRemove('_refCode'); return; }
+        if (refCode === _userProfile.agency_id) { lsRemove('_refCode'); return; }
         await _supabase.from('profiles')
           .update({ referred_by_agency_id: refCode })
           .eq('id', userId)
           .is('referred_by_agency_id', null);
-        localStorage.removeItem('_refCode');
+        lsRemove('_refCode');
       }
 
       function getAgencyId() {
@@ -1377,7 +1398,7 @@
         const initials = (name[0] || "A").toUpperCase();
         const subLabel = getSubscriptionLabel();
 
-        const collapsed = localStorage.getItem("sidebar_collapsed") === "1";
+        const collapsed = lsGet("sidebar_collapsed") === "1";
         if (collapsed) el.classList.add("collapsed"); else el.classList.remove("collapsed");
 
         const activeProject = state.activeProjectId && state.project?.name ? state.project.name : "";
@@ -1470,15 +1491,15 @@
       }
 
       function toggleSidebar() {
-        const collapsed = localStorage.getItem("sidebar_collapsed") === "1";
-        localStorage.setItem("sidebar_collapsed", collapsed ? "0" : "1");
+        const collapsed = lsGet("sidebar_collapsed") === "1";
+        lsSet("sidebar_collapsed", collapsed ? "0" : "1");
         renderSidebar();
       }
 
       /* ─── НАСТРОЙКА МЕНЮ САЙДБАРА (показ/скрытие, порядок) ─── */
       function getSidebarNavConfig() {
         let saved;
-        try { saved = JSON.parse(localStorage.getItem("sidebar_nav_config") || "null"); } catch { saved = null; }
+        try { saved = JSON.parse(lsGet("sidebar_nav_config") || "null"); } catch { saved = null; }
         const defaultIds = SIDEBAR_NAV_DEFS.map(x => x.id);
         if (!Array.isArray(saved)) return defaultIds.map(id => ({ id, hidden: false }));
         const known = new Set(saved.map(x => x.id));
@@ -1488,7 +1509,7 @@
       }
 
       function saveSidebarNavConfig(config) {
-        localStorage.setItem("sidebar_nav_config", JSON.stringify(config));
+        lsSet("sidebar_nav_config", JSON.stringify(config));
       }
 
       let _sidebarNavPopoverOpen = false;
@@ -1628,7 +1649,7 @@
         const overlay = document.getElementById("tourOverlay");
         if (overlay) overlay.innerHTML = "";
         window.removeEventListener("resize", _tourReposition);
-        localStorage.setItem("adervis_tour_done", "1");
+        lsSet("adervis_tour_done", "1");
       }
 
       function renderAdminTopbar() {
@@ -1709,11 +1730,11 @@
         const url = document.getElementById("sb_url_input") && document.getElementById("sb_url_input").value.trim();
         const key = document.getElementById("sb_key_input") && document.getElementById("sb_key_input").value.trim();
         if (!url || !key) { toast("Введите URL и ключ"); return; }
-        localStorage.setItem("sb_url", url);
-        localStorage.setItem("sb_key", key);
+        lsSet("sb_url", url);
+        lsSet("sb_key", key);
         const vkId = (document.getElementById("vk_app_id_input")?.value || '').trim();
-        if (vkId) localStorage.setItem("vk_app_id", vkId);
-        else localStorage.removeItem("vk_app_id");
+        if (vkId) lsSet("vk_app_id", vkId);
+        else lsRemove("vk_app_id");
         toast("✅ Сохранено. Обновите страницу для подключения.");
       }
 
@@ -1873,7 +1894,7 @@
                       <span style="font-size:13px">Продолжить с Google</span>
                     </button>
                   </div>
-                  ${(localStorage.getItem('vk_app_id') || _DEFAULT_VK_APP_ID) ? `<div id="vkid-one-tap" class="mt-8"></div>` : ''}
+                  ${(lsGet('vk_app_id') || _DEFAULT_VK_APP_ID) ? `<div id="vkid-one-tap" class="mt-8"></div>` : ''}
 
                   <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:12px;color:var(--muted)">
                     Adervis · ИНН 592110786536 ·
@@ -1955,7 +1976,7 @@
               window.addEventListener("pagehide", () => {
                 const { url } = getSupabaseConfig();
                 const ref = (url.match(/https?:\/\/([^.]+)\./) || [])[1];
-                if (ref) localStorage.removeItem(`sb-${ref}-auth-token`);
+                if (ref) lsRemove(`sb-${ref}-auth-token`);
               }, { once: true });
             }
           }
@@ -2007,11 +2028,29 @@
       }
 
       let _vkidInited = false;
+      let _vkidSdkPromise = null;
+
+      // Ленивая загрузка vkid SDK (~170 КБ): нужен только на экране входа с кнопкой VK.
+      // Залогиненные пользователи (у них есть сессия) его больше не грузят и не парсят —
+      // раньше он висел статическим <script> в index.html и грузился всегда.
+      function _ensureVKIDSDK() {
+        if (window.VKIDSDK) return Promise.resolve();
+        if (_vkidSdkPromise) return _vkidSdkPromise;
+        _vkidSdkPromise = new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "vendor/vkid-sdk.min.js";
+          s.defer = true;
+          s.onload = () => resolve();
+          s.onerror = () => { _vkidSdkPromise = null; reject(new Error("VK ID SDK load failed")); };
+          document.head.appendChild(s);
+        });
+        return _vkidSdkPromise;
+      }
 
       function initVKIDWidget() {
         const sdk = window.VKIDSDK;
         if (!sdk || _vkidInited) return;
-        const appId = (localStorage.getItem('vk_app_id') || _DEFAULT_VK_APP_ID) || '';
+        const appId = (lsGet('vk_app_id') || _DEFAULT_VK_APP_ID) || '';
         if (!appId) return;
         const container = document.getElementById('vkid-one-tap');
         if (!container) return;
@@ -2103,13 +2142,13 @@
       function checkVKCallback() { /* stub — VK ID SDK работает без редиректа */ }
 
       function exitLocalModeAndLogin() {
-        localStorage.removeItem("adervis_local_mode");
+        lsRemove("adervis_local_mode");
         renderAuthGateEl();
         render();
       }
 
       function useLocalMode() {
-        localStorage.setItem("adervis_local_mode", "1");
+        lsSet("adervis_local_mode", "1");
         renderAuthGateEl();
         render();
       }
@@ -2118,14 +2157,14 @@
       function getUserSettings() {
         const uid = _adminSession && _adminSession.user.id;
         if (!uid) return { displayName: "", avatarDataUrl: "" };
-        try { return JSON.parse(localStorage.getItem("adervis_us_" + uid) || "{}"); }
+        try { return JSON.parse(lsGet("adervis_us_" + uid) || "{}"); }
         catch { return {}; }
       }
       function saveUserSettings(patch) {
         const uid = _adminSession && _adminSession.user.id;
         if (!uid) return;
         const cur = getUserSettings();
-        localStorage.setItem("adervis_us_" + uid, JSON.stringify({ ...cur, ...patch }));
+        lsSet("adervis_us_" + uid, JSON.stringify({ ...cur, ...patch }));
       }
 
       /* ─── TOPBAR DROPDOWNS: взаимное закрытие ─── */
@@ -2158,7 +2197,7 @@
         const el = document.getElementById('pwaInstallBanner');
         if (!el) return;
         if (!_deferredInstallPrompt) { el.innerHTML = ''; return; }
-        const dismissedAt = Number(localStorage.getItem(PWA_DISMISS_KEY) || 0);
+        const dismissedAt = Number(lsGet(PWA_DISMISS_KEY) || 0);
         if (dismissedAt && Date.now() - dismissedAt < PWA_DISMISS_DAYS * 86400000) { el.innerHTML = ''; return; }
         el.innerHTML = `
           <div class="pwa-install-toast">
@@ -2174,7 +2213,7 @@
       }
 
       function dismissPwaInstallBanner() {
-        localStorage.setItem(PWA_DISMISS_KEY, String(Date.now()));
+        lsSet(PWA_DISMISS_KEY, String(Date.now()));
         renderPwaInstallBanner();
       }
 
@@ -2270,7 +2309,7 @@
         if (!el) return;
         el.classList.toggle("open", _helpDdOpen);
         if (!_helpDdOpen) { el.innerHTML = ""; return; }
-        const seen = localStorage.getItem("adervis_onboarded") === "1";
+        const seen = lsGet("adervis_onboarded") === "1";
         el.innerHTML = `
           <div style="padding:6px 0">
             <div class="help-dd-section">Знакомство</div>
@@ -2513,14 +2552,14 @@
         if (!el) return;
         if (_briefAgencyId || _portalId) { el.innerHTML = ""; return; }
         const cfg = getSupabaseConfig();
-        const localMode = localStorage.getItem("adervis_local_mode") === "1";
+        const localMode = lsGet("adervis_local_mode") === "1";
         // Пока проверяем сохранённую сессию — auth gate не показываем (бесшовная загрузка)
         if (_authChecking || !cfg.url || !cfg.key || localMode || _adminSession) {
           el.innerHTML = "";
         } else {
           el.innerHTML = renderAuthGate();
           _vkidInited = false;
-          setTimeout(initVKIDWidget, 50);
+          setTimeout(() => _ensureVKIDSDK().then(initVKIDWidget).catch(e => console.warn("VK ID SDK:", e)), 50);
         }
       }
 
@@ -2860,9 +2899,9 @@
         loadAdminPanel();
       }
 
-      function _setExpenseBudget() {
+      async function _setExpenseBudget() {
         const cur = state.project.expenseBudget || 0;
-        const val = prompt("Плановый бюджет расходов:", cur || "");
+        const val = await promptDialog({ title: "Плановый бюджет расходов", defaultValue: cur || "", placeholder: "Напр. 50000", okText: "Сохранить" });
         if (val === null) return;
         const n = numberValue(val, 0);
         state.project.expenseBudget = n;
@@ -2899,7 +2938,7 @@
       async function adminToggleBlock(agencyId, currentStatus) {
         const newStatus = currentStatus === "blocked" ? "expired" : "blocked";
         const label = newStatus === "blocked" ? "Заблокировать" : "Разблокировать";
-        if (!confirm(`${label} пользователя?`)) return;
+        if (!(await confirmDialog({ title: label + " пользователя?", message: "Изменить статус подписки этого агентства?", okText: label, danger: newStatus === "blocked" }))) return;
         const { error } = await _supabase.rpc("admin_set_subscription", {
           p_agency_id: agencyId,
           p_status: newStatus,
@@ -3561,7 +3600,7 @@
                   <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Дайте этот код коллеге — при регистрации он вводит его и попадёт в ваше агентство.</p>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                     <code style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0">${escapeHtml(agencyId)}</code>
-                    <button class="btn small" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(agencyId)}').then(()=>app._toast('✅ Скопировано!'))">📋</button>
+                    <button class="btn small" onclick="app.copy('${escapeHtml(agencyId)}','✅ Скопировано!')">📋</button>
                   </div>
                   ${onlineList ? `<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="u-meta">Сейчас онлайн:</span>${onlineList}</div>` : ""}
                 ` : `<p style="font-size:13px;color:var(--muted);margin:0">Вы в команде агентства${onlineList ? ` · Онлайн: ${onlineList}` : ""}</p>`}
@@ -3590,7 +3629,7 @@
                 </p>
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
                   <code id="refLinkCode" style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0;color:var(--text2)">${refUrl}</code>
-                  <button class="btn small primary" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('refLinkCode').textContent.trim()).then(()=>app._toast('✅ Реферальная ссылка скопирована!'))">📋 Копировать</button>
+                  <button class="btn small primary" onclick="app.copy(document.getElementById('refLinkCode').textContent.trim(),'✅ Реферальная ссылка скопирована!')">📋 Копировать</button>
                 </div>
                 <div id="refStats" class="u-meta" aria-busy="true"><div class="skeleton" style="height:14px;width:240px"></div></div>
               </div>`;
@@ -3999,8 +4038,11 @@
       }
 
       async function confirmDeleteAccount() {
-        if (!confirm("Вы уверены? Аккаунт и все данные профиля будут удалены безвозвратно.")) return;
-        if (!confirm("Подтвердите ещё раз — удалить аккаунт?")) return;
+        if (!(await confirmDialog({
+          title: "Удалить аккаунт?",
+          message: "Аккаунт и все данные профиля будут удалены безвозвратно. Это действие нельзя отменить.",
+          okText: "Удалить навсегда", danger: true
+        }))) return;
         if (!_supabase) return;
         try {
           const { data: { session } } = await _supabase.auth.getSession();
@@ -4014,8 +4056,8 @@
             const body = await res.json().catch(() => ({}));
             toast("Ошибка удаления: " + (body.error || res.status)); return;
           }
-          localStorage.removeItem(STORAGE_KEY);
-          localStorage.removeItem(LAST_AGENCY_KEY);
+          lsRemove(STORAGE_KEY);
+          lsRemove(LAST_AGENCY_KEY);
           await _supabase.auth.signOut();
           toast("✅ Аккаунт удалён");
         } catch(e) { toast("Ошибка удаления: " + e.message); }
@@ -4114,7 +4156,7 @@
       }
       function closeHelpModal() {
         state.helpModal = false;
-        localStorage.setItem("adervis_onboarded", "1");
+        lsSet("adervis_onboarded", "1");
         renderModal();
       }
       function helpNext() {
@@ -4927,6 +4969,10 @@
         };
 
         return {
+          // Сначала переносим ВСЕ поля исходной сделки — чтобы новые поля, забытые в списке
+          // ниже, не терялись при сохранении (грабли v69: поле «бюджет» пропадало). Известные
+          // поля дальше нормализуются/типизируются поверх, snapshot пересобирается в конце.
+          ...project,
           id: project?.id || uid("project"),
           name: project?.name || project?.project?.name || "Проект",
           client: project?.client || project?.project?.client || "",
@@ -5105,7 +5151,7 @@
       }
 
       function load() {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = lsGet(STORAGE_KEY);
         if (!raw) {
           state = defaultState();
           return;
@@ -5127,7 +5173,7 @@
           return;
         }
         _needsNormalize = true;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        lsSet(STORAGE_KEY, JSON.stringify(state));
         scheduleAutoSave();
         broadcastState();
         saveToCloud();
@@ -5143,7 +5189,7 @@
 
       function setTheme(theme) {
         document.documentElement.setAttribute("data-theme", theme);
-        localStorage.setItem(THEME_KEY, theme);
+        lsSet(THEME_KEY, theme);
       }
 
       function toggleTheme() {
@@ -5158,6 +5204,136 @@
         el.classList.add("show");
         clearTimeout(toast._timer);
         toast._timer = setTimeout(() => el.classList.remove("show"), 3500);
+      }
+
+      // Единое копирование в буфер. navigator.clipboard есть не везде (http, старые webview,
+      // отзыв разрешения) и его промис может отклониться асинхронно — раньше это либо тихо
+      // проглатывалось (пустой catch), либо тост «скопировано» показывался даже при провале.
+      // Тут: пробуем современный API → фолбэк на execCommand → в крайнем случае prompt.
+      function copyToClipboard(text, okMsg) {
+        const ok = () => { if (okMsg) toast(okMsg); };
+        const fallback = () => {
+          try {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.setAttribute("readonly", "");
+            ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0";
+            document.body.appendChild(ta);
+            ta.select();
+            const done = document.execCommand("copy");
+            document.body.removeChild(ta);
+            if (done) { ok(); return; }
+          } catch (e) { console.warn("copy fallback:", e); }
+          try { window.prompt("Скопируйте ссылку вручную:", text); } catch (e) {}
+        };
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(ok).catch(fallback);
+          } else { fallback(); }
+        } catch (e) { fallback(); }
+      }
+
+      // Единый диалог подтверждения — замена нативного confirm(). Возвращает Promise<boolean>.
+      // Причины ухода от confirm(): нативный диалог блокирует поток, ломает стиль/тему,
+      // не переводится, недоступен в некоторых webview и жмётся «не глядя». Здесь — модалка
+      // в дизайне приложения с фокус-ловушкой, Esc/клик по фону = отмена.
+      function confirmDialog(opts) {
+        opts = opts || {};
+        const title = opts.title || "";
+        const message = opts.message || "";
+        const okText = opts.okText || "Подтвердить";
+        const cancelText = opts.cancelText || "Отмена";
+        const danger = !!opts.danger;
+        return new Promise(resolve => {
+          const prevFocus = document.activeElement;
+          const overlay = document.createElement("div");
+          overlay.className = "modal-overlay confirm-dialog-overlay";
+          overlay.setAttribute("role", "dialog");
+          overlay.setAttribute("aria-modal", "true");
+          if (title) overlay.setAttribute("aria-label", title);
+          overlay.innerHTML =
+            '<div class="modal-box confirm-dialog-box" tabindex="-1">' +
+              (title ? '<h2 class="u-title-20 confirm-dialog-title">' + escapeHtml(title) + '</h2>' : '') +
+              '<p class="confirm-dialog-msg">' + escapeHtml(message) + '</p>' +
+              '<div class="confirm-dialog-actions">' +
+                '<button type="button" class="btn confirm-cancel">' + escapeHtml(cancelText) + '</button>' +
+                '<button type="button" class="btn ' + (danger ? "danger" : "primary") + ' confirm-ok">' + escapeHtml(okText) + '</button>' +
+              '</div>' +
+            '</div>';
+          const done = result => {
+            document.removeEventListener("keydown", onKey, true);
+            overlay.remove();
+            try { if (prevFocus && document.body.contains(prevFocus)) prevFocus.focus(); } catch (e) {}
+            resolve(result);
+          };
+          const onKey = e => {
+            if (e.key === "Escape") { e.preventDefault(); done(false); }
+            else if (e.key === "Tab") {
+              const items = overlay.querySelectorAll("button");
+              if (!items.length) return;
+              const first = items[0], last = items[items.length - 1];
+              if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+              else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+            }
+          };
+          overlay.addEventListener("click", e => { if (e.target === overlay) done(false); });
+          overlay.querySelector(".confirm-cancel").addEventListener("click", () => done(false));
+          overlay.querySelector(".confirm-ok").addEventListener("click", () => done(true));
+          document.addEventListener("keydown", onKey, true);
+          document.body.appendChild(overlay);
+          overlay.querySelector(".confirm-ok").focus();
+        });
+      }
+
+      // Единый ввод строки — замена нативного prompt(). Возвращает Promise<string|null>
+      // (null = отмена). Мультистрочность/валидацию сознательно не тащим — как у prompt().
+      function promptDialog(opts) {
+        opts = opts || {};
+        const title = opts.title || "";
+        const okText = opts.okText || "OK";
+        const cancelText = opts.cancelText || "Отмена";
+        const defVal = opts.defaultValue != null ? String(opts.defaultValue) : "";
+        const placeholder = opts.placeholder || "";
+        return new Promise(resolve => {
+          const prevFocus = document.activeElement;
+          const overlay = document.createElement("div");
+          overlay.className = "modal-overlay confirm-dialog-overlay";
+          overlay.setAttribute("role", "dialog");
+          overlay.setAttribute("aria-modal", "true");
+          if (title) overlay.setAttribute("aria-label", title);
+          overlay.innerHTML =
+            '<div class="modal-box confirm-dialog-box" tabindex="-1">' +
+              (title ? '<h2 class="u-title-20 confirm-dialog-title">' + escapeHtml(title) + '</h2>' : '') +
+              '<input type="text" class="confirm-dialog-input" value="' + escapeHtml(defVal) + '" placeholder="' + escapeHtml(placeholder) + '">' +
+              '<div class="confirm-dialog-actions">' +
+                '<button type="button" class="btn confirm-cancel">' + escapeHtml(cancelText) + '</button>' +
+                '<button type="button" class="btn primary confirm-ok">' + escapeHtml(okText) + '</button>' +
+              '</div>' +
+            '</div>';
+          const input = overlay.querySelector(".confirm-dialog-input");
+          const done = result => {
+            document.removeEventListener("keydown", onKey, true);
+            overlay.remove();
+            try { if (prevFocus && document.body.contains(prevFocus)) prevFocus.focus(); } catch (e) {}
+            resolve(result);
+          };
+          const onKey = e => {
+            if (e.key === "Escape") { e.preventDefault(); done(null); }
+            else if (e.key === "Enter" && document.activeElement === input) { e.preventDefault(); done(input.value); }
+            else if (e.key === "Tab") {
+              const items = overlay.querySelectorAll("button, input");
+              const first = items[0], last = items[items.length - 1];
+              if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+              else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+            }
+          };
+          overlay.addEventListener("click", e => { if (e.target === overlay) done(null); });
+          overlay.querySelector(".confirm-cancel").addEventListener("click", () => done(null));
+          overlay.querySelector(".confirm-ok").addEventListener("click", () => done(input.value));
+          document.addEventListener("keydown", onKey, true);
+          document.body.appendChild(overlay);
+          input.focus(); input.select();
+        });
       }
 
       // Тост с кнопкой «Отменить» на 5 сек — замена confirm() для удаления клиента/
@@ -6421,7 +6597,7 @@
         render();
       }
 
-      function updateCatalogPrice(id, value) {
+      async function updateCatalogPrice(id, value) {
         const itemData = findItem(id, true);
         if (!itemData) return;
 
@@ -6430,7 +6606,7 @@
 
         if (!state.priceHistory[id]) state.priceHistory[id] = [];
         if (oldPrice !== nextPrice) {
-          const reason = prompt("Причина изменения цены:", "") || "";
+          const reason = (await promptDialog({ title: "Причина изменения цены", placeholder: "Необязательно", okText: "Сохранить" })) || "";
           state.priceHistory[id].push({
             at: new Date().toISOString(),
             from: oldPrice,
@@ -6523,9 +6699,9 @@
         render();
       }
 
-      function createVersion() {
+      async function createVersion() {
         const defaultName = `Версия от ${formatDate(new Date().toISOString())}`;
-        const name = prompt("Название версии:", defaultName);
+        const name = await promptDialog({ title: "Сохранить версию сметы", defaultValue: defaultName, okText: "Сохранить" });
         if (!name) return;
 
         const t = totals();
@@ -6551,10 +6727,10 @@
         render();
       }
 
-      function restoreVersion(id) {
+      async function restoreVersion(id) {
         const version = state.versions.find(x => x.id === id);
         if (!version) return;
-        if (!confirm("Восстановить эту версию сметы?")) return;
+        if (!(await confirmDialog({ title: "Восстановить версию?", message: "Текущая смета заменится этой сохранённой версией. Откатить можно через Ctrl+Z.", okText: "Восстановить" }))) return;
         saveHistory(); // Ctrl+Z возвращает смету к состоянию до восстановления версии
 
         state.selected = deepClone(version.selected || {});
@@ -6610,11 +6786,14 @@
         });
       }
 
-      function resetAllData() {
-        if (!confirm("Сбросить все данные приложения?")) return;
-        if (!confirm("Точно? Будут удалены проекты, клиенты, цены и настройки.")) return;
+      async function resetAllData() {
+        if (!(await confirmDialog({
+          title: "Сбросить все данные?",
+          message: "Будут удалены проекты, клиенты, цены и настройки этого устройства. Это действие нельзя отменить.",
+          okText: "Сбросить всё", danger: true
+        }))) return;
         state = defaultState();
-        localStorage.removeItem(STORAGE_KEY);
+        lsRemove(STORAGE_KEY);
         save();
         render();
         toast("Данные сброшены");
@@ -6700,8 +6879,8 @@
         render();
       }
 
-      function createPackage() {
-        const name = prompt("Название нового пакета:");
+      async function createPackage() {
+        const name = await promptDialog({ title: "Название нового пакета", placeholder: "Напр. «Съёмочный день»", okText: "Создать" });
         if (!name) return;
 
         const ids = selectedIds();
@@ -7348,6 +7527,12 @@
         render();
       }
 
+      // «Показать ещё» в списке сделок — доращиваем лимит пагинации на страницу.
+      function crmShowMore() {
+        _crmVisibleLimit += CRM_PAGE_SIZE;
+        render();
+      }
+
       function toggleCrmSelect(id) {
         if (!id) return;
         if (state.crmSelected[id]) delete state.crmSelected[id];
@@ -7445,7 +7630,7 @@
           updatedAt: new Date().toISOString(),
           snapshot: snap
         });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        lsSet(STORAGE_KEY, JSON.stringify(state));
       }
 
       function scheduleAutoSave() {
@@ -7669,6 +7854,32 @@
           _modalReturnFocus = null;
         }
         _lastModalKey = modalKey;
+      }
+
+      // Централизованный проход доступности после каждого render(). Дешевле и надёжнее,
+      // чем расставлять role/aria в десятках шаблонных строк: табы → tablist/tab+aria-selected,
+      // канбан-доска и колонки → семантические группы с подписями. Идемпотентен.
+      function _enhanceA11y(root) {
+        root = root || document.getElementById("appContent");
+        if (!root) return;
+        // Табы (сметы, сделки, авторизации, пакетов, каталога и т.п.)
+        root.querySelectorAll("button.tab, button.deal-tab, button.auth-tab").forEach(btn => {
+          btn.setAttribute("role", "tab");
+          btn.setAttribute("aria-selected", btn.classList.contains("active") ? "true" : "false");
+          const bar = btn.parentElement;
+          if (bar && bar.getAttribute("role") !== "tablist") bar.setAttribute("role", "tablist");
+        });
+        // Канбан: доска и колонки — группы; заголовок колонки становится её подписью.
+        root.querySelectorAll(".kanban").forEach(board => {
+          if (!board.hasAttribute("role")) board.setAttribute("role", "group");
+          board.querySelectorAll(".kanban-col").forEach(col => {
+            col.setAttribute("role", "group");
+            if (!col.hasAttribute("aria-label")) {
+              const h = col.querySelector(".kanban-col-head, .kanban-col-title, .col-title, h3, h4");
+              if (h) col.setAttribute("aria-label", h.textContent.trim().replace(/\s+/g, " "));
+            }
+          });
+        });
       }
 
       function renderFinanceModal() {
@@ -8660,8 +8871,7 @@
           state.project.deliveryTerms || ""
         ].filter(Boolean).join("\n");
 
-        navigator.clipboard?.writeText(text);
-        toast("Текст КП скопирован");
+        copyToClipboard(text, "Текст КП скопирован");
       }
 
       function printProposal() {
@@ -8865,15 +9075,20 @@
           return;
         }
 
-        if (localStorage.getItem('adervis_local_mode') !== '1' && !isSubscriptionActive() && _adminSession) {
+        if (lsGet('adervis_local_mode') !== '1' && !isSubscriptionActive() && _adminSession) {
           root.innerHTML = renderSubscriptionGate();
           return;
         }
         try {
           const viewChanged = root.dataset.view !== state.view;
           root.dataset.view = state.view;
+          // Пересборка #appContent через innerHTML сбрасывает прокрутку страницы наверх —
+          // из-за чего при вводе в длинном списке/смете экран прыгал к началу на каждый render().
+          // Сохраняем позицию и возвращаем её, если вид не менялся (при смене вида — наверх, естественно).
+          const prevScrollY = viewChanged ? 0 : window.scrollY;
           if (viewChanged) root.classList.add("view-fade");
           root.innerHTML = (views[state.view] || renderHome)();
+          if (!viewChanged && prevScrollY) window.scrollTo(0, prevScrollY);
           if (viewChanged) { cancelAnimationFrame(_fadeRaf); _fadeRaf = requestAnimationFrame(() => root.classList.remove("view-fade")); }
         } catch(err) {
           console.error("Render error:", err);
@@ -8907,6 +9122,7 @@
           }
         }
         bindDynamicInputs();
+        _enhanceA11y(root);
         renderModal();
         renderAdminTopbar();
         renderAuthGateEl();
@@ -9012,6 +9228,11 @@
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className = "uu-select-btn";
+          // A11y: кнопка ведёт себя как combobox, раскрывающий listbox.
+          btn.setAttribute("aria-haspopup", "listbox");
+          btn.setAttribute("aria-expanded", "false");
+          const selName = sel.getAttribute("aria-label") || (sel.labels && sel.labels[0] && sel.labels[0].textContent.trim());
+          if (selName) btn.setAttribute("aria-label", selName);
           if (sel.disabled) btn.disabled = true;
           const sync = () => {
             const o = sel.options[sel.selectedIndex];
@@ -9030,10 +9251,15 @@
         _closeUUSelect();
         const dd = document.createElement("div");
         dd.className = "uu-select-dd";
+        dd.setAttribute("role", "listbox");
+        const btnLabel = btn.getAttribute("aria-label");
+        if (btnLabel) dd.setAttribute("aria-label", btnLabel);
         Array.from(sel.options).forEach((o, i) => {
           const item = document.createElement("button");
           item.type = "button";
           item.className = "uu-select-opt" + (i === sel.selectedIndex ? " active" : "");
+          item.setAttribute("role", "option");
+          item.setAttribute("aria-selected", i === sel.selectedIndex ? "true" : "false");
           item.textContent = o.text;
           if (o.disabled) { item.disabled = true; item.style.opacity = ".45"; }
           item.addEventListener("click", e => {
@@ -9041,11 +9267,23 @@
             if (o.disabled) return;
             if (sel.value !== o.value) { sel.value = o.value; sel.dispatchEvent(new Event("change", { bubbles: true })); }
             if (sel._uuSync) sel._uuSync();
-            _closeUUSelect();
+            _closeUUSelect(true);
           });
           dd.appendChild(item);
         });
+        // Клавиатура: ↑/↓ перемещают фокус по опциям, Home/End — край, Esc — закрыть.
+        dd.addEventListener("keydown", e => {
+          const opts = Array.from(dd.querySelectorAll(".uu-select-opt:not([disabled])"));
+          if (!opts.length) return;
+          const idx = opts.indexOf(document.activeElement);
+          if (e.key === "ArrowDown") { e.preventDefault(); (opts[idx + 1] || opts[0]).focus(); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); (opts[idx - 1] || opts[opts.length - 1]).focus(); }
+          else if (e.key === "Home") { e.preventDefault(); opts[0].focus(); }
+          else if (e.key === "End") { e.preventDefault(); opts[opts.length - 1].focus(); }
+          else if (e.key === "Escape") { e.preventDefault(); _closeUUSelect(true); }
+        });
         document.body.appendChild(dd);
+        btn.setAttribute("aria-expanded", "true");
         const r = btn.getBoundingClientRect();
         const ddH = Math.min(dd.scrollHeight, 300);
         dd.style.left = r.left + "px";
@@ -9054,17 +9292,21 @@
         if (r.bottom + ddH + 8 > window.innerHeight && r.top > ddH + 8) dd.style.top = (r.top - ddH - 4) + "px";
         else dd.style.top = (r.bottom + 4) + "px";
         requestAnimationFrame(() => dd.classList.add("open"));
-        const active = dd.querySelector(".uu-select-opt.active");
-        if (active) active.scrollIntoView({ block: "nearest" });
+        const active = dd.querySelector(".uu-select-opt.active") || dd.querySelector(".uu-select-opt:not([disabled])");
+        if (active) { active.scrollIntoView({ block: "nearest" }); active.focus(); }
         btn.classList.add("uu-open");
         _uuOpen = { dd, btn };
       }
 
-      function _closeUUSelect() {
+      function _closeUUSelect(returnFocus) {
         if (!_uuOpen) return;
+        const btn = _uuOpen.btn;
         _uuOpen.dd.remove();
-        _uuOpen.btn.classList.remove("uu-open");
+        btn.classList.remove("uu-open");
+        btn.setAttribute("aria-expanded", "false");
         _uuOpen = null;
+        // Возврат фокуса на кнопку после выбора/Esc — чтобы Tab продолжился логично.
+        if (returnFocus) { try { btn.focus(); } catch (e) {} }
       }
 
       document.addEventListener("click", () => { if (_uuOpen) _closeUUSelect(); });
@@ -9336,14 +9578,7 @@
       }
 
       function copyBriefLink() {
-        const link = getBriefLink();
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(link).then(() => toast('Ссылка скопирована!')).catch(() => {
-            prompt('Скопируйте ссылку:', link);
-          });
-        } else {
-          prompt('Скопируйте ссылку:', link);
-        }
+        copyToClipboard(getBriefLink(), 'Ссылка скопирована!');
       }
 
       async function _loadBriefs() {
@@ -9376,8 +9611,7 @@
 
       function copyPortalLink(portalId) {
         const link = location.origin + location.pathname + '?portal=' + portalId;
-        try { navigator.clipboard.writeText(link); } catch (e) {}
-        toast('🔗 Ссылка на КП скопирована');
+        copyToClipboard(link, '🔗 Ссылка на КП скопирована');
       }
 
       function _portalStatus(p) {
@@ -9859,7 +10093,7 @@
       }
 
       function renderOnboardingChecklist(projects) {
-        if (localStorage.getItem('_onboardingDismissed')) return '';
+        if (lsGet('_onboardingDismissed')) return '';
         if (!_userProfile || _userProfile.subscription_status !== 'trial') return '';
         // Демо-сделка (__demo) засеяна автоматически при регистрации — не засчитываем её как
         // реальный прогресс, иначе шаги «Создайте сделку»/«Добавьте услуги» выглядят
@@ -9881,7 +10115,7 @@
           },
           {
             label: 'Поделитесь КП с клиентом',
-            done: !!localStorage.getItem('_onboardingPortalDone'),
+            done: !!lsGet('_onboardingPortalDone'),
             action: firstDealId ? `app.createClientPortal('${firstDealId}')` : "app.startWizard()",
             btn: "Создать КП"
           },
@@ -9902,7 +10136,7 @@
                 <div style="font-weight:700;font-size:14px;margin-bottom:2px">🚀 Начало работы</div>
                 <div class="u-meta">${done} из ${steps.length - 1} шагов выполнено</div>
               </div>
-              <button onclick="localStorage.setItem('_onboardingDismissed','1');app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Скрыть">×</button>
+              <button onclick="try{localStorage.setItem('_onboardingDismissed','1')}catch(e){};app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Скрыть">×</button>
             </div>
             <div style="height:4px;background:var(--line);border-radius:999px;margin-bottom:12px">
               <div style="height:100%;width:${pct}%;background:var(--primary);border-radius:999px;transition:.4s"></div>
@@ -9970,6 +10204,13 @@
           .filter(p => !tagFilter || (p.tags || []).includes(tagFilter))
           // Закреплённые — всегда наверх; внутри — по выбранной сортировке (sort стабилен)
           .slice().sort((a, b) => ((b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)) || sortCmp(a, b));
+
+        // Пагинация: при 100+ сделках не держим все карточки в DOM (тяжело на мобильных,
+        // усугубляется полной пересборкой на каждый render). Показываем первые N.
+        const _crmKey = filter + "|" + tagFilter + "|" + sortMode;
+        if (_crmKey !== _crmLimitKey) { _crmLimitKey = _crmKey; _crmVisibleLimit = CRM_PAGE_SIZE; }
+        const pagedItems = visibleItems.slice(0, _crmVisibleLimit);
+        const crmHiddenCount = visibleItems.length - pagedItems.length;
 
         const totalPipeline = projects.filter(p => !["Сдано", "Завершённые", CRM_ARCHIVED].includes(p.crmStatus || "Лид"))
           .reduce((s, p) => s + (p.total || 0), 0);
@@ -10201,7 +10442,7 @@
               })()}
               ${state.crmView === "list" ? `
               <div class="panel" style="padding:0;overflow:hidden">
-                ${visibleItems.map(project => {
+                ${pagedItems.map(project => {
                   const payPct = project.total > 0 ? Math.min(100, Math.round((project.paid||0)/project.total*100)) : 0;
                   const isCurrent = project.id === state.activeProjectId;
                   const u = project.deadline ? deadlineUrgency(project.deadline) : null;
@@ -10229,7 +10470,7 @@
                 }).join("")}
               </div>
               ` : `<div class="grid three deal-cards-grid">
-                ${visibleItems.map(project => {
+                ${pagedItems.map(project => {
                   const margin = project.revenue > 0 ? Math.round((project.profit || 0) / project.revenue * 100) : 0;
                   const healthClass = margin >= 40 ? "green" : margin >= 20 ? "yellow" : margin > 0 ? "red" : "grey";
                   const nextLabel = CRM_NEXT[project.crmStatus || "Лид"];
@@ -10349,6 +10590,10 @@
                   `;
                 }).join("")}
               </div>`}
+              ${crmHiddenCount > 0 ? `
+                <div style="display:flex;justify-content:center;margin-top:16px">
+                  <button class="btn" onclick="app.crmShowMore()">Показать ещё ${Math.min(CRM_PAGE_SIZE, crmHiddenCount)} · осталось ${crmHiddenCount}</button>
+                </div>` : ""}
             ` : `
               ${filter === "all"
                 ? emptyState({
@@ -14060,6 +14305,33 @@
         event.target.value = "";
       }
 
+      // Секция «Уведомления (Telegram)» — вынесена из renderSettings (self-contained, читает
+      // только state.telegramChatIds). Первый шаг декомпозиции длинной renderSettings.
+      function renderSettingsTelegram() {
+        return `
+            <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
+              <h2>Уведомления (Telegram)</h2>
+              <p style="font-size:13px;color:var(--text2);margin-bottom:14px">
+                Напишите боту <a href="https://t.me/adervis_crm_bot" target="_blank" style="color:var(--primary)">@adervis_crm_bot</a> команду <code>/start</code> — он пришлёт Chat ID. Добавьте столько получателей, сколько нужно.
+              </p>
+              ${(state.telegramChatIds || []).map(r => `
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+                  <input placeholder="Имя (необязательно)" value="${escapeHtml(r.name)}"
+                    style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input);color:var(--text);font-size:13px"
+                    oninput="app.setTelegramRecipientField('${r.id}','name',this.value)">
+                  <input placeholder="Chat ID" value="${escapeHtml(r.chatId)}"
+                    style="flex:1;min-width:130px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input);color:var(--text);font-size:13px;font-family:monospace"
+                    oninput="app.setTelegramRecipientField('${r.id}','chatId',this.value)">
+                  <button class="btn" onclick="app.testTelegramRecipient('${r.id}')" style="font-size:12px;padding:7px 12px">Проверить</button>
+                  <button class="icon-del-btn" onclick="app.removeTelegramRecipient('${r.id}')" title="Удалить получателя" aria-label="Удалить получателя">${TRASH_SVG}</button>
+                </div>
+              `).join("")}
+              <button class="btn" onclick="app.addTelegramRecipient()" style="margin-top:4px">+ Добавить получателя</button>
+              <p style="font-size:12px;color:var(--muted);margin-top:12px">Уведомления: просроченные дедлайны, смена статуса сделки.</p>
+            </div>
+        `;
+      }
+
       function renderSettings() {
         return `
           <div class="panel">
@@ -14256,7 +14528,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <div class="grid two" style="margin-bottom:14px">
                   <div class="field">
                     <label>VK App ID <span class="u-meta">(для авторизации через VK)</span></label>
-                    <input id="vk_app_id_input" placeholder="12345678" value="${escapeHtml((localStorage.getItem('vk_app_id') || _DEFAULT_VK_APP_ID) || '')}">
+                    <input id="vk_app_id_input" placeholder="12345678" value="${escapeHtml((lsGet('vk_app_id') || _DEFAULT_VK_APP_ID) || '')}">
                   </div>
                 </div>
                 <div class="toolbar" style="margin-bottom:${_adminSession ? "14px" : "0"}">
@@ -14346,26 +14618,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <span style="font-size:12px;color:var(--muted);opacity:.55">v${APP_VERSION}</span>
             </div>
 
-            <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
-              <h2>Уведомления (Telegram)</h2>
-              <p style="font-size:13px;color:var(--text2);margin-bottom:14px">
-                Напишите боту <a href="https://t.me/adervis_crm_bot" target="_blank" style="color:var(--primary)">@adervis_crm_bot</a> команду <code>/start</code> — он пришлёт Chat ID. Добавьте столько получателей, сколько нужно.
-              </p>
-              ${(state.telegramChatIds || []).map(r => `
-                <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-                  <input placeholder="Имя (необязательно)" value="${escapeHtml(r.name)}"
-                    style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input);color:var(--text);font-size:13px"
-                    oninput="app.setTelegramRecipientField('${r.id}','name',this.value)">
-                  <input placeholder="Chat ID" value="${escapeHtml(r.chatId)}"
-                    style="flex:1;min-width:130px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input);color:var(--text);font-size:13px;font-family:monospace"
-                    oninput="app.setTelegramRecipientField('${r.id}','chatId',this.value)">
-                  <button class="btn" onclick="app.testTelegramRecipient('${r.id}')" style="font-size:12px;padding:7px 12px">Проверить</button>
-                  <button class="icon-del-btn" onclick="app.removeTelegramRecipient('${r.id}')" title="Удалить получателя" aria-label="Удалить получателя">${TRASH_SVG}</button>
-                </div>
-              `).join("")}
-              <button class="btn" onclick="app.addTelegramRecipient()" style="margin-top:4px">+ Добавить получателя</button>
-              <p style="font-size:12px;color:var(--muted);margin-top:12px">Уведомления: просроченные дедлайны, смена статуса сделки.</p>
-            </div>
+            ${renderSettingsTelegram()}
 
             ${(() => {
               if (!_adminSession || !_userProfile) return "";
@@ -14383,7 +14636,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
                   <input readonly onclick="this.select()" value="${escapeHtml(feedUrl)}"
                     style="flex:1;font-size:12px;min-width:0;background:rgba(0,0,0,.15);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--fg);cursor:text">
-                  <button class="btn small" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(feedUrl)}').then(()=>app._toast('✅ Ссылка скопирована!'))">📋 Копировать</button>
+                  <button class="btn small" onclick="app.copy('${escapeHtml(feedUrl)}','✅ Ссылка скопирована!')">📋 Копировать</button>
                   <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none;white-space:nowrap">📱 Открыть на iPhone</a>
                 </div>
                 <details class="u-meta">
@@ -14600,7 +14853,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                       <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5">Подпишитесь на ссылку — дедлайн проекта появится в вашем Google Calendar, iPhone или Outlook автоматически, без входа и паролей.</p>
                       <div style="display:flex;gap:8px;flex-wrap:wrap">
                         <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none">📱 Добавить в календарь</a>
-                        <button class="btn small" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(feedUrl)}').then(()=>app._toast('✅ Ссылка скопирована!'))">📋 Копировать ссылку</button>
+                        <button class="btn small" onclick="app.copy('${escapeHtml(feedUrl)}','✅ Ссылка скопирована!')">📋 Копировать ссылку</button>
                       </div>
                     </div>
                   `;
@@ -14626,7 +14879,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       async function loadPortalData() {
         const { url, key } = getSupabaseConfig();
         if (!url || !key || !window.supabase) { _portalLoaded = true; render(); return; }
-        if (!_supabase) { try { _supabase = window.supabase.createClient(url, key); } catch(e) {} }
+        if (!_supabase) { try { _supabase = window.supabase.createClient(url, key); } catch(e) { console.warn('createClient (portal):', e); } }
         if (!_supabase) { _portalLoaded = true; render(); return; }
         try {
           const { data, error } = await _supabase
@@ -14636,9 +14889,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             _portalData = data;
             // Notify agency once per 30 min per portal (localStorage gate)
             const notifKey = 'portal_notif_' + _portalId;
-            const lastNotif = parseInt(localStorage.getItem(notifKey) || '0');
+            const lastNotif = parseInt(lsGet(notifKey) || '0');
             if (Date.now() - lastNotif > 30 * 60 * 1000) {
-              localStorage.setItem(notifKey, String(Date.now()));
+              lsSet(notifKey, String(Date.now()));
               try {
                 const { url } = getSupabaseConfig();
                 fetch(url + '/functions/v1/agency-notify', {
@@ -15317,7 +15570,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!state.clientModal) return;
         state.clientModal[key] = value;
       }
-      function saveClientModal() {
+      async function saveClientModal() {
         const m = state.clientModal;
         if (!m) return;
         if (m.phone && !validatePhone(m.phone)) {
@@ -15334,7 +15587,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             return false;
           });
           if (dup) {
-            if (!confirm(`Возможный дубль: клиент «${dup.name}» с таким же ${phone && dup.phone?.replace(/\D/g,"")===phone?"телефоном":"email"} уже существует.\n\nСоздать нового клиента?`)) return;
+            const field = phone && dup.phone?.replace(/\D/g,"") === phone ? "телефоном" : "email";
+            if (!(await confirmDialog({
+              title: "Возможный дубль",
+              message: `Клиент «${dup.name}» с таким же ${field} уже существует. Всё равно создать нового?`,
+              okText: "Создать"
+            }))) return;
           }
           const created = normalizeClient({ ...m, name: String(m.name || "").trim() || "Новый клиент" });
           state.clients = [created, ...(state.clients || [])];
@@ -16597,7 +16855,7 @@ Email: ______________________            Email: ______________________
       }
 
       function initTheme() {
-        const savedTheme = localStorage.getItem(THEME_KEY);
+        const savedTheme = lsGet(THEME_KEY);
 
         if (savedTheme === "light" || savedTheme === "dark") {
           setTheme(savedTheme);
@@ -16757,6 +17015,7 @@ Email: ______________________            Email: ______________________
 
         setDealView,
         setCrmFilter,
+        crmShowMore,
         setCrmTagFilter,
         exportClientsXlsx,
         showBriefQR,
@@ -16977,13 +17236,14 @@ Email: ______________________            Email: ______________________
         removeTelegramRecipient,
         setTelegramRecipientField,
         testTelegramRecipient,
+        copy: copyToClipboard,
       };
 
       function checkDeadlineNotifications() {
         const today = todayIso();
         const notifKey = "adervis_deadline_notif_" + today;
-        if (localStorage.getItem(notifKey)) return; // check once per day
-        localStorage.setItem(notifKey, "1");
+        if (lsGet(notifKey)) return; // check once per day
+        lsSet(notifKey, "1");
         const projects = state.savedProjects || [];
         const tgLines = [];
         projects.forEach(proj => {
@@ -16994,7 +17254,7 @@ Email: ______________________            Email: ______________________
           pushNotification("deadline", icon + " " + (proj.name || "Проект"), u.label + (proj.client ? " · " + proj.client : ""), proj.id);
           tgLines.push(`${icon} <b>${escapeHtml(proj.name || "Проект")}</b> — ${u.label}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
         });
-        if (tgLines.length) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        if (tgLines.length) lsSet(STORAGE_KEY, JSON.stringify(state));
         if (tgLines.length) {
           if ((state.telegramChatIds || []).length) {
             sendTelegramNotification("⏰ Дедлайны Adervis CRM:\n\n" + tgLines.join("\n"));
@@ -17033,10 +17293,10 @@ Email: ______________________            Email: ______________________
       // Принудительное localStorage-сохранение перед закрытием вкладки
       // (pagehide надёжнее beforeunload на мобиле/iOS)
       window.addEventListener('pagehide', () => {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+        try { lsSet(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
       });
       window.addEventListener('beforeunload', () => {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+        try { lsSet(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
       });
 
       window.addEventListener('beforeinstallprompt', (e) => {
