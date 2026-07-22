@@ -4417,18 +4417,21 @@
     .plan-save { font-size: 12px; color: var(--green); font-weight: 700; margin-top: 4px; }
 
     /* ── KNOWLEDGE BASE ────────────────────────────── */
+    /* Приведено к общему языку пустых состояний (.empty/.empty__icon): 1px пунктир,
+       radius var(--radius), круглая иконка на --primary-bg без своей рамки —
+       раньше kb-new-card (эта плитка + «+ Новый клиент») была толще/квадратнее. */
     .kb-new-card {
-      background: var(--panel2); border: 2px dashed var(--line);
-      border-radius: 14px; padding: 16px; cursor: pointer; transition: .14s;
+      background: var(--panel2); border: 1px dashed var(--line);
+      border-radius: var(--radius); padding: 16px; cursor: pointer; transition: .14s;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 10px; min-height: 130px; color: var(--muted);
     }
     .kb-new-card:hover { border-color: var(--primary2); color: var(--primary2); background: rgba(124,58,237,.06); }
     .kb-new-icon {
-      width: 44px; height: 44px; border-radius: 12px;
-      background: rgba(124,58,237,.12); border: 1px dashed rgba(124,58,237,.3);
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--primary-bg);
       display: flex; align-items: center; justify-content: center;
-      font-size: 24px; font-weight: 300; color: var(--primary2); transition: .14s;
+      font-size: 22px; font-weight: 400; color: var(--primary2); transition: .14s;
     }
     .kb-new-card:hover .kb-new-icon { background: rgba(124,58,237,.2); }
     .kb-new-label { font-size: 13px; font-weight: 600; }
