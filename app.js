@@ -4389,7 +4389,11 @@
         tasks: `<path d="M2 3h2v2H2V3zm4 0h8v1.5H6V3zM2 7h2v2H2V7zm4 .25h8v1.5H6v-1.5zM2 11h2v2H2v-2zm4 .25h8v1.5H6v-1.5z"/>`,
         calendar: `<path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/>`,
         box: `<path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/>`,
-        money: `<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/>`
+        money: `<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/>`,
+        trendUp: `<path d="M3 11.5L8 6.5L13 11.5L14.5 10L8 3.5L1.5 10Z"/>`,
+        trendDown: `<path d="M3 4.5L8 9.5L13 4.5L14.5 6L8 12.5L1.5 6Z"/>`,
+        funnel: `<path d="M1 2L15 2L9.5 8.5L9.5 13L6 14.5L6 8.5Z"/>`,
+        target: `<path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z"/>`
       };
 
       // Единый вид пустых состояний во всех разделах.
@@ -10615,53 +10619,71 @@
             <!-- ── STAT STRIP ─────────────────────────────── -->
             <div class="db-stat-row">
               <div class="db-stat" onclick="app.go('global-finances')">
+                <div class="db-stat-icon" style="background:rgba(22,163,74,.18);color:#86efac"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></div>
                 <div class="db-stat-label">Выручка / мес</div>
                 <div class="db-stat-value">${money(monthRevenue)}</div>
                 <div class="db-stat-delta ${revDelta!==null?(revDelta>=0?"pos":"neg"):"neu"}">${revDelta!==null?(revDelta>=0?"↑ ":"↓ ")+Math.abs(revDelta)+"% к прошлому":"нет данных"}</div>
+                <div class="db-stat-bar"><span style="background:var(--green);width:${revDelta!==null?Math.min(100,Math.abs(revDelta)):40}%"></span></div>
               </div>
               <div class="db-stat" onclick="app.go('global-finances')">
+                <div class="db-stat-icon" style="background:rgba(220,38,38,.15);color:#fca5a5"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.trendDown}</svg></div>
                 <div class="db-stat-label">Расходы / мес</div>
                 <div class="db-stat-value" style="${monthExpenses>0?"color:var(--red)":""}">${money(monthExpenses)}</div>
                 <div class="db-stat-delta neu">${curMonthName}</div>
+                <div class="db-stat-bar"><span style="background:var(--red);width:${monthExpenses>0?60:0}%"></span></div>
               </div>
               <div class="db-stat" onclick="app.go('global-finances')">
+                <div class="db-stat-icon" style="background:${monthProfit>=0?"rgba(22,163,74,.18);color:#86efac":"rgba(220,38,38,.15);color:#fca5a5"}"><svg viewBox="0 0 16 16" fill="currentColor">${monthProfit>=0?EMPTY_ICON_PATHS.trendUp:EMPTY_ICON_PATHS.trendDown}</svg></div>
                 <div class="db-stat-label">Прибыль / мес</div>
                 <div class="db-stat-value" style="color:${monthProfit>=0?"var(--green)":"var(--red)"}">${money(monthProfit)}</div>
                 <div class="db-stat-delta ${monthProfit>=0?"pos":"neg"}">${monthProfit>=0?"доход":"убыток"}</div>
+                <div class="db-stat-bar"><span style="background:${monthProfit>=0?"var(--green)":"var(--red)"};width:60%"></span></div>
               </div>
               <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')">
+                <div class="db-stat-icon" style="background:${totalDebt>0?"rgba(234,88,12,.18);color:#fdba74":"rgba(22,163,74,.18);color:#86efac"}"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></div>
                 <div class="db-stat-label">Долг клиентов</div>
                 <div class="db-stat-value" style="${totalDebt>0?"color:var(--orange)":"color:var(--green)"}">${money(totalDebt)}</div>
                 <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
+                <div class="db-stat-bar"><span style="background:${totalDebt>0?"var(--orange)":"var(--green)"};width:${totalDebt>0?60:100}%"></span></div>
               </div>
               <div class="db-stat">
+                <div class="db-stat-icon" style="background:rgba(124,58,237,.18);color:#c4b5fd"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.funnel}</svg></div>
                 <div class="db-stat-label">Воронка</div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>
                 <div class="db-stat-delta neu">${projects.filter(p=>!["Сдано","Завершённые",CRM_ARCHIVED].includes(p.crmStatus||"Лид")).length} активных</div>
+                <div class="db-stat-bar"><span style="background:var(--primary2);width:60%"></span></div>
               </div>
               <div class="db-stat">
+                <div class="db-stat-icon" style="background:rgba(37,99,235,.18);color:#93c5fd"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.tasks}</svg></div>
                 <div class="db-stat-label">В работе</div>
                 <div class="db-stat-value">${inWork}</div>
                 <div class="db-stat-delta neu">${closedCount} закрыто</div>
+                <div class="db-stat-bar"><span style="background:var(--blue);width:60%"></span></div>
               </div>
               <div class="db-stat">
+                <div class="db-stat-icon" style="background:rgba(8,145,178,.18);color:#67e8f9"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.doc}</svg></div>
                 <div class="db-stat-label">Ср. чек</div>
                 <div class="db-stat-value">${avgDeal>0?money(avgDeal):"—"}</div>
                 <div class="db-stat-delta neu">${closedCount>0?"по "+closedCount+" сделкам":"нет закрытых"}</div>
+                <div class="db-stat-bar"><span style="background:var(--cyan);width:60%"></span></div>
               </div>
               ${(() => {
                 const weights = { "Лид":0.10, "Бриф":0.20, "КП отправлено":0.30, "Согласование":0.50, "Договор":0.70, "Предоплата":0.90, "В работе":0.95, "Сдано":1.0 };
                 const forecast30 = projects.filter(p => !isDealInactive(p.crmStatus||"Лид")).reduce((s,p) => s + (p.total||0)*(weights[p.crmStatus||"Лид"]||0.10), 0);
                 return `<div class="db-stat" title="Взвешенная вероятность закрытия сделок из воронки (30 дней)">
+                  <div class="db-stat-icon" style="background:rgba(37,99,235,.18);color:#93c5fd"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.target}</svg></div>
                   <div class="db-stat-label">Прогноз 30 дн</div>
                   <div class="db-stat-value" style="color:var(--blue)">${money(Math.round(forecast30))}</div>
                   <div class="db-stat-delta neu">по вероятности</div>
+                  <div class="db-stat-bar"><span style="background:var(--blue);width:60%"></span></div>
                 </div>`;
               })()}
               <div class="db-stat ${overdueCount>0?"db-stat-warn":""}" onclick="app.go('global-calendar')">
+                <div class="db-stat-icon" style="background:${overdueCount>0?"rgba(220,38,38,.15);color:#fca5a5":"rgba(22,163,74,.18);color:#86efac"}"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.calendar}</svg></div>
                 <div class="db-stat-label">Дедлайны / 7 дн</div>
                 <div class="db-stat-value">${uniqueDeadlines.length}</div>
                 <div class="db-stat-delta ${overdueCount>0?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${overdueCount>0?overdueCount+" просрочено":uniqueDeadlines.length>0?"ближ. "+formatDate(uniqueDeadlines[0].date):"нет ✓"}</div>
+                <div class="db-stat-bar"><span style="background:${overdueCount>0?"var(--red)":"var(--green)"};width:${overdueCount>0?60:100}%"></span></div>
               </div>
             </div>
 

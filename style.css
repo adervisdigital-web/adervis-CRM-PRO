@@ -2584,7 +2584,14 @@
     .db-stat[onclick] { cursor: pointer; }
     .db-stat[onclick]:hover { background: var(--panel); }
     .db-stat-warn { background: rgba(234,88,12,.05); }
-    .db-stat-icon { display: none; }
+    /* Иконка-плашка KPI — вернули (были эмодзи 💰📉📈, убрали в 0fe57a8 за
+       "игровой" вид); теперь приглушённая SVG-плашка, не эмодзи. */
+    .db-stat-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 8px; flex: 0 0 auto;
+    }
+    .db-stat-icon svg { width: 15px; height: 15px; display: block; }
     .db-stat-label {
       font-size: 12px; color: var(--muted); font-weight: 600;
       text-transform: uppercase; letter-spacing: .04em;
@@ -2598,6 +2605,10 @@
     .db-stat-delta.pos { color: var(--green); }
     .db-stat-delta.neg { color: var(--red); }
     .db-stat-delta.neu { color: var(--muted); }
+    /* Тонкая цветная полоска-акцент под значением — декоративная, без числового смысла */
+    .db-stat-bar { height: 3px; border-radius: 999px; background: var(--line); margin-top: 8px; overflow: hidden; }
+    .db-stat-bar > span { display: block; height: 100%; width: 60%; border-radius: 999px; }
+    .db-stat[onclick]:hover { box-shadow: inset 0 0 0 1px rgba(155,77,255,.25); }
 
     @media (max-width: 900px) { .db-stat { min-width: 45%; padding: 10px 12px; } .db-stat-value { font-size: 15px; } }
     @media (max-width: 480px) { .db-stat { min-width: 50%; } }
