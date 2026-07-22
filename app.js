@@ -10377,14 +10377,18 @@
         }).join('');
         const baseAxis = `<line x1="${PADL}" y1="${baseY}" x2="${W - PADR}" y2="${baseY}" stroke="var(--line)" stroke-width="1.4"/>`;
 
-        // Top clients
+        // Топ клиентов — по фактически ОПЛАЧЕННОМУ (p.paid), не по бюджету сделки (p.total):
+        // клиент с крупной неоплаченной или отменённой (Архив) сделкой не должен выглядеть
+        // «топовым» только за размер бюджета. Статус сделки НЕ фильтруем (в отличие от
+        // «Долга» и «Воронки») — завершённая оплаченная сделка это ровно то, что и должно
+        // быть топ-клиентом; клиенты без реальных оплат сами отсеются условием total>0 ниже.
         const byClient = {};
         projects.forEach(p => {
           const key = p.clientId || p.client || '';
           if (!key) return;
           const name = (p.clientId ? getClientById(p.clientId)?.name : null) || p.client || '—';
           if (!byClient[key]) byClient[key] = { name, total: 0, count: 0 };
-          byClient[key].total += p.total || 0;
+          byClient[key].total += p.paid || 0;
           byClient[key].count++;
         });
         const topClients = Object.values(byClient).filter(c => c.total > 0)
@@ -12322,10 +12326,15 @@
                 <div class="kb-new-label">Новый клиент</div>
               </div>
               ${filteredClients.length ? filteredClients.map(client => {
-                  // Ценность клиента сразу на карточке: сколько сделок и сколько денег принёс
+                  // Ценность клиента сразу на карточке: сколько сделок и сколько денег принёс.
+                  // «Оплачено» — по всем сделкам (реальный факт, статус не важен). «Долг» — только
+                  // по активным сделкам (не Завершённые/Архив), тот же isDealInactive, что и у
+                  // «Общего долга» на дашборде — иначе архивная/отменённая сделка с неоплаченным
+                  // бюджетом рисует несуществующий долг у клиента, который просто отказался.
                   const cProjects = (state.savedProjects || []).filter(p => p.clientId === client.id);
                   const cPaid = cProjects.reduce((s, p) => s + numberValue(p.paid, 0), 0);
-                  const cDebt = cProjects.reduce((s, p) => s + Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), 0);
+                  const cDebt = cProjects.filter(p => !isDealInactive(p.crmStatus || "Лид"))
+                    .reduce((s, p) => s + Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), 0);
                   return `
                   <article class="client-card" style="cursor:pointer" onclick="app.openClientModal('${client.id}')">
                     <div class="line-head">
