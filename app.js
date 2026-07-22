@@ -4746,6 +4746,7 @@
           lineCommentsOpen: {},
           crmTagFilter: "",
           crmSearch: "",
+          dbChartOffset: 0,
           telegramChatIds: [],
           clientMode: false,
           recentlyAdded: "",
@@ -10288,9 +10289,10 @@
       function renderAnalyticsSection(projects) {
         if (!projects.length) return '';
 
-        // Last 6 months
+        // Последние 6 месяцев со сдвигом state.dbChartOffset (листание стрелками «‹ ›»)
+        const chartOffset = state.dbChartOffset || 0;
         const months = [];
-        for (let i = 5; i >= 0; i--) {
+        for (let i = 5 + chartOffset; i >= chartOffset; i--) {
           const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
           months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
         }
@@ -10315,7 +10317,9 @@
 
         const totalRev = revenue.reduce((a,b)=>a+b,0);
         const totalExp = expenseArr.reduce((a,b)=>a+b,0);
-        if (totalRev === 0 && totalExp === 0) return '';
+        // При смещении назад (chartOffset>0) не прячем секцию целиком даже если период
+        // пустой — иначе пропадают и стрелки навигации, вернуться к текущим месяцам будет нечем.
+        if (totalRev === 0 && totalExp === 0 && !chartOffset) return '';
 
         const maxVal = Math.max(...revenue, ...expenseArr, 1);
         const scaleMax = maxVal * 1.15; // запас сверху, чтобы подпись над самым высоким столбцом не упиралась в край
@@ -10336,6 +10340,10 @@
           return `M${x} ${y+h} L${x} ${y+r} Q${x} ${y} ${x+r} ${y} L${x+w-r} ${y} Q${x+w} ${y} ${x+w} ${y+r} L${x+w} ${y+h} Z`;
         };
 
+        // Клик по месяцу → «Финансы» с фильтром на этот период; hover → кастомный
+        // тултип (app.showChartTip), не нативный <title> (тот не стилизуется и долго
+        // всплывает). Невидимый rect на всю колонку — чтобы наводить/тапать было удобно
+        // не только по тонким столбцам, а по всей области месяца.
         const barsHtml = months.map((m, i) => {
           const gx = PADL + i * gw;
           const pairX = gx + (gw - (bw * 2 + gap)) / 2;
@@ -10347,10 +10355,18 @@
             ? `<text x="${rx + bw/2}" y="${baseY - rh - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)" font-family="inherit">${shortNum(revenue[i])}</text>`
             : '';
           return `
-            ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, 5)}" fill="url(#dbGradRev)"><title>Выручка · ${label}: ${money(revenue[i])}</title></path>` : ''}
-            ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, 5)}" fill="url(#dbGradExp)"><title>Расходы · ${label}: ${money(expenseArr[i])}</title></path>` : ''}
-            ${revLabel}
-            <text x="${gx + gw/2}" y="${H - 9}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="inherit">${label}</text>`;
+            <g class="db-chart-col"
+               onmouseenter="app.showChartTip(event,'${label}',${revenue[i]},${expenseArr[i]})"
+               onmousemove="app.positionChartTip(event)"
+               onmouseleave="app.hideChartTip()"
+               onclick="app.drillIntoMonth('${m}')">
+              <rect class="db-chart-hit-bg" x="${gx + 2}" y="${PADT}" width="${gw - 4}" height="${plotH}" rx="8"/>
+              <rect class="db-chart-hit" x="${gx}" y="0" width="${gw}" height="${H}" fill="transparent"/>
+              ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, 5)}" fill="url(#dbGradRev)"/>` : ''}
+              ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, 5)}" fill="url(#dbGradExp)"/>` : ''}
+              ${revLabel}
+              <text x="${gx + gw/2}" y="${H - 9}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="inherit">${label}</text>
+            </g>`;
         }).join('');
 
         const gridLines = [0.4, 0.8].map(f => {
@@ -10376,10 +10392,21 @@
         const maxC = topClients[0]?.total || 1;
 
         const profit = totalRev - totalExp;
+        const rangeLabel = chartOffset ? `${MLfull[parseInt(months[0].split('-')[1])-1]} – ${MLfull[parseInt(months[months.length-1].split('-')[1])-1]}` : '';
         return `
           <div class="panel" style="margin-bottom:14px">
             <div class="db-analytics-header">
-              <span style="font-weight:700;font-size:13px">📊 За 6 месяцев</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:22px;height:22px;border-radius:7px;background:var(--primary-bg);color:var(--primary2);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="9" width="3.2" height="6" rx="1"/><rect x="6.4" y="4.5" width="3.2" height="10.5" rx="1"/><rect x="11.8" y="1.5" width="3.2" height="13.5" rx="1"/></svg>
+                </span>
+                <span style="font-weight:700;font-size:13px">За 6 месяцев</span>
+                ${rangeLabel ? `<span style="font-size:12px;color:var(--muted)">· ${rangeLabel}</span>` : ''}
+                <div class="db-chart-nav no-print">
+                  <button class="db-chart-nav-btn" onclick="app.shiftDbChart(1)" title="Более ранний период" aria-label="Более ранний период">‹</button>
+                  <button class="db-chart-nav-btn" onclick="app.shiftDbChart(-1)" ${chartOffset ? '' : 'disabled'} title="Более поздний период" aria-label="Более поздний период">›</button>
+                </div>
+              </div>
               <div class="db-analytics-legend">
                 <span style="color:#4ade80">▋ ${money(totalRev)}</span>
                 <span style="color:#f87171">▋ ${money(totalExp)}</span>
@@ -10417,7 +10444,55 @@
                   </div>`).join('')}
               </div>` : ''}
             </div>
+            <div id="dbChartTooltip" class="db-chart-tooltip no-print" style="display:none"></div>
           </div>`;
+      }
+
+      // Листание графика «За 6 месяцев» стрелками ‹›: +1 — на полгода раньше,
+      // -1 — обратно к текущим месяцам (дальше «в будущее» уйти нельзя, клампим на 0).
+      function shiftDbChart(delta) {
+        state.dbChartOffset = Math.max(0, (state.dbChartOffset || 0) + delta);
+        render();
+      }
+
+      // Клик по месяцу графика → «Финансы» с датным фильтром на этот месяц.
+      function drillIntoMonth(monthStr) {
+        const [y, mo] = monthStr.split('-').map(Number);
+        state.gFinDateFrom = `${monthStr}-01`;
+        state.gFinDateTo = `${monthStr}-${String(new Date(y, mo, 0).getDate()).padStart(2, '0')}`;
+        state.gFinDatePreset = 'custom';
+        state.view = 'global-finances';
+        save();
+        render();
+      }
+
+      // Кастомный тултип графика вместо нативного SVG <title> (тот не стилизуется
+      // и всплывает с задержкой ОС). Один переиспользуемый div, position:fixed.
+      function showChartTip(evt, label, rev, exp) {
+        const el = document.getElementById('dbChartTooltip');
+        if (!el) return;
+        el.innerHTML = `
+          <div style="font-weight:700;margin-bottom:5px">${escapeHtml(label)}</div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:var(--green);flex:0 0 auto"></span>Выручка: <b style="margin-left:auto">${money(rev)}</b></div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:var(--red);flex:0 0 auto"></span>Расходы: <b style="margin-left:auto">${money(exp)}</b></div>
+        `;
+        el.style.display = 'block';
+        positionChartTip(evt);
+      }
+      function positionChartTip(evt) {
+        const el = document.getElementById('dbChartTooltip');
+        if (!el || el.style.display === 'none') return;
+        const pad = 14;
+        const rect = el.getBoundingClientRect();
+        let x = evt.clientX + pad, y = evt.clientY + pad;
+        if (x + rect.width > window.innerWidth - 8) x = evt.clientX - rect.width - pad;
+        if (y + rect.height > window.innerHeight - 8) y = evt.clientY - rect.height - pad;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+      }
+      function hideChartTip() {
+        const el = document.getElementById('dbChartTooltip');
+        if (el) el.style.display = 'none';
       }
 
       function renderOnboardingChecklist(projects) {
@@ -17371,6 +17446,11 @@ Email: ______________________            Email: ______________________
         setGFinDateFrom,
         setGFinDateTo,
         setGFinSearch,
+        shiftDbChart,
+        drillIntoMonth,
+        showChartTip,
+        positionChartTip,
+        hideChartTip,
         setFinSearch,
         setFinTypeFilter,
         toggleCrmSelect,

@@ -2628,6 +2628,30 @@
       padding-left: 14px; border-left: 1px solid var(--line);
     }
 
+    /* Стрелки листания периода графика «За N месяцев» */
+    .db-chart-nav { display: flex; gap: 2px; margin-left: 2px; }
+    .db-chart-nav-btn {
+      width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line);
+      background: var(--panel2); color: var(--muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; line-height: 1; transition: .12s;
+    }
+    .db-chart-nav-btn:hover:not(:disabled) { border-color: rgba(168,85,247,.5); color: var(--primary2); }
+    .db-chart-nav-btn:disabled { opacity: .35; cursor: default; }
+
+    /* Наведение/тап по колонке месяца — hover-подсветка + курсор, клик уводит в «Финансы» */
+    .db-chart-col { cursor: pointer; }
+    .db-chart-hit-bg { fill: var(--primary); opacity: 0; transition: opacity .12s; }
+    .db-chart-col:hover .db-chart-hit-bg { opacity: .07; }
+
+    /* Кастомный тултип графика — вместо нативного SVG <title> */
+    .db-chart-tooltip {
+      position: fixed; z-index: var(--z-tooltip); pointer-events: none;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+      box-shadow: var(--elev-2); padding: 10px 12px; font-size: 12.5px;
+      min-width: 170px;
+    }
+
     @media (max-width: 768px) {
       .db-stat { min-width: 45%; padding: 10px 12px; }
       .db-stat-value { font-size: 15px; }
