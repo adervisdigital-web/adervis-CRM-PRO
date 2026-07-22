@@ -2719,12 +2719,21 @@
       .funnel-stage h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     }
     .deal-card {
-      padding: 15px 16px; cursor: pointer;
+      position: relative;
+      padding: 15px 16px 15px 19px; cursor: pointer;
       transition: border-color .15s, transform .15s, box-shadow .15s;
       border: 1px solid var(--line);
       border-radius: 16px;
       background: var(--panel);
       display: flex; flex-direction: column; gap: 11px;
+    }
+    /* Полоска статуса слева — цвет из CRM_STATUS_COLOR (--status-color, инлайн-стиль).
+       Скругление на самой полоске (не overflow:hidden на карточке — там всплывает
+       .deal-ctx-menu за пределы карточки, обрезался бы). */
+    .deal-card::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+      background: var(--status-color, var(--line));
+      border-radius: 16px 0 0 16px;
     }
     .deal-card:hover {
       border-color: rgba(168,85,247,.5);
@@ -2864,6 +2873,9 @@
       white-space: nowrap; transition: background .15s, transform .15s;
     }
     .next-action-btn:hover { background: var(--primary2); transform: translateY(-1px); }
+    /* В карточке (не в компактной строке списка) — только на hover, меньше шума */
+    .deal-card .next-action-btn { opacity: 0; transition: opacity .15s, background .15s, transform .15s; }
+    .deal-card:hover .next-action-btn { opacity: 1; }
     .health-dot {
       width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto;
     }
@@ -4961,6 +4973,8 @@ body.portal-mode .nav { display: none !important; }
   /* На тач-экране нет hover — кнопка меню сделки (⋮, единственный доступ к
      Редактировать/Дублировать/Удалить) должна быть видна всегда, а не по наведению. */
   .deal-menu-btn { opacity: 1; }
+  /* Тот же случай для кнопки действия («Сдать проект →») в карточке сделки. */
+  .deal-card .next-action-btn { opacity: 1; }
   /* Тот же случай для «+» в календаре, но показывать его сразу во всех 42 ячейках —
      мусор. Тап по дню выбирает его → «+» появляется только в выбранном. */
   .cal-cell.selected .cal-day-add { opacity: 1; }

@@ -74,6 +74,19 @@
       const CRM_ARCHIVED = "Архив";
       // Считается ли статус «неактивным» (сделка ушла из работы: закрыта успешно ИЛИ архив).
       const isDealInactive = (status) => status === "Завершённые" || status === CRM_ARCHIVED;
+      // Цвет полоски статуса слева карточки сделки — путь по воронке от лида к оплате.
+      const CRM_STATUS_COLOR = {
+        "Лид": "var(--muted)",
+        "Бриф": "var(--cyan)",
+        "КП отправлено": "var(--blue)",
+        "Согласование": "var(--yellow)",
+        "Договор": "var(--primary2)",
+        "Предоплата": "var(--primary2)",
+        "В работе": "var(--primary)",
+        "Сдано": "var(--green)",
+        "Завершённые": "var(--green)",
+        [CRM_ARCHIVED]: "var(--muted)"
+      };
       const TASK_STATUSES = ["Новая", "В работе", "На согласовании", "Готово"];
       // Единая иконка корзины для всех кнопок удаления (та же, что в меню сделки/swipe).
       const TRASH_SVG = `<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>`;
@@ -10804,7 +10817,7 @@
                   const projectIdSafe = project.id.replace(/'/g,"");
                   const u = project.deadline ? deadlineUrgency(project.deadline) : null;
                   return `
-                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.openDeal('${projectIdSafe}')" style="cursor:pointer" title="Открыть смету">
+                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.openDeal('${projectIdSafe}')" style="cursor:pointer;--status-color:${CRM_STATUS_COLOR[project.crmStatus || "Лид"] || "var(--muted)"}" title="Открыть смету">
                       <div class="deal-card-head">
                         ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">` : ""}
