@@ -2382,6 +2382,47 @@
     .pkg-card-items { flex: 1; margin-bottom: 14px; }
     .pkg-item-line { font-size: 12px; padding: 3px 0; color: var(--fg2); border-bottom: 1px solid var(--line); }
     .pkg-item-line:last-child { border-bottom: none; }
+    /* Сегмент-переключатель раздела «Услуги»: Каталог | Пакеты. Отделён визуально от
+       нижележащих табов-фильтров (пилюля-контейнер, а не подчёркивание). */
+    .seg-switch {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      margin: 0 0 20px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+    .seg-switch button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 8px 18px;
+      border: none;
+      background: none;
+      border-radius: 10px;
+      font: inherit;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background .15s ease, color .15s ease;
+    }
+    .seg-switch button svg { opacity: .7; }
+    .seg-switch button:hover { color: var(--text); }
+    .seg-switch button.active {
+      background: var(--bg2);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+    }
+    .seg-switch button.active svg { opacity: 1; color: var(--primary); }
+    @media (max-width: 640px) {
+      .seg-switch { display: flex; width: 100%; }
+      .seg-switch button { flex: 1; min-height: 46px; }
+    }
+
     .pkg-note { font-size: 12px; color: var(--muted); font-style: italic; background: var(--surface2); padding: 6px 10px; border-radius: 6px; margin: 0 0 12px; line-height: 1.4; }
     .pkg-card-actions { display: flex; gap: 8px; margin-top: auto; }
 
@@ -2602,8 +2643,13 @@
     .deal-view-btn { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; cursor: pointer; font-size: 13px; color: var(--muted); transition: .12s; }
     .deal-view-btn.active { background: var(--primary); border-color: var(--primary); color: var(--on-color); }
     .deal-sort-select {
-      background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
-      padding: 5px 10px; font-size: 12.5px; color: var(--text); cursor: pointer;
+      /* background-color, НЕ background: шорткод сбрасывает background-repeat к
+         "repeat" (по умолчанию), и SVG-шеврон из базового select{} плиткой
+         повторяется по всей ширине текста на мобиле (нативный select). */
+      background-color: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+      /* padding — тоже шорткод, перебивает базовый padding-right:34px (место под
+         шеврон) — возвращаем его отдельно, иначе текст наезжает на иконку. */
+      padding: 5px 10px; padding-right: 34px; font-size: 12.5px; color: var(--text); cursor: pointer;
       font-weight: 600; transition: border-color .12s;
     }
     .deal-sort-select:hover { border-color: rgba(168,85,247,.5); }
@@ -2641,6 +2687,20 @@
     .funnel-stage h3 { font-size: 11px; color: var(--muted); margin: 0 0 2px; }
     .funnel-stage .fs-count { font-size: 19px; font-weight: 900; line-height: 1.1; }
     .funnel-stage .fs-amount { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+    @media (max-width: 640px) {
+      /* Горизонтальная свайп-полоса вместо ломаного grid (auto-fit давал
+         неровные строки: 1/2/3 плитки на разных строках). */
+      .crm-home-funnel {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        margin: 0 -12px 4px;
+        padding: 0 12px 4px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .funnel-stage { flex: 0 0 100px; }
+      .funnel-stage h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    }
     .deal-card {
       padding: 15px 16px; cursor: pointer;
       transition: border-color .15s, transform .15s, box-shadow .15s;
@@ -3676,8 +3736,10 @@
     .task-title-input:hover { border-bottom-color: var(--line); }
     .task-title-input:focus { border-bottom-color: rgba(168,85,247,.65); outline: none; }
     .task-mini-select {
-      padding: 5px 8px; font-size: 12px; border-radius: 8px;
-      background: var(--input); border: 1px solid var(--line);
+      /* padding-right — место под шеврон, см. .deal-sort-select */
+      padding: 5px 8px; padding-right: 32px; font-size: 12px; border-radius: 8px;
+      /* background-color, не background — см. .deal-sort-select */
+      background-color: var(--input); border: 1px solid var(--line);
       color: var(--text); cursor: pointer;
     }
     details summary { -webkit-user-select: none; user-select: none; }
@@ -3717,6 +3779,22 @@
     .global-add-menu-divider {
       height: 1px; background: var(--line); margin: 4px 6px;
     }
+
+    /* ── MOBILE QUICK ADD (FAB-кнопка нижней навигации) ──────────
+       Отдельный узел вместо переиспользования #globalAddMenu: тот вложен
+       в .topbar, а у неё backdrop-filter — создаёт containing block для
+       position:fixed, и поповер вместо места у FAB улетал к верху экрана. */
+    .mobile-add-menu {
+      display: none;
+      position: fixed;
+      left: 50%; transform: translateX(-50%);
+      bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 16px; padding: 8px; width: min(240px, calc(100vw - 32px));
+      box-shadow: 0 20px 60px rgba(0,0,0,.4); z-index: 300;
+      flex-direction: column; gap: 2px;
+    }
+    .mobile-add-menu.open { display: flex; animation: slideUp .15s cubic-bezier(0.16, 1, 0.3, 1); }
 
     /* ── NAV DEAL INDICATOR ──────────────────────── */
     .nav-deal-indicator {
@@ -4850,10 +4928,12 @@ body.portal-mode .nav { display: none !important; }
   .data-table { display: block; overflow-x: auto; }
   .grid.three { grid-template-columns: 1fr 1fr; }
   .grid.four { grid-template-columns: 1fr 1fr; }
-  /* Карточки сделок/клиентов — всегда одна колонка на телефоне (в 2 колонки
-     название/телефон рвётся и всё лепится). Спец-класс перебивает .grid.three выше. */
+  /* Карточки сделок/клиентов/базы знаний — всегда одна колонка на телефоне
+     (в 2 колонки текст/кнопки не помещаются и раздвигают сетку — гориз. скролл
+     всей страницы). Спец-класс перебивает .grid.three выше. */
   .grid.three.deal-cards-grid,
-  .grid.three.clients-grid { grid-template-columns: 1fr; }
+  .grid.three.clients-grid,
+  .grid.three.kb-grid { grid-template-columns: 1fr; }
   /* Раздел «Задачи» на телефоне: селектор проекта на всю ширину под чипами */
   .gtask-project-select { margin-left: 0; width: 100%; }
   .gtask-filters { gap: 8px; }

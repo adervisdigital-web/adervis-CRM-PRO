@@ -39,10 +39,9 @@
       ];
 
       const SIDEBAR_NAV_DEFS = [
-        { id: "home", label: "Дашборд" },
+        { id: "home", label: "Проекты" },
         { id: "deal", label: "Смета" },
-        { id: "packages", label: "Пакеты" },
-        { id: "catalog", label: "Каталог" },
+        { id: "services", label: "Услуги" },
         { id: "clients", label: "Клиенты" },
         { id: "proposals", label: "Все КП" },
         { id: "briefs", label: "Онлайн-брифы" },
@@ -1338,9 +1337,10 @@
       }
 
       const _PAGE_TITLES = {
-        home: ["Дашборд", "Обзор и воронка продаж"],
+        home: ["Проекты", "Обзор и воронка продаж"],
         deal: ["Смета", null],
         wizard: ["Новая сделка", "Быстрый старт"],
+        services: ["Услуги", "Каталог и пакеты"],
         packages: ["Пакеты услуг", "Готовые наборы"],
         catalog: ["Каталог", "Услуги и цены"],
         "global-finances": ["Финансы", "Транзакции и аналитика"],
@@ -1429,7 +1429,7 @@
         })();
 
         const navRenderers = {
-          home: () => navItem("home",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>`,"Дашборд"),
+          home: () => navItem("home",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>`,"Проекты"),
           deal: () => `
             <button class="sidebar-nav-item ${v==="deal"?"active":""} estimate-nav-btn" id="navEstimateBtn"
               onclick="app.go('deal')" data-tour="deal" title="Смета${activeProject?" — "+activeProject:""}">
@@ -1439,8 +1439,7 @@
                 ${activeProject ? `<small class="sidebar-project-hint">${escapeHtml(activeProject)}</small>` : ""}
               </span>
             </button>`,
-          packages: () => navItem("packages",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg>`,"Пакеты"),
-          catalog: () => navItem("catalog",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>`,"Каталог"),
+          services: () => navItem("services",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>`,"Услуги"),
           clients: () => navItem("clients",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>`,"Клиенты"),
           proposals: () => navItem("proposals",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h5l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.5 1.2V4.5H11L8.5 2.2zM5 7h6v1H5V7zm0 2.5h6v1H5v-1zM5 12h4v1H5v-1z"/></svg>`,"Все КП"),
           briefs: () => navItem("briefs",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h6l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 1v3h3L9 2zM5 7h6v1H5V7zm0 3h6v1H5v-1z"/></svg>`,"Онлайн-брифы"),
@@ -1594,9 +1593,9 @@
 
       /* ─── ОБУЧАЮЩИЙ ТУР (spotlight) ─── */
       const TOUR_STEPS = [
-        { sel: '[data-tour="home"]', title: "Дашборд", text: "Выручка, воронка сделок и ближайшие дедлайны — обзор студии за 10 секунд." },
+        { sel: '[data-tour="home"]', title: "Проекты", text: "Выручка, воронка сделок и ближайшие дедлайны — обзор студии за 10 секунд." },
         { sel: '[data-tour="deal"]', title: "Смета", text: "Калькулятор: собирайте смету проекта из каталога услуг или готового пакета." },
-        { sel: '[data-tour="catalog"]', title: "Каталог", text: "Все услуги и цены вашей студии — под себя, можно редактировать." },
+        { sel: '[data-tour="services"]', title: "Услуги", text: "Каталог позиций с ценами и готовые пакеты — всё, что продаёт студия, в одном разделе." },
         { sel: '[data-tour="clients"]', title: "Клиенты", text: "База клиентов и история сделок с каждым из них." },
         { sel: '[data-tour="global-finances"]', title: "Финансы", text: "Доходы, расходы и прибыль по всем проектам." },
         { sel: '[data-tour="contracts"]', title: "Договора", text: "Шаблоны договоров и электронная подпись для клиентов." }
@@ -4258,7 +4257,7 @@
               }).join("")}
             </div>
 
-            <div class="grid three">
+            <div class="grid three kb-grid">
               <div class="kb-new-card" onclick="app.kbNew()">
                 <div class="kb-new-icon">+</div>
                 <div class="kb-new-label">Новый документ</div>
@@ -4644,13 +4643,11 @@
 
 ## Что умеет программа
 
-**Сделки** — ведите клиентов по воронке от первого контакта до оплаты.
+**Проекты** — ведите клиентов по воронке от первого контакта до оплаты.
 
 **Смета** — рассчитывайте стоимость видеопроекта с помощью каталога услуг.
 
-**Пакеты** — готовые наборы услуг для быстрого старта.
-
-**Каталог** — полный список услуг с редактируемыми ценами.
+**Услуги** — каталог позиций с редактируемыми ценами и готовые пакеты для быстрого старта сметы.
 
 **Финансы** — контролируйте поступления и расходы по каждому проекту.
 
@@ -7401,6 +7398,9 @@
       }
 
       function go(view) {
+        // «Каталог» и «Пакеты» объединены в раздел «Услуги» с внутренним переключателем.
+        // Старые вызовы go('catalog')/go('packages') ведут в единый раздел на нужную вкладку.
+        if (view === "catalog" || view === "packages") { state.servicesTab = view; view = "services"; }
         state.view = view;
         save();
         render();
@@ -7618,6 +7618,21 @@
 
       function closeGlobalMenu() {
         const menu = document.getElementById("globalAddMenu");
+        if (menu) menu.classList.remove("open");
+      }
+
+      // Мобильный аналог toggleGlobalMenu/closeGlobalMenu — отдельный DOM-узел
+      // #mobileAddMenu вне .topbar (см. index.html и .mobile-add-menu в style.css).
+      function toggleMobileAddMenu() {
+        const menu = document.getElementById("mobileAddMenu");
+        if (!menu) return;
+        const willOpen = !menu.classList.contains("open");
+        closeGlobalMenu();
+        menu.classList.toggle("open", willOpen);
+      }
+
+      function closeMobileAddMenu() {
+        const menu = document.getElementById("mobileAddMenu");
         if (menu) menu.classList.remove("open");
       }
 
@@ -9027,6 +9042,7 @@
           "global-finances": renderGlobalFinances,
           "global-calendar": renderGlobalCalendar,
           "global-tasks": renderGlobalTasks,
+          services: renderServices,
           packages: renderPackages,
           contracts: renderContracts,
           catalog: renderCatalog,
@@ -9061,7 +9077,7 @@
         });
 
         // Update mobile bottom nav active states
-        const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","company-team","knowledge","catalog","packages","contracts","support"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions","crm"], mbnFinances: ["global-finances","global-calendar"] };
+        const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","company-team","knowledge","services","catalog","packages","contracts","support"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions","crm"], mbnFinances: ["global-finances","global-calendar"] };
         Object.entries(mbnViewMap).forEach(([id, views]) => {
           const el = document.getElementById(id);
           if (el) el.classList.toggle("active", views.includes(state.view));
@@ -11360,6 +11376,24 @@
             ` : ""}
           </div>
         `;
+      }
+
+      function renderServices() {
+        // Единый раздел «Услуги»: верхний сегмент-переключатель Каталог | Пакеты,
+        // ниже — тело выбранной вкладки (переиспользуем существующие рендеры без изменений).
+        const tab = state.servicesTab === "packages" ? "packages" : "catalog";
+        const seg = `
+          <div class="seg-switch" role="tablist" aria-label="Услуги">
+            <button type="button" role="tab" aria-selected="${tab === "catalog"}" class="${tab === "catalog" ? "active" : ""}" onclick="app.setServicesTab('catalog')">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>
+              Каталог
+            </button>
+            <button type="button" role="tab" aria-selected="${tab === "packages"}" class="${tab === "packages" ? "active" : ""}" onclick="app.setServicesTab('packages')">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg>
+              Пакеты
+            </button>
+          </div>`;
+        return `<div class="services-page">${seg}${tab === "packages" ? renderPackages() : renderCatalog()}</div>`;
       }
 
       function renderCatalog() {
@@ -13764,6 +13798,8 @@
                 <p>Все поступления и расходы по всем проектам.</p>
               </div>
               <div class="toolbar no-print">
+                <button class="fin-quick-btn income" onclick="app.openFinanceModal('payment')">+ Поступление</button>
+                <button class="fin-quick-btn expense" onclick="app.openFinanceModal('expense')">− Расход</button>
                 <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать всё в Excel (.xlsx)" aria-label="Экспорт в Excel">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg>
                 </button>
@@ -15601,7 +15637,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <div class="main-menu-modal">
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('home')">
                   <span class="mm-icon">📋</span>
-                  <div class="mm-label">Сделки</div>
+                  <div class="mm-label">Проекты</div>
                   <div class="mm-sub">Воронка проектов</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.startWizard()">
@@ -15614,15 +15650,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <div class="mm-label">Смета</div>
                   <div class="mm-sub">Текущий расчёт</div>
                 </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('packages')">
-                  <span class="mm-icon">📦</span>
-                  <div class="mm-label">Пакеты</div>
-                  <div class="mm-sub">Готовые наборы</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('catalog')">
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('services')">
                   <span class="mm-icon">🗂</span>
-                  <div class="mm-label">Каталог</div>
-                  <div class="mm-sub">Услуги и цены</div>
+                  <div class="mm-label">Услуги</div>
+                  <div class="mm-sub">Каталог и пакеты</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('global-finances')">
                   <span class="mm-icon">💰</span>
@@ -17035,7 +17066,7 @@ Email: ______________________            Email: ______________________
         if (globalAddBtn) {
           globalAddBtn.addEventListener("click", e => { e.stopPropagation(); toggleGlobalMenu(); });
         }
-        document.addEventListener("click", () => { closeGlobalMenu(); closeDealMenu(); });
+        document.addEventListener("click", () => { closeGlobalMenu(); closeDealMenu(); closeMobileAddMenu(); });
 
         const scrollTopBtn = document.getElementById("scrollTopBtn");
         if (scrollTopBtn) {
@@ -17305,6 +17336,8 @@ Email: ______________________            Email: ______________________
         _removeDealTag,
         toggleGlobalMenu,
         closeGlobalMenu,
+        toggleMobileAddMenu,
+        closeMobileAddMenu,
         openFinanceModal,
         closeFinanceModal,
         setFinanceModalType,
@@ -17521,6 +17554,7 @@ Email: ______________________            Email: ______________________
         closeSearch,
         runSearch,
         setPkgCatFilter: (cat) => { state.pkgCatFilter = cat; render(); },
+        setServicesTab: (tab) => { state.servicesTab = (tab === "packages" ? "packages" : "catalog"); render(); },
         setCrmView,
         setCrmSort,
         openPackageEditModal,
