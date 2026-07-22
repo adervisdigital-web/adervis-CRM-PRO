@@ -1132,6 +1132,9 @@
         overflow-x: auto;
         position: static;
         padding-bottom: 4px;
+        /* Fade-подсказка на краях — та же, что у .deal-tabs/.deal-stage-progress */
+        -webkit-mask-image: linear-gradient(to right, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
+        mask-image: linear-gradient(to right, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
       }
       .catalog-cat-group { flex-direction: row; flex: 0 0 auto; }
       .catalog-cat-item { flex: 0 0 auto; width: auto; }
@@ -2708,6 +2711,9 @@
         margin: 0 -12px 4px;
         padding: 0 12px 4px;
         -webkit-overflow-scrolling: touch;
+        /* Fade-подсказка на краях — та же, что у .deal-tabs/.deal-stage-progress */
+        -webkit-mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+        mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
       }
       .funnel-stage { flex: 0 0 100px; }
       .funnel-stage h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
