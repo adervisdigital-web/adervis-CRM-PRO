@@ -11042,6 +11042,27 @@
       }
 
 
+      // Компактная версия «Итогов сметы» для страницы «Каталог» — видеть растущий итог,
+      // добавляя позиции, полезно, но полный блок с разбивкой и действиями (КП/версия/
+      // очистка сметы) дублирует то, что уже есть на вкладке «Смета», и был спорным
+      // (см. ui-improvement-backlog). Тут — только сумма + переход в «Смета».
+      function renderCatalogSummaryStrip() {
+        const t = totals();
+        const d = displayTotal(t);
+        const hasLines = Object.keys(state.selected || {}).length > 0;
+        return `
+          <aside class="summary">
+            <div class="summary-total">
+              <span>${d.budgetOnly ? "Бюджет сделки" : "Итого в смете"}</span>
+              <strong>${money(d.total)}</strong>
+            </div>
+            ${hasLines
+              ? `<button class="btn primary full no-print" style="margin-top:14px" onclick="app.go('deal')">Перейти в смету →</button>`
+              : `<p style="margin-top:14px;font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5">Добавьте позиции — итог появится здесь</p>`}
+          </aside>
+        `;
+      }
+
       function renderSummary() {
         const t = totals();
         const f = financeTotals();
@@ -11638,7 +11659,7 @@
               </div>
             </section>
 
-            ${renderSummary()}
+            ${renderCatalogSummaryStrip()}
           </div>
         `;
       }
