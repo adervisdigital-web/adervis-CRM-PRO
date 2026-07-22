@@ -10753,9 +10753,9 @@
             ${projects.length ? `
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
                 <span class="u-meta-13">${visibleItems.length} ${visibleItems.length===1?"сделка":visibleItems.length<5?"сделки":"сделок"}${tagFilter?` · тег: ${escapeHtml(tagFilter)}`:""}</span>
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                   <input type="search" class="no-print" style="width:170px" placeholder="Поиск по названию/клиенту..." value="${escapeHtml(state.crmSearch||"")}" oninput="app.setCrmSearch(this.value)">
-                  <select class="deal-sort-select no-print" onchange="app.setCrmSort(this.value)" title="Сортировка сделок">
+                  <select class="deal-sort-select no-print" style="width:190px" onchange="app.setCrmSort(this.value)" title="Сортировка сделок">
                     <option value="default" ${sortMode==="default"?"selected":""}>Порядок по умолчанию</option>
                     <option value="amount" ${sortMode==="amount"?"selected":""}>Сумма ↓</option>
                     <option value="deadline" ${sortMode==="deadline"?"selected":""}>Дедлайн ↑</option>
