@@ -17606,10 +17606,11 @@ Email: ______________________            Email: ______________________
           tgLines.push(`${icon} <b>${escapeHtml(proj.name || "Проект")}</b> — ${u.label}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
         });
         if (tgLines.length) lsSet(STORAGE_KEY, JSON.stringify(state));
+        // Telegram-дайджест по дедлайнам теперь шлёт сервер (pg_cron → deadline-push-notify,
+        // ежедневно в 12:00 МСК, независимо от того, открыт ли CRM) — надёжнее, чем отсюда:
+        // отправка была привязана к открытой вкладке браузера и не срабатывала, если
+        // пользователь не заходил в CRM в этот день. См. [[finding-telegram-stats-archived-deals]].
         if (tgLines.length) {
-          if ((state.telegramChatIds || []).length) {
-            sendTelegramNotification("⏰ Дедлайны Adervis CRM:\n\n" + tgLines.join("\n"));
-          }
           const overdueCount = tgLines.filter(l => l.startsWith("🔴")).length;
           const urgentCount  = tgLines.filter(l => l.startsWith("⚡")).length;
           const parts = [];
