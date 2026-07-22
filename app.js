@@ -4745,6 +4745,7 @@
           taskDetailsOpen: {},
           lineCommentsOpen: {},
           crmTagFilter: "",
+          crmSearch: "",
           telegramChatIds: [],
           clientMode: false,
           recentlyAdded: "",
@@ -8063,6 +8064,18 @@
         render();
       }
 
+      function setCrmSearch(v) {
+        state.crmSearch = v;
+        render();
+      }
+
+      function resetCrmFilters() {
+        state.crmFilter = "all";
+        state.crmTagFilter = "";
+        state.crmSearch = "";
+        render();
+      }
+
       function setFinSearch(v) {
         state.finSearch = v;
         render();
@@ -10515,8 +10528,10 @@
           updated:  (a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")),
           default:  () => 0,
         }[sortMode] || (() => 0);
+        const crmSearch = (state.crmSearch || "").toLowerCase().trim();
         const visibleItems = (filter === "all" ? activeProjects : projects.filter(p => (p.crmStatus || "Лид") === filter))
           .filter(p => !tagFilter || (p.tags || []).includes(tagFilter))
+          .filter(p => !crmSearch || `${p.name || ""} ${p.client || ""}`.toLowerCase().includes(crmSearch))
           // Закреплённые — всегда наверх; внутри — по выбранной сортировке (sort стабилен)
           .slice().sort((a, b) => ((b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)) || sortCmp(a, b));
 
@@ -10735,10 +10750,11 @@
                 ${allTags.filter(t => t !== tagFilter).map(t => `<button class="btn small" onclick="app.setCrmTagFilter('${escapeHtml(t)}')" style="border-radius:99px;font-size:12px">${escapeHtml(t)}</button>`).join("")}
               </div>` : "";
             })()}
-            ${visibleItems.length ? `
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            ${projects.length ? `
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
                 <span class="u-meta-13">${visibleItems.length} ${visibleItems.length===1?"сделка":visibleItems.length<5?"сделки":"сделок"}${tagFilter?` · тег: ${escapeHtml(tagFilter)}`:""}</span>
-                <div style="display:flex;align-items:center;gap:8px">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto">
+                  <input type="search" class="no-print" style="width:170px" placeholder="Поиск по названию/клиенту..." value="${escapeHtml(state.crmSearch||"")}" oninput="app.setCrmSearch(this.value)">
                   <select class="deal-sort-select no-print" onchange="app.setCrmSort(this.value)" title="Сортировка сделок">
                     <option value="default" ${sortMode==="default"?"selected":""}>Порядок по умолчанию</option>
                     <option value="amount" ${sortMode==="amount"?"selected":""}>Сумма ↓</option>
@@ -10752,6 +10768,8 @@
                   </div>
                 </div>
               </div>
+            ` : ""}
+            ${visibleItems.length ? `
               ${(() => {
                 // Панель показывается ВСЁ ВРЕМЯ в режиме выбора — иначе, сняв последнюю
                 // галочку, пользователь оставался с чекбоксами на карточках и без единой
@@ -10899,8 +10917,11 @@
                       </div>`;
                       })()}
 
-                      ${payPct > 0 ? `<div class="deal-pay-bar" style="width:100%">
-                        <div class="deal-pay-fill" style="width:${payPct}%"></div>
+                      ${payPct > 0 ? `<div style="display:flex;align-items:center;gap:7px">
+                        <div class="deal-pay-bar" style="flex:1">
+                          <div class="deal-pay-fill" style="width:${payPct}%"></div>
+                        </div>
+                        <span style="font-size:11px;color:var(--muted);font-weight:700;flex:0 0 auto" title="Оплачено ${payPct}% от бюджета">${payPct}%</span>
                       </div>` : ""}
 
                       ${(project.deadline || project.note || (project.tags||[]).length) ? `
@@ -10928,7 +10949,7 @@
                   <button class="btn" onclick="app.crmShowMore()">Показать ещё ${Math.min(CRM_PAGE_SIZE, crmHiddenCount)} · осталось ${crmHiddenCount}</button>
                 </div>` : ""}
             ` : `
-              ${filter === "all"
+              ${(filter === "all" && !tagFilter && !crmSearch)
                 ? emptyState({
                     icon: "box",
                     title: "Сделок пока нет",
@@ -10937,8 +10958,8 @@
                   })
                 : emptyState({
                     icon: "search",
-                    title: `Нет сделок в статусе «${escapeHtml(filter)}»`,
-                    cta: { label: "Показать все", onclick: "app.setCrmFilter('all')", variant: "" }
+                    title: crmSearch ? `Ничего не найдено по «${escapeHtml(state.crmSearch)}»` : `Нет сделок в статусе «${escapeHtml(filter)}»`,
+                    cta: { label: "Показать все", onclick: "app.resetCrmFilters()", variant: "" }
                   })}
             `}
           </div>
@@ -17365,6 +17386,8 @@ Email: ______________________            Email: ______________________
         setCrmFilter,
         crmShowMore,
         setCrmTagFilter,
+        setCrmSearch,
+        resetCrmFilters,
         exportClientsXlsx,
         showBriefQR,
         _addDealTag,
