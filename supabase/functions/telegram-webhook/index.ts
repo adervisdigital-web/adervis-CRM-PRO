@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
   }
   function dealSelectKb(projects: any[], noneLabel: string, prefix: string) {
     const active = projects
-      .filter(p => !["Завершённые", "Сдано"].includes(p.crmStatus || ""))
+      .filter(p => p.crmStatus !== "Сдано" && !isDealInactive(p.crmStatus || ""))
       .slice(0, 6);
     const rows = active.map(p => [{
       text: `${p.name}${p.client ? " · " + p.client : ""}`,
@@ -129,6 +129,10 @@ Deno.serve(async (req) => {
   }
 
   const CRM_STATUSES = ["Лид", "Бриф", "КП отправлено", "Согласование", "Договор", "Предоплата", "В работе", "Сдано", "Завершённые"];
+  // Терминальный статус вне CRM_STATUSES (синхронизирован с app.js CRM_ARCHIVED) — исключается
+  // из активных, долга и воронки, иначе цифры расходятся с CRM ("Финансы").
+  const CRM_ARCHIVED = "Архив";
+  const isDealInactive = (status: string) => status === "Завершённые" || status === CRM_ARCHIVED;
 
   function statusKb() {
     return {
@@ -204,7 +208,7 @@ Deno.serve(async (req) => {
   }
 
   async function startChangeStatusFlow(agencyId: string, projs: any[]) {
-    const active = projs.filter(p => p.crmStatus !== "Завершённые");
+    const active = projs.filter(p => !isDealInactive(p.crmStatus || ""));
     if (!active.length) { await send("📭 Активных сделок нет.", mainKeyboard); return; }
     await writeSession(agencyId, { action: "change_status", step: "select_deal" });
     await send("📌 <b>Изменить статус сделки</b>\n\nВыберите сделку:", dealSelectKb(active, "❌ Отмена", "cs"));
@@ -538,7 +542,7 @@ Deno.serve(async (req) => {
   // ── /today ─────────────────────────────────────────────────────────────────
 
   if (command === "today" || command === "сегодня") {
-    const active = projects.filter(p => !["Сдано", "Завершённые"].includes(p.crmStatus || ""));
+    const active = projects.filter(p => p.crmStatus !== "Сдано" && !isDealInactive(p.crmStatus || ""));
     const deadlines = active
       .filter(p => p.deadline)
       .map(p => ({ ...p, days: daysUntil(p.deadline) }))
@@ -560,7 +564,7 @@ Deno.serve(async (req) => {
   // ── /deals ─────────────────────────────────────────────────────────────────
 
   if (command === "deals" || command === "сделки") {
-    const active = projects.filter(p => p.crmStatus !== "Завершённые");
+    const active = projects.filter(p => !isDealInactive(p.crmStatus || ""));
     if (!active.length) {
       await send(`📭 Активных сделок нет.`, mainKeyboard);
     } else {
@@ -584,9 +588,11 @@ Deno.serve(async (req) => {
     const txs = collectTx(stateJson);
     const monthIncome  = txs.filter(t => t._type === "income"  && (t.date || "") >= monthStart).reduce((s, t) => s + (t.amount || 0), 0);
     const monthExpense = txs.filter(t => t._type === "expense" && (t.date || "") >= monthStart).reduce((s, t) => s + (t.amount || 0), 0);
-    const active = projects.filter(p => !["Сдано", "Завершённые"].includes(p.crmStatus || ""));
+    const active = projects.filter(p => p.crmStatus !== "Сдано" && !isDealInactive(p.crmStatus || ""));
     const pipeline = active.reduce((s, p) => s + (p.total || 0), 0);
-    const debt = projects.reduce((s, p) => s + Math.max(0, (p.total || 0) - (p.paid || 0)), 0);
+    // Долг считаем только по неархивным/незавершённым сделкам — та же формула, что в CRM
+    // ("Финансы" → «Общий долг»), иначе цифры на двух площадках расходятся.
+    const debt = projects.filter(p => !isDealInactive(p.crmStatus || "")).reduce((s, p) => s + Math.max(0, (p.total || 0) - (p.paid || 0)), 0);
     const overdue = active.filter(p => p.deadline && daysUntil(p.deadline) < 0).length;
     const monthName = now.toLocaleDateString("ru-RU", { month: "long" });
     await send(
@@ -627,7 +633,7 @@ Deno.serve(async (req) => {
   // ── AI free-form ───────────────────────────────────────────────────────────
 
   if (!text.startsWith("/") && geminiKey) {
-    const active = projects.filter(p => !["Завершённые"].includes(p.crmStatus || ""));
+    const active = projects.filter(p => !isDealInactive(p.crmStatus || ""));
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
     const txs = collectTx(stateJson);
