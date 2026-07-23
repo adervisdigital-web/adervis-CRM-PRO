@@ -7432,10 +7432,24 @@
         render();
       }
 
+      // Полный render() перестраивает весь #appContent, а save() гоняет
+      // JSON.stringify(state) — на каждый символ поиска это лишняя работа.
+      // Откладываем оба на паузу в наборе; сам текст в инпуте не теряется —
+      // это обычный DOM-инпут, render() лишь обновляет список результатов ниже.
+      let _searchRenderTimer = null, _searchSaveTimer = null;
+      function _debouncedSearchRender() {
+        clearTimeout(_searchRenderTimer);
+        _searchRenderTimer = setTimeout(render, 180);
+      }
+      function _debouncedSearchSave() {
+        clearTimeout(_searchSaveTimer);
+        _searchSaveTimer = setTimeout(save, 250);
+      }
+
       function setSearch(value) {
         state.search = value;
-        save();
-        render();
+        _debouncedSearchSave();
+        _debouncedSearchRender();
       }
 
       function setFilter(value) {
@@ -7449,7 +7463,7 @@
       // ReferenceError. Класс на инпуте нужен, чтобы render() вернул фокус (см. _focusSelector).
       function setClientsFilter(value) {
         state.clientsFilter = value;
-        render();
+        _debouncedSearchRender();
       }
 
       function setSort(value) {
@@ -8062,12 +8076,12 @@
 
       function setGFinSearch(v) {
         state.gFinSearch = v;
-        render();
+        _debouncedSearchRender();
       }
 
       function setCrmSearch(v) {
         state.crmSearch = v;
-        render();
+        _debouncedSearchRender();
       }
 
       function resetCrmFilters() {
@@ -8079,7 +8093,7 @@
 
       function setFinSearch(v) {
         state.finSearch = v;
-        render();
+        _debouncedSearchRender();
       }
 
       function setFinTypeFilter(v) {
