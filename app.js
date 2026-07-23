@@ -8988,11 +8988,31 @@
         setTimeout(() => URL.revokeObjectURL(url), 30000);
       }
 
+      // Стабильный id по тексту подписи (не по счётчику!) — иначе на каждый render()
+      // id съезжал бы, ломая восстановление фокуса (см. _focusSelector в render()).
+      function _fieldId(label) {
+        let h = 5381;
+        for (let i = 0; i < label.length; i++) h = ((h * 33) ^ label.charCodeAt(i)) >>> 0;
+        return "f-" + h.toString(36);
+      }
+
+      // label без for/id визуально рядом с полем, но программно с ним не связан —
+      // скринридер не озвучивает подпись при фокусе, а кастом-дропдаун (enhanceSelects,
+      // sel.labels[0]) не может достать имя для aria-label кнопки. Прошиваем id в первый
+      // input/select/textarea, если его там ещё нет.
       function field(label, html) {
+        const existing = html.match(/\sid="([^"]+)"/);
+        let forId = existing ? existing[1] : null;
+        let markup = html;
+        if (!existing) {
+          const id = _fieldId(label);
+          const injected = html.replace(/<(input|select|textarea)(\s|>)/, `<$1 id="${id}"$2`);
+          if (injected !== html) { markup = injected; forId = id; }
+        }
         return `
           <div class="field">
-            <label>${escapeHtml(label)}</label>
-            ${html}
+            <label${forId ? ` for="${forId}"` : ""}>${escapeHtml(label)}</label>
+            ${markup}
           </div>
         `;
       }
