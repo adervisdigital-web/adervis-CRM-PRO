@@ -713,14 +713,19 @@
         let msg = input.parentElement.querySelector(".field-error-msg");
         if (!validatePhone(val)) {
           input.classList.add("input-error");
+          input.setAttribute("aria-invalid", "true");
           if (!msg) {
             msg = document.createElement("span");
             msg.className = "field-error-msg";
+            msg.id = "phone-err-" + uid();
             input.parentElement.appendChild(msg);
           }
           msg.textContent = "Неверный формат. Пример: +7 900 000-00-00";
+          input.setAttribute("aria-describedby", msg.id);
         } else {
           input.classList.remove("input-error");
+          input.removeAttribute("aria-invalid");
+          input.removeAttribute("aria-describedby");
           if (msg) msg.remove();
         }
       }
@@ -8911,7 +8916,7 @@
             "Город": c.city || "",
             "Заметки": c.note || "",
             "Сделок": projs.length,
-            "Оборот": projs.reduce((s, p) => s + (p.total || 0), 0),
+            "Оборот": projs.filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED).reduce((s, p) => s + (p.total || 0), 0),
             "Последняя сделка": projs.length ? projs[0].name : ""
           };
         });
@@ -12414,7 +12419,9 @@
         if (!client) { state.clientDetailId = ""; return renderClients(); }
 
         const clientProjects = (state.savedProjects || []).filter(p => p.clientId === clientId || p.client === client.name);
-        const totalRevenue = clientProjects.reduce((s, p) => s + (p.total || 0), 0);
+        // «Оборот» — бюджет сделок, кроме архивных/отменённых (та же логика, что и у
+        // топ-клиентов на дашборде): сорвавшаяся сделка не должна раздувать оборот клиента
+        const totalRevenue = clientProjects.filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED).reduce((s, p) => s + (p.total || 0), 0);
         const totalPaid = clientProjects.reduce((s, p) => s + (p.paid || 0), 0);
 
         return `
@@ -13883,9 +13890,11 @@
         const trend = prevIncome > 0 ? Math.round((monthIncome - prevIncome) / prevIncome * 100) : null;
         const bestKey = monthKeys.reduce((best, k) => incByMonth[k] > (incByMonth[best] || 0) ? k : best, monthKeys[0]);
 
-        // Собираемость и должники
-        const allTotal = projects.reduce((s, p) => s + numberValue(p.total, 0), 0);
-        const allPaid  = projects.reduce((s, p) => s + numberValue(p.paid, 0), 0);
+        // Собираемость и должники. Архивные/отменённые сделки исключены из знаменателя —
+        // деньги по сорвавшейся сделке никогда не были «собираемыми», их учёт занижал бы
+        // метрику навсегда (та же логика, что и у «Оборота» клиента и топ-клиентов).
+        const allTotal = projects.filter(p => (p.crmStatus||"Лид") !== CRM_ARCHIVED).reduce((s, p) => s + numberValue(p.total, 0), 0);
+        const allPaid  = projects.filter(p => (p.crmStatus||"Лид") !== CRM_ARCHIVED).reduce((s, p) => s + numberValue(p.paid, 0), 0);
         const collect = allTotal > 0 ? Math.round(allPaid / allTotal * 100) : 0;
         // Должники — те же активные сделки, что формируют allDebt (не завершённые/архив).
         const debtors = projects.filter(p => !isDealInactive(p.crmStatus || "Лид") && Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)) > 0);
@@ -14063,8 +14072,8 @@
                 const margin = inc > 0 ? Math.round(prof / inc * 100) : 0;
                 const incCount = filteredByDate.filter(t => t._type === "income").length;
                 const avgCheck = incCount > 0 ? Math.round(inc / incCount) : 0;
-                const allTotal = (state.savedProjects || []).reduce((s, p) => s + numberValue(p.total, 0), 0);
-                const allPaid = (state.savedProjects || []).reduce((s, p) => s + numberValue(p.paid, 0), 0);
+                const allTotal = (state.savedProjects || []).filter(p => (p.crmStatus||"Лид") !== CRM_ARCHIVED).reduce((s, p) => s + numberValue(p.total, 0), 0);
+                const allPaid = (state.savedProjects || []).filter(p => (p.crmStatus||"Лид") !== CRM_ARCHIVED).reduce((s, p) => s + numberValue(p.paid, 0), 0);
                 const collect = allTotal > 0 ? Math.round(allPaid / allTotal * 100) : 0;
                 const kpi = (label, val, color, hint) => `<div class="kpi-tile"${hint ? ` title="${hint}"` : ""}><div class="kpi-val" style="${color ? `color:${color}` : ""}">${val}</div><div class="kpi-lbl">${label}</div></div>`;
                 return `<div class="kpi-row">
@@ -14808,10 +14817,27 @@
         const reader = new FileReader();
 
         reader.onload = () => {
-          state.company.logoUrl = String(reader.result || "");
-          save();
-          render();
-          toast("Логотип загружен");
+          const raw = String(reader.result || "");
+          // SVG остаётся вектором как есть; растровые форматы ужимаем, чтобы не раздувать state
+          if (file.type === "image/svg+xml") {
+            state.company.logoUrl = raw;
+            save(); render(); toast("Логотип загружен");
+            return;
+          }
+          const img = new Image();
+          img.onload = () => {
+            const MAX = 320;
+            const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+            const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+            const canvas = document.createElement("canvas");
+            canvas.width = w; canvas.height = h;
+            canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+            state.company.logoUrl = canvas.toDataURL("image/png");
+            save();
+            render();
+            toast("Логотип загружен");
+          };
+          img.src = raw;
         };
 
         reader.readAsDataURL(file);
@@ -14829,10 +14855,10 @@
               </p>
               ${(state.telegramChatIds || []).map(r => `
                 <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-                  <input placeholder="Имя (необязательно)" value="${escapeHtml(r.name)}"
+                  <input placeholder="Имя (необязательно)" value="${escapeHtml(r.name)}" aria-label="Имя получателя"
                     style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input);color:var(--text);font-size:13px"
                     oninput="app.setTelegramRecipientField('${r.id}','name',this.value)">
-                  <input placeholder="Chat ID" value="${escapeHtml(r.chatId)}"
+                  <input placeholder="Chat ID" value="${escapeHtml(r.chatId)}" aria-label="Telegram Chat ID"
                     style="flex:1;min-width:130px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input);color:var(--text);font-size:13px;font-family:monospace"
                     oninput="app.setTelegramRecipientField('${r.id}','chatId',this.value)">
                   <button class="btn" onclick="app.testTelegramRecipient('${r.id}')" style="font-size:12px;padding:7px 12px">Проверить</button>
@@ -17303,6 +17329,8 @@ Email: ______________________            Email: ______________________
             else if (state.packageEditModal) closePackageEditModal();
             else if (state.helpModal) closeHelpModal();
             else if (state.mainMenuOpen) { state.mainMenuOpen = false; renderModal(); }
+            else if (state.adminModal) closeAdminModal();
+            else if (state.briefEditorType) closeBriefEditor();
             else if (state.dealSwitcherOpen) closeDealSwitcher();
           }
           // Ctrl+N — новая сделка (кроме полей ввода)

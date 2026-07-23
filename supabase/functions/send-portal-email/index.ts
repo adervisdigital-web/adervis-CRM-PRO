@@ -28,12 +28,36 @@ Deno.serve(async (req) => {
   let body: { clientEmail?: string; clientName?: string; dealName?: string; portalUrl?: string; totalPrice?: number; agencyName?: string };
   try { body = await req.json(); } catch { return new Response("Bad JSON", { status: 400 }); }
 
-  const { clientEmail, clientName, dealName, portalUrl, totalPrice, agencyName } = body;
+  const { clientEmail, clientName, portalUrl, agencyName } = body;
   if (!clientEmail || !portalUrl) {
     return new Response(JSON.stringify({ error: "clientEmail and portalUrl required" }), {
       status: 400, headers: { "Content-Type": "application/json", ...cors },
     });
   }
+
+  // Без проверки владения порталом любой авторизованный аккаунт мог отправить письмо
+  // с любым текстом/суммой на любой email через доверенный домен рассылки. Портал
+  // должен реально принадлежать вызывающему агентству (RLS: agency_id = auth.uid()),
+  // а название сделки и сумму берём из БД, а не из тела запроса.
+  let portalId: string | null = null;
+  try { portalId = new URL(portalUrl).searchParams.get("portal"); } catch { /* not a URL */ }
+  if (!portalId) {
+    return new Response(JSON.stringify({ error: "portalUrl missing ?portal=<id>" }), {
+      status: 400, headers: { "Content-Type": "application/json", ...cors },
+    });
+  }
+  const { data: portal, error: portalErr } = await supabase
+    .from("client_portals")
+    .select("deal_name, total_price")
+    .eq("id", portalId)
+    .single();
+  if (portalErr || !portal) {
+    return new Response(JSON.stringify({ error: "Portal not found or not owned by this account" }), {
+      status: 403, headers: { "Content-Type": "application/json", ...cors },
+    });
+  }
+  const dealName = portal.deal_name || "";
+  const totalPrice = portal.total_price || 0;
 
   const agency = agencyName || "Adervis";
   const subject = `КП от ${agency}${dealName ? ` — ${dealName}` : ""}`;

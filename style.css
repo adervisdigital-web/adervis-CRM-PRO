@@ -5192,13 +5192,17 @@ body.portal-mode .nav { display: none !important; }
   .topbar-icon-btn,
   .deal-menu-btn,
   .line-collapse-btn,
-  .catalog-action-btn {
+  .catalog-action-btn,
+  .db-chart-nav-btn,
+  .icon-del-btn {
     position: relative;
   }
   .topbar-icon-btn::after,
   .deal-menu-btn::after,
   .line-collapse-btn::after,
-  .catalog-action-btn::after {
+  .catalog-action-btn::after,
+  .db-chart-nav-btn::after,
+  .icon-del-btn::after {
     content: "";
     position: absolute;
     top: 50%; left: 50%;
