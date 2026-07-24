@@ -88,6 +88,17 @@
         [CRM_ARCHIVED]: "var(--muted)"
       };
       const TASK_STATUSES = ["Новая", "В работе", "На согласовании", "Готово"];
+      // Повтор задачи: при переводе в «Готово» создаётся новая копия со сдвинутым дедлайном —
+      // удобно для регулярных вещей (ежемесячный отчёт клиенту, еженедельный чек-лист).
+      const TASK_REPEAT_OPTIONS = ["none", "daily", "weekly", "monthly"];
+      const TASK_REPEAT_LABELS = { none: "Без повтора", daily: "Каждый день", weekly: "Каждую неделю", monthly: "Каждый месяц" };
+      function _shiftDateByRepeat(dateStr, repeat) {
+        const base = dateStr ? new Date(dateStr) : new Date();
+        if (repeat === "daily") base.setDate(base.getDate() + 1);
+        else if (repeat === "weekly") base.setDate(base.getDate() + 7);
+        else if (repeat === "monthly") base.setMonth(base.getMonth() + 1);
+        return base.toISOString().slice(0, 10);
+      }
       // Единая иконка корзины для всех кнопок удаления (та же, что в меню сделки/swipe).
       const TRASH_SVG = `<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>`;
       const PRIORITIES = ["Низкий", "Средний", "Высокий", "Срочно"];
@@ -795,6 +806,10 @@
       const _DEFAULT_SB_URL    = "https://qzeylogyledmhjpzvgkk.supabase.co";
       const _DEFAULT_SB_KEY    = "sb_publishable_E9JgbQiA7namAFiZAAbZEQ_aBn11VgJ";
       const _DEFAULT_VK_APP_ID = "54626328";
+      // Client ID приложения на oauth.yandex.ru (публичное значение, не секрет — как и VK_APP_ID).
+      // Пусто, пока не зарегистрировано приложение (см. README для инструкции). Можно переопределить
+      // через localStorage['yandex_client_id'] для локальной проверки без правки кода.
+      const _DEFAULT_YANDEX_CLIENT_ID = "a57c2d52ad434b6e847527ff8e7e84e9";
 
       // Безопасные обёртки над localStorage. Причины:
       //  • Safari «Private» и встроенные webview кидают QuotaExceededError даже на первый setItem;
@@ -1173,7 +1188,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","clientDraft","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","notifPopupOpen","summaryOpen","briefEditorType"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","notifPopupOpen","summaryOpen","briefEditorType"]);
 
       async function _loadCloudState() {
         if (!_supabase || !_adminSession) return;
@@ -1913,13 +1928,26 @@
                   </div>` : ""}
 
                   <div class="oauth-divider"><span>или войти через</span></div>
+                  ${(lsGet('yandex_client_id') || _DEFAULT_YANDEX_CLIENT_ID) ? `
                   <div class="oauth-buttons" style="grid-template-columns:1fr">
-                    <button class="oauth-btn oauth-active oauth-google-full" onclick="app.oauthSignIn('google')" title="Войти через Google">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                      <span style="font-size:13px">Продолжить с Google</span>
+                    <button class="oauth-btn oauth-active oauth-google-full" onclick="app.yandexLogin()" title="Войти через Яндекс ID">
+                      <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#fc3f1d;color:#fff;font-size:12px;font-weight:700;line-height:1">Я</span>
+                      <span style="font-size:13px">Продолжить с Яндекс ID</span>
+                    </button>
+                  </div>` : ''}
+                  ${(lsGet('vk_app_id') || _DEFAULT_VK_APP_ID) ? `<div id="vkid-one-tap" class="mt-8"></div>` : ''}
+                  <!-- Google — вторым приоритетом (не убираем совсем, но не выпячиваем):
+                       406-ФЗ формально запрещает вход через иностранные OAuth-идентификаторы
+                       при регистрации, законопроект со штрафами для сервисов принят Госдумой
+                       09.06.2026, но в силу пока не вступил. VK ID/Яндекс ID — российская
+                       инфраструктура, поэтому им отдан визуальный приоритет. Отслеживать
+                       вступление поправок в силу и по факту решить, убирать ли кнопку совсем. -->
+                  <div style="text-align:center;margin-top:10px">
+                    <button class="oauth-btn" onclick="app.oauthSignIn('google')" title="Войти через Google" style="display:inline-flex;flex-direction:row;width:auto;padding:6px 14px;gap:7px;opacity:.65;font-weight:600">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                      <span style="font-size:12px">Продолжить с Google</span>
                     </button>
                   </div>
-                  ${(lsGet('vk_app_id') || _DEFAULT_VK_APP_ID) ? `<div id="vkid-one-tap" class="mt-8"></div>` : ''}
 
                   <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:12px;color:var(--muted)">
                     Adervis · ИНН 592110786536 ·
@@ -2165,6 +2193,67 @@
       }
 
       function checkVKCallback() { /* stub — VK ID SDK работает без редиректа */ }
+
+      // Яндекс OAuth — простой implicit-флоу (redirect), в отличие от VK ID SDK: без
+      // виджета, токен возвращается прямо в location.hash после подтверждения на стороне Яндекса.
+      function yandexLogin() {
+        const clientId = lsGet('yandex_client_id') || _DEFAULT_YANDEX_CLIENT_ID;
+        if (!clientId) { toast('Вход через Яндекс не настроен'); return; }
+        const redirectUri = location.origin + location.pathname;
+        location.href = `https://oauth.yandex.ru/authorize?response_type=token&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      }
+
+      async function checkYandexCallback() {
+        const hash = location.hash || '';
+        const m = hash.match(/access_token=([^&]+)/);
+        if (!m) return;
+        const accessToken = decodeURIComponent(m[1]);
+        // Убираем токен из URL сразу — иначе он останется в истории/адресной строке
+        // и повторно обработается при обновлении страницы.
+        history.replaceState(null, '', location.pathname + location.search);
+
+        _authFields.loading = true;
+        _authFields.error = '';
+        renderAuthGateEl();
+
+        try {
+          const { url: sbUrl, key } = getSupabaseConfig();
+          const res = await fetch(`${sbUrl}/functions/v1/yandex-auth`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': key },
+            body:    JSON.stringify({ access_token: accessToken }),
+          });
+          const result = await res.json();
+          _authFields.loading = false;
+
+          if (result.error) {
+            _authFields.error = 'Яндекс: ' + result.error;
+            renderAuthGateEl(); return;
+          }
+          if (!_supabase) {
+            _authFields.error = 'Supabase не инициализирован';
+            renderAuthGateEl(); return;
+          }
+
+          const { data: otpData, error: otpErr } = await _supabase.auth.verifyOtp({
+            token_hash: result.token,
+            type: 'magiclink',
+          });
+          if (otpErr) {
+            _authFields.error = 'Яндекс вход: ' + otpErr.message;
+            renderAuthGateEl();
+            return;
+          }
+          if (otpData?.session && !_adminSession) {
+            _adminSession = otpData.session;
+            _onUserLoggedIn(otpData.session);
+          }
+        } catch(e) {
+          _authFields.loading = false;
+          _authFields.error = 'Яндекс Auth: ' + (e?.message || 'Ошибка');
+          renderAuthGateEl();
+        }
+      }
 
       function exitLocalModeAndLogin() {
         lsRemove("adervis_local_mode");
@@ -2466,9 +2555,9 @@
           el.innerHTML = `
             <div style="padding:20px 16px 8px">
               <div style="display:flex;flex-wrap:wrap;gap:6px">
-                ${["Сделки","Клиенты","Задачи","Финансы"].map(h=>`<span style="font-size:12px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;color:var(--muted)">${h}</span>`).join("")}
+                ${["Сделки","Клиенты","Задачи","База знаний"].map(h=>`<span style="font-size:12px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;color:var(--muted)">${h}</span>`).join("")}
               </div>
-              <div style="font-size:12px;color:var(--hint);margin-top:12px;padding:0 2px">Поиск по всем сделкам, клиентам и задачам</div>
+              <div style="font-size:12px;color:var(--hint);margin-top:12px;padding:0 2px">Поиск по всем сделкам, клиентам, задачам и базе знаний</div>
             </div>`;
           return;
         }
@@ -2485,9 +2574,20 @@
             results.push({ type: "client", icon: "👤", color: "rgba(37,99,235,.15)", name: c.name || "Клиент", sub: `${c.company||""} · ${c.phone||""}`, action: `app.go('clients');app.closeSearch()` });
           }
         });
-        (state.tasks || []).forEach(t => {
+        // Задачи по ВСЕМ сделкам (не только активной) — та же агрегация, что и на
+        // странице «Задачи», иначе поиск находил только задачи текущего открытого проекта.
+        _collectAllTasks().forEach(row => {
+          const t = row.task;
           if ((t.title||"").toLowerCase().includes(q)) {
-            results.push({ type: "task", icon: "✅", color: "rgba(8,145,178,.15)", name: t.title, sub: `${t.status||""} · ${t.deadline ? formatDate(t.deadline) : "без срока"}`, action: `app.go('deal');app.setDealView('tasks');app.closeSearch()` });
+            const action = row.kind === "global"
+              ? `app.go('global-tasks');app.setGlobalTaskFilter('project','personal');app.closeSearch()`
+              : `app.loadSavedProject('${row.projectId}');app.setDealView('tasks');app.closeSearch()`;
+            results.push({ type: "task", icon: "✅", color: "rgba(8,145,178,.15)", name: t.title, sub: `${t.status||""}${row.projectName ? " · " + row.projectName : ""}`, action });
+          }
+        });
+        (state.knowledgeDocs || []).forEach(d => {
+          if ((d.title||"").toLowerCase().includes(q) || (d.content||"").toLowerCase().includes(q)) {
+            results.push({ type: "kb", icon: "📄", color: "rgba(22,163,74,.15)", name: d.title || "Документ", sub: KB_CATS[d.cat] || "Без категории", action: `app.go('knowledge');app.kbOpen('${d.id}');app.closeSearch()` });
           }
         });
         if (!results.length) {
@@ -2516,6 +2616,7 @@
           { key: "deal",   label: "Сделки"  },
           { key: "client", label: "Клиенты" },
           { key: "task",   label: "Задачи"  },
+          { key: "kb",     label: "База знаний" },
         ];
         el.innerHTML = groups.map(g => {
           const all = results.filter(r => r.type === g.key);
@@ -4769,7 +4870,6 @@
           versions: [],
           savedProjects: [],
           clients: [],
-          clientDraft: null,
           companyTeam: [],
           catalogEditId: "",
           // Кастом-шаблоны онлайн-брифов по типам: { [typeId]: { title, sub, fields:[...] } }.
@@ -4915,6 +5015,7 @@
           priority: PRIORITIES.includes(task?.priority) ? task.priority : "Средний",
           assignee: task?.assignee || "",
           deadline: task?.deadline || "",
+          repeat: TASK_REPEAT_OPTIONS.includes(task?.repeat) ? task.repeat : "none",
           note: task?.note || "",
           comments: Array.isArray(task?.comments) ? task.comments : [],
           // Объект { [user_id]: googleEventId } — не строка: у каждого залогиненного
@@ -5071,7 +5172,6 @@
           stages: Array.isArray(old.stages) && old.stages.length ? old.stages : base.stages,
           packages: Array.isArray(old.packages) && old.packages.length ? old.packages : base.packages,
           contracts: Array.isArray(old.contracts) ? old.contracts : [],
-          clientDraft: null,
           dealView: old.dealView || "estimate",
           wizard: null,
           crmFilter: old.crmFilter || "all",
@@ -6190,8 +6290,51 @@
           copy.snapshot.project.name = copy.name;
         }
 
+        // Платежи/расходы/задачи внутри снапшота должны получить новые id — иначе
+        // копия несёт те же id, что оригинал, и getAllTransactions()/финансовая лента
+        // (дедуп по id через Set) молча выбрасывает их как «уже виденные»: деньги по
+        // скопированной сделке пропадают со страницы «Финансы», хотя дашборд их считает
+        // (там суммы берутся из total/paid, а не из списка транзакций).
+        ["payments", "expenses", "tasks"].forEach(key => {
+          (copy.snapshot?.[key] || []).forEach(item => { item.id = uid(key.slice(0, -1)); });
+        });
+
         state.savedProjects.unshift(copy);
         toast("Проект скопирован");
+        save();
+        render();
+      }
+
+      // «Повторить» — новый цикл работы с тем же клиентом/сметой (retainer): в отличие
+      // от «Копия», финансы и задачи прошлого периода не тащим (новый цикл = новый счёт),
+      // дедлайн сдвигается на месяц вперёд, статус сбрасывается на «Лид».
+      function repeatSavedProject(id) {
+        const saved = state.savedProjects.find(project => project.id === id);
+        if (!saved) return;
+
+        const copy = normalizeSavedProject(deepClone(saved));
+        copy.id = uid("project");
+        copy.createdAt = new Date().toISOString();
+        copy.updatedAt = copy.createdAt;
+        copy.deadline = saved.deadline ? _shiftDateByRepeat(saved.deadline, "monthly") : "";
+        copy.paid = 0;
+        copy.debt = numberValue(copy.total, 0);
+
+        if (copy.snapshot) {
+          copy.snapshot.payments = [];
+          copy.snapshot.expenses = [];
+          copy.snapshot.tasks = [];
+          copy.snapshot.paid = 0;
+          copy.snapshot.debt = numberValue(copy.snapshot.total, 0);
+          if (copy.snapshot.project) {
+            copy.snapshot.project.id = copy.id;
+            copy.snapshot.project.deadline = copy.deadline;
+          }
+        }
+        _applyCrmStatus(copy, "Лид");
+
+        state.savedProjects.unshift(copy);
+        toast("Новый цикл создан" + (copy.deadline ? " · дедлайн " + formatDate(copy.deadline) : ""));
         save();
         render();
       }
@@ -6954,77 +7097,6 @@
         });
       }
 
-      function createClient() {
-        state.clientDraft = {
-          id: "",
-          name: "",
-          company: "",
-          phone: "",
-          email: "",
-          city: state.project.city || "",
-          source: state.project.source || "",
-          requisites: "",
-          status: "new",
-          note: ""
-        };
-        save();
-        render();
-      }
-
-      function editClient(id) {
-        const client = (state.clients || []).find(x => x.id === id);
-        if (!client) return;
-        state.clientDraft = deepClone(client);
-        save();
-        render();
-      }
-
-      function updateClientDraft(key, value) {
-        if (!state.clientDraft) return;
-        state.clientDraft[key] = value;
-        save();
-      }
-
-      function saveClientDraft() {
-        if (!state.clientDraft) return;
-
-        if (state.clientDraft.phone && !validatePhone(state.clientDraft.phone)) {
-          toast("❌ Неверный формат телефона. Пример: +7 900 000-00-00");
-          return;
-        }
-
-        const draft = normalizeClient({
-          ...state.clientDraft,
-          name: String(state.clientDraft.name || "").trim() || "Новый клиент",
-          updatedAt: new Date().toISOString()
-        });
-
-        if (!state.clientDraft.id) {
-          draft.id = uid("client");
-          draft.createdAt = new Date().toISOString();
-          state.clients.unshift(draft);
-        } else {
-          const idx = state.clients.findIndex(x => x.id === draft.id);
-          if (idx >= 0) state.clients[idx] = { ...state.clients[idx], ...draft };
-          else state.clients.unshift(draft);
-        }
-
-        state.project.client = draft.name;
-        state.project.clientId = draft.id;
-        state.activeClientId = draft.id;
-        state.clientDraft = null;
-
-        toast("Клиент сохранён");
-        save();
-        render();
-      }
-
-      function cancelClientDraft() {
-        state.clientDraft = null;
-        save();
-        render();
-      }
-
       function editClientFromDeal(projectId, clientId, clientName) {
         // Find or create client
         let client = clientId ? (state.clients || []).find(c => c.id === clientId) : null;
@@ -7569,7 +7641,7 @@
       }
 
       function setCrmView(v) {
-        state.crmView = v === "list" ? "list" : "grid";
+        state.crmView = ["list", "gantt"].includes(v) ? v : "grid";
         render();
       }
 
@@ -7774,11 +7846,13 @@
           note: "",
           projectId: state.activeProjectId || ""
         };
+        _armDirtyCheck(state.financeModal);
         save();
         renderModal();
       }
 
-      function closeFinanceModal() {
+      async function closeFinanceModal() {
+        if (!(await _confirmDiscardIfDirty(state.financeModal))) return;
         state.financeModal = null;
         save();
         renderModal();
@@ -7855,6 +7929,27 @@
 
       let _lastModalKey = null;   // какая модалка была открыта в прошлый renderModal()
       let _modalReturnFocus = null; // куда вернуть фокус после закрытия
+
+      // Защита от случайной потери несохранённых правок в модалках-черновиках
+      // (клиент/сделка/задача/транзакция/платёж/пакет/бриф): при открытии снимаем
+      // снимок черновика, при попытке закрыть — сравниваем и, если изменился,
+      // спрашиваем подтверждение (тот же confirmDialog, что и у остальных
+      // деструктивных действий в приложении).
+      let _modalDirtySnapshot = null;
+      function _armDirtyCheck(value) { _modalDirtySnapshot = JSON.stringify(value === undefined ? null : value); }
+      function _isModalDirty(value) {
+        return _modalDirtySnapshot !== null && JSON.stringify(value === undefined ? null : value) !== _modalDirtySnapshot;
+      }
+      async function _confirmDiscardIfDirty(value) {
+        if (!_isModalDirty(value)) return true;
+        return confirmDialog({
+          title: "Закрыть окно?",
+          message: "Есть несохранённые изменения.",
+          okText: "Закрыть",
+          cancelText: "Отменить",
+          danger: true
+        });
+      }
 
       function renderModal() {
         const el = document.getElementById("modalContainer");
@@ -8417,6 +8512,39 @@
 
       function openDeal(projectId) {
         loadSavedProject(projectId);
+      }
+
+      // Клик по пустому месту сетки сделок — снять подсветку «текущей» карточки.
+      // ВАЖНО: одного obнуления activeProjectId недостаточно — getAllTransactions()/
+      // renderAnalyticsSection() и другие места считают деньги по правилу «пропустить
+      // снапшот активного проекта, а вместо него добавить live state.payments/expenses»
+      // (чтобы не задвоить деньги активной сделки). Если оставить activeProjectId пустым,
+      // но не почистить live state.payments/expenses/tasks/team — эти суммы перестают
+      // «узнаваться» как принадлежащие какому-то проекту и складываются ПОВЕРХ его же
+      // снапшота — доход задваивается (нашли по реальному отчёту: график «За 6 месяцев»
+      // и «Общий долг» подскочили после снятия выделения). Поэтому снимаем выделение
+      // так же, как это делает newProject() — сбрасываем рабочую копию сделки в чистое
+      // состояние, а не просто отвязываем id.
+      function deselectActiveProject() {
+        if (!state.activeProjectId) return;
+        if (autoSaveTimer) clearTimeout(autoSaveTimer);
+        flushActiveProjectToSaved();
+
+        const fresh = defaultState();
+        state.activeProjectId = "";
+        state.project = { ...fresh.project };
+        state.selected = {};
+        state.estimateOrder = [];
+        state.lineCollapsed = {};
+        state.stageCollapsed = {};
+        state.versions = [];
+        state.tasks = [];
+        state.payments = [];
+        state.expenses = [];
+        state.team = [];
+
+        save();
+        render();
       }
 
       function toggleDealMenu(id, e) {
@@ -9266,7 +9394,6 @@
             if (scope === "line") updateLine(id, key, value);
             if (scope === "custom") updateCustomItem(id, key, value);
             if (scope === "catalogOverride") updateCatalogOverride(id, key, value);
-            if (scope === "clientDraft") updateClientDraft(key, value);
             if (scope === "task") updateTask(id, key, value);
             if (scope === "payment") updatePayment(id, key, value);
             if (scope === "expense") updateExpense(id, key, value);
@@ -9288,7 +9415,6 @@
             if (scope === "line") updateLine(id, key, value);
             if (scope === "custom") updateCustomItem(id, key, value);
             if (scope === "catalogOverride") updateCatalogOverride(id, key, value);
-            if (scope === "clientDraft") updateClientDraft(key, value);
             if (scope === "task") updateTask(id, key, value);
             if (scope === "payment") updatePayment(id, key, value);
             if (scope === "expense") updateExpense(id, key, value);
@@ -10203,9 +10329,13 @@
           fields: resolved.fields.map(x => Object.assign({}, x, { options: (x.options || []).slice() })),
         };
         state.briefEditorType = typeId;
+        _armDirtyCheck(_briefEditorDraft);
         renderModal();
       }
-      function closeBriefEditor() { state.briefEditorType = ''; _briefEditorDraft = null; renderModal(); }
+      async function closeBriefEditor() {
+        if (!(await _confirmDiscardIfDirty(_briefEditorDraft))) return;
+        state.briefEditorType = ''; _briefEditorDraft = null; renderModal();
+      }
 
       // Правки текстовых полей — БЕЗ ре-рендера (иначе теряется фокус ввода).
       function briefEditorSetMeta(key, value) { if (_briefEditorDraft) _briefEditorDraft[key] = value; }
@@ -10435,7 +10565,12 @@
         const maxC = topClients[0]?.total || 1;
 
         const profit = totalRev - totalExp;
-        const rangeLabel = chartOffset ? `${MLfull[parseInt(months[0].split('-')[1])-1]} – ${MLfull[parseInt(months[months.length-1].split('-')[1])-1]}` : '';
+        // Метка диапазона — ВСЕГДА (не только при смещении от текущего периода): раньше
+        // она пряталась на chartOffset=0, из-за чего при возврате к текущим месяцам
+        // ширина заголовка менялась и стрелки листания «скакали» по горизонтали.
+        // Короткие имена месяцев (не MLfull) — тоже ради стабильной ширины: на узких
+        // экранах полные «Январь – Июнь» не помещались рядом со стрелками.
+        const rangeLabel = `${ML[parseInt(months[0].split('-')[1])-1]} – ${ML[parseInt(months[months.length-1].split('-')[1])-1]}`;
         return `
           <div class="panel" style="margin-bottom:14px">
             <div class="db-analytics-header">
@@ -10444,7 +10579,7 @@
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="9" width="3.2" height="6" rx="1"/><rect x="6.4" y="4.5" width="3.2" height="10.5" rx="1"/><rect x="11.8" y="1.5" width="3.2" height="13.5" rx="1"/></svg>
                 </span>
                 <span style="font-weight:700;font-size:13px">За 6 месяцев</span>
-                ${rangeLabel ? `<span style="font-size:12px;color:var(--muted)">· ${rangeLabel}</span>` : ''}
+                <span class="db-analytics-range" style="font-size:12px;color:var(--muted);display:inline-block;min-width:66px" title="Показанный период">· ${rangeLabel}</span>
                 <div class="db-chart-nav no-print">
                   <button class="db-chart-nav-btn" onclick="app.shiftDbChart(1)" title="Более ранний период" aria-label="Более ранний период">‹</button>
                   <button class="db-chart-nav-btn" onclick="app.shiftDbChart(-1)" ${chartOffset ? '' : 'disabled'} title="Более поздний период" aria-label="Более поздний период">›</button>
@@ -10617,6 +10752,76 @@
             </div>
             <button onclick="app.go('plans')" class="btn primary small" style="white-space:nowrap">Выбрать тариф</button>
           </div>`;
+      }
+
+      // Гант: сделки с дедлайном — горизонтальными полосками на общей временной шкале
+      // (от даты создания до дедлайна). Только для чтения — без drag/resize/зависимостей,
+      // задача — увидеть пересечения дедлайнов по нескольким проектам сразу.
+      function renderGanttView(items) {
+        const withDates = items.filter(p => p.deadline);
+        if (!withDates.length) {
+          return emptyState({
+            icon: "calendar",
+            title: "Нет сделок с дедлайном",
+            text: "Гант показывает только сделки, у которых указан дедлайн.",
+            style: "grid-column:1/-1"
+          });
+        }
+        const toDay = iso => Math.floor(new Date(iso).getTime() / 86400000);
+        const todayDay = toDay(todayIso());
+        const starts = withDates.map(p => toDay((p.createdAt || "").slice(0, 10) || todayIso()));
+        const ends = withDates.map(p => toDay(p.deadline));
+        const minDay = Math.min(...starts, todayDay) - 2;
+        const maxDay = Math.max(...ends, todayDay) + 2;
+        const totalDays = Math.max(1, maxDay - minDay);
+        const pct = day => Math.max(0, Math.min(100, (day - minDay) / totalDays * 100));
+
+        const months = [];
+        {
+          const cur = new Date(minDay * 86400000);
+          cur.setUTCDate(1);
+          while (Math.floor(cur.getTime() / 86400000) <= maxDay) {
+            months.push(new Date(cur));
+            cur.setUTCMonth(cur.getUTCMonth() + 1);
+          }
+        }
+
+        const rows = withDates
+          .slice()
+          .sort((a, b) => String(a.deadline).localeCompare(String(b.deadline)))
+          .map(p => {
+            const s = Math.min(toDay((p.createdAt || "").slice(0, 10) || p.deadline), toDay(p.deadline));
+            const e = toDay(p.deadline);
+            const left = pct(s);
+            const width = Math.max(1.5, pct(e) - left);
+            const color = CRM_STATUS_COLOR[p.crmStatus || "Лид"] || "var(--muted)";
+            const idSafe = p.id.replace(/'/g, "");
+            return `
+              <div class="gantt-row">
+                <div class="gantt-row-label" title="${escapeHtml(p.name)}">
+                  <span class="gantt-row-name">${escapeHtml(p.name)}</span>
+                  <span class="gantt-row-sub">${escapeHtml(p.client || "")}</span>
+                </div>
+                <div class="gantt-row-track">
+                  <div class="gantt-bar" style="left:${left}%;width:${width}%;background:${color}" title="${escapeHtml(p.crmStatus || "Лид")} · дедлайн ${formatDate(p.deadline)}" onclick="app.openDeal('${idSafe}')"></div>
+                </div>
+              </div>`;
+          }).join("");
+
+        return `
+          <div class="panel gantt-wrap" style="padding:14px;overflow-x:auto">
+            <div class="gantt-grid" style="min-width:640px">
+              <div class="gantt-row gantt-header">
+                <div class="gantt-row-label"></div>
+                <div class="gantt-row-track gantt-months">
+                  ${months.map(m => `<span class="gantt-month-label" style="left:${pct(Math.floor(m.getTime() / 86400000))}%">${escapeHtml(m.toLocaleDateString("ru-RU", { month: "short" }))}</span>`).join("")}
+                  <div class="gantt-today-line" style="left:${pct(todayDay)}%" title="Сегодня"></div>
+                </div>
+              </div>
+              ${rows}
+            </div>
+          </div>
+        `;
       }
 
       function renderHome() {
@@ -10883,6 +11088,7 @@
                   <div class="deal-view-toggle no-print">
                     <button class="deal-view-btn ${(state.crmView||"grid")==="grid"?"active":""}" onclick="app.setCrmView('grid')" title="Плитка">⊞</button>
                     <button class="deal-view-btn ${state.crmView==="list"?"active":""}" onclick="app.setCrmView('list')" title="Список">☰</button>
+                    <button class="deal-view-btn ${state.crmView==="gantt"?"active":""}" onclick="app.setCrmView('gantt')" title="Гант — сделки на временной шкале">📅</button>
                   </div>
                 </div>
               </div>
@@ -10909,7 +11115,8 @@
                   </div>
                 `;
               })()}
-              ${state.crmView === "list" ? `
+              ${state.crmView === "gantt" ? renderGanttView(visibleItems) :
+                state.crmView === "list" ? `
               <div class="panel" style="padding:0;overflow:hidden">
                 ${pagedItems.map(project => {
                   const payPct = project.total > 0 ? Math.min(100, Math.round((project.paid||0)/project.total*100)) : 0;
@@ -10938,7 +11145,7 @@
                     </div>`;
                 }).join("")}
               </div>
-              ` : `<div class="grid three deal-cards-grid">
+              ` : `<div class="grid three deal-cards-grid" onclick="event.target===this&&app.deselectActiveProject()" title="Клик по пустому месту снимает выделение «текущей» сделки">
                 ${pagedItems.map(project => {
                   const margin = project.revenue > 0 ? Math.round((project.profit || 0) / project.revenue * 100) : 0;
                   const healthClass = margin >= 40 ? "green" : margin >= 20 ? "yellow" : margin > 0 ? "red" : "grey";
@@ -11012,7 +11219,6 @@
 
                       ${(() => {
                         const debt = Math.max(0, (project.total || 0) - (project.paid || 0));
-                        const hasExp = project.expensesTotal > 0;
                         return `
                       <div class="deal-card-stats">
                         <div class="deal-card-stat">
@@ -11020,27 +11226,19 @@
                           <span class="val">${money(project.total)}</span>
                         </div>
                         <div class="deal-card-stat">
-                          <span class="lbl">Оплачено</span>
+                          <span class="lbl">Оплачено${payPct > 0 ? ` · ${payPct}%` : ""}</span>
                           <span class="val" style="color:${project.paid > 0 ? "var(--green)" : "var(--muted)"}">${money(project.paid || 0)}</span>
                         </div>
-                        <div class="deal-card-stat${hasExp ? "" : " stat-span2"}">
+                        <div class="deal-card-stat">
                           <span class="lbl">Долг</span>
                           <span class="val" style="color:${debt > 0 ? "var(--orange)" : "var(--green)"}">${money(debt)}</span>
                         </div>
-                        ${hasExp ? `
                         <div class="deal-card-stat">
                           <span class="lbl">Расходы</span>
-                          <span class="val" style="color:var(--red)">${money(project.expensesTotal)}</span>
-                        </div>` : ""}
+                          <span class="val" style="color:${project.expensesTotal > 0 ? "var(--red)" : "var(--muted)"}">${money(project.expensesTotal || 0)}</span>
+                        </div>
                       </div>`;
                       })()}
-
-                      ${payPct > 0 ? `<div style="display:flex;align-items:center;gap:7px">
-                        <div class="deal-pay-bar" style="flex:1">
-                          <div class="deal-pay-fill" style="width:${payPct}%"></div>
-                        </div>
-                        <span style="font-size:11px;color:var(--muted);font-weight:700;flex:0 0 auto" title="Оплачено ${payPct}% от бюджета">${payPct}%</span>
-                      </div>` : ""}
 
                       ${(project.deadline || project.note || (project.tags||[]).length) ? `
                       <div class="deal-card-meta">
@@ -11199,10 +11397,12 @@
           priceLabel: pkg.priceLabel || "",
           note:       (pkg.notes || [])[0] || ""
         };
+        _armDirtyCheck(state.packageEditModal);
         renderModal();
       }
 
-      function closePackageEditModal() {
+      async function closePackageEditModal() {
+        if (!(await _confirmDiscardIfDirty(state.packageEditModal))) return;
         state.packageEditModal = null;
         renderModal();
       }
@@ -12357,8 +12557,6 @@
               </div>
             </div>
 
-            ${state.clientDraft ? renderClientDraft() : ""}
-
             <div class="grid three clients-grid">
               <div class="kb-new-card" onclick="app.openClientModal('')">
                 <div class="kb-new-icon">+</div>
@@ -12507,35 +12705,6 @@
         `;
       }
 
-      function renderClientDraft() {
-        const client = state.clientDraft;
-
-        return `
-          <div class="panel" style="margin-bottom:18px;box-shadow:none;background:var(--panel2)">
-            <h2>${client.id ? "Редактировать клиента" : "Новый клиент"}</h2>
-
-            <div class="grid three">
-              ${field("Имя / название", `<input data-live data-scope="clientDraft" data-key="name" value="${escapeHtml(client.name)}">`)}
-              ${field("Компания", `<input data-live data-scope="clientDraft" data-key="company" value="${escapeHtml(client.company)}">`)}
-              ${field("Город", `<input data-live data-scope="clientDraft" data-key="city" value="${escapeHtml(client.city)}">`)}
-              ${field("Телефон", `<input data-live data-scope="clientDraft" data-key="phone" value="${escapeHtml(client.phone)}" onfocus="app.maskPhoneFocus(this)" oninput="app.maskPhoneInput(this)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00">`)}
-              ${field("Email", `<input data-live data-scope="clientDraft" data-key="email" value="${escapeHtml(client.email)}">`)}
-              ${field("Источник", `<input data-live data-scope="clientDraft" data-key="source" value="${escapeHtml(client.source)}">`)}
-            </div>
-
-            <div class="mt-12">
-              ${field("Заметка", `<textarea data-live data-scope="clientDraft" data-key="note">${escapeHtml(client.note)}</textarea>`)}
-
-            </div>
-
-            <div class="toolbar no-print" style="margin-top:14px">
-              <button class="btn primary" onclick="app.saveClientDraft()">Сохранить</button>
-              <button class="btn" onclick="app.cancelClientDraft()">Отмена</button>
-            </div>
-          </div>
-        `;
-      }
-
       function filteredProjects() {
         let projects = [...(state.savedProjects || [])];
 
@@ -12616,6 +12785,7 @@
                   <div class="toolbar no-print" style="margin-top:14px">
                     <button class="btn primary" onclick="app.loadSavedProject('${project.id}')">Открыть</button>
                     <button class="btn" onclick="app.duplicateSavedProject('${project.id}')">Копия</button>
+                    <button class="btn" onclick="app.repeatSavedProject('${project.id}')" title="Копия со сдвинутым на месяц дедлайном и статусом «Лид» — для регулярных клиентов">↻ Повторить</button>
                     <button class="btn danger" onclick="app.deleteSavedProject('${project.id}')">${TRASH_SVG} Удалить</button>
                   </div>
                 </article>
@@ -12899,6 +13069,9 @@
                   ${field("Ответственный", `<input data-autosave data-scope="task" data-id="${task.id}" data-key="assignee" value="${escapeHtml(task.assignee)}">`)}
                   ${field("Дедлайн", `<input type="date" data-autosave data-scope="task" data-id="${task.id}" data-key="deadline" value="${escapeHtml(task.deadline)}">`)}
                 </div>
+                ${field("Повтор", `<select data-autosave data-scope="task" data-id="${task.id}" data-key="repeat" title="При переводе в «Готово» создаётся следующая копия со сдвинутым дедлайном">
+                  ${TASK_REPEAT_OPTIONS.map(r => `<option value="${r}" ${task.repeat===r?"selected":""}>${TASK_REPEAT_LABELS[r]}</option>`).join("")}
+                </select>`)}
                 ${field("Комментарий", `<textarea data-autosave data-scope="task" data-id="${task.id}" data-key="note" style="min-height:60px">${escapeHtml(task.note)}</textarea>`)}
                 ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn_${task.id}" class="btn small" onclick="app.syncTaskToGoogle('${task.id}')">${_myGoogleEventId(task) ? "🔄 Обновить в Google Calendar" : "📅 В Google Calendar"}</button>` : ""}
               </div>
@@ -13036,10 +13209,11 @@
                   <div class="fin-amount" style="color:${f.debt > 0 ? "var(--orange)" : "var(--green)"}">${money(f.debt)}</div>
                   <div class="fin-sub">${f.debt > 0 ? "Ожидаем" : "Закрыто"}</div>
                 </div>
-                <div class="fin-card expense-card">
-                  <h3>Расход</h3>
+                <div class="fin-card expense-card" title="План — начислено (себестоимость строк сметы + выплаты команде + расходы), факт — реально выплачено">
+                  <h3>Расход <span style="font-weight:400;font-size:11px;color:var(--muted)">план</span></h3>
                   <div class="fin-amount">${money(f.totalExpenses)}</div>
                   <div class="fin-sub">
+                    ${f.totalExpensesPaid !== f.totalExpenses ? `<span>факт (выплачено): ${money(f.totalExpensesPaid)}</span><br>` : ""}
                     ${(() => {
                       const budget = state.project.expenseBudget || 0;
                       if (!budget) return `<button class="btn small no-print" style="margin-top:4px;font-size:12px" onclick="app._setExpenseBudget()">+ Бюджет</button>`;
@@ -13049,12 +13223,19 @@
                     })()}
                   </div>
                 </div>
-                <div class="fin-card profit-card">
-                  <h3>Прибыль</h3>
+                <div class="fin-card profit-card" title="План — прибыль по начисленным затратам, факт — по реально выплаченным (пока команде/подрядчикам не всё выплачено, факт обычно выше плана)">
+                  <h3>Прибыль <span style="font-weight:400;font-size:11px;color:var(--muted)">план</span></h3>
                   <div class="fin-amount">${money(f.profit)}</div>
-                  <div class="fin-sub"><span class="margin-badge ${marginClass}">${margin}%</span></div>
+                  <div class="fin-sub">
+                    <span class="margin-badge ${marginClass}">${margin}%</span>
+                    ${f.profitFact !== f.profit ? `<div style="margin-top:4px">факт: ${money(f.profitFact)} <span class="margin-badge ${f.marginFact >= 40 ? "good" : f.marginFact >= 20 ? "ok" : "bad"}">${Math.round(f.marginFact)}%</span></div>` : ""}
+                  </div>
                 </div>
               </div>
+              ${(f.lineCosts || f.teamPayouts) ? `
+              <div class="u-meta-13" style="margin-top:-8px;margin-bottom:14px">
+                Из чего складывается себестоимость: смета ${money(f.lineCosts)} · команда ${money(f.teamPayouts)}${f.teamPayoutsPaid ? ` (выплачено ${money(f.teamPayoutsPaid)})` : ""} · расходы ${money(f.expenses)}${f.expensesPaid ? ` (оплачено ${money(f.expensesPaid)})` : ""}
+              </div>` : ""}
 
               <div class="fin-quick-add no-print">
                 <div class="fin-quick-half income">
@@ -15622,6 +15803,18 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           const task = (state.tasks || []).find(t => t.id === id);
           if (task && task.status !== newStatus) {
             task.status = newStatus;
+            // Повторяющаяся задача закрыта — создаём следующую копию со сдвинутым
+            // дедлайном (см. TASK_REPEAT_OPTIONS), сама задача остаётся выполненной в истории.
+            if (newStatus === "Готово" && task.repeat && task.repeat !== "none") {
+              const next = normalizeTask({
+                ...task, id: uid("task"), status: "Новая",
+                deadline: _shiftDateByRepeat(task.deadline, task.repeat),
+                comments: [], googleEventIds: {},
+                createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+              });
+              state.tasks.unshift(next);
+              toast('Готово · следующая копия создана на ' + formatDate(next.deadline));
+            }
             save(); render();
           }
         }
@@ -15948,9 +16141,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         }
         if (!tx) { toast("Транзакция не найдена"); return; }
         state.editTransactionModal = { ...tx, _type: type, projectId, editId: id };
+        _armDirtyCheck(state.editTransactionModal);
         renderModal();
       }
-      function closeEditTransactionModal() {
+      async function closeEditTransactionModal() {
+        if (!(await _confirmDiscardIfDirty(state.editTransactionModal))) return;
         state.editTransactionModal = null;
         renderModal();
       }
@@ -16088,15 +16283,18 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       function openClientModal(clientId) {
         if (!clientId) {
           state.clientModal = { id: "", name: "", company: "", phone: "", email: "", city: "", status: "new", note: "" };
+          _armDirtyCheck(state.clientModal);
           renderModal();
           return;
         }
         const client = (state.clients || []).find(c => c.id === clientId);
         if (!client) return;
         state.clientModal = { ...client };
+        _armDirtyCheck(state.clientModal);
         renderModal();
       }
-      function closeClientModal() {
+      async function closeClientModal() {
+        if (!(await _confirmDiscardIfDirty(state.clientModal))) return;
         state.clientModal = null;
         renderModal();
       }
@@ -16346,9 +16544,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           // O!task пришёл суммой или пустым) — даём вписать бюджет вручную.
           hasSmetaLines: Object.keys((project.snapshot || {}).selected || {}).length > 0
         };
+        _armDirtyCheck(state.dealModal);
         renderModal();
       }
-      function closeDealModal() {
+      async function closeDealModal() {
+        if (!(await _confirmDiscardIfDirty(state.dealModal))) return;
         state.dealModal = null;
         renderModal();
       }
@@ -16525,9 +16725,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!task) { toast("Задача не найдена"); return; }
         state.taskModalSource = "project";
         state.taskModal = { ...task };
+        _armDirtyCheck(state.taskModal);
         renderModal();
       }
-      function closeTaskModal() {
+      async function closeTaskModal() {
+        if (!(await _confirmDiscardIfDirty(state.taskModal))) return;
         state.taskModal = null;
         state.taskModalSource = "project";
         renderModal();
@@ -17321,10 +17523,10 @@ Email: ______________________            Email: ______________________
             toggleProfileDd(false);
             toggleHelpDd(false);
             if (state.financeModal) closeFinanceModal();
-            else if (state.taskModal) { state.taskModal = null; renderModal(); }
+            else if (state.taskModal) closeTaskModal();
             else if (state.catalogEditId) { state.catalogEditId = ""; renderModal(); }
             else if (state.clientModal) closeClientModal();
-            else if (state.dealModal) { state.dealModal = null; renderModal(); render(); }
+            else if (state.dealModal) closeDealModal();
             else if (state.editTransactionModal) closeEditTransactionModal();
             else if (state.packageEditModal) closePackageEditModal();
             else if (state.helpModal) closeHelpModal();
@@ -17454,14 +17656,9 @@ Email: ______________________            Email: ______________________
         createPackage,
         deletePackage,
 
-        createClient,
-        editClient,
-        updateClientDraft,
-        saveClientDraft,
         checkPhoneField,
         maskPhoneFocus,
         maskPhoneInput,
-        cancelClientDraft,
         selectClient,
         deleteClient,
         createClientFromProject,
@@ -17469,6 +17666,7 @@ Email: ______________________            Email: ______________________
         saveCurrentProject,
         loadSavedProject,
         duplicateSavedProject,
+        repeatSavedProject,
         deleteSavedProject,
         deleteDealFromModal,
         newProject,
@@ -17583,6 +17781,7 @@ Email: ______________________            Email: ______________________
         finishWizardWithPackage,
         advanceCrmStatus,
         openDeal,
+        deselectActiveProject,
         toggleDealMenu,
         closeDealMenu,
         selectDealFromMenu,
@@ -17616,6 +17815,7 @@ Email: ______________________            Email: ______________________
         syncProjectDeadlineToGoogle,
 
         oauthSignIn,
+        yandexLogin,
 
         openMainMenu,
         closeMainMenu,
@@ -17836,6 +18036,7 @@ Email: ______________________            Email: ______________________
       render();
       initSupabase();
       checkVKCallback();
+      checkYandexCallback();
       if (_portalId) loadPortalData();
       setTimeout(initSwipeToDelete, 800);
       setTimeout(checkDeadlineNotifications, 1200);

@@ -255,7 +255,6 @@
       border-radius: 10px;
     }
     .app-sidebar.collapsed .sidebar-nav-item svg {
-      width: 18px; height: 18px;
       color: var(--text);
       opacity: .6;
     }
@@ -2618,7 +2617,8 @@
 
     /* ── Analytics 2-column ───────────────────────────────── */
     .db-analytics-header {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+      gap: 6px 0; margin-bottom: 8px;
     }
     .db-analytics-legend { display: flex; gap: 12px; font-size: 12px; }
     .db-analytics-body {
@@ -2680,6 +2680,23 @@
     .deal-view-toggle { display: flex; gap: 2px; }
     .deal-view-btn { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; cursor: pointer; font-size: 13px; color: var(--muted); transition: .12s; }
     .deal-view-btn.active { background: var(--primary); border-color: var(--primary); color: var(--on-color); }
+
+    .gantt-grid { display: flex; flex-direction: column; gap: 2px; }
+    .gantt-row { display: flex; align-items: center; gap: 10px; min-height: 34px; }
+    .gantt-row-label { flex: 0 0 190px; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+    .gantt-row-name { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gantt-row-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gantt-row-track { position: relative; flex: 1; min-width: 0; height: 22px; background: var(--panel2); border-radius: 6px; }
+    .gantt-bar { position: absolute; top: 3px; height: 16px; border-radius: 5px; cursor: pointer; opacity: .88; transition: opacity .12s, transform .12s; }
+    .gantt-bar:hover { opacity: 1; transform: translateY(-1px); }
+    .gantt-header .gantt-row-track { background: none; height: 18px; }
+    .gantt-months { border-bottom: 1px solid var(--line); }
+    .gantt-month-label { position: absolute; top: 0; font-size: 10.5px; color: var(--muted); font-weight: 700; text-transform: capitalize; white-space: nowrap; }
+    .gantt-today-line { position: absolute; top: 0; bottom: -4px; width: 2px; background: var(--red); opacity: .55; }
+    @media (max-width: 640px) {
+      .gantt-row-label { flex: 0 0 110px; }
+      .gantt-row-sub { display: none; }
+    }
     .deal-sort-select {
       /* background-color, НЕ background: шорткод сбрасывает background-repeat к
          "repeat" (по умолчанию), и SVG-шеврон из базового select{} плиткой
@@ -2744,12 +2761,12 @@
     }
     .deal-card {
       position: relative;
-      padding: 15px 16px 15px 19px; cursor: pointer;
+      padding: 13px 15px 13px 18px; cursor: pointer;
       transition: border-color .15s, transform .15s, box-shadow .15s;
       border: 1px solid var(--line);
       border-radius: 16px;
       background: var(--panel);
-      display: flex; flex-direction: column; gap: 11px;
+      display: flex; flex-direction: column; gap: 9px;
     }
     /* Полоска статуса слева — цвет из CRM_STATUS_COLOR (--status-color, инлайн-стиль).
        Скругление на самой полоске (не overflow:hidden на карточке — там всплывает
@@ -2786,8 +2803,8 @@
     .deal-card-stats {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 9px 0;
-      padding: 11px 13px;
+      gap: 7px 0;
+      padding: 9px 12px;
       background: var(--panel2);
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -2795,8 +2812,6 @@
     .deal-card-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .deal-card-stat:nth-child(odd) { padding-right: 13px; }
     .deal-card-stat:nth-child(even) { padding-left: 13px; border-left: 1px solid var(--line); }
-    /* Долг без соседа-«Расходы» занимает всю ширину строки — без пустой ячейки и разделителя. */
-    .deal-card-stat.stat-span2 { grid-column: 1 / -1; padding-right: 0; padding-left: 0; border-left: none; }
     .deal-card-stat .lbl { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
     .deal-card-stat .val { font-size: 15.5px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; line-height: 1.15; }
 
@@ -3847,7 +3862,15 @@
       box-shadow: 0 20px 60px rgba(0,0,0,.4); z-index: 300;
       flex-direction: column; gap: 2px;
     }
-    .mobile-add-menu.open { display: flex; animation: slideUp .15s cubic-bezier(0.16, 1, 0.3, 1); }
+    /* Свой keyframe, не общий slideUp: тот анимирует голый translateY и на время
+       анимации перебивает translateX(-50%) из базового правила — меню центрируется
+       только ПОСЛЕ окончания анимации, а на время самой анимации «уезжает» вправо
+       (left:50% без компенсации). Здесь translateX(-50%) держится в обоих кадрах. */
+    @keyframes slideUpCentered {
+      from { transform: translateX(-50%) translateY(16px); opacity: 0; }
+      to   { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+    .mobile-add-menu.open { display: flex; animation: slideUpCentered .15s cubic-bezier(0.16, 1, 0.3, 1); }
 
     /* ── NAV DEAL INDICATOR ──────────────────────── */
     .nav-deal-indicator {
