@@ -122,20 +122,21 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(more > 30, `после «Показать ещё» карточек не прибавилось: 30 → ${more}`);
   });
 
-  await test("настройки рендерятся с вынесенной секцией Telegram", async () => {
+  await test("настройки: вкладки (Компания/Уведомления/Данные) рендерят свои секции", async () => {
     await page.evaluate(() => window.app.go("settings"));
     await page.waitForTimeout(150);
-    const ok = await page.evaluate(() => {
-      const root = document.getElementById("appContent");
-      return {
-        hasCompany: /Компания/.test(root.textContent),
-        hasTelegram: /Уведомления \(Telegram\)/.test(root.textContent),
-        hasDanger: /Опасная зона/.test(root.textContent),
-      };
-    });
-    assert(ok.hasCompany, "нет секции «Компания» в настройках");
-    assert(ok.hasTelegram, "нет вынесенной секции Telegram (renderSettingsTelegram)");
-    assert(ok.hasDanger, "нет секции «Опасная зона»");
+    const companyTab = await page.evaluate(() => /Компания/.test(document.getElementById("appContent").textContent));
+    assert(companyTab, "вкладка «Компания» не активна по умолчанию в настройках");
+
+    await page.evaluate(() => window.app._setSettingsTab("notify"));
+    await page.waitForTimeout(150);
+    const hasTelegram = await page.evaluate(() => /Уведомления \(Telegram\)/.test(document.getElementById("appContent").textContent));
+    assert(hasTelegram, "нет вынесенной секции Telegram (renderSettingsTelegram) на вкладке «Уведомления»");
+
+    await page.evaluate(() => window.app._setSettingsTab("data"));
+    await page.waitForTimeout(150);
+    const hasDanger = await page.evaluate(() => /Опасная зона/.test(document.getElementById("appContent").textContent));
+    assert(hasDanger, "нет секции «Опасная зона» на вкладке «Данные»");
   });
 
   await test("confirmDialog: диалог с role=dialog; отмена бережёт данные, подтверждение сбрасывает", async () => {

@@ -2424,6 +2424,18 @@
       .seg-switch { display: flex; width: 100%; }
       .seg-switch button { flex: 1; min-height: 46px; }
     }
+    /* Вариант с бОльшим числом вкладок (Настройки: 4-5 пунктов) — перенос строк
+       вместо сжатия всех кнопок в одну узкую линию. */
+    .seg-switch.wrap { flex-wrap: wrap; }
+    /* Вкладка-ссылка (напр. «Admin Panel» в Настройках) — не переключает контент, а уводит
+       на отдельную страницу. Красный акцент как у пункта Admin Panel в сайдбаре — визуально
+       предупреждает, что это не обычная вкладка. */
+    .seg-switch-link { color: var(--red) !important; opacity: .75; }
+    .seg-switch-link:hover { opacity: 1; }
+    .seg-switch-link svg { opacity: 1 !important; }
+    @media (max-width: 640px) {
+      .seg-switch.wrap button { flex: 1 1 calc(50% - 4px); min-width: 0; }
+    }
 
     .pkg-note { font-size: 12px; color: var(--muted); font-style: italic; background: var(--surface2); padding: 6px 10px; border-radius: 6px; margin: 0 0 12px; line-height: 1.4; }
     .pkg-card-actions { display: flex; gap: 8px; margin-top: auto; }

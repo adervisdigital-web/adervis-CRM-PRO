@@ -101,6 +101,44 @@
       }
       // Единая иконка корзины для всех кнопок удаления (та же, что в меню сделки/swipe).
       const TRASH_SVG = `<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>`;
+
+      // Иконки Профиля/Настроек/Admin Panel — та же SVG-конвенция, что и у сайдбара/EMPTY_ICON_PATHS
+      // (замена эмодзи, см. сессию 2026-07-24). icon(name,size) — helper ниже.
+      const ICON_PATHS = {
+        check:    `<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm3.7 5.3l-4.4 4.4a.7.7 0 01-1 0L4.3 8.7a.7.7 0 111-1l1.6 1.6 3.9-3.9a.7.7 0 111 1z"/>`,
+        warning:  `<path d="M8 1.3a1 1 0 01.87.5l6.2 10.7a1 1 0 01-.87 1.5H1.8a1 1 0 01-.87-1.5l6.2-10.7A1 1 0 018 1.3zm-.75 4.2v3.5h1.5V5.5h-1.5zm0 4.75v1.5h1.5v-1.5h-1.5z"/>`,
+        xcircle:  `<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm2.6 4.4L9 8l1.6 1.6-1 1-1.6-1.6-1.6 1.6-1-1L6.9 8 5.3 6.4l1-1L8 7l1.6-1.6z"/>`,
+        card:     `<path d="M1 3a1 1 0 011-1h12a1 1 0 011 1v10a1 1 0 01-1 1H2a1 1 0 01-1-1V3zm1 2v1h12V5H2zm0 3v3h12V8H2z"/>`,
+        lock:     `<path d="M5 6V4.5a3 3 0 116 0V6h.5a1 1 0 011 1v6a1 1 0 01-1 1h-8a1 1 0 01-1-1V7a1 1 0 011-1H5zm1.5 0h3V4.5a1.5 1.5 0 00-3 0V6z"/>`,
+        unlock:   `<path d="M11.5 6V4.3a3.3 3.3 0 00-6.5-.8l1.4.4a1.8 1.8 0 013.6.4V6H4.5a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V7a1 1 0 00-1-1h-1z"/>`,
+        gift:     `<path d="M2 6h12v2H2V6zm1 3h4.25v5H3V9zm5.75 0H13v5H8.75V9zM6 2.5a1.5 1.5 0 011.5 1.5v1H6a1.5 1.5 0 010-3zM10 2.5a1.5 1.5 0 00-1.5 1.5v1H10a1.5 1.5 0 000-3z"/>`,
+        camera:   `<path d="M5.5 3l-.8 1.5H2a1 1 0 00-1 1V13a1 1 0 001 1h12a1 1 0 001-1V5.5a1 1 0 00-1-1h-2.7L10.5 3h-5zM8 6a3.2 3.2 0 110 6.4A3.2 3.2 0 018 6z"/>`,
+        key:      `<path d="M10 1a4 4 0 00-3.9 5L1 11.1V15h4l.9-.9v-1.4h1.4l.9-.9v-1.4h1.4l1-1A4 4 0 1010 1zm1.2 2.6a1 1 0 110 2 1 1 0 010-2z"/>`,
+        cloud:    `<path d="M5.5 12A3.5 3.5 0 015 5.1 4.5 4.5 0 0113.9 6 3 3 0 0113 12H5.5z"/>`,
+        bell:     `<path d="M8 1a1 1 0 011 1v.6A4.5 4.5 0 0112.5 7v3l1.3 2H2.2L3.5 10V7A4.5 4.5 0 017 2.6V2a1 1 0 011-1zm-1.7 12.5h3.4a1.7 1.7 0 01-3.4 0z"/>`,
+        robot:    `<path d="M6 1h4v1.5H6V1zm-1 3h6a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2zm.5 3a1 1 0 100 2 1 1 0 000-2zm5 0a1 1 0 100 2 1 1 0 000-2zM6 11h4v1H6v-1z"/>`,
+        mobile:   `<path d="M5 1h6a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V2a1 1 0 011-1zm2 11.5a.5.5 0 100 1 .5.5 0 000-1zM5.5 3v8h5V3h-5z"/>`,
+        copy:     `<path d="M4 1h8a1 1 0 011 1v8a1 1 0 01-1 1h-1V3H4V1z"/><path d="M2 4h8a1 1 0 011 1v9a1 1 0 01-1 1H2a1 1 0 01-1-1V5a1 1 0 011-1zm0 1v9h8V5H2z"/>`,
+        pencil:   `<path d="M11.3 1.3a1 1 0 011.4 0l2 2a1 1 0 010 1.4L6.4 13H3v-3.4l8.3-8.3z"/>`,
+        bug:      `<path d="M6 4.3V4a2 2 0 014 0v.3l1.4-1.3.7.7L10.7 5A4 4 0 0112 8h3v1h-3a4 4 0 01-.5 1.9l1.5 1.5-.7.7-1.6-1.6A4 4 0 018 13a4 4 0 01-2.7-1.5l-1.6 1.6-.7-.7 1.5-1.5A4 4 0 014 9H1V8h3a4 4 0 011.3-3L3.9 3.7l.7-.7L6 4.3zM6.5 7v4h3V7h-3z"/>`,
+        gear:     `<path d="M8.6 1l.3 1.6c.5.1.9.3 1.3.5l1.3-1 1.2 1.2-1 1.3c.2.4.4.8.5 1.3l1.6.3v1.7l-1.6.3c-.1.5-.3.9-.5 1.3l1 1.3-1.2 1.2-1.3-1c-.4.2-.8.4-1.3.5l-.3 1.6H6.9l-.3-1.6c-.5-.1-.9-.3-1.3-.5l-1.3 1-1.2-1.2 1-1.3c-.2-.4-.4-.8-.5-1.3L1.7 8.9V7.2l1.6-.3c.1-.5.3-.9.5-1.3l-1-1.3 1.2-1.2 1.3 1c.4-.2.8-.4 1.3-.5L6.9 1h1.7zM7.75 5.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z"/>`,
+        chat:     `<path d="M2 2h12a1 1 0 011 1v8a1 1 0 01-1 1H6l-3 3v-3H2a1 1 0 01-1-1V3a1 1 0 011-1z"/>`,
+        person:   `<path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/>`,
+        download: `<path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/>`,
+        upload:   `<path d="M7.25 12.5V4.31l-2.22 2.22-1.06-1.06L8 1.44l4.03 4.03-1.06 1.06-2.22-2.22v8.19h-1.5zM2.5 14h11v1.5h-11V14z"/>`
+      };
+      function icon(name, size) {
+        const s = size || 15;
+        const p = ICON_PATHS[name] || EMPTY_ICON_PATHS[name] || "";
+        return `<svg width="${s}" height="${s}" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">${p}</svg>`;
+      }
+      // Цветная иконка в тонированном квадрате-бейдже — заголовки секций Профиля/Настроек.
+      // colorVar — строка вида "var(--primary)". Тонировка через color-mix (тема-зависимо).
+      function iconBadge(name, colorVar, size) {
+        const s = size || 26;
+        return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${s}px;height:${s}px;border-radius:${Math.round(s * 0.32)}px;background:color-mix(in srgb, ${colorVar} 14%, transparent);color:${colorVar};flex-shrink:0">${icon(name, Math.round(s * 0.54))}</span>`;
+      }
+
       const PRIORITIES = ["Низкий", "Средний", "Высокий", "Срочно"];
 
       const DEFAULT_STAGES = [
@@ -2372,7 +2410,7 @@
           ${localMode ? `
             <div style="padding:14px 16px">
               <div style="font-size:13px;font-weight:750;margin-bottom:10px">Локальный режим</div>
-              <button class="pd-item" style="padding:9px 0;width:100%;border-radius:10px;background:var(--primary);color:#fff;justify-content:center" onclick="app.exitLocalModeAndLogin();app.toggleProfileDd(false)">🔐 Войти / Зарегистрироваться</button>
+              <button class="pd-item" style="padding:9px 0;width:100%;border-radius:10px;background:var(--primary);color:#fff;justify-content:center" onclick="app.exitLocalModeAndLogin();app.toggleProfileDd(false)">${icon("lock")} Войти / Зарегистрироваться</button>
             </div>
           ` : `
             <div class="pd-head">
@@ -2383,19 +2421,19 @@
               </div>
             </div>
             <div class="pd-sep"></div>
-            <button class="pd-item" onclick="app.go('profile');app.toggleProfileDd(false)" title="Ваш аккаунт, аватар, смена пароля"><span class="pd-item-icon">👤</span>Мой профиль</button>
-            <button class="pd-item" onclick="app.go('settings');app.toggleProfileDd(false)" title="Supabase, тема, экспорт данных"><span class="pd-item-icon">⚙️</span>Настройки</button>
-            <button class="pd-item" onclick="app.go('support');app.toggleProfileDd(false)" title="Контакты и поддержка"><span class="pd-item-icon">💬</span>Поддержка</button>
-            ${_isSuperAdmin() ? `<button class="pd-item" onclick="app.go('admin');app.toggleProfileDd(false)" style="background:rgba(220,38,38,.08)" title="Панель администратора"><span class="pd-item-icon">🔐</span>Admin Panel</button>` : ""}
+            <button class="pd-item" onclick="app.go('profile');app.toggleProfileDd(false)" title="Ваш аккаунт, аватар, смена пароля"><span class="pd-item-icon">${icon("person")}</span>Мой профиль</button>
+            <button class="pd-item" onclick="app.go('settings');app.toggleProfileDd(false)" title="Компания, уведомления, интеграции"><span class="pd-item-icon">${icon("gear")}</span>Настройки</button>
+            <button class="pd-item" onclick="app.go('support');app.toggleProfileDd(false)" title="Контакты и поддержка"><span class="pd-item-icon">${icon("chat")}</span>Поддержка</button>
+            ${_isSuperAdmin() ? `<button class="pd-item" onclick="app.go('admin');app.toggleProfileDd(false)" style="background:rgba(220,38,38,.08)" title="Панель администратора"><span class="pd-item-icon">${icon("lock")}</span>Admin Panel</button>` : ""}
             ${(() => {
               const daysLeft = getSubscriptionDaysLeft();
               const s = _userProfile && _userProfile.subscription_status;
               const isUrgent = !active || (s === "trial" && daysLeft !== null && daysLeft <= 7);
               const urgentBadge = isUrgent
-                ? `<span style="font-size:12px;background:rgba(220,38,38,.18);color:var(--red);border-radius:99px;padding:2px 8px;font-weight:750;white-space:nowrap">${s === "expired" || s === "cancelled" ? "Оплатить" : `⚠ ${daysLeft} д.`}</span>`
+                ? `<span style="font-size:12px;background:rgba(220,38,38,.18);color:var(--red);border-radius:99px;padding:2px 8px;font-weight:750;white-space:nowrap">${s === "expired" || s === "cancelled" ? "Оплатить" : `${daysLeft} д.`}</span>`
                 : "";
               return `<button class="pd-item" style="background:rgba(124,58,237,.08);border-radius:10px" onclick="app.gotoSubscription();app.toggleProfileDd(false)" title="Тарифы, оплата, история платежей">
-              <span class="pd-item-icon">💳</span>
+              <span class="pd-item-icon">${icon("card")}</span>
               <span class="u-flex1">Тарифный план</span>
               ${urgentBadge}
             </button>`;
@@ -2932,6 +2970,7 @@
 
       // ─── ADMIN PANEL ─────────────────────────────────────────────────────────
       let _adminPanelTab = "stats";
+      let _settingsTab = "company";
       let _adminAgencies = null; // null = not loaded
       let _adminPromoCodes = null;
       let _adminStats = null;
@@ -3104,7 +3143,7 @@
             <!-- Header -->
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
               <div style="display:flex;align-items:center;gap:14px">
-                <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#dc2626,#7c3aed);display:grid;place-items:center;font-size:20px">🔐</div>
+                <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#dc2626,#7c3aed);display:grid;place-items:center;color:#fff">${icon("lock", 20)}</div>
                 <div>
                   <h1 class="u-title-20">Admin Panel</h1>
                   <p style="margin:0;font-size:12px;color:var(--muted)">adervis.digital@gmail.com</p>
@@ -3134,12 +3173,12 @@
 
             <!-- Tabs -->
             <div style="display:flex;gap:4px;margin-bottom:20px;background:var(--panel2);padding:4px;border-radius:12px;width:fit-content">
-              ${[["users","👥 Пользователи"],["promos","🎁 Промокоды"],["errors","🐞 Ошибки" + ((_adminErrors||[]).length ? ` (${_adminErrors.length})` : "")]].map(([k,l]) => `
+              ${[["users",icon("users"),"Пользователи"],["promos",icon("gift"),"Промокоды"],["errors",icon("bug"),"Ошибки" + ((_adminErrors||[]).length ? ` (${_adminErrors.length})` : "")]].map(([k,ic,l]) => `
                 <button onclick="app._setAdminTab('${k}')"
-                  style="padding:8px 18px;border-radius:9px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:.15s;
+                  style="display:inline-flex;align-items:center;gap:7px;padding:8px 18px;border-radius:9px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:.15s;
                   background:${_adminPanelTab===k?"var(--primary)":"transparent"};
                   color:${_adminPanelTab===k?"#fff":"var(--muted)"}">
-                  ${l}
+                  ${ic}${l}
                 </button>`).join("")}
             </div>
 
@@ -3176,15 +3215,15 @@
                           </span>
                           ${a.subscription_plan ? `<span style="font-size:12px;font-weight:600;color:var(--muted)">${_adminPlanLabel(a.subscription_plan)}</span>` : ""}
                           ${a.subscription_expires_at ? `<span style="font-size:12px;color:${isExpired?"var(--red)":"var(--muted)"}">${daysLeft}</span>` : ""}
-                          ${!a.email_confirmed ? `<span title="Email не подтверждён" style="font-size:12px;color:var(--yellow)">⚠ email</span>` : ""}
+                          ${!a.email_confirmed ? `<span title="Email не подтверждён" style="font-size:12px;color:var(--yellow);display:inline-flex">${icon("warning", 13)}</span>` : ""}
                         </div>
                         <!-- Actions -->
                         <div style="display:flex;gap:6px;flex-shrink:0">
                           ${!isEditing ? `
-                            ${(isExpired || ast === "") ? `<button class="btn small green" onclick="app.adminActivate('${aid}')" title="Активировать на 30 дней">✅ Активировать</button>` : ""}
+                            ${(isExpired || ast === "") ? `<button class="btn small green" onclick="app.adminActivate('${aid}')" title="Активировать на 30 дней">${icon("check")} Активировать</button>` : ""}
                             <button class="btn small" onclick="app.adminExtendTrial('${aid}')" title="+14 дней к триалу">+14д</button>
-                            <button class="btn small" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Изменить подписку">✏️</button>
-                            <button class="btn small ${isBlocked?"green":"danger"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?"🔓":"🚫"}</button>
+                            <button class="btn small" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Изменить подписку" aria-label="Изменить подписку">${icon("pencil")}</button>
+                            <button class="btn small ${isBlocked?"green":"danger"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}" aria-label="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?icon("unlock"):icon("xcircle")}</button>
                           ` : `
                             <button class="btn small" onclick="app._closeEditSub()" style="opacity:.6">Отмена</button>
                           `}
@@ -3314,7 +3353,7 @@
                         </div>
                       ` : ""}
                     </div>`;
-                }).join("") : `<div style="text-align:center;padding:24px;color:var(--muted)">${rows.length ? "Ничего не найдено по фильтру" : "Ошибок нет 🎉"}</div>`}
+                }).join("") : `<div style="text-align:center;padding:24px;color:var(--muted)">${rows.length ? "Ничего не найдено по фильтру" : "Ошибок нет"}</div>`}
               `;
             })() : ""}
           </div>`;
@@ -3329,6 +3368,7 @@
       }
 
       function _setAdminTab(tab) { _adminPanelTab = tab; render(); }
+      function _setSettingsTab(tab) { _settingsTab = tab; render(); }
       function _setErrorsFilter(k, v) { _adminErrorsFilter[k] = v; render(); }
       function _toggleErrorGroup(key) { _adminErrorExpanded = _adminErrorExpanded === key ? null : key; render(); }
       function _agencyEmailById(agencyId) {
@@ -3619,7 +3659,7 @@
             subStatusBlock = `
               <div style="background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                  <span class="fs-20">✅</span>
+                  <span style="color:var(--green);flex-shrink:0">${icon("check", 20)}</span>
                   <div>
                     <div style="font-weight:900;font-size:15px;color:var(--green)">Подписка активна — ${escapeHtml(planLabel)}</div>
                     ${exp ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">Действует до: ${escapeHtml(expStr)}${daysLeft !== null ? ` (ещё ${daysLeft} дн.)` : ""}</div>` : ""}
@@ -3631,7 +3671,7 @@
             subStatusBlock = `
               <div style="background:rgba(202,138,4,.1);border:1px solid rgba(202,138,4,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                  <span class="fs-20">${urgency ? "⚠️" : "⏳"}</span>
+                  <span style="color:${urgency ? "var(--red)" : "var(--yellow)"};flex-shrink:0">${icon("warning", 20)}</span>
                   <div>
                     <div style="font-weight:900;font-size:15px;color:${urgency ? "var(--red)" : "var(--yellow)"}">Пробный период${daysLeft !== null ? ` — осталось ${daysLeft} дн.` : ""}</div>
                     ${exp ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">Истекает: ${escapeHtml(expStr)}</div>` : ""}
@@ -3642,7 +3682,7 @@
           } else {
             subStatusBlock = `
               <div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
-                <div style="font-weight:900;color:var(--red);margin-bottom:6px">⛔ Подписка истекла</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;color:var(--red);font-weight:900">${icon("xcircle")} Подписка истекла</div>
                 <p style="font-size:13px;margin:0;color:var(--muted)">Выберите тариф ниже для продолжения работы.</p>
               </div>`;
           }
@@ -3655,7 +3695,7 @@
             <div class="section-title" style="margin-bottom:20px">
               <div><h1 class="m-0">Профиль</h1><p style="margin:4px 0 0;color:var(--muted)">Аккаунт, подписка и настройки</p></div>
               <div class="toolbar" style="gap:8px">
-                <button class="btn small green" onclick="app.forceSaveToCloud()">☁️ Синхронизировать</button>
+                <button class="btn small green" onclick="app.forceSaveToCloud()">${icon("cloud")} Синхронизировать</button>
                 <button class="btn small" onclick="app.adminLogout()">→ Выйти</button>
               </div>
             </div>
@@ -3672,7 +3712,7 @@
                 <div style="flex:1;min-width:180px">
                   <div style="display:flex;gap:8px;margin-bottom:10px">
                     <label class="btn small" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-                      📷 Изменить фото
+                      <span style="color:var(--primary);display:inline-flex">${icon("camera")}</span> Изменить фото
                       <input type="file" accept="image/*" onchange="app.uploadUserAvatar(event)" style="display:none">
                     </label>
                     ${us.avatarDataUrl ? `<button class="btn small danger" onclick="app.removeUserAvatar()">${TRASH_SVG} Удалить</button>` : ""}
@@ -3697,20 +3737,20 @@
             <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
               <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
                 <div>
-                  <h2 style="margin:0 0 4px;font-size:15px">💳 Тарифный план</h2>
+                  <h2 style="margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:9px">${iconBadge("card", "var(--primary)")} Тарифный план</h2>
                   <div class="u-meta-13">${escapeHtml(subLabel)}${sub && sub.subscription_expires_at ? ` · до ${new Date(sub.subscription_expires_at).toLocaleDateString("ru-RU", {day:"2-digit",month:"short",year:"numeric"})}` : ""}</div>
                 </div>
-                <button class="btn small primary" onclick="app.go('plans')" style="white-space:nowrap">Изменить тариф →</button>
+                <button class="btn small primary" onclick="app.go('plans')" style="white-space:nowrap">Изменить тариф</button>
               </div>
             </div>
 
             <!-- Security -->
             <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
-              <h2 style="margin-top:0;font-size:15px">🔐 Безопасность</h2>
+              <h2 style="margin-top:0;font-size:15px;display:flex;align-items:center;gap:9px">${iconBadge("lock", "var(--blue)")} Безопасность</h2>
               <div id="changePasswordBox"></div>
               <div class="toolbar" style="gap:8px;flex-wrap:wrap">
-                <button class="btn small" onclick="app.openChangePassword()">🔑 Изменить пароль</button>
-                <button class="btn small danger" onclick="app.confirmDeleteAccount()">🗑 Удалить аккаунт</button>
+                <button class="btn small" onclick="app.openChangePassword()" style="display:inline-flex;align-items:center;gap:6px"><span style="color:var(--blue);display:inline-flex">${icon("key")}</span> Изменить пароль</button>
+                <button class="btn small danger" onclick="app.confirmDeleteAccount()">${TRASH_SVG} Удалить аккаунт</button>
               </div>
             </div>
 
@@ -3721,12 +3761,12 @@
               const onlineList = _onlineUsers.length ? _onlineUsers.map(u => `<span style="background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.3);border-radius:99px;padding:2px 10px;font-size:12px">● ${escapeHtml(u)}</span>`).join(" ") : "";
               return `
               <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
-                <h2 style="margin-top:0;font-size:15px">👥 Команда</h2>
+                <h2 style="margin-top:0;font-size:15px;display:flex;align-items:center;gap:9px">${iconBadge("users", "var(--green)")} Команда</h2>
                 ${isOwner ? `
                   <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Дайте этот код коллеге — при регистрации он вводит его и попадёт в ваше агентство.</p>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                     <code style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0">${escapeHtml(agencyId)}</code>
-                    <button class="btn small" onclick="app.copy('${escapeHtml(agencyId)}','✅ Скопировано!')">📋</button>
+                    <button class="btn small" onclick="app.copy('${escapeHtml(agencyId)}','Скопировано!')" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span style="color:var(--primary);display:inline-flex">${icon("copy")}</span> Копировать</button>
                   </div>
                   ${onlineList ? `<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="u-meta">Сейчас онлайн:</span>${onlineList}</div>` : ""}
                 ` : `<p style="font-size:13px;color:var(--muted);margin:0">Вы в команде агентства${onlineList ? ` · Онлайн: ${onlineList}` : ""}</p>`}
@@ -3737,7 +3777,7 @@
               <div style="width:72px;height:72px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;margin:0 auto 16px;box-shadow:0 8px 28px rgba(124,58,237,.4)">A</div>
               <h2 style="margin:0 0 6px;font-size:20px">Войдите в ADERVIS CRM</h2>
               <p style="color:var(--muted);margin:0 0 18px;font-size:14px">Облачное хранение · Синхронизация · Подписка</p>
-              <button class="btn primary" onclick="app.exitLocalModeAndLogin()" style="padding:12px 28px;font-size:15px;width:100%;max-width:280px">🔐 Войти / Зарегистрироваться</button>
+              <button class="btn primary" onclick="app.exitLocalModeAndLogin()" style="padding:12px 28px;font-size:15px;width:100%;max-width:280px;display:inline-flex;align-items:center;justify-content:center;gap:8px">${icon("lock")} Войти / Зарегистрироваться</button>
               <p style="font-size:12px;color:var(--muted);margin:12px 0 0">7 дней бесплатно · Без карты · Данные не удаляются</p>
             </div>
             `}
@@ -3749,13 +3789,13 @@
               const refUrl = escapeHtml(location.origin + location.pathname + '?ref=' + getAgencyId());
               return `
               <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
-                <h2 style="margin-top:0;font-size:15px">🎁 Реферальная программа</h2>
+                <h2 style="margin-top:0;font-size:15px;display:flex;align-items:center;gap:9px">${iconBadge("gift", "var(--orange)")} Реферальная программа</h2>
                 <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.6">
                   Поделитесь ссылкой с другой видеостудией или фрилансером. Когда они оплатят любой тариф — вы получите <b>+30 дней</b> к подписке бесплатно.
                 </p>
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
                   <code id="refLinkCode" style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0;color:var(--text2)">${refUrl}</code>
-                  <button class="btn small primary" onclick="app.copy(document.getElementById('refLinkCode').textContent.trim(),'✅ Реферальная ссылка скопирована!')">📋 Копировать</button>
+                  <button class="btn small" onclick="app.copy(document.getElementById('refLinkCode').textContent.trim(),'Реферальная ссылка скопирована!')" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span style="color:var(--primary);display:inline-flex">${icon("copy")}</span> Копировать</button>
                 </div>
                 <div id="refStats" class="u-meta" aria-busy="true"><div class="skeleton" style="height:14px;width:240px"></div></div>
               </div>`;
@@ -15045,7 +15085,7 @@
       function renderSettingsTelegram() {
         return `
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
-              <h2>Уведомления (Telegram)</h2>
+              <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("chat", "var(--cyan)")} Уведомления (Telegram)</h2>
               <p style="font-size:13px;color:var(--text2);margin-bottom:14px">
                 Напишите боту <a href="https://t.me/adervis_crm_bot" target="_blank" style="color:var(--primary)">@adervis_crm_bot</a> команду <code>/start</code> — он пришлёт Chat ID. Добавьте столько получателей, сколько нужно.
               </p>
@@ -15068,17 +15108,19 @@
       }
 
       function renderSettings() {
-        return `
-          <div class="panel">
-            <div class="section-title">
-              <div>
-                <h1>Настройки</h1>
-                <p>Данные компании, экспорт и импорт данных. Тема и режим клиента — в шапке.</p>
-              </div>
-            </div>
+        const tabs = [
+          ["company", icon("gear"), "Компания"],
+          ["notify", icon("bell"), "Уведомления"],
+          ["integrations", icon("calendar"), "Интеграции"],
+          ["data", icon("download"), "Данные"]
+        ];
+        if (_isSuperAdmin()) tabs.push(["dev", icon("robot"), "Разработка"]);
+        // Не настоящая вкладка контента — переход на отдельную страницу Admin Panel
+        // (видна только супер-админу, как и сама страница, см. _isSuperAdmin() в renderAdminPanel).
+        if (_isSuperAdmin()) tabs.push(["__admin_link", icon("lock"), "Admin Panel"]);
+        const tab = tabs.some(t => t[0] === _settingsTab) ? _settingsTab : "company";
 
-            <h2>Компания</h2>
-
+        const companyTab = `
             <div class="grid three">
               ${field("Название", `<input data-autosave data-scope="company" data-key="name" value="${escapeHtml(state.company.name)}">`)}
               ${field("ИНН", `<input data-autosave data-scope="company" data-key="inn" value="${escapeHtml(state.company.inn || "")}" placeholder="590000000000">`)}
@@ -15087,7 +15129,12 @@
               ${field("Email", `<input data-autosave data-scope="company" data-key="email" value="${escapeHtml(state.company.email)}">`)}
               ${field("Сайт", `<input data-autosave data-scope="company" data-key="site" value="${escapeHtml(state.company.site)}">`)}
               ${field("Логотип: путь или URL", `<input data-autosave data-scope="company" data-key="logoUrl" value="${escapeHtml(state.company.logoUrl || "logo-icon.svg")}" placeholder="logo-icon.svg">`)}
-              ${field("Загрузить логотип", `<input type="file" accept="image/*" onchange="app.importCompanyLogo(event)">`)}
+              ${field("Загрузить логотип", `
+                <label class="btn small" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;width:fit-content">
+                  <span style="color:var(--primary);display:inline-flex">${icon("upload")}</span> Выбрать файл
+                  <input type="file" accept="image/*" onchange="app.importCompanyLogo(event)" style="display:none">
+                </label>
+              `)}
               ${field("Описание", `<input data-autosave data-scope="company" data-key="desc" value="${escapeHtml(state.company.desc)}">`)}
               ${field("Валюта", `
                 <div class="currency-select-wrap">
@@ -15110,9 +15157,141 @@
             <div class="mt-14">
               ${field("Реквизиты", `<textarea data-autosave data-scope="company" data-key="requisites">${escapeHtml(state.company.requisites)}</textarea>`)}
             </div>
+        `;
 
-            <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
-              <h2>Данные</h2>
+        const notifyTab = `
+            <!-- Web Push notifications -->
+            ${_adminSession ? (() => {
+              // Асинхронно проверяем состояние подписки и обновляем кнопку
+              setTimeout(async () => {
+                const el = document.getElementById('pushToggleBtn');
+                if (!el) return;
+                const state = await getPushSubscriptionState();
+                if (state === 'unsupported') {
+                  el.textContent = 'Не поддерживается браузером';
+                  el.disabled = true;
+                } else if (state === 'subscribed') {
+                  el.textContent = 'Отключить Push';
+                  el.onclick = () => app.unsubscribeFromPush();
+                  el.className = 'btn small';
+                } else {
+                  el.textContent = 'Включить Push';
+                  el.onclick = () => app.subscribeToPush();
+                  el.className = 'btn small primary';
+                }
+              }, 100);
+              return `
+              <div class="panel" style="box-shadow:none;background:var(--panel2)">
+                <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("bell", "var(--yellow)")} Push-уведомления</h2>
+                <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.6">
+                  Браузерные уведомления о дедлайнах и событиях — работают даже когда вкладка закрыта.
+                </p>
+                <button id="pushToggleBtn" class="btn small" disabled>Проверка...</button>
+              </div>`;
+            })() : ''}
+
+            ${renderSettingsTelegram()}
+        `;
+
+        const integrationsTab = `
+            ${(() => {
+              if (!_adminSession || !_userProfile) return "";
+              const { url } = getSupabaseConfig();
+              if (!url) return "";
+              const agencyId = getAgencyId();
+              const feedUrl = `${url}/functions/v1/calendar-feed?token=${agencyId}`;
+              const webcalUrl = feedUrl.replace(/^https?:\/\//, "webcal://");
+              return `
+              <div class="panel" style="box-shadow:none;background:var(--panel2)">
+                <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("calendar", "var(--blue)")} Синхронизация с iPhone / Google Calendar</h2>
+                <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+                  Подпишитесь на iCal-фид чтобы задачи и дедлайны из CRM автоматически появлялись в вашем календаре. Обновляется каждые 1–12 часов автоматически.
+                </p>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                  <input readonly onclick="this.select()" value="${escapeHtml(feedUrl)}"
+                    style="flex:1;font-size:12px;min-width:0;background:rgba(0,0,0,.15);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--fg);cursor:text">
+                  <button class="btn small" onclick="app.copy('${escapeHtml(feedUrl)}','Ссылка скопирована!')" style="display:inline-flex;align-items:center;gap:6px"><span style="color:var(--primary);display:inline-flex">${icon("copy")}</span> Копировать</button>
+                  <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px">${icon("mobile")} Открыть на iPhone</a>
+                </div>
+                <details class="u-meta">
+                  <summary style="cursor:pointer;font-weight:600;margin-bottom:8px">Как подключить?</summary>
+                  <div style="padding:10px 0;line-height:1.7">
+                    <b>iPhone:</b> нажмите «Открыть на iPhone» → Календарь предложит подписаться → «Добавить».<br>
+                    <b>Google Calendar:</b> Другие календари → Добавить по URL → вставить ссылку выше → Добавить.<br>
+                    <b>Outlook:</b> Добавить календарь → Подписаться из Интернета → вставить ссылку.<br>
+                    <br>
+                    <b>Ссылка личная</b> — не передавайте её третьим лицам. В фиде отображаются задачи и дедлайны всех проектов агентства.
+                  </div>
+                </details>
+              </div>`;
+            })()}
+
+            ${_adminSession ? `
+            <div class="panel" style="box-shadow:none;background:var(--panel2);margin-top:16px">
+              <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("calendar", "var(--green)")} Google Calendar (личный, двусторонняя синхронизация)</h2>
+              <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+                Подключите свой личный Google-аккаунт: события из него будут видны в календаре CRM,
+                а задачи с дедлайном можно отправлять в него кнопкой в карточке задачи. Подключение
+                приватное — только для вашего логина, коллеги подключают свой аккаунт отдельно.
+              </p>
+              ${_googleCalStatus && _googleCalStatus.connected ? `
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                  <span class="status-pill" style="font-size:12px;display:inline-flex;align-items:center;gap:6px">${icon("check")} Подключено${_googleCalStatus.email ? `: ${escapeHtml(_googleCalStatus.email)}` : ""}</span>
+                  <button class="btn small" onclick="app.disconnectGoogleCalendar()">Отключить</button>
+                </div>
+              ` : `
+                <button id="googleCalConnectBtn" class="btn primary" onclick="app.connectGoogleCalendar()">Подключить Google Calendar</button>
+                <p class="u-meta" style="margin-top:10px">Приложение пока не прошло верификацию Google — на экране согласия появится
+                  предупреждение «Google не проверил это приложение», это ожидаемо, продолжайте через «Дополнительные настройки».</p>
+              `}
+            </div>` : ""}
+
+            <!-- PWA Установка -->
+            <div class="panel" style="margin-top:16px;box-shadow:none;background:linear-gradient(135deg,rgba(124,58,237,.10),rgba(37,99,235,.08));border:1px solid rgba(124,58,237,.25)">
+              <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                <div style="width:56px;height:56px;border-radius:16px;background:var(--primary);display:grid;place-items:center;flex-shrink:0;box-shadow:0 6px 20px rgba(108,0,255,.35)">
+                  <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
+                </div>
+                <div class="u-flex1-min0">
+                  <h2 style="margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:9px">${iconBadge("mobile", "var(--primary)")} Установить ADERVIS CRM</h2>
+                  <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.6">Работает как полноценное приложение — быстрый запуск с рабочего стола, без вкладки браузера, поддержка push-уведомлений.</p>
+                </div>
+                <div style="flex-shrink:0">
+                  ${(() => {
+                    const isStandalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
+                    if (isStandalone) {
+                      return `<span class="sync-badge" style="font-size:13px;padding:8px 16px">✓ Уже установлено</span>`;
+                    }
+                    if (_deferredInstallPrompt) {
+                      return `<button class="btn primary" onclick="app.installPWA()" style="font-size:14px;padding:10px 24px">Установить →</button>`;
+                    }
+                    return `<span style="font-size:12px;color:var(--muted);display:block;max-width:220px;line-height:1.5">Откройте в Chrome / Edge и нажмите «Установить» в адресной строке браузера</span>`;
+                  })()}
+                </div>
+              </div>
+              <div class="grid three" style="margin-top:16px;gap:10px">
+                <div style="background:rgba(124,58,237,.08);border-radius:10px;padding:10px 14px">
+                  <div style="margin-bottom:4px;color:var(--primary)">${icon("check", 18)}</div>
+                  <div style="font-size:12px;font-weight:700;margin-bottom:2px">Быстрый запуск</div>
+                  <div class="u-meta">Иконка на рабочем столе или в доке, открывается мгновенно</div>
+                </div>
+                <div style="background:rgba(37,99,235,.08);border-radius:10px;padding:10px 14px">
+                  <div style="margin-bottom:4px;color:var(--blue)">${icon("bell", 18)}</div>
+                  <div style="font-size:12px;font-weight:700;margin-bottom:2px">Push-уведомления</div>
+                  <div class="u-meta">Дедлайны и события даже когда приложение закрыто</div>
+                </div>
+                <div style="background:rgba(22,163,74,.08);border-radius:10px;padding:10px 14px">
+                  <div style="margin-bottom:4px;color:var(--green)">${icon("mobile", 18)}</div>
+                  <div style="font-size:12px;font-weight:700;margin-bottom:2px">Мобильный доступ</div>
+                  <div class="u-meta">Работает на iOS (Safari → Добавить на экран) и Android</div>
+                </div>
+              </div>
+            </div>
+        `;
+
+        const dataTab = `
+            <div class="panel" style="box-shadow:none;background:var(--panel2)">
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("download", "var(--blue)")} Экспорт и импорт</h2>
 
               <div class="toolbar no-print">
                 <button class="btn primary" onclick="app.exportData()">Экспорт JSON</button>
@@ -15125,7 +15304,7 @@
                 <span style="font-size:12px;color:var(--muted);align-self:center">Ежемесячный отчёт:</span>
                 <input type="month" id="monthReportInput" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:13px"
                   value="${new Date().toISOString().slice(0,7)}">
-                <button class="btn green" onclick="app.exportMonthlyReport(document.getElementById('monthReportInput').value)">📥 Отчёт за месяц</button>
+                <button class="btn green" onclick="app.exportMonthlyReport(document.getElementById('monthReportInput').value)" style="display:inline-flex;align-items:center;gap:6px">${icon("download")} Отчёт за месяц</button>
               </div>
 
               <p class="mini-note">
@@ -15133,44 +15312,24 @@
               </p>
             </div>
 
-            <!-- Web Push notifications -->
-            ${_adminSession ? (() => {
-              // Асинхронно проверяем состояние подписки и обновляем кнопку
-              setTimeout(async () => {
-                const el = document.getElementById('pushToggleBtn');
-                if (!el) return;
-                const state = await getPushSubscriptionState();
-                if (state === 'unsupported') {
-                  el.textContent = 'Не поддерживается браузером';
-                  el.disabled = true;
-                } else if (state === 'subscribed') {
-                  el.textContent = '🔕 Отключить Push';
-                  el.onclick = () => app.unsubscribeFromPush();
-                  el.className = 'btn small';
-                } else {
-                  el.textContent = '🔔 Включить Push';
-                  el.onclick = () => app.subscribeToPush();
-                  el.className = 'btn small primary';
-                }
-              }, 100);
-              return `
-              <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
-                <h2 style="margin-top:0">🔔 Push-уведомления</h2>
-                <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.6">
-                  Браузерные уведомления о дедлайнах и событиях — работают даже когда вкладка закрыта.
-                </p>
-                <button id="pushToggleBtn" class="btn small" disabled>Проверка...</button>
-              </div>`;
-            })() : ''}
+            <div class="panel" style="margin-top:16px;box-shadow:none;background:var(--panel2);border-color:rgba(220,38,38,.45)">
+              <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("warning", "var(--red)")} Опасная зона</h2>
+              <p>Сброс удалит все локальные данные приложения в браузере.</p>
 
-            ${(!_adminSession || _isSuperAdmin()) ? `
+              <div class="toolbar no-print">
+                <button class="btn danger" onclick="app.resetAllData()">Сбросить всё</button>
+              </div>
+            </div>
+        `;
+
+        const devTab = _isSuperAdmin() ? `
             <div class="supabase-config-box">
-              <h2 style="margin-top:0">🔐 Supabase — авторизация и подписки</h2>
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("lock", "var(--blue)")} Supabase — авторизация и подписки</h2>
               <p style="margin-bottom:6px;font-size:13px">
                 Подключите Supabase для: входа пользователей по email/паролю, облачного хранения данных, управления подписками и совместного редактирования.
               </p>
               <details class="mb-14">
-                <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:700">📋 SQL — создать таблицы в Supabase (нажмите чтобы раскрыть)</summary>
+                <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:700">SQL — создать таблицы в Supabase (нажмите чтобы раскрыть)</summary>
                 <pre style="font-size:12px;background:rgba(0,0,0,.15);border-radius:10px;padding:12px;margin-top:10px;overflow-x:auto;white-space:pre-wrap;line-height:1.5">-- ═══════════════════════════════════════════════════
 -- ADERVIS CRM — Схема базы данных v4.2
 -- Выполнить один раз в Supabase SQL Editor
@@ -15268,7 +15427,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 </div>
                 <div class="toolbar" style="margin-bottom:${_adminSession ? "14px" : "0"}">
                   <button class="btn primary" onclick="app.saveSupabaseConfig()">Сохранить настройки</button>
-                  ${cfg.url && cfg.key && !_adminSession ? `<button class="btn" onclick="app.openAdminModal()">🔐 Войти</button>` : ""}
+                  ${cfg.url && cfg.key && !_adminSession ? `<button class="btn" onclick="app.openAdminModal()">Войти</button>` : ""}
                   ${_adminSession ? `<span class="sync-badge">● Подключено как ${escapeHtml(_adminSession.user.email)}</span>` : ""}
                 </div>
                 ${_adminSession && _userProfile ? `
@@ -15288,11 +15447,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 `;
               })()}
             </div>
-            ` : ""}
 
             <!-- AI-генерация КП — активация Gemini -->
-            <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
-              <h2>🤖 AI-генерация КП (Gemini)</h2>
+            <div class="panel" style="margin-top:16px;box-shadow:none;background:var(--panel2)">
+              <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("robot", "var(--primary)")} AI-генерация КП (Gemini)</h2>
               <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
                 Edge Function <code>ai-proposal</code> уже задеплоена. Для активации — добавить бесплатный ключ Gemini в Supabase Secrets:
               </p>
@@ -15305,116 +15463,29 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 Модель: <b>gemini-2.5-flash-lite</b> · Лимит бесплатного тарифа: 1000 запросов/день, 15 запросов/мин. Более чем достаточно для одного агентства.
               </p>
             </div>
+        ` : "";
 
-            <!-- PWA Установка -->
-            <div class="panel" style="margin-top:18px;box-shadow:none;background:linear-gradient(135deg,rgba(124,58,237,.10),rgba(37,99,235,.08));border:1px solid rgba(124,58,237,.25)">
-              <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-                <div style="width:56px;height:56px;border-radius:16px;background:var(--primary);display:grid;place-items:center;flex-shrink:0;box-shadow:0 6px 20px rgba(108,0,255,.35)">
-                  <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
-                </div>
-                <div class="u-flex1-min0">
-                  <h2 style="margin:0 0 4px;font-size:16px">📲 Установить ADERVIS CRM</h2>
-                  <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.6">Работает как полноценное приложение — быстрый запуск с рабочего стола, без вкладки браузера, поддержка push-уведомлений.</p>
-                </div>
-                <div style="flex-shrink:0">
-                  ${(() => {
-                    const isStandalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
-                    if (isStandalone) {
-                      return `<span class="sync-badge" style="font-size:13px;padding:8px 16px">✓ Уже установлено</span>`;
-                    }
-                    if (_deferredInstallPrompt) {
-                      return `<button class="btn primary" onclick="app.installPWA()" style="font-size:14px;padding:10px 24px">Установить →</button>`;
-                    }
-                    return `<span style="font-size:12px;color:var(--muted);display:block;max-width:220px;line-height:1.5">Откройте в Chrome / Edge и нажмите «Установить» в адресной строке браузера</span>`;
-                  })()}
-                </div>
-              </div>
-              <div class="grid three" style="margin-top:16px;gap:10px">
-                <div style="background:rgba(124,58,237,.08);border-radius:10px;padding:10px 14px">
-                  <div style="font-size:18px;margin-bottom:4px">⚡</div>
-                  <div style="font-size:12px;font-weight:700;margin-bottom:2px">Быстрый запуск</div>
-                  <div class="u-meta">Иконка на рабочем столе или в доке, открывается мгновенно</div>
-                </div>
-                <div style="background:rgba(37,99,235,.08);border-radius:10px;padding:10px 14px">
-                  <div style="font-size:18px;margin-bottom:4px">🔔</div>
-                  <div style="font-size:12px;font-weight:700;margin-bottom:2px">Push-уведомления</div>
-                  <div class="u-meta">Дедлайны и события даже когда приложение закрыто</div>
-                </div>
-                <div style="background:rgba(22,163,74,.08);border-radius:10px;padding:10px 14px">
-                  <div style="font-size:18px;margin-bottom:4px">📱</div>
-                  <div style="font-size:12px;font-weight:700;margin-bottom:2px">Мобильный доступ</div>
-                  <div class="u-meta">Работает на iOS (Safari → Добавить на экран) и Android</div>
-                </div>
+        return `
+          <div class="panel">
+            <div class="section-title">
+              <div>
+                <h1>Настройки</h1>
+                <p>Тема и режим клиента — в шапке.</p>
               </div>
             </div>
 
-            <div style="margin-top:18px;padding:10px 14px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-              <span class="u-meta">ADERVIS CRM</span>
-              <span style="font-size:12px;color:var(--muted);opacity:.55">v${APP_VERSION}</span>
+            <div class="seg-switch wrap" role="tablist" aria-label="Настройки">
+              ${tabs.map(([id, ic, label]) => `
+                <button type="button" role="tab" aria-selected="${tab === id}" class="${tab === id ? "active" : ""} ${id === "__admin_link" ? "seg-switch-link" : ""}"
+                  onclick="${id === "__admin_link" ? "app.go('admin')" : `app._setSettingsTab('${id}')`}">${ic}${label}</button>
+              `).join("")}
             </div>
 
-            ${renderSettingsTelegram()}
-
-            ${(() => {
-              if (!_adminSession || !_userProfile) return "";
-              const { url } = getSupabaseConfig();
-              if (!url) return "";
-              const agencyId = getAgencyId();
-              const feedUrl = `${url}/functions/v1/calendar-feed?token=${agencyId}`;
-              const webcalUrl = feedUrl.replace(/^https?:\/\//, "webcal://");
-              return `
-              <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
-                <h2>📅 Синхронизация с iPhone / Google Calendar</h2>
-                <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.6">
-                  Подпишитесь на iCal-фид чтобы задачи и дедлайны из CRM автоматически появлялись в вашем календаре. Обновляется каждые 1–12 часов автоматически.
-                </p>
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-                  <input readonly onclick="this.select()" value="${escapeHtml(feedUrl)}"
-                    style="flex:1;font-size:12px;min-width:0;background:rgba(0,0,0,.15);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--fg);cursor:text">
-                  <button class="btn small" onclick="app.copy('${escapeHtml(feedUrl)}','✅ Ссылка скопирована!')">📋 Копировать</button>
-                  <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none;white-space:nowrap">📱 Открыть на iPhone</a>
-                </div>
-                <details class="u-meta">
-                  <summary style="cursor:pointer;font-weight:600;margin-bottom:8px">Как подключить?</summary>
-                  <div style="padding:10px 0;line-height:1.7">
-                    <b>iPhone:</b> нажмите «Открыть на iPhone» → Календарь предложит подписаться → «Добавить».<br>
-                    <b>Google Calendar:</b> Другие календари → Добавить по URL → вставить ссылку выше → Добавить.<br>
-                    <b>Outlook:</b> Добавить календарь → Подписаться из Интернета → вставить ссылку.<br>
-                    <br>
-                    <b>⚠️ Ссылка личная</b> — не передавайте её третьим лицам. В фиде отображаются задачи и дедлайны всех проектов агентства.
-                  </div>
-                </details>
-              </div>`;
-            })()}
-
-            ${_adminSession ? `
-            <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
-              <h2>📆 Google Calendar (личный, двусторонняя синхронизация)</h2>
-              <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.6">
-                Подключите свой личный Google-аккаунт: события из него будут видны в календаре CRM,
-                а задачи с дедлайном можно отправлять в него кнопкой в карточке задачи. Подключение
-                приватное — только для вашего логина, коллеги подключают свой аккаунт отдельно.
-              </p>
-              ${_googleCalStatus && _googleCalStatus.connected ? `
-                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                  <span class="status-pill" style="font-size:12px">✅ Подключено${_googleCalStatus.email ? `: ${escapeHtml(_googleCalStatus.email)}` : ""}</span>
-                  <button class="btn small" onclick="app.disconnectGoogleCalendar()">Отключить</button>
-                </div>
-              ` : `
-                <button id="googleCalConnectBtn" class="btn primary" onclick="app.connectGoogleCalendar()">🔗 Подключить Google Calendar</button>
-                <p class="u-meta" style="margin-top:10px">Приложение пока не прошло верификацию Google — на экране согласия появится
-                  предупреждение «Google не проверил это приложение», это ожидаемо, продолжайте через «Дополнительные настройки».</p>
-              `}
-            </div>` : ""}
-
-            <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2);border-color:rgba(220,38,38,.45)">
-              <h2>Опасная зона</h2>
-              <p>Сброс удалит все локальные данные приложения в браузере.</p>
-
-              <div class="toolbar no-print">
-                <button class="btn danger" onclick="app.resetAllData()">Сбросить всё</button>
-              </div>
-            </div>
+            ${tab === "company" ? companyTab : ""}
+            ${tab === "notify" ? notifyTab : ""}
+            ${tab === "integrations" ? integrationsTab : ""}
+            ${tab === "data" ? dataTab : ""}
+            ${tab === "dev" ? devTab : ""}
 
             <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--line);text-align:center;font-size:12px;color:var(--muted);line-height:1.8">
               ADERVIS CRM · CRM для видеопродакшн · Самозанятый · ИНН&nbsp;592110786536 ·
@@ -17934,6 +18005,7 @@ Email: ______________________            Email: ______________________
         adminToggleBlock,
         _setExpenseBudget,
         _setAdminTab,
+        _setSettingsTab,
         _openEditSub,
         _closeEditSub,
         _setEditSub,
