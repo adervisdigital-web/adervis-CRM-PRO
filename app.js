@@ -125,7 +125,10 @@
         chat:     `<path d="M2 2h12a1 1 0 011 1v8a1 1 0 01-1 1H6l-3 3v-3H2a1 1 0 01-1-1V3a1 1 0 011-1z"/>`,
         person:   `<path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/>`,
         download: `<path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/>`,
-        upload:   `<path d="M7.25 12.5V4.31l-2.22 2.22-1.06-1.06L8 1.44l4.03 4.03-1.06 1.06-2.22-2.22v8.19h-1.5zM2.5 14h11v1.5h-11V14z"/>`
+        upload:   `<path d="M7.25 12.5V4.31l-2.22 2.22-1.06-1.06L8 1.44l4.03 4.03-1.06 1.06-2.22-2.22v8.19h-1.5zM2.5 14h11v1.5h-11V14z"/>`,
+        mail:     `<path fill-rule="evenodd" d="M1 4.5A1.5 1.5 0 012.5 3h11A1.5 1.5 0 0115 4.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 11.5v-7zm1.5-.1L8 8.4l5.5-4v-.1h-11v.1zM14 5.6L8.4 9.8a.7.7 0 01-.8 0L2 5.6v5.9c0 .3.2.5.5.5h11a.5.5 0 00.5-.5V5.6z"/>`,
+        send:     `<path d="M14.7 1.3a.7.7 0 00-.74-.16L1.34 5.86a.7.7 0 00-.02 1.3l4.9 1.98 1.98 4.9a.7.7 0 001.3-.02l4.7-12.62a.7.7 0 00-.5-.9zM6.9 8.9L3.1 7.4l8.9-3.4-5 4.9zm1.06 1.06l4.9-5.1-3.4 8.9-1.5-3.8z"/>`,
+        star:     `<path d="M8 1l2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L.8 6.2l5-.7L8 1z"/>`
       };
       function icon(name, size) {
         const s = size || 15;
@@ -756,6 +759,15 @@
         input.value = out;
       }
 
+      // Живое форматирование денежных полей — разряды пробелом ("132 145"), чтобы
+      // сумму было видно с первого взгляда (сто тысяч vs десять тысяч). Возвращает
+      // «чистые» цифры — их и пишем в состояние, форматированную строку Number() не распарсит.
+      function maskMoneyInput(input) {
+        const digits = input.value.replace(/\D/g, "");
+        input.value = digits ? Number(digits).toLocaleString("ru-RU") : "";
+        return digits;
+      }
+
       function checkPhoneField(input) {
         if (input.value.replace(/\D/g, "") === "7") input.value = "";
         const val = input.value;
@@ -801,6 +813,7 @@
       let _tgSaveTimer = null;
       let _fadeRaf = null;
       let _dealMenuOpen = null;
+      let _tagOverflowOpen = false;
       let _loginFailCount = 0;
       let _loginLockUntil = 0;
       let _needsNormalize = true; // true after any state mutation; normalizeState() runs in render() only when set
@@ -3420,7 +3433,7 @@
 
             <div style="display:grid;gap:14px;margin-bottom:28px">
               <a href="mailto:adervis.digital@gmail.com" class="support-card" style="text-decoration:none">
-                <div class="support-card-icon" style="background:rgba(37,99,235,.12);color:var(--blue)">✉</div>
+                ${iconBadge("mail", "var(--blue)", 44)}
                 <div>
                   <div class="u-label-strong">Email-поддержка</div>
                   <div class="u-meta-13">adervis.digital@gmail.com</div>
@@ -3429,7 +3442,7 @@
               </a>
 
               <a href="https://t.me/adervisdigital" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
-                <div class="support-card-icon" style="background:rgba(0,136,204,.12);color:#29b6f6">▶</div>
+                ${iconBadge("send", "#29b6f6", 44)}
                 <div>
                   <div class="u-label-strong">Telegram</div>
                   <div class="u-meta-13">@adervisdigital</div>
@@ -3438,7 +3451,7 @@
               </a>
 
               <a href="https://adervis.ru/docs" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
-                <div class="support-card-icon" style="background:rgba(22,163,74,.12);color:var(--green)">📄</div>
+                ${iconBadge("doc", "var(--green)", 44)}
                 <div>
                   <div class="u-label-strong">Документы</div>
                   <div class="u-meta-13">Оферта и Политика конфиденциальности</div>
@@ -3447,7 +3460,7 @@
               </a>
 
               <button class="support-card" onclick="app.openHelpModal()" style="border:none;cursor:pointer;text-align:left;width:100%">
-                <div class="support-card-icon" style="background:rgba(124,58,237,.12);color:var(--primary)">✨</div>
+                ${iconBadge("chat", "var(--primary)", 44)}
                 <div>
                   <div class="u-label-strong">Помощь и обучение</div>
                   <div class="u-meta-13">Быстрый старт — как начать работать в CRM</div>
@@ -3456,7 +3469,7 @@
               </button>
 
               <a href="mailto:adervis.digital@gmail.com?subject=${encodeURIComponent('Отзыв о ADERVIS CRM')}&body=${encodeURIComponent('Привет! Делюсь впечатлением от продукта:\n\n[напишите пару предложений — что понравилось, что помогло в работе]\n\nМожно указать моё имя и компанию рядом с отзывом на сайте? (да/нет)')}" class="support-card" style="text-decoration:none">
-                <div class="support-card-icon" style="background:rgba(246,189,58,.14);color:var(--yellow)">⭐</div>
+                ${iconBadge("star", "var(--yellow)", 44)}
                 <div>
                   <div class="u-label-strong">Оставить отзыв о продукте</div>
                   <div class="u-meta-13">Поделитесь впечатлением — поможет нам стать лучше</div>
@@ -3488,7 +3501,7 @@
             </div>
 
             <div style="margin-top:16px;padding:14px 16px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px;font-size:13px;color:var(--muted)">
-              Версия приложения: <strong style="color:var(--text)">4.2</strong> · Доступ предоставляется онлайн сразу после оплаты
+              Версия приложения: <strong style="color:var(--text)">${escapeHtml(APP_VERSION)}</strong> · Доступ предоставляется онлайн сразу после оплаты
             </div>
           </div>
         `;
@@ -4236,34 +4249,91 @@
         {
           title: "Добро пожаловать в ADERVIS CRM",
           body: "Полноценная CRM для видеопродакшн агентств. Управляйте сделками, сметами, клиентами и финансами — всё в одном месте.",
-          img: "🎬  ADERVIS CRM · дашборд агентства"
+          mock: "dashboard"
         },
         {
           title: "Управление сделками",
           body: "Создайте первую сделку через «+ Новая сделка». Ведите воронку: Лид → Бриф → КП → Договор → Предоплата → В работе → Сдано.",
-          img: "📋  Доска сделок — карточки с кнопкой смены статуса"
+          mock: "kanban"
         },
         {
           title: "Финансы и смета",
           body: "Составляйте сметы из каталога, применяйте пакеты. В каждой сделке — вкладка «Финансы»: поступления, расходы, маржа автоматически.",
-          img: "💰  Смета и раздел Финансы — итоговая сводка"
+          mock: "finance"
         },
         {
           title: "Командная работа",
           body: "Добавляйте участников команды, назначайте задачи с дедлайнами. Работайте совместно — изменения синхронизируются через Supabase Realtime.",
-          img: "👥  Раздел Команда — карточки участников и задачи"
+          mock: "team"
         },
         {
           title: "Настройки и шаблоны",
           body: "В разделе «Настройки» задайте данные компании, логотип и реквизиты. В «Договорах» — готовые шаблоны для быстрой подготовки документов.",
-          img: "⚙️  Настройки компании и библиотека договоров"
+          mock: "settings"
         },
         {
           title: "Тарифы и подписка",
           body: "ADERVIS CRM работает по подписке. Напишите на adervis.digital@gmail.com для оплаты и активации нужного тарифа. Установите как приложение (PWA) для работы офлайн.",
-          img: "🚀  Тарифные планы — выберите подходящий"
+          mock: "plans"
         }
       ];
+
+      // Мини-иллюстрации онбординга — было пустое место с текстом-заглушкой
+      // (пунктирная рамка + "🎬 ADERVIS CRM · дашборд агентства"), не готовый вид.
+      // Реальные скриншоты сюда не завести (нет пайплайна ассетов/бандлера, см.
+      // CLAUDE.md «не добавлять npm-зависимости») — рисуем лёгкий CSS-мокап,
+      // стилистически похожий на настоящий экран (те же цвета/радиусы, что и в CRM).
+      function renderOnboardMock(kind) {
+        const mocks = {
+          dashboard: `
+            <div class="ob-mock-kpis">
+              <span class="ob-mock-kpi" style="background:rgba(22,163,74,.22)"></span>
+              <span class="ob-mock-kpi" style="background:rgba(37,99,235,.22)"></span>
+              <span class="ob-mock-kpi" style="background:rgba(124,58,237,.24)"></span>
+            </div>
+            <div class="ob-mock-bars">
+              <span style="height:38%"></span><span style="height:68%"></span><span style="height:52%"></span>
+              <span style="height:88%"></span><span style="height:60%"></span><span style="height:34%"></span>
+            </div>`,
+          kanban: `
+            <div class="ob-mock-kanban">
+              <div class="ob-mock-col"><span class="ob-mock-card" style="border-left-color:var(--blue)"></span><span class="ob-mock-card" style="border-left-color:var(--blue)"></span></div>
+              <div class="ob-mock-col"><span class="ob-mock-card" style="border-left-color:var(--yellow)"></span></div>
+              <div class="ob-mock-col"><span class="ob-mock-card" style="border-left-color:var(--green)"></span><span class="ob-mock-card" style="border-left-color:var(--green)"></span></div>
+            </div>`,
+          finance: `
+            <div class="ob-mock-finance">
+              <div class="ob-mock-row"><span class="ob-mock-line" style="width:58%"></span><span class="ob-mock-num">32 000 ₽</span></div>
+              <div class="ob-mock-row"><span class="ob-mock-line" style="width:38%"></span><span class="ob-mock-num" style="color:var(--red)">18 500 ₽</span></div>
+              <div class="ob-mock-row"><span class="ob-mock-line" style="width:72%"></span><span class="ob-mock-num">54 200 ₽</span></div>
+              <div class="ob-mock-row ob-mock-total"><span class="ob-mock-line" style="width:46%"></span><span class="ob-mock-num" style="color:var(--primary2)">104 700 ₽</span></div>
+            </div>`,
+          team: `
+            <div class="ob-mock-team">
+              <span class="ob-mock-avatar" style="background:var(--primary)">АК</span>
+              <span class="ob-mock-avatar" style="background:var(--blue)">МС</span>
+              <span class="ob-mock-avatar" style="background:var(--green)">ЕП</span>
+              <span class="ob-mock-avatar ob-mock-avatar-add">+</span>
+            </div>
+            <div class="ob-mock-tasks">
+              <span class="ob-mock-task"></span><span class="ob-mock-task" style="width:64%"></span>
+            </div>`,
+          settings: `
+            <div class="ob-mock-settings">
+              <div class="ob-mock-gear">${icon("gear", 26)}</div>
+              <div class="ob-mock-docs">
+                <span class="ob-mock-doc"></span><span class="ob-mock-doc"></span><span class="ob-mock-doc"></span>
+              </div>
+            </div>`,
+          plans: `
+            <div class="ob-mock-plans">
+              <div class="ob-mock-plan"></div>
+              <div class="ob-mock-plan ob-mock-plan-active"></div>
+              <div class="ob-mock-plan"></div>
+            </div>`
+        };
+        return mocks[kind] || "";
+      }
 
       function renderHelpModal() {
         const idx = state.helpSlide || 0;
@@ -4284,7 +4354,10 @@
                 <div class="ob-slides" style="transform:translateX(-${idx * 100}%)">
                   ${ONBOARD_SLIDES.map((s, i) => `
                     <div class="ob-slide">
-                      <div class="ob-placeholder">${escapeHtml(s.img)}</div>
+                      <div class="ob-mock">
+                        <img src="onboarding/${s.mock}.png" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                        <div class="ob-mock-fallback">${renderOnboardMock(s.mock)}</div>
+                      </div>
                       <h3>${escapeHtml(s.title)}</h3>
                       <p class="u-muted">${escapeHtml(s.body)}</p>
                     </div>
@@ -4551,7 +4624,8 @@
         trendUp: `<path d="M3 11.5L8 6.5L13 11.5L14.5 10L8 3.5L1.5 10Z"/>`,
         trendDown: `<path d="M3 4.5L8 9.5L13 4.5L14.5 6L8 12.5L1.5 6Z"/>`,
         funnel: `<path d="M1 2L15 2L9.5 8.5L9.5 13L6 14.5L6 8.5Z"/>`,
-        target: `<path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z"/>`
+        target: `<path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z"/>`,
+        grid: `<path d="M2 2h5v5H2V2zm7 0h5v5H9V2zM2 9h5v5H2V9zm7 0h5v5H9V9z"/>`
       };
 
       // Единый вид пустых состояний во всех разделах.
@@ -7761,6 +7835,25 @@
         render();
       }
 
+      // Тег — не взаимоисключающий (в отличие от статуса), поэтому выбор НЕ сбрасывается
+      // после добавления: пользователю может понадобиться навесить ещё один тег на ту же группу.
+      function bulkAddCrmTag(rawTag) {
+        const tag = (rawTag || "").trim().toLowerCase();
+        if (!tag) return;
+        const ids = Object.keys(state.crmSelected || {});
+        if (!ids.length) return;
+        let count = 0;
+        ids.forEach(id => {
+          const p = state.savedProjects.find(x => x.id === id);
+          if (!p) return;
+          p.tags = Array.isArray(p.tags) ? p.tags : [];
+          if (!p.tags.includes(tag)) { p.tags.push(tag); count++; }
+        });
+        toast(count ? `Тег «${tag}» добавлен к ${count} сделкам` : `У всех выбранных сделок уже есть тег «${tag}»`);
+        save();
+        render();
+      }
+
       function bulkDeleteDeals() {
         const ids = Object.keys(state.crmSelected || {});
         if (!ids.length) return;
@@ -8621,6 +8714,25 @@
           const el = document.getElementById("dcm-" + _dealMenuOpen);
           if (el) el.style.display = "none";
           _dealMenuOpen = null;
+        }
+      }
+
+      // Попап «+N» с остальными тегами-фильтрами сделок — переполнение тег-ряда в тулбаре.
+      function toggleTagOverflow(e) {
+        e.stopPropagation();
+        const wasOpen = _tagOverflowOpen;
+        closeTagOverflow();
+        if (!wasOpen) {
+          _tagOverflowOpen = true;
+          const el = document.getElementById("tagOverflowPanel");
+          if (el) el.style.display = "block";
+        }
+      }
+      function closeTagOverflow() {
+        if (_tagOverflowOpen) {
+          const el = document.getElementById("tagOverflowPanel");
+          if (el) el.style.display = "none";
+          _tagOverflowOpen = false;
         }
       }
 
@@ -11132,26 +11244,48 @@
               const allTags = [...new Set((visibleItems.flatMap(p => p.tags || [])))].sort();
               const hasSearchRow = projects.length > 0;
               if (!allTags.length && !hasSearchRow) return "";
+              // Много тегов — не растягиваем ряд бесконечными строками: первые N видны
+              // сразу, остальные прячутся под «+N» (попап, тот же паттерн, что и у
+              // deal-ctx-menu — toggle/closeTagOverflow + закрытие по клику вне).
+              const MAX_VISIBLE_TAGS = 6;
+              const otherTags = allTags.filter(t => t !== tagFilter);
+              const visibleTags = otherTags.slice(0, MAX_VISIBLE_TAGS);
+              const overflowTags = otherTags.slice(MAX_VISIBLE_TAGS);
               return `
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+              <div class="deal-toolbar">
                 ${allTags.length ? `
-                  ${tagFilter ? `<button class="btn small" onclick="app.setCrmTagFilter('')" style="background:var(--primary);color:#fff;border-color:var(--primary)">× ${escapeHtml(tagFilter)}</button>` : ""}
-                  ${allTags.filter(t => t !== tagFilter).map(t => `<button class="btn small" onclick="app.setCrmTagFilter('${escapeHtml(t)}')" style="border-radius:99px;font-size:12px">${escapeHtml(t)}</button>`).join("")}
+                <div class="deal-toolbar-tags">
+                  ${tagFilter ? `<button class="deal-tag-chip active" onclick="app.setCrmTagFilter('')">× ${escapeHtml(tagFilter)}</button>` : ""}
+                  ${visibleTags.map(t => `<button class="deal-tag-chip" onclick="app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</button>`).join("")}
+                  ${overflowTags.length ? `
+                  <div class="tag-overflow-wrap">
+                    <button class="deal-tag-chip tag-overflow-btn" onclick="app.toggleTagOverflow(event)">+${overflowTags.length}</button>
+                    <div class="tag-overflow-panel" id="tagOverflowPanel" style="display:none">
+                      ${overflowTags.map(t => `<button class="tag-overflow-row" onclick="event.stopPropagation();app.closeTagOverflow();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</button>`).join("")}
+                    </div>
+                  </div>
+                  ` : ""}
+                </div>
                 ` : ""}
                 ${hasSearchRow ? `
-                  <input type="search" class="no-print" style="width:170px" placeholder="Поиск по названию/клиенту..." value="${escapeHtml(state.crmSearch||"")}" oninput="app.setCrmSearch(this.value)">
+                <div class="deal-toolbar-controls">
+                  <div class="deal-search-wrap">
+                    ${icon("search", 13)}
+                    <input type="search" class="no-print deal-search-input" placeholder="Поиск по названию/клиенту..." value="${escapeHtml(state.crmSearch||"")}" oninput="app.setCrmSearch(this.value)">
+                  </div>
                   <select class="deal-sort-select no-print" style="width:190px" onchange="app.setCrmSort(this.value)" title="Сортировка сделок">
-                    <option value="default" ${sortMode==="default"?"selected":""}>Порядок по умолчанию</option>
+                    <option value="default" ${sortMode==="default"?"selected":""}>По умолчанию</option>
                     <option value="amount" ${sortMode==="amount"?"selected":""}>Сумма ↓</option>
                     <option value="deadline" ${sortMode==="deadline"?"selected":""}>Дедлайн ↑</option>
                     <option value="debt" ${sortMode==="debt"?"selected":""}>Долг ↓</option>
                     <option value="updated" ${sortMode==="updated"?"selected":""}>Недавно изменённые</option>
                   </select>
                   <div class="deal-view-toggle no-print">
-                    <button class="deal-view-btn ${(state.crmView||"grid")==="grid"?"active":""}" onclick="app.setCrmView('grid')" title="Плитка">⊞</button>
-                    <button class="deal-view-btn ${state.crmView==="list"?"active":""}" onclick="app.setCrmView('list')" title="Список">☰</button>
-                    <button class="deal-view-btn ${state.crmView==="gantt"?"active":""}" onclick="app.setCrmView('gantt')" title="Гант — сделки на временной шкале">${icon("calendar")}</button>
+                    <button class="deal-view-btn ${(state.crmView||"grid")==="grid"?"active":""}" onclick="app.setCrmView('grid')" title="Плитка">${icon("grid", 14)}</button>
+                    <button class="deal-view-btn ${state.crmView==="list"?"active":""}" onclick="app.setCrmView('list')" title="Список">${icon("tasks", 14)}</button>
+                    <button class="deal-view-btn ${state.crmView==="gantt"?"active":""}" onclick="app.setCrmView('gantt')" title="Гант — сделки на временной шкале">${icon("calendar", 14)}</button>
                   </div>
+                </div>
                 ` : ""}
               </div>`;
             })()}
@@ -11170,6 +11304,9 @@
                       ${[...CRM_STATUSES, CRM_ARCHIVED].map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("")}
                     </select>
                     <button class="btn primary small" onclick="app.bulkSetCrmStatus(document.getElementById('crmBulkStatusSel').value)">Применить статус</button>
+                    <input id="crmBulkTagInput" placeholder="Добавить тег..." style="padding:6px 10px;border-radius:8px;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text);width:140px"
+                      onkeydown="if(event.key==='Enter'){event.preventDefault();app.bulkAddCrmTag(this.value);this.value=''}">
+                    <button class="btn small" onclick="app.bulkAddCrmTag(document.getElementById('crmBulkTagInput').value);document.getElementById('crmBulkTagInput').value=''">+ Тег</button>
                     ` : ""}
                     <button class="btn small" onclick="app.selectAllCrmVisible()">Выбрать все (${visibleItems.length})</button>
                     <button class="btn small" onclick="app.clearCrmSelect()">${selCount ? "Снять выбор" : "Выйти"}</button>
@@ -11227,23 +11364,26 @@
                         ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">` : ""}
                         <div class="deal-card-head-main">
-                          <div class="deal-card-name" title="${escapeHtml(project.name)}">${escapeHtml(project.name)}</div>
+                          <div style="display:flex;align-items:center;gap:5px;min-width:0">
+                            ${project.pinned ? `<svg width="12" height="12" viewBox="0 0 16 16" fill="var(--primary2)" style="flex:0 0 auto" title="Закреплено наверху"><path d="M9.83 1.02l5.15 5.15c.28.28.02.76-.37.69l-2.4-.44-2.9 2.9.44 2.86c.07.4-.42.66-.7.38L6.4 10.42l-4.1 4.1-.7-.7 4.1-4.1-2.13-2.13c-.28-.28-.02-.77.38-.7l2.86.44 2.9-2.9-.44-2.4c-.07-.4.41-.65.69-.37z"/></svg>` : ""}
+                            <div class="deal-card-name" style="flex:1;min-width:0" title="${escapeHtml(project.name)}">${escapeHtml(project.name)}</div>
+                          </div>
                         </div>
                         <div class="deal-card-menu-wrap">
                           <button class="deal-menu-btn" onclick="app.toggleDealMenu('${projectIdSafe}',event)" title="Действия со сделкой" aria-label="Действия со сделкой">
                             <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
                           </button>
                           <div class="deal-ctx-menu" id="dcm-${projectIdSafe}" style="display:none">
-                            <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.togglePinDeal('${projectIdSafe}')">
+                            <button class="dcm-item dcm-purple" onclick="event.stopPropagation();app.closeDealMenu();app.togglePinDeal('${projectIdSafe}')">
                               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.83 1.02l5.15 5.15c.28.28.02.76-.37.69l-2.4-.44-2.9 2.9.44 2.86c.07.4-.42.66-.7.38L6.4 10.42l-4.1 4.1-.7-.7 4.1-4.1-2.13-2.13c-.28-.28-.02-.77.38-.7l2.86.44 2.9-2.9-.44-2.4c-.07-.4.41-.65.69-.37z"/></svg>
                               ${project.pinned ? "Открепить" : "Закрепить наверху"}
                             </button>
                             <div class="dcm-sep"></div>
-                            <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.openDealModal('${projectIdSafe}')">
+                            <button class="dcm-item dcm-blue" onclick="event.stopPropagation();app.closeDealMenu();app.openDealModal('${projectIdSafe}')">
                               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 011.06 2.56L5.12 11H3v-2.12l7.44-7.44A1.5 1.5 0 0111.5 1zM2 12.5V15h2.5l.1-.1-2.4-2.4-.2.1z"/></svg>
                               Редактировать
                             </button>
-                            <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.duplicateDeal('${projectIdSafe}')">
+                            <button class="dcm-item dcm-cyan" onclick="event.stopPropagation();app.closeDealMenu();app.duplicateDeal('${projectIdSafe}')">
                               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H3a1 1 0 00-1 1v9h1V2h8V1zm2 2H5a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V4a1 1 0 00-1-1zm0 11H5V4h8v10z"/></svg>
                               Дублировать
                             </button>
@@ -11299,7 +11439,7 @@
                         ${isCurrent ? `<span class="status-pill green" style="font-size:12px">текущий</span>` : ""}
                         ${project.clientId
                           ? `<span class="deal-card-sub">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</span>`
-                          : `<span class="deal-card-sub unlinked" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Не привязан"}</span>`}
+                          : `<span class="deal-card-sub unlinked" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">${icon("warning", 11)} ${project.client ? escapeHtml(project.client) : "Не привязан"}</span>`}
                       </div>`;
                       })()}
 
@@ -14072,6 +14212,20 @@
         `;
       }
 
+      function renderDescription() {
+        return `
+          <div class="panel">
+            <div class="section-title">
+              <div>
+                <h1>Описание</h1>
+                <p>Свободные заметки по сделке — детали, договорённости, контекст для команды.</p>
+              </div>
+            </div>
+            ${field("Описание сделки", `<textarea data-autosave data-scope="project" data-key="note" style="min-height:260px" placeholder="Опишите детали сделки...">${escapeHtml(state.project.note)}</textarea>`)}
+          </div>
+        `;
+      }
+
       function renderVersions() {
         return `
           <div class="panel">
@@ -14999,6 +15153,7 @@
 
         const dealTabs = [
           { id: "estimate", label: "Смета" },
+          { id: "description", label: "Описание" },
           { id: "finance", label: "Финансы" },
           { id: "tasks", label: `Задачи${state.tasks.length ? " (" + state.tasks.length + ")" : ""}` },
           { id: "calendar", label: "Календарь" },
@@ -15010,6 +15165,7 @@
 
         const tabContent = {
           estimate: renderEstimate,
+          description: renderDescription,
           proposal: renderProposal,
           tasks: renderTasks,
           finance: renderFinance,
@@ -15068,7 +15224,7 @@
 
             <div class="deal-tabs" style="margin-top:10px">
               ${dealTabs.map(tab => `
-                <button class="deal-tab ${state.dealView === tab.id ? "active" : ""}" onclick="app.setDealView('${tab.id}')" title="${tab.id === "estimate" ? "Смета проекта" : tab.id === "proposal" ? "Коммерческое предложение" : tab.id === "tasks" ? "Задачи и канбан" : tab.id === "finance" ? "Платежи и расходы" : tab.id === "team" ? "Команда проекта" : tab.id === "calendar" ? "Даты проекта" : "Версии сметы"}">${escapeHtml(tab.label)}</button>
+                <button class="deal-tab ${state.dealView === tab.id ? "active" : ""}" onclick="app.setDealView('${tab.id}')" title="${tab.id === "estimate" ? "Смета проекта" : tab.id === "description" ? "Заметки и детали сделки" : tab.id === "proposal" ? "Коммерческое предложение" : tab.id === "tasks" ? "Задачи и канбан" : tab.id === "finance" ? "Платежи и расходы" : tab.id === "team" ? "Команда проекта" : tab.id === "calendar" ? "Даты проекта" : "Версии сметы"}">${escapeHtml(tab.label)}</button>
               `).join("")}
             </div>
           </div>
@@ -16689,7 +16845,6 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           crmStatus: project.crmStatus || "Лид",
           deadline: project.deadline || "",
           manager: project.manager || "",
-          note: project.note || "",
           tags: project.tags ? [...project.tags] : [],
           total: project.total || 0,
           // Смета разбита на позиции? Если да — сумма считается по ним, поле «Бюджет»
@@ -16758,7 +16913,6 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           proj.crmStatus = m.crmStatus || proj.crmStatus;
           proj.deadline = m.deadline || "";
           proj.manager = m.manager || "";
-          proj.note = m.note || "";
           proj.tags = m.tags || [];
           // Бюджет вручную — только для сделок без разбитой сметы (импорт/пустая смета).
           // Держим финансы согласованными: долг = бюджет − оплата, выручка = бюджет,
@@ -16776,14 +16930,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             proj.snapshot.project.crmStatus = proj.crmStatus;
             proj.snapshot.project.name = proj.name;
             proj.snapshot.project.manager = proj.manager;
-            proj.snapshot.project.note = proj.note;
           }
           if (proj.id === state.activeProjectId) {
             state.project.name = proj.name;
             state.project.crmStatus = proj.crmStatus;
             state.project.deadline = proj.deadline;
             state.project.manager = proj.manager;
-            state.project.note = proj.note;
           }
         }
         state.dealModal = null;
@@ -16827,13 +16979,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               </div>
               ${!m.hasSmetaLines ? `
               <div class="field" style="margin-bottom:14px">
-                ${field("Бюджет сделки, ₽", `<input type="number" inputmode="numeric" value="${escapeHtml(m.total || "")}" oninput="app.setDealModalField('total',this.value)" placeholder="Например, 241938">`)}
+                ${field("Бюджет сделки, ₽", `<input type="text" inputmode="numeric" value="${m.total ? Number(m.total).toLocaleString("ru-RU") : ""}" oninput="app.setDealModalField('total', app.maskMoneyInput(this))" placeholder="Например, 241 938">`)}
                 <p class="mini-note" style="margin-top:6px">Смета не разбита на позиции — укажите общую сумму. Разбейте её на позиции в смете, если нужны КП и расчёт маржи.</p>
               </div>
               ` : ""}
-              <div class="field" style="margin-bottom:14px">
-                ${field("Заметка", `<textarea style="min-height:72px" oninput="app.setDealModalField('note',this.value)" placeholder="Дополнительная информация...">${escapeHtml(m.note || "")}</textarea>`)}
-              </div>
               <div class="field" style="margin-bottom:14px">
                 <label style="font-size:12px;color:var(--muted);font-weight:750;margin-bottom:6px;display:block">Теги</label>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
@@ -17642,7 +17791,7 @@ Email: ______________________            Email: ______________________
         if (globalAddBtn) {
           globalAddBtn.addEventListener("click", e => { e.stopPropagation(); toggleGlobalMenu(); });
         }
-        document.addEventListener("click", () => { closeGlobalMenu(); closeDealMenu(); closeMobileAddMenu(); });
+        document.addEventListener("click", () => { closeGlobalMenu(); closeDealMenu(); closeMobileAddMenu(); closeTagOverflow(); });
 
         const scrollTopBtn = document.getElementById("scrollTopBtn");
         if (scrollTopBtn) {
@@ -17812,6 +17961,7 @@ Email: ______________________            Email: ______________________
         checkPhoneField,
         maskPhoneFocus,
         maskPhoneInput,
+        maskMoneyInput,
         selectClient,
         deleteClient,
         createClientFromProject,
@@ -17900,6 +18050,7 @@ Email: ______________________            Email: ______________________
         clearCrmSelect,
         selectAllCrmVisible,
         bulkSetCrmStatus,
+        bulkAddCrmTag,
         bulkDeleteDeals,
         duplicateDeal,
         updateClientField,
@@ -17938,6 +18089,8 @@ Email: ______________________            Email: ______________________
         deselectActiveProject,
         toggleDealMenu,
         closeDealMenu,
+        toggleTagOverflow,
+        closeTagOverflow,
         selectDealFromMenu,
         finishDeal,
         archiveDeal,

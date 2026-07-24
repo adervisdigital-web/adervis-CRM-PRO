@@ -1,4 +1,4 @@
-const CACHE_NAME = "adervis-crm-v121";
+const CACHE_NAME = "adervis-crm-v122";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -11,6 +11,12 @@ const STATIC_ASSETS = [
   "./icon-192.png",
   "./icon-512.png",
   "./apple-touch-icon.png",
+  "./onboarding/dashboard.png",
+  "./onboarding/kanban.png",
+  "./onboarding/finance.png",
+  "./onboarding/team.png",
+  "./onboarding/settings.png",
+  "./onboarding/plans.png",
   "./fonts/dmsans-latin.woff2",
   "./fonts/dmsans-latin-ext.woff2",
   "./fonts/spacegrotesk-latin.woff2",

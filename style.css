@@ -2713,9 +2713,64 @@
     .deal-list-budget { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 96px; text-align: right; }
     .deal-list-deadline { font-size: 12px; color: var(--muted); flex: 0 0 80px; text-align: right; white-space: nowrap; }
     .deal-list-actions { display: flex; gap: 6px; flex: 0 0 230px; align-items: center; justify-content: flex-end; }
-    .deal-view-toggle { display: flex; gap: 2px; }
-    .deal-view-btn { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; cursor: pointer; font-size: 13px; color: var(--muted); transition: .12s; }
-    .deal-view-btn.active { background: var(--primary); border-color: var(--primary); color: var(--on-color); }
+    /* ── Тулбар сделок (теги-фильтры + поиск/сортировка/вид) ──
+       Без обёртки-панели — плоская строка контролов, теги слева, поиск/сортировка/
+       вид справа (см. правку 25.07: панель в рамке смотрелась как одна большая пилюля). */
+    .deal-toolbar {
+      display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    /* align-items:flex-start на родителе — если тегов много и они переносятся в
+       несколько строк, поиск/сортировка/вид остаются прижаты к первой строке
+       тегов, а не «плавают» по центру всей высоты блока тегов. */
+    .deal-toolbar-tags { display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; flex: 1; min-width: 180px; }
+    /* Единый масштаб контролов тулбара — 36px высотой у чипа тега, поля поиска,
+       селекта сортировки и группы кнопок вида (см. правку 25.07: раньше чип тега
+       был 24px, поиск ~38px — разный «вес» на глаз). */
+    .deal-tag-chip {
+      height: 36px; box-sizing: border-box; display: inline-flex; align-items: center;
+      border: 1px solid var(--line); background: var(--panel2); color: var(--muted);
+      font-size: 12.5px; font-weight: 600; padding: 0 14px; border-radius: 99px;
+      cursor: pointer; white-space: nowrap; transition: border-color .12s, color .12s, background .12s;
+    }
+    .deal-tag-chip:hover { border-color: rgba(168,85,247,.5); color: var(--text); }
+    .deal-tag-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    /* «+N» — попап с остальными тегами, когда их больше, чем помещается в ряд. */
+    .tag-overflow-wrap { position: relative; }
+    .tag-overflow-btn { color: var(--primary2); border-style: dashed; }
+    .tag-overflow-panel {
+      position: absolute; top: calc(100% + 6px); left: 0;
+      min-width: 180px; max-height: 260px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 2px;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+      padding: 5px; box-shadow: var(--elev-3); z-index: var(--z-dropdown);
+      animation: fadeSlideDown .14s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .tag-overflow-row {
+      display: block; width: 100%; text-align: left;
+      padding: 7px 10px; border: none; background: transparent; border-radius: 8px;
+      color: var(--text); font-size: 12.5px; font-weight: 600; cursor: pointer;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tag-overflow-row:hover { background: rgba(124,58,237,.1); }
+    .deal-toolbar-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 0 0 auto; margin-left: auto; }
+    .deal-search-wrap { position: relative; display: flex; align-items: center; }
+    .deal-search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+    .deal-search-input { width: 260px; height: 36px; box-sizing: border-box; padding: 0 12px 0 32px; }
+    .deal-view-toggle { display: flex; gap: 2px; padding: 2px; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; }
+    .deal-view-btn {
+      background: transparent; border: none; border-radius: 7px;
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--muted); transition: background .12s, color .12s;
+    }
+    .deal-view-btn svg { display: block; }
+    .deal-view-btn:hover { color: var(--text); background: rgba(124,58,237,.1); }
+    .deal-view-btn.active { background: var(--primary); color: var(--on-color); }
+    @media (max-width: 640px) {
+      .deal-search-input { width: 100%; }
+      .deal-toolbar-controls { width: 100%; }
+      .deal-search-wrap { flex: 1; min-width: 0; }
+    }
 
     .gantt-grid { display: flex; flex-direction: column; gap: 2px; }
     .gantt-row { display: flex; align-items: center; gap: 10px; min-height: 34px; }
@@ -2740,7 +2795,8 @@
       background-color: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
       /* padding — тоже шорткод, перебивает базовый padding-right:34px (место под
          шеврон) — возвращаем его отдельно, иначе текст наезжает на иконку. */
-      padding: 5px 10px; padding-right: 34px; font-size: 12.5px; color: var(--text); cursor: pointer;
+      height: 36px; box-sizing: border-box;
+      padding: 0 10px; padding-right: 34px; font-size: 12.5px; color: var(--text); cursor: pointer;
       font-weight: 600; transition: border-color .12s;
     }
     .deal-sort-select:hover { border-color: rgba(168,85,247,.5); }
@@ -2833,7 +2889,11 @@
     .deal-card-head { display: flex; align-items: flex-start; gap: 6px; }
     .deal-card-head-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
     .deal-card-sub { font-size: 12px; color: var(--muted); font-weight: 500; line-height: 1.3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .deal-card-sub.unlinked { color: var(--yellow); font-weight: 600; }
+    /* Раньше — жирный текст с ⚠-эмодзи; при массовом импорте (много непривязанных
+       сделок сразу) это читалось как шум на каждой карточке. Иконка вместо эмодзи +
+       обычный (не bold) вес — сигнал остаётся, но не кричит; подробности в title. */
+    .deal-card-sub.unlinked { color: var(--yellow); }
+    .deal-card-sub.unlinked svg { flex: 0 0 auto; vertical-align: -1px; margin-right: 1px; }
     /* Статус + маржа + клиент в одну строку под именем (компактная шапка) */
     .deal-card-statusline { display: flex; align-items: center; gap: 6px; row-gap: 4px; flex-wrap: wrap; }
     .deal-card-pills { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
@@ -3028,6 +3088,15 @@
     .dcm-green:hover { background: rgba(22,163,74,.12) !important; color: var(--text-success); }
     .dcm-danger { color: var(--red); }
     .dcm-danger:hover { background: rgba(242,40,34,.1) !important; }
+    /* Цветные иконки действий — тот же приём, что и у .dcm-green: цвет держит и
+       текст, и иконку (fill="currentColor"), чтобы пункты меню читались с первого
+       взгляда, не только по подписи. */
+    .dcm-purple { color: var(--primary2); }
+    .dcm-purple:hover { background: rgba(124,58,237,.12) !important; color: var(--primary2); }
+    .dcm-blue { color: var(--blue); }
+    .dcm-blue:hover { background: rgba(37,99,235,.12) !important; color: var(--blue); }
+    .dcm-cyan { color: var(--cyan); }
+    .dcm-cyan:hover { background: rgba(8,145,178,.12) !important; color: var(--cyan); }
     .dcm-sep { height: 1px; background: var(--line); margin: 4px 5px; }
     [data-theme="light"] .dcm-green { color: var(--text-success); }
     [data-theme="light"] .dcm-item:hover { background: rgba(0,0,0,.05); }
@@ -4319,11 +4388,6 @@
       cursor: pointer; transition: border-color .15s, transform .15s;
     }
     .support-card:hover { border-color: var(--primary); transform: translateY(-1px); }
-    .support-card-icon {
-      width: 44px; height: 44px; border-radius: 12px;
-      display: grid; place-items: center; font-size: 20px;
-      flex-shrink: 0;
-    }
 
     /* ── NOTIFICATION BELL ─────────────────────────── */
     .notif-btn {
@@ -4598,15 +4662,52 @@
       min-width: 100%;
       padding: 0 2px;
     }
-    .ob-placeholder {
+    /* Мини-иллюстрация слайда онбординга — реальный скриншот соответствующего
+       экрана CRM (снят локально через Playwright, см. onboarding/*.png). Если файла
+       нет (например, деплой без папки onboarding/) — <img onerror> открывает
+       .ob-mock-fallback: лёгкий CSS-мокап теми же цветами/радиусами, что и в
+       настоящих карточках/статусах, чтобы не показывать битую картинку. */
+    .ob-mock {
       width: 100%; height: 160px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, rgba(124,58,237,.18), rgba(37,99,235,.14));
-      border: 1px dashed rgba(124,58,237,.35);
-      display: flex; align-items: center; justify-content: center;
-      color: var(--muted); font-size: 12px; font-weight: 600;
-      margin-bottom: 18px; text-align: center; padding: 16px;
+      border-radius: 14px; overflow: hidden;
+      background: linear-gradient(135deg, rgba(124,58,237,.14), rgba(37,99,235,.1));
+      border: 1px solid var(--line);
+      margin-bottom: 18px;
     }
+    .ob-mock img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+    .ob-mock-fallback {
+      display: none; width: 100%; height: 100%;
+      flex-direction: column; justify-content: center; gap: 14px;
+      padding: 20px 24px; box-sizing: border-box;
+    }
+    .ob-mock-kpis { display: flex; gap: 8px; }
+    .ob-mock-kpi { flex: 1; height: 26px; border-radius: 8px; }
+    .ob-mock-bars { display: flex; align-items: flex-end; gap: 6px; height: 56px; }
+    .ob-mock-bars span { flex: 1; background: var(--primary2); opacity: .55; border-radius: 3px 3px 0 0; }
+    .ob-mock-kanban { display: flex; gap: 10px; height: 100%; }
+    .ob-mock-col { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+    .ob-mock-card { display: block; height: 24px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--line); }
+    .ob-mock-finance { display: flex; flex-direction: column; gap: 9px; }
+    .ob-mock-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .ob-mock-line { height: 8px; border-radius: 4px; background: var(--line); }
+    .ob-mock-num { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+    .ob-mock-total { padding-top: 8px; border-top: 1px dashed var(--line); }
+    .ob-mock-team { display: flex; gap: 8px; align-items: center; }
+    .ob-mock-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: grid; place-items: center; flex-shrink: 0;
+      color: #fff; font-size: 11px; font-weight: 700;
+    }
+    .ob-mock-avatar-add { background: var(--panel2); border: 1px dashed var(--line); color: var(--muted); font-size: 16px; }
+    .ob-mock-tasks { display: flex; flex-direction: column; gap: 6px; }
+    .ob-mock-task { height: 8px; width: 100%; border-radius: 4px; background: var(--line); }
+    .ob-mock-settings { display: flex; align-items: center; gap: 18px; }
+    .ob-mock-gear { color: var(--primary2); opacity: .7; flex-shrink: 0; }
+    .ob-mock-docs { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+    .ob-mock-doc { height: 20px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); }
+    .ob-mock-plans { display: flex; gap: 8px; height: 100%; align-items: stretch; }
+    .ob-mock-plan { flex: 1; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); }
+    .ob-mock-plan-active { background: rgba(124,58,237,.14); border-color: var(--primary); }
     .ob-slide h3 { margin: 0 0 8px; font-size: 17px; }
     .ob-slide p { margin: 0; font-size: 14px; line-height: 1.5; }
     .ob-nav {
@@ -4695,8 +4796,9 @@ body.brief-mode #appContent { padding: 0; }
   display: flex; align-items: center; gap: 10px; margin-top: 16px;
 }
 .brief-link-url {
-  flex: 1; font-size: 12px; color: var(--muted);
-  word-break: break-all; -webkit-user-select: all; user-select: all; font-family: monospace;
+  flex: 1; min-width: 0; font-size: 12px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  -webkit-user-select: all; user-select: all; font-family: monospace;
 }
 .brief-card-item {
   background: var(--panel2); border: 1px solid var(--line);
@@ -4745,9 +4847,15 @@ body.brief-mode #appContent { padding: 0; }
 .brief-field-value { font-size: 13px; color: var(--text); line-height: 1.5; white-space: pre-line; word-break: break-word; }
 
 /* ── CRM: селектор типа брифа + панель типа ─────────── */
+/* Одна строка со скроллом, как .deal-tabs/.crm-home-funnel — не переносится
+   на 2-3 строки при 5 типах брифа на узком экране. */
 .brief-type-tabs {
-  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px;
+  display: flex; gap: 8px; flex-wrap: nowrap; margin-top: 16px;
+  overflow-x: auto; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
 }
+.brief-type-tabs::-webkit-scrollbar { display: none; }
 .brief-type-chip {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 9px 14px; border-radius: 999px;
