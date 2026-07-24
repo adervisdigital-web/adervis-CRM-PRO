@@ -6253,18 +6253,10 @@
         return result;
       }
 
-      function loadSavedProject(id) {
-        const saved = state.savedProjects.find(project => project.id === id);
-        if (!saved) return;
-        if (saved.id === state.activeProjectId) {
-          // Проект и так активен — просто открыть его вид сделки, не пересчитывая
-          // остальное состояние. Без этого клик по уже открытой сделке ничего не делал.
-          state.view = "deal";
-          state.dealView = state.dealView || "estimate";
-          render();
-          return;
-        }
-
+      // Переносит снимок сохранённого проекта в рабочее состояние (активный проект),
+      // не трогая state.view — общая часть для loadSavedProject (переход в смету)
+      // и selectActiveDeal (просто пометить «текущим», оставшись на доске «Проекты»).
+      function _activateSavedProject(saved) {
         // Переключаемся без диалога подтверждения — просто гарантируем, что текущий
         // проект уже сохранён (снимаем pending debounce и сохраняем немедленно)
         if (autoSaveTimer) clearTimeout(autoSaveTimer);
@@ -6306,10 +6298,37 @@
         state.team = deepClone(snapshot.team || []);
         state.activeProjectId = saved.id;
         state.activeClientId = state.project.clientId || "";
+      }
+
+      function loadSavedProject(id) {
+        const saved = state.savedProjects.find(project => project.id === id);
+        if (!saved) return;
+        if (saved.id === state.activeProjectId) {
+          // Проект и так активен — просто открыть его вид сделки, не пересчитывая
+          // остальное состояние. Без этого клик по уже открытой сделке ничего не делал.
+          state.view = "deal";
+          state.dealView = state.dealView || "estimate";
+          render();
+          return;
+        }
+
+        _activateSavedProject(saved);
         state.view = "deal";
         state.dealView = "estimate";
 
         toast("Проект загружен");
+        save();
+        render();
+      }
+
+      // Клик по карточке в «Проекты» — сделать сделку активной (загрузить её в рабочее
+      // состояние, зажечь пилюлю «текущий»), но остаться на доске, а не прыгать в смету.
+      // Переход в смету — отдельная кнопка «Открыть →» на карточке.
+      function selectActiveDeal(id) {
+        if (id === state.activeProjectId) return;
+        const saved = state.savedProjects.find(project => project.id === id);
+        if (!saved) return;
+        _activateSavedProject(saved);
         save();
         render();
       }
@@ -11203,7 +11222,7 @@
                   const projectIdSafe = project.id.replace(/'/g,"");
                   const u = project.deadline ? deadlineUrgency(project.deadline) : null;
                   return `
-                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.openDeal('${projectIdSafe}')" style="cursor:pointer;--status-color:${CRM_STATUS_COLOR[project.crmStatus || "Лид"] || "var(--muted)"}" title="Открыть смету">
+                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.selectActiveDeal('${projectIdSafe}')" style="cursor:pointer;--status-color:${CRM_STATUS_COLOR[project.crmStatus || "Лид"] || "var(--muted)"}" title="Сделать активным проектом · «Открыть →» — перейти в смету">
                       <div class="deal-card-head">
                         ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">` : ""}
@@ -17915,6 +17934,7 @@ Email: ______________________            Email: ______________________
         finishWizardWithPackage,
         advanceCrmStatus,
         openDeal,
+        selectActiveDeal,
         deselectActiveProject,
         toggleDealMenu,
         closeDealMenu,
