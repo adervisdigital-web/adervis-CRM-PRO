@@ -5300,6 +5300,12 @@ body.portal-mode .nav { display: none !important; }
     width: 44px; height: 44px;
     transform: translate(-50%, -50%);
   }
+
+  /* uu-select-btn/opt рассчитаны на десктоп-мышь (~35px); на телефоне их
+     теперь тоже используем для коротких списков (UU_TOUCH_MAX_OPTIONS в
+     app.js) — поднимаем до 44px touch-таргета. */
+  .uu-select-btn { min-height: 44px; }
+  .uu-select-opt { min-height: 44px; }
 }
 
 /* ═══════════════════════════════════════════════════════
