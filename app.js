@@ -11165,7 +11165,7 @@
                         ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">` : ""}
                         <div class="deal-card-head-main">
-                          <div class="deal-card-name">${escapeHtml(project.name)}</div>
+                          <div class="deal-card-name" title="${escapeHtml(project.name)}">${escapeHtml(project.name)}</div>
                           <div class="deal-card-statusline">
                             <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
                             <span class="status-pill ${project.crmStatus === CRM_ARCHIVED ? "archived" : ""}" style="font-size:12px">${escapeHtml(project.crmStatus || "Лид")}</span>
@@ -13739,15 +13739,30 @@
               </div>
 
               <div class="toolbar">
-                <button class="btn" id="aiProposalBtn" onclick="app.generateProposalAI()" style="background:var(--primary);border-color:transparent;color:#fff">✨ Сгенерировать с ИИ</button>
-                <button class="btn" onclick="app.copyProposalText()">Скопировать текст</button>
-                <button class="btn blue" onclick="app.downloadProposalPDF()">Печать / PDF</button>
+                <button class="btn" id="aiProposalBtn" onclick="app.generateProposalAI()" title="Сгенерировать текст КП через ИИ на основе состава сметы" style="background:var(--primary);border-color:transparent;color:#fff">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1l1.1 3.4L12.5 5.5 9.1 6.6 8 10 6.9 6.6 3.5 5.5l3.4-1.1L8 1zM3 9.5l.6 1.9 1.9.6-1.9.6L3 14.5l-.6-1.9-1.9-.6 1.9-.6L3 9.5zm10 0l.55 1.7 1.7.55-1.7.55L13 14.5l-.55-1.7-1.7-.55 1.7-.55L13 9.5z"/></svg>
+                  Сгенерировать с ИИ
+                </button>
+                <button class="btn" onclick="app.copyProposalText()" title="Скопировать текст КП в буфер обмена">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 1h6a1 1 0 011 1v1h1a1 1 0 011 1v9a1 1 0 01-1 1H6a1 1 0 01-1-1v-1H4a1 1 0 01-1-1V2a1 1 0 011-1zm0 1v9h1V4a1 1 0 011-1h4V2H5zm2 2v9h6V4H7z"/></svg>
+                  Скопировать текст
+                </button>
+                <button class="btn blue" onclick="app.downloadProposalPDF()" title="Открыть версию для печати / сохранить PDF">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 1h8v4H4V1zM3 6h10a2 2 0 012 2v4h-3v3H4v-3H1V8a2 2 0 012-2zm2 6v3h6v-3H5zm-1-3.5a.75.75 0 100 1.5.75.75 0 000-1.5z"/></svg>
+                  Печать / PDF
+                </button>
                 <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать в Excel (.xlsx)" aria-label="Экспорт в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>
                 ${(() => {
                   const cl = getCurrentClient();
                   return cl?.email
-                    ? `<button class="btn primary" onclick="app.createClientPortal('${state.project.id}')">📧 КП на ${escapeHtml(cl.email)}</button>`
-                    : `<button class="btn" onclick="app.createClientPortal('${state.project.id}')" title="Добавьте email клиента для отправки письма">🔗 Ссылка КП</button>`;
+                    ? `<button class="btn primary" onclick="app.createClientPortal('${state.project.id}')" title="Отправить письмо со ссылкой на КП клиенту">
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2 3h12a1 1 0 011 1v8a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1zm.4 1L8 8.4 13.6 4H2.4zM1 5.2V12h14V5.2L8 9.6 1 5.2z"/></svg>
+                        КП на ${escapeHtml(cl.email)}
+                      </button>`
+                    : `<button class="btn" onclick="app.createClientPortal('${state.project.id}')" title="Создать ссылку на КП — добавьте email клиента, чтобы отправить письмо напрямую">
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6.5 4h-2a3 3 0 000 6h2v-1h-2a2 2 0 010-4h2V4zm3 0h2a3 3 0 010 6h-2v-1h2a2 2 0 000-4h-2V4zM5.5 7.5h5v1h-5v-1z"/></svg>
+                        Ссылка КП
+                      </button>`;
                 })()}
               </div>
             </div>
@@ -16414,6 +16429,14 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
          СДЕЛКА MODAL (редактировать сделку из карточки)
       ═══════════════════════════════════════════════════════ */
       let _dealSwitcherQuery = "";
+      // «Завершённые» обычно самая длинная группа (сотни сделок) и перекрывает собой
+      // «В работе»/«Архив» при скролле — по умолчанию свёрнута, остальные две открыты.
+      let _dealSwitcherCollapsed = { active: false, completed: true, archived: false };
+      function toggleDealSwitcherSection(key) {
+        _dealSwitcherCollapsed[key] = !_dealSwitcherCollapsed[key];
+        const list = document.getElementById("dealSwitcherList");
+        if (list) list.innerHTML = renderDealSwitcherListHtml();
+      }
       function toggleDealSwitcher(e) {
         e && e.stopPropagation();
         state.dealSwitcherOpen = !state.dealSwitcherOpen;
@@ -16474,7 +16497,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         }
         const crmOrder = idx => { const i = CRM_STATUSES.indexOf(idx); return i < 0 ? 99 : i; };
         const active = projects
-          .filter(p => (p.crmStatus || "Лид") !== "Завершённые")
+          .filter(p => (p.crmStatus || "Лид") !== "Завершённые" && (p.crmStatus || "Лид") !== CRM_ARCHIVED)
           .sort((a, b) => {
             const d = crmOrder(a.crmStatus || "Лид") - crmOrder(b.crmStatus || "Лид");
             return d !== 0 ? d : (b.updatedAt || "").localeCompare(a.updatedAt || "");
@@ -16482,15 +16505,24 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const completed = projects
           .filter(p => (p.crmStatus || "Лид") === "Завершённые")
           .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+        const archived = projects
+          .filter(p => (p.crmStatus || "Лид") === CRM_ARCHIVED)
+          .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+        const section = (key, label, cls, items, itemCls, extraStyle) => {
+          if (!items.length) return "";
+          const collapsed = !!_dealSwitcherCollapsed[key];
+          return `
+            <button type="button" class="deal-switcher-section-label ${cls}" style="${extraStyle||""}" onclick="app.toggleDealSwitcherSection('${key}')">
+              <span>${label} (${items.length})</span>
+              <span class="deal-switcher-section-chevron ${collapsed ? "" : "open"}">▾</span>
+            </button>
+            ${collapsed ? "" : items.map(p => _dealSwitcherItemHtml(p, itemCls)).join("")}
+          `;
+        };
         return `
-          ${active.length ? `
-            <div class="deal-switcher-section-label active-label">В работе (${active.length})</div>
-            ${active.map(p => _dealSwitcherItemHtml(p, "active-deal")).join("")}
-          ` : ""}
-          ${completed.length ? `
-            <div class="deal-switcher-section-label completed-label" style="margin-top:8px">Завершённые (${completed.length})</div>
-            ${completed.map(p => _dealSwitcherItemHtml(p, "completed-deal")).join("")}
-          ` : ""}
+          ${section("active", "В работе", "active-label", active, "active-deal")}
+          ${section("completed", "Завершённые", "completed-label", completed, "completed-deal", "margin-top:8px")}
+          ${section("archived", "Архив", "archived-label", archived, "archived-deal", "margin-top:8px")}
         `;
       }
       function renderDealSwitcherButtonHtml() {
@@ -17834,6 +17866,7 @@ Email: ______________________            Email: ______________________
         toggleDealSwitcher,
         closeDealSwitcher,
         filterDealSwitcher,
+        toggleDealSwitcherSection,
         switchDeal,
 
         openDealModal,

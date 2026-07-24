@@ -2761,6 +2761,8 @@
     }
     .deal-card {
       position: relative;
+      min-width: 0; /* grid-элемент по умолчанию min-width:auto — без этого nowrap-текст
+                       в .deal-card-name раздувал бы колонку грида шире вьюпорта */
       padding: 13px 15px 13px 18px; cursor: pointer;
       transition: border-color .15s, transform .15s, box-shadow .15s;
       border: 1px solid var(--line);
@@ -2784,7 +2786,10 @@
     .deal-card.current { border-color: rgba(22,163,74,.5); box-shadow: 0 0 0 2px rgba(22,163,74,.12); }
     .deal-card.deal-card-selected { border-color: var(--primary); background: rgba(124,58,237,.06); }
     .deal-card-client { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
-    .deal-card-name { font-size: 15px; font-weight: 750; line-height: 1.3; letter-spacing: -.01em; }
+    .deal-card-name {
+      font-size: 15px; font-weight: 750; line-height: 1.3; letter-spacing: -.01em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+    }
 
     /* ── DEAL CARD (redesign 04.07.2026 — воздух, мягче вес, чёткая иерархия) ── */
     /* Меню пинится в правый угол, имя занимает почти всю ширину; пилюли статуса —
@@ -3299,12 +3304,18 @@
     .deal-switcher-panel-list { flex: 1 1 auto; overflow-y: auto; padding: 8px; }
     .deal-switcher-panel-empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 13px; }
     .deal-switcher-section-label {
-      padding: 10px 8px 4px; font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: space-between; width: 100%;
+      padding: 10px 8px 4px; font-size: 12px; font-weight: 700; font-family: inherit;
       color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+      background: none; border: none; cursor: pointer; border-radius: 6px;
     }
+    .deal-switcher-section-label:hover { background: var(--panel2); }
     .deal-switcher-section-label:first-child { padding-top: 4px; }
     .deal-switcher-section-label.active-label { color: var(--green); }
     .deal-switcher-section-label.completed-label { color: var(--red); }
+    .deal-switcher-section-label.archived-label { color: var(--muted); }
+    .deal-switcher-section-chevron { transition: transform .15s; font-size: 11px; }
+    .deal-switcher-section-chevron.open { transform: rotate(180deg); }
     .deal-switcher-item {
       display: flex; flex-direction: column; gap: 3px;
       padding: 10px 12px; border-radius: 9px;
@@ -3315,6 +3326,8 @@
     .deal-switcher-item.active-deal { border-left: 2px solid var(--green); }
     .deal-switcher-item.completed-deal { border-left: 2px solid var(--red); opacity: .75; }
     .deal-switcher-item.completed-deal:hover { opacity: 1; }
+    .deal-switcher-item.archived-deal { border-left: 2px solid var(--muted); opacity: .6; }
+    .deal-switcher-item.archived-deal:hover { opacity: 1; }
     .deal-switcher-item-name {
       font-size: 13px; font-weight: 800;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
