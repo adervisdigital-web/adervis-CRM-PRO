@@ -2946,6 +2946,16 @@
       padding-top: 11px;
       border-top: 1px solid var(--line);
     }
+    /* Всегда видимая (не hover-only) — без неё единственный способ перейти в смету был
+       клик по всей карточке, а hover-only кнопка статуса поверх него перехватывала клик
+       через stopPropagation: пользователь целился в карточку, попадал в неё и не понимал,
+       почему «ничего не происходит». */
+    .deal-open-btn {
+      padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line);
+      background: transparent; color: var(--primary2); font-size: 12px; font-weight: 600;
+      cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s;
+    }
+    .deal-open-btn:hover { border-color: var(--primary); background: rgba(124,58,237,.08); }
     .next-action-btn {
       padding: 6px 13px; border-radius: 999px; border: none;
       background: var(--primary);

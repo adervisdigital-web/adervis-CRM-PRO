@@ -5,13 +5,7 @@ const { bootLocal, assert, assertEqual } = require("../harness");
 async function homeDealCount(page) {
   await page.evaluate(() => window.app.go("home"));
   await page.waitForTimeout(80);
-  return page.evaluate(() => {
-    let n = 0;
-    for (const el of document.querySelectorAll("[onclick]")) {
-      if (/openDeal\('/.test(el.getAttribute("onclick") || "")) n++;
-    }
-    return n;
-  });
+  return page.evaluate(() => document.querySelectorAll(".deal-card").length);
 }
 
 async function dealId(page) {

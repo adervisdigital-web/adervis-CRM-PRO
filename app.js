@@ -11111,15 +11111,15 @@
 
             ${(() => {
               const allTags = [...new Set((visibleItems.flatMap(p => p.tags || [])))].sort();
-              return allTags.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">
-                ${tagFilter ? `<button class="btn small" onclick="app.setCrmTagFilter('')" style="background:var(--primary);color:#fff;border-color:var(--primary)">× ${escapeHtml(tagFilter)}</button>` : ""}
-                ${allTags.filter(t => t !== tagFilter).map(t => `<button class="btn small" onclick="app.setCrmTagFilter('${escapeHtml(t)}')" style="border-radius:99px;font-size:12px">${escapeHtml(t)}</button>`).join("")}
-              </div>` : "";
-            })()}
-            ${projects.length ? `
+              const hasSearchRow = projects.length > 0;
+              if (!allTags.length && !hasSearchRow) return "";
+              return `
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-                ${tagFilter ? `<span class="u-meta-13">Тег: ${escapeHtml(tagFilter)}</span>` : ""}
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                ${allTags.length ? `
+                  ${tagFilter ? `<button class="btn small" onclick="app.setCrmTagFilter('')" style="background:var(--primary);color:#fff;border-color:var(--primary)">× ${escapeHtml(tagFilter)}</button>` : ""}
+                  ${allTags.filter(t => t !== tagFilter).map(t => `<button class="btn small" onclick="app.setCrmTagFilter('${escapeHtml(t)}')" style="border-radius:99px;font-size:12px">${escapeHtml(t)}</button>`).join("")}
+                ` : ""}
+                ${hasSearchRow ? `
                   <input type="search" class="no-print" style="width:170px" placeholder="Поиск по названию/клиенту..." value="${escapeHtml(state.crmSearch||"")}" oninput="app.setCrmSearch(this.value)">
                   <select class="deal-sort-select no-print" style="width:190px" onchange="app.setCrmSort(this.value)" title="Сортировка сделок">
                     <option value="default" ${sortMode==="default"?"selected":""}>Порядок по умолчанию</option>
@@ -11133,9 +11133,9 @@
                     <button class="deal-view-btn ${state.crmView==="list"?"active":""}" onclick="app.setCrmView('list')" title="Список">☰</button>
                     <button class="deal-view-btn ${state.crmView==="gantt"?"active":""}" onclick="app.setCrmView('gantt')" title="Гант — сделки на временной шкале">${icon("calendar")}</button>
                   </div>
-                </div>
-              </div>
-            ` : ""}
+                ` : ""}
+              </div>`;
+            })()}
             ${visibleItems.length ? `
               ${(() => {
                 // Панель показывается ВСЁ ВРЕМЯ в режиме выбора — иначе, сняв последнюю
@@ -11301,13 +11301,16 @@
                       })()}
 
                       <div class="deal-card-footer">
-                        ${project.crmStatus === CRM_ARCHIVED
-                          ? `<span class="badge deal-archived-badge" onclick="event.stopPropagation();app.unarchiveDeal('${projectIdSafe}')" title="Вернуть сделку в работу">В архиве · вернуть</span>
-                             <button class="deal-del-btn" onclick="event.stopPropagation();app.deleteSavedProject('${projectIdSafe}')" title="Удалить проект навсегда">
-                               <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>
-                               Удалить
-                             </button>`
-                          : nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge" onclick="event.stopPropagation()">Завершено</span>`}
+                        <button class="deal-open-btn" onclick="event.stopPropagation();app.openDeal('${projectIdSafe}')" title="Открыть смету">Открыть →</button>
+                        <div style="display:flex;align-items:center;gap:8px">
+                          ${project.crmStatus === CRM_ARCHIVED
+                            ? `<span class="badge deal-archived-badge" onclick="event.stopPropagation();app.unarchiveDeal('${projectIdSafe}')" title="Вернуть сделку в работу">В архиве · вернуть</span>
+                               <button class="deal-del-btn" onclick="event.stopPropagation();app.deleteSavedProject('${projectIdSafe}')" title="Удалить проект навсегда">
+                                 <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>
+                                 Удалить
+                               </button>`
+                            : nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge" onclick="event.stopPropagation()">Завершено</span>`}
+                        </div>
                       </div>
                     </div>
                   `;
