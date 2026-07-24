@@ -11288,9 +11288,9 @@
                         // Служебная метка миграции из O!task (заметка+тег ставились скриптом
                         // переноса, см. [[migration-otask-2026-07-16]]) — не нужна на карточке,
                         // засоряет вид у всех 113 перенесённых сделок. Сами данные не трогаем.
-                        const isOltaskImport = (project.tags||[]).includes("импорт-oltask");
+                        const isOltaskImport = (project.tags||[]).includes("импорт-o!task");
                         const note = !isOltaskImport && project.note;
-                        const tags = isOltaskImport ? (project.tags||[]).filter(t => t !== "импорт-oltask") : (project.tags||[]);
+                        const tags = isOltaskImport ? (project.tags||[]).filter(t => t !== "импорт-o!task") : (project.tags||[]);
                         if (!project.deadline && !note && !tags.length) return "";
                         return `
                       <div class="deal-card-meta">
