@@ -836,7 +836,7 @@
     /* Карточки сделок — адаптивная сетка: 4 в ряд на широком экране, дальше
        автоматически 3 / 2 / 1 по ширине (минимум карточки 320px). */
     .grid.three.deal-cards-grid {
-      gap: 11px;
+      gap: 18px;
       grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     }
 
@@ -2149,6 +2149,14 @@
       font-size: 14px; font-weight: 700; cursor: pointer; transition: .14s;
     }
     .currency-select-btn:hover { border-color: rgba(124,58,237,.5); }
+    /* Длинное название валюты (напр. «Казахстанский тенге») переносилось на 2 строки —
+       кнопка становилась выше соседнего поля «Описание» и ломала выравнивание сетки.
+       Одна строка с многоточием — высота всегда одинаковая. */
+    .currency-select-btn { min-height: 42px; }
+    .currency-select-btn span:first-child {
+      flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .currency-select-btn span:last-child { flex-shrink: 0; }
     .currency-select-dd {
       position: absolute; top: calc(100% + 4px); left: 0; right: 0;
       background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
@@ -2433,6 +2441,22 @@
     .seg-switch-link { color: var(--red) !important; opacity: .75; }
     .seg-switch-link:hover { opacity: 1; }
     .seg-switch-link svg { opacity: 1 !important; }
+    /* Вкладки Настроек — цвет иконки по теме раздела, тот же акцент, что у
+       iconBadge() в заголовке контента внутри вкладки (не рассинхронизировано). */
+    .seg-switch button.seg-switch-yellow.active svg { color: var(--yellow); }
+    .seg-switch button.seg-switch-blue.active svg { color: var(--blue); }
+    .seg-switch button.seg-switch-green.active svg { color: var(--green); }
+
+    /* Карточка «Установить ADERVIS CRM» (Настройки → Интеграции). Три флекс-элемента
+       (иконка/текст/кнопка) на узком экране раньше не переносились на новую строку —
+       текст с flex:1 просто сжимался почти до нуля вместо переноса, кнопка вылезала
+       рядом. Ниже 640px — колонка, кнопка на всю ширину. */
+    .pwa-install-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    @media (max-width: 640px) {
+      .pwa-install-head { flex-direction: column; align-items: stretch; }
+      .pwa-install-cta { width: 100%; }
+      .pwa-install-cta .btn { width: 100%; }
+    }
     @media (max-width: 640px) {
       .seg-switch.wrap button { flex: 1 1 calc(50% - 4px); min-width: 0; }
     }
@@ -3356,6 +3380,9 @@
       background: var(--panel2); border-radius: 14px;
       border: 1px solid var(--line);
     }
+    /* Обёртка вокруг самих пилюль-пресетов (без подписи «Период:» и кастомных дат) —
+       на мобильном превращается в горизонтальный скролл, см. media-запрос ниже. */
+    .date-preset-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .date-preset-btn {
       padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
       background: transparent; color: var(--muted); font-size: 12px; font-weight: 600;
@@ -5030,17 +5057,33 @@ body.portal-mode .nav { display: none !important; }
   .btn.small { min-height: 36px; }
   button.deal-tab { min-height: 40px; }
   .data-table { display: block; overflow-x: auto; }
-  .grid.three { grid-template-columns: 1fr 1fr; }
-  .grid.four { grid-template-columns: 1fr 1fr; }
-  /* Карточки сделок/клиентов/базы знаний — всегда одна колонка на телефоне
-     (в 2 колонки текст/кнопки не помещаются и раздвигают сетку — гориз. скролл
-     всей страницы). Спец-класс перебивает .grid.three выше. */
-  .grid.three.deal-cards-grid,
-  .grid.three.clients-grid,
-  .grid.three.kb-grid { grid-template-columns: 1fr; }
+  /* .grid.three/.four наследуют grid-template-columns:1fr из более широкого брейкпоинта
+     (≤1160px, см. выше по файлу) — раньше здесь стояло принудительное «1fr 1fr» специально
+     для телефона, из-за чего и поля формы (Настройки → Компания), и текстовые карточки
+     (пакеты/проекты/договора/команда) сжимались в тесные узкие колонки. Одна колонка —
+     единый вид везде на телефоне, никаких спец-классов не нужно.
+     ИСКЛЮЧЕНИЕ: .deal-cards-grid — у неё свой базовый (без media) grid-template-columns:
+     repeat(auto-fill, minmax(320px,1fr)) с более высокой специфичностью (3 класса), который
+     побеждает общее правило на ЛЮБой ширине. На ≤320px даже одна колонка minmax(320px)
+     не помещается — раздвигает страницу. Принудительно 1fr именно здесь. */
+  .grid.three.deal-cards-grid { grid-template-columns: 1fr; }
   /* Раздел «Задачи» на телефоне: селектор проекта на всю ширину под чипами */
   .gtask-project-select { margin-left: 0; width: 100%; }
   .gtask-filters { gap: 8px; }
+  /* Много пилюль-фильтров (.tabs, .gtask-chips, «Период:» в Финансах) — на телефоне не
+     перенос в 2-3 тесных ряда, а горизонтальный скролл в одну строку (тот же приём,
+     что у .catalog-cat-sidebar), с fade-подсказкой по краям. Скроллбар НЕ прячем —
+     виден стандартный тонкий scrollbar (глобальный ::-webkit-scrollbar ниже по файлу),
+     как у .catalog-cat-sidebar — это и есть подсказка «тут можно скроллить». */
+  .tabs, .gtask-chips, .date-preset-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
+  }
+  .tabs .tab, .gtask-chips .chip, .date-preset-row .date-preset-btn { flex: 0 0 auto; }
+  .date-preset-row { flex: 1 1 100%; gap: 8px; }
   /* В одну колонку большой квадратный «+ добавить» съедает экран — делаем его
      компактной горизонтальной строкой над списком. */
   .clients-grid .kb-new-card { min-height: unset; flex-direction: row; justify-content: center; padding: 13px; }

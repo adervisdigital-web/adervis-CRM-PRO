@@ -3710,7 +3710,7 @@
                   </div>
                 </div>
                 <div style="flex:1;min-width:180px">
-                  <div style="display:flex;gap:8px;margin-bottom:10px">
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
                     <label class="btn small" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
                       <span style="color:var(--primary);display:inline-flex">${icon("camera")}</span> Изменить фото
                       <input type="file" accept="image/*" onchange="app.uploadUserAvatar(event)" style="display:none">
@@ -3765,7 +3765,7 @@
                 ${isOwner ? `
                   <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Дайте этот код коллеге — при регистрации он вводит его и попадёт в ваше агентство.</p>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                    <code style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0">${escapeHtml(agencyId)}</code>
+                    <code style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">${escapeHtml(agencyId)}</code>
                     <button class="btn small" onclick="app.copy('${escapeHtml(agencyId)}','Скопировано!')" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span style="color:var(--primary);display:inline-flex">${icon("copy")}</span> Копировать</button>
                   </div>
                   ${onlineList ? `<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="u-meta">Сейчас онлайн:</span>${onlineList}</div>` : ""}
@@ -3794,7 +3794,7 @@
                   Поделитесь ссылкой с другой видеостудией или фрилансером. Когда они оплатят любой тариф — вы получите <b>+30 дней</b> к подписке бесплатно.
                 </p>
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-                  <code id="refLinkCode" style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);word-break:break-all;min-width:0;color:var(--text2)">${refUrl}</code>
+                  <code id="refLinkCode" style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--text2)">${refUrl}</code>
                   <button class="btn small" onclick="app.copy(document.getElementById('refLinkCode').textContent.trim(),'Реферальная ссылка скопирована!')" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span style="color:var(--primary);display:inline-flex">${icon("copy")}</span> Копировать</button>
                 </div>
                 <div id="refStats" class="u-meta" aria-busy="true"><div class="skeleton" style="height:14px;width:240px"></div></div>
@@ -4404,9 +4404,8 @@
               </div>
             </div>
 
-            <div class="grid two" style="margin-bottom:16px">
+            <div style="margin-bottom:16px">
               ${field("Поиск", `<input value="${escapeHtml(search)}" oninput="app.kbSetSearch(this.value)" placeholder="Поиск по документам...">`)}
-              ${field("Категория", `<select onchange="app.kbSetCat(this.value)">${Object.entries(KB_CATS).map(([k,v]) => `<option value="${k}" ${catFilter===k?"selected":""}>${v}</option>`).join("")}</select>`)}
             </div>
 
             <div class="tabs" style="margin-bottom:20px">
@@ -11128,7 +11127,7 @@
                   <div class="deal-view-toggle no-print">
                     <button class="deal-view-btn ${(state.crmView||"grid")==="grid"?"active":""}" onclick="app.setCrmView('grid')" title="Плитка">⊞</button>
                     <button class="deal-view-btn ${state.crmView==="list"?"active":""}" onclick="app.setCrmView('list')" title="Список">☰</button>
-                    <button class="deal-view-btn ${state.crmView==="gantt"?"active":""}" onclick="app.setCrmView('gantt')" title="Гант — сделки на временной шкале">📅</button>
+                    <button class="deal-view-btn ${state.crmView==="gantt"?"active":""}" onclick="app.setCrmView('gantt')" title="Гант — сделки на временной шкале">${icon("calendar")}</button>
                   </div>
                 </div>
               </div>
@@ -11206,14 +11205,6 @@
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">` : ""}
                         <div class="deal-card-head-main">
                           <div class="deal-card-name" title="${escapeHtml(project.name)}">${escapeHtml(project.name)}</div>
-                          <div class="deal-card-statusline">
-                            <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
-                            <span class="status-pill ${project.crmStatus === CRM_ARCHIVED ? "archived" : ""}" style="font-size:12px">${escapeHtml(project.crmStatus || "Лид")}</span>
-                            ${isCurrent ? `<span class="status-pill green" style="font-size:12px">текущий</span>` : ""}
-                            ${project.clientId
-                              ? `<span class="deal-card-sub">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</span>`
-                              : `<span class="deal-card-sub unlinked" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Не привязан"}</span>`}
-                          </div>
                         </div>
                         <div class="deal-card-menu-wrap">
                           <button class="deal-menu-btn" onclick="app.toggleDealMenu('${projectIdSafe}',event)" title="Действия со сделкой" aria-label="Действия со сделкой">
@@ -11277,15 +11268,33 @@
                           <span class="lbl">Расходы</span>
                           <span class="val" style="color:${project.expensesTotal > 0 ? "var(--red)" : "var(--muted)"}">${money(project.expensesTotal || 0)}</span>
                         </div>
+                      </div>
+
+                      <div class="deal-card-statusline">
+                        <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
+                        <span class="status-pill ${project.crmStatus === CRM_ARCHIVED ? "archived" : ""}" style="font-size:12px">${escapeHtml(project.crmStatus || "Лид")}</span>
+                        ${isCurrent ? `<span class="status-pill green" style="font-size:12px">текущий</span>` : ""}
+                        ${project.clientId
+                          ? `<span class="deal-card-sub">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</span>`
+                          : `<span class="deal-card-sub unlinked" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Не привязан"}</span>`}
                       </div>`;
                       })()}
 
-                      ${(project.deadline || project.note || (project.tags||[]).length) ? `
+                      ${(() => {
+                        // Служебная метка миграции из O!task (заметка+тег ставились скриптом
+                        // переноса, см. [[migration-otask-2026-07-16]]) — не нужна на карточке,
+                        // засоряет вид у всех 113 перенесённых сделок. Сами данные не трогаем.
+                        const isOltaskImport = (project.tags||[]).includes("импорт-oltask");
+                        const note = !isOltaskImport && project.note;
+                        const tags = isOltaskImport ? (project.tags||[]).filter(t => t !== "импорт-oltask") : (project.tags||[]);
+                        if (!project.deadline && !note && !tags.length) return "";
+                        return `
                       <div class="deal-card-meta">
                         ${project.deadline ? `<div class="deal-card-deadline" style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${escapeHtml(formatDate(project.deadline))}${u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : ""}</div>` : ""}
-                        ${project.note ? `<div class="deal-card-note" title="${escapeHtml(project.note)}">💬 ${escapeHtml(project.note)}</div>` : ""}
-                        ${(project.tags||[]).length ? `<div class="deal-card-tags">${(project.tags||[]).map(t=>`<span class="deal-card-tag" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
-                      </div>` : ""}
+                        ${note ? `<div class="deal-card-note" title="${escapeHtml(note)}">💬 ${escapeHtml(note)}</div>` : ""}
+                        ${tags.length ? `<div class="deal-card-tags">${tags.map(t=>`<span class="deal-card-tag" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
+                      </div>`;
+                      })()}
 
                       <div class="deal-card-footer">
                         ${project.crmStatus === CRM_ARCHIVED
@@ -11789,7 +11798,7 @@
             </div>
 
             <!-- Категориальные табы -->
-            <div class="tabs" style="margin-bottom:20px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px">
+            <div class="tabs" style="margin-bottom:20px">
               <button class="tab ${pkgCatFilter==="all"?"active":""}" onclick="app.setPkgCatFilter('all')">Все ${allPkgs.length ? `<span style="opacity:.6;font-size:12px">${allPkgs.length}</span>` : ""}</button>
               ${allCatsWithData.map(cat => `
                 <button class="tab ${pkgCatFilter===cat?"active":""}" onclick="app.setPkgCatFilter('${cat}')" style="white-space:nowrap">${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)} <span style="opacity:.6;font-size:12px">${groups[cat].length}</span></button>
@@ -11798,14 +11807,14 @@
 
             ${filteredGroups.map(cat => `
               <div class="pkg-group-header">${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)}</div>
-              <div class="grid three" style="margin-bottom:24px">
+              <div class="grid three pkg-cards-grid" style="margin-bottom:24px">
                 ${groups[cat].map(renderPkgCard).join("")}
               </div>
             `).join("")}
 
             ${ungrouped.length ? `
               <div class="pkg-group-header">Прочие пакеты</div>
-              <div class="grid three">
+              <div class="grid three pkg-cards-grid">
                 ${ungrouped.map(renderPkgCard).join("")}
               </div>
             ` : ""}
@@ -11979,9 +11988,7 @@
                 <p>${highlightText(itemData.desc)}</p>
 
                 <div class="badges">
-                  <span class="badge">${escapeHtml(itemData.section)}</span>
                   <span class="badge">Этап: ${escapeHtml(getItemStageName(itemData))}</span>
-                  <span class="badge">Модель: ${escapeHtml(itemData.calcModel)}</span>
                   <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
                   ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>` : ""}
                   ${state.favorites[itemData.id] ? `<span class="status-pill">★ избранное</span>` : ""}
@@ -14282,16 +14289,18 @@
             ${state.gFinSubTab === "analytics" ? `
               <div class="analytics-date-bar no-print">
                 <span style="font-size:12px;color:var(--muted);font-weight:750;margin-right:4px">Период:</span>
-                ${[
-                  ["all", "Всё время"],
-                  ["month", "Этот месяц"],
-                  ["3months", "3 месяца"],
-                  ["quarter", "Квартал"],
-                  ["year", "Год"],
-                  ["custom", "Свой"]
-                ].map(([k, l]) => `
-                  <button class="date-preset-btn ${(state.gFinDatePreset||"all")===k?"active":""}" onclick="app.setGFinDatePreset('${k}')">${l}</button>
-                `).join("")}
+                <div class="date-preset-row">
+                  ${[
+                    ["all", "Всё время"],
+                    ["month", "Этот месяц"],
+                    ["3months", "3 месяца"],
+                    ["quarter", "Квартал"],
+                    ["year", "Год"],
+                    ["custom", "Свой"]
+                  ].map(([k, l]) => `
+                    <button class="date-preset-btn ${(state.gFinDatePreset||"all")===k?"active":""}" onclick="app.setGFinDatePreset('${k}')">${l}</button>
+                  `).join("")}
+                </div>
                 ${state.gFinDatePreset === "custom" ? `
                   <div class="date-range-inputs">
                     <input type="date" value="${escapeHtml(state.gFinDateFrom)}" onchange="app.setGFinDateFrom(this.value)" title="С">
@@ -14453,9 +14462,11 @@
             </div>
             <div class="analytics-date-bar no-print" style="margin-bottom:12px">
               <span style="font-size:12px;color:var(--muted);font-weight:750;margin-right:4px">Период:</span>
-              ${[["all","Всё время"],["month","Этот месяц"],["3months","3 месяца"],["quarter","Квартал"],["year","Год"],["custom","Свой"]].map(([k,l]) =>
-                `<button class="date-preset-btn ${(state.gFinDatePreset||"all")===k?"active":""}" onclick="app.setGFinDatePreset('${k}')">${l}</button>`
-              ).join("")}
+              <div class="date-preset-row">
+                ${[["all","Всё время"],["month","Этот месяц"],["3months","3 месяца"],["quarter","Квартал"],["year","Год"],["custom","Свой"]].map(([k,l]) =>
+                  `<button class="date-preset-btn ${(state.gFinDatePreset||"all")===k?"active":""}" onclick="app.setGFinDatePreset('${k}')">${l}</button>`
+                ).join("")}
+              </div>
               ${state.gFinDatePreset === "custom" ? `
                 <div class="date-range-inputs">
                   <input type="date" value="${escapeHtml(state.gFinDateFrom)}" onchange="app.setGFinDateFrom(this.value)" title="С">
@@ -15085,7 +15096,7 @@
       function renderSettingsTelegram() {
         return `
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
-              <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("chat", "var(--cyan)")} Уведомления (Telegram)</h2>
+              <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("chat", "var(--yellow)")} Уведомления (Telegram)</h2>
               <p style="font-size:13px;color:var(--text2);margin-bottom:14px">
                 Напишите боту <a href="https://t.me/adervis_crm_bot" target="_blank" style="color:var(--primary)">@adervis_crm_bot</a> команду <code>/start</code> — он пришлёт Chat ID. Добавьте столько получателей, сколько нужно.
               </p>
@@ -15135,7 +15146,6 @@
                   <input type="file" accept="image/*" onchange="app.importCompanyLogo(event)" style="display:none">
                 </label>
               `)}
-              ${field("Описание", `<input data-autosave data-scope="company" data-key="desc" value="${escapeHtml(state.company.desc)}">`)}
               ${field("Валюта", `
                 <div class="currency-select-wrap">
                   <button class="currency-select-btn" onclick="app.toggleCurrencyDd();event.stopPropagation()">
@@ -15147,6 +15157,10 @@
                   </div>
                 </div>
               `)}
+            </div>
+
+            <div class="mt-14">
+              ${field("Описание", `<textarea data-autosave data-scope="company" data-key="desc" style="min-height:64px">${escapeHtml(state.company.desc)}</textarea>`)}
             </div>
 
             <div class="grid two" style="margin-top:14px">
@@ -15228,7 +15242,7 @@
 
             ${_adminSession ? `
             <div class="panel" style="box-shadow:none;background:var(--panel2);margin-top:16px">
-              <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("calendar", "var(--green)")} Google Calendar (личный, двусторонняя синхронизация)</h2>
+              <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("calendar", "var(--blue)")} Google Calendar (личный, двусторонняя синхронизация)</h2>
               <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.6">
                 Подключите свой личный Google-аккаунт: события из него будут видны в календаре CRM,
                 а задачи с дедлайном можно отправлять в него кнопкой в карточке задачи. Подключение
@@ -15248,22 +15262,22 @@
 
             <!-- PWA Установка -->
             <div class="panel" style="margin-top:16px;box-shadow:none;background:linear-gradient(135deg,rgba(124,58,237,.10),rgba(37,99,235,.08));border:1px solid rgba(124,58,237,.25)">
-              <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+              <div class="pwa-install-head">
                 <div style="width:56px;height:56px;border-radius:16px;background:var(--primary);display:grid;place-items:center;flex-shrink:0;box-shadow:0 6px 20px rgba(108,0,255,.35)">
                   <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
                 </div>
                 <div class="u-flex1-min0">
-                  <h2 style="margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:9px">${iconBadge("mobile", "var(--primary)")} Установить ADERVIS CRM</h2>
+                  <h2 style="margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:9px">${iconBadge("mobile", "var(--blue)")} Установить ADERVIS CRM</h2>
                   <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.6">Работает как полноценное приложение — быстрый запуск с рабочего стола, без вкладки браузера, поддержка push-уведомлений.</p>
                 </div>
-                <div style="flex-shrink:0">
+                <div class="pwa-install-cta">
                   ${(() => {
                     const isStandalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
                     if (isStandalone) {
                       return `<span class="sync-badge" style="font-size:13px;padding:8px 16px">✓ Уже установлено</span>`;
                     }
                     if (_deferredInstallPrompt) {
-                      return `<button class="btn primary" onclick="app.installPWA()" style="font-size:14px;padding:10px 24px">Установить →</button>`;
+                      return `<button class="btn primary" onclick="app.installPWA()" style="font-size:14px;padding:10px 24px">Установить</button>`;
                     }
                     return `<span style="font-size:12px;color:var(--muted);display:block;max-width:220px;line-height:1.5">Откройте в Chrome / Edge и нажмите «Установить» в адресной строке браузера</span>`;
                   })()}
@@ -15291,7 +15305,7 @@
 
         const dataTab = `
             <div class="panel" style="box-shadow:none;background:var(--panel2)">
-              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("download", "var(--blue)")} Экспорт и импорт</h2>
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("download", "var(--green)")} Экспорт и импорт</h2>
 
               <div class="toolbar no-print">
                 <button class="btn primary" onclick="app.exportData()">Экспорт JSON</button>
@@ -15324,7 +15338,7 @@
 
         const devTab = _isSuperAdmin() ? `
             <div class="supabase-config-box">
-              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("lock", "var(--blue)")} Supabase — авторизация и подписки</h2>
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("lock", "var(--primary)")} Supabase — авторизация и подписки</h2>
               <p style="margin-bottom:6px;font-size:13px">
                 Подключите Supabase для: входа пользователей по email/паролю, облачного хранения данных, управления подписками и совместного редактирования.
               </p>
@@ -15475,10 +15489,20 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             </div>
 
             <div class="seg-switch wrap" role="tablist" aria-label="Настройки">
-              ${tabs.map(([id, ic, label]) => `
-                <button type="button" role="tab" aria-selected="${tab === id}" class="${tab === id ? "active" : ""} ${id === "__admin_link" ? "seg-switch-link" : ""}"
-                  onclick="${id === "__admin_link" ? "app.go('admin')" : `app._setSettingsTab('${id}')`}">${ic}${label}</button>
-              `).join("")}
+              ${(() => {
+                // Цвет иконки по теме раздела — тот же акцент, что у иконки-бейджа
+                // заголовка внутри вкладки (см. iconBadge() в контенте ниже).
+                const TAB_COLOR_CLASS = {
+                  notify: "seg-switch-yellow",
+                  integrations: "seg-switch-blue",
+                  data: "seg-switch-green",
+                  __admin_link: "seg-switch-link"
+                };
+                return tabs.map(([id, ic, label]) => `
+                  <button type="button" role="tab" aria-selected="${tab === id}" class="${tab === id ? "active" : ""} ${TAB_COLOR_CLASS[id] || ""}"
+                    onclick="${id === "__admin_link" ? "app.go('admin')" : `app._setSettingsTab('${id}')`}">${ic}${label}</button>
+                `).join("");
+              })()}
             </div>
 
             ${tab === "company" ? companyTab : ""}
