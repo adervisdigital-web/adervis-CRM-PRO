@@ -9620,14 +9620,19 @@
 
       // ── Универсальный кастом-дропдаун ─────────────────────────────────────
       // Превращает нативные <select> в красивые выпадашки (как currency).
-      // На тач-устройствах — только для коротких списков (≤ UU_TOUCH_MAX_OPTIONS
-      // опций): длинные (проекты, клиенты) остаются нативным select — ОС-пикер
-      // удобнее пальцем при долгом скролле. Нативный select остаётся в DOM
-      // (скрытый) — value, onchange и data-autosave продолжают работать; мы
-      // лишь дублируем выбор в него.
+      // На тач-устройствах — тоже кастомный вид, кроме ОЧЕНЬ длинных списков
+      // (> UU_TOUCH_MAX_OPTIONS опций), где нативный ОС-пикер остаётся запасным
+      // вариантом. Кастом-дропдаун уже умеет: скролл (max-height 300px,
+      // overflow-y:auto), авто-скролл к выбранному пункту при открытии,
+      // разворот вверх если снизу не хватает места — поэтому порог поднят с 8
+      // (было слишком агрессивно — почти любой список из клиентов/проектов
+      // проваливался на нативный select) до значения, покрывающего реальные
+      // списки CRM с запасом. Нативный select остаётся в DOM (скрытый) —
+      // value, onchange и data-autosave продолжают работать; мы лишь дублируем
+      // выбор в него.
       let _uuOpen = null;
       const _UU_CHEV = `<span class="uu-select-chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>`;
-      const UU_TOUCH_MAX_OPTIONS = 8;
+      const UU_TOUCH_MAX_OPTIONS = 40;
 
       function _uuIsTouch() {
         return window.matchMedia && window.matchMedia("(hover: none), (max-width: 640px)").matches;
