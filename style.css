@@ -4215,6 +4215,7 @@
     }
     .main-menu-item:hover { background: rgba(124,58,237,.14); transform: translateY(-2px); border-color: rgba(124,58,237,.3); }
     .main-menu-item .mm-icon { font-size: 26px; display: block; margin-bottom: 6px; }
+    .main-menu-item .mm-icon svg { width: 1em; height: 1em; vertical-align: middle; }
     .main-menu-item .mm-label { font-size: 12px; font-weight: 600; }
     .main-menu-item .mm-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
     @media (max-width: 768px) {

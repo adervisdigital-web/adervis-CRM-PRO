@@ -11069,7 +11069,6 @@
 
         const totalPipeline = projects.filter(p => !["Сдано", "Завершённые", CRM_ARCHIVED].includes(p.crmStatus || "Лид"))
           .reduce((s, p) => s + (p.total || 0), 0);
-        const totalProfit = projects.reduce((s, p) => s + (p.profit || 0), 0);
         const inWork = projects.filter(p => p.crmStatus === "В работе").length;
         const closedCount = projects.filter(p => ["Завершённые","Сдано"].includes(p.crmStatus || "Лид")).length;
 
@@ -11171,37 +11170,37 @@
 
             <!-- ── STAT STRIP ─────────────────────────────── -->
             <div class="db-stat-row">
-              <div class="db-stat" onclick="app.go('global-finances')">
+              <div class="db-stat" onclick="app.go('global-finances')" title="Выручка / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(22,163,74,.15);color:var(--text-success)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Выручка / мес</span></div>
                 <div class="db-stat-value">${money(monthRevenue)}</div>
                 <div class="db-stat-delta ${revDelta!==null?(revDelta>=0?"pos":"neg"):"neu"}">${revDelta!==null?(revDelta>=0?"↑ ":"↓ ")+Math.abs(revDelta)+"% к прошлому":"нет данных"}</div>
               </div>
-              <div class="db-stat" onclick="app.go('global-finances')">
+              <div class="db-stat" onclick="app.go('global-finances')" title="Расходы / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(220,38,38,.13);color:var(--text-danger)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Расходы / мес</span></div>
                 <div class="db-stat-value" style="${monthExpenses>0?"color:var(--red)":""}">${money(monthExpenses)}</div>
                 <div class="db-stat-delta neu">${curMonthName}</div>
               </div>
-              <div class="db-stat" onclick="app.go('global-finances')">
+              <div class="db-stat" onclick="app.go('global-finances')" title="Прибыль / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${monthProfit>=0?"rgba(22,163,74,.15);color:var(--text-success)":"rgba(220,38,38,.13);color:var(--text-danger)"}"><svg viewBox="0 0 16 16" fill="currentColor">${monthProfit>=0?EMPTY_ICON_PATHS.trendUp:EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Прибыль / мес</span></div>
                 <div class="db-stat-value" style="color:${monthProfit>=0?"var(--green)":"var(--red)"}">${money(monthProfit)}</div>
                 <div class="db-stat-delta ${monthProfit>=0?"pos":"neg"}">${monthProfit>=0?"доход":"убыток"}</div>
               </div>
-              <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')">
+              <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')" title="Долг клиентов">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${totalDebt>0?"rgba(234,88,12,.15);color:var(--text-warning)":"rgba(22,163,74,.15);color:var(--text-success)"}"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Долг клиентов</span></div>
                 <div class="db-stat-value" style="${totalDebt>0?"color:var(--orange)":"color:var(--green)"}">${money(totalDebt)}</div>
                 <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
               </div>
-              <div class="db-stat">
+              <div class="db-stat" title="Воронка">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.funnel}</svg></span><span class="db-stat-label">Воронка</span></div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>
                 <div class="db-stat-delta neu">${projects.filter(p=>!["Сдано","Завершённые",CRM_ARCHIVED].includes(p.crmStatus||"Лид")).length} активных</div>
               </div>
-              <div class="db-stat">
+              <div class="db-stat" title="В работе">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.tasks}</svg></span><span class="db-stat-label">В работе</span></div>
                 <div class="db-stat-value">${inWork}</div>
                 <div class="db-stat-delta neu">${closedCount} закрыто</div>
               </div>
-              <div class="db-stat">
+              <div class="db-stat" title="Средний чек">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.doc}</svg></span><span class="db-stat-label">Ср. чек</span></div>
                 <div class="db-stat-value">${avgDeal>0?money(avgDeal):"—"}</div>
                 <div class="db-stat-delta neu">${closedCount>0?"по "+closedCount+" сделкам":"нет закрытых"}</div>
@@ -11215,7 +11214,7 @@
                   <div class="db-stat-delta neu">по вероятности</div>
                 </div>`;
               })()}
-              <div class="db-stat ${overdueCount>0?"db-stat-warn":""}" onclick="app.go('global-calendar')">
+              <div class="db-stat ${overdueCount>0?"db-stat-warn":""}" onclick="app.go('global-calendar')" title="Дедлайны / 7 дн">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${overdueCount>0?"rgba(220,38,38,.13);color:var(--text-danger)":"rgba(22,163,74,.15);color:var(--text-success)"}"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.calendar}</svg></span><span class="db-stat-label">Дедлайны / 7 дн</span></div>
                 <div class="db-stat-value">${uniqueDeadlines.length}</div>
                 <div class="db-stat-delta ${overdueCount>0?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${overdueCount>0?overdueCount+" просрочено":uniqueDeadlines.length>0?"ближ. "+formatDate(uniqueDeadlines[0].date):"нет ✓"}</div>
@@ -12888,7 +12887,7 @@
         // «Оборот» — бюджет сделок, кроме архивных/отменённых (та же логика, что и у
         // топ-клиентов на дашборде): сорвавшаяся сделка не должна раздувать оборот клиента
         const totalRevenue = clientProjects.filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED).reduce((s, p) => s + (p.total || 0), 0);
-        const totalPaid = clientProjects.reduce((s, p) => s + (p.paid || 0), 0);
+        const totalPaid = clientProjects.filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED).reduce((s, p) => s + (p.paid || 0), 0);
 
         return `
           <div>
@@ -16452,62 +16451,62 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               </div>
               <div class="main-menu-modal">
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('home')">
-                  <span class="mm-icon">📋</span>
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg></span>
                   <div class="mm-label">Проекты</div>
                   <div class="mm-sub">Воронка проектов</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.startWizard()">
-                  <span class="mm-icon">✨</span>
+                  <span class="mm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
                   <div class="mm-label">Новая сделка</div>
                   <div class="mm-sub">Быстрый старт</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('deal')">
-                  <span class="mm-icon">🧮</span>
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg></span>
                   <div class="mm-label">Смета</div>
                   <div class="mm-sub">Текущий расчёт</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('services')">
-                  <span class="mm-icon">🗂</span>
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg></span>
                   <div class="mm-label">Услуги</div>
                   <div class="mm-sub">Каталог и пакеты</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('global-finances')">
-                  <span class="mm-icon">💰</span>
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg></span>
                   <div class="mm-label">Финансы</div>
                   <div class="mm-sub">Все транзакции</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('global-calendar')">
-                  <span class="mm-icon">📅</span>
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg></span>
                   <div class="mm-label">Календарь</div>
                   <div class="mm-sub">Дедлайны и задачи</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('global-tasks')">
-                  <span class="mm-icon">✅</span>
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h2v2H2V3zm4 0h8v1.5H6V3zM2 7h2v2H2V7zm4 .25h8v1.5H6v-1.5zM2 11h2v2H2v-2zm4 .25h8v1.5H6v-1.5z"/></svg></span>
                   <div class="mm-label">Задачи</div>
                   <div class="mm-sub">Все задачи и свои</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('contracts')">
-                  <span class="mm-icon">📄</span>
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg></span>
                   <div class="mm-label">Договоры</div>
                   <div class="mm-sub">Шаблоны и база</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('clients')">
-                  <span class="mm-icon">👥</span>
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg></span>
                   <div class="mm-label">Клиенты</div>
                   <div class="mm-sub">База клиентов</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('briefs')">
-                  <span class="mm-icon">📝</span>
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h6l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 1v3h3L9 2zM5 7h6v1H5V7zm0 3h6v1H5v-1z"/></svg></span>
                   <div class="mm-label">Онлайн-брифы</div>
                   <div class="mm-sub">Заявки от клиентов</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('knowledge')">
-                  <span class="mm-icon">📚</span>
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg></span>
                   <div class="mm-label">База знаний</div>
                   <div class="mm-sub">Скрипты и шаблоны</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('settings')">
-                  <span class="mm-icon">⚙️</span>
+                  <span class="mm-icon">${icon("gear")}</span>
                   <div class="mm-label">Настройки</div>
                   <div class="mm-sub">Компания, данные</div>
                 </button>
@@ -16517,7 +16516,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <div class="mm-sub">Светлая / тёмная</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('profile')">
-                  <span class="mm-icon">👤</span>
+                  <span class="mm-icon">${icon("person")}</span>
                   <div class="mm-label">Профиль</div>
                   <div class="mm-sub">Аккаунт, подписка</div>
                 </button>
