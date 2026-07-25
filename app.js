@@ -53,18 +53,16 @@
         { id: "knowledge", label: "База знаний" }
       ];
 
+      // Реальные налоговые режимы РФ (не абстрактные проценты) — актуально для
+      // видеопродакшн-агентства/самозанятого/ИП, для которых и считается смета.
       const TAX_OPTIONS = [
         { id: "none", label: "Без налога", rate: 0 },
-        { id: "tax5", label: "5%", rate: 0.05 },
-        { id: "tax6", label: "6%", rate: 0.06 },
-        { id: "vat7", label: "7%", rate: 0.07 },
-        { id: "tax10", label: "10%", rate: 0.10 },
-        { id: "tax12", label: "12%", rate: 0.12 },
-        { id: "tax15", label: "15%", rate: 0.15 },
-        { id: "tax18", label: "18%", rate: 0.18 },
-        { id: "vat20", label: "НДС 20%", rate: 0.20 },
-        { id: "usn6", label: "УСН 6%", rate: 0.06 },
-        { id: "usn15", label: "УСН 15%", rate: 0.15 }
+        { id: "npd4", label: "Самозанятый (НПД), с физлицами — 4%", rate: 0.04 },
+        { id: "tax6", label: "Самозанятый (НПД), с юрлицами/ИП — 6%", rate: 0.06 },
+        { id: "usn6", label: "УСН «Доходы» — 6%", rate: 0.06 },
+        { id: "ndfl13", label: "ИП на ОСНО (НДФЛ) — 13%", rate: 0.13 },
+        { id: "usn15", label: "УСН «Доходы минус расходы» — 15%", rate: 0.15 },
+        { id: "vat20", label: "НДС — 20%", rate: 0.20 }
       ];
 
       const CRM_STATUSES = ["Лид", "Бриф", "КП отправлено", "Согласование", "Договор", "Предоплата", "В работе", "Сдано", "Завершённые"];
@@ -1239,7 +1237,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","notifPopupOpen","summaryOpen","briefEditorType"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","notifPopupOpen","summaryOpen","briefEditorType"]);
 
       async function _loadCloudState() {
         if (!_supabase || !_adminSession) return;
@@ -2492,7 +2490,7 @@
             </button>
             <div class="pd-sep" style="margin:6px 0"></div>
             <div class="help-dd-section">Обновления</div>
-            <a class="help-dd-item" href="https://t.me/adervisdigital" target="_blank" rel="noopener" onclick="app.toggleHelpDd(false)">
+            <a class="help-dd-item" href="https://t.me/adervis_manager" target="_blank" rel="noopener" onclick="app.toggleHelpDd(false)">
               <span class="help-dd-item-icon" style="background:rgba(8,145,178,.15)">✈️</span>
               <div><div>Telegram канал</div><div class="hdi-sub">Новости и обновления</div></div>
             </a>
@@ -3441,23 +3439,23 @@
                 </div>
               </a>
 
-              <a href="https://t.me/adervisdigital" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
+              <a href="https://t.me/adervis_manager" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
                 ${iconBadge("send", "#29b6f6", 44)}
                 <div>
                   <div class="u-label-strong">Telegram</div>
-                  <div class="u-meta-13">@adervisdigital</div>
+                  <div class="u-meta-13">@adervis_manager</div>
                   <div class="u-meta-mt3">Быстрые вопросы и обновления</div>
                 </div>
               </a>
 
-              <a href="https://adervis.ru/docs" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
+              <button class="support-card" onclick="app.openDocsModal()" style="border:none;cursor:pointer;text-align:left;width:100%">
                 ${iconBadge("doc", "var(--green)", 44)}
                 <div>
                   <div class="u-label-strong">Документы</div>
                   <div class="u-meta-13">Оферта и Политика конфиденциальности</div>
-                  <div class="u-meta-mt3">adervis.ru/docs</div>
+                  <div class="u-meta-mt3">Откроются здесь, без перехода на сайт</div>
                 </div>
-              </a>
+              </button>
 
               <button class="support-card" onclick="app.openHelpModal()" style="border:none;cursor:pointer;text-align:left;width:100%">
                 ${iconBadge("chat", "var(--primary)", 44)}
@@ -3468,7 +3466,7 @@
                 </div>
               </button>
 
-              <a href="mailto:adervis.digital@gmail.com?subject=${encodeURIComponent('Отзыв о ADERVIS CRM')}&body=${encodeURIComponent('Привет! Делюсь впечатлением от продукта:\n\n[напишите пару предложений — что понравилось, что помогло в работе]\n\nМожно указать моё имя и компанию рядом с отзывом на сайте? (да/нет)')}" class="support-card" style="text-decoration:none">
+              <a href="https://t.me/adervis_manager?text=${encodeURIComponent('Привет! Хочу оставить отзыв о ADERVIS CRM:\n\n[напишите пару предложений — что понравилось, что помогло в работе]\n\nМожно опубликовать его (с моим именем/компанией) на сайте? (да/нет)')}" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
                 ${iconBadge("star", "var(--yellow)", 44)}
                 <div>
                   <div class="u-label-strong">Оставить отзыв о продукте</div>
@@ -4341,7 +4339,7 @@
         const slide = ONBOARD_SLIDES[idx];
         return `
           <div class="modal-overlay" onclick="event.target===this&&app.closeHelpModal()">
-            <div class="modal-box" style="width:min(520px,calc(100vw - 24px));padding:24px">
+            <div class="modal-box" style="width:min(880px,calc(100vw - 24px));padding:28px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
                 <div>
                   <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Шаг ${idx + 1} из ${total}</div>
@@ -4396,6 +4394,32 @@
       function closeHelpModal() {
         state.helpModal = false;
         lsSet("adervis_onboarded", "1");
+        renderModal();
+      }
+
+      // Оферта и Политика конфиденциальности живут на сайте (adervis.ru/docs) —
+      // единственный источник правды для юридических текстов. Показываем их поверх
+      // CRM через iframe в модалке, а не копируем текст сюда (иначе разъедутся при
+      // следующей правке документов на сайте).
+      function renderDocsModal() {
+        return `
+          <div class="modal-overlay" onclick="event.target===this&&app.closeDocsModal()">
+            <div class="modal-box" style="width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 40px);padding:0;overflow:hidden;display:flex;flex-direction:column">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);flex:0 0 auto">
+                <h2 style="margin:0;font-size:17px">Оферта и политика конфиденциальности</h2>
+                <button onclick="app.closeDocsModal()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto">×</button>
+              </div>
+              <iframe src="https://adervis.ru/docs" title="Документы ADERVIS" style="border:0;width:100%;flex:1 1 auto;min-height:60vh;background:var(--panel)"></iframe>
+            </div>
+          </div>
+        `;
+      }
+      function openDocsModal() {
+        state.docsModal = true;
+        renderModal();
+      }
+      function closeDocsModal() {
+        state.docsModal = false;
         renderModal();
       }
       function helpNext() {
@@ -4927,6 +4951,7 @@
           mainMenuOpen: false,
           helpModal: false,
           helpSlide: 0,
+          docsModal: false,
           adminModal: null,
           clientModal: null,
           taskModal: null,
@@ -5005,7 +5030,7 @@
           project: {
             id: "",
             createdAt: "",
-            name: "Видео-проект",
+            name: "",
             client: "",
             clientId: "",
             city: "",
@@ -6396,10 +6421,10 @@
       }
 
       // Клик по карточке в «Проекты» — сделать сделку активной (загрузить её в рабочее
-      // состояние, зажечь пилюлю «текущий»), но остаться на доске, а не прыгать в смету.
-      // Переход в смету — отдельная кнопка «Открыть →» на карточке.
+      // состояние, зажечь пилюлю «Активно»), но остаться на доске, а не прыгать в смету.
+      // Повторный клик по уже активной карточке — открыть её в смете (как кнопка «Открыть →»).
       function selectActiveDeal(id) {
-        if (id === state.activeProjectId) return;
+        if (id === state.activeProjectId) { openDeal(id); return; }
         const saved = state.savedProjects.find(project => project.id === id);
         if (!saved) return;
         _activateSavedProject(saved);
@@ -8107,6 +8132,7 @@
         if (!el) return;
         const modalKey =
           state.mainMenuOpen ? "mainMenu" : state.helpModal ? "help" :
+          state.docsModal ? "docs" :
           state.adminModal ? "admin" : state.clientModal ? "client" :
           state.dealModal ? "deal" : state.taskModal ? "task" :
           state.editTransactionModal ? "editTx" : state.financeModal ? "finance" :
@@ -8114,6 +8140,7 @@
           state.briefEditorType ? "briefEditor" : null;
         if (state.mainMenuOpen) { el.innerHTML = renderMainMenuModal(); }
         else if (state.helpModal) { el.innerHTML = renderHelpModal(); }
+        else if (state.docsModal) { el.innerHTML = renderDocsModal(); }
         else if (state.adminModal) { el.innerHTML = renderAdminModalHtml(); }
         else if (state.clientModal) { el.innerHTML = renderClientModalHtml(); }
         else if (state.dealModal) { el.innerHTML = renderDealModalHtml(); }
@@ -9687,9 +9714,15 @@
         document.body.appendChild(dd);
         btn.setAttribute("aria-expanded", "true");
         const r = btn.getBoundingClientRect();
+        // Не фиксируем width строго по кнопке — у неё width:auto, и если выбранный
+        // пункт короткий («НДС — 20%»), а другие пункты длиннее («Самозанятый (НПД),
+        // с юрлицами/ИП — 6%»), список обрезался и вылезал горизонтальный скролл.
+        // min-width от кнопки + max-width с запасом, текст переносится, не обрезается.
+        dd.style.minWidth = r.width + "px";
+        dd.style.maxWidth = "min(360px, calc(100vw - 24px))";
         const ddH = Math.min(dd.scrollHeight, 300);
-        dd.style.left = r.left + "px";
-        dd.style.width = r.width + "px";
+        const ddW = dd.offsetWidth;
+        dd.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 8 - ddW)) + "px";
         dd.style.maxHeight = "300px";
         if (r.bottom + ddH + 8 > window.innerHeight && r.top > ddH + 8) dd.style.top = (r.top - ddH - 4) + "px";
         else dd.style.top = (r.bottom + 4) + "px";
@@ -11359,16 +11392,17 @@
                   const projectIdSafe = project.id.replace(/'/g,"");
                   const u = project.deadline ? deadlineUrgency(project.deadline) : null;
                   return `
-                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.selectActiveDeal('${projectIdSafe}')" style="cursor:pointer;--status-color:${CRM_STATUS_COLOR[project.crmStatus || "Лид"] || "var(--muted)"}" title="Сделать активным проектом · «Открыть →» — перейти в смету">
+                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.selectActiveDeal('${projectIdSafe}')" style="cursor:pointer;--status-color:${CRM_STATUS_COLOR[project.crmStatus || "Лид"] || "var(--muted)"}" title="${isCurrent ? "Клик — открыть в смете" : "Клик — сделать активным проектом · «Открыть →» — перейти в смету"}">
                       <div class="deal-card-head">
                         ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
-                          style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;accent-color:var(--primary)">` : ""}
+                          style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">` : ""}
                         <div class="deal-card-head-main">
                           <div style="display:flex;align-items:center;gap:5px;min-width:0">
                             ${project.pinned ? `<svg width="12" height="12" viewBox="0 0 16 16" fill="var(--primary2)" style="flex:0 0 auto" title="Закреплено наверху"><path d="M9.83 1.02l5.15 5.15c.28.28.02.76-.37.69l-2.4-.44-2.9 2.9.44 2.86c.07.4-.42.66-.7.38L6.4 10.42l-4.1 4.1-.7-.7 4.1-4.1-2.13-2.13c-.28-.28-.02-.77.38-.7l2.86.44 2.9-2.9-.44-2.4c-.07-.4.41-.65.69-.37z"/></svg>` : ""}
                             <div class="deal-card-name" style="flex:1;min-width:0" title="${escapeHtml(project.name)}">${escapeHtml(project.name)}</div>
                           </div>
                         </div>
+                        ${isCurrent ? `<span class="deal-card-current-badge" title="Эта сделка сейчас активна">${icon("check", 10)} Активно</span>` : ""}
                         <div class="deal-card-menu-wrap">
                           <button class="deal-menu-btn" onclick="app.toggleDealMenu('${projectIdSafe}',event)" title="Действия со сделкой" aria-label="Действия со сделкой">
                             <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
@@ -11435,11 +11469,10 @@
 
                       <div class="deal-card-statusline">
                         <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
-                        <span class="status-pill ${project.crmStatus === CRM_ARCHIVED ? "archived" : ""}" style="font-size:12px">${escapeHtml(project.crmStatus || "Лид")}</span>
-                        ${isCurrent ? `<span class="status-pill green" style="font-size:12px">текущий</span>` : ""}
+                        <span class="status-pill ${project.crmStatus === CRM_ARCHIVED ? "archived" : ""}" style="font-size:11px;padding:3px 7px">${escapeHtml(project.crmStatus || "Лид")}</span>
                         ${project.clientId
                           ? `<span class="deal-card-sub">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</span>`
-                          : `<span class="deal-card-sub unlinked" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">${icon("warning", 11)} ${project.client ? escapeHtml(project.client) : "Не привязан"}</span>`}
+                          : `<span class="deal-card-sub unlinked" style="font-size:11px" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">${icon("warning", 10)} ${project.client ? escapeHtml(project.client) : "Не привязан"}</span>`}
                       </div>`;
                       })()}
 
@@ -14383,6 +14416,59 @@
         return forecast + insightsHtml;
       }
 
+      // Кто должен и сколько — превращает пассивную цифру «Общий долг» в конкретный
+      // список действий (кому напомнить об оплате). Те же активные сделки (не
+      // Завершённые/Архив), что формируют allDebt в renderGlobalFinances.
+      function renderReceivablesTab() {
+        const debtors = (state.savedProjects || [])
+          .filter(p => !isDealInactive(p.crmStatus || "Лид") && Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)) > 0)
+          .map(p => ({ ...p, _debt: Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), _u: p.deadline ? deadlineUrgency(p.deadline) : null }))
+          .sort((a, b) => {
+            const rank = u => !u ? 3 : u.level === "overdue" ? 0 : u.level === "critical" ? 1 : u.level === "warning" ? 2 : 3;
+            const ra = rank(a._u), rb = rank(b._u);
+            return ra !== rb ? ra - rb : b._debt - a._debt;
+          });
+        const totalDebt = debtors.reduce((s, p) => s + p._debt, 0);
+
+        return `
+          <div class="fin-action-bar no-print" style="margin-bottom:12px">
+            <span style="font-size:12px;color:var(--muted)">${debtors.length ? `${debtors.length} ${plural(debtors.length, "сделка", "сделки", "сделок")} с долгом · ${money(totalDebt)} к получению` : "Должников нет — всё оплачено"}</span>
+          </div>
+          <div class="fin-table-wrap">
+            <table class="fin-table">
+              <thead>
+                <tr>
+                  <th>Проект</th>
+                  <th>Клиент</th>
+                  <th>Дедлайн</th>
+                  <th class="ta-right">Долг</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${debtors.length ? debtors.map(p => `
+                  <tr class="u-pointer" title="Открыть финансы сделки" onclick="app.openDeal('${p.id.replace(/'/g,"")}');app.setDealView('finance')">
+                    <td style="font-size:12px;font-weight:750;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name)}</td>
+                    <td style="font-size:12px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.client || "—")}</td>
+                    <td style="font-size:12px;white-space:nowrap;color:${p._u && p._u.level!=="ok" ? p._u.color : "var(--muted)"}">${p.deadline ? escapeHtml(formatDate(p.deadline)) + (p._u && p._u.level!=="ok" ? ` · ${escapeHtml(p._u.label)}` : "") : "—"}</td>
+                    <td class="amount-cell expense" style="text-align:right">${money(p._debt)}</td>
+                  </tr>
+                `).join("") : `
+                  <tr><td colspan="4" style="text-align:center;padding:32px;color:var(--muted)">Все активные сделки оплачены полностью 🎉</td></tr>
+                `}
+              </tbody>
+              ${debtors.length ? `
+                <tfoot class="fin-table-footer">
+                  <tr>
+                    <td colspan="3" class="u-meta">Итого долг</td>
+                    <td class="amount-cell expense" style="text-align:right">${money(totalDebt)}</td>
+                  </tr>
+                </tfoot>
+              ` : ""}
+            </table>
+          </div>
+        `;
+      }
+
       function renderGlobalFinances() {
         const allTxs = getAllTransactions();
         const filteredByDate = filterByDateRange(allTxs);
@@ -14449,10 +14535,10 @@
                 <div class="fin-amount">${money(totalProfit)}</div>
                 <div class="fin-sub">доход − расходы →</div>
               </div>
-              <div class="fin-card ${allDebt > 0 ? "expense-card" : "income-card"} u-pointer" title="Сколько клиенты ещё не заплатили по всем сделкам. Нажмите, чтобы перейти к сделкам." onclick="app.go('home')">
+              <div class="fin-card ${allDebt > 0 ? "expense-card" : "income-card"} u-pointer" title="Сколько клиенты ещё не заплатили по всем сделкам. Нажмите, чтобы увидеть список должников." onclick="app.setGFinSubTab('receivables')">
                 <h3>Общий долг</h3>
                 <div class="fin-amount" style="color:${allDebt > 0 ? "var(--orange)" : "var(--green)"}">${money(allDebt)}</div>
-                <div class="fin-sub">ещё не оплачено →</div>
+                <div class="fin-sub">кто должен →</div>
               </div>
               <div class="fin-card u-pointer" title="Всего операций: поступления и расходы. Нажмите, чтобы открыть все транзакции." onclick="app.setGFinTypeFilter('all');app.setGFinSubTab('transactions')">
                 <h3>Транзакций</h3>
@@ -14462,9 +14548,12 @@
             </div>
 
             <div class="fin-subtab-bar no-print">
-              <button class="fin-subtab ${(state.gFinSubTab||"transactions")==="transactions"?"active":""}" onclick="app.setGFinSubTab('transactions')">Транзакции</button>
               <button class="fin-subtab ${state.gFinSubTab==="analytics"?"active":""}" onclick="app.setGFinSubTab('analytics')">Аналитика</button>
+              <button class="fin-subtab ${state.gFinSubTab==="receivables"?"active":""}" onclick="app.setGFinSubTab('receivables')">Дебиторка</button>
+              <button class="fin-subtab ${(state.gFinSubTab||"transactions")==="transactions"?"active":""}" onclick="app.setGFinSubTab('transactions')">Транзакции</button>
             </div>
+
+            ${state.gFinSubTab === "receivables" ? renderReceivablesTab() : ""}
 
             ${state.gFinSubTab === "analytics" ? `
               <div class="analytics-date-bar no-print">
@@ -15181,11 +15270,10 @@
           <div class="deal-bar no-print">
             <div class="deal-compact-row">
               <div class="deal-nav-group">
-                <button class="btn small" onclick="app.go('home')">← Сделки</button>
+                <button class="btn small" onclick="app.go('home')">← Проекты</button>
                 <div id="dealBarSwitcher">${renderDealSwitcherButtonHtml()}</div>
                 ${state.project.client ? `<span class="badge" style="font-size:12px">${escapeHtml(state.project.client)}</span>` : ""}
                 <span class="margin-badge ${marginClass}" style="font-size:12px">${margin}% маржа</span>
-                <span class="status-pill ${state.project.crmStatus === CRM_ARCHIVED ? "archived" : ""}" style="font-size:12px">${escapeHtml(state.project.crmStatus || "Лид")}</span>
                 ${(() => { const u = deadlineUrgency(state.project.deadline); if (!u || u.level === "ok") return ""; return `<span style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px">⚡ ${escapeHtml(u.label)}</span>`; })()}
               </div>
 
@@ -17832,6 +17920,7 @@ Email: ______________________            Email: ______________________
             else if (state.editTransactionModal) closeEditTransactionModal();
             else if (state.packageEditModal) closePackageEditModal();
             else if (state.helpModal) closeHelpModal();
+            else if (state.docsModal) closeDocsModal();
             else if (state.mainMenuOpen) { state.mainMenuOpen = false; renderModal(); }
             else if (state.adminModal) closeAdminModal();
             else if (state.briefEditorType) closeBriefEditor();
@@ -18223,6 +18312,8 @@ Email: ______________________            Email: ______________________
 
         openHelpModal,
         closeHelpModal,
+        openDocsModal,
+        closeDocsModal,
         helpNext,
         helpPrev,
         startTour,

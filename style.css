@@ -2201,7 +2201,7 @@
       display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
       padding: 9px 12px; border: none; background: none; color: var(--text);
       font-size: 13px; cursor: pointer; border-radius: 8px; transition: background .1s;
-      white-space: nowrap;
+      white-space: normal; overflow-wrap: break-word; line-height: 1.35;
     }
     .uu-select-opt:hover { background: rgba(124,58,237,.1); }
     .uu-select-opt.active { background: rgba(124,58,237,.16); color: var(--primary2); font-weight: 700; }
@@ -2859,24 +2859,33 @@
       transition: border-color .15s, transform .15s, box-shadow .15s;
       border: 1px solid var(--line);
       border-radius: 16px;
-      background: var(--panel);
+      --card-fill: var(--panel);
+      /* Полоска статуса слева — цвет из CRM_STATUS_COLOR (--status-color, инлайн-стиль),
+         залита градиентом в фоне САМОЙ карточки, а не отдельным ::before. Два отдельно
+         скруглённых слоя (рамка + свой ::before со своим border-radius) на суб-пикселе
+         никогда не совпадают идеально — вылезал нотч на скруглении. Фон стрижётся тем
+         же border-radius, что и рамка, — рассинхрона быть не может физически. */
+      background: linear-gradient(to right, var(--status-color, var(--line)) 0 4px, transparent 4px 100%), var(--card-fill);
       display: flex; flex-direction: column; gap: 9px;
-    }
-    /* Полоска статуса слева — цвет из CRM_STATUS_COLOR (--status-color, инлайн-стиль).
-       Скругление на самой полоске (не overflow:hidden на карточке — там всплывает
-       .deal-ctx-menu за пределы карточки, обрезался бы). */
-    .deal-card::before {
-      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-      background: var(--status-color, var(--line));
-      border-radius: 16px 0 0 16px;
     }
     .deal-card:hover {
       border-color: rgba(168,85,247,.5);
       transform: translateY(-2px);
       box-shadow: 0 8px 28px rgba(108,0,255,.1);
     }
-    .deal-card.current { border-color: rgba(22,163,74,.5); box-shadow: 0 0 0 2px rgba(22,163,74,.12); }
-    .deal-card.deal-card-selected { border-color: var(--primary); background: rgba(124,58,237,.06); }
+    /* Сплошная рамка нужного цвета + мягкое свечение (а не резкое box-shadow-кольцо
+       снаружи рамки) — иначе рамка и кольцо давали две параллельные линии со щелью. */
+    .deal-card.current { border-color: var(--green); box-shadow: 0 0 14px rgba(22,163,74,.25); }
+    .deal-card.deal-card-selected { border-color: var(--primary); --card-fill: rgba(124,58,237,.06); }
+    /* Уголок-лейбл слева, под названием — без фона-капсулы, вне потока
+       (position:absolute), поэтому не спорит с заголовком и не давит на межстрочный
+       интервал. Место под него зарезервировано padding-bottom на .deal-card-head
+       для ВСЕХ карточек одинаково — блок с цифрами не съезжает у карточек без пометки. */
+    .deal-card-current-badge {
+      position: absolute; left: 0; bottom: 0;
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 10.5px; font-weight: 700; letter-spacing: .01em; color: var(--text-success);
+    }
     .deal-card-client { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
     .deal-card-name {
       font-size: 15px; font-weight: 750; line-height: 1.3; letter-spacing: -.01em;
@@ -2886,7 +2895,9 @@
     /* ── DEAL CARD (redesign 04.07.2026 — воздух, мягче вес, чёткая иерархия) ── */
     /* Меню пинится в правый угол, имя занимает почти всю ширину; пилюли статуса —
        отдельной строкой под именем, чтобы не отжимать заголовок в узкую колонку. */
-    .deal-card-head { display: flex; align-items: flex-start; gap: 6px; }
+    /* align-items:center, а не flex-start — иначе кнопка-меню (32px, точки по
+       центру своей высоты) визуально «съезжает» ниже текста заголовка (~20px). */
+    .deal-card-head { display: flex; align-items: center; gap: 6px; position: relative; padding-bottom: 13px; }
     .deal-card-head-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
     .deal-card-sub { font-size: 12px; color: var(--muted); font-weight: 500; line-height: 1.3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     /* Раньше — жирный текст с ⚠-эмодзи; при массовом импорте (много непривязанных
@@ -4668,7 +4679,7 @@
        .ob-mock-fallback: лёгкий CSS-мокап теми же цветами/радиусами, что и в
        настоящих карточках/статусах, чтобы не показывать битую картинку. */
     .ob-mock {
-      width: 100%; height: 160px;
+      width: 100%; aspect-ratio: 16 / 8; max-height: 46vh;
       border-radius: 14px; overflow: hidden;
       background: linear-gradient(135deg, rgba(124,58,237,.14), rgba(37,99,235,.1));
       border: 1px solid var(--line);
