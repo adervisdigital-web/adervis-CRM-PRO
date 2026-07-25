@@ -10120,7 +10120,16 @@
         f.sending = true; f.error = ''; render();
         try {
           const sb = window.supabase.createClient(_DEFAULT_SB_URL, _DEFAULT_SB_KEY);
+          // id генерируем на клиенте (не ждём return=representation от insert — анонимный
+          // отправитель брифа не проходит RLS SELECT на brief_submissions, читать назад
+          // созданную строку не может). Передаём этот же id в agency-notify — сервер
+          // сам берёт данные из БД по нему, не доверяя тексту из тела запроса (см.
+          // [[gotcha]]: раньше agencyId/briefData принимались как есть — зная только
+          // agencyId, встроенный в публичную ссылку брифа, можно было слать поддельные
+          // Telegram-уведомления с произвольным текстом).
+          const submissionId = crypto.randomUUID();
           const { error } = await sb.from('brief_submissions').insert({
+            id: submissionId,
             agency_id: _briefAgencyId,
             client_name: name,
             client_phone: phone,
@@ -10142,8 +10151,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   type: 'brief_submitted',
-                  agencyId: _briefAgencyId,
-                  briefData: { name, phone, email, type: projectType, budget },
+                  submissionId,
                 }),
               }).catch(() => {});
             } catch(e) {}

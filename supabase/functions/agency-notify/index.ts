@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   if (!botToken) return new Response("Missing TELEGRAM_BOT_TOKEN", { status: 500 });
 
-  let body: { type: string; portalId?: string; agencyId?: string; briefData?: any };
+  let body: { type: string; portalId?: string; submissionId?: string };
   try { body = await req.json(); } catch { return new Response("Bad JSON", { status: 400 }); }
 
   const supabase = createClient(supabaseUrl, serviceKey);
@@ -100,24 +100,38 @@ Deno.serve(async (req) => {
   }
 
   // ── Brief submitted ────────────────────────────────────────────────────────
+  // Раньше agencyId/briefData принимались из тела запроса как есть — зная только
+  // agencyId (встроен в публичную ссылку брифа, не секрет), кто угодно мог слать
+  // поддельные уведомления с произвольным текстом. Теперь клиент передаёт только
+  // submissionId только что созданной строки brief_submissions — все данные для
+  // уведомления (включая agency_id, кому слать) берутся из БД, не из запроса.
 
-  if (body.type === "brief_submitted" && body.agencyId && body.briefData) {
-    const d = body.briefData;
+  if (body.type === "brief_submitted" && body.submissionId) {
+    const { data: submission } = await supabase
+      .from("brief_submissions")
+      .select("agency_id, client_name, client_phone, client_email, project_type, budget")
+      .eq("id", body.submissionId)
+      .maybeSingle();
+
+    if (!submission?.agency_id) return ok("submission not found");
+
+    const agencyId = submission.agency_id;
 
     // Раз в 60 сек на агентство — двум настоящим брифам подряд от разных клиентов
-    // это не помешает, а скриптовый спам фейковыми данными в body.briefData душит.
-    if (await isThrottled(body.agencyId, "brief_submitted", 60 * 1000)) return ok("throttled");
+    // это не помешает, а скриптовый спам (даже валидными submissionId одного и
+    // того же брифа по кругу) душит.
+    if (await isThrottled(agencyId, "brief_submitted", 60 * 1000)) return ok("throttled");
 
-    const chatIds = await getTelegramIds(body.agencyId);
+    const chatIds = await getTelegramIds(agencyId);
     if (!chatIds.length) return ok("no recipients");
 
     const text =
       `📥 <b>Новый бриф!</b>\n\n` +
-      `👤 <b>${esc(d.name) || "Клиент"}</b>\n` +
-      (d.phone ? `📞 ${esc(d.phone)}\n` : "") +
-      (d.email ? `✉️ ${esc(d.email)}\n` : "") +
-      (d.type ? `🎬 ${esc(d.type)}\n` : "") +
-      (d.budget ? `💰 ${esc(d.budget)}\n` : "") +
+      `👤 <b>${esc(submission.client_name) || "Клиент"}</b>\n` +
+      (submission.client_phone ? `📞 ${esc(submission.client_phone)}\n` : "") +
+      (submission.client_email ? `✉️ ${esc(submission.client_email)}\n` : "") +
+      (submission.project_type ? `🎬 ${esc(submission.project_type)}\n` : "") +
+      (submission.budget ? `💰 ${esc(submission.budget)}\n` : "") +
       `\n<i>Откройте CRM → Брифы, чтобы создать сделку.</i>`;
 
     await sendToAll(chatIds, text);
