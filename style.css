@@ -244,13 +244,12 @@
     }
 
     .app-sidebar.collapsed .sidebar-header {
-      justify-content: center; padding: 14px 0;
+      padding: 14px 16px;
     }
-    .app-sidebar.collapsed .sidebar-brand { justify-content: center; gap: 0; flex: none; }
+    .app-sidebar.collapsed .sidebar-brand { gap: 0; }
     .app-sidebar.collapsed .sidebar-nav { padding: 6px; }
     .app-sidebar.collapsed .sidebar-nav-item {
-      justify-content: center;
-      padding: 10px 0;
+      padding: 10px 18px;
       gap: 0;
       border-radius: 10px;
     }
@@ -263,7 +262,7 @@
 
     .app-sidebar.collapsed .sidebar-footer { padding: 6px; }
     .app-sidebar.collapsed .sidebar-footer .sidebar-nav-item {
-      justify-content: center; padding: 10px 0;
+      padding: 10px 18px;
     }
 
     /* CSS tooltip при наведении в collapsed */
@@ -291,8 +290,13 @@
     .sidebar-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 16px 14px 12px; flex-shrink: 0;
+      transition: padding .3s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .sidebar-brand { display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0; flex: 1; -webkit-user-select: none; user-select: none; }
+    .sidebar-brand {
+      display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0; flex: 1;
+      -webkit-user-select: none; user-select: none;
+      transition: gap .3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
     .sidebar-collapse-btn { display: none; }
 
     /* Текущий проект под Смета */
@@ -326,6 +330,7 @@
       display: flex;
       flex-direction: column;
       gap: 1px;
+      transition: padding .3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .sidebar-nav-config {
@@ -445,10 +450,12 @@
       cursor: pointer;
       width: 100%;
       text-align: left;
-      transition: background .14s, color .14s, border-color .14s;
+      transition: background .14s, color .14s, border-color .14s,
+                  padding .3s cubic-bezier(0.16, 1, 0.3, 1),
+                  gap .3s cubic-bezier(0.16, 1, 0.3, 1);
       white-space: nowrap;
     }
-    .sidebar-nav-item svg { flex-shrink: 0; opacity: .65; transition: opacity .14s; }
+    .sidebar-nav-item svg { flex-shrink: 0; opacity: .65; transition: opacity .14s, color .3s cubic-bezier(0.16, 1, 0.3, 1); }
     .sidebar-nav-item:hover { background: var(--primary-bg); color: var(--text); border-color: rgba(108,0,255,.14); }
     .sidebar-nav-item:hover svg { opacity: 1; }
     .sidebar-nav-item.active {
@@ -474,6 +481,7 @@
       border-top: 1px solid var(--line);
       padding: 12px 10px;
       flex-shrink: 0;
+      transition: padding .3s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .sidebar-user-btn {
       display: flex;
@@ -3751,7 +3759,10 @@
       cursor: pointer; border-bottom: 2px solid transparent;
       transition: .15s;
     }
-    .fin-subtab.active { color: var(--primary2); border-bottom-color: var(--primary2); }
+    .fin-subtab.active {
+      color: var(--primary2); border-bottom-color: var(--primary2);
+      background: rgba(108,0,255,.12); border-radius: 8px 8px 0 0;
+    }
     .fin-subtab:hover { color: var(--text); }
 
     /* ── ВСЕ КП (compact list) ───────────────────── */

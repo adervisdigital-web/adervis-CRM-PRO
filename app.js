@@ -5707,11 +5707,6 @@
         return stages.find(x => x.id === stageId) || stages[0] || { id: "pre", name: "Этап", color: "#6c00ff", desc: "" };
       }
 
-      function getItemStageName(itemData) {
-        const stage = getStage(itemData?.stage || "pre");
-        return stage ? stage.name : "Этап";
-      }
-
       function shouldShowMainDays(itemData) {
         return itemData && (itemData.calcModel === "crewShift" || itemData.calcModel === "perDay");
       }
@@ -11956,13 +11951,16 @@
           `;
         }
 
+        const isOwnPkg = (p) => p.id.startsWith("package_");
+        const ownCount = allPkgs.filter(isOwnPkg).length;
+
         const allCatsWithData = catOrder.filter(cat => groups[cat]?.length);
         const [pkgCatFilter, setPkgCatFilter] = (() => {
           const v = state.pkgCatFilter || "all";
           return [v, (c) => { state.pkgCatFilter = c; render(); }];
         })();
 
-        const filteredGroups = pkgCatFilter === "all"
+        const filteredGroups = pkgCatFilter === "all" || pkgCatFilter === "own"
           ? allCatsWithData
           : allCatsWithData.filter(c => c === pkgCatFilter);
 
@@ -11973,32 +11971,64 @@
                 <h1>Пакеты услуг</h1>
                 <p>Готовые наборы по категориям. Три уровня: Старт / Профи / Премиум.</p>
               </div>
-              <div class="toolbar no-print">
-                <button class="btn" onclick="app.createPackage()">+ Из сметы</button>
-              </div>
             </div>
 
-            <!-- Категориальные табы -->
-            <div class="tabs" style="margin-bottom:20px">
-              <button class="tab ${pkgCatFilter==="all"?"active":""}" onclick="app.setPkgCatFilter('all')">Все ${allPkgs.length ? `<span style="opacity:.6;font-size:12px">${allPkgs.length}</span>` : ""}</button>
-              ${allCatsWithData.map(cat => `
-                <button class="tab ${pkgCatFilter===cat?"active":""}" onclick="app.setPkgCatFilter('${cat}')" style="white-space:nowrap">${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)} <span style="opacity:.6;font-size:12px">${groups[cat].length}</span></button>
-              `).join("")}
+            <div class="catalog-body">
+              <aside class="catalog-cat-sidebar no-print">
+                <div class="catalog-cat-group">
+                  <button class="catalog-cat-item ${pkgCatFilter==="all"?"active":""}" onclick="app.setPkgCatFilter('all')">
+                    <span>Все</span>
+                    ${allPkgs.length ? `<span class="catalog-cat-count">${allPkgs.length}</span>` : ""}
+                  </button>
+                  <button class="catalog-cat-item ${pkgCatFilter==="own"?"active":""}" onclick="app.setPkgCatFilter('own')">
+                    <span>Свои</span>
+                    ${ownCount ? `<span class="catalog-cat-count">${ownCount}</span>` : ""}
+                  </button>
+                </div>
+
+                <div class="catalog-cat-divider"></div>
+
+                <div class="catalog-cat-group">
+                  ${allCatsWithData.map(cat => `
+                    <button class="catalog-cat-item ${pkgCatFilter===cat?"active":""}" onclick="app.setPkgCatFilter('${cat}')">
+                      <span>${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)}</span>
+                      <span class="catalog-cat-count">${groups[cat].length}</span>
+                    </button>
+                  `).join("")}
+                </div>
+
+                <button class="catalog-cat-item catalog-cat-add" onclick="app.createPackage()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                  <span>Свой пакет</span>
+                </button>
+              </aside>
+
+              <div class="catalog-body-main">
+                ${pkgCatFilter === "own" && !ownCount ? emptyState({
+                  icon: "box",
+                  title: "Своих пакетов пока нет",
+                  text: "Соберите нужные позиции в смете, затем нажмите «+ Свой пакет» в списке категорий."
+                }) : `
+                ${filteredGroups.map(cat => {
+                  const catPkgs = pkgCatFilter === "own" ? groups[cat].filter(isOwnPkg) : groups[cat];
+                  if (!catPkgs.length) return "";
+                  return `
+                    <div class="pkg-group-header">${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)}</div>
+                    <div class="grid three pkg-cards-grid" style="margin-bottom:24px">
+                      ${catPkgs.map(renderPkgCard).join("")}
+                    </div>
+                  `;
+                }).join("")}
+
+                ${(pkgCatFilter === "all" || pkgCatFilter === "own") && ungrouped.length ? `
+                  <div class="pkg-group-header">Мои пакеты</div>
+                  <div class="grid three pkg-cards-grid">
+                    ${ungrouped.map(renderPkgCard).join("")}
+                  </div>
+                ` : ""}
+                `}
+              </div>
             </div>
-
-            ${filteredGroups.map(cat => `
-              <div class="pkg-group-header">${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)}</div>
-              <div class="grid three pkg-cards-grid" style="margin-bottom:24px">
-                ${groups[cat].map(renderPkgCard).join("")}
-              </div>
-            `).join("")}
-
-            ${ungrouped.length ? `
-              <div class="pkg-group-header">Прочие пакеты</div>
-              <div class="grid three pkg-cards-grid">
-                ${ungrouped.map(renderPkgCard).join("")}
-              </div>
-            ` : ""}
           </div>
         `;
       }
@@ -12076,13 +12106,13 @@
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                   <input class="catalog-search-input" value="${escapeHtml(state.search)}" oninput="app.setSearch(this.value)" placeholder="Поиск: монтаж, оператор, свет...">
                 </div>
-                <select class="catalog-toolbar-select" onchange="app.setFilter(this.value)" title="Фильтр">
+                <select class="catalog-toolbar-select" style="width:170px" onchange="app.setFilter(this.value)" title="Фильтр">
                   ${optionValueHtml("all", "Без фильтра", state.filter)}
                   ${optionValueHtml("selected", "В смете", state.filter)}
                   ${optionValueHtml("edited", "Изменённые цены", state.filter)}
                   ${optionValueHtml("hourly", "С почасовым расчётом", state.filter)}
                 </select>
-                <select class="catalog-toolbar-select" onchange="app.setSort(this.value)" title="Сортировка">
+                <select class="catalog-toolbar-select" style="width:150px" onchange="app.setSort(this.value)" title="Сортировка">
                   ${optionValueHtml("name", "По названию", state.sort)}
                   ${optionValueHtml("priceAsc", "Цена ↑", state.sort)}
                   ${optionValueHtml("priceDesc", "Цена ↓", state.sort)}
@@ -12153,6 +12183,15 @@
         `;
       }
 
+      // Винительный падеж для «за <единица>» — правило для существительных 1-го склонения
+      // (смена→смену, версия→версию), остальные единицы (шт, фото, час...) не меняются.
+      function unitAccusative(unit) {
+        if (!unit) return unit;
+        if (unit.endsWith("я")) return unit.slice(0, -1) + "ю";
+        if (unit.endsWith("а")) return unit.slice(0, -1) + "у";
+        return unit;
+      }
+
       function renderCatalogItem(itemData) {
         const qty = catalogItemQty(itemData.id);
         const selected = qty > 0;
@@ -12168,16 +12207,17 @@
                 <h3>${highlightText(itemData.name)}</h3>
                 <p>${highlightText(itemData.desc)}</p>
 
+                ${isPassthroughCostItem(itemData) || state.favorites[itemData.id] ? `
                 <div class="badges">
-                  <span class="badge">Этап: ${escapeHtml(getItemStageName(itemData))}</span>
-                  <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
                   ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>` : ""}
                   ${state.favorites[itemData.id] ? `<span class="status-pill">★ избранное</span>` : ""}
                 </div>
+                ` : ""}
               </div>
 
               <div class="price-editor no-print">
                 <input class="catalog-price-input" type="number" value="${getCatalogPrice(itemData)}" onchange="app.updateCatalogPrice('${itemData.id}', this.value)" title="Цена">
+                <div class="u-meta" style="text-align:right">за ${escapeHtml(unitAccusative(itemData.unit))}</div>
               </div>
             </div>
 
