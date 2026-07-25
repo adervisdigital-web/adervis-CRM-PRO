@@ -4488,6 +4488,28 @@
           `;
         }
 
+        // Документы пишутся в Markdown, но нигде не рендерятся (читаются в textarea) —
+        // в превью на карточке разметка вылезала сырой («**1. Не отправляйте...**»).
+        // Чистим только для превью, сам content не трогаем.
+        function kbPreview(content, limit) {
+          // Порядок важен: сначала снимаем ИНЛАЙН-разметку, потом префиксы строк.
+          // Иначе «**1. Текст**» не совпадёт с правилом нумерованного списка (строка
+          // начинается со звёздочек), и номер останется, а у голого «1. Текст» — нет.
+          const plain = (content || "")
+            .replace(/```[\s\S]*?```/g, "")         // блоки кода
+            .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1") // ссылки/картинки → текст
+            .replace(/(\*\*|__)(.*?)\1/g, "$2")     // жирный
+            .replace(/(\*|_)(.*?)\1/g, "$2")        // курсив
+            .replace(/`([^`]*)`/g, "$1")            // инлайн-код
+            .replace(/^#{1,6}\s.*$/gm, "")          // заголовки
+            .replace(/^\s*[-*+]\s+/gm, "")          // маркеры списка
+            .replace(/^\s*\d+\.\s+/gm, "")          // нумерованный список
+            .replace(/^\s*>\s?/gm, "")              // цитаты
+            .replace(/\s+/g, " ")
+            .trim();
+          return plain.length > limit ? plain.slice(0, limit).trim() + "…" : plain;
+        }
+
         const filtered = docs.filter(d => {
           const matchCat = catFilter === "all" || d.cat === catFilter;
           const q = search.toLowerCase();
@@ -4524,7 +4546,7 @@
                 <div class="kb-doc-card" onclick="app.kbOpen('${d.id}')">
                   <span class="kb-cat-badge ${d.cat || "guide"}">${escapeHtml(KB_CATS[d.cat] || d.cat || "")}</span>
                   <h3>${escapeHtml(d.title)}</h3>
-                  <p>${escapeHtml((d.content || "").replace(/^#.*\n?/gm,"").trim().slice(0, 100))}...</p>
+                  <p>${escapeHtml(kbPreview(d.content, 100))}</p>
                   <div style="display:flex;gap:8px;margin-top:12px" onclick="event.stopPropagation()">
                     <button class="btn small" onclick="app.kbOpen('${d.id}')">Читать</button>
                     <button class="btn small" onclick="app.kbDuplicate('${d.id}')">Дублировать</button>
@@ -7879,7 +7901,7 @@
           if (p) { const prev = p.crmStatus || "Лид"; _applyCrmStatus(p, status); _logActivity(id, `Статус: ${prev} → ${status}`); }
         });
         state.crmSelected = {};
-        toast(`Статус «${status}» применён к ${ids.length} сделкам`);
+        toast(`Статус «${status}» применён к ${ids.length} ${plural(ids.length, "сделке", "сделкам", "сделкам")}`);
         save();
         render();
       }
@@ -7898,7 +7920,7 @@
           p.tags = Array.isArray(p.tags) ? p.tags : [];
           if (!p.tags.includes(tag)) { p.tags.push(tag); count++; }
         });
-        toast(count ? `Тег «${tag}» добавлен к ${count} сделкам` : `У всех выбранных сделок уже есть тег «${tag}»`);
+        toast(count ? `Тег «${tag}» добавлен к ${count} ${plural(count, "сделке", "сделкам", "сделкам")}` : `У всех выбранных сделок уже есть тег «${tag}»`);
         save();
         render();
       }
@@ -9027,7 +9049,7 @@
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Позиции сметы");
         XLSX.writeFile(wb, `позиции-сметы-${todayIso()}.xlsx`);
-        toast(`Экспортировано ${rows.length - 1} позиций`);
+        toast(`Экспортировано ${rows.length - 1} ${plural(rows.length - 1, "позиция", "позиции", "позиций")}`);
       }
 
       async function importCatalogXlsx(event) {
@@ -9067,7 +9089,7 @@
 
             save();
             render();
-            toast(added ? `Добавлено ${added} позиций в «Свои»` : "Не найдено подходящих строк — нужна колонка «Название»");
+            toast(added ? `Добавлено ${added} ${plural(added, "позиция", "позиции", "позиций")} в «Свои»` : "Не найдено подходящих строк — нужна колонка «Название»");
           } catch (error) {
             toast("⚠️ Не удалось импортировать файл: " + error.message);
           }
@@ -9286,7 +9308,7 @@
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Клиенты");
         XLSX.writeFile(wb, `клиенты-${new Date().toISOString().slice(0,10)}.xlsx`);
-        toast(`Экспортировано ${clients.length} клиентов`);
+        toast(`Экспортировано ${clients.length} ${plural(clients.length, "клиент", "клиента", "клиентов")}`);
       }
 
       function copyProposalText() {
@@ -11257,7 +11279,7 @@
             <div class="db-header">
               <div class="db-header-left">
                 <h1 class="db-greeting">Привет, ${escapeHtml(_adminSession?.user?.user_metadata?.name || _adminSession?.user?.user_metadata?.full_name || (_adminSession?.user?.email||"").split("@")[0] || "команда")} 👋</h1>
-                <p class="db-date">В ${curMonthName} · ${projects.length} сделок · ${inWork} в работе</p>
+                <p class="db-date">В ${curMonthName} · ${projects.length} ${plural(projects.length, "сделка", "сделки", "сделок")} · ${inWork} в работе</p>
               </div>
             </div>
 
@@ -11286,7 +11308,7 @@
               <div class="db-stat" title="Воронка">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.funnel}</svg></span><span class="db-stat-label">Воронка</span></div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>
-                <div class="db-stat-delta neu">${projects.filter(p=>!["Сдано","Завершённые",CRM_ARCHIVED].includes(p.crmStatus||"Лид")).length} активных</div>
+                <div class="db-stat-delta neu">${(() => { const n = projects.filter(p=>!["Сдано","Завершённые",CRM_ARCHIVED].includes(p.crmStatus||"Лид")).length; return `${n} ${plural(n, "активная", "активные", "активных")}`; })()}</div>
               </div>
               <div class="db-stat" title="В работе">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.tasks}</svg></span><span class="db-stat-label">В работе</span></div>
@@ -11296,7 +11318,7 @@
               <div class="db-stat" title="Средний чек">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.doc}</svg></span><span class="db-stat-label">Ср. чек</span></div>
                 <div class="db-stat-value">${avgDeal>0?money(avgDeal):"—"}</div>
-                <div class="db-stat-delta neu">${closedCount>0?"по "+closedCount+" сделкам":"нет закрытых"}</div>
+                <div class="db-stat-delta neu">${closedCount>0?`по ${closedCount} ${plural(closedCount, "сделке", "сделкам", "сделкам")}`:"нет закрытых"}</div>
               </div>
               ${(() => {
                 const weights = { "Лид":0.10, "Бриф":0.20, "КП отправлено":0.30, "Согласование":0.50, "Договор":0.70, "Предоплата":0.90, "В работе":0.95, "Сдано":1.0 };
@@ -11955,7 +11977,7 @@
 
               ${pkgItems.length ? `
               <div style="margin-bottom:18px;padding:12px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)">
-                <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Состав пакета (${pkgItems.length} позиций)</div>
+                <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Состав пакета (${pkgItems.length} ${plural(pkgItems.length, "позиция", "позиции", "позиций")})</div>
                 <div style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto">
                   ${pkgItems.map(x => `<div class="fs-12">✓ ${escapeHtml(x.name)}</div>`).join("")}
                 </div>
@@ -12031,7 +12053,7 @@
 
               <div class="pkg-card-items">
                 ${pkgItems.slice(0, 5).map(x => `<div class="pkg-item-line">✓ ${escapeHtml(x.name)}</div>`).join("")}
-                ${pkgItems.length > 5 ? `<div class="pkg-item-line" style="color:var(--muted);opacity:.7">+ ещё ${pkgItems.length - 5} позиций</div>` : ""}
+                ${pkgItems.length > 5 ? `<div class="pkg-item-line" style="color:var(--muted);opacity:.7">+ ещё ${pkgItems.length - 5} ${plural(pkgItems.length - 5, "позиция", "позиции", "позиций")}</div>` : ""}
               </div>
 
               ${(pkg.notes || []).length ? `<p class="pkg-note">${escapeHtml(pkg.notes[0])}</p>` : ""}
@@ -14403,7 +14425,7 @@
                     </div>
 
                     <div class="badges" style="margin-top:10px">
-                      <span class="badge">${Object.keys(version.selected || {}).length} позиций</span>
+                      <span class="badge">${Object.keys(version.selected || {}).length} ${plural(Object.keys(version.selected || {}).length, "позиция", "позиции", "позиций")}</span>
                       ${version.project?.client ? `<span class="badge">${escapeHtml(version.project.client)}</span>` : ""}
                       ${version.project?.status ? `<span class="status-pill">${escapeHtml(version.project.status)}</span>` : ""}
                     </div>
@@ -14859,7 +14881,7 @@
                   <input type="date" value="${escapeHtml(state.gFinDateTo)}" onchange="app.setGFinDateTo(this.value)" title="По">
                 </div>
               ` : ""}
-              <span style="font-size:12px;color:var(--muted);margin-left:auto">${filtered.length} операций · ${money(filtered.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))} получено · ${money(filtered.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))} расходов</span>
+              <span style="font-size:12px;color:var(--muted);margin-left:auto">${filtered.length} ${plural(filtered.length, "операция", "операции", "операций")} · ${money(filtered.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))} получено · ${money(filtered.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))} расходов</span>
             </div>
 
             <div class="fin-table-wrap">
