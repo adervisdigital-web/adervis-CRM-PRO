@@ -75,8 +75,14 @@ Deno.serve(async (req) => {
 
   const state = data.state_json as Record<string, unknown>;
   const savedProjects = (state.savedProjects as Array<Record<string, unknown>>) || [];
-  const projectsToShow = onlyProjectId
-    ? savedProjects.filter(p => p.id === onlyProjectId)
+  // SECURITY: для клиентского портала (portalId) показываем СТРОГО одну сделку.
+  // Раньше при отсутствующем project_id (все существующие порталы созданы ДО
+  // миграции 20260704000002, project_id у них NULL) код падал на "показать все
+  // savedProjects" — клиент со своей ссылкой на портал видел дедлайны и названия
+  // ВСЕХ сделок агентства, включая чужие. По замыслу самой миграции (см. её
+  // комментарий) отсутствие project_id должно означать "фид пуст", не "показать всё".
+  const projectsToShow = portalId
+    ? (onlyProjectId ? savedProjects.filter(p => p.id === onlyProjectId) : [])
     : savedProjects;
 
   // Собираем события: задачи из всех проектов + дедлайны самих проектов.
