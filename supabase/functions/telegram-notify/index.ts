@@ -33,6 +33,24 @@ Deno.serve(async (req) => {
     });
   }
 
+  // SECURITY: chatId — произвольный, не проверяется на принадлежность агентству
+  // (нужно для кнопки «Тест» — проверка ещё не сохранённого получателя). Без
+  // лимита частоты любой аутентифицированный аккаунт (даже бесплатный триал)
+  // мог использовать бота как открытый релей на произвольные Telegram chat_id.
+  // Счётчик — не простой gate: sendTelegramNotification() легитимно шлёт
+  // несколько сообщений подряд (по одному на получателя), gate заблокировал бы
+  // всех, кроме первого. См. миграцию 20260726000001_telegram_notify_rate_limit.
+  const { data: allowed, error: rateErr } = await supabase.rpc("telegram_notify_rate_limit");
+  if (rateErr) {
+    console.error("telegram-notify: rate limit check failed", rateErr);
+    return new Response("Rate limit check failed", { status: 500 });
+  }
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: "Слишком много сообщений — попробуйте через минуту" }), {
+      status: 429, headers: { "Content-Type": "application/json", ...cors },
+    });
+  }
+
   const resp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
