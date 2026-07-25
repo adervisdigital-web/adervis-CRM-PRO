@@ -6436,6 +6436,11 @@
         copy.name = `${saved.name || "Проект"} — копия`;
         copy.createdAt = new Date().toISOString();
         copy.updatedAt = copy.createdAt;
+        // Копия НЕ должна ссылаться на Google-событие оригинала — иначе первое же
+        // изменение дедлайна/названия копии (через _autoSyncProjectDeadlineToGoogle)
+        // тихо перезапишет событие ОРИГИНАЛА, т.к. googleEventIds указывает на тот
+        // же eventId. Копия ещё не синхронизирована — начинает с чистого листа.
+        copy.googleEventIds = {};
 
         if (copy.snapshot?.project) {
           copy.snapshot.project.id = copy.id;
@@ -6471,6 +6476,9 @@
         copy.deadline = saved.deadline ? _shiftDateByRepeat(saved.deadline, "monthly") : "";
         copy.paid = 0;
         copy.debt = numberValue(copy.total, 0);
+        // Как в duplicateSavedProject() — новый цикл не должен ссылаться на Google-
+        // событие оригинала, иначе синхронизация нового дедлайна перезапишет чужое событие.
+        copy.googleEventIds = {};
 
         if (copy.snapshot) {
           copy.snapshot.payments = [];
