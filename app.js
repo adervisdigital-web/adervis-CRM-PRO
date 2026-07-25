@@ -851,6 +851,14 @@
       const CRM_PAGE_SIZE = 30;
       let _crmVisibleLimit = CRM_PAGE_SIZE;
       let _crmLimitKey = "";
+      // То же для каталога: 93 базовые позиции — на телефоне это страница ~26 000px и
+      // 93 живых <input> цены в DOM, пересобираемых каждым render(). Нужна именно для
+      // режима «Все»: поиск/категория и так сужают выборку, и кнопка просто не появится.
+      // Пакеты НЕ пагинируем намеренно — они сгруппированы по категориям с заголовками,
+      // срез поперёк групп оборвал бы последнюю группу; там навигация уже есть.
+      const CATALOG_PAGE_SIZE = 24;
+      let _catalogVisibleLimit = CATALOG_PAGE_SIZE;
+      let _catalogLimitKey = "";
 
       const _DEFAULT_SB_URL    = "https://qzeylogyledmhjpzvgkk.supabase.co";
       const _DEFAULT_SB_KEY    = "sb_publishable_E9JgbQiA7namAFiZAAbZEQ_aBn11VgJ";
@@ -7860,6 +7868,12 @@
         render();
       }
 
+      // То же для каталога услуг.
+      function catalogShowMore() {
+        _catalogVisibleLimit += CATALOG_PAGE_SIZE;
+        render();
+      }
+
       function toggleCrmSelect(id) {
         if (!id) return;
         if (state.crmSelected[id]) delete state.crmSelected[id];
@@ -12193,6 +12207,15 @@
 
         const hidden = hiddenItemsList();
 
+        // filteredItems() фильтрует И сортирует все позиции — звать его по разу на
+        // каждое использование (было 4×) значит гонять сортировку 93 позиций 4 раза
+        // за render. Считаем один раз.
+        const allFiltered = filteredItems();
+        const _catKey = [state.tab, state.search, state.filter, state.sort].join("|");
+        if (_catKey !== _catalogLimitKey) { _catalogLimitKey = _catKey; _catalogVisibleLimit = CATALOG_PAGE_SIZE; }
+        const shownItems = allFiltered.slice(0, _catalogVisibleLimit);
+        const catHiddenCount = allFiltered.length - shownItems.length;
+
         const catCounts = {};
         Object.keys(state.selected || {}).forEach(id => {
           const itemData = findItem(id, true);
@@ -12235,7 +12258,7 @@
                   ${optionValueHtml("priceDesc", "Цена ↓", state.sort)}
                   ${optionValueHtml("category", "Категория", state.sort)}
                 </select>
-                <span class="catalog-found-count">${filteredItems().length} найдено</span>
+                <span class="catalog-found-count">${allFiltered.length} найдено</span>
               </div>
 
               <div class="catalog-body">
@@ -12270,11 +12293,15 @@
                     <div class="hidden-bar">Скрытые позиции не показываются в общем каталоге. Их можно восстановить.</div>
                   ` : ""}
 
-                  ${state.tab === "ai" ? renderAiCatalogGrid(filteredItems()) : `
+                  ${state.tab === "ai" ? renderAiCatalogGrid(shownItems) : `
                     <div class="catalog-grid">
-                      ${filteredItems().length ? filteredItems().map(renderCatalogItem).join("") : emptyState({ icon: "search", title: "Ничего не найдено", text: "Измените запрос или выберите другую категорию." })}
+                      ${shownItems.length ? shownItems.map(renderCatalogItem).join("") : emptyState({ icon: "search", title: "Ничего не найдено", text: "Измените запрос или выберите другую категорию." })}
                     </div>
                   `}
+                  ${catHiddenCount > 0 ? `
+                    <div style="display:flex;justify-content:center;margin-top:16px">
+                      <button class="btn" onclick="app.catalogShowMore()">Показать ещё ${Math.min(CATALOG_PAGE_SIZE, catHiddenCount)} · осталось ${catHiddenCount}</button>
+                    </div>` : ""}
                 </div>
               </div>
             </section>
@@ -18304,6 +18331,7 @@ Email: ______________________            Email: ______________________
         setDealView,
         setCrmFilter,
         crmShowMore,
+        catalogShowMore,
         setCrmTagFilter,
         setCrmSearch,
         resetCrmFilters,
