@@ -9532,7 +9532,10 @@
         });
 
         // Update mobile bottom nav active states
-        const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","company-team","knowledge","services","catalog","packages","contracts","support"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions","crm"], mbnFinances: ["global-finances","global-calendar"] };
+        // Группировка по смыслу: mbnDeal («Смета») — вью ВНУТРИ одной сделки, mbnHome —
+        // общие по агентству. «crm» (доска-воронка всех сделок) была в mbnDeal — подсветка
+        // висела на «Смете», хотя нажатие на неё увело бы на другой экран (go('deal')).
+        const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","company-team","knowledge","services","catalog","packages","contracts","support","crm"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions"], mbnFinances: ["global-finances","global-calendar"] };
         Object.entries(mbnViewMap).forEach(([id, views]) => {
           const el = document.getElementById(id);
           if (el) el.classList.toggle("active", views.includes(state.view));
