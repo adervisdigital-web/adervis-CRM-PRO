@@ -9754,8 +9754,18 @@
           // A11y: кнопка ведёт себя как combobox, раскрывающий listbox.
           btn.setAttribute("aria-haspopup", "listbox");
           btn.setAttribute("aria-expanded", "false");
-          const selName = sel.getAttribute("aria-label") || (sel.labels && sel.labels[0] && sel.labels[0].textContent.trim());
-          if (selName) btn.setAttribute("aria-label", selName);
+          // title учитывается наравне с aria-label/<label>: в этом проекте селекты
+          // подписаны именно через title («Фильтр», «Сортировка», «Переместить в этап»),
+          // и без этой ветки подпись терялась при замене select на кастом-дропдаун —
+          // ни одна из 6 кнопок в приложении не имела доступного имени вообще.
+          const selName = sel.getAttribute("aria-label")
+            || (sel.labels && sel.labels[0] && sel.labels[0].textContent.trim())
+            || sel.getAttribute("title");
+          if (selName) {
+            btn.setAttribute("aria-label", selName);
+            // Тултип тоже переносим — исходный select скрыт, его title недостижим мышью.
+            if (!btn.getAttribute("title")) btn.setAttribute("title", selName);
+          }
           if (sel.disabled) btn.disabled = true;
           const sync = () => {
             const o = sel.options[sel.selectedIndex];
@@ -13304,7 +13314,7 @@
               <div class="gtask-chips">
                 ${statusChips.map(c => `<button class="chip ${statusFilter === c.id ? "active" : ""}" onclick="app.setGlobalTaskFilter('status','${c.id}')">${escapeHtml(c.label)}</button>`).join("")}
               </div>
-              <select class="gtask-project-select" onchange="app.setGlobalTaskFilter('project',this.value)">
+              <select class="gtask-project-select" title="Фильтр по проекту" onchange="app.setGlobalTaskFilter('project',this.value)">
                 <option value="all" ${projectFilter === "all" ? "selected" : ""}>Все проекты</option>
                 <option value="personal" ${projectFilter === "personal" ? "selected" : ""}>Личные задачи</option>
                 ${projectOpts.map(p => `<option value="${escapeHtml(p.id)}" ${projectFilter === p.id ? "selected" : ""}>${escapeHtml(p.name)}</option>`).join("")}
@@ -14898,10 +14908,10 @@
 
             ${(state.gFinSubTab || "transactions") === "transactions" ? `
             <div class="fin-action-bar no-print" style="margin-bottom:8px;flex-wrap:wrap;gap:8px">
-              <select onchange="app.setGFinFilter(this.value)" style="padding:8px 34px 8px 12px;border-radius:10px;font-size:13px">
+              <select title="Фильтр по проекту" onchange="app.setGFinFilter(this.value)" style="padding:8px 34px 8px 12px;border-radius:10px;font-size:13px">
                 ${projects.map(p => `<option value="${p.id}" ${gFilter===p.id?"selected":""}>${escapeHtml(p.name)}</option>`).join("")}
               </select>
-              <select onchange="app.setGFinTypeFilter(this.value)" style="padding:8px 34px 8px 12px;border-radius:10px;font-size:13px">
+              <select title="Тип операции" onchange="app.setGFinTypeFilter(this.value)" style="padding:8px 34px 8px 12px;border-radius:10px;font-size:13px">
                 <option value="all" ${typeFilter==="all"?"selected":""}>Все операции</option>
                 <option value="income" ${typeFilter==="income"?"selected":""}>Только поступления</option>
                 <option value="expense" ${typeFilter==="expense"?"selected":""}>Только расходы</option>

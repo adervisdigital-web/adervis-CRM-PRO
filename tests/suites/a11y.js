@@ -92,5 +92,40 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(opened.expanded, "true", "открытый дропдаун должен быть aria-expanded=true");
   });
 
+  // Скрин-ридер объявляет кнопку-дропдаун её доступным именем. enhanceSelects() читал
+  // только aria-label/<label>, а в этом проекте селекты подписаны через title — до
+  // 26.07.2026 НИ ОДНА из 6 кнопок в приложении не имела имени вообще («список», и всё).
+  await test("кастом-дропдауны: у каждого есть доступное имя (aria-label)", async () => {
+    const bad = [];
+    for (const view of ["catalog", "global-tasks", "global-finances", "crm"]) {
+      await page.evaluate((v) => window.app.go(v), view);
+      await page.waitForTimeout(180);
+      const nameless = await page.evaluate(() =>
+        [...document.querySelectorAll(".uu-select-btn")].filter(b => !(b.getAttribute("aria-label") || "").trim()).length
+      );
+      if (nameless) bad.push(`${view}: ${nameless}`);
+    }
+    assertEqual(bad.length, 0, "дропдауны без aria-label — " + bad.join("; "));
+  });
+
+  // Иконочные кнопки без текста обязаны нести aria-label/title, иначе скрин-ридер
+  // объявляет их просто «кнопка». На 26.07.2026 нарушений нет ни в одном разделе —
+  // тест держит планку (миграция эмодзи→SVG 24.07 расставила подписи аккуратно).
+  await test("кнопки: у каждой видимой есть доступное имя (текст/aria-label/title)", async () => {
+    const bad = [];
+    for (const view of ["home", "crm", "clients", "global-tasks", "global-finances", "catalog", "settings"]) {
+      await page.evaluate((v) => window.app.go(v), view);
+      await page.waitForTimeout(180);
+      const nameless = await page.evaluate(() =>
+        [...document.querySelectorAll("#appContent button")]
+          .filter(b => b.offsetParent !== null)
+          .filter(b => !((b.textContent || "").trim() || b.getAttribute("aria-label") || b.getAttribute("title")))
+          .map(b => (b.className || "").toString().slice(0, 40) || b.outerHTML.slice(0, 50))
+      );
+      if (nameless.length) bad.push(`${view}: ${nameless.join(", ")}`);
+    }
+    assertEqual(bad.length, 0, "кнопки без доступного имени — " + bad.join(" | "));
+  });
+
   await context.close();
 };
