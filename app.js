@@ -2696,6 +2696,9 @@
         copy.paid = 0; copy.debt = copy.total || 0; copy.expensesTotal = 0; copy.profit = copy.total || 0;
         copy.portalId = "";
         copy.activity = [];
+        // Копия не должна ссылаться на Google-событие оригинала — та же грабля,
+        // что чинили в duplicateSavedProject()/repeatSavedProject().
+        copy.googleEventIds = {};
         if (copy.snapshot) {
           if (copy.snapshot.project) { copy.snapshot.project.name = copy.name; copy.snapshot.project.crmStatus = "Лид"; copy.snapshot.project.portalId = ""; }
           // Reset execution data — keep only estimate structure
@@ -6441,10 +6444,15 @@
         // тихо перезапишет событие ОРИГИНАЛА, т.к. googleEventIds указывает на тот
         // же eventId. Копия ещё не синхронизирована — начинает с чистого листа.
         copy.googleEventIds = {};
+        // Аналогично portalId — иначе ссылка клиентского портала оригинала стала бы
+        // показывать данные копии после первой же синхронизации КП копии (как в
+        // уже существующем duplicateDeal(), который это уже учитывает).
+        copy.portalId = "";
 
         if (copy.snapshot?.project) {
           copy.snapshot.project.id = copy.id;
           copy.snapshot.project.name = copy.name;
+          copy.snapshot.project.portalId = "";
         }
 
         // Платежи/расходы/задачи внутри снапшота должны получить новые id — иначе
@@ -6479,6 +6487,9 @@
         // Как в duplicateSavedProject() — новый цикл не должен ссылаться на Google-
         // событие оригинала, иначе синхронизация нового дедлайна перезапишет чужое событие.
         copy.googleEventIds = {};
+        // Новый цикл — новый счёт клиенту, свой отдельный портал (не должен показывать
+        // клиенту предыдущий цикл после первой же синхронизации КП нового цикла).
+        copy.portalId = "";
 
         if (copy.snapshot) {
           copy.snapshot.payments = [];
@@ -6489,6 +6500,7 @@
           if (copy.snapshot.project) {
             copy.snapshot.project.id = copy.id;
             copy.snapshot.project.deadline = copy.deadline;
+            copy.snapshot.project.portalId = "";
           }
         }
         _applyCrmStatus(copy, "Лид");
