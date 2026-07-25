@@ -6528,7 +6528,16 @@
         if (wasActive) state.activeProjectId = "";
         save();
         render();
+        // Как в deleteSavedProject() — Google-событие удаляем только после окна
+        // отмены (5с), иначе Undo восстановит сделку со ссылкой на уже удалённое
+        // в Google событие. Раньше этот блок был только в deleteSavedProject —
+        // удаление отсюда (из модалки сделки) оставляло дедлайн висеть в Google Calendar.
+        let googleDeleteTimer = null;
+        if (_myGoogleEventId(removed) && _googleCalStatus && _googleCalStatus.connected) {
+          googleDeleteTimer = setTimeout(() => _deleteGoogleCalendarEvent(removed), 5100);
+        }
         toastUndo(`Сделка «${name}» удалена`, () => {
+          if (googleDeleteTimer) clearTimeout(googleDeleteTimer);
           state.savedProjects.splice(idx, 0, removed);
           if (wasActive) state.activeProjectId = id;
           save();
@@ -7878,12 +7887,26 @@
         const ids = Object.keys(state.crmSelected || {});
         if (!ids.length) return;
         const prev = state.savedProjects; // filter создаёт новый массив — старый остаётся для отката
+        const removedDeals = state.savedProjects.filter(p => state.crmSelected[p.id]);
+        const prevActiveId = state.activeProjectId;
+        const wasActiveDeleted = !!state.crmSelected[state.activeProjectId];
         state.savedProjects = state.savedProjects.filter(p => !state.crmSelected[p.id]);
         state.crmSelected = {};
+        if (wasActiveDeleted) state.activeProjectId = "";
         save();
         render();
+        // Как в deleteSavedProject()/deleteDealFromModal() — Google-события удаляем
+        // только после окна отмены (5с). Раньше массовое удаление их не трогало вовсе.
+        let googleDeleteTimer = null;
+        if (_googleCalStatus && _googleCalStatus.connected) {
+          googleDeleteTimer = setTimeout(() => {
+            removedDeals.forEach(p => { if (_myGoogleEventId(p)) _deleteGoogleCalendarEvent(p); });
+          }, 5100);
+        }
         toastUndo(`Удалено сделок: ${ids.length}`, () => {
+          if (googleDeleteTimer) clearTimeout(googleDeleteTimer);
           state.savedProjects = prev;
+          if (wasActiveDeleted) state.activeProjectId = prevActiveId;
           save(); render();
           toast("Удаление отменено");
         });
