@@ -8,10 +8,17 @@ const { bootLocal, assert, assertEqual } = require("../harness");
 // Список close-методов — чистим слот модалки перед каждым открытием, чтобы
 // modalKey менялся с null (иначе фокус не переносится: он двигается только на
 // «свежее» открытие, а не на re-render — см. _enhanceModalA11y).
+// Должен покрывать ВСЕ ветки if-цепочки в renderModal(): незакрытая модалка, стоящая
+// в цепочке раньше, перехватит рендер следующей, modalKey не сменится — и тест упадёт
+// с невнятным «фокус не внутри модалки». closeDocsModal/closeBriefEditor тут не хватало.
+// Вызываем БЕЗ await намеренно: часть закрывашек async и при «грязной» модалке показывает
+// confirmDialog, который ждёт клика → await повесил бы тест намертво (см. память,
+// gotcha-playwright-evaluate-async-deadlock). Для чистой модалки состояние очищается
+// на ближайшем микротаске, чего с запасом хватает паузе в 40мс ниже.
 const CLOSERS = [
   "closeClientModal", "closeFinanceModal", "closeHelpModal", "closeMainMenu",
   "closeAdminModal", "closeDealModal", "closeCatalogEdit", "closePackageEditModal",
-  "closeTaskModal", "closeEditTransactionModal",
+  "closeTaskModal", "closeEditTransactionModal", "closeDocsModal", "closeBriefEditor",
 ];
 
 // Достаёт первый id из onclick-разметки (напр. openDeal('proj_..') → proj_..).
@@ -52,6 +59,11 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   const dealId = (await grabId(page, "home", "openDeal")) || (await grabId(page, "crm", "openDeal"));
   const catId = await grabId(page, "catalog", "_onCatalogCardClick");
   const pkgId = await grabId(page, "packages", "openPackageEditModal");
+  // Личная задача: создаём свою (в демо-сделке задач нет). Карточка личной задачи —
+  // НЕ renderTaskCard, у неё нет .task-title-input; id берём из onclick, как у остальных.
+  await page.evaluate(() => { window.app.go("global-tasks"); window.app.createGlobalTask(); window.app.closeTaskModal(); });
+  await page.waitForTimeout(150);
+  const taskId = await grabId(page, "global-tasks", "openGlobalTaskModal");
   await page.evaluate(() => window.app.go("home"));
 
   const modals = [
@@ -60,7 +72,12 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     { key: "help", open: () => page.evaluate(() => window.app.openHelpModal()) },
     { key: "mainMenu", open: () => page.evaluate(() => window.app.openMainMenu()) },
     { key: "admin", open: () => page.evaluate(() => window.app.openAdminModal()) },
+    { key: "docs", open: () => page.evaluate(() => window.app.openDocsModal()) },
   ];
+  // Модалка задачи — самая частая в работе, но до 26.07.2026 её оверлей назывался только
+  // .task-modal-overlay, а _enhanceModalA11y() ищет .modal-overlay → она не получала ни
+  // role=dialog, ни переноса фокуса, ни ловушки Tab. Держим в наборе, чтобы не повторилось.
+  if (taskId) modals.push({ key: "task", open: () => page.evaluate((id) => window.app.openGlobalTaskModal(id), taskId) });
   if (dealId) modals.push({ key: "deal", open: () => page.evaluate((id) => window.app.openDealModal(id), dealId) });
   if (catId) modals.push({ key: "catalog", open: () => page.evaluate((id) => window.app.openCatalogEdit(id), catId) });
   if (pkgId) modals.push({ key: "package", open: () => page.evaluate((id) => window.app.openPackageEditModal(id), pkgId) });

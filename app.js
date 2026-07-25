@@ -8241,7 +8241,7 @@
         const overlay = container.querySelector(".modal-overlay");
         const freshlyOpened = modalKey && modalKey !== _lastModalKey;
         if (overlay) {
-          const box = overlay.querySelector(".modal-box, .admin-modal-box, .client-modal-box, .deal-modal-box") || overlay.firstElementChild;
+          const box = overlay.querySelector(".modal-box, .admin-modal-box, .client-modal-box, .deal-modal-box, .task-modal-box") || overlay.firstElementChild;
           overlay.setAttribute("role", "dialog");
           overlay.setAttribute("aria-modal", "true");
           const heading = overlay.querySelector("h1, h2, h3");
@@ -8268,6 +8268,14 @@
             try { _modalReturnFocus.focus(); } catch (e) {}
           }
           _modalReturnFocus = null;
+          // ЗАМЕТКА (26.07.2026): напрашивается сбросить тут и _modalDirtySnapshot — он
+          // переживает закрытую модалку, и вызов закрывашки при ЗАКРЫТЫХ модалках сверится
+          // с чужим снимком и покажет ложное «Есть несохранённые изменения».
+          // НЕ ДЕЛАТЬ бездумно: пробовал — падает тест модалки «admin». Сброс меняет тайминг
+          // async-закрывашек (перестают ждать confirmDialog и до-выполняются микротасками
+          // уже после открытия следующей модалки) → гонка. Через UI дефект недостижим:
+          // Esc-обработчик гасит каждую закрывашку условием `if (state.X)`. Чинить только
+          // вместе с разбором этой гонки, а не отдельной строкой.
         }
         _lastModalKey = modalKey;
       }
@@ -13365,6 +13373,11 @@
         if (!task) { toast("Задача не найдена"); return; }
         state.taskModalSource = "global";
         state.taskModal = { ...task };
+        // Без этого _modalDirtySnapshot оставался от ПРЕДЫДУЩЕЙ модалки, и закрытие
+        // личной задачи всегда считалось «грязным» → выскакивал ложный вопрос
+        // «Есть несохранённые изменения», даже если пользователь ничего не менял.
+        // openTaskModal (задачи внутри сделки) взводит проверку, этот вход — забыли.
+        _armDirtyCheck(state.taskModal);
         renderModal();
       }
 
@@ -17363,7 +17376,13 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const m = state.taskModal;
         if (!m) return "";
         return `
-          <div class="task-modal-overlay" onclick="event.target===this&&app.closeTaskModal()">
+          <!-- ВАЖНО: класс modal-overlay обязателен — по нему _enhanceModalA11y() находит
+               модалку и выдаёт role=dialog/aria-modal, перенос фокуса внутрь, ловушку Tab
+               и возврат фокуса при закрытии. Пока здесь был только task-modal-overlay,
+               модалка задачи (самая частая в работе) не получала НИЧЕГО из этого.
+               Правила .modal-overlay и .task-modal-overlay в style.css идентичны, так что
+               второй класс ничего не меняет визуально. -->
+          <div class="modal-overlay task-modal-overlay" onclick="event.target===this&&app.closeTaskModal()">
             <div class="task-modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
                 <h2 style="margin:0;font-size:18px">Задача</h2>
