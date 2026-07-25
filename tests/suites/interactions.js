@@ -116,6 +116,45 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(more > 30, `после «Показать ещё» карточек не прибавилось: 30 → ${more}`);
   });
 
+  // Каталог рендерил все 93 позиции сразу (на телефоне страница ~26 000px и 93 живых
+  // <input> цены, пересобираемых каждым render). Пагинация не должна ломать поиск:
+  // счётчик обязан считать ВСЕ совпадения, а при вводе запроса лимит — сбрасываться.
+  await test("каталог: пагинация по 24 + «показать ещё»; поиск сбрасывает лимит", async () => {
+    await page.evaluate(() => { window.app.setSearch(""); window.app.setTab("all"); window.app.go("catalog"); });
+    await page.waitForTimeout(220);
+    const first = await page.evaluate(() => ({
+      cards: document.querySelectorAll(".catalog-grid > .item").length,
+      found: parseInt((document.querySelector(".catalog-found-count") || {}).textContent || "0", 10),
+      more: !!document.querySelector("[onclick*='catalogShowMore']"),
+    }));
+    assertEqual(first.cards, 24, "на первой странице каталога должно быть 24 карточки, а не " + first.cards);
+    assert(first.found > 24, `счётчик должен считать ВСЕ совпадения (>24), а показал ${first.found}`);
+    assert(first.more, "нет кнопки «Показать ещё» в каталоге");
+
+    await page.evaluate(() => window.app.catalogShowMore());
+    await page.waitForTimeout(150);
+    const grown = await page.evaluate(() => document.querySelectorAll(".catalog-grid > .item").length);
+    assertEqual(grown, 48, `после «Показать ещё» должно стать 48 карточек, стало ${grown}`);
+
+    // Поиск сужает выборку — лимит сбрасывается, результат виден целиком, кнопки нет.
+    await page.evaluate(() => window.app.setSearch("монтаж"));
+    await page.waitForTimeout(200);
+    const searched = await page.evaluate(() => ({
+      cards: document.querySelectorAll(".catalog-grid > .item").length,
+      found: parseInt((document.querySelector(".catalog-found-count") || {}).textContent || "0", 10),
+      more: !!document.querySelector("[onclick*='catalogShowMore']"),
+    }));
+    assert(searched.cards > 0, "поиск «монтаж» не дал результатов");
+    assertEqual(searched.cards, searched.found, "при поиске показаны не все найденные позиции");
+    assert(!searched.more, "при коротком результате поиска кнопка «Показать ещё» лишняя");
+
+    // Сброс поиска возвращает пагинацию к первой странице, а не к разросшемуся лимиту.
+    await page.evaluate(() => window.app.setSearch(""));
+    await page.waitForTimeout(200);
+    const back = await page.evaluate(() => document.querySelectorAll(".catalog-grid > .item").length);
+    assertEqual(back, 24, `после сброса поиска лимит должен вернуться к 24, а не ${back}`);
+  });
+
   await test("настройки: вкладки (Компания/Уведомления/Данные) рендерят свои секции", async () => {
     await page.evaluate(() => window.app.go("settings"));
     await page.waitForTimeout(150);

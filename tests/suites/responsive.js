@@ -5,7 +5,14 @@ const path = require("path");
 const { bootLocal, assert } = require("../harness");
 
 const WIDTHS = [320, 360, 480, 640, 768, 900];
-const VIEWS = ["home", "catalog", "crm", "clients", "tasks", "global-tasks"];
+// Список расширен 26.07.2026 после ручного прохода 390×844 по всем разделам: тот проход
+// нашёл 0 переполнений, но покрыты тестом были только 6 вьюх из 11 — фиксируем остальные,
+// чтобы регресс ловился автоматически (грабли `.deal-cards-grid` 24.07 поймал именно этот тест).
+const VIEWS = [
+  "home", "catalog", "crm", "clients", "tasks", "global-tasks",
+  "services", "packages", "proposals", "knowledge", "settings",
+  "global-finances", "calendar", "global-calendar",
+];
 
 // Возвращает {over, tag} — на сколько px документ шире вьюпорта и кто виноват.
 async function overflow(page) {

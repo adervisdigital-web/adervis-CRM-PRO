@@ -3765,12 +3765,22 @@
     .fin-subtab-bar {
       display: flex; gap: 4px; margin-bottom: 18px;
       border-bottom: 1px solid var(--line);
+      /* Три вкладки не влезали в 320px (страница разъезжалась на 18px) — скроллим вбок,
+         как .deal-tabs/.brief-type-tabs, а не переносим на вторую строку.
+         Fade-маску по краям (как у .deal-tabs) СПЕЦИАЛЬНО не ставим: .deal-tabs гасит
+         её отрицательным margin с обратным padding, чтобы затухание попадало на отступ,
+         а не на текст. У .fin-subtab-bar два разных контейнера (Финансы и вкладка сделки)
+         с разными отступами — подгонка была бы хрупкой, а на широком экране маска
+         срезала бы первую букву «Аналитики». Подсказка о скролле и так есть: у края
+         видно обрезанную вкладку. */
+      overflow-x: auto; scrollbar-width: none;
     }
+    .fin-subtab-bar::-webkit-scrollbar { display: none; }
     .fin-subtab {
       padding: 10px 16px; border: none; background: transparent;
       color: var(--muted); font-size: 13px; font-weight: 600;
       cursor: pointer; border-bottom: 2px solid transparent;
-      transition: .15s;
+      transition: .15s; white-space: nowrap;
     }
     .fin-subtab.active {
       color: var(--primary2); border-bottom-color: var(--primary2);
