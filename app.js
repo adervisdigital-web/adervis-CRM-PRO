@@ -9656,6 +9656,10 @@
       let _uuOpen = null;
       const _UU_CHEV = `<span class="uu-select-chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>`;
       const UU_TOUCH_MAX_OPTIONS = 40;
+      // С поднятием порога выше списки реально стали длиннее (напр. «Все проекты»
+      // растущего агентства) — добавлена строка поиска внутри дропдауна для
+      // списков длиннее UU_SEARCH_MIN_OPTIONS, чтобы не листать вручную.
+      const UU_SEARCH_MIN_OPTIONS = 8;
 
       function _uuIsTouch() {
         return window.matchMedia && window.matchMedia("(hover: none), (max-width: 640px)").matches;
@@ -9706,6 +9710,17 @@
         dd.setAttribute("role", "listbox");
         const btnLabel = btn.getAttribute("aria-label");
         if (btnLabel) dd.setAttribute("aria-label", btnLabel);
+
+        let search = null;
+        if (sel.options.length > UU_SEARCH_MIN_OPTIONS) {
+          search = document.createElement("input");
+          search.type = "text";
+          search.className = "uu-select-search";
+          search.placeholder = "Поиск...";
+          search.setAttribute("aria-label", "Поиск по списку" + (btnLabel ? ` «${btnLabel}»` : ""));
+          dd.appendChild(search);
+        }
+
         Array.from(sel.options).forEach((o, i) => {
           const item = document.createElement("button");
           item.type = "button";
@@ -9713,6 +9728,7 @@
           item.setAttribute("role", "option");
           item.setAttribute("aria-selected", i === sel.selectedIndex ? "true" : "false");
           item.textContent = o.text;
+          item.dataset.uuText = o.text.toLowerCase();
           if (o.disabled) { item.disabled = true; item.style.opacity = ".45"; }
           item.addEventListener("click", e => {
             e.stopPropagation();
@@ -9723,13 +9739,30 @@
           });
           dd.appendChild(item);
         });
+
+        const visibleOpts = () => Array.from(dd.querySelectorAll(".uu-select-opt:not([disabled]):not(.uu-opt-hidden)"));
+        if (search) {
+          search.addEventListener("input", () => {
+            const q = search.value.trim().toLowerCase();
+            dd.querySelectorAll(".uu-select-opt").forEach(item => {
+              item.classList.toggle("uu-opt-hidden", !!q && !item.dataset.uuText.includes(q));
+            });
+          });
+          search.addEventListener("keydown", e => {
+            if (e.key === "ArrowDown") { e.preventDefault(); const o = visibleOpts()[0]; if (o) o.focus(); }
+            else if (e.key === "Escape") { e.preventDefault(); _closeUUSelect(true); }
+            else if (e.key === "Enter") { e.preventDefault(); const o = visibleOpts()[0]; if (o) o.click(); }
+          });
+        }
+
         // Клавиатура: ↑/↓ перемещают фокус по опциям, Home/End — край, Esc — закрыть.
         dd.addEventListener("keydown", e => {
-          const opts = Array.from(dd.querySelectorAll(".uu-select-opt:not([disabled])"));
+          if (e.target === search) return; // у поиска свой обработчик выше
+          const opts = visibleOpts();
           if (!opts.length) return;
           const idx = opts.indexOf(document.activeElement);
           if (e.key === "ArrowDown") { e.preventDefault(); (opts[idx + 1] || opts[0]).focus(); }
-          else if (e.key === "ArrowUp") { e.preventDefault(); (opts[idx - 1] || opts[opts.length - 1]).focus(); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); (opts[idx - 1] || (search || opts[opts.length - 1])).focus(); }
           else if (e.key === "Home") { e.preventDefault(); opts[0].focus(); }
           else if (e.key === "End") { e.preventDefault(); opts[opts.length - 1].focus(); }
           else if (e.key === "Escape") { e.preventDefault(); _closeUUSelect(true); }
@@ -9751,7 +9784,11 @@
         else dd.style.top = (r.bottom + 4) + "px";
         requestAnimationFrame(() => dd.classList.add("open"));
         const active = dd.querySelector(".uu-select-opt.active") || dd.querySelector(".uu-select-opt:not([disabled])");
-        if (active) { active.scrollIntoView({ block: "nearest" }); active.focus(); }
+        if (active) active.scrollIntoView({ block: "nearest" });
+        // На десктопе фокус сразу в поиск — можно печатать, не целясь мышью. На тач
+        // не крадём фокус у поля (не открываем клавиатуру, если просто листают пальцем).
+        if (search && !_uuIsTouch()) search.focus();
+        else if (active) active.focus();
         btn.classList.add("uu-open");
         _uuOpen = { dd, btn };
       }

@@ -2205,6 +2205,16 @@
       scrollbar-width: thin; overscroll-behavior: contain;
     }
     .uu-select-dd.open { opacity: 1; transform: translateY(0); }
+    /* Строка поиска — только у длинных списков (см. UU_SEARCH_MIN_OPTIONS). Sticky
+       поверх опций внутри того же скролл-контейнера, не отдельная область. */
+    .uu-select-search {
+      position: sticky; top: 0; z-index: 1; width: 100%;
+      padding: 8px 10px; margin-bottom: 4px; box-sizing: border-box;
+      border: none; border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0;
+      background: var(--panel); color: var(--text); font-size: 13px; font: inherit;
+    }
+    .uu-select-search:focus { outline: none; background: var(--panel2); }
+    .uu-select-search::placeholder { color: var(--muted); }
     .uu-select-opt {
       display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
       padding: 9px 12px; border: none; background: none; color: var(--text);
@@ -2213,6 +2223,7 @@
     }
     .uu-select-opt:hover { background: rgba(124,58,237,.1); }
     .uu-select-opt.active { background: rgba(124,58,237,.16); color: var(--primary2); font-weight: 700; }
+    .uu-select-opt.uu-opt-hidden { display: none; }
 
     /* ── MOBILE BOTTOM NAV ──────────────────────── */
     .mobile-bottom-nav {
