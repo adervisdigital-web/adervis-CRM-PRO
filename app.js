@@ -16186,6 +16186,19 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           const task = (state.tasks || []).find(t => t.id === _dragItemId);
           if (task && task.status !== newStatus) {
             task.status = newStatus;
+            // Та же логика повтора, что и в setKanbanStatus() — иначе перетаскивание
+            // мышью в «Готово» тихо не создаёт следующую копию (создаётся только
+            // при смене статуса через select, тач-фолбэк drag-and-drop).
+            if (newStatus === "Готово" && task.repeat && task.repeat !== "none") {
+              const next = normalizeTask({
+                ...task, id: uid("task"), status: "Новая",
+                deadline: _shiftDateByRepeat(task.deadline, task.repeat),
+                comments: [], googleEventIds: {},
+                createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+              });
+              state.tasks.unshift(next);
+              toast('Готово · следующая копия создана на ' + formatDate(next.deadline));
+            }
             save(); render();
           }
         }
