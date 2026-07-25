@@ -2614,7 +2614,7 @@
     }
     .db-stat {
       flex: 1; min-width: 110px;
-      padding: 12px 16px;
+      padding: 10px 14px;
       border-right: 1px solid var(--line);
       transition: background .12s;
     }
@@ -2622,33 +2622,31 @@
     .db-stat[onclick] { cursor: pointer; }
     .db-stat[onclick]:hover { background: var(--panel); }
     .db-stat-warn { background: rgba(234,88,12,.05); }
-    /* Иконка-плашка KPI — вернули (были эмодзи 💰📉📈, убрали в 0fe57a8 за
-       "игровой" вид); теперь приглушённая SVG-плашка, не эмодзи. */
+    /* Иконка + подпись в одну строку (раньше иконка — своим рядом сверху, подпись
+       КАПСОМ под ней — на 9 плитках в ряд читалось как "стена из капса"). Иконка
+       меньше и служит просто маркером перед подписью, не отдельным акцентом. */
+    .db-stat-top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; min-width: 0; }
     .db-stat-icon {
-      width: 28px; height: 28px; border-radius: 8px;
+      width: 20px; height: 20px; border-radius: 6px;
       display: flex; align-items: center; justify-content: center;
-      margin-bottom: 8px; flex: 0 0 auto;
+      flex: 0 0 auto;
     }
-    .db-stat-icon svg { width: 15px; height: 15px; display: block; }
+    .db-stat-icon svg { width: 11px; height: 11px; display: block; }
     .db-stat-label {
       font-size: 12px; color: var(--muted); font-weight: 600;
-      text-transform: uppercase; letter-spacing: .04em;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
     }
     .db-stat-value {
-      font-size: 18px; font-weight: 900; letter-spacing: -.02em;
+      font-size: 16.5px; font-weight: 800; letter-spacing: -.01em;
       font-variant-numeric: tabular-nums; line-height: 1.2; margin-bottom: 2px;
     }
-    .db-stat-delta { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .db-stat-delta { font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .db-stat-delta.pos { color: var(--green); }
     .db-stat-delta.neg { color: var(--red); }
     .db-stat-delta.neu { color: var(--muted); }
-    /* Тонкая цветная полоска-акцент под значением — декоративная, без числового смысла */
-    .db-stat-bar { height: 3px; border-radius: 999px; background: var(--line); margin-top: 8px; overflow: hidden; }
-    .db-stat-bar > span { display: block; height: 100%; width: 60%; border-radius: 999px; }
     .db-stat[onclick]:hover { box-shadow: inset 0 0 0 1px rgba(155,77,255,.25); }
 
-    @media (max-width: 900px) { .db-stat { min-width: 45%; padding: 10px 12px; } .db-stat-value { font-size: 15px; } }
+    @media (max-width: 900px) { .db-stat { min-width: 45%; padding: 9px 12px; } .db-stat-value { font-size: 15px; } }
     @media (max-width: 480px) { .db-stat { min-width: 50%; } }
 
     /* ── Analytics 2-column ───────────────────────────────── */
@@ -2756,7 +2754,7 @@
     .deal-toolbar-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 0 0 auto; margin-left: auto; }
     .deal-search-wrap { position: relative; display: flex; align-items: center; }
     .deal-search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
-    .deal-search-input { width: 260px; height: 36px; box-sizing: border-box; padding: 0 12px 0 32px; }
+    .deal-search-input { width: 300px; height: 36px; box-sizing: border-box; padding: 0 12px 0 32px; font-size: 13px; }
     .deal-view-toggle { display: flex; gap: 2px; padding: 2px; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; }
     .deal-view-btn {
       background: transparent; border: none; border-radius: 7px;
@@ -2907,6 +2905,10 @@
     .deal-card-sub.unlinked svg { flex: 0 0 auto; vertical-align: -1px; margin-right: 1px; }
     /* Статус + маржа + клиент в одну строку под именем (компактная шапка) */
     .deal-card-statusline { display: flex; align-items: center; gap: 6px; row-gap: 4px; flex-wrap: wrap; }
+    /* Раньше статус дублировался: цветная полоска слева (::before) + пилюля с тем же
+       смыслом внутри карточки — два одинаковых по весу акцента. Полоска остаётся
+       единственным цветовым сигналом, текст статуса — просто подпись без капсулы. */
+    .deal-card-status-plain { font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; }
     .deal-card-pills { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
     .deal-card-menu-wrap { flex: 0 0 auto; position: relative; }
 
@@ -4086,9 +4088,13 @@
     .fin-card .fin-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
     .fin-card.income-card { border-color: rgba(22,163,74,.35); }
     .fin-card.expense-card { border-color: rgba(220,38,38,.2); }
-    .fin-card.profit-card { border-color: rgba(124,58,237,.35); }
+    /* border-color через var(--primary2) вместо хардкода rgba(124,58,237) — та фиксированная
+       "тёмная" фиолетовая не совпадает ни с --primary тёмной (108,0,255), ни светлой (91,78,232)
+       темы и никогда не меняется вместе с темой. Без прозрачности — border-color не обязана
+       быть полупрозрачной, а color-mix() не работает в Chrome < 111. */
+    .fin-card.profit-card { border-color: var(--primary2); }
     .fin-card.u-pointer { cursor: pointer; transition: border-color .14s, transform .14s, box-shadow .14s; }
-    .fin-card.u-pointer:hover { border-color: rgba(168,85,247,.55); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(108,0,255,.1); }
+    .fin-card.u-pointer:hover { border-color: var(--primary2); transform: translateY(-2px); box-shadow: var(--elev-1); }
 
     /* Кнопка «Экспорт в Excel» — иконкой */
     .xlsx-icon-btn {
