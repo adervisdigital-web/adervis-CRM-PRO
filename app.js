@@ -13291,8 +13291,10 @@
       function toggleGlobalTaskDone(taskId) {
         const task = (state.globalTasks || []).find(t => t.id === taskId);
         if (!task) return;
-        task.status = task.status === "Готово" ? "Новая" : "Готово";
+        const becameDone = task.status !== "Готово";
+        task.status = becameDone ? "Готово" : "Новая";
         task.updatedAt = new Date().toISOString();
+        if (becameDone) _maybeRepeatTask(task, state.globalTasks);
         save();
         render();
       }
@@ -16220,6 +16222,24 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         }
       }
 
+      // Общая логика повтора задач: при переводе в «Готово» создаёт следующую копию
+      // со сдвинутым дедлайном (см. TASK_REPEAT_OPTIONS), сама задача остаётся
+      // выполненной в истории. Раньше была продублирована в setKanbanStatus/onKanbanDrop
+      // (и рассинхронизировалась — см. [[codebase-audit-findings]]); теперь общий
+      // хелпер используется везде, где task.status может стать «Готово»: канбан
+      // (drag и select), модалка задачи, чекбокс личной задачи.
+      function _maybeRepeatTask(task, list) {
+        if (!task.repeat || task.repeat === "none") return;
+        const next = normalizeTask({
+          ...task, id: uid("task"), status: "Новая",
+          deadline: _shiftDateByRepeat(task.deadline, task.repeat),
+          comments: [], googleEventIds: {},
+          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+        });
+        list.unshift(next);
+        toast('Готово · следующая копия создана на ' + formatDate(next.deadline));
+      }
+
       /* ═══════════════════════════════════════════════════════
          DRAG-AND-DROP КАНБАН (Task 13)
       ═══════════════════════════════════════════════════════ */
@@ -16246,19 +16266,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           const task = (state.tasks || []).find(t => t.id === _dragItemId);
           if (task && task.status !== newStatus) {
             task.status = newStatus;
-            // Та же логика повтора, что и в setKanbanStatus() — иначе перетаскивание
-            // мышью в «Готово» тихо не создаёт следующую копию (создаётся только
-            // при смене статуса через select, тач-фолбэк drag-and-drop).
-            if (newStatus === "Готово" && task.repeat && task.repeat !== "none") {
-              const next = normalizeTask({
-                ...task, id: uid("task"), status: "Новая",
-                deadline: _shiftDateByRepeat(task.deadline, task.repeat),
-                comments: [], googleEventIds: {},
-                createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-              });
-              state.tasks.unshift(next);
-              toast('Готово · следующая копия создана на ' + formatDate(next.deadline));
-            }
+            if (newStatus === "Готово") _maybeRepeatTask(task, state.tasks);
             save(); render();
           }
         }
@@ -16282,18 +16290,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           const task = (state.tasks || []).find(t => t.id === id);
           if (task && task.status !== newStatus) {
             task.status = newStatus;
-            // Повторяющаяся задача закрыта — создаём следующую копию со сдвинутым
-            // дедлайном (см. TASK_REPEAT_OPTIONS), сама задача остаётся выполненной в истории.
-            if (newStatus === "Готово" && task.repeat && task.repeat !== "none") {
-              const next = normalizeTask({
-                ...task, id: uid("task"), status: "Новая",
-                deadline: _shiftDateByRepeat(task.deadline, task.repeat),
-                comments: [], googleEventIds: {},
-                createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-              });
-              state.tasks.unshift(next);
-              toast('Готово · следующая копия создана на ' + formatDate(next.deadline));
-            }
+            if (newStatus === "Готово") _maybeRepeatTask(task, state.tasks);
             save(); render();
           }
         }
@@ -17238,7 +17235,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const list = _taskModalList();
         const idx = list.findIndex(t => t.id === m.id);
         if (idx < 0) return null;
+        const wasDone = list[idx].status === "Готово";
         list[idx] = normalizeTask({ ...list[idx], ...m, updatedAt: new Date().toISOString() });
+        if (!wasDone && list[idx].status === "Готово") _maybeRepeatTask(list[idx], list);
         return list[idx];
       }
 
@@ -17302,6 +17301,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 </select>`)}
                 ${field("Дедлайн", `<input type="date" value="${escapeHtml(m.deadline||"")}" onchange="app.setTaskModalField('deadline',this.value)">`)}
                 ${field("Ответственный", `<input value="${escapeHtml(m.assignee||"")}" oninput="app.setTaskModalField('assignee',this.value)" placeholder="Имя...">`)}
+                ${field("Повтор", `<select onchange="app.setTaskModalField('repeat',this.value)" title="При переводе в «Готово» создаётся следующая копия со сдвинутым дедлайном">
+                  ${TASK_REPEAT_OPTIONS.map(r => `<option value="${r}" ${(m.repeat||"none")===r?"selected":""}>${TASK_REPEAT_LABELS[r]}</option>`).join("")}
+                </select>`)}
               </div>
               <div class="field" style="margin-bottom:18px">
                 ${field("Заметка", `<textarea style="min-height:80px" oninput="app.setTaskModalField('note',this.value)" placeholder="Детали задачи...">${escapeHtml(m.note||"")}</textarea>`)}
