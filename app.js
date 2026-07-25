@@ -17329,6 +17329,8 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 </select>`)}
                 ${field("Дедлайн", `<input type="date" value="${escapeHtml(m.deadline||"")}" onchange="app.setTaskModalField('deadline',this.value)">`)}
                 ${field("Ответственный", `<input value="${escapeHtml(m.assignee||"")}" oninput="app.setTaskModalField('assignee',this.value)" placeholder="Имя...">`)}
+              </div>
+              <div class="field" style="margin-bottom:12px">
                 ${field("Повтор", `<select onchange="app.setTaskModalField('repeat',this.value)" title="При переводе в «Готово» создаётся следующая копия со сдвинутым дедлайном">
                   ${TASK_REPEAT_OPTIONS.map(r => `<option value="${r}" ${(m.repeat||"none")===r?"selected":""}>${TASK_REPEAT_LABELS[r]}</option>`).join("")}
                 </select>`)}
