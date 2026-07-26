@@ -1,0 +1,85 @@
+# Прогон регресс-тестов на каждый пуш и PR (ROADMAP G44 / PLAN G41).
+#
+# Зачем: 57 проверок гонялись вручную, то есть ровно тогда, когда про них помнишь.
+# Половина находок последних сессий — это тесты, поймавшие регресс; смысл есть только
+# если они запускаются всегда.
+#
+# Почему без package.json: правило проекта — репозиторий без package.json и
+# node_modules (CLAUDE.md §8). Playwright ставится глобально в раннере и НЕ попадает
+# в репо; `tests/harness.js` → `loadPlaywright()` находит его через `npm root -g`.
+# Версия закреплена, чтобы CI и локальная машина не расходились в поведении браузера.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  regress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # нужна история: сверяем изменённые файлы с базой
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Дешёвые проверки первыми: если сломан синтаксис, гонять браузер бессмысленно.
+      - name: Синтаксис app.js
+        run: node --check app.js
+
+      - name: Нет дублей имён функций в app.js
+        run: |
+          dups=$(grep -oE "^[[:space:]]*(async )?function [A-Za-z0-9_]+" app.js \
+                 | sed 's/.*function //' | sort | uniq -d)
+          if [ -n "$dups" ]; then
+            echo "Дубли имён функций (второе объявление молча перетирает первое):"
+            echo "$dups"
+            exit 1
+          fi
+
+      # cache-first Service Worker: без нового CACHE_NAME правка не доедет до
+      # пользователей. Забыть это — регулярная ошибка, поэтому проверяет CI.
+      - name: SW-кэш поднят вместе с правками app.js/style.css/index.html
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "Базовый коммит неизвестен — сравнивать не с чем, пропускаем."
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE_SHA"...HEAD)
+          if echo "$changed" | grep -qE '^(app\.js|style\.css|index\.html)$'; then
+            if ! echo "$changed" | grep -q '^sw\.js$'; then
+              echo "app.js/style.css/index.html изменены, а sw.js (CACHE_NAME) — нет."
+              echo "Правка не доедет до пользователей: Service Worker отдаёт статику cache-first."
+              exit 1
+            fi
+            echo "SW-кэш поднят вместе с правками — ок."
+          else
+            echo "Статику не трогали — проверка не нужна."
+          fi
+
+      - name: Установить Playwright (глобально, вне репозитория)
+        run: |
+          npm install -g playwright@1.61.1
+          playwright install --with-deps chromium
+
+      - name: node tests/run.js
+        run: node tests/run.js
+
+      # Скриншоты наборов responsive/modals — единственный способ посмотреть,
+      # что именно видел упавший тест.
+      - name: Скриншоты упавшего прогона
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: tests/screenshots/
+          if-no-files-found: ignore
+          retention-days: 7
