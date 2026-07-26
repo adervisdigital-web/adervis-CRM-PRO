@@ -77,6 +77,32 @@
       --blue-strong:   #1d4ed8;
       --yellow-strong: #e6af2e;
 
+      /* Текст цветной «капсулы» (категории пакетов, база знаний, активные фильтры).
+         Фон капсулы — полупрозрачный тинт, поэтому реальный контраст зависит от того,
+         что под ним: светлый оттенок читается на тёмном и почти исчезает на белом.
+         Раньше эти цвета были захардкожены в компонентах и в светлой теме давали
+         до 2:1 — держим их здесь по одному на оттенок и переопределяем для светлой.
+         Значения проверяются тестом «цветные капсулы читаемы в обеих темах». */
+      --tint-violet: #c4b5fd;
+      --tint-blue:   #93c5fd;
+      --tint-green:  #86efac;
+      --tint-orange: #fdba74;
+      --tint-cyan:   #67e8f9;
+      --tint-pink:   #f9a8d4;
+      --tint-amber:  #fcd34d;
+      --tint-indigo: #a5b4fc;
+      --tint-red:    #fca5a5;
+      --tint-slate:  #cbd5e1;
+      /* Фоны капсул — альфа-тинты, работают в обеих темах, поэтому не дублируются */
+      --tint-violet-bg: rgba(124, 58, 237, .12);
+      --tint-blue-bg:   rgba(37, 99, 235, .12);
+      --tint-green-bg:  rgba(22, 163, 74, .14);
+      --tint-orange-bg: rgba(234, 88, 12, .12);
+      --tint-cyan-bg:   rgba(8, 145, 178, .12);
+      --tint-pink-bg:   rgba(219, 39, 119, .12);
+      --tint-amber-bg:  rgba(202, 138, 4, .14);
+      --tint-indigo-bg: rgba(67, 56, 202, .12);
+
       /* VK brand blue — фиксированный фирменный цвет VK, одинаков в обеих темах */
       --vk-blue:       #0077ff;
       --vk-blue-hover: #005fcc;
@@ -133,6 +159,20 @@
       --text-danger:  var(--red);
       --text-info:    var(--blue-strong);
       --text-warning: #c2410c;
+
+      /* Тёмные варианты тех же оттенков: на белом читаются 5-8:1 вместо 2-4:1.
+         У зелёного, оранжевого и янтарного взята 800-я ступень, а не 700-я:
+         на 700-й замер давал 4,29-4,47:1 — формально ниже порога AA 4,5:1. */
+      --tint-violet: #6d28d9;
+      --tint-blue:   #1d4ed8;
+      --tint-green:  #166534;
+      --tint-orange: #9a3412;
+      --tint-cyan:   #0e7490;
+      --tint-pink:   #be185d;
+      --tint-amber:  #854d0e;
+      --tint-indigo: #4338ca;
+      --tint-red:    #991b1b;
+      --tint-slate:  #475569;
     }
 
     [data-theme="light"] body {
@@ -1293,17 +1333,20 @@
       background: rgba(124, 58, 237, .16);
     }
 
+    /* Цвета через --tint-*: на полупрозрачном фоне капсулы читаемость зависит от темы,
+       см. тест «цветные капсулы читаемы в обеих темах». */
     .status-pill.green {
-      color: var(--text-success);
+      color: var(--tint-green);
     }
 
     .status-pill.yellow {
-      color: var(--yellow);
+      color: var(--tint-amber);
     }
 
-    /* Архив — нейтральный серый: не активный статус, но и не ошибка */
+    /* Архив — нейтральный серый: не активный статус, но и не ошибка.
+       Был var(--muted) — на сером тинте в тёмной теме давал 4,09:1. */
     .status-pill.archived {
-      color: var(--muted);
+      color: var(--tint-slate);
       background: rgba(138, 138, 158, .16);
     }
     /* Бейдж «В архиве · вернуть» на карточке */
@@ -1317,13 +1360,8 @@
     .funnel-stage-archived h3 { color: var(--muted); }
     .funnel-stage-archived.active { border-color: rgba(138, 138, 158, .5); }
 
-    [data-theme="light"] .status-pill.green {
-      color: var(--text-success);
-    }
-
-    [data-theme="light"] .status-pill.yellow {
-      color: #a16207;
-    }
+    /* Переопределения для светлой темы больше не нужны — их роль взяли --tint-*
+       (прежние значения давали 3,94:1 и 3,87:1, то есть ниже AA). */
 
     .summary-line {
       display: flex;
@@ -2490,22 +2528,18 @@
       font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
       padding: 2px 8px; border-radius: 999px;
     }
-    .pkg-cat-badge[data-cat="social"]    { background: rgba(124,58,237,.12); color: #a855f7; }
-    .pkg-cat-badge[data-cat="interview"] { background: rgba(37,99,235,.12);  color: #60a5fa; }
-    .pkg-cat-badge[data-cat="business"]  { background: rgba(5,150,105,.12);   color: #34d399; }
-    .pkg-cat-badge[data-cat="events"]    { background: rgba(234,88,12,.12);   color: #fb923c; }
-    .pkg-cat-badge[data-cat="ai"]        { background: rgba(8,145,178,.12);   color: #22d3ee; }
-    .pkg-cat-badge[data-cat="graphic"]   { background: rgba(219,39,119,.12);  color: #f472b6; }
-    .pkg-cat-badge[data-cat="photo"]     { background: rgba(217,119,6,.12);   color: #fbbf24; }
-    .pkg-cat-badge[data-cat="corporate"] { background: rgba(67,56,202,.12);   color: #818cf8; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="social"]    { color: #5b4ee8; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="interview"] { color: var(--text-info); }
-    [data-theme="light"] .pkg-cat-badge[data-cat="business"]  { color: var(--text-success); }
-    [data-theme="light"] .pkg-cat-badge[data-cat="events"]    { color: var(--text-warning); }
-    [data-theme="light"] .pkg-cat-badge[data-cat="ai"]        { color: #0e7490; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="graphic"]   { color: #be185d; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="photo"]     { color: #b45309; }
-    [data-theme="light"] .pkg-cat-badge[data-cat="corporate"] { color: #3730a3; }
+    .pkg-cat-badge[data-cat="social"]    { background: var(--tint-violet-bg); color: var(--tint-violet); }
+    .pkg-cat-badge[data-cat="interview"] { background: var(--tint-blue-bg);   color: var(--tint-blue); }
+    .pkg-cat-badge[data-cat="business"]  { background: var(--tint-green-bg);  color: var(--tint-green); }
+    .pkg-cat-badge[data-cat="events"]    { background: var(--tint-orange-bg); color: var(--tint-orange); }
+    .pkg-cat-badge[data-cat="ai"]        { background: var(--tint-cyan-bg);   color: var(--tint-cyan); }
+    .pkg-cat-badge[data-cat="graphic"]   { background: var(--tint-pink-bg);   color: var(--tint-pink); }
+    .pkg-cat-badge[data-cat="photo"]     { background: var(--tint-amber-bg);  color: var(--tint-amber); }
+    .pkg-cat-badge[data-cat="corporate"] { background: var(--tint-indigo-bg); color: var(--tint-indigo); }
+    /* Точечные переопределения цвета для светлой темы удалены: их роль взяли
+       --tint-* (значения для светлой темы лежат в [data-theme="light"] рядом с
+       остальными переменными). Прежние значения не проходили AA — business 4,29:1,
+       events 4,47:1, photo 4,38:1 — и их было легко забыть при добавлении категории. */
 
     .pkg-group-header {
       font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em;
@@ -4280,12 +4314,11 @@
       padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 700;
       border: 1px solid transparent;
     }
-    .margin-badge.good { background: rgba(22,163,74,.18); color: var(--text-success); }
-    .margin-badge.ok { background: rgba(246,189,58,.14); color: var(--yellow); border-color: rgba(246,189,58,.3); }
-    .margin-badge.bad { background: rgba(220,38,38,.18); color: var(--text-danger); }
-    [data-theme="light"] .margin-badge.good { color: var(--text-success); }
-    [data-theme="light"] .margin-badge.ok { color: #92600a; background: rgba(202,138,4,.12); border-color: rgba(202,138,4,.3); }
-    [data-theme="light"] .margin-badge.bad { color: var(--text-danger); }
+    /* Те же --tint-*, что у остальных капсул: прежние var(--text-success)/(--text-danger)
+       давали в светлой теме 4,1:1 и 3,64:1 при пороге AA 4,5:1. */
+    .margin-badge.good { background: var(--tint-green-bg); color: var(--tint-green); }
+    .margin-badge.ok   { background: var(--tint-amber-bg); color: var(--tint-amber); border-color: rgba(246,189,58,.3); }
+    .margin-badge.bad  { background: rgba(220,38,38,.18);  color: var(--tint-red); }
 
     /* ── ADMIN / SUPABASE ──────────────────────────── */
     .admin-indicator {
@@ -4621,7 +4654,10 @@
     }
     .profile-avatar-btn:hover { box-shadow: 0 6px 20px rgba(124,58,237,.5); transform: scale(1.06); }
     .profile-avatar-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .profile-avatar-btn.active { box-shadow: 0 0 0 2px #fff, 0 4px 14px rgba(124,58,237,.35); }
+    /* Признак «открыт профиль». Было `0 0 0 2px #fff` — в тёмной теме белое кольцо
+       читалось, в светлой оно ложилось на светлый топбар и состояние пропадало.
+       Теперь: внутренний зазор цветом фона + внешнее кольцо акцентом — видно в обеих. */
+    .profile-avatar-btn.active { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px var(--primary2), 0 4px 14px rgba(124,58,237,.35); }
 
     /* ── PROFILE PAGE ─────────────────────────────── */
     .plan-card {
@@ -4673,14 +4709,14 @@
       font-size: 12px; font-weight: 700; padding: 2px 8px;
       border-radius: 999px; display: inline-flex; text-transform: uppercase;
     }
-    .kb-cat-badge.sales { background: rgba(22,163,74,.14); color: #16a34a; }
-    .kb-cat-badge.prod { background: rgba(37,99,235,.12); color: #2563eb; }
-    .kb-cat-badge.price { background: rgba(202,138,4,.14); color: #ca8a04; }
-    .kb-cat-badge.client { background: rgba(124,58,237,.12); color: var(--primary); }
-    .kb-cat-badge.guide { background: rgba(8,145,178,.12); color: #0891b2; }
-    [data-theme="light"] .kb-cat-badge.sales { color: var(--text-success); }
-    [data-theme="light"] .kb-cat-badge.prod { color: var(--text-info); }
-    [data-theme="light"] .kb-cat-badge.price { color: #a16207; }
+    /* Через --tint-*: одна пара значений на оттенок вместо хардкода + точечных
+       переопределений для светлой темы (они всё равно не покрывали guide/client
+       и давали 3,0-4,4:1 — замер в тесте контраста капсул). */
+    .kb-cat-badge.sales  { background: var(--tint-green-bg);  color: var(--tint-green); }
+    .kb-cat-badge.prod   { background: var(--tint-blue-bg);   color: var(--tint-blue); }
+    .kb-cat-badge.price  { background: var(--tint-amber-bg);  color: var(--tint-amber); }
+    .kb-cat-badge.client { background: var(--tint-violet-bg); color: var(--tint-violet); }
+    .kb-cat-badge.guide  { background: var(--tint-cyan-bg);   color: var(--tint-cyan); }
 
     /* ── BURGER MENU ──────────────────────────────── */
     .burger-btn {
@@ -5410,8 +5446,8 @@ body.portal-mode .nav { display: none !important; }
   border-color: var(--primary);
 }
 .catalog-action-btn.active {
-  background: rgba(251,191,36,.12);
-  color: #f59e0b;
+  background: var(--tint-amber-bg);
+  color: var(--tint-amber);
   border-color: rgba(251,191,36,.4);
 }
 .catalog-action-btn.danger:hover {

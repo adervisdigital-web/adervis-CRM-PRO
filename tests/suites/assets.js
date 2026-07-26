@@ -57,4 +57,17 @@ module.exports = async function ({ test }) {
     assert(/'self'/.test(fontSrc) && !/https?:/.test(fontSrc), "font-src не ограничен 'self': " + fontSrc);
     assert(/script-src[^;]*cdn\.jsdelivr\.net/.test(csp), "script-src не пиннит cdn.jsdelivr.net");
   });
+
+  // Метрика выбирает домен по гео посетителя: из России — mc.yandex.ru, из-за рубежа —
+  // mc.yandex.com. Разрешён был только .ru, поэтому у зарубежных посетителей счётчик
+  // молча блокировался CSP (нашлось прогоном в CI на американском раннере). Пара
+  // домен-к-домену должна оставаться полной, иначе аналитика опять частично ослепнет.
+  await test("CSP: Метрика разрешена на обоих своих доменах (.ru и .com)", () => {
+    const csp = (index.match(/Content-Security-Policy"\s+content="([^"]+)"/) || [])[1] || "";
+    for (const dir of ["script-src", "connect-src"]) {
+      const val = (csp.match(new RegExp(dir + "([^;]*)")) || [])[1] || "";
+      if (!/mc\.yandex\.ru/.test(val)) continue; // Метрика в этой директиве не используется
+      assert(/mc\.yandex\.com/.test(val), `${dir} разрешает mc.yandex.ru, но не mc.yandex.com`);
+    }
+  });
 };
