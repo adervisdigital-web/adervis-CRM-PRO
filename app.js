@@ -1005,8 +1005,10 @@
          Побочный эффект, о котором надо помнить при чтении отчётов: у аккаунтов,
          существовавших до этой правки, все три цели сработают при первом же
          сохранении. Считать воронку имеет смысл от даты выката, а не раньше. */
-      function _fireGoalOnce(name) {
-        const key = "_goal_" + name;
+      // dedupeKey нужен там, где цель одна, а объектов много: оплата аванса считается
+      // один раз на КАЖДОЕ КП, а не один раз на браузер (см. loadPortalData).
+      function _fireGoalOnce(name, dedupeKey) {
+        const key = "_goal_" + (dedupeKey || name);
         if (lsGet(key)) return;
         lsSet(key, "1");
         trackGoal(name);
@@ -17330,6 +17332,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             .maybeSingle();
           if (!error && data) {
             _portalData = data;
+            // Последний шаг воронки: клиент студии оплатил аванс. Считаем по факту
+            // подтверждённой оплаты — advance_paid_at ставит вебхук ЮKassa после
+            // сверки платежа, из браузера это не подделать и не «нажать раньше
+            // времени». Дедуп по id портала: одно КП = одна оплата, но клиент может
+            // открыть ссылку ещё десять раз, и это не десять оплат.
+            if (data.advance_paid_at) _fireGoalOnce("advance_paid", "advance_paid_" + _portalId);
             // Notify agency once per 30 min per portal (localStorage gate)
             const notifKey = 'portal_notif_' + _portalId;
             const lastNotif = parseInt(lsGet(notifKey) || '0');

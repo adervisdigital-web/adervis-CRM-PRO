@@ -13,11 +13,18 @@ const { bootLocal, assert, assertEqual } = require("../harness");
 // Портал КП рисуется по ответу RPC get_client_portal. В тестах Supabase нет и
 // ходить в прод нельзя — подменяем ответ на маршруте, чтобы проверялся настоящий
 // путь рендера, а не заглушка «Ссылка недействительна».
-async function bootPortal(browser, baseUrl, portalRow) {
-  const context = await browser.newContext({ viewport: { width: 900, height: 1000 } });
+async function bootPortal(browser, baseUrl, portalRow, ctx) {
+  const context = ctx || (await browser.newContext({ viewport: { width: 900, height: 1000 } }));
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e.message || e)));
+
+  // Перехватываем цели Метрики до загрузки страницы. metrika.js делает
+  // `m[i] = m[i] || function(){...}`, поэтому наш ym остаётся на месте.
+  await page.addInitScript(() => {
+    window.__goals = [];
+    window.ym = (id, action, goal) => { if (action === "reachGoal") window.__goals.push(goal); };
+  });
 
   // Порядок важен: Playwright примеряет маршруты в обратном порядке регистрации,
   // поэтому общая заглушка идёт ПЕРВОЙ, а конкретный RPC — последним, иначе он
@@ -131,6 +138,29 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(!/Сделано в\s*ADERVIS/i.test(txt), "подпись осталась при hide_branding=true");
     assert(/Рекламный ролик для бренда/.test(txt), "само КП не отрисовалось");
     assert(errors.length === 0, "ошибки на портале: " + errors.join(" | "));
+    await context.close();
+  });
+
+  await test("портал КП: оплаченный аванс шлёт цель advance_paid один раз на КП", async () => {
+    const context = await browser.newContext({ viewport: { width: 900, height: 1000 } });
+    const paidRow = { ...PORTAL_ROW, advance_paid_at: "2026-07-27T10:00:00Z" };
+
+    const first = await bootPortal(browser, baseUrl, paidRow, context);
+    const goals1 = await first.page.evaluate(() => window.__goals);
+    assert(goals1.includes("advance_paid"), "цель advance_paid не отправлена: " + JSON.stringify(goals1));
+    await first.page.close();
+
+    // Клиент открыл ту же ссылку ещё раз — это не вторая оплата.
+    const second = await bootPortal(browser, baseUrl, paidRow, context);
+    const goals2 = await second.page.evaluate(() => window.__goals);
+    assert(!goals2.includes("advance_paid"), "цель отправлена повторно при переоткрытии КП");
+    await context.close();
+  });
+
+  await test("портал КП: неоплаченный аванс цель не шлёт", async () => {
+    const { context, page } = await bootPortal(browser, baseUrl, PORTAL_ROW);
+    const goals = await page.evaluate(() => window.__goals);
+    assert(!goals.includes("advance_paid"), "цель advance_paid отправлена без оплаты");
     await context.close();
   });
 
