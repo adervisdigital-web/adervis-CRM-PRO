@@ -11318,9 +11318,24 @@
         if (el) el.style.display = 'none';
       }
 
+      /* Чеклист «первые шаги» (PLAN.md §4-P0 №5). Три шага — ровно та воронка
+         активации, которую мы теперь считаем в Метрике: сделка → смета → отправлено КП.
+         Что здесь было сломано до 27.07.2026:
+           • чеклист показывался ТОЛЬКО на пробном периоде — то есть исчезал ровно у тех,
+             кто не успел активироваться за 7 дней, хотя нужен им больше всех. PLAN прямо
+             требует обратного: он должен работать и на второй, и на третий заход;
+           • четвёртым шагом стояло «Оформите подписку» с вечным done:false. Он не мог
+             быть выполнен никогда, из-за чего прогресс считался от `steps.length - 1`,
+             а весь блок прятался по условию `done >= 3` — то есть пропадал молча ровно
+             в тот момент, когда человек дошёл до отправленного КП. Вместо «получилось»
+             пользователь видел, что панель просто исчезла. Про подписку и без того
+             напоминают баннер оплаты и бейдж в меню профиля;
+           • шаг про КП проверял ключ '_onboardingPortalDone', который никто никогда не
+             писал (исправлено выше по тексту сессии — признак отправки это portalId). */
       function renderOnboardingChecklist(projects) {
         if (lsGet('_onboardingDismissed')) return '';
-        if (!_userProfile || _userProfile.subscription_status !== 'trial') return '';
+        // Гейта на статус подписки здесь СПЕЦИАЛЬНО нет: чеклист описывает первые шаги
+        // в продукте, а не состояние оплаты.
         // Демо-сделка (__demo) засеяна автоматически при регистрации — не засчитываем её как
         // реальный прогресс, иначе шаги «Создайте сделку»/«Добавьте услуги» выглядят
         // выполненными ещё до первого действия пользователя.
@@ -11329,43 +11344,52 @@
         const steps = [
           {
             label: 'Создайте первую сделку',
+            hint: 'Клиент, дедлайн и бюджет в одном месте',
             done: realProjects.length >= 1,
             action: "app.startWizard()",
             btn: "Создать"
           },
           {
-            label: 'Добавьте услуги в смету',
-            done: realProjects.some(p => p.total > 0),
+            label: 'Соберите смету из услуг',
+            hint: 'Каталог с ценами — считает сумму и налоги за вас',
+            done: realProjects.some(p => numberValue(p.total, 0) > 0),
             action: firstDealId ? `app.loadSavedProject('${firstDealId}')` : "app.startWizard()",
             btn: "Открыть"
           },
           {
-            label: 'Поделитесь КП с клиентом',
-            // Раньше здесь читался ключ '_onboardingPortalDone', который НИКТО никогда
-            // не писал: шаг не отмечался выполненным, даже когда КП было отправлено.
-            // Признак отправки — portalId у сделки (его проставляет createClientPortal).
+            label: 'Отправьте КП клиенту',
+            hint: 'Ссылка, по которой клиент согласует смету и оплатит аванс',
             done: realProjects.some(p => p.portalId),
             action: firstDealId ? `app.createClientPortal('${firstDealId}')` : "app.startWizard()",
             btn: "Создать КП"
-          },
-          {
-            label: 'Оформите подписку — от 490 ₽/мес',
-            done: false,
-            action: "app.go('plans')",
-            btn: "Тарифы"
           }
         ];
         const done = steps.filter(s => s.done).length;
-        if (done >= 3) return '';
-        const pct = Math.round(done / (steps.length - 1) * 100);
+        const hideBtn = `<button onclick="try{localStorage.setItem('_onboardingDismissed','1')}catch(e){};app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Скрыть">×</button>`;
+
+        // Пройдено всё — говорим об этом прямо, а не прячем панель молча. Скрывается
+        // по крестику: следующий заход начнётся уже без неё.
+        if (done === steps.length) {
+          return `
+          <div class="panel" style="margin-bottom:14px;border:1px solid rgba(22,163,74,.3);background:rgba(22,163,74,.05);display:flex;align-items:center;gap:12px">
+            <div style="font-size:22px;flex:0 0 auto">🎉</div>
+            <div class="u-flex1">
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">Первые шаги пройдены</div>
+              <div class="u-meta">Сделка, смета и КП на месте. Дальше сделка живёт в воронке: статусы, задачи и деньги считаются сами.</div>
+            </div>
+            ${hideBtn}
+          </div>`;
+        }
+
+        const pct = Math.round(done / steps.length * 100);
         return `
           <div class="panel" style="margin-bottom:14px;border:1px solid rgba(124,58,237,.25)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
               <div>
                 <div style="font-weight:700;font-size:14px;margin-bottom:2px">🚀 Начало работы</div>
-                <div class="u-meta">${done} из ${steps.length - 1} шагов выполнено</div>
+                <div class="u-meta">${done} из ${steps.length} шагов выполнено</div>
               </div>
-              <button onclick="try{localStorage.setItem('_onboardingDismissed','1')}catch(e){};app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Скрыть">×</button>
+              ${hideBtn}
             </div>
             <div style="height:4px;background:var(--line);border-radius:999px;margin-bottom:12px">
               <div style="height:100%;width:${pct}%;background:var(--primary);border-radius:999px;transition:.4s"></div>
@@ -11373,7 +11397,10 @@
             ${steps.map(s => `
               <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
                 <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${s.done ? 'var(--green)' : 'var(--line)'};background:${s.done ? 'rgba(22,163,74,.15)' : 'transparent'};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:12px;color:var(--green)">${s.done ? '✓' : ''}</div>
-                <div style="flex:1;font-size:13px;${s.done ? 'text-decoration:line-through;opacity:.5' : ''}">${s.label}</div>
+                <div style="flex:1;min-width:0;${s.done ? 'text-decoration:line-through;opacity:.5' : ''}">
+                  <div style="font-size:13px">${s.label}</div>
+                  ${s.done ? '' : `<div class="u-meta">${s.hint}</div>`}
+                </div>
                 ${!s.done ? `<button onclick="${s.action}" class="btn small primary" style="padding:4px 10px;font-size:12px;white-space:nowrap">${s.btn}</button>` : ''}
               </div>
             `).join('')}

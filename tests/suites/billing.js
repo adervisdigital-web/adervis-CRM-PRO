@@ -164,6 +164,30 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  // Главная у нового пользователя выглядит именно так: демо-сделка засеяна при
+  // регистрации (_seedDemoDeal), поэтому welcome-экран уже позади, а чеклист впереди.
+  await test("чеклист: у нового пользователя показан со счётом 0 из 3", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { seedDemo: true });
+    await page.evaluate(() => window.app.go("home"));
+    const txt = await page.$eval("#appContent", (el) => el.textContent || "");
+    assert(/Начало работы/.test(txt), "чеклиста «первые шаги» нет на главной");
+    // Демо-сделка засеяна нами, а не пользователем: в прогресс она входить не должна.
+    assert(
+      /0 из 3 шагов/.test(txt),
+      "неверный счёт шагов (демо-сделка засчиталась?): " + (txt.match(/\d+ из \d+ шагов/) || ["—"])[0]
+    );
+    // Шага про подписку в чеклисте активации быть не должно: он невыполним и ломал счёт.
+    assert(!/Оформите подписку/.test(txt), "в чеклисте остался невыполнимый шаг про подписку");
+    await context.close();
+  });
+
+  await test("чеклист: совсем пустой аккаунт видит welcome-экран, а не чеклист", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl);
+    const txt = await page.$eval("#appContent", (el) => el.textContent || "");
+    assert(/Добро пожаловать/.test(txt), "пустое состояние перестало показывать welcome-экран");
+    await context.close();
+  });
+
   await test("активация: цель отправляется один раз, повторный вызов молчит", async () => {
     const { context, page } = await bootLocal(browser, baseUrl);
     const calls = await page.evaluate(() => {
