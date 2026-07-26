@@ -53,6 +53,13 @@ jobs:
             echo "Базовый коммит неизвестен — сравнивать не с чем, пропускаем."
             exit 0
           fi
+          # После force-push базовый коммит из github.event.before больше не существует,
+          # и git diff падает с exit 128 — весь прогон краснел, не дойдя до тестов,
+          # хотя ни одной регрессии в коде нет. Сравнивать тут действительно не с чем.
+          if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            echo "Базового коммита нет в истории (её переписали) — сравнивать не с чем, пропускаем."
+            exit 0
+          fi
           changed=$(git diff --name-only "$BASE_SHA"...HEAD)
           if echo "$changed" | grep -qE '^(app\.js|style\.css|index\.html)$'; then
             if ! echo "$changed" | grep -q '^sw\.js$'; then
