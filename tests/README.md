@@ -8,7 +8,7 @@
 
 ```bash
 node tests/run.js            # все наборы
-node tests/run.js modals     # один набор: smoke | responsive | modals | interactions | assets
+node tests/run.js modals     # один набор: smoke | responsive | modals | interactions | assets | a11y | money
 ```
 
 Exit code = число упавших проверок (0 = всё зелёно) — годится для pre-push / CI.
@@ -41,6 +41,13 @@ npx playwright install chromium
 | `modals`       | п.20  | Обход модалок (client/finance/help/mainMenu/admin/deal/catalog/package): `role=dialog` + `aria-modal` + `aria-label` + фокус внутри + возврат фокуса при закрытии + скриншот каждой |
 | `interactions` | I/H   | Undo-тост при удалении (появление «Отменить» + восстановление) и смена этапа канбана через `setKanbanStatus` с персистентностью |
 | `assets`       | G     | Self-host шрифтов (нет Google Fonts), SRI на CDN-скриптах, ленивый xlsx, `defer`, CSP `font-src 'self'` |
+| `money`        | H     | **Арифметика денег** на заданном вручную состоянии: долг клиентов, выручка/расходы/прибыль месяца, собираемость без архивных сделок, отсутствие задвоения при открытой сделке, поступление через модалку финансов |
+
+`money` стоит особняком: он не проверяет вид, он проверяет **числа**. Состояние задаётся
+вручную (`seedDeals()` в `suites/money.js`), ожидания посчитаны на бумаге — три сделки:
+частично оплачена, оплачена полностью, архивная. Именно в этих метриках баги повторялись
+чаще всего (архивные сделки в «Обороте» правились четыре раза), поэтому при любой правке
+финансовых агрегатов набор надо расширять, а не переписывать.
 
 Скриншоты пишутся в `tests/screenshots/` (в `.gitignore`).
 

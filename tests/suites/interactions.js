@@ -155,6 +155,78 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(back, 24, `после сброса поиска лимит должен вернуться к 24, а не ${back}`);
   });
 
+  // Доска CRM держала в DOM карточки ВСЕХ сделок (замер: 12 745 узлов при 600),
+  // «Сохранённые проекты» — тоже (76 285px высоты). Лимит канбана — на колонку:
+  // срез поперёк колонок скрывал бы сделки непредсказуемо.
+  await test("канбан CRM: колонка режет по 20 карточек + «показать ещё»", async () => {
+    // К этому моменту предыдущий тест уже размножил сделки до ~35 штук; все копии
+    // получают статус «Лид», то есть падают в одну колонку.
+    const col = await page.evaluate(() => {
+      window.app.go("crm");
+      return null;
+    });
+    await page.waitForTimeout(250);
+    const first = await page.evaluate(() => {
+      const cols = [...document.querySelectorAll(".kanban-col")];
+      const fullest = cols.map(c => ({
+        count: c.querySelectorAll(".crm-card").length,
+        pill: Number((c.querySelector(".pill-count") || {}).textContent || 0),
+        more: !!c.querySelector("[onclick*='kanbanColShowMore']"),
+      })).sort((a, b) => b.pill - a.pill)[0];
+      return fullest;
+    });
+    assert(first && first.pill > 20, `нужна колонка с >20 сделками, максимум ${first && first.pill}`);
+    assertEqual(first.count, 20, "в колонке должно быть отрисовано ровно 20 карточек, а не " + first.count);
+    assert(first.more, "нет кнопки «Показать ещё» в переполненной колонке");
+
+    // Счётчик в заголовке — про воронку целиком, он не должен схлопнуться до лимита.
+    assert(first.pill > first.count, `счётчик колонки (${first.pill}) должен показывать все сделки, а не только отрисованные`);
+
+    const grown = await page.evaluate(() => {
+      const btn = document.querySelector("[onclick*='kanbanColShowMore']");
+      btn.click();
+      return null;
+    });
+    await page.waitForTimeout(200);
+    const after = await page.evaluate(() => {
+      const cols = [...document.querySelectorAll(".kanban-col")];
+      return Math.max(...cols.map(c => c.querySelectorAll(".crm-card").length));
+    });
+    assert(after > 20, `после «Показать ещё» карточек в колонке не прибавилось: 20 → ${after}`);
+  });
+
+  await test("«Сохранённые проекты»: пагинация по 24 + сброс лимита при смене фильтра", async () => {
+    await page.evaluate(() => { window.app.setProjectFilter("all"); window.app.go("projects"); });
+    await page.waitForTimeout(250);
+    const first = await page.evaluate(() => ({
+      cards: document.querySelectorAll(".project-card").length,
+      more: !!document.querySelector("[onclick*='projectsShowMore']"),
+      found: Number((document.querySelector('input[readonly]') || {}).value || 0),
+    }));
+    assertEqual(first.cards, 24, "на первой странице должно быть 24 карточки проектов, а не " + first.cards);
+    assert(first.more, "нет кнопки «Показать ещё» в списке проектов");
+    assert(first.found > 24, `счётчик «Найдено» должен считать все проекты (>24), а показал ${first.found}`);
+
+    await page.evaluate(() => window.app.projectsShowMore());
+    await page.waitForTimeout(200);
+    const grown = await page.evaluate(() => ({
+      cards: document.querySelectorAll(".project-card").length,
+      more: !!document.querySelector("[onclick*='projectsShowMore']"),
+    }));
+    // Страница = 24, а сделок в этом прогоне ~35 — вторая страница показывает остаток.
+    assertEqual(grown.cards, Math.min(48, first.found), `после «Показать ещё» показано ${grown.cards} из ${first.found}`);
+    assert(!grown.more || first.found > 48, "остатка нет, а кнопка «Показать ещё» осталась");
+
+    // Смена фильтра сужает выборку — лимит обязан вернуться к первой странице,
+    // иначе кнопка осталась бы взведённой на прошлый набор (грабли каталога).
+    await page.evaluate(() => window.app.setProjectFilter("Лид"));
+    await page.waitForTimeout(220);
+    const filtered = await page.evaluate(() => document.querySelectorAll(".project-card").length);
+    assert(filtered <= 24, `после смены фильтра лимит не сбросился: ${filtered} карточек`);
+    await page.evaluate(() => window.app.setProjectFilter("all"));
+    await page.waitForTimeout(200);
+  });
+
   await test("настройки: вкладки (Компания/Уведомления/Данные) рендерят свои секции", async () => {
     await page.evaluate(() => window.app.go("settings"));
     await page.waitForTimeout(150);

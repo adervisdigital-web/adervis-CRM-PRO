@@ -859,6 +859,23 @@
       const CATALOG_PAGE_SIZE = 24;
       let _catalogVisibleLimit = CATALOG_PAGE_SIZE;
       let _catalogLimitKey = "";
+      // Доска CRM (канбан) держала в DOM карточки ВСЕХ сделок: замер дал 12 745 узлов
+      // и 370 мс на пересборку при 600 сделках, и так на каждый render(). Лимит —
+      // на колонку, а не на доску: колонки независимы, и срез поперёк них скрывал бы
+      // сделки непредсказуемо. Свой лимит у каждого статуса.
+      const KANBAN_COL_PAGE_SIZE = 20;
+      let _kanbanColLimits = {};
+      // Вид «Сохранённые проекты» — второй, не пагинированный список тех же сделок:
+      // 25 780px высоты страницы при 200 сделках и 76 285px при 600.
+      const PROJECTS_PAGE_SIZE = 24;
+      let _projectsVisibleLimit = PROJECTS_PAGE_SIZE;
+      let _projectsLimitKey = "";
+      // Список событий под календарём: у каждой сделки дедлайн + задачи + платежи +
+      // расходы, поэтому событий в разы больше, чем сделок. При 600 сделках страница
+      // календаря разрасталась до 52 491px — больше, чем было у каталога до пагинации.
+      const CAL_EVENTS_PAGE_SIZE = 50;
+      let _calEventsVisibleLimit = CAL_EVENTS_PAGE_SIZE;
+      let _calEventsLimitKey = "";
 
       const _DEFAULT_SB_URL    = "https://qzeylogyledmhjpzvgkk.supabase.co";
       const _DEFAULT_SB_KEY    = "sb_publishable_E9JgbQiA7namAFiZAAbZEQ_aBn11VgJ";
@@ -882,6 +899,43 @@
       }
       function lsRemove(key) {
         try { localStorage.removeItem(key); } catch (e) { console.warn("localStorage.removeItem", key, e); }
+      }
+
+      // ── Кто последним писал состояние в localStorage ─────────────────────────
+      // Обработчики pagehide/beforeunload раньше безусловно писали свой снапшот
+      // памяти поверх localStorage. Если приложение открыто в двух местах (вкладка
+      // + PWA), закрытие ПЕРВОЙ вкладки затирало правки второй: её состояние в
+      // памяти — от момента открытия. На iOS pagehide срабатывает при каждом уходе
+      // приложения в фон, так что это не редкий случай.
+      // Решение: каждая запись state помечает localStorage случайным токеном.
+      // Писать на выгрузке можно только если токен всё ещё наш — иначе кто-то
+      // записал свежее, и наш снапшот заведомо устарел.
+      const LS_REV_KEY = "adervis_ls_rev";
+      let _myLsRev = null;
+      function _bumpLsRev() {
+        _myLsRev = "rev_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        lsSet(LS_REV_KEY, _myLsRev);
+      }
+      function _ownsLsState() {
+        return !!_myLsRev && lsGet(LS_REV_KEY) === _myLsRev;
+      }
+
+      // ── Что мы знаем про облачную копию ──────────────────────────────────────
+      // Живёт в localStorage (в отличие от _cloudDirty, который сбрасывается при
+      // перезагрузке). Нужен, чтобы после офлайна не затянуть УСТАРЕВШЕЕ облако
+      // поверх локальных правок, которые ещё не доехали. Формат:
+      //   { agencyId, cloudUpdatedAt, dirty }
+      const CLOUD_SYNC_KEY = "adervis_cloud_sync";
+      function _getCloudSyncMark() {
+        try {
+          const raw = lsGet(CLOUD_SYNC_KEY);
+          const m = raw ? JSON.parse(raw) : null;
+          return m && typeof m === "object" ? m : null;
+        } catch (e) { return null; }
+      }
+      function _setCloudSyncMark(patch) {
+        const prev = _getCloudSyncMark() || {};
+        lsSet(CLOUD_SYNC_KEY, JSON.stringify({ ...prev, ...patch }));
       }
 
       function getSupabaseConfig() {
@@ -1247,21 +1301,76 @@
 
       const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","notifPopupOpen","summaryOpen","briefEditorType"]);
 
+      // Кладёт облачное состояние в state. Отдельно от _loadCloudState, потому что
+      // вызывается ещё и из разрешения конфликта.
+      function _applyCloudState(cloudState) {
+        const localSnap = JSON.stringify(Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k))));
+        Object.entries(cloudState).forEach(([k, v]) => {
+          if (!SYNC_SKIP_KEYS.has(k)) state[k] = v;
+        });
+        const cloudSnap = JSON.stringify(Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k))));
+        // ВАЖНО: облачную копию надо прогнать через ту же миграцию схемы, что и
+        // локальную в load(). Раньше здесь был только _migrateStateData() (он
+        // переименовывает CRM-статусы), а migrateState()/normalizeState() — нет.
+        // Из-за cache-first Service Worker два устройства спокойно крутят разные
+        // версии кода: свежая версия, прочитав облако от старой, оставалась без
+        // дефолтов новых полей и без normalizeSavedProject/normalizeTask — до
+        // следующей перезагрузки страницы.
+        state = migrateState(state);
+        normalizeState();
+        _migrateStateData();
+        return localSnap !== cloudSnap;
+      }
+
       async function _loadCloudState() {
         if (!_supabase || !_adminSession) return;
         const agencyId = getAgencyId();
         try {
-          const { data } = await _supabase.from("agency_state").select("state_json").eq("id", agencyId).single();
-          if (data && data.state_json) {
-            const cloudState = data.state_json;
-            const localSnap = JSON.stringify(Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k))));
-            Object.entries(cloudState).forEach(([k, v]) => {
-              if (!SYNC_SKIP_KEYS.has(k)) state[k] = v;
-            });
-            _migrateStateData();
-            const cloudSnap = JSON.stringify(Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k))));
-            if (localSnap !== cloudSnap) toast("☁️ Данные синхронизированы из облака");
+          const { data } = await _supabase.from("agency_state").select("state_json,updated_at").eq("id", agencyId).single();
+          if (!data || !data.state_json) return;
+
+          // Есть ли на ЭТОМ устройстве правки, которые не доехали до облака?
+          // _cloudDirty жил только в памяти и после перезагрузки обнулялся, поэтому
+          // раньше облако раскладывалось поверх локального безусловно: правки,
+          // сделанные в офлайне, молча заменялись более старым облаком, а
+          // пользователь видел бодрое «Данные синхронизированы из облака».
+          const mark = _getCloudSyncMark();
+          const localAhead = !!(mark && mark.dirty && mark.agencyId === agencyId);
+          const cloudMovedOn = !!(mark && mark.cloudUpdatedAt && data.updated_at
+            && new Date(data.updated_at) > new Date(mark.cloudUpdatedAt));
+
+          if (localAhead && !cloudMovedOn) {
+            // Локальное строго новее: облако не двигалось с нашей последней удачной
+            // записи. Ничего не тянем — досылаем своё.
+            toast("☁️ Отправляем изменения, сделанные без сети");
+            saveToCloud();
+            return;
           }
+
+          if (localAhead && cloudMovedOn) {
+            // Настоящий конфликт: и здесь есть несинхронизированные правки, и в
+            // облаке появилась более новая версия (другое устройство). Молча
+            // затирать нельзя ни то, ни другое — спрашиваем.
+            const takeCloud = await confirmDialog({
+              title: "Данные расходятся",
+              message: "На этом устройстве есть изменения, которые не успели уйти в облако, "
+                + "а в облаке уже есть более новая версия с другого устройства.\n\n"
+                + "«Взять из облака» — локальные изменения этого устройства будут потеряны.\n"
+                + "«Оставить мои» — версия из облака будет заменена данными этого устройства.",
+              okText: "Взять из облака",
+              cancelText: "Оставить мои",
+              danger: true
+            });
+            if (!takeCloud) {
+              toast("☁️ Оставили данные этого устройства");
+              saveToCloud();
+              return;
+            }
+          }
+
+          if (_applyCloudState(data.state_json)) toast("☁️ Данные синхронизированы из облака");
+          // Локальное больше не «впереди» — оно теперь копия облачного.
+          _setCloudSyncMark({ agencyId, cloudUpdatedAt: data.updated_at || null, dirty: false });
         } catch(e) { console.warn("Cloud load:", e); }
       }
 
@@ -1284,10 +1393,14 @@
         clearTimeout(_cloudSaveTimer);
         _cloudSaveTimer = setTimeout(async () => {
           const data = Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k)));
+          const updatedAt = new Date().toISOString();
           try {
             // supabase-js v2 не бросает исключение — ошибка приходит в результате
-            const { error } = await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: new Date().toISOString() });
+            const { error } = await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: updatedAt });
             if (error) throw error;
+            // Запоминаем НАДОЛГО (не только в памяти), какую облачную версию мы
+            // подтвердили: следующий запуск по этой метке поймёт, впереди ли локальное.
+            _setCloudSyncMark({ agencyId, cloudUpdatedAt: updatedAt, dirty: false });
             if (_cloudDirty) {
               _cloudDirty = false;
               _setCloudSaveIndicator(true);
@@ -1373,7 +1486,7 @@
             if (!payload || !payload.data) return;
             if (payload.sender && payload.sender === myEmail) return;
             const active = document.activeElement;
-            if (active && active.matches && active.matches("[data-live], [data-autosave]")) {
+            if (active && active.matches && active.matches("input, textarea, [data-autosave]")) {
               // Пользователь прямо сейчас печатает в это поле — полная замена state
               // снапшотом коллеги стёрла бы ещё не отправленный символ (broadcastState
               // из save() debounce'ится на 1200мс) без единого предупреждения. Откладываем
@@ -1411,6 +1524,10 @@
         const incoming = payload.data;
         SYNC_SKIP_KEYS.forEach(k => { if (k in state) incoming[k] = state[k]; });
         Object.assign(state, incoming);
+        // Как и с облачной копией: снапшот коллеги мог прийти от другой версии
+        // приложения (cache-first SW держит устройства на разных версиях), поэтому
+        // прогоняем через миграцию схемы, а не только через normalizeState.
+        state = migrateState(state);
         _needsNormalize = true;
         render();
         toast("🔄 Обновление от " + (payload.sender || "коллеги"));
@@ -4183,8 +4300,11 @@
         if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
         const agencyId = getAgencyId();
         const data = Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k)));
+        const updatedAt = new Date().toISOString();
         try {
-          await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: new Date().toISOString() });
+          await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: updatedAt });
+          _setCloudSyncMark({ agencyId, cloudUpdatedAt: updatedAt, dirty: false });
+          _cloudDirty = false;
           toast("☁️ Данные сохранены в облако");
         } catch(e) { toast("Ошибка сохранения: " + e.message); }
       }
@@ -4571,7 +4691,10 @@
         state.kbEditId = id; state.kbView = "edit"; render();
       }
       function kbBack() { state.kbView = "list"; render(); }
-      function kbSetSearch(v) { state.kbSearch = v; render(); }
+      // Как и остальные поиски по разделам (setCrmSearch/setFinSearch/...) —
+      // через дебаунс: полный render() на каждый символ был единственным
+      // необработанным местом ввода в приложении.
+      function kbSetSearch(v) { state.kbSearch = v; _debouncedSearchRender(); }
       function kbSetCat(v) { state.kbCatFilter = v; render(); }
       function kbNew() {
         const doc = { id: uid("kb"), cat: "guide", title: "Новый документ", content: "# Заголовок\n\nВаш текст...", updatedAt: new Date().toISOString() };
@@ -5159,6 +5282,15 @@
       let redoStack = [];
       let isUndoing = false;
       const MAX_UNDO = 50;
+      // Каждый шаг истории — ПОЛНЫЙ JSON.stringify(state), поэтому одного лимита по
+      // числу шагов недостаточно: замер показал, что при 200 сделках (состояние
+      // 1,3 МБ) 50 шагов удерживают ~130 МБ — строки в UTF-16 весят вдвое больше
+      // длины. Мобильный Safari прибивает вкладку в районе 200–400 МБ, то есть
+      // правка сметы в большом аккаунте роняла приложение. Поэтому история
+      // ограничена ещё и суммарным объёмом: маленькие аккаунты получают все 50
+      // шагов, большие — меньше, но приложение остаётся живым. Один шаг сохраняется
+      // всегда, даже если он один превышает бюджет.
+      const MAX_UNDO_CHARS = 6 * 1024 * 1024; // ~12 МБ памяти на стек
 
       function normalizeClient(client) {
         return {
@@ -5458,6 +5590,10 @@
 
       function load() {
         const raw = lsGet(STORAGE_KEY);
+        // Принимаем на себя владение тем, что прочитали: пока никто другой не
+        // перезаписал состояние, наш снапшот на выгрузке страницы законен.
+        _myLsRev = lsGet(LS_REV_KEY);
+        if (!_myLsRev) _bumpLsRev();
         if (!raw) {
           state = defaultState();
           return;
@@ -5473,20 +5609,46 @@
       }
 
       let _saveIndicatorTimer = null;
+      let _lsFailToastShown = false;
       function save() {
         if (!isSubscriptionActive()) {
           toast("⛔ Подписка истекла — данные не сохранены. Продлите: adervis.digital@gmail.com");
           return;
         }
         _needsNormalize = true;
-        lsSet(STORAGE_KEY, JSON.stringify(state));
+        const lsOk = lsSet(STORAGE_KEY, JSON.stringify(state));
+        if (lsOk) _bumpLsRev();
+        // Локальное состояние ушло вперёд облачного до подтверждения upsert'а.
+        // Метка живёт в localStorage, поэтому переживает перезагрузку — по ней
+        // _loadCloudState поймёт, что тянуть облако поверх нельзя.
+        _setCloudSyncMark({ agencyId: _adminSession ? getAgencyId() : null, dirty: true });
         scheduleAutoSave();
         broadcastState();
         saveToCloud();
-        // Мигающий индикатор сохранения
+        // Индикатор сохранения. Раньше он рисовал «✓ сохранено» даже когда
+        // localStorage отказал (переполнена квота ~5 МБ, приватный режим Safari) —
+        // lsSet честно возвращает false, но результат игнорировался.
         const el = document.getElementById("autoSaveIndicator");
+        if (!lsOk) {
+          const cloudAlive = !!(_supabase && _adminSession) && !_cloudDirty;
+          if (el) {
+            el.textContent = cloudAlive ? "⚠ Только в облаке" : "⚠ Не сохранено";
+            el.className = "autosave-indicator cloud-error show";
+            el.style.opacity = "1";
+            clearTimeout(_saveIndicatorTimer);
+          }
+          if (!_lsFailToastShown) {
+            _lsFailToastShown = true;
+            toast(cloudAlive
+              ? "⚠️ Память браузера переполнена — данные сохраняются только в облако"
+              : "⛔ Не удалось сохранить: память браузера переполнена. Выгрузите данные в файл (Настройки → Данные)");
+          }
+          return;
+        }
+        _lsFailToastShown = false;
         if (el) {
           el.textContent = "✓ сохранено";
+          el.className = "autosave-indicator show";
           el.style.opacity = "1";
           clearTimeout(_saveIndicatorTimer);
           _saveIndicatorTimer = setTimeout(() => { if (el) el.style.opacity = "0"; }, 2000);
@@ -7709,7 +7871,12 @@
         // Старые вызовы go('catalog')/go('packages') ведут в единый раздел на нужную вкладку.
         if (view === "catalog" || view === "packages") { state.servicesTab = view; view = "services"; }
         state.view = view;
-        save();
+        // Переход между разделами меняет ровно одно поле — какой вид открыт. Полный
+        // save() при этом синхронно сериализует и пишет ВСЁ состояние: в CPU-профиле
+        // при 600 сделках на localStorage.setItem уходило 36% времени навигации.
+        // Открытый раздел всё равно должен переживать перезагрузку, поэтому запись
+        // не убрана, а отложена — как это уже сделано для поиска.
+        _debouncedViewSave();
         render();
         if (view === "calendar" || view === "global-calendar") loadGoogleCalendarEvents();
       }
@@ -7724,7 +7891,7 @@
       // JSON.stringify(state) — на каждый символ поиска это лишняя работа.
       // Откладываем оба на паузу в наборе; сам текст в инпуте не теряется —
       // это обычный DOM-инпут, render() лишь обновляет список результатов ниже.
-      let _searchRenderTimer = null, _searchSaveTimer = null;
+      let _searchRenderTimer = null, _searchSaveTimer = null, _viewSaveTimer = null;
       function _debouncedSearchRender() {
         clearTimeout(_searchRenderTimer);
         _searchRenderTimer = setTimeout(render, 180);
@@ -7732,6 +7899,12 @@
       function _debouncedSearchSave() {
         clearTimeout(_searchSaveTimer);
         _searchSaveTimer = setTimeout(save, 250);
+      }
+      // Отложенная запись «служебных» изменений состояния (какой раздел открыт):
+      // быстрое перелистывание разделов не должно писать состояние на каждый клик.
+      function _debouncedViewSave() {
+        clearTimeout(_viewSaveTimer);
+        _viewSaveTimer = setTimeout(save, 400);
       }
 
       function setSearch(value) {
@@ -7781,10 +7954,20 @@
         toast(state.clientMode ? "Клиентский режим включён" : "Клиентский режим выключен");
       }
 
+      // Кладёт снапшот в стек истории и срезает старые шаги — по числу И по объёму.
+      function _pushHistory(stack, snapshot) {
+        stack.push(snapshot);
+        while (stack.length > MAX_UNDO) stack.shift();
+        let chars = 0;
+        for (let i = stack.length - 1; i >= 0; i--) {
+          chars += stack[i].length;
+          if (chars > MAX_UNDO_CHARS && i > 0) { stack.splice(0, i); break; }
+        }
+      }
+
       function saveHistory() {
         if (isUndoing) return;
-        undoStack.push(JSON.stringify(state));
-        if (undoStack.length > MAX_UNDO) undoStack.shift();
+        _pushHistory(undoStack, JSON.stringify(state));
         redoStack = [];
       }
 
@@ -7794,8 +7977,7 @@
           return;
         }
         isUndoing = true;
-        redoStack.push(JSON.stringify(state));
-        if (redoStack.length > MAX_UNDO) redoStack.shift();
+        _pushHistory(redoStack, JSON.stringify(state));
         const prev = undoStack.pop();
         try {
           state = migrateState(JSON.parse(prev));
@@ -7814,7 +7996,7 @@
           return;
         }
         isUndoing = true;
-        undoStack.push(JSON.stringify(state));
+        _pushHistory(undoStack, JSON.stringify(state));
         const next = redoStack.pop();
         try {
           state = migrateState(JSON.parse(next));
@@ -7871,6 +8053,24 @@
       // То же для каталога услуг.
       function catalogShowMore() {
         _catalogVisibleLimit += CATALOG_PAGE_SIZE;
+        render();
+      }
+
+      // То же для колонки доски CRM (лимит у каждого статуса свой) …
+      function kanbanColShowMore(status) {
+        _kanbanColLimits[status] = (_kanbanColLimits[status] || KANBAN_COL_PAGE_SIZE) + KANBAN_COL_PAGE_SIZE;
+        render();
+      }
+
+      // … и для вида «Сохранённые проекты».
+      function projectsShowMore() {
+        _projectsVisibleLimit += PROJECTS_PAGE_SIZE;
+        render();
+      }
+
+      // … и для списка событий под календарём.
+      function calEventsShowMore() {
+        _calEventsVisibleLimit += CAL_EVENTS_PAGE_SIZE;
         render();
       }
 
@@ -8120,7 +8320,11 @@
       function setFinanceModalField(key, value) {
         if (!state.financeModal) return;
         state.financeModal[key] = value;
-        save();
+        // Без save(): financeModal — черновик открытой модалки, он в SYNC_SKIP_KEYS
+        // и в облако всё равно не уезжает. Полная сериализация состояния на каждый
+        // введённый символ была здесь единственной в приложении (остальные модалки —
+        // clientModal/dealModal/taskModal — так не делают). Данные фиксирует
+        // saveFinanceModal() по кнопке.
       }
 
       function saveFinanceModal() {
@@ -8139,6 +8343,11 @@
         if (targetProjectId && targetProjectId === state.activeProjectId) {
           if (m.type === "payment") state.payments.unshift(newRecord);
           else state.expenses.unshift(newRecord);
+          // Для НЕактивной сделки (ветка ниже) paid/expensesTotal обновляются сразу,
+          // а для открытой суммы в savedProjects подтягивал только автосейв через 2 с —
+          // «Долг клиентов» на дашборде и в Финансах эти две секунды показывал старое
+          // число. Синхронизируем сразу, чтобы оба входа вели себя одинаково.
+          flushActiveProjectToSaved();
         } else if (targetProjectId) {
           const proj = state.savedProjects.find(p => p.id === targetProjectId);
           if (proj) {
@@ -8226,8 +8435,8 @@
         else if (state.briefEditorType) { el.innerHTML = renderBriefEditorModal(); }
         else { el.innerHTML = ""; }
         // renderModal() иногда вызывается отдельно от полного render() (напр. открытие
-        // модалки каталога через openCatalogEdit) — без этого свежие data-autosave/
-        // data-live поля внутри модалки оставались без обработчиков до следующего render().
+        // модалки каталога через openCatalogEdit) — без этого свежие data-autosave
+        // поля внутри модалки оставались без обработчиков до следующего render().
         // Область — только сама модалка, чтобы не навешивать вторые обработчики на
         // #appContent при render(), который и так уже вызывает bindDynamicInputs() сам.
         bindDynamicInputs(el);
@@ -9490,7 +9699,7 @@
         if (!root) return;
 
         // render() полностью пересоздаёт #appContent через innerHTML — любой сфокусированный
-        // инпут (поиск, data-live/data-autosave поля) теряет фокус на каждый вызов, из-за чего
+        // инпут (поиск, data-autosave поля) теряет фокус на каждый вызов, из-за чего
         // при вводе можно напечатать только один символ за раз. Запоминаем, что было в фокусе
         // (и позицию курсора), и восстанавливаем после перерисовки.
         let _focusSelector = null, _focusSelRange = null;
@@ -9662,30 +9871,16 @@
         if (_helpDdOpen) renderHelpDd();
       }
 
+      // Привязывает обработчики к полям с data-autosave: правка фиксируется по
+      // событию change (уход из поля / Enter), а не на каждый символ.
+      // Раньше здесь был ещё один такой же блок для [data-live] с подпиской на
+      // "input" — но ни один элемент во всём приложении data-live не выставляет
+      // (0 вхождений в разметке против 119 у data-autosave). Мёртвая ветка удалена,
+      // потому что читалась как живой механизм «сохранение на каждый символ» и
+      // сбивала с толку при разборе производительности.
       function bindDynamicInputs(root) {
         (root || document).querySelectorAll("[data-autosave]").forEach(input => {
           input.addEventListener("change", event => {
-            const el = event.currentTarget;
-            const scope = el.dataset.scope;
-            const key = el.dataset.key;
-            const id = el.dataset.id;
-            const value = el.type === "checkbox" ? el.checked : el.value;
-
-            if (scope === "project") updateProject(key, value);
-            if (scope === "company") updateCompany(key, value);
-            if (scope === "line") updateLine(id, key, value);
-            if (scope === "custom") updateCustomItem(id, key, value);
-            if (scope === "catalogOverride") updateCatalogOverride(id, key, value);
-            if (scope === "task") updateTask(id, key, value);
-            if (scope === "payment") updatePayment(id, key, value);
-            if (scope === "expense") updateExpense(id, key, value);
-            if (scope === "team") updateTeamMember(id, key, value);
-            if (scope === "companyTeam") updateCompanyTeamMember(id, key, value);
-          });
-        });
-
-        (root || document).querySelectorAll("[data-live]").forEach(input => {
-          input.addEventListener("input", event => {
             const el = event.currentTarget;
             const scope = el.dataset.scope;
             const key = el.dataset.key;
@@ -13152,6 +13347,13 @@
 
       function renderProjects() {
         const projects = filteredProjects();
+        // Пагинация — как в списке сделок и каталоге: лимит сбрасывается при смене
+        // фильтра/сортировки, иначе после сужения выборки кнопка «показать ещё»
+        // осталась бы взведённой на прошлый набор.
+        const _projKey = String(state.projectFilter || "") + "|" + String(state.projectSort || "");
+        if (_projKey !== _projectsLimitKey) { _projectsLimitKey = _projKey; _projectsVisibleLimit = PROJECTS_PAGE_SIZE; }
+        const pagedProjects = projects.slice(0, _projectsVisibleLimit);
+        const projHiddenCount = projects.length - pagedProjects.length;
 
         return `
           <div class="panel">
@@ -13189,7 +13391,7 @@
             </div>
 
             <div class="grid three">
-              ${projects.length ? projects.map(project => `
+              ${pagedProjects.length ? pagedProjects.map(project => `
                 <article class="project-card">
                   <div class="line-head">
                     <div>
@@ -13237,6 +13439,11 @@
                     ]
                   }))}
             </div>
+
+            ${projHiddenCount > 0 ? `
+              <div class="toolbar no-print" style="justify-content:center;margin-top:16px">
+                <button class="btn" onclick="app.projectsShowMore()">Показать ещё ${Math.min(PROJECTS_PAGE_SIZE, projHiddenCount)} · осталось ${projHiddenCount}</button>
+              </div>` : ""}
           </div>
         `;
       }
@@ -14127,6 +14334,12 @@
             <div class="kanban" style="grid-template-columns:repeat(${CRM_STATUSES.length},minmax(220px,1fr));overflow-x:auto">
               ${CRM_STATUSES.map(status => {
                 const list = projects.filter(project => (project.crmStatus || "Лид") === status);
+                // Пагинация по колонке: в DOM только первые N карточек. Счётчик в
+                // заголовке остаётся полным — он про воронку, а не про то, сколько
+                // отрисовано.
+                const colLimit = _kanbanColLimits[status] || KANBAN_COL_PAGE_SIZE;
+                const shown = list.slice(0, colLimit);
+                const colHidden = list.length - shown.length;
 
                 return `
                   <div class="kanban-col"
@@ -14135,7 +14348,7 @@
                     ondrop="app.onKanbanDrop(event,'${status}','crm');this.classList.remove('dragover')">
                     <h3>${escapeHtml(status)} <span class="pill-count">${list.length}</span></h3>
                     <div class="list">
-                      ${list.length ? list.map(project => `
+                      ${shown.length ? shown.map(project => `
                         <article class="crm-card"
                           draggable="true"
                           ondragstart="app.onKanbanDragStart(event,'${project.id}','crm')"
@@ -14157,6 +14370,11 @@
                           </select>
                         </article>
                       `).join("") : emptyState({ size: "sm", text: "Пусто", className: "kanban-drop-hint" })}
+                      ${colHidden > 0 ? `
+                        <button class="btn small no-print" style="width:100%"
+                          onclick="app.kanbanColShowMore('${escapeHtml(status)}')">
+                          Показать ещё ${Math.min(KANBAN_COL_PAGE_SIZE, colHidden)} · осталось ${colHidden}
+                        </button>` : ""}
                     </div>
                   </div>
                 `;
@@ -15168,6 +15386,13 @@
               const listEvents = (calAllMode ? [...events] : events.filter(ev => ev.date && ev.date.startsWith(`${yr}-${padZ(mo)}`)))
                 .filter(ev => calTypeFilter === "all" || ev.type === calTypeFilter)
                 .sort((a,b) => a.date.localeCompare(b.date));
+              // Пагинация — как в каталоге и списках сделок. Лимит сбрасывается при
+              // смене месяца, режима «весь год» и фильтра по типу: иначе после
+              // сужения выборки кнопка осталась бы взведённой на прошлый набор.
+              const _calKey = calMonth + "|" + (calAllMode ? "year" : "month") + "|" + calTypeFilter;
+              if (_calKey !== _calEventsLimitKey) { _calEventsLimitKey = _calKey; _calEventsVisibleLimit = CAL_EVENTS_PAGE_SIZE; }
+              const pagedEvents = listEvents.slice(0, _calEventsVisibleLimit);
+              const calHiddenCount = listEvents.length - pagedEvents.length;
               return `
               <div style="margin-top:18px">
                 <!-- Фильтр по типу + счётчик -->
@@ -15181,7 +15406,7 @@
                 ${!listEvents.length
                   ? `<p style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0">Нет событий${calTypeFilter!=="all"?" по выбранному типу":calAllMode?"":" в этом месяце"}. Нажми на день, чтобы добавить задачу.</p>`
                   : `<div style="display:flex;flex-direction:column;gap:6px">
-                  ${listEvents.map(ev => {
+                  ${pagedEvents.map(ev => {
                     const isToday = ev.date === today;
                     const isPast = ev.date < today;
                     return `
@@ -15195,6 +15420,9 @@
                       <span style="font-size:12px;color:${typeColor[ev.type]};font-weight:750;flex:0 0 auto;white-space:nowrap">${escapeHtml(typeLabel[ev.type]||"")}</span>
                     </div>`;
                   }).join("")}
+                  ${calHiddenCount > 0 ? `
+                    <button class="btn no-print" style="align-self:center;margin-top:6px"
+                      onclick="app.calEventsShowMore()">Показать ещё ${Math.min(CAL_EVENTS_PAGE_SIZE, calHiddenCount)} · осталось ${calHiddenCount}</button>` : ""}
                   </div>`
                 }
               </div>`;
@@ -18361,6 +18589,9 @@ Email: ______________________            Email: ______________________
         setCrmFilter,
         crmShowMore,
         catalogShowMore,
+        kanbanColShowMore,
+        projectsShowMore,
+        calEventsShowMore,
         setCrmTagFilter,
         setCrmSearch,
         resetCrmFilters,
@@ -18665,13 +18896,18 @@ Email: ______________________            Email: ______________________
       });
 
       // Принудительное localStorage-сохранение перед закрытием вкладки
-      // (pagehide надёжнее beforeunload на мобиле/iOS)
-      window.addEventListener('pagehide', () => {
-        try { lsSet(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
-      });
-      window.addEventListener('beforeunload', () => {
-        try { lsSet(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
-      });
+      // (pagehide надёжнее beforeunload на мобиле/iOS).
+      // Пишем ТОЛЬКО если последняя запись состояния — наша: иначе мы бы затёрли
+      // свежие данные другой вкладки/PWA своим снапшотом из памяти. На iOS pagehide
+      // срабатывает при каждом уходе приложения в фон, так что случай частый.
+      function _flushStateOnUnload() {
+        if (!_ownsLsState()) return;
+        try {
+          if (lsSet(STORAGE_KEY, JSON.stringify(state))) _bumpLsRev();
+        } catch(e) {}
+      }
+      window.addEventListener('pagehide', _flushStateOnUnload);
+      window.addEventListener('beforeunload', _flushStateOnUnload);
 
       window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
