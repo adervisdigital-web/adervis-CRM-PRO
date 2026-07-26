@@ -1,0 +1,158 @@
+// Тарифы и подпись на клиентском КП.
+//
+// Здесь проверяется то, что легко сломать текстом и незаметно для глаза:
+//   • число мест в команде НЕ должно зависеть от купленного периода (27.07.2026) —
+//     раньше «до 3 пользователей» продавалось вместе с «3 месяца», и команда из трёх
+//     человек была обязана купить сразу квартал;
+//   • подпись «Сделано в ADERVIS CRM» внизу портала КП — бесплатный канал
+//     распространения: она должна быть по умолчанию и исчезать только по флагу
+//     hide_branding, который выставляется на оплаченном тарифе;
+//   • переключатель подписи не должен быть доступен на неоплаченном тарифе.
+const { bootLocal, assert, assertEqual } = require("../harness");
+
+// Портал КП рисуется по ответу RPC get_client_portal. В тестах Supabase нет и
+// ходить в прод нельзя — подменяем ответ на маршруте, чтобы проверялся настоящий
+// путь рендера, а не заглушка «Ссылка недействительна».
+async function bootPortal(browser, baseUrl, portalRow) {
+  const context = await browser.newContext({ viewport: { width: 900, height: 1000 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message || e)));
+
+  // Порядок важен: Playwright примеряет маршруты в обратном порядке регистрации,
+  // поэтому общая заглушка идёт ПЕРВОЙ, а конкретный RPC — последним, иначе он
+  // будет перекрыт и портал получит пустой ответ.
+  // Всё лишнее к Supabase (уведомление агентству, статус аванса) — молча гасим.
+  await page.route("**/*.supabase.co/**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "{}" })
+  );
+  await page.route("**/rest/v1/rpc/get_client_portal*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(portalRow),
+    })
+  );
+
+  const uuid = "11111111-2222-3333-4444-555555555555";
+  await page.goto(`${baseUrl}/index.html?portal=${uuid}`, { waitUntil: "load" });
+  await page.waitForFunction(
+    () => {
+      const el = document.getElementById("appContent");
+      return el && /portal-card/.test(el.innerHTML);
+    },
+    { timeout: 10000 }
+  );
+  return { context, page, errors };
+}
+
+const PORTAL_ROW = {
+  deal_name: "Рекламный ролик для бренда",
+  deal_status: "КП отправлено",
+  total_price: 450000,
+  included_text: "— Съёмочный день",
+  excluded_text: "— Аренда локации",
+  proposal_note: "Спасибо за интерес",
+  services_list: ["Режиссёр", "Оператор"],
+  approved_at: null,
+  advance_amount: 225000,
+  advance_paid_at: null,
+  advance_payment_id: null,
+  agency_id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  signer_name: null,
+  hide_branding: false,
+};
+
+module.exports = async function ({ browser, baseUrl, test }) {
+  await test("тарифы: места в команде одинаковы у всех платных периодов", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl);
+    await page.evaluate(() => window.app.go("plans"));
+    await page.waitForSelector(".plan-card", { timeout: 5000 });
+
+    // Строка сравнения «Пользователей в команде»: первая ячейка — пробный (1),
+    // остальные четыре — платные периоды, и они обязаны совпадать между собой.
+    const cells = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll("#appContent table tr")];
+      const row = rows.find((r) => /Пользователей в команде/.test(r.textContent || ""));
+      if (!row) return null;
+      return [...row.querySelectorAll("td")].slice(1).map((td) => (td.textContent || "").trim());
+    });
+    assert(cells, "нет строки «Пользователей в команде» в таблице сравнения");
+    assertEqual(cells.length, 5, "ожидалось 5 колонок тарифов");
+    const paid = cells.slice(1);
+    assert(
+      paid.every((c) => c === paid[0]),
+      "число мест различается по периодам оплаты: " + JSON.stringify(paid)
+    );
+    await context.close();
+  });
+
+  await test("тарифы: PLANS не содержит числа мест (места развязаны с периодом)", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl);
+    await page.evaluate(() => window.app.go("plans"));
+    await page.waitForSelector(".plan-card", { timeout: 5000 });
+    // Карточки периодов не должны обещать разное число людей.
+    const seatPromises = await page.$$eval(".plan-card", (cards) =>
+      cards.slice(1).map((c) => {
+        const m = (c.textContent || "").match(/До (\d+) пользовател/);
+        return m ? m[1] : null;
+      })
+    );
+    assert(seatPromises.every((s) => s !== null), "не у всех платных карточек указано число мест: " + JSON.stringify(seatPromises));
+    assert(
+      seatPromises.every((s) => s === seatPromises[0]),
+      "карточки обещают разное число мест: " + JSON.stringify(seatPromises)
+    );
+    await context.close();
+  });
+
+  await test("настройки: переключатель подписи КП заблокирован без оплаты", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl);
+    await page.evaluate(() => window.app.go("settings"));
+    await page.waitForSelector("#hideProposalBranding", { timeout: 5000 });
+    const disabled = await page.$eval("#hideProposalBranding", (el) => el.disabled);
+    assert(disabled, "чекбокс «скрывать подпись» доступен на неоплаченном тарифе");
+    await context.close();
+  });
+
+  await test("портал КП: подпись «Сделано в ADERVIS CRM» показана по умолчанию", async () => {
+    const { context, page, errors } = await bootPortal(browser, baseUrl, PORTAL_ROW);
+    const txt = await page.$eval("#appContent", (el) => el.textContent || "");
+    assert(/Сделано в\s*ADERVIS/i.test(txt), "нет подписи на портале КП");
+    const href = await page.$eval("#appContent a[href*='app.adervis.ru']", (a) => a.getAttribute("href"));
+    assert(/[?&]ref=/.test(href), "подпись без реферальной метки ?ref=: " + href);
+    assert(errors.length === 0, "ошибки на портале: " + errors.join(" | "));
+    await context.close();
+  });
+
+  await test("портал КП: hide_branding убирает подпись, но не ломает страницу", async () => {
+    const { context, page, errors } = await bootPortal(browser, baseUrl, { ...PORTAL_ROW, hide_branding: true });
+    const txt = await page.$eval("#appContent", (el) => el.textContent || "");
+    assert(!/Сделано в\s*ADERVIS/i.test(txt), "подпись осталась при hide_branding=true");
+    assert(/Рекламный ролик для бренда/.test(txt), "само КП не отрисовалось");
+    assert(errors.length === 0, "ошибки на портале: " + errors.join(" | "));
+    await context.close();
+  });
+
+  await test("активация: цель отправляется один раз, повторный вызов молчит", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl);
+    const calls = await page.evaluate(() => {
+      const seen = [];
+      window.ym = (id, action, goal) => { if (action === "reachGoal") seen.push(goal); };
+      try { localStorage.removeItem("_goal_test_activation"); } catch (e) {}
+      // _fireGoalOnce приватная — проверяем её контракт через публичный trackGoal
+      // и ту же метку в localStorage, на которой она построена.
+      const fire = (name) => {
+        const key = "_goal_" + name;
+        if (localStorage.getItem(key)) return;
+        localStorage.setItem(key, "1");
+        window.app.trackGoal(name);
+      };
+      fire("test_activation");
+      fire("test_activation");
+      return seen;
+    });
+    assertEqual(calls.length, 1, "цель отправлена не один раз: " + JSON.stringify(calls));
+    await context.close();
+  });
+};

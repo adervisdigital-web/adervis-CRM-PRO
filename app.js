@@ -990,6 +990,42 @@
         try { window.ym && window.ym(109706942, "reachGoal", name, params); } catch(e) {}
       }
 
+      /* ─── Воронка активации ────────────────────────────────────────────────
+         регистрация → создана сделка → заполнена смета → отправлено КП.
+         Без этих цифр непонятно, на каком шаге отваливаются люди, и правки
+         онбординга — угадывание (PLAN.md §4-P0). Цели шлются по одному разу на
+         браузер (метка в localStorage): Метрика считает достижения, а не события,
+         и десять сохранений одной сделки не должны выглядеть как десять активаций.
+
+         Проверка живёт в save() — единственной точке, через которую проходит любое
+         изменение состояния. Так не нужно расставлять вызовы по всем входам в
+         создание сделки (их семь) и следить, чтобы новый вход не забыли: класс
+         бага «входы рассинхронизированы» в этом файле встречался 7+ раз.
+
+         Побочный эффект, о котором надо помнить при чтении отчётов: у аккаунтов,
+         существовавших до этой правки, все три цели сработают при первом же
+         сохранении. Считать воронку имеет смысл от даты выката, а не раньше. */
+      function _fireGoalOnce(name) {
+        const key = "_goal_" + name;
+        if (lsGet(key)) return;
+        lsSet(key, "1");
+        trackGoal(name);
+      }
+
+      let _activationGoalsDone = false;
+      function _checkActivationGoals() {
+        if (_activationGoalsDone || !_adminSession) return;
+        // Демо-сделка засеяна нами при регистрации — она не активация пользователя.
+        const real = (state.savedProjects || []).filter(p => !p.__demo);
+        if (!real.length) return;
+        _fireGoalOnce("deal_created");
+        if (real.some(p => numberValue(p.total, 0) > 0)) _fireGoalOnce("estimate_filled");
+        if (real.some(p => p.portalId)) _fireGoalOnce("proposal_sent");
+        if (lsGet("_goal_deal_created") && lsGet("_goal_estimate_filled") && lsGet("_goal_proposal_sent")) {
+          _activationGoalsDone = true; // дальше не тратим работу на каждом save()
+        }
+      }
+
       /* ── Телеметрия клиентских ошибок ──────────────────────────────────────
          Пишет в public.client_errors (INSERT-only RLS, читает только супер-админ,
          см. migrations/client_errors.sql). Лимит 5 ошибок на сессию, дедупликация
@@ -1106,10 +1142,10 @@
 
             // Check user limit for the agency being joined
             if (joinedTeam) {
-              const { data: ownerProfile } = await _supabase.from("profiles").select("subscription_plan,subscription_status").eq("id", inviteCode).single();
+              const { data: ownerProfile } = await _supabase.from("profiles").select("subscription_status,subscription_expires_at").eq("id", inviteCode).single();
               const { count: memberCount } = await _supabase.from("profiles").select("id", { count: "exact", head: true }).eq("agency_id", inviteCode);
-              const planConfig = PLANS.find(p => p.id === (ownerProfile && ownerProfile.subscription_plan)) || PLANS[1];
-              const maxUsers = planConfig.maxUsers || 1;
+              // Мест даёт факт оплаты, а не длина купленного периода — см. maxUsersForProfile.
+              const maxUsers = maxUsersForProfile(ownerProfile);
               if ((memberCount || 0) >= maxUsers) {
                 agencyId = userId; // reject invite, create own account
                 joinedTeam = false;
@@ -1449,6 +1485,17 @@
           return !exp || new Date(exp) > new Date();
         }
         return false;
+      }
+
+      // Именно ОПЛАЧЕННЫЙ тариф, без пробного периода. Нужно там, где право даётся
+      // за деньги, а не за факт живого доступа: например снятие подписи
+      // «Сделано в ADERVIS CRM» с клиентского портала (white-label).
+      function isPaidPlan() {
+        if (_isSuperAdmin()) return true;
+        if (!_adminSession) return false;
+        if (!_userProfile || _userProfile.subscription_status !== "active") return false;
+        const exp = _userProfile.subscription_expires_at;
+        return !exp || new Date(exp) > new Date();
       }
 
       function getSubscriptionLabel() {
@@ -3110,13 +3157,30 @@
       /* ═══════════════════════════════════════════════════════
          ПРОФИЛЬ И ТАРИФЫ
       ═══════════════════════════════════════════════════════ */
+      // Планы = только периоды оплаты. Числа мест здесь СПЕЦИАЛЬНО больше нет:
+      // раньше maxUsers рос вместе с months (1/1/3/5/10), из-за чего команда из трёх
+      // человек была обязана купить сразу 3 месяца. Месяцы подписки и люди в команде —
+      // разные оси; связка блокировала покупку и ничего не давала взамен (27.07.2026).
+      // Теперь любой оплаченный период даёт одинаковые PAID_MAX_USERS мест.
       const PLANS = [
-        { id: "trial",  label: "Пробный",    price: 0,   period: "7 дней бесплатно", save: "",             months: 0,  maxUsers: 1 },
-        { id: "month1", label: "Месяц",       price: 490, period: "в месяц",            save: "",             months: 1,  maxUsers: 1 },
-        { id: "month3", label: "3 месяца",    price: 390, period: "в месяц",            save: "Экономия 20%", months: 3,  maxUsers: 3, popular: true },
-        { id: "month6", label: "6 месяцев",   price: 340, period: "в месяц",            save: "Экономия 31%", months: 6,  maxUsers: 5 },
-        { id: "year",   label: "Год",         price: 290, period: "в месяц",            save: "Экономия 41%", months: 12, maxUsers: 10 }
+        { id: "trial",  label: "Пробный",    price: 0,   period: "7 дней бесплатно", save: "",             months: 0  },
+        { id: "month1", label: "Месяц",       price: 490, period: "в месяц",            save: "",             months: 1  },
+        { id: "month3", label: "3 месяца",    price: 390, period: "в месяц",            save: "Экономия 20%", months: 3, popular: true },
+        { id: "month6", label: "6 месяцев",   price: 340, period: "в месяц",            save: "Экономия 31%", months: 6  },
+        { id: "year",   label: "Год",         price: 290, period: "в месяц",            save: "Экономия 41%", months: 12 }
       ];
+
+      // Мест в команде на любом оплаченном тарифе. Пробный период — как и раньше, один
+      // пользователь: он про «посмотреть продукт», а не про работу командой.
+      const PAID_MAX_USERS = 3;
+
+      // Сколько мест даёт профиль. Считается по факту оплаты, а НЕ по длине периода.
+      function maxUsersForProfile(profile) {
+        if (!profile || profile.subscription_status !== "active") return 1;
+        const exp = profile.subscription_expires_at;
+        if (exp && new Date(exp) <= new Date()) return 1; // оплата закончилась
+        return PAID_MAX_USERS;
+      }
 
       // Лимит AI-генераций КП на пробном тарифе. Дублируется в Edge Function
       // ai-proposal — там он и решает: клиентская проверка лишь бережёт лишний запрос.
@@ -3652,10 +3716,10 @@
         const sub = _userProfile;
         const planFeatures = {
           trial:  ["Безлимитные сделки", "CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Telegram-бот уведомления", `${AI_PROPOSAL_TRIAL_LIMIT} AI-генераций КП`, "Web Push", "1 пользователь"],
-          month1: ["Всё из пробного", "Безлимитная AI-генерация КП", "Финансы и аналитика", "Экспорт Excel", "Договоры", "1 пользователь"],
-          month3: ["Всё из «Месяца»", "До 3 пользователей", "Командная работа", "Синхронизация", "Экономия 20%", "Поддержка"],
-          month6: ["Всё из «3 мес»", "До 5 пользователей", "Расширенная аналитика", "Версии смет", "Пакеты услуг", "Экономия 31%"],
-          year:   ["Всё из «6 мес»", "До 10 пользователей", "Максимум функций", "Экономия 41%"]
+          month1: ["Всё из пробного", "Безлимитная AI-генерация КП", `До ${PAID_MAX_USERS} пользователей`, "Финансы и аналитика", "Экспорт Excel", "Договоры"],
+          month3: ["Всё из «Месяца»", `До ${PAID_MAX_USERS} пользователей`, "Экономия 20%", "Один платёж на 3 месяца", "Поддержка"],
+          month6: ["Всё из «Месяца»", `До ${PAID_MAX_USERS} пользователей`, "Экономия 31%", "Один платёж на полгода", "Поддержка"],
+          year:   ["Всё из «Месяца»", `До ${PAID_MAX_USERS} пользователей`, "Экономия 41%", "Лучшая цена за месяц", "Поддержка"]
         };
         const promoValid = _promoState && typeof _promoState === "object";
         const cards = PLANS.map(p => {
@@ -3748,8 +3812,8 @@
                 ${row("Telegram-уведомления", [yes,yes,yes,yes,yes])}
                 ${row("Пользователей в команде",
                   ["<span style='color:var(--muted)'>1</span>",
-                   "<span style='color:var(--muted)'>1</span>",
-                   "<b>до 3</b>","<b>до 5</b>","<b>до 10</b>"])}
+                   `<b>до ${PAID_MAX_USERS}</b>`, `<b>до ${PAID_MAX_USERS}</b>`,
+                   `<b>до ${PAID_MAX_USERS}</b>`, `<b>до ${PAID_MAX_USERS}</b>`])}
 
                 ${group("AI и автоматизация")}
                 ${row("AI-генерация текста КП (Gemini)",
@@ -3781,7 +3845,7 @@
             </div>
             ${_promoCodeInputHtml()}
             <p style="font-size:12px;color:var(--muted);padding:10px 16px;background:rgba(124,58,237,.06);border-radius:10px;margin:0;line-height:1.6">
-              ✅ Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
+              ✅ Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Тарифы отличаются только сроком: команда до ${PAID_MAX_USERS} человек входит в любой из них · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
             </p>
             ${compTable}
           </div>
@@ -5248,7 +5312,10 @@
             desc: "Видеопроизводство и digital-упаковка для бизнеса.",
             details: "Видеопроизводство и digital-упаковка для бизнеса.",
             terms: "Срок действия предложения — 7 календарных дней. Финальные сроки и состав работ уточняются после брифа.",
-            requisites: ""
+            requisites: "",
+            // Подпись «Сделано в ADERVIS CRM» внизу клиентского портала КП.
+            // Снимается только на оплаченном тарифе (см. isPaidPlan / setProposalBranding).
+            hideProposalBranding: false
           },
           proposalTemplates: {
             classic: {
@@ -5647,6 +5714,7 @@
         scheduleAutoSave();
         broadcastState();
         saveToCloud();
+        _checkActivationGoals();
         // Индикатор сохранения. Раньше он рисовал «✓ сохранено» даже когда
         // localStorage отказал (переполнена квота ~5 МБ, приватный режим Safari) —
         // lsSet честно возвращает false, но результат игнорировался.
@@ -11271,7 +11339,10 @@
           },
           {
             label: 'Поделитесь КП с клиентом',
-            done: !!lsGet('_onboardingPortalDone'),
+            // Раньше здесь читался ключ '_onboardingPortalDone', который НИКТО никогда
+            // не писал: шаг не отмечался выполненным, даже когда КП было отправлено.
+            // Признак отправки — portalId у сделки (его проставляет createClientPortal).
+            done: realProjects.some(p => p.portalId),
             action: firstDealId ? `app.createClientPortal('${firstDealId}')` : "app.startWizard()",
             btn: "Создать КП"
           },
@@ -15888,6 +15959,32 @@
             <div class="mt-14">
               ${field("Реквизиты", `<textarea data-autosave data-scope="company" data-key="requisites">${escapeHtml(state.company.requisites)}</textarea>`)}
             </div>
+
+            ${(() => {
+              // Подпись «Сделано в ADERVIS CRM» внизу клиентского портала — бесплатный
+              // канал распространения: каждое КП видит заказчик студии. Убрать её можно,
+              // но только на оплаченном тарифе; флаг фиксируется в момент создания КП,
+              // уже отправленные ссылки не переписываются задним числом.
+              const paid = isPaidPlan();
+              const hidden = !!state.company.hideProposalBranding;
+              return `
+              <div class="panel" style="box-shadow:none;background:var(--panel2);margin-top:14px">
+                <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("card", "var(--primary)")} Подпись на клиентском КП</h2>
+                <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.6">
+                  Внизу страницы КП, которую открывает заказчик, стоит сдержанная строка
+                  «Сделано в ADERVIS&nbsp;CRM» со ссылкой. На оплаченном тарифе её можно убрать.
+                </p>
+                <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.5;${paid ? "cursor:pointer" : "opacity:.6;cursor:not-allowed"}">
+                  <input type="checkbox" id="hideProposalBranding" ${hidden ? "checked" : ""} ${paid ? "" : "disabled"}
+                    onchange="app.setProposalBranding(this.checked)"
+                    style="width:16px;height:16px;margin-top:2px;flex:0 0 auto;accent-color:var(--primary)">
+                  <span>Скрывать подпись в новых КП</span>
+                </label>
+                ${paid ? "" : `<p style="font-size:12px;color:var(--muted);margin:10px 0 0">
+                  Доступно на платном тарифе — <button class="btn small" onclick="app.go('plans')" style="margin-left:4px">Тарифы</button>
+                </p>`}
+              </div>`;
+            })()}
         `;
 
         const notifyTab = `
@@ -17208,13 +17305,15 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 Adervis · Digital Creative Agency ·
                 <a href="mailto:adervis.digital@gmail.com" class="u-muted">adervis.digital@gmail.com</a>
               </div>
+              ${d.hide_branding ? '' : `
               <a href="https://app.adervis.ru/${d.agency_id ? `?ref=${encodeURIComponent(d.agency_id)}` : ''}" target="_blank" rel="noopener"
+                 onclick="app.trackGoal('portal_branding_click')"
                  style="display:flex;align-items:center;justify-content:center;gap:6px;padding:0 0 24px;font-size:12px;color:var(--muted);text-decoration:none">
                 <span style="width:16px;height:16px;border-radius:5px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">
                   <img src="logo-icon.svg" alt="" style="width:11px;height:11px;object-fit:contain" onerror="this.style.display='none'">
                 </span>
                 Сделано в <strong style="color:var(--text2);font-weight:700">ADERVIS&nbsp;CRM</strong> — CRM для видеопродакшн-студий
-              </a>
+              </a>`}
             </div>
           </div>
         `;
@@ -17305,6 +17404,21 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         }
       }
 
+      // Переключатель подписи «Сделано в ADERVIS CRM» на клиентском портале.
+      // Проверка тарифа дублируется здесь, а не только в disabled-атрибуте: инлайн-
+      // обработчик вызывается из DOM, и полагаться на то, что кнопку нельзя нажать,
+      // нельзя (флаг всё равно уезжает в client_portals при создании КП).
+      function setProposalBranding(hide) {
+        if (!isPaidPlan()) {
+          toast("Убрать подпись можно на платном тарифе");
+          render();
+          return;
+        }
+        state.company.hideProposalBranding = !!hide;
+        save();
+        toast(hide ? "Подпись убрана из новых КП" : "Подпись возвращена в новые КП");
+      }
+
       async function createClientPortal(projectId) {
         const project = (state.savedProjects || []).find(p => p.id === projectId);
         if (!project) { toast('Проект не найден'); return; }
@@ -17319,7 +17433,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           ? Math.max(100, Math.round(project.total * 0.5 / 100) * 100)
           : null;
 
-        const { data, error } = await _supabase.from('client_portals').insert({
+        const row = {
           agency_id: getAgencyId(),
           project_id: projectId,
           deal_name: project.name || '',
@@ -17329,8 +17443,17 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           excluded_text: proj.excludedText || '',
           proposal_note: proj.proposalNote || '',
           services_list: selectedItems,
-          advance_amount: advanceAmount
-        }).select('id').single();
+          advance_amount: advanceAmount,
+          // Право убрать подпись даёт оплаченный тариф — и именно на момент отправки КП.
+          hide_branding: isPaidPlan() && !!state.company.hideProposalBranding
+        };
+        let { data, error } = await _supabase.from('client_portals').insert(row).select('id').single();
+        // Колонка появляется миграцией 20260727000001. Пока она не накатана на прод,
+        // insert падает целиком — КП важнее подписи, поэтому повторяем без поля.
+        if (error && /hide_branding/.test(error.message || '')) {
+          delete row.hide_branding;
+          ({ data, error } = await _supabase.from('client_portals').insert(row).select('id').single());
+        }
         if (data && !error) {
           const url = location.origin + location.pathname + '?portal=' + data.id;
           try { await navigator.clipboard.writeText(url); } catch(e) {}
@@ -19499,6 +19622,8 @@ Email: ______________________            Email: ______________________
         approvePortal,
         payPortalAdvance,
         createClientPortal,
+        setProposalBranding,
+        trackGoal,
         subscribeToPush,
         unsubscribeFromPush,
 
