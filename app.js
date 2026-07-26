@@ -824,13 +824,13 @@
       let _briefType = (new URLSearchParams(location.search).get('type') || 'video').trim().toLowerCase();
       let _portalId = (new URLSearchParams(location.search).get('portal') || '').trim();
       if (_portalId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(_portalId)) _portalId = '';
-      // Публичный калькулятор: ?calc=1 (пусто) или ?calc=id:кол-во:смен;id:… (шеринг сметы).
+      // Публичный калькулятор: ?calc=1 (пусто) или ?calc=задача~пакет~дней~опции~срочно
+      // (шеринг расчёта; старый формат «id:кол-во:смен;…» тоже понимаем — см. _calcApplyShared).
       // 'calc' in params, а не .get(), потому что "?calc" без значения — валидный вход
       // (пустая смета, посетитель начинает с нуля), а .get() тогда вернул бы "".
       const _calcParams = new URLSearchParams(location.search);
       const _calcMode = _calcParams.has('calc');
       const _calcInitialEncoded = _calcParams.get('calc') || '';
-      const _calcInitialName = (_calcParams.get('t') || '').trim();
       const CALC_DRAFT_KEY = 'adervis_calc_draft';
 
       // Реферальный код — сохраняем при первом визите, применяем после регистрации
@@ -16278,13 +16278,6 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
          3. ничего не пишется в Supabase: анонимный посетитель не имеет агентства,
             а ссылка-шеринг кодирует смету прямо в URL, без таблиц и RLS.
       ═══════════════════════════════════════════════════════ */
-      const CALC_PAGE_SIZE = 24;
-      let _calcVisibleLimit = CALC_PAGE_SIZE;
-      let _calcLimitKey = "";
-      let _calcCat = "all";
-      let _calcSearch = "";
-      let _calcName = "";
-
       // Кодирование сметы в URL: «id:кол-во:смен;…». Читаемо глазами (это плюс к
       // доверию — видно, что ничего не спрятано) и не требует ни базы, ни авторизации.
       function _calcEncodeLines() {
@@ -16324,78 +16317,6 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         } catch (e) { /* другой origin — не критично */ }
       }
 
-      function calcSetCat(cat) { _calcCat = cat || "all"; render(); }
-      function calcSetSearch(v) { _calcSearch = String(v || ""); _debouncedSearchRender(); }
-      function calcSetName(v) { _calcName = String(v || "").slice(0, 120); }
-      function calcShowMore() { _calcVisibleLimit += CALC_PAGE_SIZE; render(); }
-
-      function calcAdd(id) {
-        const itemData = findItem(id, true);
-        if (!itemData || state.selected[id]) return;
-        state.selected[id] = defaultLineForItem(itemData);
-        if (!state.estimateOrder.includes(id)) state.estimateOrder.push(id);
-        render();
-      }
-
-      function calcRemove(id) {
-        delete state.selected[id];
-        state.estimateOrder = state.estimateOrder.filter(x => x !== id);
-        render();
-      }
-
-      function calcToggle(id) {
-        if (state.selected[id]) calcRemove(id); else calcAdd(id);
-      }
-
-      // Единственные две ручки в публичном калькуляторе: количество и число смен/дней.
-      // Всё остальное (тип смены, переработки, скидки, налоги) — уже в самом продукте:
-      // калькулятор должен считать за минуту, а не показывать всю глубину сразу.
-      function calcSetNum(id, key, value) {
-        const line = state.selected[id];
-        if (!line || (key !== "qty" && key !== "days")) return;
-        line[key] = Math.min(999, Math.max(1, Math.round(numberValue(value, 1))));
-        render();
-      }
-
-      function calcClear() {
-        state.selected = {};
-        state.estimateOrder = [];
-        render();
-      }
-
-      function _calcShareUrl() {
-        const lines = _calcEncodeLines();
-        if (!lines) return "";
-        const base = location.origin + location.pathname;
-        const name = _calcName ? `&t=${encodeURIComponent(_calcName)}` : "";
-        return `${base}?calc=${lines}${name}`;
-      }
-
-      async function calcShare() {
-        const url = _calcShareUrl();
-        if (!url) { toast("Добавьте хотя бы одну позицию"); return; }
-        try {
-          await navigator.clipboard.writeText(url);
-          toast("🔗 Ссылка на смету скопирована — можно отправлять клиенту");
-        } catch (e) {
-          // Clipboard недоступен (нет https / отказ в разрешении) — показываем ссылку,
-          // чтобы человек скопировал руками, а не остался ни с чем.
-          try { window.prompt("Скопируйте ссылку на смету:", url); } catch (_) {}
-        }
-        trackGoal("calc_share");
-      }
-
-      // «Сохранить в аккаунт» — регистрация ПОСЛЕ полученной пользы: черновик кладём
-      // в localStorage и уходим в приложение, где сработает обычный auth gate.
-      // После входа _maybeImportCalcDraft() перенесёт позиции в смету.
-      function calcSaveToAccount() {
-        const lines = _calcEncodeLines();
-        if (!lines) { toast("Сначала добавьте позиции в смету"); return; }
-        lsSet(CALC_DRAFT_KEY, JSON.stringify({ lines, name: _calcName, at: Date.now() }));
-        trackGoal("calc_save_to_account");
-        location.href = location.pathname;
-      }
-
       // Вызывается из _onUserLoggedIn после входа/регистрации: переносит черновик,
       // оставленный calcSaveToAccount(), в текущую (рабочую) смету пользователя.
       // Одноразовый — удаляется сразу после чтения, даже если применить не удалось,
@@ -16420,120 +16341,721 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         return true;
       }
 
+      /* ── Продающий калькулятор, а не таблица сметчика ──────────────────────
+         Первая версия (26.07) показывала каталог на 93 позиции с поиском и
+         категориями. Это инструмент продюсера: человек, который хочет заказать
+         ролик, не знает, нужен ли ему гаффер, сорс-пак и вторая камера, — и
+         уходит, не досчитав. Переписано в мастер из трёх вопросов на языке
+         клиента: задача → уровень → детали. Позиции подставляет пакет, а считает
+         их всё та же математика каталога (packageApproxTotal/totals), поэтому
+         вторая реализация формул не появилась.
+
+         Цена всегда «от»: реальный бюджет зависит от сценария, локаций и сроков,
+         и обещать точную цифру калькулятором — врать клиенту. Задача экрана не
+         «посчитать смету», а довести до разговора с уже понятным порядком цен.
+      */
+      const CALC_TIER_LABELS = ["Старт", "Оптимальный", "Максимум"];
+      const CALC_RUSH_RATE = 0.3;      // надбавка за сжатые сроки, отдельной строкой
+      const CALC_MAX_DAYS = 4;
+
+      // Задачи на языке заказчика. tiers — три пакета из DEFAULT_PACKAGES (те же,
+      // что агентство продаёт в CRM), extras — позиции каталога, которые чаще
+      // всего спрашивают именно к этой задаче.
+      const CALC_NEEDS = [
+        {
+          id: "social", icon: "📱", title: "Ролики для соцсетей",
+          sub: "Reels, Shorts, VK Клипы, регулярный контент",
+          tiers: ["social_start", "social_pro", "social_media"],
+          days: true, weeks: [1, 2, 3],
+          extras: ["vertical_adapt", "smm_cutdowns", "drone", "makeup", "location_rent", "voiceover_record"]
+        },
+        {
+          id: "business", icon: "🎬", title: "Видео о компании",
+          sub: "Имиджевый ролик, презентация продукта, реклама",
+          tiers: ["business_video", "brand_film_mid", "ad_video_pro"],
+          days: true, weeks: [3, 4, 6],
+          extras: ["drone", "location_rent", "makeup", "voiceover_record", "motion_basic", "vertical_adapt"]
+        },
+        {
+          id: "interview", icon: "🎙", title: "Интервью и экспертное видео",
+          sub: "Спикер, HR-бренд, обучающий контент",
+          tiers: ["interview_base", "interview_studio", "interview_cinema"],
+          days: true, weeks: [2, 3, 4],
+          extras: ["studio_basic", "makeup", "subtitles", "vertical_adapt", "smm_cutdowns", "motion_basic"]
+        },
+        {
+          id: "events", icon: "🎪", title: "Съёмка мероприятия",
+          sub: "Конференция, корпоратив, форум, трансляция",
+          tiers: ["event_basic", "event_conference", "event_online"],
+          days: true, weeks: [1, 2, 3],
+          extras: ["event_photographer", "event_stream", "drone", "event_teaser", "smm_cutdowns", "event_decoration_zone"]
+        },
+        {
+          id: "corporate", icon: "🏢", title: "Корпоративный фильм",
+          sub: "Команда, производство, интервью сотрудников",
+          tiers: ["corporate_start", "corporate_video", "corporate_premium"],
+          days: true, weeks: [3, 4, 6],
+          extras: ["drone", "photographer", "voiceover_record", "motion_basic", "smm_cutdowns", "location_rent"]
+        },
+        {
+          id: "photo", icon: "📸", title: "Фотосъёмка",
+          sub: "Команда, товары, репортаж, портреты",
+          tiers: ["photo_content", "photo_content_pro", "photo_content_premium"],
+          days: true, weeks: [1, 2, 3],
+          extras: ["makeup", "studio_basic", "location_rent", "props", "drone", "cover_design"]
+        },
+        {
+          id: "graphic", icon: "✨", title: "Анимация и графика",
+          sub: "Explainer, motion-дизайн, титры, инфографика",
+          tiers: ["graphic_start", "graphic_pro", "graphic_explainer"],
+          days: false, weeks: [2, 3, 5],
+          extras: ["voiceover_record", "music", "titles", "logo_anim", "thumbnail_pack", "vertical_adapt"]
+        },
+        {
+          id: "ai", icon: "🤖", title: "Видео на нейросетях",
+          sub: "Без съёмочной группы, быстрый запуск",
+          tiers: ["ai_video_short", "ai_product_promo", "ai_video_full"],
+          days: false, weeks: [1, 2, 3],
+          extras: ["ai_voice_synthesis", "ai_motion_graphics", "ai_music_license", "vertical_adapt", "smm_cutdowns", "subtitles"]
+        }
+      ];
+
+      let _calcStep = 1;          // 1 — задача, 2 — уровень, 3 — детали и цена
+      let _calcNeed = "";
+      let _calcPkgId = "";
+      let _calcDays = 1;
+      let _calcExtras = {};
+      let _calcRush = false;
+      let _calcCustom = false;    // открыли по старой ссылке со списком позиций
+      let _calcLeadOpen = false;
+      let _calcLeadSeq = 0;
+      let _calcLead = { name: "", contact: "", note: "", agree: false, sending: false, sent: false, fallback: false, error: "" };
+
+      function _calcNeedDef(id) {
+        return CALC_NEEDS.find(n => n.id === (id || _calcNeed)) || null;
+      }
+      function _calcPkgById(id) {
+        return DEFAULT_PACKAGES.find(p => p.id === id) || null;
+      }
+      function _calcTierIndex() {
+        const need = _calcNeedDef();
+        const i = need ? need.tiers.indexOf(_calcPkgId) : -1;
+        return i < 0 ? 0 : i;
+      }
+      // Опции фильтруются через findItem: если позицию переименуют или уберут из
+      // каталога, кнопка просто исчезнет, а не начнёт считать ноль молча.
+      function _calcExtraIds() {
+        return Object.keys(_calcExtras).filter(id => _calcExtras[id] && findItem(id, true));
+      }
+      /* Цена пакета считается ТЕМ ЖЕ путём, что итог на третьем шаге: собираем
+         смету и спрашиваем totals(). packageApproxTotal() складывает базовые цены
+         позиций и игнорирует модели расчёта (смена, аренда по дням, монтаж по
+         хронометражу) — число на карточке расходилось бы с числом на экране
+         результата, а это ровно тот класс расхождений «несколько входов в одно
+         действие», который в проекте ловился 7+ раз.
+
+         Нижняя граница — priceLabel пакета: это цена, которую агентство уже
+         объявило клиентам. Калькулятор не имеет права называть сумму НИЖЕ неё,
+         даже если состав пакета в каталоге неполный: клиент запомнит первое
+         число. Расхождения между составом и объявленной ценой — повод поправить
+         каталог, а не повод занизить обещание.                                */
+      const _calcPkgCache = {};
+      function _calcPkgPricing(pkgId) {
+        if (_calcPkgCache[pkgId]) return _calcPkgCache[pkgId];
+        const pkg = _calcPkgById(pkgId);
+        if (!pkg) return { computed: 0, shown: 0, gap: 0 };
+        const savedSelected = state.selected;
+        const savedOrder = state.estimateOrder;
+        const savedDays = state.project.days;
+        state.selected = {};
+        state.estimateOrder = [];
+        state.project.days = 1;
+        (pkg.items || []).forEach(id => {
+          const itemData = findItem(id, true);
+          if (!itemData || state.selected[id]) return;
+          state.selected[id] = defaultLineForItem(itemData);
+          state.estimateOrder.push(id);
+        });
+        const computed = totals().total;
+        state.selected = savedSelected;
+        state.estimateOrder = savedOrder;
+        state.project.days = savedDays;
+        const digits = String(pkg.priceLabel || "").replace(/[^\d]/g, "");
+        const shown = Math.max(computed, digits ? Number(digits) : 0);
+        _calcPkgCache[pkgId] = { computed, shown, gap: shown - computed };
+        return _calcPkgCache[pkgId];
+      }
+      function _calcPkgTotal(pkgId) { return _calcPkgPricing(pkgId).shown; }
+      function _calcNeedFrom(need) {
+        const prices = need.tiers.map(id => _calcPkgTotal(id)).filter(v => v > 0);
+        return prices.length ? Math.min.apply(null, prices) : 0;
+      }
+
+      // Дни ставим в state.project ДО создания строк: defaultLineForItem() берёт
+      // оттуда и days (смены), и rentalDays (аренда техники). Иначе при трёх
+      // съёмочных днях техника считалась бы за один.
+      function _calcRebuild() {
+        const need = _calcNeedDef();
+        const pkg = _calcPkgById(_calcPkgId);
+        state.selected = {};
+        state.estimateOrder = [];
+        state.project.days = need && need.days ? Math.max(1, _calcDays) : 1;
+        if (!pkg) return;
+        (pkg.items || []).concat(_calcExtraIds()).forEach(id => {
+          if (state.selected[id]) return;
+          const itemData = findItem(id, true);
+          if (!itemData) return;
+          state.selected[id] = defaultLineForItem(itemData);
+          state.estimateOrder.push(id);
+        });
+      }
+
+      // gap — та самая поправка до объявленной цены пакета. Прибавляется
+      // константой, поэтому цена на карточке уровня и итог на третьем шаге при
+      // одном дне без опций совпадают, а дни и опции сверху считаются честно.
+      function _calcAmounts() {
+        const gap = _calcPkgId ? _calcPkgPricing(_calcPkgId).gap : 0;
+        const base = totals().total + gap;
+        const rush = _calcRush ? Math.round(base * CALC_RUSH_RATE) : 0;
+        return { base, rush, total: base + rush };
+      }
+
+      function _calcWeeks() {
+        const need = _calcNeedDef();
+        if (!need) return 0;
+        let weeks = need.weeks[_calcTierIndex()] || need.weeks[0];
+        if (need.days && _calcDays > 1) weeks += 1;
+        if (_calcRush) weeks = Math.max(1, Math.ceil(weeks / 2));
+        return weeks;
+      }
+
+      // Встроенный калькулятор не может проскроллить страницу-хост сам — просим её.
+      function _calcScrollTop() {
+        if (window.parent === window) { window.scrollTo(0, 0); return; }
+        try { window.parent.postMessage({ type: "adervis-calc-scroll" }, "*"); } catch (e) {}
+      }
+
+      function calcPickNeed(id) {
+        const need = _calcNeedDef(id);
+        if (!need) return;
+        _calcNeed = id;
+        _calcCustom = false;
+        _calcPkgId = need.tiers[1] || need.tiers[0];
+        _calcDays = 1;
+        _calcExtras = {};
+        _calcRush = false;
+        _calcStep = 2;
+        _calcRebuild();
+        trackGoal("calc_need", { need: id });
+        render();
+        _calcScrollTop();
+      }
+
+      function calcPickPkg(id) {
+        if (!_calcPkgById(id)) return;
+        _calcPkgId = id;
+        _calcRebuild();
+        render();
+      }
+
+      function calcGoStep(n) {
+        const step = Math.min(3, Math.max(1, Math.round(numberValue(n, 1))));
+        if (step > 1 && !_calcNeed && !_calcCustom) return;
+        _calcStep = step;
+        if (step === 3) trackGoal("calc_result");
+        render();
+        _calcScrollTop();
+      }
+
+      function calcSetDays(n) {
+        _calcDays = Math.min(CALC_MAX_DAYS, Math.max(1, Math.round(numberValue(n, 1))));
+        _calcRebuild();
+        render();
+      }
+
+      function calcToggleExtra(id) {
+        if (!findItem(id, true)) return;
+        _calcExtras[id] = !_calcExtras[id];
+        _calcRebuild();
+        render();
+      }
+
+      function calcSetRush(val) {
+        _calcRush = !!val;
+        render();
+      }
+
+      function calcRestart() {
+        _calcStep = 1;
+        _calcNeed = "";
+        _calcPkgId = "";
+        _calcCustom = false;
+        _calcDays = 1;
+        _calcExtras = {};
+        _calcRush = false;
+        _calcLeadOpen = false;
+        state.selected = {};
+        state.estimateOrder = [];
+        render();
+        _calcScrollTop();
+      }
+
+      /* ── Ссылка на расчёт ────────────────────────────────────────────────
+         Кодируем ответы мастера, а не список позиций: ссылка открывается сразу
+         на результате с теми же кнопками, и её не ломает правка каталога.
+         Старый формат «id:кол-во:смен;…» продолжаем понимать — ссылки, которые
+         могли уйти до переделки, не должны открываться пустым экраном.        */
+      function _calcShareUrl() {
+        const base = location.origin + location.pathname;
+        if (_calcCustom) {
+          const lines = _calcEncodeLines();
+          return lines ? `${base}?calc=${lines}` : "";
+        }
+        if (!_calcNeed || !_calcPkgId) return "";
+        const parts = [_calcNeed, _calcPkgId, _calcDays, _calcExtraIds().join(","), _calcRush ? "1" : "0"];
+        return `${base}?calc=${parts.join("~")}`;
+      }
+
+      function _calcApplyShared(raw) {
+        if (!raw || raw === "1") return false;
+        if (String(raw).indexOf("~") === -1) {
+          if (!_calcApplyEncoded(raw)) return false;
+          _calcCustom = true;
+          _calcStep = 3;
+          return true;
+        }
+        const parts = String(raw).split("~");
+        const need = _calcNeedDef(parts[0]);
+        if (!need || need.tiers.indexOf(parts[1]) === -1) return false;
+        _calcNeed = parts[0];
+        _calcPkgId = parts[1];
+        _calcDays = Math.min(CALC_MAX_DAYS, Math.max(1, Math.round(numberValue(parts[2], 1))));
+        _calcExtras = {};
+        String(parts[3] || "").split(",").forEach(id => { if (id && findItem(id, true)) _calcExtras[id] = true; });
+        _calcRush = parts[4] === "1";
+        _calcStep = 3;
+        _calcRebuild();
+        return true;
+      }
+
+      async function calcShare() {
+        const url = _calcShareUrl();
+        if (!url) { toast("Сначала выберите задачу и уровень"); return; }
+        try {
+          await navigator.clipboard.writeText(url);
+          toast("🔗 Ссылка на расчёт скопирована");
+        } catch (e) {
+          // Clipboard недоступен (нет https / отказ в разрешении) — показываем
+          // ссылку, чтобы человек скопировал руками, а не остался ни с чем.
+          try { window.prompt("Скопируйте ссылку на расчёт:", url); } catch (_) {}
+        }
+        trackGoal("calc_share");
+      }
+
+      /* ── Заявка ──────────────────────────────────────────────────────────
+         На сайте калькулятор живёт в iframe на чужом origin, а лид-прокси
+         принимает заявки только с adervis.ru — поэтому текст уходит родительской
+         странице, и отправляет его она своим обычным каналом. Открытый напрямую
+         калькулятор бэкенда не имеет: там расчёт копируется в буфер и
+         показываются контакты. Форма, которая молча никуда не уходит, хуже, чем
+         честная кнопка «напишите нам».                                        */
+      function calcOpenLead() {
+        _calcLeadOpen = true;
+        _calcLead.error = "";
+        trackGoal("calc_lead_open");
+        render();
+      }
+      function calcCloseLead() {
+        _calcLeadOpen = false;
+        render();
+      }
+      // Без render(): перерисовка на каждом символе выбивала бы фокус из поля.
+      function calcSetLead(key, value) {
+        if (!Object.prototype.hasOwnProperty.call(_calcLead, key)) return;
+        _calcLead[key] = key === "agree" ? !!value : String(value || "").slice(0, 600);
+      }
+
+      function _calcLeadText() {
+        const need = _calcNeedDef();
+        const pkg = _calcPkgById(_calcPkgId);
+        const amounts = _calcAmounts();
+        const extras = _calcExtraIds().map(id => (findItem(id, true) || {}).name).filter(Boolean);
+        const weeks = _calcWeeks();
+        return [
+          "🧮 Заявка из калькулятора",
+          need ? `Задача: ${need.title}` : "Задача: своя смета",
+          pkg ? `Уровень: ${CALC_TIER_LABELS[_calcTierIndex()]} (${pkg.name})` : "",
+          need && need.days ? `Съёмочных дней: ${_calcDays}` : "",
+          extras.length ? `Дополнительно: ${extras.join(", ")}` : "",
+          _calcRush ? "Срочный запуск: да" : "",
+          `Ориентир: от ${money(amounts.total)}`,
+          weeks ? `Срок: ~${weeks} нед.` : "",
+          "",
+          `Имя: ${_calcLead.name.trim()}`,
+          `Контакт: ${_calcLead.contact.trim()}`,
+          _calcLead.note.trim() ? `Комментарий: ${_calcLead.note.trim()}` : "",
+          "",
+          `Расчёт: ${_calcShareUrl()}`
+        ].filter(Boolean).join("\n");
+      }
+
+      function calcSubmitLead() {
+        const name = _calcLead.name.trim();
+        const contact = _calcLead.contact.trim();
+        if (name.length < 2) { _calcLead.error = "Напишите, как к вам обращаться"; render(); return; }
+        if (contact.length < 5) { _calcLead.error = "Оставьте телефон, Telegram или почту — иначе мы не сможем ответить"; render(); return; }
+        if (!_calcLead.agree) { _calcLead.error = "Нужно согласие на обработку персональных данных"; render(); return; }
+        _calcLead.error = "";
+        const text = _calcLeadText();
+        if (window.parent === window) { _calcLeadFallback(text); return; }
+        _calcLead.sending = true;
+        render();
+        const seq = ++_calcLeadSeq;
+        try {
+          window.parent.postMessage({ type: "adervis-calc-lead", id: seq, text }, "*");
+        } catch (e) {
+          _calcLead.sending = false;
+          _calcLeadFallback(text);
+          return;
+        }
+        // Хост может не уметь принимать заявки (стороннее встраивание) — тогда
+        // ответа не будет вовсе. Ждём ограниченно и уходим в тот же fallback.
+        setTimeout(() => {
+          if (seq !== _calcLeadSeq || !_calcLead.sending) return;
+          _calcLead.sending = false;
+          _calcLeadFallback(text);
+        }, 12000);
+      }
+
+      function _calcLeadFallback(text) {
+        _calcLead.sent = true;
+        _calcLead.fallback = true;
+        _calcLead.error = "";
+        // Буфер может быть недоступен (нет https, отказ в разрешении) — и отказ
+        // приходит отклонённым промисом, а не исключением: без .catch он всплывал
+        // бы как ошибка в консоли на ровном месте.
+        try {
+          const p = navigator.clipboard.writeText(text);
+          if (p && p.catch) p.catch(() => {});
+        } catch (e) {}
+        trackGoal("calc_lead_fallback");
+        render();
+      }
+
+      function _calcOnLeadResult(data) {
+        if (!_calcLead.sending || data.id !== _calcLeadSeq) return;
+        _calcLead.sending = false;
+        if (data.ok) {
+          _calcLead.sent = true;
+          _calcLead.fallback = false;
+          trackGoal("calc_lead_sent");
+          render();
+        } else {
+          _calcLeadFallback(_calcLeadText());
+        }
+      }
+
+      // «Открыть в CRM» — регистрация ПОСЛЕ полученной пользы: черновик кладём в
+      // localStorage и уходим в приложение, где сработает обычный auth gate.
+      // Из iframe открываем новой вкладкой: подменять страницу сайта собой —
+      // не то, чего ждёт человек, кликнувший ссылку внутри статьи.
+      function calcSaveToAccount() {
+        const lines = _calcEncodeLines();
+        if (!lines) { toast("Сначала выберите задачу и уровень"); return; }
+        const name = _calcNeedDef() ? _calcNeedDef().title : "";
+        lsSet(CALC_DRAFT_KEY, JSON.stringify({ lines, name, at: Date.now() }));
+        trackGoal("calc_save_to_account");
+        const url = location.origin + location.pathname;
+        if (window.parent === window) location.href = url;
+        else window.open(url, "_blank", "noopener");
+      }
+
+      /* ── Рендер ─────────────────────────────────────────────────────────── */
       function renderPublicCalc() {
-        const items = allItems(false).filter(x => !x.catalogSourceId);
-        const query = _calcSearch.trim().toLowerCase();
-        const filtered = items
-          .filter(x => _calcCat === "all" || x.category === _calcCat)
-          .filter(x => !query || `${x.name} ${x.desc || ""} ${(x.tags || []).join(" ")}`.toLowerCase().includes(query));
-
-        const key = _calcCat + "|" + query;
-        if (key !== _calcLimitKey) { _calcLimitKey = key; _calcVisibleLimit = CALC_PAGE_SIZE; }
-        const shown = filtered.slice(0, _calcVisibleLimit);
-        const hidden = filtered.length - shown.length;
-
-        const chosen = selectedIds();
-        const t = totals();
-
-        // Категории — только те, в которых реально есть позиции.
-        const cats = Object.keys(CAT).filter(c => items.some(x => x.category === c));
-
-        const itemCard = (x) => {
-          const on = !!state.selected[x.id];
-          const line = state.selected[x.id];
-          const perDay = shouldShowMainDays(x);
-          const perQty = shouldShowMainQty(x);
-          const price = getCatalogPrice(x);
-          return `
-            <div class="calc-item ${on ? "on" : ""}">
-              <div class="calc-item-main">
-                <div class="calc-item-name">${escapeHtml(x.name)}</div>
-                ${x.desc ? `<div class="calc-item-desc">${escapeHtml(x.desc)}</div>` : ""}
-                <div class="calc-item-price">${money(price)} <span>/ ${escapeHtml(x.unit || "шт")}</span></div>
-              </div>
-              <div class="calc-item-actions">
-                ${on && (perDay || perQty) ? `
-                  <label class="calc-num">
-                    <span>${perDay ? "смен" : "кол-во"}</span>
-                    <input type="number" min="1" max="999" inputmode="numeric"
-                      value="${perDay ? Math.max(1, Math.round(numberValue(line.days, 1))) : Math.max(1, Math.round(numberValue(line.qty, 1)))}"
-                      oninput="app.calcSetNum('${x.id}','${perDay ? "days" : "qty"}',this.value)"
-                      aria-label="${perDay ? "Количество смен" : "Количество"} — ${escapeHtml(x.name)}">
-                  </label>` : ""}
-                ${on ? `<div class="calc-item-sum">${money(lineTotal(x.id))}</div>` : ""}
-                <button class="calc-add-btn ${on ? "on" : ""}" onclick="app.calcToggle('${x.id}')"
-                  aria-label="${on ? "Убрать из сметы" : "Добавить в смету"} — ${escapeHtml(x.name)}">
-                  ${on ? "✓ В смете" : "+ Добавить"}
-                </button>
-              </div>
-            </div>`;
-        };
-
-        const summaryRows = chosen.length
-          ? chosen.map(id => {
-              const x = findItem(id, true);
-              if (!x) return "";
-              return `
-                <div class="calc-sum-row">
-                  <div class="calc-sum-name">${escapeHtml(x.name)}</div>
-                  <div class="calc-sum-val">${money(lineTotal(id))}</div>
-                  <button class="calc-sum-del" onclick="app.calcRemove('${id}')" aria-label="Убрать ${escapeHtml(x.name)} из сметы">×</button>
-                </div>`;
-            }).join("")
-          : `<p class="calc-sum-empty">Выберите позиции слева — итог посчитается сам.</p>`;
-
+        const body = _calcStep === 1 ? _calcRenderNeeds()
+          : _calcStep === 2 ? _calcRenderTiers()
+          : _calcRenderResult();
         return `
           <div class="calc-page">
-            <header class="calc-hero">
-              <div class="calc-badge">ADERVIS · калькулятор смет</div>
-              <h1>Смета на видеопродакшн за 15 минут</h1>
-              <p>Выберите позиции — увидите итог по реальным ставкам продакшна.
-                 Ссылку со сметой можно сразу отправить клиенту. Регистрация не нужна.</p>
-            </header>
-
-            <div class="calc-body">
-              <div class="calc-left">
-                <div class="calc-controls">
-                  <input class="calc-search" type="search" placeholder="Поиск: режиссёр, монтаж, дрон…"
-                    value="${escapeHtml(_calcSearch)}" oninput="app.calcSetSearch(this.value)" aria-label="Поиск по позициям">
-                  <div class="calc-chips" role="group" aria-label="Категории услуг">
-                    <button class="calc-chip ${_calcCat === "all" ? "on" : ""}" onclick="app.calcSetCat('all')">Все</button>
-                    ${cats.map(c => `<button class="calc-chip ${_calcCat === c ? "on" : ""}" onclick="app.calcSetCat('${c}')">${escapeHtml(CAT[c])}</button>`).join("")}
-                  </div>
-                </div>
-
-                <div class="calc-items">
-                  ${shown.length ? shown.map(itemCard).join("")
-                    : `<p class="calc-sum-empty">Ничего не найдено. Попробуйте другой запрос.</p>`}
-                </div>
-                ${hidden > 0 ? `
-                  <button class="btn calc-more" onclick="app.calcShowMore()">
-                    Показать ещё ${Math.min(CALC_PAGE_SIZE, hidden)} · осталось ${hidden}
-                  </button>` : ""}
-              </div>
-
-              <aside class="calc-summary" id="calcSummary">
-                <input class="calc-name" type="text" placeholder="Название проекта (необязательно)"
-                  value="${escapeHtml(_calcName)}" oninput="app.calcSetName(this.value)" aria-label="Название проекта">
-                <div class="calc-sum-rows">${summaryRows}</div>
-                ${chosen.length ? `
-                  <div class="calc-total">
-                    <span>Итого</span>
-                    <strong>${money(t.total)}</strong>
-                  </div>
-                  <div class="calc-total-note">${chosen.length} ${plural(chosen.length, "позиция", "позиции", "позиций")} · без налога и скидок</div>
-                  <div class="calc-cta">
-                    <button class="btn primary" onclick="app.calcShare()">🔗 Ссылка клиенту</button>
-                    <button class="btn" onclick="app.calcSaveToAccount()">Сохранить в аккаунт</button>
-                    <button class="btn calc-clear" onclick="app.calcClear()">Очистить</button>
-                  </div>` : ""}
-                <p class="calc-foot">
-                  Полная версия — сделки, КП с оплатой аванса, финансы и задачи —
-                  <a href="${location.pathname}">в ADERVIS CRM</a>.
-                </p>
-              </aside>
-            </div>
+            ${_calcRenderHero()}
+            ${_calcRenderSteps()}
+            ${body}
+            ${_calcRenderFoot()}
           </div>`;
+      }
+
+      function _calcRenderHero() {
+        if (_calcStep !== 1) return "";
+        return `
+          <header class="calc-hero">
+            <div class="calc-badge">ADERVIS · видеопродакшн</div>
+            <h1>Сколько будет стоить ваше видео</h1>
+            <p>Три вопроса — и вы увидите порядок цены и что входит в работу.
+               Без регистрации и без звонка: считайте сколько угодно.</p>
+          </header>`;
+      }
+
+      function _calcRenderSteps() {
+        const labels = ["Задача", "Уровень", "Детали и цена"];
+        return `
+          <ol class="calc-steps" aria-label="Шаги расчёта">
+            ${labels.map((label, i) => {
+              const n = i + 1;
+              const cls = n === _calcStep ? "on" : n < _calcStep ? "done" : "";
+              const clickable = n < _calcStep;
+              const inner = `<b aria-hidden="true">${n}</b><span>${label}</span>`;
+              return `<li class="calc-step ${cls}">${clickable
+                ? `<button type="button" onclick="app.calcGoStep(${n})" aria-label="Вернуться к шагу ${n}: ${label}">${inner}</button>`
+                : `<span${n === _calcStep ? ' aria-current="step"' : ""}>${inner}</span>`}</li>`;
+            }).join("")}
+          </ol>`;
+      }
+
+      function _calcRenderNeeds() {
+        return `
+          <section class="calc-needs">
+            <h2 class="calc-h2">Что нужно снять?</h2>
+            <div class="calc-need-grid">
+              ${CALC_NEEDS.map(need => {
+                const from = _calcNeedFrom(need);
+                return `
+                  <button type="button" class="calc-need" onclick="app.calcPickNeed('${need.id}')">
+                    <span class="calc-need-icon" aria-hidden="true">${need.icon}</span>
+                    <span class="calc-need-title">${escapeHtml(need.title)}</span>
+                    <span class="calc-need-sub">${escapeHtml(need.sub)}</span>
+                    ${from ? `<span class="calc-need-from">от ${money(from)}</span>` : ""}
+                  </button>`;
+              }).join("")}
+            </div>
+            <p class="calc-disclaimer">Цены — ориентир по нашим базовым ставкам. Итог зависит от
+               сценария, количества локаций и сроков: точную смету присылаем после короткого разговора.</p>
+          </section>`;
+      }
+
+      // Короткий состав пакета: по одной строке на этап, не больше четырёх имён —
+      // клиенту нужно понять разницу между уровнями, а не прочитать всю смету.
+      function _calcStageSummary(items) {
+        const order = ["pre", "shoot", "post", "management", "marketing"];
+        const byStage = {};
+        items.forEach(it => {
+          const stage = it.stage || "pre";
+          (byStage[stage] = byStage[stage] || []).push(it.name);
+        });
+        return order.filter(s => byStage[s]).map(s => {
+          const names = byStage[s];
+          const shown = names.slice(0, 4).map(n => n.charAt(0).toLowerCase() + n.slice(1));
+          const rest = names.length - shown.length;
+          return `${getStage(s).name}: ${shown.join(", ")}${rest > 0 ? ` и ещё ${rest}` : ""}`;
+        });
+      }
+
+      function _calcRenderTiers() {
+        const need = _calcNeedDef();
+        if (!need) { _calcStep = 1; return _calcRenderNeeds(); }
+        return `
+          <section class="calc-tiers">
+            <h2 class="calc-h2">${escapeHtml(need.title)}: какой уровень нужен?</h2>
+            <p class="calc-sub">Разница — в команде, технике и глубине постпродакшна.</p>
+            <div class="calc-tier-grid">
+              ${need.tiers.map((id, i) => {
+                const pkg = _calcPkgById(id);
+                if (!pkg) return "";
+                const on = _calcPkgId === id;
+                return `
+                  <div class="calc-tier ${on ? "on" : ""}">
+                    ${i === 1 ? `<div class="calc-tier-flag">чаще всего выбирают</div>` : ""}
+                    <div class="calc-tier-name">${escapeHtml(CALC_TIER_LABELS[i] || pkg.name)}</div>
+                    <div class="calc-tier-price">от ${money(_calcPkgTotal(id))}</div>
+                    <p class="calc-tier-desc">${escapeHtml(pkg.desc || "")}</p>
+                    ${pkg.goodFor ? `<p class="calc-tier-for">Подойдёт: ${escapeHtml(pkg.goodFor)}</p>` : ""}
+                    <ul class="calc-tier-list">
+                      ${_calcStageSummary(getPackageItems(pkg)).map(s => `<li>${escapeHtml(s)}</li>`).join("")}
+                    </ul>
+                    <button type="button" class="btn ${on ? "primary" : ""} calc-tier-pick"
+                      onclick="app.calcPickPkg('${id}')" aria-pressed="${on}">
+                      ${on ? "✓ Выбрано" : "Выбрать"}
+                    </button>
+                  </div>`;
+              }).join("")}
+            </div>
+            <div class="calc-nav">
+              <button type="button" class="btn" onclick="app.calcGoStep(1)">← Другая задача</button>
+              <button type="button" class="btn primary" onclick="app.calcGoStep(3)">Дальше: детали и цена →</button>
+            </div>
+          </section>`;
+      }
+
+      function _calcRenderResult() {
+        const need = _calcNeedDef();
+        const pkg = _calcPkgById(_calcPkgId);
+        if (!_calcCustom && (!need || !pkg)) { _calcStep = 1; return _calcRenderNeeds(); }
+        const amounts = _calcAmounts();
+        const weeks = _calcWeeks();
+        const meta = [
+          need ? need.title : "Своя смета",
+          pkg ? CALC_TIER_LABELS[_calcTierIndex()] : "",
+          need && need.days ? `${_calcDays} ${plural(_calcDays, "съёмочный день", "съёмочных дня", "съёмочных дней")}` : "",
+          weeks ? `срок ~${weeks} ${plural(weeks, "неделя", "недели", "недель")}` : ""
+        ].filter(Boolean).join(" · ");
+
+        return `
+          <section class="calc-result">
+            <div class="calc-result-card">
+              <div class="calc-result-label">Ориентировочная стоимость</div>
+              <div class="calc-result-sum">от ${money(amounts.total)}</div>
+              <div class="calc-result-meta">${escapeHtml(meta)}</div>
+              ${amounts.rush ? `<div class="calc-result-rush">включая +${money(amounts.rush)} за срочный запуск</div>` : ""}
+              ${_calcLead.sent || _calcLeadOpen ? "" : `
+                <button type="button" class="btn primary calc-result-cta" onclick="app.calcOpenLead()">
+                  Получить точную смету
+                </button>
+                <div class="calc-result-sub">Ответим в течение рабочего дня. Ни к чему не обязывает.</div>`}
+              ${_calcRenderLead()}
+            </div>
+            ${_calcRenderDetails()}
+            ${_calcRenderIncluded()}
+            <p class="calc-disclaimer">
+              Это ориентир по нашим базовым ставкам, а не коммерческое предложение. Итог зависит от
+              сценария, количества локаций, состава смены и сроков — точную смету пришлём после
+              короткого разговора о задаче.
+            </p>
+            <div class="calc-nav">
+              <button type="button" class="btn" onclick="app.calcGoStep(2)">← Изменить уровень</button>
+              <button type="button" class="btn" onclick="app.calcShare()">🔗 Ссылка на расчёт</button>
+              <button type="button" class="btn" onclick="app.calcRestart()">Начать заново</button>
+            </div>
+          </section>`;
+      }
+
+      function _calcRenderDetails() {
+        const need = _calcNeedDef();
+        if (!need) return "";
+        const extras = need.extras.map(id => findItem(id, true)).filter(Boolean);
+        return `
+          <section class="calc-details">
+            <h2 class="calc-h2">Уточните детали</h2>
+            ${need.days ? `
+              <fieldset class="calc-group">
+                <legend>Сколько съёмочных дней</legend>
+                <div class="calc-opts">
+                  ${[1, 2, 3, 4].map(d => `
+                    <button type="button" class="calc-opt ${_calcDays === d ? "on" : ""}"
+                      aria-pressed="${_calcDays === d}" onclick="app.calcSetDays(${d})">
+                      ${d === CALC_MAX_DAYS ? `${d}+ дней` : `${d} ${plural(d, "день", "дня", "дней")}`}
+                    </button>`).join("")}
+                </div>
+              </fieldset>` : ""}
+            ${extras.length ? `
+              <fieldset class="calc-group">
+                <legend>Что добавить</legend>
+                <div class="calc-extras">
+                  ${extras.map(it => {
+                    const on = !!_calcExtras[it.id];
+                    return `
+                      <button type="button" class="calc-extra ${on ? "on" : ""}" aria-pressed="${on}"
+                        onclick="app.calcToggleExtra('${it.id}')">
+                        <span class="calc-extra-name">${escapeHtml(it.name)}</span>
+                        <span class="calc-extra-price">${on ? "✓ включено" : `+ ${money(getCatalogPrice(it))}`}</span>
+                      </button>`;
+                  }).join("")}
+                </div>
+              </fieldset>` : ""}
+            <fieldset class="calc-group">
+              <legend>Сроки</legend>
+              <div class="calc-opts">
+                <button type="button" class="calc-opt ${!_calcRush ? "on" : ""}" aria-pressed="${!_calcRush}"
+                  onclick="app.calcSetRush(false)">Обычные сроки</button>
+                <button type="button" class="calc-opt ${_calcRush ? "on" : ""}" aria-pressed="${_calcRush}"
+                  onclick="app.calcSetRush(true)">Срочно, вдвое быстрее (+30%)</button>
+              </div>
+            </fieldset>
+          </section>`;
+      }
+
+      function _calcRenderIncluded() {
+        const items = selectedIds().map(id => findItem(id, true)).filter(Boolean);
+        if (!items.length) return "";
+        const order = ["pre", "shoot", "post", "management", "marketing"];
+        const byStage = {};
+        items.forEach(it => {
+          const stage = it.stage || "pre";
+          (byStage[stage] = byStage[stage] || []).push(it);
+        });
+        const pkg = _calcPkgById(_calcPkgId);
+        return `
+          <section class="calc-included">
+            <h2 class="calc-h2">Что входит в работу</h2>
+            <div class="calc-inc-grid">
+              ${order.filter(s => byStage[s]).map(s => `
+                <div class="calc-inc-col">
+                  <h3>${escapeHtml(getStage(s).name)}</h3>
+                  <ul>${byStage[s].map(it => `<li>${escapeHtml(it.name)}</li>`).join("")}</ul>
+                </div>`).join("")}
+            </div>
+            ${pkg && (pkg.notes || []).length
+              ? `<ul class="calc-notes">${pkg.notes.map(n => `<li>${escapeHtml(n)}</li>`).join("")}</ul>`
+              : ""}
+          </section>`;
+      }
+
+      function _calcRenderLead() {
+        if (_calcLead.sent) {
+          return `
+            <div class="calc-lead done" role="status">
+              <h3>${_calcLead.fallback ? "Расчёт скопирован" : "Заявка отправлена"}</h3>
+              <p>${_calcLead.fallback
+                ? "Расчёт в буфере обмена — пришлите его нам любым удобным способом, ответим в течение рабочего дня."
+                : "Спасибо! Свяжемся в течение рабочего дня и пришлём точную смету."}</p>
+              <div class="calc-lead-contacts">
+                <a class="btn" href="https://t.me/Adervis_digital" target="_blank" rel="noopener">Telegram</a>
+                <a class="btn" href="tel:+79223018880">+7 (922) 301-88-80</a>
+                <a class="btn" href="mailto:adervis.digital@gmail.com">Почта</a>
+              </div>
+            </div>`;
+        }
+        if (!_calcLeadOpen) return "";
+        return `
+          <form class="calc-lead" onsubmit="event.preventDefault();app.calcSubmitLead()">
+            <h3>Пришлём точную смету</h3>
+            <label class="calc-field">
+              <span>Как к вам обращаться</span>
+              <input type="text" value="${escapeHtml(_calcLead.name)}" autocomplete="name"
+                oninput="app.calcSetLead('name',this.value)">
+            </label>
+            <label class="calc-field">
+              <span>Телефон, Telegram или почта</span>
+              <input type="text" value="${escapeHtml(_calcLead.contact)}" autocomplete="tel"
+                oninput="app.calcSetLead('contact',this.value)">
+            </label>
+            <label class="calc-field">
+              <span>Пара слов о проекте (необязательно)</span>
+              <textarea rows="3" oninput="app.calcSetLead('note',this.value)">${escapeHtml(_calcLead.note)}</textarea>
+            </label>
+            <label class="calc-agree">
+              <input type="checkbox" ${_calcLead.agree ? "checked" : ""}
+                onchange="app.calcSetLead('agree',this.checked)">
+              <span>Согласен на обработку персональных данных согласно
+                <a href="https://adervis.ru/docs#docs-privacy" target="_blank" rel="noopener">Политике конфиденциальности</a></span>
+            </label>
+            ${_calcLead.error ? `<p class="calc-lead-err" role="alert">${escapeHtml(_calcLead.error)}</p>` : ""}
+            <div class="calc-lead-actions">
+              <button type="submit" class="btn primary" ${_calcLead.sending ? "disabled" : ""}>
+                ${_calcLead.sending ? "Отправляем…" : "Отправить заявку"}
+              </button>
+              <button type="button" class="btn" onclick="app.calcCloseLead()">Отмена</button>
+            </div>
+          </form>`;
+      }
+
+      function _calcRenderFoot() {
+        return `
+          <p class="calc-foot">
+            Вы студия или продюсер? Этот расчёт собран в ADERVIS CRM — там 90+ позиций,
+            свои ставки, КП с оплатой аванса, задачи и финансы.
+            ${_calcStep === 3
+              ? `<button type="button" class="calc-link" onclick="app.calcSaveToAccount()">Открыть этот расчёт в CRM →</button>`
+              : `<a href="${location.pathname}">Попробовать CRM →</a>`}
+          </p>`;
       }
 
       /* ═══════════════════════════════════════════════════════
@@ -18911,15 +19433,17 @@ Email: ______________________            Email: ______________________
         projectsShowMore,
         calEventsShowMore,
 
-        calcSetCat,
-        calcSetSearch,
-        calcSetName,
-        calcShowMore,
-        calcAdd,
-        calcRemove,
-        calcToggle,
-        calcSetNum,
-        calcClear,
+        calcPickNeed,
+        calcPickPkg,
+        calcGoStep,
+        calcSetDays,
+        calcToggleExtra,
+        calcSetRush,
+        calcRestart,
+        calcOpenLead,
+        calcCloseLead,
+        calcSetLead,
+        calcSubmitLead,
         calcShare,
         calcSaveToAccount,
         setCrmTagFilter,
@@ -19209,18 +19733,22 @@ Email: ______________________            Email: ______________________
         // браузере) — ни на экране, ни тем более на диске (см. save()/_flushStateOnUnload).
         // Стартуем с чистого состояния и накладываем позиции только из самой ссылки.
         state = defaultState();
-        _calcApplyEncoded(_calcInitialEncoded);
-        if (_calcInitialName) _calcName = _calcInitialName;
+        _calcApplyShared(_calcInitialEncoded);
         document.body.classList.add('calc-mode');
-        // Живая синхронизация темы, если посетитель переключил её на сайте-хосте
-        // ПОСЛЕ того, как iframe уже загрузился (initTheme() выше отработала только
-        // на старте по ?theme= в src). Хост-страница шлёт эту команду сама —
-        // адрес не проверяем строже источника события: тема не секрет и не действие.
+        // Сообщения от страницы-хоста: живая смена темы (посетитель переключил её
+        // на сайте уже ПОСЛЕ загрузки iframe — initTheme() отработала только на
+        // старте по ?theme= в src) и результат отправки заявки. Адрес отправителя
+        // не проверяем: тема не секрет, а результат заявки лишь меняет надпись —
+        // ничего, что стоило бы подделывать, здесь не происходит.
         window.addEventListener('message', (e) => {
           const d = e && e.data;
-          if (!d || d.type !== 'adervis-set-theme') return;
-          if (d.theme !== 'light' && d.theme !== 'dark') return;
-          document.documentElement.setAttribute('data-theme', d.theme);
+          if (!d) return;
+          if (d.type === 'adervis-set-theme') {
+            if (d.theme !== 'light' && d.theme !== 'dark') return;
+            document.documentElement.setAttribute('data-theme', d.theme);
+            return;
+          }
+          if (d.type === 'adervis-calc-lead-result') _calcOnLeadResult(d);
         });
       } else {
         load();

@@ -5556,109 +5556,176 @@ body.portal-mode .nav { display: none !important; }
 .u-flex-ac-g6 { display: flex; align-items: center; gap: 6px; }
 .u-subpanel-mb16 { box-shadow: none; background: var(--panel2); margin-bottom: 16px; }
 
-/* ── ПУБЛИЧНЫЙ КАЛЬКУЛЯТОР СМЕТ (?calc=…) ────────────────────────────────
-   Двухколоночный лэйаут (позиции слева, итог справа-sticky) на десктопе;
-   на мобильном/встроенном в iframe — одна колонка, итог снизу (стать
-   sticky-снизу без фиксированного viewport-высоты iframe нельзя, поэтому
-   на телефоне это обычный блок в потоке, не sticky). */
-.calc-page { max-width: 1120px; margin: 0 auto; padding: 32px 20px 56px; }
+/* ── ПУБЛИЧНЫЙ КАЛЬКУЛЯТОР (?calc=…) — продающий мастер из трёх шагов ─────
+   Не таблица сметчика, а витрина: крупные карточки-выборы, цены «от», один
+   заметный CTA. Колонка одна на любой ширине — калькулятор живёт в iframe на
+   сайте, где ширина непредсказуема, а sticky-панель без своего viewport'а
+   всё равно не работает. */
+.calc-page { max-width: 940px; margin: 0 auto; padding: 28px 20px 48px; }
+.calc-h2 { margin: 0 0 6px; font-size: 21px; line-height: 1.25; font-family: var(--font-display); }
+.calc-sub { margin: 0 0 18px; color: var(--muted); font-size: 14px; line-height: 1.5; }
 
-.calc-hero { text-align: center; max-width: 640px; margin: 0 auto 32px; }
+.calc-hero { text-align: center; max-width: 620px; margin: 0 auto 24px; }
 .calc-badge {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--primary2); background: var(--primary-bg);
-  border: 1px solid rgba(124,58,237,.25); border-radius: 999px;
+  border: 1px solid var(--primary-bg); border-radius: 999px;
   padding: 5px 14px; margin-bottom: 14px;
 }
-.calc-hero h1 { margin: 0 0 10px; font-size: 30px; line-height: 1.2; font-family: var(--font-display); }
+.calc-hero h1 { margin: 0 0 10px; font-size: clamp(26px, 5vw, 34px); line-height: 1.15; font-family: var(--font-display); }
 .calc-hero p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.55; }
 
-.calc-body { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
-@media (max-width: 860px) {
-  .calc-body { grid-template-columns: 1fr; }
+/* Шаги: показывают, что вопросов всего три и конец близко */
+.calc-steps {
+  display: flex; justify-content: center; flex-wrap: wrap; gap: 6px;
+  list-style: none; margin: 0 0 24px; padding: 0;
+}
+.calc-step > button, .calc-step > span {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 44px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: transparent;
+  color: var(--muted); font: inherit; font-size: 13px; font-weight: 600;
+}
+.calc-step > button { cursor: pointer; }
+.calc-step > button:hover { color: var(--text); border-color: var(--primary2); }
+.calc-step > button:focus-visible { outline: 2px solid var(--primary2); outline-offset: 2px; }
+.calc-step b {
+  display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--line); color: var(--text); font-size: 11px; font-weight: 800;
+}
+.calc-step.on > span { color: var(--text); border-color: var(--primary2); background: var(--primary-bg); }
+.calc-step.on b { background: var(--primary); color: #fff; }
+.calc-step.done b { background: var(--green); color: #fff; }
+@media (max-width: 560px) {
+  .calc-step > button, .calc-step > span { padding: 0 10px; font-size: 12px; }
+  /* На узком экране подпись остаётся только у текущего шага — иначе три капсулы
+     не влезают в строку. Кнопки «назад» сохраняют aria-label, имя не теряется. */
+  .calc-step:not(.on) > * > span { display: none; }
 }
 
-.calc-controls { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
-.calc-search {
-  width: 100%; padding: 12px 16px; font-size: 14px;
-  border: 1px solid var(--line); border-radius: 12px;
-  background: var(--panel2); color: var(--text);
+/* ── Шаг 1: задача ────────────────────────────────────────────────────── */
+.calc-need-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(228px, 1fr)); gap: 12px; }
+.calc-need {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  min-height: 148px; padding: 18px; text-align: left; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  color: var(--text); font: inherit;
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
 }
-.calc-search:focus-visible { outline: 2px solid var(--primary2); outline-offset: 1px; }
-.calc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.calc-chip {
-  font-size: 12.5px; font-weight: 700; padding: 6px 13px; border-radius: 999px;
-  border: 1px solid var(--line); background: var(--panel2); color: var(--muted);
-  cursor: pointer; transition: .12s;
+.calc-need:hover { transform: translateY(-2px); border-color: var(--primary2); box-shadow: 0 10px 28px var(--primary-bg); }
+.calc-need:focus-visible { outline: 2px solid var(--primary2); outline-offset: 2px; }
+.calc-need-icon { font-size: 26px; line-height: 1; margin-bottom: 4px; }
+.calc-need-title { font-size: 16px; font-weight: 700; line-height: 1.25; }
+.calc-need-sub { font-size: 13px; color: var(--muted); line-height: 1.45; }
+.calc-need-from {
+  margin-top: auto; padding-top: 10px; font-family: var(--font-display);
+  font-size: 15px; font-weight: 700; color: var(--primary2); font-variant-numeric: tabular-nums;
 }
-.calc-chip:hover { border-color: rgba(124,58,237,.4); color: var(--text); }
-.calc-chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
-.calc-chip:focus-visible { outline: 2px solid var(--primary2); outline-offset: 1px; }
 
-.calc-items { display: flex; flex-direction: column; gap: 10px; }
-.calc-item {
-  display: flex; align-items: center; justify-content: space-between; gap: 14px;
-  padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px;
-  background: var(--panel); transition: border-color .12s;
-}
-.calc-item.on { border-color: rgba(124,58,237,.4); background: var(--primary-bg); }
-.calc-item-main { min-width: 0; flex: 1; }
-.calc-item-name { font-weight: 700; font-size: 14px; color: var(--text); }
-.calc-item-desc { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
-.calc-item-price { font-size: 12.5px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
-.calc-item-price span { opacity: .7; }
-.calc-item-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
-.calc-num { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
-.calc-num input {
-  width: 52px; padding: 6px 8px; text-align: center; font-variant-numeric: tabular-nums;
-  border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); color: var(--text);
-}
-.calc-item-sum { font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
-.calc-add-btn {
-  font-size: 12.5px; font-weight: 700; padding: 8px 14px; border-radius: 10px;
-  border: 1px solid var(--line); background: var(--panel2); color: var(--text);
-  cursor: pointer; white-space: nowrap; min-height: 36px;
-}
-.calc-add-btn.on { background: var(--green); border-color: var(--green); color: #fff; }
-.calc-add-btn:focus-visible { outline: 2px solid var(--primary2); outline-offset: 1px; }
+.calc-disclaimer { margin: 20px 0 0; font-size: 13px; line-height: 1.55; color: var(--muted); }
 
-.calc-more { width: 100%; margin-top: 4px; }
-
-.calc-summary {
-  position: sticky; top: 20px;
+/* ── Шаг 2: уровень ───────────────────────────────────────────────────── */
+.calc-tier-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.calc-tier {
+  position: relative; display: flex; flex-direction: column; gap: 8px;
+  padding: 20px 18px; background: var(--panel);
   border: 1px solid var(--line); border-radius: 16px;
-  background: var(--panel); padding: 18px;
-  display: flex; flex-direction: column; gap: 12px;
 }
-@media (max-width: 860px) {
-  .calc-summary { position: static; }
+.calc-tier.on { border-color: var(--primary2); background: var(--primary-bg); }
+.calc-tier-flag {
+  position: absolute; top: -10px; left: 18px;
+  padding: 3px 10px; border-radius: 999px; background: var(--primary); color: #fff;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em;
 }
-.calc-name {
-  width: 100%; padding: 10px 12px; font-size: 13px; font-weight: 700;
-  border: 1px solid var(--line); border-radius: 10px;
-  background: var(--panel2); color: var(--text);
-}
-.calc-sum-rows { display: flex; flex-direction: column; gap: 8px; }
-.calc-sum-row { display: flex; align-items: center; gap: 8px; }
-.calc-sum-name { flex: 1; min-width: 0; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.calc-sum-val { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.calc-sum-del {
-  width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%;
-  border: none; background: var(--panel2); color: var(--muted);
-  cursor: pointer; font-size: 15px; line-height: 1;
-}
-.calc-sum-del:hover { background: rgba(220,38,38,.15); color: var(--red); }
-.calc-sum-empty { margin: 4px 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.calc-tier-name { font-size: 17px; font-weight: 800; font-family: var(--font-display); }
+.calc-tier-price { font-size: 22px; font-weight: 800; font-family: var(--font-display); font-variant-numeric: tabular-nums; }
+.calc-tier-desc { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--text); }
+.calc-tier-for { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.calc-tier-list { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+.calc-tier-list li { font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.calc-tier-pick { margin-top: auto; width: 100%; min-height: 44px; }
 
-.calc-total { display: flex; align-items: baseline; justify-content: space-between; padding-top: 8px; border-top: 1px dashed var(--line); }
-.calc-total span { font-size: 13px; color: var(--muted); }
-.calc-total strong { font-size: 22px; font-family: var(--font-display); font-variant-numeric: tabular-nums; }
-.calc-total-note { font-size: 12px; color: var(--muted); margin-top: -6px; }
+.calc-nav { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 24px; }
+.calc-nav .btn { min-height: 44px; }
 
-.calc-cta { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
-.calc-cta .btn { width: 100%; min-height: 44px; }
-.calc-clear { color: var(--muted); }
+/* ── Шаг 3: результат ─────────────────────────────────────────────────── */
+.calc-result-card {
+  text-align: center; padding: 26px 20px;
+  background: var(--panel); border: 1px solid var(--primary2); border-radius: 20px;
+  box-shadow: 0 16px 44px var(--primary-bg);
+}
+.calc-result-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+.calc-result-sum {
+  margin: 6px 0 8px; font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(34px, 8vw, 48px); line-height: 1.05; font-variant-numeric: tabular-nums;
+}
+.calc-result-meta { font-size: 14px; color: var(--muted); line-height: 1.5; }
+.calc-result-rush { margin-top: 6px; font-size: 13px; color: var(--text-warning); }
+.calc-result-cta { margin-top: 18px; min-height: 52px; padding: 0 28px; font-size: 16px; }
+.calc-result-sub { margin-top: 8px; font-size: 12.5px; color: var(--muted); }
 
-.calc-foot { margin: 6px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; text-align: center; }
-.calc-foot a { color: var(--primary2); font-weight: 700; }
+.calc-details, .calc-included { margin-top: 28px; }
+.calc-group { border: 0; margin: 0 0 16px; padding: 0; }
+.calc-group legend { padding: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.calc-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.calc-opt, .calc-extra {
+  min-height: 44px; padding: 10px 14px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  color: var(--text); font: inherit; font-size: 13.5px; text-align: left;
+}
+.calc-opt:hover, .calc-extra:hover { border-color: var(--primary2); }
+.calc-opt:focus-visible, .calc-extra:focus-visible { outline: 2px solid var(--primary2); outline-offset: 2px; }
+.calc-opt.on, .calc-extra.on { border-color: var(--primary2); background: var(--primary-bg); font-weight: 700; }
+
+.calc-extras { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.calc-extra { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.calc-extra-name { min-width: 0; }
+.calc-extra-price { flex-shrink: 0; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.calc-extra.on .calc-extra-price { color: var(--text-success); }
+
+.calc-inc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.calc-inc-col {
+  padding: 16px; background: var(--panel2);
+  border: 1px solid var(--line); border-radius: 14px;
+}
+.calc-inc-col h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--primary2); }
+.calc-inc-col ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; }
+.calc-inc-col li { font-size: 13px; line-height: 1.4; color: var(--text); }
+.calc-notes { margin: 14px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+.calc-notes li { font-size: 13px; line-height: 1.5; color: var(--muted); }
+
+/* ── Заявка ───────────────────────────────────────────────────────────── */
+.calc-lead {
+  margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--line);
+  display: flex; flex-direction: column; gap: 12px; text-align: left;
+}
+.calc-lead h3 { margin: 0; font-size: 17px; font-family: var(--font-display); text-align: center; }
+.calc-lead.done { align-items: center; text-align: center; }
+.calc-lead.done p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--muted); max-width: 420px; }
+.calc-lead-contacts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.calc-lead-contacts .btn { min-height: 44px; }
+.calc-field { display: flex; flex-direction: column; gap: 5px; }
+.calc-field span { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.calc-field input, .calc-field textarea {
+  width: 100%; min-height: 44px; padding: 11px 13px;
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 12px;
+  color: var(--text); font: inherit; font-size: 14px; resize: vertical;
+}
+.calc-field input:focus-visible, .calc-field textarea:focus-visible { outline: 2px solid var(--primary2); outline-offset: 1px; }
+/* min-height: кликабельная цель здесь — весь label, а сам чекбокс всего 18px;
+   в одну строку текст согласия давал 22px тач-таргета вместо 44. */
+.calc-agree {
+  display: flex; align-items: flex-start; gap: 9px; min-height: 44px; padding: 6px 0;
+  font-size: 12.5px; line-height: 1.5; color: var(--muted); cursor: pointer;
+}
+.calc-agree input { width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; accent-color: var(--primary); }
+.calc-agree a { color: var(--primary2); }
+.calc-lead-err { margin: 0; font-size: 13px; color: var(--text-danger); }
+.calc-lead-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.calc-lead-actions .btn { flex: 1; min-width: 140px; min-height: 46px; }
+
+.calc-foot { margin: 28px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.6; text-align: center; }
+.calc-foot a, .calc-link { color: var(--primary2); font-weight: 700; }
+.calc-link { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; cursor: pointer; }
+.calc-link:focus-visible { outline: 2px solid var(--primary2); outline-offset: 2px; }
