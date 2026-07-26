@@ -227,12 +227,17 @@
 42. [ ] Load-тест перед первым большим приливом трафика (симуляция 50-100 юзеров)
 
 ### G. Качество кода и процесс — 4
-43. [x] Расширять `tests/` (Playwright) — 35 → 48 → **57** на 26.07.2026. **Работающий приём:**
+43. [x] Расширять `tests/` (Playwright) — 35 → 48 → **59** на 26.07.2026. **Работающий приём:**
   расширять списки вьюх/модалок ВНУТРИ существующих наборов, а не писать разовые скрипты —
   так найдены переполнение на 320px, 2 дефекта модалок и доступные имена дропдаунов.
   Появился набор **`money`** (7 проверок) — первое покрытие арифметики денег: он сразу
   поймал, что поступление по ОТКРЫТОЙ сделке не обновляло «Долг клиентов» до автосейва
-44. [ ] CI на GitHub Actions — прогонять `tests/` при пуше (сейчас вручную)
+44. [x] CI на GitHub Actions — сделано 26.07.2026 (`.github/workflows/tests.yml`): все наборы
+  на каждый пуш и PR + `node --check`, грепалка дублей имён функций и **проверка, что при
+  правках app.js/style.css/index.html поднят `CACHE_NAME`**. Playwright ставится глобально
+  в раннере, репо остаётся без `package.json`. **Первый же прогон нашёл баг, невидимый
+  локально:** с американского IP Метрика уходит на `mc.yandex.com`, а CSP разрешала только
+  `mc.yandex.ru` → у всех зарубежных посетителей аналитика молча блокировалась
 45. [ ] Документировать контракты Edge Functions (для себя, на случай роста команды)
 46. [ ] Ревью версий CDN-зависимостей раз в квартал (SRI-пиннинг уже есть, обновлять)
 
@@ -262,8 +267,8 @@
 | Деплой | GitHub Pages (push в main → автодеплой) |
 | Edge Functions | 21 шт: agency-notify, ai-proposal, calendar-feed, create-payment, create-portal-payment, deadline-push-notify, delete-account, google-calendar-connect, google-calendar-callback, google-calendar-events, google-calendar-sync-task, send-portal-email, subscription-reminder, telegram-notify, telegram-webhook, vk-auth, yandex-auth, web-push-send, welcome-email, welcome-sequence, yookassa-webhook |
 | Стек | Vanilla JS (app.js ~18 700 строк), style.css, Supabase, ЮKassa, Resend |
-| Тесты | `node tests/run.js` — 57 проверок (smoke/responsive/modals/interactions/assets/a11y/money) |
-| SW-кэш | v165 (поднимать при правках app.js / style.css / index.html) |
+| Тесты | `node tests/run.js` — 59 проверок (smoke/responsive/modals/interactions/assets/a11y/money) |
+| SW-кэш | v166 (поднимать при правках app.js / style.css / index.html) |
 
 ---
 
