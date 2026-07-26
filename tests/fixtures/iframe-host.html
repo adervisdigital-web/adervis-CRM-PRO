@@ -1,0 +1,17 @@
+<!doctype html>
+<!--
+  Хост-страница для теста framebuster'а (tests/suites/calc.js).
+  Встраивает index.html в iframe так же, как это будет делать /pro/smeta/
+  на adervis.ru — реальный http-origin, а не data:/about:blank (Chromium
+  отказывается грузить http-iframe внутри страницы на data: URL).
+  Целевой URL приходит через ?src=… (URL-encoded).
+-->
+<html>
+<head><meta charset="utf-8"><title>iframe host fixture</title></head>
+<body>
+  <iframe id="f" style="width:900px;height:700px;border:0"></iframe>
+  <script>
+    document.getElementById('f').src = new URLSearchParams(location.search).get('src') || '/index.html';
+  </script>
+</body>
+</html>

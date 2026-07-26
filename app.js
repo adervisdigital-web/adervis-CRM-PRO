@@ -824,6 +824,14 @@
       let _briefType = (new URLSearchParams(location.search).get('type') || 'video').trim().toLowerCase();
       let _portalId = (new URLSearchParams(location.search).get('portal') || '').trim();
       if (_portalId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(_portalId)) _portalId = '';
+      // Публичный калькулятор: ?calc=1 (пусто) или ?calc=id:кол-во:смен;id:… (шеринг сметы).
+      // 'calc' in params, а не .get(), потому что "?calc" без значения — валидный вход
+      // (пустая смета, посетитель начинает с нуля), а .get() тогда вернул бы "".
+      const _calcParams = new URLSearchParams(location.search);
+      const _calcMode = _calcParams.has('calc');
+      const _calcInitialEncoded = _calcParams.get('calc') || '';
+      const _calcInitialName = (_calcParams.get('t') || '').trim();
+      const CALC_DRAFT_KEY = 'adervis_calc_draft';
 
       // Реферальный код — сохраняем при первом визите, применяем после регистрации
       (function() {
@@ -1046,9 +1054,16 @@
           }
           lsSet(LAST_AGENCY_KEY, currentAgencyId);
           await _loadCloudState();
+          // Черновик из публичного калькулятора (?calc=…, кнопка «Сохранить в аккаунт»)
+          // — после загрузки облака, иначе облачный снапшот стёр бы то, что человек
+          // только что построил без регистрации. Одноразово: не переносить его же
+          // при следующем логине с другого устройства.
+          const importedFromCalc = _maybeImportCalcDraft();
           // Демо-сделка для брэнд-нового аккаунта — после сброса state и загрузки
           // (пустого) облака, иначе снапшот бы её стёр. Аха-момент вместо пустого экрана.
-          if (_justRegistered) { _justRegistered = false; _seedDemoDeal(); }
+          // Если человек только что принёс смету из калькулятора — это и есть его
+          // аха-момент, вторая демо-сделка поверх была бы лишней.
+          if (_justRegistered) { _justRegistered = false; if (!importedFromCalc) _seedDemoDeal(); }
         } catch (e) {
           // Без этого catch — при брошенном исключении (сеть/CSP/таймаут) _dataLoading
           // оставался true навсегда: пользователь после УСПЕШНОГО входа зависал на
@@ -1588,7 +1603,7 @@
       function renderPageTitle() {
         const el = document.getElementById("topbarPageTitle");
         if (!el) return;
-        if (!_adminSession || _briefAgencyId || _portalId) { el.innerHTML = ""; return; }
+        if (!_adminSession || _briefAgencyId || _portalId || _calcMode) { el.innerHTML = ""; return; }
         let [title, sub] = _PAGE_TITLES[state.view] || ["ADERVIS CRM", ""];
         if (state.view === "deal" && state.project?.name) sub = escapeHtml(state.project.name);
         if (state.view === "clients") {
@@ -1605,7 +1620,7 @@
       function renderSidebar() {
         const el = document.getElementById("appSidebar");
         if (!el) return;
-        if (!_adminSession || _briefAgencyId || _portalId) { el.innerHTML = ""; return; }
+        if (!_adminSession || _briefAgencyId || _portalId || _calcMode) { el.innerHTML = ""; return; }
 
         const v = state.view || "home";
         const email = _adminSession.user.email || "";
@@ -2853,7 +2868,7 @@
       function renderAuthGateEl() {
         const el = document.getElementById("authGateContainer");
         if (!el) return;
-        if (_briefAgencyId || _portalId) { el.innerHTML = ""; return; }
+        if (_briefAgencyId || _portalId || _calcMode) { el.innerHTML = ""; return; }
         const cfg = getSupabaseConfig();
         const localMode = lsGet("adervis_local_mode") === "1";
         // Пока проверяем сохранённую сессию — auth gate не показываем (бесшовная загрузка)
@@ -5611,6 +5626,13 @@
       let _saveIndicatorTimer = null;
       let _lsFailToastShown = false;
       function save() {
+        // Публичный калькулятор (?calc=…) держит state в памяти намеренно и никогда
+        // не пишет его в localStorage — тот же ключ STORAGE_KEY использует обычное
+        // приложение, и если визитёр в этом же браузере залогинен в свой настоящий
+        // аккаунт, load() при обычном входе поднял бы ЕГО данные в state ещё до этой
+        // проверки. Без guard'а один случайный save() (сейчас его никто не вызывает,
+        // но будущая правка может) переписал бы реальную смету игрой с калькулятором.
+        if (_calcMode) return;
         if (!isSubscriptionActive()) {
           toast("⛔ Подписка истекла — данные не сохранены. Продлите: adervis.digital@gmail.com");
           return;
@@ -9788,6 +9810,12 @@
 
         if (_briefAgencyId) {
           root.innerHTML = renderBriefPage();
+          return;
+        }
+
+        if (_calcMode) {
+          root.innerHTML = renderPublicCalc();
+          _calcPostHeight();
           return;
         }
 
@@ -16234,6 +16262,281 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       }
 
       /* ═══════════════════════════════════════════════════════
+         ПУБЛИЧНЫЙ КАЛЬКУЛЯТОР СМЕТ (?calc=…) — вход без регистрации
+         ─────────────────────────────────────────────────────────
+         Живёт в приложении намеренно, а не отдельной страницей на сайте: здесь уже
+         есть каталог на 93 позиции и ВСЯ математика сметы (lineBreakdown с моделями
+         расчёта, ставки смен, налоги). Второй калькулятор на adervis.ru означал бы
+         вторую реализацию тех же формул — класс расхождений «несколько входов в одно
+         действие», который в этом проекте ловился 7+ раз, и цены разъехались бы
+         первыми. Сайт встраивает эту же страницу (см. /pro/smeta/).
+
+         Три правила режима:
+         1. save() в нём выключен — визитёр может быть залогинен в этом же браузере,
+            и его настоящая смета не должна пострадать от игры с калькулятором;
+         2. состояние стартует с чистого defaultState() по той же причине;
+         3. ничего не пишется в Supabase: анонимный посетитель не имеет агентства,
+            а ссылка-шеринг кодирует смету прямо в URL, без таблиц и RLS.
+      ═══════════════════════════════════════════════════════ */
+      const CALC_PAGE_SIZE = 24;
+      let _calcVisibleLimit = CALC_PAGE_SIZE;
+      let _calcLimitKey = "";
+      let _calcCat = "all";
+      let _calcSearch = "";
+      let _calcName = "";
+
+      // Кодирование сметы в URL: «id:кол-во:смен;…». Читаемо глазами (это плюс к
+      // доверию — видно, что ничего не спрятано) и не требует ни базы, ни авторизации.
+      function _calcEncodeLines() {
+        return selectedIds().map(id => {
+          const line = state.selected[id] || {};
+          const qty = Math.max(1, Math.round(numberValue(line.qty, 1)));
+          const days = Math.max(1, Math.round(numberValue(line.days, 1)));
+          return `${id}:${qty}:${days}`;
+        }).join(";");
+      }
+
+      function _calcApplyEncoded(raw) {
+        if (!raw || raw === "1") return 0;
+        let applied = 0;
+        String(raw).split(";").forEach(chunk => {
+          const [id, qtyRaw, daysRaw] = String(chunk).split(":");
+          if (!id) return;
+          const itemData = findItem(id, true);
+          if (!itemData) return; // мусор или позиция, которой больше нет в каталоге
+          const line = defaultLineForItem(itemData);
+          line.qty = Math.min(999, Math.max(1, Math.round(numberValue(qtyRaw, 1))));
+          line.days = Math.min(999, Math.max(1, Math.round(numberValue(daysRaw, 1))));
+          state.selected[id] = line;
+          if (!state.estimateOrder.includes(id)) state.estimateOrder.push(id);
+          applied++;
+        });
+        return applied;
+      }
+
+      // Встраивание на сайт: отдаём родительской странице свою высоту, чтобы не было
+      // скролла внутри скролла (iframe без этого — самое неприятное на телефоне).
+      function _calcPostHeight() {
+        if (window.parent === window) return;
+        try {
+          const h = Math.ceil(document.documentElement.scrollHeight);
+          window.parent.postMessage({ type: "adervis-calc-height", height: h }, "*");
+        } catch (e) { /* другой origin — не критично */ }
+      }
+
+      function calcSetCat(cat) { _calcCat = cat || "all"; render(); }
+      function calcSetSearch(v) { _calcSearch = String(v || ""); _debouncedSearchRender(); }
+      function calcSetName(v) { _calcName = String(v || "").slice(0, 120); }
+      function calcShowMore() { _calcVisibleLimit += CALC_PAGE_SIZE; render(); }
+
+      function calcAdd(id) {
+        const itemData = findItem(id, true);
+        if (!itemData || state.selected[id]) return;
+        state.selected[id] = defaultLineForItem(itemData);
+        if (!state.estimateOrder.includes(id)) state.estimateOrder.push(id);
+        render();
+      }
+
+      function calcRemove(id) {
+        delete state.selected[id];
+        state.estimateOrder = state.estimateOrder.filter(x => x !== id);
+        render();
+      }
+
+      function calcToggle(id) {
+        if (state.selected[id]) calcRemove(id); else calcAdd(id);
+      }
+
+      // Единственные две ручки в публичном калькуляторе: количество и число смен/дней.
+      // Всё остальное (тип смены, переработки, скидки, налоги) — уже в самом продукте:
+      // калькулятор должен считать за минуту, а не показывать всю глубину сразу.
+      function calcSetNum(id, key, value) {
+        const line = state.selected[id];
+        if (!line || (key !== "qty" && key !== "days")) return;
+        line[key] = Math.min(999, Math.max(1, Math.round(numberValue(value, 1))));
+        render();
+      }
+
+      function calcClear() {
+        state.selected = {};
+        state.estimateOrder = [];
+        render();
+      }
+
+      function _calcShareUrl() {
+        const lines = _calcEncodeLines();
+        if (!lines) return "";
+        const base = location.origin + location.pathname;
+        const name = _calcName ? `&t=${encodeURIComponent(_calcName)}` : "";
+        return `${base}?calc=${lines}${name}`;
+      }
+
+      async function calcShare() {
+        const url = _calcShareUrl();
+        if (!url) { toast("Добавьте хотя бы одну позицию"); return; }
+        try {
+          await navigator.clipboard.writeText(url);
+          toast("🔗 Ссылка на смету скопирована — можно отправлять клиенту");
+        } catch (e) {
+          // Clipboard недоступен (нет https / отказ в разрешении) — показываем ссылку,
+          // чтобы человек скопировал руками, а не остался ни с чем.
+          try { window.prompt("Скопируйте ссылку на смету:", url); } catch (_) {}
+        }
+        trackGoal("calc_share");
+      }
+
+      // «Сохранить в аккаунт» — регистрация ПОСЛЕ полученной пользы: черновик кладём
+      // в localStorage и уходим в приложение, где сработает обычный auth gate.
+      // После входа _maybeImportCalcDraft() перенесёт позиции в смету.
+      function calcSaveToAccount() {
+        const lines = _calcEncodeLines();
+        if (!lines) { toast("Сначала добавьте позиции в смету"); return; }
+        lsSet(CALC_DRAFT_KEY, JSON.stringify({ lines, name: _calcName, at: Date.now() }));
+        trackGoal("calc_save_to_account");
+        location.href = location.pathname;
+      }
+
+      // Вызывается из _onUserLoggedIn после входа/регистрации: переносит черновик,
+      // оставленный calcSaveToAccount(), в текущую (рабочую) смету пользователя.
+      // Одноразовый — удаляется сразу после чтения, даже если применить не удалось,
+      // иначе устаревший черновик всплывал бы при каждом следующем логине.
+      function _maybeImportCalcDraft() {
+        let raw;
+        try { raw = lsGet(CALC_DRAFT_KEY); } catch (e) { return false; }
+        if (!raw) return false;
+        lsRemove(CALC_DRAFT_KEY);
+        let draft;
+        try { draft = JSON.parse(raw); } catch (e) { return false; }
+        if (!draft || !draft.lines) return false;
+        // Черновику больше суток — скорее всего, забытая вкладка, а не то, с чем
+        // человек только что регистрировался. Не подсовываем сюрприз издалека.
+        if (!draft.at || Date.now() - draft.at > 24 * 3600 * 1000) return false;
+        const applied = _calcApplyEncoded(draft.lines);
+        if (!applied) return false;
+        if (draft.name) state.project.name = draft.name;
+        state.view = "deal";
+        toast(`✅ Смета из калькулятора перенесена: ${applied} ${plural(applied, "позиция", "позиции", "позиций")}`);
+        trackGoal("calc_draft_imported");
+        return true;
+      }
+
+      function renderPublicCalc() {
+        const items = allItems(false).filter(x => !x.catalogSourceId);
+        const query = _calcSearch.trim().toLowerCase();
+        const filtered = items
+          .filter(x => _calcCat === "all" || x.category === _calcCat)
+          .filter(x => !query || `${x.name} ${x.desc || ""} ${(x.tags || []).join(" ")}`.toLowerCase().includes(query));
+
+        const key = _calcCat + "|" + query;
+        if (key !== _calcLimitKey) { _calcLimitKey = key; _calcVisibleLimit = CALC_PAGE_SIZE; }
+        const shown = filtered.slice(0, _calcVisibleLimit);
+        const hidden = filtered.length - shown.length;
+
+        const chosen = selectedIds();
+        const t = totals();
+
+        // Категории — только те, в которых реально есть позиции.
+        const cats = Object.keys(CAT).filter(c => items.some(x => x.category === c));
+
+        const itemCard = (x) => {
+          const on = !!state.selected[x.id];
+          const line = state.selected[x.id];
+          const perDay = shouldShowMainDays(x);
+          const perQty = shouldShowMainQty(x);
+          const price = getCatalogPrice(x);
+          return `
+            <div class="calc-item ${on ? "on" : ""}">
+              <div class="calc-item-main">
+                <div class="calc-item-name">${escapeHtml(x.name)}</div>
+                ${x.desc ? `<div class="calc-item-desc">${escapeHtml(x.desc)}</div>` : ""}
+                <div class="calc-item-price">${money(price)} <span>/ ${escapeHtml(x.unit || "шт")}</span></div>
+              </div>
+              <div class="calc-item-actions">
+                ${on && (perDay || perQty) ? `
+                  <label class="calc-num">
+                    <span>${perDay ? "смен" : "кол-во"}</span>
+                    <input type="number" min="1" max="999" inputmode="numeric"
+                      value="${perDay ? Math.max(1, Math.round(numberValue(line.days, 1))) : Math.max(1, Math.round(numberValue(line.qty, 1)))}"
+                      oninput="app.calcSetNum('${x.id}','${perDay ? "days" : "qty"}',this.value)"
+                      aria-label="${perDay ? "Количество смен" : "Количество"} — ${escapeHtml(x.name)}">
+                  </label>` : ""}
+                ${on ? `<div class="calc-item-sum">${money(lineTotal(x.id))}</div>` : ""}
+                <button class="calc-add-btn ${on ? "on" : ""}" onclick="app.calcToggle('${x.id}')"
+                  aria-label="${on ? "Убрать из сметы" : "Добавить в смету"} — ${escapeHtml(x.name)}">
+                  ${on ? "✓ В смете" : "+ Добавить"}
+                </button>
+              </div>
+            </div>`;
+        };
+
+        const summaryRows = chosen.length
+          ? chosen.map(id => {
+              const x = findItem(id, true);
+              if (!x) return "";
+              return `
+                <div class="calc-sum-row">
+                  <div class="calc-sum-name">${escapeHtml(x.name)}</div>
+                  <div class="calc-sum-val">${money(lineTotal(id))}</div>
+                  <button class="calc-sum-del" onclick="app.calcRemove('${id}')" aria-label="Убрать ${escapeHtml(x.name)} из сметы">×</button>
+                </div>`;
+            }).join("")
+          : `<p class="calc-sum-empty">Выберите позиции слева — итог посчитается сам.</p>`;
+
+        return `
+          <div class="calc-page">
+            <header class="calc-hero">
+              <div class="calc-badge">ADERVIS · калькулятор смет</div>
+              <h1>Смета на видеопродакшн за 15 минут</h1>
+              <p>Выберите позиции — увидите итог по реальным ставкам продакшна.
+                 Ссылку со сметой можно сразу отправить клиенту. Регистрация не нужна.</p>
+            </header>
+
+            <div class="calc-body">
+              <div class="calc-left">
+                <div class="calc-controls">
+                  <input class="calc-search" type="search" placeholder="Поиск: режиссёр, монтаж, дрон…"
+                    value="${escapeHtml(_calcSearch)}" oninput="app.calcSetSearch(this.value)" aria-label="Поиск по позициям">
+                  <div class="calc-chips" role="group" aria-label="Категории услуг">
+                    <button class="calc-chip ${_calcCat === "all" ? "on" : ""}" onclick="app.calcSetCat('all')">Все</button>
+                    ${cats.map(c => `<button class="calc-chip ${_calcCat === c ? "on" : ""}" onclick="app.calcSetCat('${c}')">${escapeHtml(CAT[c])}</button>`).join("")}
+                  </div>
+                </div>
+
+                <div class="calc-items">
+                  ${shown.length ? shown.map(itemCard).join("")
+                    : `<p class="calc-sum-empty">Ничего не найдено. Попробуйте другой запрос.</p>`}
+                </div>
+                ${hidden > 0 ? `
+                  <button class="btn calc-more" onclick="app.calcShowMore()">
+                    Показать ещё ${Math.min(CALC_PAGE_SIZE, hidden)} · осталось ${hidden}
+                  </button>` : ""}
+              </div>
+
+              <aside class="calc-summary" id="calcSummary">
+                <input class="calc-name" type="text" placeholder="Название проекта (необязательно)"
+                  value="${escapeHtml(_calcName)}" oninput="app.calcSetName(this.value)" aria-label="Название проекта">
+                <div class="calc-sum-rows">${summaryRows}</div>
+                ${chosen.length ? `
+                  <div class="calc-total">
+                    <span>Итого</span>
+                    <strong>${money(t.total)}</strong>
+                  </div>
+                  <div class="calc-total-note">${chosen.length} ${plural(chosen.length, "позиция", "позиции", "позиций")} · без налога и скидок</div>
+                  <div class="calc-cta">
+                    <button class="btn primary" onclick="app.calcShare()">🔗 Ссылка клиенту</button>
+                    <button class="btn" onclick="app.calcSaveToAccount()">Сохранить в аккаунт</button>
+                    <button class="btn calc-clear" onclick="app.calcClear()">Очистить</button>
+                  </div>` : ""}
+                <p class="calc-foot">
+                  Полная версия — сделки, КП с оплатой аванса, финансы и задачи —
+                  <a href="${location.pathname}">в ADERVIS CRM</a>.
+                </p>
+              </aside>
+            </div>
+          </div>`;
+      }
+
+      /* ═══════════════════════════════════════════════════════
          КЛИЕНТСКИЙ ПОРТАЛ (Task 12)
       ═══════════════════════════════════════════════════════ */
       function renderClientPortal() {
@@ -18592,6 +18895,18 @@ Email: ______________________            Email: ______________________
         kanbanColShowMore,
         projectsShowMore,
         calEventsShowMore,
+
+        calcSetCat,
+        calcSetSearch,
+        calcSetName,
+        calcShowMore,
+        calcAdd,
+        calcRemove,
+        calcToggle,
+        calcSetNum,
+        calcClear,
+        calcShare,
+        calcSaveToAccount,
         setCrmTagFilter,
         setCrmSearch,
         resetCrmFilters,
@@ -18873,15 +19188,31 @@ Email: ______________________            Email: ______________________
       }
 
       initTheme();
-      load();
+      if (_calcMode) {
+        // Намеренно НЕ load(): калькулятор не должен подхватывать состояние обычного
+        // приложения (визитёр может быть залогинен в свой настоящий аккаунт в этом же
+        // браузере) — ни на экране, ни тем более на диске (см. save()/_flushStateOnUnload).
+        // Стартуем с чистого состояния и накладываем позиции только из самой ссылки.
+        state = defaultState();
+        _calcApplyEncoded(_calcInitialEncoded);
+        if (_calcInitialName) _calcName = _calcInitialName;
+        document.body.classList.add('calc-mode');
+      } else {
+        load();
+      }
       initEvents();
       if (_briefAgencyId) document.body.classList.add('brief-mode');
       if (_portalId) document.body.classList.add('portal-mode');
       render();
-      initSupabase();
-      checkVKCallback();
-      checkYandexCallback();
-      if (_portalId) loadPortalData();
+      if (!_calcMode) {
+        // Тот же принцип: калькулятор анонимен и ничего не должно тянуть auth-сессию
+        // из этого браузера на экран — иначе появление аватара/меню профиля рядом с
+        // «попробуйте без регистрации» подрывало бы саму идею входа без регистрации.
+        initSupabase();
+        checkVKCallback();
+        checkYandexCallback();
+        if (_portalId) loadPortalData();
+      }
       setTimeout(initSwipeToDelete, 800);
       setTimeout(checkDeadlineNotifications, 1200);
 
@@ -18901,7 +19232,7 @@ Email: ______________________            Email: ______________________
       // свежие данные другой вкладки/PWA своим снапшотом из памяти. На iOS pagehide
       // срабатывает при каждом уходе приложения в фон, так что случай частый.
       function _flushStateOnUnload() {
-        if (!_ownsLsState()) return;
+        if (_calcMode || !_ownsLsState()) return;
         try {
           if (lsSet(STORAGE_KEY, JSON.stringify(state))) _bumpLsRev();
         } catch(e) {}

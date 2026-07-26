@@ -12,7 +12,7 @@ const fs = require("fs");
 const { startServer } = require("./server");
 const { loadPlaywright, Suite, REPO_ROOT } = require("./harness");
 
-const SUITES = ["smoke", "responsive", "modals", "interactions", "assets", "a11y", "money"];
+const SUITES = ["smoke", "responsive", "modals", "interactions", "assets", "a11y", "money", "calc"];
 
 (async () => {
   const filter = process.argv[2] || null;
