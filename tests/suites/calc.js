@@ -169,6 +169,35 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  await test("?theme= передаёт тему хоста, недоступную iframe напрямую (кросс-origin)", async () => {
+    // Встраивание на adervis.ru/pro/smeta/: localStorage хоста физически недоступен
+    // изнутри iframe на другом origin, поэтому тема передаётся явным параметром.
+    const { context: c1, page: p1 } = await bootCalc(browser, baseUrl, "calc=1&theme=light");
+    assertEqual(await p1.evaluate(() => document.documentElement.getAttribute("data-theme")), "light", "?theme=light не применилась");
+    await c1.close();
+
+    const { context: c2, page: p2 } = await bootCalc(browser, baseUrl, "calc=1&theme=dark");
+    assertEqual(await p2.evaluate(() => document.documentElement.getAttribute("data-theme")), "dark", "?theme=dark не применилась");
+    await c2.close();
+  });
+
+  await test("postMessage adervis-set-theme переключает тему уже загруженного калькулятора", async () => {
+    // Живая синхронизация: посетитель переключил тему на сайте-хосте ПОСЛЕ того,
+    // как iframe уже отрисовался — без этого calc-mode не имеет способа узнать
+    // о переключении иначе, чем перезагрузкой (см. app.js: initTheme() читает
+    // ?theme= только один раз при старте).
+    const { context, page } = await bootCalc(browser, baseUrl, "calc=1&theme=dark");
+    assertEqual(await page.evaluate(() => document.documentElement.getAttribute("data-theme")), "dark");
+    await page.evaluate(() => window.postMessage({ type: "adervis-set-theme", theme: "light" }, "*"));
+    await page.waitForTimeout(80);
+    assertEqual(await page.evaluate(() => document.documentElement.getAttribute("data-theme")), "light", "тема не переключилась по postMessage");
+    // Мусорное сообщение не должно ронять страницу и не должно менять тему.
+    await page.evaluate(() => window.postMessage({ type: "something-else" }, "*"));
+    await page.waitForTimeout(80);
+    assertEqual(await page.evaluate(() => document.documentElement.getAttribute("data-theme")), "light", "посторонний postMessage изменил тему");
+    await context.close();
+  });
+
   await test("публичный калькулятор проходит замер a11y-минимума: кнопки и поля подписаны", async () => {
     const { context, page } = await bootCalc(browser, baseUrl, "calc=1");
     const nameless = await page.evaluate(() =>

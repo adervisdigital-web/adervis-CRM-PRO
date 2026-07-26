@@ -18727,6 +18727,21 @@ Email: ______________________            Email: ______________________
       }
 
       function initTheme() {
+        // Встроенный калькулятор (?calc=…, см. adervis.ru/pro/smeta/) живёт в iframe
+        // на ЧУЖОМ origin — localStorage хост-страницы ему физически недоступен, поэтому
+        // тема хоста передаётся явно параметром ?theme=dark|light в src самого iframe.
+        // Без этого калькулятор молча падал на свой собственный дефолт (системная тема
+        // браузера) и мог не совпасть с уже выбранной темой сайта — тёмная карточка
+        // посреди светлой страницы. localStorage при этом НЕ трогаем (calc-режим его
+        // не пишет нигде, см. save()), чтобы тема хоста не просочилась в обычный вход.
+        if (_calcMode) {
+          const hostTheme = (new URLSearchParams(location.search).get("theme") || "").trim();
+          if (hostTheme === "light" || hostTheme === "dark") {
+            document.documentElement.setAttribute("data-theme", hostTheme);
+            return;
+          }
+        }
+
         const savedTheme = lsGet(THEME_KEY);
 
         if (savedTheme === "light" || savedTheme === "dark") {
@@ -19197,6 +19212,16 @@ Email: ______________________            Email: ______________________
         _calcApplyEncoded(_calcInitialEncoded);
         if (_calcInitialName) _calcName = _calcInitialName;
         document.body.classList.add('calc-mode');
+        // Живая синхронизация темы, если посетитель переключил её на сайте-хосте
+        // ПОСЛЕ того, как iframe уже загрузился (initTheme() выше отработала только
+        // на старте по ?theme= в src). Хост-страница шлёт эту команду сама —
+        // адрес не проверяем строже источника события: тема не секрет и не действие.
+        window.addEventListener('message', (e) => {
+          const d = e && e.data;
+          if (!d || d.type !== 'adervis-set-theme') return;
+          if (d.theme !== 'light' && d.theme !== 'dark') return;
+          document.documentElement.setAttribute('data-theme', d.theme);
+        });
       } else {
         load();
       }
