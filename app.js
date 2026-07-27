@@ -215,7 +215,8 @@
         item("light_basic", "equipment", "Свет базовый", "Небольшой комплект света для интервью / простой сцены.", "equipmentRental", 2500, "день", { stage: "shoot", rates: { day: 2500 }, tags: ["свет"] }),
         item("light_plus", "equipment", "Свет расширенный", "Комплект света для более сложной сцены.", "equipmentRental", 5000, "день", { stage: "shoot", rates: { day: 5000 }, tags: ["свет"] }),
         item("sound_kit", "equipment", "Комплект звука", "Рекордер, петлички / направленный микрофон.", "equipmentRental", 2000, "день", { stage: "shoot", rates: { day: 2000 }, tags: ["звук"] }),
-        item("stabilizer", "equipment", "Стабилизатор", "Электронный стабилизатор для динамичных кадров.", "equipmentRental", 1500, "день", { stage: "shoot", rates: { day: 1500 }, tags: ["стабилизатор"] }),
+        item("stabilizer", "equipment", "Стабилизатор", "Электронный стабилизатор (стедикам) для динамичных кадров.", "equipmentRental", 1500, "день", { stage: "shoot", rates: { day: 1500 }, tags: ["стабилизатор", "стедикам"] }),
+        item("light_oncam", "equipment", "Свет накамерный", "Накамерный светильник для репортажа и съёмки на ходу.", "equipmentRental", 500, "день", { stage: "shoot", rates: { day: 500 }, tags: ["свет", "накамерный"] }),
         item("drone", "equipment", "Дрон", "Простая аэросъёмка при подходящих условиях.", "equipmentRental", 4000, "день", { stage: "shoot", rates: { day: 4000 }, tags: ["дрон"] }),
 
         item("photographer", "photo", "Фотограф", "Фотосъёмка мероприятия, команды или объекта.", "crewShift", 5000, "смена", {
@@ -232,6 +233,7 @@
         item("color", "post", "Цветокоррекция", "Базовая цветокоррекция ролика.", "fixed", 3500, "ролик", { stage: "post", tags: ["цвет"] }),
         item("sound_post", "sound", "Чистка и сведение звука", "Улучшение речи, базовое сведение, громкость.", "fixed", 3000, "ролик", { stage: "post", tags: ["звук"] }),
         item("music", "sound", "Подбор музыки", "Подбор трека из доступных библиотек.", "fixed", 1500, "пакет", { stage: "post", tags: ["музыка"] }),
+        item("sound_design", "sound", "Саунд-дизайн", "Шумы, акценты и звуковые эффекты под смонтированный ролик.", "fixed", 1500, "ролик", { stage: "post", tags: ["звук", "саунд-дизайн"] }),
         item("voiceover_text", "creative", "Текст диктора", "Написание текста для озвучки ролика.", "creativeWork", 4500, "текст", { tags: ["диктор"] }),
         item("voiceover_record", "sound", "Запись диктора", "Базовая запись дикторского голоса.", "fixed", 5000, "ролик", { stage: "post", tags: ["диктор"] }),
         item("subtitles", "post", "Субтитры", "Субтитры для короткого ролика.", "fixed", 1500, "ролик", { stage: "post", tags: ["субтитры"] }),
