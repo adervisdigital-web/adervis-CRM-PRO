@@ -25,6 +25,44 @@
         custom: "➕ Свои позиции"
       };
 
+      /* Группы каталога — порядок производства проекта, а не алфавит категорий.
+         13 плоских категорий («Креатив», «Съёмка», «Техника», «Звук», «Графика»…)
+         требовали держать в голове, где что лежит: звукорежиссёр на площадке — это
+         «Звук» или «Съёмка»? Группы отвечают на другой вопрос — «что мне нужно на
+         этом шаге»: сначала придумать, потом собрать людей, потом технику, потом
+         смонтировать. Принадлежность считается ФУНКЦИЕЙ (см. itemGroup), а не
+         списком категорий: 95 позиций иначе пришлось бы размечать руками, и первая
+         же новая позиция выпала бы из групп молча. */
+      const CATALOG_GROUPS = [
+        { id: "prep",  label: "Подготовка",   emoji: "💡", hint: "идея, сценарий, план съёмки" },
+        { id: "crew",  label: "Команда",      emoji: "👥", hint: "люди на площадке и в проекте" },
+        { id: "gear",  label: "Оборудование", emoji: "🧰", hint: "камеры, свет, звук, аренда" },
+        { id: "post",  label: "Постпродакшн", emoji: "✂️", hint: "монтаж, цвет, звук, графика" },
+        { id: "dist",  label: "Дистрибуция",  emoji: "📣", hint: "нарезки, обложки, публикация" },
+        { id: "ai",    label: "ИИ / AI",      emoji: "🤖", hint: "нейросети и подписки" },
+        { id: "money", label: "Расходы",      emoji: "💸", hint: "транспорт, питание, локация" }
+      ];
+
+      // Группа позиции выводится из того, КАК она считается, а не из её категории:
+      // способ расчёта надёжно отличает человека (смена/день) от аренды техники.
+      function itemGroup(itemData) {
+        if (!itemData) return "prep";
+        const model = itemData.calcModel;
+        const cat = itemData.category;
+        const stage = itemData.stage || "pre";
+        // Категория «Расходы» проверяется ПЕРВОЙ: суточные считаются как «за день»
+        // (perDay), и по способу расчёта уехали бы к людям — а это статья затрат.
+        if (cat === "expenses") return "money";
+        if (model === "crewShift" || model === "perDay") return "crew";
+        if (model === "equipmentRental") return "gear";
+        if (cat === "ai") return "ai";
+        if (stage === "post") return "post";
+        if (cat === "marketing" || stage === "marketing") return "dist";
+        if (stage === "pre" || cat === "creative") return "prep";
+        if (stage === "shoot") return "crew";
+        return "prep";
+      }
+
       const EXPENSE_CATEGORIES = [
         "Техника и оборудование",
         "Подписки и ПО",
@@ -536,7 +574,42 @@
           notes: ["Syntex + промпты дают визуальный ряд под продукт.", "Добавь Higgsfield для плавного движения камеры."]
         },
 
-        // ── Мероприятия (3 уровня) ────────────────────────────────────
+        // ── Мероприятия ───────────────────────────────────────────────
+        // Самый частый заказ — отчётное видео с события одним оператором — до
+        // 27.07.2026 в пакетах отсутствовал: минимальным был «Базовый» на 38 000 ₽
+        // с двумя операторами. Состав ниже собран по реальной смете агентства
+        // («Раздолье», открытие сезона), объявленная цена выше суммы состава —
+        // иначе пакет обещает дешевле, чем сам же и насчитает.
+        {
+          id: "event_report_solo",
+          name: "Мероприятие — Видеоотчёт (1 оператор)",
+          cat: "events", tier: 1,
+          priceLabel: "от 32 000 ₽",
+          desc: "Репортажная съёмка события одним оператором, монтаж отчётного ролика, музыка и цвет.",
+          goodFor: "открытия, праздники, отчётные съёмки, небольшие мероприятия",
+          items: ["event_cameraman", "camera_basic", "lens_set", "stabilizer", "light_oncam", "event_clip_edit", "sound_design", "color", "music", "cover_design"],
+          notes: ["Один оператор с накамерным светом и стабилизатором — стандарт репортажа.", "Итог: ролик до 3 минут с обложкой для публикации."]
+        },
+        {
+          id: "event_photo_report",
+          name: "Мероприятие — Фотоотчёт",
+          cat: "events", tier: 1,
+          priceLabel: "от 8 000 ₽",
+          desc: "Фотосъёмка события и базовая обработка отобранных кадров.",
+          goodFor: "мероприятия, где нужны фотографии, а не видео",
+          items: ["event_photographer", "photo_retouch", "cover_design"],
+          notes: ["Количество кадров в обработке правится в строке сметы.", "Съёмка и обработка считаются отдельно — так видно, за что платит клиент."]
+        },
+        {
+          id: "event_video_photo",
+          name: "Мероприятие — Видео + фото",
+          cat: "events", tier: 2,
+          priceLabel: "от 36 000 ₽",
+          desc: "Оператор и фотограф на одном событии: отчётный ролик, нарезки для соцсетей и обработанные фото.",
+          goodFor: "корпоративы, форумы, городские события",
+          items: ["event_cameraman", "event_photographer", "camera_basic", "lens_set", "light_oncam", "event_clip_edit", "smm_cutdowns", "sound_design", "color", "photo_retouch"],
+          notes: ["Самый частый запрос: закрыть событие и видео, и фото одной командой.", "Нарезки для соцсетей выходят раньше основного ролика."]
+        },
         {
           id: "event_basic",
           name: "Мероприятие 1 — Базовое",
@@ -6414,6 +6487,10 @@
           // «Расходы» дополнительно показывает сквозные AI-подписки/кредиты из вкладки «ИИ» —
           // те же карточки, без дублирования данных, просто попадают в оба фильтра
           else if (state.tab === "expenses") items = items.filter(x => isPassthroughCostItem(x));
+          else if (String(state.tab).startsWith("grp:")) {
+            const gid = String(state.tab).slice(4);
+            items = items.filter(x => itemGroup(x) === gid);
+          }
           else if (state.tab !== "hidden") items = items.filter(x => x.category === state.tab);
         }
 
@@ -12680,12 +12757,46 @@
                   <div class="catalog-cat-divider"></div>
 
                   <div class="catalog-cat-group">
-                    ${categoryTabs.map(([id, label]) => `
-                      <button class="catalog-cat-item ${id === "expenses" ? "danger" : ""} ${state.tab === id ? "active" : ""}" onclick="app.setTab('${id}')">
-                        <span>${escapeHtml(label)}</span>
-                        ${catCounts[id] ? `<span class="catalog-cat-count">${catCounts[id]}</span>` : ""}
-                      </button>
-                    `).join("")}
+                    ${(() => {
+                      // Позиции каждой группы считаем один раз: и для счётчика, и для
+                      // списка подкатегорий — он выводится из фактического состава,
+                      // поэтому новая позиция каталога не может из него выпасть.
+                      const catalogAll = allItems(false).filter(x => !x.catalogSourceId);
+                      const byGroup = {};
+                      catalogAll.forEach(x => { (byGroup[itemGroup(x)] = byGroup[itemGroup(x)] || []).push(x); });
+                      const catLabel = Object.fromEntries(categoryTabs);
+                      return CATALOG_GROUPS.map((g, i) => {
+                        const list = byGroup[g.id] || [];
+                        if (!list.length) return "";
+                        const active = state.tab === "grp:" + g.id;
+                        // Подкатегории показываем только у раскрытой группы: иначе это
+                        // те же 13 пунктов, только с отступом.
+                        const subs = active
+                          ? [...new Set(list.map(x => x.category))]
+                              .filter(c => catLabel[c])
+                              .map(c => ({ id: c, label: catLabel[c], n: list.filter(x => x.category === c).length }))
+                          : [];
+                        const picked = list.filter(x => state.selected[x.id]).length;
+                        return `
+                          <button class="catalog-cat-item ${g.id === "money" ? "danger" : ""} ${active ? "active" : ""}"
+                            data-group="${g.id}" data-group-size="${list.length}"
+                            onclick="app.setTab('grp:${g.id}')" title="${escapeHtml(g.hint)}">
+                            <span>${g.emoji} ${escapeHtml(g.label)}</span>
+                            <span class="catalog-cat-count" style="${picked ? "" : "opacity:.45"}">${picked || list.length}</span>
+                          </button>
+                          ${subs.length > 1 ? `<div style="margin:2px 0 6px 10px;display:flex;flex-direction:column;gap:2px">
+                            ${subs.map(s => `
+                              <button class="catalog-cat-item ${state.tab === s.id ? "active" : ""}"
+                                onclick="event.stopPropagation();app.setTab('${s.id}')"
+                                style="font-size:12px;padding-top:5px;padding-bottom:5px;opacity:.85">
+                                <span>${escapeHtml(s.label)}</span>
+                                <span class="catalog-cat-count">${s.n}</span>
+                              </button>
+                            `).join("")}
+                          </div>` : ""}
+                        `;
+                      }).join("");
+                    })()}
                   </div>
 
                   <button class="catalog-cat-item catalog-cat-add" onclick="app.createCustomItem()">

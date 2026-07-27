@@ -155,6 +155,59 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(back, 24, `после сброса поиска лимит должен вернуться к 24, а не ${back}`);
   });
 
+  // Сайдбар каталога: 13 плоских категорий заменены семью группами по ходу проекта
+  // (подготовка → команда → техника → пост → дистрибуция). Принадлежность считает
+  // itemGroup() по способу расчёта, поэтому новая позиция каталога не может выпасть
+  // из групп молча — проверяем, что сумма по группам равна всему каталогу.
+  await test("каталог: группы покрывают все позиции и раскрывают подкатегории", async () => {
+    await page.evaluate(() => { window.app.setSearch(""); window.app.setTab("all"); window.app.go("catalog"); });
+    await page.waitForTimeout(250);
+
+    // Размер группы читаем из data-атрибута, а не из текста кнопки: там показывается
+    // либо число выбранных позиций, либо размер группы — по тексту не различить.
+    const groups = await page.$$eval("#appContent [data-group]", (bs) =>
+      bs.map((b) => ({ id: b.dataset.group, size: Number(b.dataset.groupSize) }))
+    );
+    assert(groups.length >= 7, "в сайдбаре меньше семи групп: " + JSON.stringify(groups));
+
+    const total = await page.evaluate(() => parseInt((document.querySelector(".catalog-found-count") || {}).textContent || "0", 10));
+    const sum = groups.reduce((s, g) => s + g.size, 0);
+    assertEqual(sum, total, `сумма по группам (${sum}) не сходится с каталогом (${total}) — позиция выпала из групп`);
+
+    // У раскрытой группы появляются её подкатегории — у свёрнутых нет.
+    const before = await page.$$eval("#appContent .catalog-cat-item", (b) => b.length);
+    await page.evaluate(() => { window.app.setTab("grp:crew"); });
+    await page.waitForTimeout(250);
+    const after = await page.$$eval("#appContent .catalog-cat-item", (b) => b.length);
+    assert(after > before, "подкатегории у активной группы не раскрылись");
+
+    const shown = await page.evaluate(() => document.querySelectorAll(".catalog-grid > .item").length);
+    assert(shown > 0, "в группе «Команда» не показано ни одной позиции");
+    await page.evaluate(() => { window.app.setTab("all"); });
+  });
+
+  // Пакеты мероприятий: объявленная цена не должна быть НИЖЕ суммы состава — иначе
+  // пакет обещает дешевле, чем сам же и насчитает при применении. (У части старых
+  // пакетов разрыв обратный и разбирается отдельно — здесь стерегутся новые.)
+  await test("пакеты мероприятий: цена на карточке не ниже суммы состава", async () => {
+    const cases = [
+      ["event_report_solo", 32000],
+      ["event_photo_report", 8000],
+      ["event_video_photo", 36000],
+    ];
+    for (const [id, label] of cases) {
+      await page.evaluate((pid) => { window.app.newProject(); window.app.applyPackage(pid); window.app.go("deal"); }, id);
+      await page.waitForTimeout(300);
+      const sum = await page.evaluate(() => {
+        const t = document.getElementById("appContent").textContent.replace(/\s+/g, " ");
+        const m = t.match(/([\d\s]+)\s*₽\s*\d+ позиц/);
+        return m ? Number(m[1].replace(/\D/g, "")) : null;
+      });
+      assert(sum > 0, `пакет ${id} не собрал смету`);
+      assert(sum <= label, `пакет ${id}: состав ${sum} ₽ дороже объявленных ${label} ₽`);
+    }
+  });
+
   // Доска CRM держала в DOM карточки ВСЕХ сделок (замер: 12 745 узлов при 600),
   // «Сохранённые проекты» — тоже (76 285px высоты). Лимит канбана — на колонку:
   // срез поперёк колонок скрывал бы сделки непредсказуемо.
