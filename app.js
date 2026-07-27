@@ -70,7 +70,11 @@
         { id: "vat20", label: "НДС — 20%", rate: 0.20 }
       ];
 
-      const CRM_STATUSES = ["Лид", "Бриф", "КП отправлено", "Согласование", "Договор", "Предоплата", "В работе", "Сдано", "Завершённые"];
+      // «Оплата» стоит между «Сдано» и «Завершённые» намеренно: по договору 50/50
+      // остаток приходит ПОСЛЕ сдачи работы, и это отдельное состояние — работа уже
+      // отдана, а деньги ещё не пришли. Без него сделка либо висела в «Сдано» с
+      // непонятно чем, либо уезжала в «Завершённые» с неоплаченным остатком.
+      const CRM_STATUSES = ["Лид", "Бриф", "КП отправлено", "Согласование", "Договор", "Предоплата", "В работе", "Сдано", "Оплата", "Завершённые"];
       // Терминальный статус «Архив» (клиент отказался / сделка отложена). СПЕЦИАЛЬНО не в CRM_STATUSES —
       // это не шаг воронки вперёд, а тупик. Исключается из активных, выручки, прогноза,
       // долга и дедлайнов; карточка остаётся для истории, сделку можно вернуть в работу.
@@ -87,6 +91,7 @@
         "Предоплата": "var(--primary2)",
         "В работе": "var(--primary)",
         "Сдано": "var(--green)",
+        "Оплата": "var(--green)",
         "Завершённые": "var(--green)",
         [CRM_ARCHIVED]: "var(--muted)"
       };
@@ -11599,10 +11604,10 @@
         const pagedItems = visibleItems.slice(0, _crmVisibleLimit);
         const crmHiddenCount = visibleItems.length - pagedItems.length;
 
-        const totalPipeline = projects.filter(p => !["Сдано", "Завершённые", CRM_ARCHIVED].includes(p.crmStatus || "Лид"))
+        const totalPipeline = projects.filter(p => !["Сдано", "Оплата", "Завершённые", CRM_ARCHIVED].includes(p.crmStatus || "Лид"))
           .reduce((s, p) => s + (p.total || 0), 0);
         const inWork = projects.filter(p => p.crmStatus === "В работе").length;
-        const closedCount = projects.filter(p => ["Завершённые","Сдано"].includes(p.crmStatus || "Лид")).length;
+        const closedCount = projects.filter(p => ["Завершённые","Оплата","Сдано"].includes(p.crmStatus || "Лид")).length;
 
         const CRM_NEXT = {
           "Лид": "Взять в работу",
@@ -11612,7 +11617,8 @@
           "Договор": "Получить предоплату",
           "Предоплата": "Начать работу",
           "В работе": "Сдать проект",
-          "Сдано": "Завершить",
+          "Сдано": "Получить оплату",
+          "Оплата": "Завершить",
           "Завершённые": null,
           [CRM_ARCHIVED]: null
         };
@@ -11656,7 +11662,7 @@
         const in7Str = localIso(in7);
         const upcomingDeadlines = [];
         projects.forEach(p => {
-          if (p.deadline && p.deadline >= todayStr && p.deadline <= in7Str && !["Завершённые","Сдано",CRM_ARCHIVED].includes(p.crmStatus||"Лид"))
+          if (p.deadline && p.deadline >= todayStr && p.deadline <= in7Str && !["Завершённые","Оплата","Сдано",CRM_ARCHIVED].includes(p.crmStatus||"Лид"))
             upcomingDeadlines.push({ name: p.name, date: p.deadline, type: "Проект" });
           // Активный проект берём из live-state ниже, иначе его задачи задвоятся
           if (p.id === state.activeProjectId) return;
@@ -11725,7 +11731,7 @@
               <div class="db-stat" title="Воронка">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.funnel}</svg></span><span class="db-stat-label">Воронка</span></div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>
-                <div class="db-stat-delta neu">${(() => { const n = projects.filter(p=>!["Сдано","Завершённые",CRM_ARCHIVED].includes(p.crmStatus||"Лид")).length; return `${n} ${plural(n, "активная", "активные", "активных")}`; })()}</div>
+                <div class="db-stat-delta neu">${(() => { const n = projects.filter(p=>!["Сдано","Оплата","Завершённые",CRM_ARCHIVED].includes(p.crmStatus||"Лид")).length; return `${n} ${plural(n, "активная", "активные", "активных")}`; })()}</div>
               </div>
               <div class="db-stat" title="В работе">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.tasks}</svg></span><span class="db-stat-label">В работе</span></div>
@@ -11738,7 +11744,7 @@
                 <div class="db-stat-delta neu">${closedCount>0?`по ${closedCount} ${plural(closedCount, "сделке", "сделкам", "сделкам")}`:"нет закрытых"}</div>
               </div>
               ${(() => {
-                const weights = { "Лид":0.10, "Бриф":0.20, "КП отправлено":0.30, "Согласование":0.50, "Договор":0.70, "Предоплата":0.90, "В работе":0.95, "Сдано":1.0 };
+                const weights = { "Лид":0.10, "Бриф":0.20, "КП отправлено":0.30, "Согласование":0.50, "Договор":0.70, "Предоплата":0.90, "В работе":0.95, "Сдано":1.0, "Оплата":1.0 };
                 const forecast30 = projects.filter(p => !isDealInactive(p.crmStatus||"Лид")).reduce((s,p) => s + (p.total||0)*(weights[p.crmStatus||"Лид"]||0.10), 0);
                 return `<div class="db-stat" title="Взвешенная вероятность закрытия сделок из воронки (30 дней)">
                   <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.target}</svg></span><span class="db-stat-label">Прогноз 30 дн</span></div>
@@ -15865,7 +15871,8 @@
           "Договор": "Получить предоплату",
           "Предоплата": "Начать работу",
           "В работе": "Сдать проект",
-          "Сдано": "Закрыть сделку",
+          "Сдано": "Получить оплату",
+          "Оплата": "Закрыть сделку",
         };
         const nextActionLabel = DEAL_NEXT_ACTIONS[state.project.crmStatus || "Лид"];
 
@@ -19956,7 +19963,7 @@ Email: ______________________            Email: ______________________
         const projects = state.savedProjects || [];
         const tgLines = [];
         projects.forEach(proj => {
-          if (!proj.deadline || ["Сдано", "Завершённые", CRM_ARCHIVED].includes(proj.crmStatus || "")) return;
+          if (!proj.deadline || ["Сдано", "Оплата", "Завершённые", CRM_ARCHIVED].includes(proj.crmStatus || "")) return;
           const u = deadlineUrgency(proj.deadline);
           if (!u || u.level === "ok") return;
           const icon = u.level === "overdue" ? "🔴" : "⚡";

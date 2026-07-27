@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
   }
   function dealSelectKb(projects: any[], noneLabel: string, prefix: string) {
     const active = projects
-      .filter(p => p.crmStatus !== "Сдано" && !isDealInactive(p.crmStatus || ""))
+      .filter(p => p.crmStatus !== "Сдано" && p.crmStatus !== "Оплата" && !isDealInactive(p.crmStatus || ""))
       .slice(0, 6);
     const rows = active.map(p => [{
       text: `${p.name}${p.client ? " · " + p.client : ""}`,
@@ -128,7 +128,9 @@ Deno.serve(async (req) => {
     return { inline_keyboard: rows };
   }
 
-  const CRM_STATUSES = ["Лид", "Бриф", "КП отправлено", "Согласование", "Договор", "Предоплата", "В работе", "Сдано", "Завершённые"];
+  // Синхронизирован с app.js: «Оплата» между «Сдано» и «Завершёнными» — по договору
+  // 50/50 остаток приходит после сдачи работы (добавлено 27.07.2026).
+  const CRM_STATUSES = ["Лид", "Бриф", "КП отправлено", "Согласование", "Договор", "Предоплата", "В работе", "Сдано", "Оплата", "Завершённые"];
   // Терминальный статус вне CRM_STATUSES (синхронизирован с app.js CRM_ARCHIVED) — исключается
   // из активных, долга и воронки, иначе цифры расходятся с CRM ("Финансы").
   const CRM_ARCHIVED = "Архив";
@@ -542,7 +544,7 @@ Deno.serve(async (req) => {
   // ── /today ─────────────────────────────────────────────────────────────────
 
   if (command === "today" || command === "сегодня") {
-    const active = projects.filter(p => p.crmStatus !== "Сдано" && !isDealInactive(p.crmStatus || ""));
+    const active = projects.filter(p => p.crmStatus !== "Сдано" && p.crmStatus !== "Оплата" && !isDealInactive(p.crmStatus || ""));
     const deadlines = active
       .filter(p => p.deadline)
       .map(p => ({ ...p, days: daysUntil(p.deadline) }))
@@ -588,7 +590,7 @@ Deno.serve(async (req) => {
     const txs = collectTx(stateJson);
     const monthIncome  = txs.filter(t => t._type === "income"  && (t.date || "") >= monthStart).reduce((s, t) => s + (t.amount || 0), 0);
     const monthExpense = txs.filter(t => t._type === "expense" && (t.date || "") >= monthStart).reduce((s, t) => s + (t.amount || 0), 0);
-    const active = projects.filter(p => p.crmStatus !== "Сдано" && !isDealInactive(p.crmStatus || ""));
+    const active = projects.filter(p => p.crmStatus !== "Сдано" && p.crmStatus !== "Оплата" && !isDealInactive(p.crmStatus || ""));
     const pipeline = active.reduce((s, p) => s + (p.total || 0), 0);
     // Долг считаем только по неархивным/незавершённым сделкам — та же формула, что в CRM
     // ("Финансы" → «Общий долг»), иначе цифры на двух площадках расходятся.

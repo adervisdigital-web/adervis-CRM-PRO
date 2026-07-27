@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
 
     // Find active deals with deadline today or tomorrow (веб-пуш — без изменений)
     const upcoming = activeProjects.filter((p) => {
-      if (!p.deadline || p.crmStatus === "Сдано") return false;
+      if (!p.deadline || p.crmStatus === "Сдано" || p.crmStatus === "Оплата") return false;
       return p.deadline === today || p.deadline === tomorrow;
     });
 
@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
     if (!botToken || !recipients.length) continue;
 
     const urgentDeals = activeProjects
-      .filter((p) => p.deadline && p.crmStatus !== "Сдано")
+      .filter((p) => p.deadline && p.crmStatus !== "Сдано" && p.crmStatus !== "Оплата")
       .map((p) => ({ p, days: daysUntil(p.deadline) }))
       .filter(({ days }) => days <= 7)
       .sort((a, b) => a.days - b.days);

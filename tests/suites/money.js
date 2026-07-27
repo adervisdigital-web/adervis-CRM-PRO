@@ -205,6 +205,30 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(/37\s*985/.test(txt), "бюджет из мастера не доехал до сделки: " + txt.slice(0, 120));
   });
 
+  // Этап «Оплата» между «Сдано» и «Завершёнными»: по договору 50/50 остаток приходит
+  // после сдачи работы. Ключевое — деньги ещё НЕ получены, поэтому такая сделка обязана
+  // остаться в долге; выпадет она оттуда только в «Завершённых»/«Архиве».
+  await test("этап «Оплата» стоит после «Сдано», и долг по нему остаётся в дебиторке", async () => {
+    const stages = await page.evaluate(() => {
+      window.app.go("home");
+      return null;
+    });
+    await page.waitForTimeout(200);
+    const names = await page.$$eval("#appContent .funnel-stage h3", (hs) => hs.map((h) => h.textContent.trim()));
+    const iDone = names.indexOf("Сдано");
+    const iPaid = names.indexOf("Оплата");
+    const iClosed = names.indexOf("Завершённые");
+    assert(iPaid > iDone && iPaid < iClosed, "порядок этапов воронки неверный: " + names.join(" → "));
+
+    const debtBefore = await dbStat(page, "Долг клиентов");
+    // Статус меняем штатным способом (как перетаскиванием в канбане), а НЕ правкой
+    // localStorage с перезагрузкой: bootSeeded засевает состояние через addInitScript,
+    // и reload вернул бы исходный сид, стерев всё, что накопили предыдущие тесты.
+    await page.evaluate(() => { window.app.setKanbanStatus("crm", "d_a", "Оплата"); });
+    await page.waitForTimeout(250);
+    assertEqual(await dbStat(page, "Долг клиентов"), debtBefore, "сделка в «Оплате» выпала из долга — деньги ведь ещё не пришли");
+  });
+
   // Карточка позиции сметы показывала все шесть полей расчёта сразу: при оплате
   // сменой рядом с итогом 20 000 ₽ стояли «Часов» и «Ставка/час», не влияющие ни на
   // что. Понять, откуда взялась сумма, было нельзя.
