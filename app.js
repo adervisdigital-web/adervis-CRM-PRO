@@ -145,7 +145,11 @@
         return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${s}px;height:${s}px;border-radius:${Math.round(s * 0.32)}px;background:color-mix(in srgb, ${colorVar} 14%, transparent);color:${colorVar};flex-shrink:0">${icon(name, Math.round(s * 0.54))}</span>`;
       }
 
-      const PRIORITIES = ["Низкий", "Средний", "Высокий", "Срочно"];
+      // «Без приоритета» — первым: не всякая задача его требует, а раньше выбора не
+      // было вовсе и любая мелочь получала жёлтый «Средний». Значение по умолчанию
+      // не меняем (нормализация старых задач по-прежнему даёт «Средний»), иначе
+      // приоритеты у уже заведённых задач молча обнулились бы.
+      const PRIORITIES = ["Без приоритета", "Низкий", "Средний", "Высокий", "Срочно"];
 
       const DEFAULT_STAGES = [
         { id: "pre", name: "Подготовка", color: "#8b5cf6", desc: "Идея, сценарий, планирование, подбор." },
@@ -7183,6 +7187,22 @@
         render();
       }
 
+      // Подставить в строку ставку каталога за выбранную длительность смены.
+      // Выбор «Полсмены / Полная / Длинная» сам по себе цену НЕ меняет: в расчёте
+      // shiftType используется только как запасное значение, если цена не задана
+      // (см. lineBreakdown). Пользователь переключал длительность и не понимал,
+      // почему сумма стоит на месте — теперь это явная кнопка, а не молчание.
+      function applyShiftRate(id) {
+        const line = state.selected[id];
+        if (!line) return;
+        const itemData = findItem(id, true);
+        if (!itemData) return;
+        const rate = numberValue(getEffectiveRates(itemData)[line.shiftType], 0);
+        if (rate <= 0) { toast("Для этой длительности в каталоге нет ставки"); return; }
+        updateLine(id, "price", rate);
+        toast("Цена в строке — " + money(rate));
+      }
+
       function updateLine(id, key, value) {
         if (!state.selected[id]) return;
 
@@ -13179,34 +13199,53 @@
         }
 
         if (itemData.calcModel === "crewShift") {
+          // Показываем ТОЛЬКО те поля, которые участвуют в выбранном способе оплаты.
+          // Раньше на экране лежали все шесть сразу: при оплате сменой рядом с итогом
+          // 20 000 ₽ стояли «Часов: 2» и «Ставка/час: 3333», не влияющие ни на что, —
+          // и понять, откуда взялась сумма, было невозможно. Формула в lineBreakdown:
+          //   сменой   → Цена × Дней × Людей + сверхурочные;
+          //   почасово → Ставка × Часов × Людей.
+          const byHour = line.crewBilling === "hour";
+          const rates = getEffectiveRates(itemData);
+          const shiftRate = numberValue(rates[line.shiftType], 0);
+          const priceNow = numberValue(line.price, 0);
           return `
             <div class="calc-box">
               <h3>Расчёт смены / часов</h3>
-              <p class="mini-note">При оплате сменой итог считается от поля «Цена» в смете, умножается на дни и людей. Для почасовой оплаты — от часов и ставки.</p>
+              <p class="mini-note">${byHour
+                ? "Почасовая оплата: итог = часы × ставка × людей."
+                : "Оплата сменой: итог = «Цена» из строки сметы × дни × людей, плюс сверхурочные."}</p>
 
-              <div class="grid four">
+              <div class="grid ${byHour ? "four" : "four"}">
                 ${field("Тип оплаты", `
                   <select data-autosave data-scope="line" data-id="${id}" data-key="crewBilling">
                     ${optionValueHtml("shift", "Сменой", line.crewBilling)}
                     ${optionValueHtml("hour", "Почасово", line.crewBilling)}
                   </select>
                 `)}
-                ${field("Смена", `
-                  <select data-autosave data-scope="line" data-id="${id}" data-key="shiftType">
-                    ${optionValueHtml("half", "Полсмены (4 ч)", line.shiftType)}
-                    ${optionValueHtml("full", "Полная смена (8 ч)", line.shiftType)}
-                    ${optionValueHtml("long", "Длинная смена (12 ч)", line.shiftType)}
-                    ${optionValueHtml("premium", "Суперлонг (16+ ч)", line.shiftType)}
-                  </select>
-                `)}
+                ${byHour ? `
+                  ${field("Часов", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="hours" value="${escapeHtml(line.hours)}">`)}
+                  ${field("Ставка / час", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="hourlyRate" value="${escapeHtml(line.hourlyRate)}">`)}
+                ` : `
+                  ${field("Длительность смены", `
+                    <select data-autosave data-scope="line" data-id="${id}" data-key="shiftType">
+                      ${optionValueHtml("half", "Полсмены (4 ч)", line.shiftType)}
+                      ${optionValueHtml("full", "Полная смена (8 ч)", line.shiftType)}
+                      ${optionValueHtml("long", "Длинная смена (12 ч)", line.shiftType)}
+                      ${optionValueHtml("premium", "Суперлонг (16+ ч)", line.shiftType)}
+                    </select>
+                  `)}
+                  ${field("Сверхурочно, часов", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="overtimeHours" value="${escapeHtml(line.overtimeHours)}">`)}
+                `}
                 ${field("Людей", `<input type="number" min="1" data-autosave data-scope="line" data-id="${id}" data-key="people" value="${escapeHtml(line.people)}">`)}
-                ${field("Сверхурочно, часов", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="overtimeHours" value="${escapeHtml(line.overtimeHours)}">`)}
               </div>
 
-              <div class="grid two" style="margin-top:12px">
-                ${field("Часов", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="hours" value="${escapeHtml(line.hours)}">`)}
-                ${field("Ставка / час", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="hourlyRate" value="${escapeHtml(line.hourlyRate)}">`)}
-              </div>
+              ${!byHour && shiftRate > 0 && shiftRate !== priceNow ? `
+                <p class="mini-note" style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <span>Ставка каталога за эту длительность — <b>${money(shiftRate)}</b>, в строке стоит ${money(priceNow)}.</span>
+                  <button class="btn small" onclick="app.applyShiftRate('${id}')" title="Заменить цену в строке ставкой каталога">Подставить ${money(shiftRate)}</button>
+                </p>
+              ` : ""}
             </div>
           `;
         }
@@ -13836,8 +13875,8 @@
       }
 
       function renderTaskCard(task) {
-        const priorityColor = { "Низкий": "#64748b", "Средний": "#ca8a04", "Высокий": "#ea580c", "Срочно": "#dc2626" };
-        const priorityBg   = { "Низкий": "rgba(100,116,139,.12)", "Средний": "rgba(202,138,4,.12)", "Высокий": "rgba(234,88,12,.12)", "Срочно": "rgba(220,38,38,.12)" };
+        const priorityColor = { "Без приоритета": "#94a3b8", "Низкий": "#64748b", "Средний": "#ca8a04", "Высокий": "#ea580c", "Срочно": "#dc2626" };
+        const priorityBg   = { "Без приоритета": "rgba(148,163,184,.10)", "Низкий": "rgba(100,116,139,.12)", "Средний": "rgba(202,138,4,.12)", "Высокий": "rgba(234,88,12,.12)", "Срочно": "rgba(220,38,38,.12)" };
         const pColor = priorityColor[task.priority] || "#64748b";
         const pBg    = priorityBg[task.priority]    || "rgba(100,116,139,.12)";
         const isOverdue = task.deadline && task.deadline < todayIso() && task.status !== "Готово";
@@ -19515,6 +19554,7 @@ Email: ______________________            Email: ______________________
         toggleSummary,
 
         updateLine,
+        applyShiftRate,
         updateCatalogPrice,
         resetCatalogPrice,
 

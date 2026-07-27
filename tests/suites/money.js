@@ -6,7 +6,7 @@
 //   • пустая смета стирала бюджет.
 // Поэтому здесь не «рендерится ли раздел», а именно СУММЫ: состояние задаётся
 // вручную (детерминированно), ожидания посчитаны на бумаге.
-const { loadPlaywright, assert, assertEqual } = require("../harness");
+const { loadPlaywright, bootLocal, assert, assertEqual } = require("../harness");
 
 const STORAGE_KEY = "adervis_pro_381_state";
 
@@ -203,6 +203,37 @@ module.exports = async function ({ browser, baseUrl, test }) {
     const txt = await page.$eval("#appContent", (el) => el.textContent.replace(/\s+/g, " "));
     assert(/Бюджет сделки/.test(txt), "сделка без позиций не показывает бюджет");
     assert(/37\s*985/.test(txt), "бюджет из мастера не доехал до сделки: " + txt.slice(0, 120));
+  });
+
+  // Карточка позиции сметы показывала все шесть полей расчёта сразу: при оплате
+  // сменой рядом с итогом 20 000 ₽ стояли «Часов» и «Ставка/час», не влияющие ни на
+  // что. Понять, откуда взялась сумма, было нельзя.
+  await test("карточка позиции показывает поля только выбранного способа оплаты", async () => {
+    const { context: c2, page: p2 } = await bootLocal(browser, baseUrl, { seedDemo: true });
+    await p2.evaluate(() => { window.app.go("deal"); });
+    await p2.waitForTimeout(400);
+
+    const labels = () =>
+      p2.$$eval("#appContent .calc-box", (boxes) => {
+        const box = boxes.find((b) => /Расчёт смены/.test(b.textContent || ""));
+        return box ? [...box.querySelectorAll("label")].map((l) => l.textContent.trim()) : [];
+      });
+
+    const shift = await labels();
+    assert(shift.length, "блока «Расчёт смены / часов» нет");
+    assert(shift.includes("Длительность смены"), "нет поля длительности при оплате сменой: " + shift);
+    assert(!shift.includes("Ставка / час"), "почасовые поля показаны при оплате сменой: " + shift);
+
+    await p2.evaluate(() => {
+      const sel = document.querySelector("#appContent select[data-key='crewBilling']");
+      sel.value = "hour";
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await p2.waitForTimeout(350);
+    const hour = await labels();
+    assert(hour.includes("Ставка / час") && hour.includes("Часов"), "нет почасовых полей: " + hour);
+    assert(!hour.includes("Длительность смены"), "поля смены показаны при почасовой оплате: " + hour);
+    await c2.close();
   });
 
   await test("рендер сумм прошёл без исключений в консоли", async () => {
