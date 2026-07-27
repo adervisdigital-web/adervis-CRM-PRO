@@ -148,6 +148,63 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(await dbStat(page, "Выручка / мес"), revBefore + 15000, "выручка месяца не выросла на сумму поступления");
   });
 
+  // ── Ввод сумм ─────────────────────────────────────────────────────────────
+  // Ошибка в разряде на поступлении стоит дороже любой другой опечатки в приложении,
+  // поэтому поле суммы группирует цифры по три. Проверяем и то, что при этом не
+  // сломался ввод: раньше модалка редактирования транзакции перерисовывалась на
+  // каждый символ и фокус улетал в body после первого же нажатия.
+  await test("поле суммы группирует разряды и не теряет курсор в середине числа", async () => {
+    // ВАЖНО: app-метод, открывающий модалку, зовём блочной стрелкой — иначе Playwright
+    // ждёт возвращённый промис и набор виснет ([[gotcha-playwright-evaluate-async-deadlock]]).
+    await page.evaluate(() => { window.app.openFinanceModal("payment"); });
+    await page.waitForSelector("#finModalAmount", { timeout: 5000 });
+    await page.click("#finModalAmount");
+    await page.keyboard.type("18933");
+    assertEqual(await page.$eval("#finModalAmount", (e) => e.value), "18 933", "разряды не проставлены");
+
+    // Печатаем в середину: «18|933» → 7. Курсор обязан остаться за вставленным символом.
+    await page.$eval("#finModalAmount", (el) => el.setSelectionRange(2, 2));
+    await page.keyboard.type("7");
+    const mid = await page.$eval("#finModalAmount", (el) => ({ v: el.value, caret: el.selectionStart }));
+    assertEqual(mid.v, "187 933", "вставка в середину числа сломала значение");
+    assertEqual(mid.caret, 3, "курсор прыгнул после вставки в середину");
+    await page.evaluate(() => { window.app.closeFinanceModal(); });
+  });
+
+  await test("редактирование транзакции: фокус не улетает после первого символа", async () => {
+    // Подвкладку задаём явно: предыдущий тест переключил раздел на «Аналитику», и
+    // выбор запоминается в состоянии — списка транзакций там просто нет.
+    await page.evaluate(() => { window.app.go("global-finances"); window.app.setGFinSubTab("transactions"); });
+    await page.waitForTimeout(250);
+    // Клик диспатчим из страницы: строка таблицы перекрывается липкой шапкой раздела,
+    // и настоящий клик мышью до неё не доходит. Блочная стрелка — чтобы не вернуть промис.
+    await page.evaluate(() => { document.querySelector("#appContent [onclick*='openEditTransaction']").click(); });
+    await page.waitForSelector(".modal-amount-input", { timeout: 5000 });
+    await page.fill(".modal-amount-input", "");
+    await page.type(".modal-amount-input", "180000");
+    const res = await page.$eval(".modal-amount-input", (el) => ({
+      v: el.value,
+      focused: document.activeElement === el,
+    }));
+    assertEqual(res.v, "180 000", "в поле доехали не все цифры (потеря фокуса?)");
+    assert(res.focused, "поле суммы потеряло фокус во время ввода");
+    await page.evaluate(() => { window.app.closeEditTransactionModal(); });
+  });
+
+  // Бюджет, названный клиентом в мастере, раньше оставался в state.wizard и исчезал.
+  await test("бюджет из мастера становится суммой сделки, пока смета пуста", async () => {
+    await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Сделка с бюджетом");
+      window.app.wizardSetField("budget", "37 985");
+      window.app.finishWizard("estimate");
+    });
+    await page.waitForTimeout(300);
+    const txt = await page.$eval("#appContent", (el) => el.textContent.replace(/\s+/g, " "));
+    assert(/Бюджет сделки/.test(txt), "сделка без позиций не показывает бюджет");
+    assert(/37\s*985/.test(txt), "бюджет из мастера не доехал до сделки: " + txt.slice(0, 120));
+  });
+
   await test("рендер сумм прошёл без исключений в консоли", async () => {
     assert(errors.length === 0, "ошибки страницы: " + errors.slice(0, 3).join(" | "));
   });

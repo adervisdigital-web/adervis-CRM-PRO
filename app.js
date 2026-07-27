@@ -35,6 +35,7 @@
         "Реквизит и расходники",
         "Музыка и лицензии",
         "Реклама и продвижение",
+        "Налог",
         "Прочее"
       ];
 
@@ -59,6 +60,10 @@
         { id: "none", label: "Без налога", rate: 0 },
         { id: "npd4", label: "Самозанятый (НПД), с физлицами — 4%", rate: 0.04 },
         { id: "tax6", label: "Самозанятый (НПД), с юрлицами/ИП — 6%", rate: 0.06 },
+        // 7% — не налоговая ставка, а рабочая практика: налог платится со всего
+        // годового дохода, а не с конкретного проекта, поэтому в смету закладывается
+        // с запасом. Так считает владелец в своих реальных сметах.
+        { id: "npd7", label: "Самозанятый (НПД) — 7% с запасом", rate: 0.07 },
         { id: "usn6", label: "УСН «Доходы» — 6%", rate: 0.06 },
         { id: "ndfl13", label: "ИП на ОСНО (НДФЛ) — 13%", rate: 0.13 },
         { id: "usn15", label: "УСН «Доходы минус расходы» — 15%", rate: 0.15 },
@@ -206,7 +211,7 @@
 
         item("camera_basic", "equipment", "Камера базовая", "Базовый комплект камеры для простой съёмки.", "equipmentRental", 4000, "день", { stage: "shoot", rates: { day: 4000 }, tags: ["камера"] }),
         item("camera_pro", "equipment", "Камера продвинутая", "Камера выше базового уровня для рекламных задач.", "equipmentRental", 7000, "день", { stage: "shoot", rates: { day: 7000 }, tags: ["камера"] }),
-        item("lens_set", "equipment", "Комплект оптики", "Базовый набор объективов.", "equipmentRental", 3000, "день", { stage: "shoot", rates: { day: 3000 }, tags: ["оптика"] }),
+        item("lens_set", "equipment", "Объективы", "Комплект сменной оптики под задачу съёмки.", "equipmentRental", 3000, "день", { stage: "shoot", rates: { day: 3000 }, tags: ["оптика", "объектив"] }),
         item("light_basic", "equipment", "Свет базовый", "Небольшой комплект света для интервью / простой сцены.", "equipmentRental", 2500, "день", { stage: "shoot", rates: { day: 2500 }, tags: ["свет"] }),
         item("light_plus", "equipment", "Свет расширенный", "Комплект света для более сложной сцены.", "equipmentRental", 5000, "день", { stage: "shoot", rates: { day: 5000 }, tags: ["свет"] }),
         item("sound_kit", "equipment", "Комплект звука", "Рекордер, петлички / направленный микрофон.", "equipmentRental", 2000, "день", { stage: "shoot", rates: { day: 2000 }, tags: ["звук"] }),
@@ -8409,6 +8414,30 @@
         renderModal();
       }
 
+      /* Разряды в поле суммы: «18933» глазами читается плохо — сколько это, 18 тысяч
+         или 189? Ошибка в разряде на поступлении стоит дороже любой другой опечатки
+         в приложении. type="number" пробелы внутри значения не переживает (и рисует
+         те самые стрелки-спиннеры), поэтому поле текстовое, а группировка ручная.
+         В состоянии при этом лежит ЧИСТОЕ число без пробелов: saveFinanceModal и
+         прочие читатели ничего не знают про форматирование. */
+      function groupDigits(value) {
+        const digits = String(value ?? "").replace(/[^\d]/g, "");
+        return digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+      }
+
+      // Форматирует поле на месте и возвращает чистое число — чтобы вызывающий
+      // положил в состояние именно его: app.setXxx('amount', app.formatAmountField(this)).
+      function formatAmountField(el) {
+        const digits = String(el.value || "").replace(/[^\d]/g, "").slice(0, 12);
+        // Курсор считаем от КОНЦА строки: вставка пробела слева от каретки сдвинула бы
+        // её на символ, и набор «в середине» числа прыгал бы.
+        const fromEnd = el.value.length - (el.selectionStart ?? el.value.length);
+        el.value = groupDigits(digits);
+        const pos = Math.max(0, el.value.length - fromEnd);
+        try { el.setSelectionRange(pos, pos); } catch (e) {}
+        return digits;
+      }
+
       function setFinanceModalField(key, value) {
         if (!state.financeModal) return;
         state.financeModal[key] = value;
@@ -8630,9 +8659,9 @@
               <div class="field" style="margin-bottom:14px">
                 <label style="font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.04em">СУММА, ₽ *</label>
                 <input class="modal-amount-input ${m.amount && !isValid ? "invalid" : ""}"
-                  type="number" min="0" placeholder="0"
-                  value="${escapeHtml(m.amount)}"
-                  oninput="app.setFinanceModalField('amount',this.value)"
+                  type="text" inputmode="numeric" autocomplete="off" placeholder="0"
+                  value="${escapeHtml(groupDigits(m.amount))}"
+                  oninput="app.setFinanceModalField('amount',app.formatAmountField(this))"
                   id="finModalAmount">
                 ${m.amount && !isValid ? `<span style="color:var(--red);font-size:12px;display:block;margin-top:3px">Должно быть больше нуля</span>` : ""}
               </div>
@@ -9001,6 +9030,14 @@
         const projId = uid("project");
         state.project.id = projId;
         state.project.createdAt = now;
+        // Бюджет, названный клиентом на шаге 2, раньше оставался в state.wizard и
+        // умирал вместе с ним: пользователь вводил сумму и больше нигде её не видел.
+        // Кладём её в total сделки — ровно тот механизм, что уже есть у сделок из
+        // импорта: пока в смете нет позиций, displayTotal() показывает эту сумму как
+        // «Бюджет сделки», а как только появится первая услуга, итог начнёт считаться
+        // по смете (см. _totalForSave — затереть бюджет нулём он не даст).
+        const wizardBudget = numberValue(String(w.budget || "").replace(/[^\d.,-]/g, "").replace(",", "."), 0);
+        const startTotal = snap.total || Math.max(0, Math.round(wizardBudget));
         const autoSaved = normalizeSavedProject({
           id: projId,
           name: state.project.name || "Новый проект",
@@ -9011,9 +9048,9 @@
           priority: state.project.priority || "Средний",
           deadline: state.project.deadline || "",
           city: state.project.city || "",
-          total: snap.total || 0,
-          paid: 0, debt: snap.total || 0,
-          expensesTotal: 0, profit: snap.total || 0,
+          total: startTotal,
+          paid: 0, debt: startTotal,
+          expensesTotal: 0, profit: startTotal,
           createdAt: now, updatedAt: now,
           snapshot: snap
         });
@@ -15665,6 +15702,7 @@
             <div class="grid two" style="margin-top:12px">
               ${field("Дедлайн", `<input type="date" value="${escapeHtml(w.deadline)}" onchange="app.wizardSetData('deadline',this.value)">`)}
               ${field("Бюджет клиента", `<input value="${escapeHtml(w.budget||"")}" oninput="app.wizardSetField('budget',this.value)" placeholder="Бюджет проекта, ₽">`)}
+              <p class="mini-note" style="margin:-6px 0 0">Станет суммой сделки, пока смета пустая. Добавите услуги — итог пересчитается по ним.</p>
             </div>
           `;
         }
@@ -15693,9 +15731,12 @@
           body = `
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:6px">
               <h2 class="m-0">Выбери пакет услуг</h2>
-              <span class="mini-note">${(state.packages || []).length} пакетов</span>
+              <div style="display:flex;align-items:center;gap:10px">
+                <span class="mini-note">${(state.packages || []).length} пакетов</span>
+                <button class="btn small" onclick="app.finishWizard('estimate')" title="Создать сделку с пустой сметой — услуги добавите сами">Пропустить →</button>
+              </div>
             </div>
-            <p class="mini-note" style="margin-bottom:14px">Смета заполнится автоматически. Цены — стартовые, всё можно скорректировать.</p>
+            <p class="mini-note" style="margin-bottom:14px">Смета заполнится автоматически. Цены — стартовые, всё можно скорректировать. Не нашли подходящий пакет — жмите «Пропустить», смета останется пустой.</p>
 
             <div class="tabs" style="margin:0 0 16px">
               ${Object.entries(catLabels).map(([k, label]) => {
@@ -18014,7 +18055,13 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       function setEditTransactionField(key, value) {
         if (!state.editTransactionModal) return;
         state.editTransactionModal[key] = value;
-        renderModal();
+        // renderModal() здесь БЫЛ и ломал ввод: он переписывает innerHTML модалки
+        // целиком, поле пересоздаётся, фокус улетает в body (переносить его обратно
+        // _enhanceModalA11y умышленно не умеет — только при открытии). На практике это
+        // значило, что в сумму поступления удавалось ввести ровно один символ, дальше
+        // нажатия уходили в никуда. Замер: «123» в поле 20750 давало «207501».
+        // Ничего в этой модалке от повторного рендера не зависит — значения полей
+        // читает saveEditTransaction() из состояния. Ср. setFinanceModalField.
       }
       function renderEditTransactionModal() {
         const m = state.editTransactionModal;
@@ -18030,7 +18077,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               </div>
               <div class="field" style="margin-bottom:14px">
                 <label style="font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.04em">СУММА, ₽ *</label>
-                <input class="modal-amount-input" type="number" min="0" value="${escapeHtml(String(m.amount))}" oninput="app.setEditTransactionField('amount',this.value)">
+                <input class="modal-amount-input" type="text" inputmode="numeric" autocomplete="off"
+                  value="${escapeHtml(groupDigits(m.amount))}"
+                  oninput="app.setEditTransactionField('amount',app.formatAmountField(this))">
               </div>
               <div class="grid two" style="margin-bottom:14px">
                 <div class="field">
@@ -19679,6 +19728,7 @@ Email: ______________________            Email: ______________________
         saveEditTransaction,
         deleteEditTransaction,
         setEditTransactionField,
+        formatAmountField,
 
         openClientModal,
         closeClientModal,
