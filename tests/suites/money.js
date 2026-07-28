@@ -229,6 +229,30 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(await dbStat(page, "Долг клиентов"), debtBefore, "сделка в «Оплате» выпала из долга — деньги ведь ещё не пришли");
   });
 
+  // Названный клиентом бюджет хранится отдельно от total сделки (тот при первой же
+  // позиции пересчитывается по смете) — иначе сравнивать «просили уложиться» с
+  // «получилось» просто не с чем.
+  await test("смета сверяется с бюджетом клиента: запас и перерасход", async () => {
+    const { context: c3, page: p3 } = await bootLocal(browser, baseUrl);
+    await p3.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Сверка с бюджетом");
+      window.app.wizardSetField("budget", "37 985");
+      window.app.finishWizard("estimate");
+      window.app.applyPackage("event_report_solo"); // состав 30 300 ₽
+    });
+    await p3.waitForTimeout(400);
+    const txt = await p3.$eval("#appContent", (el) => el.textContent.replace(/\s+/g, " "));
+    assert(/бюджет клиента/.test(txt), "плашки сверки с бюджетом нет");
+    assert(/запас/.test(txt), "смета дешевле бюджета, а запас не показан: " + (txt.match(/бюджет клиента[^А-Я]{0,40}/) || [""])[0]);
+
+    await p3.evaluate(() => { window.app.updateProject("clientBudget", 25000); });
+    await p3.waitForTimeout(300);
+    const txt2 = await p3.$eval("#appContent", (el) => el.textContent.replace(/\s+/g, " "));
+    assert(/перерасход/.test(txt2), "смета дороже бюджета, а перерасход не показан");
+    await c3.close();
+  });
+
   // Карточка позиции сметы показывала все шесть полей расчёта сразу: при оплате
   // сменой рядом с итогом 20 000 ₽ стояли «Часов» и «Ставка/час», не влияющие ни на
   // что. Понять, откуда взялась сумма, было нельзя.

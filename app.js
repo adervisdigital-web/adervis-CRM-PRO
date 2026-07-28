@@ -5379,6 +5379,10 @@
             paymentTerms: "50% предоплата, 50% после сдачи материалов.",
             deliveryTerms: "Готовые материалы передаются ссылкой на облачное хранилище.",
             expenseBudget: 0,
+            // Бюджет, НАЗВАННЫЙ клиентом (шаг 2 мастера). Отдельно от total сделки:
+            // тот при первой же позиции пересчитывается по смете, и сравнить «во
+            // сколько просили уложиться» с «во сколько получилось» становится не с чем.
+            clientBudget: 0,
             includedText: "Базовая работа команды, согласованные этапы, минимальный комплект услуг по смете.",
             excludedText: "Сложная графика, актёры, студии, расширенная техника, музыка с платной лицензией и дополнительные версии, если они не указаны в смете.",
             proposalClientMode: "name",
@@ -7427,7 +7431,9 @@
       }
 
       function updateProject(key, value) {
-        const numericKeys = ["days", "discount"];
+        // clientBudget обязан быть числом: плашка сверки в шапке сметы сравнивает его
+        // с итогом, а строка "37985" в сравнении вела бы себя непредсказуемо.
+        const numericKeys = ["days", "discount", "clientBudget"];
         // Дедлайн сделки стёрли вручную — как и для задач, убираем повисшее
         // (моё собственное) событие в Google вместо того чтобы оставлять устаревшую запись.
         if (key === "deadline" && !value && _myGoogleEventId(state.project)) {
@@ -9121,7 +9127,8 @@
             clientId: w.clientId || "",
             city: client ? (client.city || "") : "",
             deadline: w.deadline || "",
-            crmStatus: "Лид"
+            crmStatus: "Лид",
+            clientBudget: Math.max(0, Math.round(numberValue(String(w.budget || "").replace(/[^\d.,-]/g, "").replace(",", "."), 0)))
           },
           activeClientId: w.clientId || "",
           wizard: null,
@@ -9877,6 +9884,7 @@
             ${field("Название проекта", `<input data-autosave data-scope="project" data-key="name" value="${escapeHtml(state.project.name)}">`)}
             ${field("Клиент", `<input data-autosave data-scope="project" data-key="client" value="${escapeHtml(state.project.client)}" placeholder="Название клиента">`)}
             ${field("Город", `<input data-autosave data-scope="project" data-key="city" value="${escapeHtml(state.project.city)}">`)}
+            ${field("Бюджет клиента, ₽", `<input type="number" min="0" data-autosave data-scope="project" data-key="clientBudget" value="${escapeHtml(state.project.clientBudget || "")}" placeholder="сколько назвал клиент">`)}
             ${field("Статус", `
               <select data-autosave data-scope="project" data-key="status">
                 ${["Черновик", "Отправлено", "На согласовании", "Согласовано", "В работе", "Завершено"].map(x => optionValueHtml(x, x, state.project.status)).join("")}
@@ -13006,6 +13014,21 @@
                   <select data-autosave data-scope="project" data-key="taxType" style="width:auto;padding:5px 30px 5px 10px;font-size:12px;border-radius:10px;margin-left:4px">
                     ${taxOptionsHtml(state.project.taxType)}
                   </select>
+                  ${(() => {
+                    // Сверка с бюджетом, который назвал клиент. Без неё сборка сметы
+                    // идёт вслепую: сумму видно, а «влезаем или нет» — только в уме,
+                    // причём сравнивать надо с итогом ПОСЛЕ налога, его клиент и платит.
+                    const cb = numberValue(state.project.clientBudget, 0);
+                    if (cb <= 0 || !totalItems) return "";
+                    const diff = cb - numberValue(t.total, 0);
+                    const over = diff < 0;
+                    const color = over ? "var(--red)" : "var(--green)";
+                    return `<div title="Бюджет назван клиентом при создании сделки. Сравнивается с итогом сметы с налогом."
+                      style="display:flex;flex-direction:column;gap:1px;padding:4px 12px;border-left:1px solid var(--line)">
+                      <span style="font-size:12px;color:var(--muted)">бюджет клиента ${money(cb)}</span>
+                      <span style="font-size:13px;font-weight:800;color:${color}">${over ? "перерасход " + money(-diff) : "запас " + money(diff)}</span>
+                    </div>`;
+                  })()}
                 </div>
                 ${stagesWithItems.length ? `
                 <div class="toolbar no-print" style="gap:5px;flex-direction:row;flex-wrap:wrap">
