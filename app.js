@@ -13066,18 +13066,7 @@
                               ...budgetBtn("Изменить бюджет")
                             ]
                           })
-                        : emptyState({
-                            icon: "doc",
-                            title: "Смета пустая",
-                            text: canSetBudget
-                              ? "Добавьте услуги из каталога, начните с пакета — или укажите общий бюджет сделки одним числом."
-                              : "Добавьте услуги из каталога или начните с готового пакета.",
-                            cta: [
-                              { label: "Открыть каталог", onclick: "app.go('catalog')" },
-                              { label: "Выбрать пакет", onclick: "app.go('packages')", variant: "" },
-                              ...budgetBtn("Указать бюджет")
-                            ]
-                          });
+                        : renderEstimateStartSteps(canSetBudget);
                     })()
                 }
               </div>
@@ -13315,6 +13304,48 @@
         { label: "ElevenLabs (голос)", price: 1800 },
         { label: "Mubert (музыка AI)", price: 900 },
       ];
+
+      /* Пустая смета: не «добавьте услуги», а порядок сборки. Владелец собирает смету
+         так же, как её собирает Excel-таблица продакшна: сначала люди, потом техника,
+         потом постпродакшн — и просил вести по этим шагам, а не высыпать 95 позиций
+         разом. Каждый шаг открывает каталог сразу нужной группой (см. CATALOG_GROUPS). */
+      const ESTIMATE_START_STEPS = [
+        { g: "crew", emoji: "👥", title: "Кто снимает",        text: "Оператор, режиссёр, звук, ассистенты — люди на площадке и в проекте." },
+        { g: "gear", emoji: "🧰", title: "На что снимаем",     text: "Камера, объективы, свет, стабилизатор, звуковой комплект." },
+        { g: "post", emoji: "✂️", title: "Что после съёмки",  text: "Монтаж, цвет, саунд-дизайн, графика, версии и субтитры." }
+      ];
+
+      function renderEstimateStartSteps(canSetBudget) {
+        return `
+          <div class="panel" style="box-shadow:none;background:var(--panel2);border:1px dashed var(--line)">
+            <h2 style="margin:0 0 4px;font-size:16px">Соберите смету по шагам</h2>
+            <p class="mini-note" style="margin:0 0 14px">Порядок как в съёмочной смете: люди → техника → постпродакшн. Каждый шаг открывает свой раздел каталога.</p>
+            <div class="grid three" style="gap:10px">
+              ${ESTIMATE_START_STEPS.map((s, i) => `
+                <button onclick="app.goCatalogGroup('${s.g}')"
+                  style="text-align:left;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--panel);cursor:pointer;color:var(--text);display:flex;flex-direction:column;gap:4px">
+                  <span style="font-size:12px;color:var(--muted);font-weight:700">Шаг ${i + 1}</span>
+                  <span style="font-size:14px;font-weight:800">${s.emoji} ${escapeHtml(s.title)}</span>
+                  <span style="font-size:12px;color:var(--muted);line-height:1.45">${escapeHtml(s.text)}</span>
+                </button>
+              `).join("")}
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
+              <span class="mini-note">Или сразу:</span>
+              <button class="btn small" onclick="app.go('packages')">Готовый пакет</button>
+              <button class="btn small" onclick="app.go('catalog')">Весь каталог</button>
+              ${canSetBudget ? `<button class="btn small" onclick="app.openDealModal('${state.activeProjectId}')">Указать бюджет одним числом</button>` : ""}
+            </div>
+          </div>`;
+      }
+
+      // Открыть каталог сразу нужной группой — шаг сборки сметы ведёт в конкретный
+      // раздел, а не в общий список, где снова надо искать.
+      function goCatalogGroup(gid) {
+        setSearch("");
+        state.tab = "grp:" + gid;
+        go("catalog");
+      }
 
       function renderLineAdvancedControls(id, itemData, line) {
         if (itemData.id === "ai_sub_service") {
@@ -19667,6 +19698,7 @@ Email: ______________________            Email: ______________________
       window.app = {
         go,
         setTab,
+        goCatalogGroup,
         setSearch,
         setClientsFilter,
         setFilter,

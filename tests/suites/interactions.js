@@ -186,6 +186,27 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.evaluate(() => { window.app.setTab("all"); });
   });
 
+  // Пустая смета ведёт по шагам сборки (люди → техника → пост), а не просто говорит
+  // «добавьте услуги»: каждый шаг открывает каталог сразу своей группой.
+  await test("пустая смета: шаги сборки открывают нужную группу каталога", async () => {
+    await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Пустая смета");
+      window.app.finishWizard("estimate");
+    });
+    await page.waitForTimeout(350);
+    const txt = await page.$eval("#appContent", (el) => el.textContent.replace(/\s+/g, " "));
+    assert(/Соберите смету по шагам/.test(txt), "на пустой смете нет пошаговой подсказки");
+    assert(/Шаг 1/.test(txt) && /Шаг 3/.test(txt), "показаны не все шаги сборки");
+
+    await page.evaluate(() => { window.app.goCatalogGroup("gear"); });
+    await page.waitForTimeout(350);
+    const active = await page.$$eval("#appContent [data-group].active", (b) => b.map((x) => x.dataset.group));
+    assertEqual(active.join(","), "gear", "шаг открыл каталог не той группой");
+    const cards = await page.evaluate(() => document.querySelectorAll(".catalog-grid > .item").length);
+    assert(cards > 0, "в открытой группе нет позиций");
+  });
+
   // Пакеты мероприятий: объявленная цена не должна быть НИЖЕ суммы состава — иначе
   // пакет обещает дешевле, чем сам же и насчитает при применении. (У части старых
   // пакетов разрыв обратный и разбирается отдельно — здесь стерегутся новые.)
