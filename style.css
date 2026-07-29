@@ -3884,6 +3884,13 @@
       to { transform: translateX(100%); }
     }
 
+    /* Карточки шагов сборки сметы: подсветка как у остальных кликабельных карточек */
+    .estimate-step-card:hover {
+      border-color: rgba(168,85,247,.45) !important;
+      transform: translateY(-1px);
+    }
+    .estimate-step-card:active { transform: translateY(0); }
+
     /* ── DEAL STAGE PROGRESS ─────────────────────── */
     .deal-stage-progress {
       display: flex; align-items: center;

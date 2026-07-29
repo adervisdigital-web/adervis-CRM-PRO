@@ -34,13 +34,13 @@
          списком категорий: 95 позиций иначе пришлось бы размечать руками, и первая
          же новая позиция выпала бы из групп молча. */
       const CATALOG_GROUPS = [
-        { id: "prep",  label: "Подготовка",   emoji: "💡", hint: "идея, сценарий, план съёмки" },
-        { id: "crew",  label: "Команда",      emoji: "👥", hint: "люди на площадке и в проекте" },
-        { id: "gear",  label: "Оборудование", emoji: "🧰", hint: "камеры, свет, звук, аренда" },
-        { id: "post",  label: "Постпродакшн", emoji: "✂️", hint: "монтаж, цвет, звук, графика" },
-        { id: "dist",  label: "Дистрибуция",  emoji: "📣", hint: "нарезки, обложки, публикация" },
-        { id: "ai",    label: "ИИ / AI",      emoji: "🤖", hint: "нейросети и подписки" },
-        { id: "money", label: "Расходы",      emoji: "💸", hint: "транспорт, питание, локация" }
+        { id: "prep",  label: "Подготовка",   ic: "bulb",      color: "var(--yellow)",   hint: "идея, сценарий, план съёмки" },
+        { id: "crew",  label: "Команда",      ic: "team",      color: "var(--primary2)", hint: "люди на площадке и в проекте" },
+        { id: "gear",  label: "Оборудование", ic: "camera",    color: "var(--blue)",     hint: "камеры, свет, звук, аренда" },
+        { id: "post",  label: "Постпродакшн", ic: "film",      color: "var(--green)",    hint: "монтаж, цвет, звук, графика" },
+        { id: "dist",  label: "Дистрибуция",  ic: "megaphone", color: "var(--cyan)",     hint: "нарезки, обложки, публикация" },
+        { id: "ai",    label: "ИИ / AI",      ic: "robot",     color: "var(--primary)",  hint: "нейросети и подписки" },
+        { id: "money", label: "Расходы",      ic: "coins",     color: "var(--red)",      hint: "транспорт, питание, локация" }
       ];
 
       // Группа позиции выводится из того, КАК она считается, а не из её категории:
@@ -151,6 +151,13 @@
       // Иконки Профиля/Настроек/Admin Panel — та же SVG-конвенция, что и у сайдбара/EMPTY_ICON_PATHS
       // (замена эмодзи, см. сессию 2026-07-24). icon(name,size) — helper ниже.
       const ICON_PATHS = {
+        // Иконки разделов каталога и шагов сборки сметы (29.07.2026) — вместо эмодзи:
+        // те рисуются шрифтом ОС и в тёмной теме выглядят разнокалиберными наклейками.
+        team:     `<path d="M5.3 7.2a2.1 2.1 0 100-4.2 2.1 2.1 0 000 4.2zm5.4 0a2.1 2.1 0 100-4.2 2.1 2.1 0 000 4.2zM1 12.6c0-2.1 1.9-3.7 4.3-3.7s4.3 1.6 4.3 3.7v.6H1v-.6zm9.9-3.6c2 .2 3.5 1.7 3.5 3.6v.6h-3.2v-.6c0-1.3-.5-2.5-1.3-3.4.3-.1.6-.2 1-.2z"/>`,
+        film:     `<path d="M2 2.2h12c.7 0 1.2.5 1.2 1.2v9.2c0 .7-.5 1.2-1.2 1.2H2c-.7 0-1.2-.5-1.2-1.2V3.4c0-.7.5-1.2 1.2-1.2zm.3 1.7v1.6h1.8V3.9H2.3zm0 3.3v1.6h1.8V7.2H2.3zm0 3.3v1.6h1.8v-1.6H2.3zm9.6-6.6v1.6h1.8V3.9h-1.8zm0 3.3v1.6h1.8V7.2h-1.8zm0 3.3v1.6h1.8v-1.6h-1.8zM5.6 3.9v8.2h4.8V3.9H5.6z"/>`,
+        bulb:     `<path d="M8 1a5 5 0 00-2.9 9.1c.3.2.4.5.4.8v.6c0 .6.5 1 1 1h3c.6 0 1-.4 1-1v-.6c0-.3.2-.6.4-.8A5 5 0 008 1zM6.4 13.9c0-.3.2-.5.5-.5h2.2c.3 0 .5.2.5.5s-.2.6-.5.6H6.9a.6.6 0 01-.5-.6z"/>`,
+        megaphone:`<path d="M13.6 2.1a.9.9 0 00-1.2-.7L6.1 4.2H3.2A2.2 2.2 0 001 6.4v1.3c0 1.2 1 2.2 2.2 2.2h.3l.9 3.5c.1.5.5.8 1 .8h.9c.7 0 1.2-.6 1-1.3l-.7-3h.5l6 2.7a.9.9 0 001.2-.8V2.1z"/>`,
+        coins:    `<path d="M8 1.6c3 0 5.4 1 5.4 2.3S11 6.2 8 6.2 2.6 5.2 2.6 3.9 5 1.6 8 1.6zM2.6 6c1.3.8 3.3 1.2 5.4 1.2S12.1 6.8 13.4 6v1.9c0 1.3-2.4 2.3-5.4 2.3S2.6 9.2 2.6 7.9V6zm0 3.9c1.3.8 3.3 1.2 5.4 1.2s4.1-.4 5.4-1.2v1.9c0 1.3-2.4 2.3-5.4 2.3s-5.4-1-5.4-2.3V9.9z"/>`,
         check:    `<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm3.7 5.3l-4.4 4.4a.7.7 0 01-1 0L4.3 8.7a.7.7 0 111-1l1.6 1.6 3.9-3.9a.7.7 0 111 1z"/>`,
         warning:  `<path d="M8 1.3a1 1 0 01.87.5l6.2 10.7a1 1 0 01-.87 1.5H1.8a1 1 0 01-.87-1.5l6.2-10.7A1 1 0 018 1.3zm-.75 4.2v3.5h1.5V5.5h-1.5zm0 4.75v1.5h1.5v-1.5h-1.5z"/>`,
         xcircle:  `<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm2.6 4.4L9 8l1.6 1.6-1 1-1.6-1.6-1.6 1.6-1-1L6.9 8 5.3 6.4l1-1L8 7l1.6-1.6z"/>`,
@@ -12830,20 +12837,22 @@
           ["custom", "Свои"],
           ["hidden", "Скрытые"]
         ];
+        // Подписи подкатегорий — без эмодзи: они лежат вложенным списком под группой,
+        // у которой уже есть цветная SVG-иконка, и второй ряд картинок только рябит.
         const categoryTabs = [
-          ["creative", "💡 Креатив"],
-          ["pre", "🧠 Подготовка"],
-          ["shoot", "🎥 Съёмка"],
-          ["photo", "📸 Фото"],
-          ["equipment", "🧰 Техника"],
-          ["post", "✂️ Пост"],
-          ["sound", "🎙 Звук"],
-          ["animation", "✨ Графика"],
-          ["marketing", "📣 Маркетинг"],
-          ["management", "🗂 Менеджмент"],
-          ["ai", "🤖 ИИ / AI"],
-          ["event", "🎪 Мероприятия"],
-          ["expenses", "💸 Расходы"]
+          ["creative", "Креатив"],
+          ["pre", "Подготовка"],
+          ["shoot", "Съёмка"],
+          ["photo", "Фото"],
+          ["equipment", "Техника"],
+          ["post", "Пост"],
+          ["sound", "Звук"],
+          ["animation", "Графика"],
+          ["marketing", "Маркетинг"],
+          ["management", "Менеджмент"],
+          ["ai", "ИИ / AI"],
+          ["event", "Мероприятия"],
+          ["expenses", "Расходы"]
         ];
 
         const hidden = hiddenItemsList();
@@ -12941,9 +12950,10 @@
                           <button class="catalog-cat-item ${g.id === "money" ? "danger" : ""} ${active ? "active" : ""}"
                             data-group="${g.id}" data-group-size="${list.length}" data-open="${open ? "1" : "0"}"
                             onclick="app.toggleCatalogGroup('${g.id}')" title="${escapeHtml(g.hint)}">
-                            <span style="display:flex;align-items:center;gap:6px">
+                            <span style="display:flex;align-items:center;gap:7px;min-width:0">
                               <span style="display:inline-block;width:9px;font-size:10px;opacity:.6;transform:rotate(${open ? "90" : "0"}deg);transition:transform .15s">▶</span>
-                              ${g.emoji} ${escapeHtml(g.label)}
+                              <span style="color:${g.color};display:inline-flex;flex-shrink:0">${icon(g.ic, 15)}</span>
+                              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(g.label)}</span>
                             </span>
                             <span class="catalog-cat-count" style="${picked ? "" : "opacity:.45"}">${picked || list.length}</span>
                           </button>
@@ -13469,9 +13479,9 @@
          потом постпродакшн — и просил вести по этим шагам, а не высыпать 95 позиций
          разом. Каждый шаг открывает каталог сразу нужной группой (см. CATALOG_GROUPS). */
       const ESTIMATE_START_STEPS = [
-        { g: "crew", emoji: "👥", title: "Кто снимает",        text: "Оператор, режиссёр, звук, ассистенты — люди на площадке и в проекте." },
-        { g: "gear", emoji: "🧰", title: "На что снимаем",     text: "Камера, объективы, свет, стабилизатор, звуковой комплект." },
-        { g: "post", emoji: "✂️", title: "Что после съёмки",  text: "Монтаж, цвет, саунд-дизайн, графика, версии и субтитры." }
+        { g: "crew", ic: "team",   color: "var(--primary2)", title: "Кто снимает",      text: "Оператор, режиссёр, звук, ассистенты — люди на площадке и в проекте." },
+        { g: "gear", ic: "camera", color: "var(--blue)",     title: "На что снимаем",   text: "Камера, объективы, свет, стабилизатор, звуковой комплект." },
+        { g: "post", ic: "film",   color: "var(--green)",    title: "Что после съёмки", text: "Монтаж, цвет, саунд-дизайн, графика, версии и субтитры." }
       ];
 
       function renderEstimateStartSteps(canSetBudget) {
@@ -13481,10 +13491,13 @@
             <p class="mini-note" style="margin:0 0 14px">Порядок как в съёмочной смете: люди → техника → постпродакшн. Каждый шаг открывает свой раздел каталога.</p>
             <div class="grid three" style="gap:10px">
               ${ESTIMATE_START_STEPS.map((s, i) => `
-                <button onclick="app.goCatalogGroup('${s.g}')"
-                  style="text-align:left;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--panel);cursor:pointer;color:var(--text);display:flex;flex-direction:column;gap:4px">
-                  <span style="font-size:12px;color:var(--muted);font-weight:700">Шаг ${i + 1}</span>
-                  <span style="font-size:14px;font-weight:800">${s.emoji} ${escapeHtml(s.title)}</span>
+                <button onclick="app.goCatalogGroup('${s.g}')" class="estimate-step-card"
+                  style="text-align:left;padding:16px;border-radius:16px;border:1px solid var(--line);background:var(--panel);cursor:pointer;color:var(--text);display:flex;flex-direction:column;gap:6px;transition:border-color .15s,transform .15s">
+                  <span style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    ${iconBadge(s.ic, s.color, 44)}
+                    <span style="font-size:12px;color:var(--muted);font-weight:700">Шаг ${i + 1}</span>
+                  </span>
+                  <span style="font-size:15px;font-weight:800;margin-top:2px">${escapeHtml(s.title)}</span>
                   <span style="font-size:12px;color:var(--muted);line-height:1.45">${escapeHtml(s.text)}</span>
                 </button>
               `).join("")}
