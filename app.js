@@ -153,6 +153,9 @@
       const ICON_PATHS = {
         // Иконки разделов каталога и шагов сборки сметы (29.07.2026) — вместо эмодзи:
         // те рисуются шрифтом ОС и в тёмной теме выглядят разнокалиберными наклейками.
+        mic:      `<path d="M8 1.4a2.3 2.3 0 00-2.3 2.3v4a2.3 2.3 0 004.6 0v-4A2.3 2.3 0 008 1.4zM4 7.2a.7.7 0 00-1.4 0 5.4 5.4 0 004.7 5.3v1.3H5.6a.7.7 0 000 1.4h4.8a.7.7 0 000-1.4H8.7v-1.3A5.4 5.4 0 0013.4 7.2a.7.7 0 00-1.4 0 4 4 0 01-8 0z"/>`,
+        stage:    `<path d="M8 .8L1 4.1v1.5h14V4.1L8 .8zm-5.6 6.3v5.3H1.2c-.4 0-.7.3-.7.7s.3.7.7.7h13.6c.4 0 .7-.3.7-.7s-.3-.7-.7-.7h-1.2V7.1h-1.5v5.3h-2V7.1H8.7v5.3h-1.4V7.1H5.8v5.3h-2V7.1H2.4z"/>`,
+        building: `<path d="M2.6 1.4h7.2c.6 0 1 .5 1 1v3.1h2.6c.6 0 1 .5 1 1v7.1H1.6V2.4c0-.6.4-1 1-1zm1.2 2v1.5h1.7V3.4H3.8zm3.3 0v1.5h1.7V3.4H7.1zM3.8 6.4v1.5h1.7V6.4H3.8zm3.3 0v1.5h1.7V6.4H7.1zM3.8 9.4v1.5h1.7V9.4H3.8zm3.3 0v1.5h1.7V9.4H7.1zm5.1-2.3v1.5h1.2V7.1h-1.2zm0 3v1.5h1.2v-1.5h-1.2z"/>`,
         team:     `<path d="M5.3 7.2a2.1 2.1 0 100-4.2 2.1 2.1 0 000 4.2zm5.4 0a2.1 2.1 0 100-4.2 2.1 2.1 0 000 4.2zM1 12.6c0-2.1 1.9-3.7 4.3-3.7s4.3 1.6 4.3 3.7v.6H1v-.6zm9.9-3.6c2 .2 3.5 1.7 3.5 3.6v.6h-3.2v-.6c0-1.3-.5-2.5-1.3-3.4.3-.1.6-.2 1-.2z"/>`,
         film:     `<path d="M2 2.2h12c.7 0 1.2.5 1.2 1.2v9.2c0 .7-.5 1.2-1.2 1.2H2c-.7 0-1.2-.5-1.2-1.2V3.4c0-.7.5-1.2 1.2-1.2zm.3 1.7v1.6h1.8V3.9H2.3zm0 3.3v1.6h1.8V7.2H2.3zm0 3.3v1.6h1.8v-1.6H2.3zm9.6-6.6v1.6h1.8V3.9h-1.8zm0 3.3v1.6h1.8V7.2h-1.8zm0 3.3v1.6h1.8v-1.6h-1.8zM5.6 3.9v8.2h4.8V3.9H5.6z"/>`,
         bulb:     `<path d="M8 1a5 5 0 00-2.9 9.1c.3.2.4.5.4.8v.6c0 .6.5 1 1 1h3c.6 0 1-.4 1-1v-.6c0-.3.2-.6.4-.8A5 5 0 008 1zM6.4 13.9c0-.3.2-.5.5-.5h2.2c.3 0 .5.2.5.5s-.2.6-.5.6H6.9a.6.6 0 01-.5-.6z"/>`,
@@ -12658,16 +12661,21 @@
       }
 
       function renderPackages() {
+        // Иконки — из общей SVG-системы (см. ICON_PATHS), а не эмодзи: те рисуются
+        // шрифтом ОС и в тёмной теме выглядят наклейками поверх интерфейса.
         const CAT_META = {
-          social:    { label: "Соц. сети", icon: "📱" },
-          interview: { label: "Интервью",  icon: "🎙" },
-          business:  { label: "Бизнес-видео", icon: "🎬" },
-          events:    { label: "Мероприятия", icon: "🎪" },
-          ai:        { label: "ИИ / AI",   icon: "🤖" },
-          graphic:   { label: "Графика",   icon: "✨" },
-          photo:     { label: "Фото",      icon: "📸" },
-          corporate: { label: "Корпоративный", icon: "🏢" },
+          social:    { label: "Соц. сети",      ic: "mobile",   color: "var(--cyan)" },
+          interview: { label: "Интервью",       ic: "mic",      color: "var(--primary2)" },
+          business:  { label: "Бизнес-видео",   ic: "film",     color: "var(--blue)" },
+          events:    { label: "Мероприятия",    ic: "stage",    color: "var(--yellow)" },
+          ai:        { label: "ИИ / AI",        ic: "robot",    color: "var(--primary)" },
+          graphic:   { label: "Графика",        ic: "star",     color: "var(--orange)" },
+          photo:     { label: "Фото",           ic: "camera",   color: "var(--green)" },
+          corporate: { label: "Корпоративный",  ic: "building", color: "var(--text2)" },
         };
+        const catIcon = (meta) => meta && meta.ic
+          ? `<span style="color:${meta.color};display:inline-flex;vertical-align:-2px">${icon(meta.ic, 14)}</span>`
+          : "";
 
         const catOrder = Object.keys(CAT_META);
         const allPkgs = state.packages || [];
@@ -12703,7 +12711,7 @@
             <article class="package-card pkg-tier-${tier}" style="${borderStyle};cursor:pointer" onclick="app.openPackageEditModal('${pkg.id}')">
               <div class="pkg-card-top">
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                  ${cat ? `<span class="pkg-cat-badge" data-cat="${escapeHtml(cat)}">${catMeta.icon || ""} ${escapeHtml(catMeta.label || cat)}</span>` : ""}
+                  ${cat ? `<span class="pkg-cat-badge" data-cat="${escapeHtml(cat)}" style="display:inline-flex;align-items:center;gap:5px">${catIcon(catMeta)} ${escapeHtml(catMeta.label || cat)}</span>` : ""}
                   ${tier && tc.label ? `<span style="font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px;background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>` : ""}
                 </div>
                 ${pkg.id.startsWith("package_") ? `<button class="icon-del-btn" onclick="event.stopPropagation();app.deletePackage('${pkg.id}')" title="Удалить пакет" aria-label="Удалить пакет">${TRASH_SVG}</button>` : ""}
@@ -12770,7 +12778,7 @@
                 <div class="catalog-cat-group">
                   ${allCatsWithData.map(cat => `
                     <button class="catalog-cat-item ${pkgCatFilter===cat?"active":""}" onclick="app.setPkgCatFilter('${cat}')">
-                      <span>${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)}</span>
+                      <span style="display:inline-flex;align-items:center;gap:6px">${catIcon(CAT_META[cat])} ${escapeHtml(CAT_META[cat].label)}</span>
                       <span class="catalog-cat-count">${groups[cat].length}</span>
                     </button>
                   `).join("")}
@@ -12792,7 +12800,7 @@
                   const catPkgs = pkgCatFilter === "own" ? groups[cat].filter(isOwnPkg) : groups[cat];
                   if (!catPkgs.length) return "";
                   return `
-                    <div class="pkg-group-header">${CAT_META[cat].icon} ${escapeHtml(CAT_META[cat].label)}</div>
+                    <div class="pkg-group-header" style="display:flex;align-items:center;gap:7px">${catIcon(CAT_META[cat])} ${escapeHtml(CAT_META[cat].label)}</div>
                     <div class="grid three pkg-cards-grid" style="margin-bottom:24px">
                       ${catPkgs.map(renderPkgCard).join("")}
                     </div>
