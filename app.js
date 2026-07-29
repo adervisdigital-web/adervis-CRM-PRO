@@ -458,7 +458,24 @@
           priceLabel: "от 150 000 ₽",
           desc: "Полноценный рекламный ролик 30–60 сек: концепция, продакшн, постпродакшн.",
           goodFor: "ТВ-реклама, digital, бренд-кампании",
-          items: ["concept", "script_short", "storyboard", "shoot_plan", "director", "dop", "assistant", "makeup", "camera_pro", "lens_set", "light_plus", "soundman", "sound_kit", "producer", "location_rent", "edit", "color", "sound_post", "motion_basic", "titles", "voiceover_record"],
+          // Объёмы проставлены явно (29.07.2026): рекламный ролик — ДВА съёмочных дня,
+          // а до появления параметров состава всё считалось по одному дню, и пакет
+          // насчитывал 102 000 ₽ при объявленных 150 000. Ср. notes ниже — они про то же.
+          items: [
+            "concept", "script_short", "storyboard", "shoot_plan",
+            { id: "director", line: { days: 2 } },
+            { id: "dop", line: { days: 2 } },
+            { id: "assistant", line: { days: 2 } },
+            { id: "makeup", line: { days: 2 } },
+            { id: "camera_pro", line: { rentalDays: 2 } },
+            { id: "lens_set", line: { rentalDays: 2 } },
+            { id: "light_plus", line: { rentalDays: 2 } },
+            { id: "soundman", line: { days: 2 } },
+            { id: "sound_kit", line: { rentalDays: 2 } },
+            { id: "producer", line: { days: 2 } },
+            "location_rent",
+            "edit", "color", "sound_post", "motion_basic", "titles", "voiceover_record"
+          ],
           notes: ["Финальный бюджет зависит от локаций, актёров и спецэффектов.", "До 2 кругов правок на каждом этапе."]
         },
 
@@ -632,7 +649,13 @@
           priceLabel: "от 38 000 ₽",
           desc: "Видеосъёмка события двумя операторами, монтаж ролика и нарезки для соцсетей.",
           goodFor: "корпоративы, дни открытых дверей, небольшие конференции",
-          items: ["event_cameraman", "event_photographer", "camera_basic", "sound_kit", "event_clip_edit", "smm_cutdowns"],
+          // Описание пакета обещает съёмку ДВУМЯ операторами — теперь это и в составе,
+          // а не только в тексте: до 29.07.2026 считался один, и пакет насчитывал
+          // 26 200 ₽ при объявленных 38 000.
+          items: [
+            { id: "event_cameraman", line: { people: 2 } },
+            "event_photographer", "camera_basic", "sound_kit", "event_clip_edit", "smm_cutdowns"
+          ],
           notes: ["Два оператора покрывают зал и кулуары.", "Итоговый ролик до 3 мин + 3–5 коротких нарезок для соцсетей."]
         },
         {
@@ -822,8 +845,24 @@
           priceLabel: "от 140 000 ₽",
           desc: "Полный корпоративный медиапакет: имиджевый фильм, фотосессия, интервью топ-менеджмента, серия для соцсетей.",
           goodFor: "крупные компании, ESG-отчётность, IPO, корпоративный PR",
-          items: ["concept", "script_full", "shoot_plan", "director", "dop", "second_camera_operator", "gaffer", "soundman", "producer", "photographer", "camera_pro", "lens_set", "light_plus", "sound_kit", "edit", "color", "sound_post", "motion_basic", "titles", "voiceover_record", "photo_retouch", "smm_cutdowns"],
-          notes: ["3–4 съёмочных дня, несколько локаций.", "Имиджевый ролик 5–7 мин + 3 коротких для соцсетей + 100+ обработанных фото."]
+          // Объёмы приведены к цене, которую агентство объявляло (140 000 ₽): два дня
+          // основной группы и техники, остальные — по одному. Раньше всё считалось по
+          // одному дню и давало 108 700 ₽, а notes при этом обещали «3–4 съёмочных дня» —
+          // текст и расчёт разъезжались; ниже notes тоже приведены в соответствие.
+          items: [
+            "concept", "script_full", "shoot_plan",
+            { id: "director", line: { days: 2 } },
+            { id: "dop", line: { days: 2 } },
+            "second_camera_operator", "gaffer", "soundman",
+            { id: "producer", line: { days: 2 } },
+            "photographer",
+            { id: "camera_pro", line: { rentalDays: 2 } },
+            { id: "lens_set", line: { rentalDays: 2 } },
+            "light_plus", "sound_kit",
+            "edit", "color", "sound_post", "motion_basic", "titles", "voiceover_record",
+            "photo_retouch", "smm_cutdowns"
+          ],
+          notes: ["2 съёмочных дня, несколько локаций.", "Имиджевый ролик 5–7 мин + 3 коротких для соцсетей + 100+ обработанных фото."]
         },
         {
           id: "teambuilding_photo",
