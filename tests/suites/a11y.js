@@ -230,5 +230,23 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(bad.length, 0, "низкий контраст капсул — " + bad.join(" | "));
   });
 
+  // Кнопка «Скрыть» чеклиста «первые шаги» была 18×18 — меньше даже мягкого порога
+  // тач-таргета. Сам чеклист виден только со свежим demo-аккаунтом (seedDemo),
+  // поэтому открываем отдельный контекст вместо общего page из этого набора.
+  await test("чеклист «первые шаги»: кнопка «Скрыть» — тач-таргет не меньше 36×36", async () => {
+    const { context: c2, page: p2 } = await bootLocal(browser, baseUrl, { seedDemo: true });
+    await p2.evaluate(() => window.app.go("home"));
+    await p2.waitForTimeout(200);
+    const size = await p2.evaluate(() => {
+      const btn = [...document.querySelectorAll("#appContent button")].find((b) => b.title === "Скрыть" && b.textContent.trim() === "×");
+      if (!btn) return null;
+      const r = btn.getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height) };
+    });
+    assert(size, "кнопка «Скрыть» чеклиста не найдена");
+    assert(size.w >= 36 && size.h >= 36, `тач-таргет меньше 36×36: ${size.w}×${size.h}`);
+    await c2.close();
+  });
+
   await context.close();
 };

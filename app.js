@@ -11621,7 +11621,10 @@
           }
         ];
         const done = steps.filter(s => s.done).length;
-        const hideBtn = `<button onclick="try{localStorage.setItem('_onboardingDismissed','1')}catch(e){};app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Скрыть">×</button>`;
+        // 36×36 — тач-таргет чуть ниже рекомендованных 44px, но это редкое разовое
+        // действие («скрыть раз и навсегда»), а не то, что нажимают постоянно;
+        // прежние 18×18 (только сама буква ×) не проходили даже мягкий порог.
+        const hideBtn = `<button onclick="try{localStorage.setItem('_onboardingDismissed','1')}catch(e){};app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;width:36px;height:36px;flex-shrink:0;display:grid;place-items:center;line-height:1" title="Скрыть">×</button>`;
 
         // Пройдено всё — говорим об этом прямо, а не прячем панель молча. Скрывается
         // по крестику: следующий заход начнётся уже без неё.
