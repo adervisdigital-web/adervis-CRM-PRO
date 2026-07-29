@@ -174,12 +174,25 @@ module.exports = async function ({ browser, baseUrl, test }) {
     const sum = groups.reduce((s, g) => s + g.size, 0);
     assertEqual(sum, total, `сумма по группам (${sum}) не сходится с каталогом (${total}) — позиция выпала из групп`);
 
-    // У раскрытой группы появляются её подкатегории — у свёрнутых нет.
-    const before = await page.$$eval("#appContent .catalog-cat-item", (b) => b.length);
-    await page.evaluate(() => { window.app.setTab("grp:crew"); });
+    // Раскрытие не привязано к выбору: групп можно держать открытыми несколько,
+    // повторный клик по выбранной сворачивает её.
+    const count = () => page.$$eval("#appContent .catalog-cat-item", (b) => b.length);
+    const before = await count();
+    await page.evaluate(() => { window.app.toggleCatalogGroup("crew"); });
     await page.waitForTimeout(250);
-    const after = await page.$$eval("#appContent .catalog-cat-item", (b) => b.length);
-    assert(after > before, "подкатегории у активной группы не раскрылись");
+    const oneOpen = await count();
+    assert(oneOpen > before, "подкатегории раскрытой группы не появились");
+
+    await page.evaluate(() => { window.app.toggleCatalogGroup("post"); });
+    await page.waitForTimeout(250);
+    const twoOpen = await count();
+    assert(twoOpen > oneOpen, "вторая группа не раскрылась одновременно с первой");
+    const openGroups = await page.$$eval("#appContent [data-group]", (b) => b.filter((x) => x.dataset.open === "1").length);
+    assertEqual(openGroups, 2, "открытых групп должно быть две");
+
+    await page.evaluate(() => { window.app.toggleCatalogGroup("post"); });
+    await page.waitForTimeout(250);
+    assertEqual(await count(), oneOpen, "повторный клик по выбранной группе не свернул её");
 
     const shown = await page.evaluate(() => document.querySelectorAll(".catalog-grid > .item").length);
     assert(shown > 0, "в группе «Команда» не показано ни одной позиции");

@@ -10286,6 +10286,10 @@
           wrap.style.display = /inline/.test(cs.display) ? "inline-block" : "block";
           if (sel.style.width) wrap.style.width = sel.style.width;
           else if (!/inline/.test(cs.display)) wrap.style.width = "100%";
+          // max-width переносим тоже: без него селект с width:auto растягивается по
+          // самому длинному варианту списка и на телефоне уезжает за край экрана
+          // (замер 390px: селект налога — 286px, страница ехала вбок на 63px).
+          if (sel.style.maxWidth) wrap.style.maxWidth = sel.style.maxWidth;
           if (sel.style.marginLeft) wrap.style.marginLeft = sel.style.marginLeft;
           sel.parentNode.insertBefore(wrap, sel);
           wrap.appendChild(sel);
@@ -12882,9 +12886,11 @@
                         const list = byGroup[g.id] || [];
                         if (!list.length) return "";
                         const active = state.tab === "grp:" + g.id;
-                        // Подкатегории показываем только у раскрытой группы: иначе это
-                        // те же 13 пунктов, только с отступом.
-                        const subs = active
+                        // Раскрытие не привязано к выбору: групп можно держать открытыми
+                        // сколько угодно (раньше подкатегории показывались только у
+                        // активной, и сравнить два раздела рядом было нельзя).
+                        const open = !!(state.catalogGroupsOpen || {})[g.id];
+                        const subs = open
                           ? [...new Set(list.map(x => x.category))]
                               .filter(c => catLabel[c])
                               .map(c => ({ id: c, label: catLabel[c], n: list.filter(x => x.category === c).length }))
@@ -12892,16 +12898,19 @@
                         const picked = list.filter(x => state.selected[x.id]).length;
                         return `
                           <button class="catalog-cat-item ${g.id === "money" ? "danger" : ""} ${active ? "active" : ""}"
-                            data-group="${g.id}" data-group-size="${list.length}"
-                            onclick="app.setTab('grp:${g.id}')" title="${escapeHtml(g.hint)}">
-                            <span>${g.emoji} ${escapeHtml(g.label)}</span>
+                            data-group="${g.id}" data-group-size="${list.length}" data-open="${open ? "1" : "0"}"
+                            onclick="app.toggleCatalogGroup('${g.id}')" title="${escapeHtml(g.hint)}">
+                            <span style="display:flex;align-items:center;gap:6px">
+                              <span style="display:inline-block;width:9px;font-size:10px;opacity:.6;transform:rotate(${open ? "90" : "0"}deg);transition:transform .15s">▶</span>
+                              ${g.emoji} ${escapeHtml(g.label)}
+                            </span>
                             <span class="catalog-cat-count" style="${picked ? "" : "opacity:.45"}">${picked || list.length}</span>
                           </button>
                           ${subs.length > 1 ? `<div style="margin:2px 0 6px 10px;display:flex;flex-direction:column;gap:2px">
                             ${subs.map(s => `
                               <button class="catalog-cat-item ${state.tab === s.id ? "active" : ""}"
                                 onclick="event.stopPropagation();app.setTab('${s.id}')"
-                                style="font-size:12px;padding-top:5px;padding-bottom:5px;opacity:.85">
+                                style="font-size:12px;min-height:36px;opacity:.85">
                                 <span>${escapeHtml(s.label)}</span>
                                 <span class="catalog-cat-count">${s.n}</span>
                               </button>
@@ -13116,7 +13125,11 @@
                       : `${totalItems} позиц.${t.optional ? ` · опции +${money(t.optional)}` : ""}`}</div>
                   </div>`;
                   })()}
-                  <select data-autosave data-scope="project" data-key="taxType" style="width:auto;padding:5px 30px 5px 10px;font-size:12px;border-radius:10px;margin-left:4px">
+                  <!-- max-width обязателен: enhanceSelects растягивает кастом-дропдаун по
+                       самому длинному варианту («Самозанятый (НПД), с юрлицами/ИП — 6%»),
+                       и на телефоне селект уезжал за край экрана, утаскивая страницу вбок
+                       (замер на 390px: −63px). Та же грабля, что с тулбаром каталога. -->
+                  <select data-autosave data-scope="project" data-key="taxType" style="width:auto;max-width:100%;padding:5px 30px 5px 10px;font-size:12px;border-radius:10px;margin-left:4px">
                     ${taxOptionsHtml(state.project.taxType)}
                   </select>
                   ${(() => {
@@ -13449,7 +13462,25 @@
       function goCatalogGroup(gid) {
         setSearch("");
         state.tab = "grp:" + gid;
+        state.catalogGroupsOpen = { ...(state.catalogGroupsOpen || {}), [gid]: true };
         go("catalog");
+      }
+
+      /* Клик по группе каталога. Раскрытие и выбор — разные вещи, поэтому:
+           группа закрыта            → раскрыть и показать её позиции;
+           раскрыта, но не выбрана   → показать её позиции, оставив раскрытой;
+           раскрыта и выбрана        → свернуть (фильтр при этом не трогаем — список
+                                       позиций под рукой, пока человек не выберет другое).
+         Открытых групп может быть сколько угодно: сравнивать «Команду» и «Оборудование»
+         рядом — обычное дело при сборке сметы. */
+      function toggleCatalogGroup(gid) {
+        const open = { ...(state.catalogGroupsOpen || {}) };
+        const isActive = state.tab === "grp:" + gid;
+        if (open[gid] && isActive) delete open[gid];
+        else { open[gid] = true; state.tab = "grp:" + gid; }
+        state.catalogGroupsOpen = open;
+        save();
+        render();
       }
 
       function renderLineAdvancedControls(id, itemData, line) {
@@ -19805,6 +19836,7 @@ Email: ______________________            Email: ______________________
         go,
         setTab,
         goCatalogGroup,
+        toggleCatalogGroup,
         setSearch,
         setClientsFilter,
         setFilter,
