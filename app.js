@@ -371,7 +371,6 @@
           id: "social_start",
           name: "Соц. сети 1 — Старт",
           cat: "social", tier: 1,
-          priceLabel: "от 18 000 ₽",
           desc: "Минимальный комплект для короткого ролика в соцсети.",
           goodFor: "эксперты, малый бизнес, услуги",
           items: ["idea", "script_short", "camera_operator", "camera_basic", "edit_short", "subtitles", "cover_design"],
@@ -381,7 +380,6 @@
           id: "social_pro",
           name: "Соц. сети 2 — Профи",
           cat: "social", tier: 2,
-          priceLabel: "от 35 000 ₽",
           desc: "Расширенный комплект: съёмка + монтаж + субтитры + 3 адаптации форматов.",
           goodFor: "бренды, блогеры, маркетинг, регулярный контент",
           items: ["script_short", "shoot_plan", "camera_operator", "assistant", "camera_basic", "light_basic", "sound_kit", "edit_short", "subtitles", "smm_cutdowns", "thumbnail_pack", "cover_design", "vertical_adapt"],
@@ -391,7 +389,6 @@
           id: "social_media",
           name: "Соц. сети 3 — Медиа",
           cat: "social", tier: 3,
-          priceLabel: "от 55 000 ₽",
           desc: "Полный медиапакет: контент-день, 5+ роликов, motion-элементы и поддержка публикаций.",
           goodFor: "активные бренды, продакшн-агентства, маркетинговые отделы",
           items: ["concept", "script_short", "content_day_plan", "shoot_plan", "camera_operator", "second_camera_operator", "assistant", "camera_basic", "light_plus", "sound_kit", "edit_short", "subtitles", "smm_cutdowns", "thumbnail_pack", "cover_design", "vertical_adapt", "motion_basic", "publication_support"],
@@ -403,7 +400,6 @@
           id: "interview_base",
           name: "Интервью 1 — Базовое",
           cat: "interview", tier: 1,
-          priceLabel: "от 32 000 ₽",
           desc: "Интервью с экспертом или представителем компании.",
           goodFor: "экспертный контент, HR, обучение",
           items: ["interview_questions", "shoot_plan", "camera_operator", "soundman", "camera_basic", "light_basic", "sound_kit", "edit", "sound_post", "titles"],
@@ -413,7 +409,6 @@
           id: "interview_studio",
           name: "Интервью 2 — Студийное",
           cat: "interview", tier: 2,
-          priceLabel: "от 55 000 ₽",
           desc: "Профессиональное интервью в студии с постановочным светом и двумя камерами.",
           goodFor: "публичные персоны, CEO, HR-бренд, обучающий контент",
           items: ["interview_questions", "shoot_plan", "dop", "second_camera_operator", "soundman", "camera_pro", "lens_set", "light_plus", "sound_kit", "studio_basic", "edit", "color", "sound_post", "titles"],
@@ -423,7 +418,6 @@
           id: "interview_cinema",
           name: "Интервью 3 — Кино",
           cat: "interview", tier: 3,
-          priceLabel: "от 80 000 ₽",
           desc: "Кинематографическое интервью: постановочный свет, два оператора, полный постпродакшн.",
           goodFor: "имидж-проекты, документальный стиль, серьёзные бренды",
           items: ["interview_questions", "concept", "shoot_plan", "director", "dop", "second_camera_operator", "gaffer", "soundman", "camera_pro", "lens_set", "light_plus", "sound_kit", "edit", "color", "sound_post", "motion_basic", "titles"],
@@ -435,7 +429,6 @@
           id: "business_video",
           name: "Бизнес-видео 1 — Старт",
           cat: "business", tier: 1,
-          priceLabel: "от 55 000 ₽",
           desc: "Имиджевый или презентационный ролик для компании.",
           goodFor: "сайт, презентации, продажи, HR-бренд",
           items: ["concept", "script_full", "shoot_plan", "director", "dop", "assistant", "camera_pro", "lens_set", "light_plus", "edit", "color", "sound_post", "titles"],
@@ -445,7 +438,6 @@
           id: "brand_film_mid",
           name: "Бизнес-видео 2 — Имиджевый",
           cat: "business", tier: 2,
-          priceLabel: "от 85 000 ₽",
           desc: "Имиджевый фильм о компании 2–5 мин: команда, производство, интервью.",
           goodFor: "сайт компании, HR-бренд, инвесторы, партнёры",
           items: ["concept", "script_full", "shoot_plan", "director", "dop", "soundman", "producer", "camera_pro", "lens_set", "light_plus", "sound_kit", "edit", "color", "sound_post", "titles", "voiceover_record"],
@@ -455,7 +447,6 @@
           id: "ad_video_pro",
           name: "Бизнес-видео 3 — Реклама",
           cat: "business", tier: 3,
-          priceLabel: "от 150 000 ₽",
           desc: "Полноценный рекламный ролик 30–60 сек: концепция, продакшн, постпродакшн.",
           goodFor: "ТВ-реклама, digital, бренд-кампании",
           // Объёмы проставлены явно (29.07.2026): рекламный ролик — ДВА съёмочных дня,
@@ -484,7 +475,6 @@
           id: "photo_content",
           name: "Фото 1 — Старт",
           cat: "photo", tier: 1,
-          priceLabel: "от 14 000 ₽",
           desc: "Фотосъёмка и базовая обработка для сайта или соцсетей.",
           goodFor: "команда, товары, офис, мероприятия",
           items: ["photographer", "photo_retouch", "cover_design"],
@@ -494,7 +484,6 @@
           id: "photo_content_pro",
           name: "Фото 2 — Профи",
           cat: "photo", tier: 2,
-          priceLabel: "от 28 000 ₽",
           desc: "Профессиональная фотосессия в студии или на выезде: портреты, команда, товары.",
           goodFor: "команда, LinkedIn, сайт компании, HR, пресс-кит",
           items: ["photographer", "camera_pro", "lens_set", "light_plus", "photo_retouch", "cover_design"],
@@ -504,7 +493,6 @@
           id: "photo_content_premium",
           name: "Фото 3 — Премиум",
           cat: "photo", tier: 3,
-          priceLabel: "от 50 000 ₽",
           desc: "Полный день коммерческой съёмки: товары, команда, репортаж, визаж.",
           goodFor: "каталоги, рекламные кампании, большие команды",
           items: ["photographer", "second_camera_operator", "makeup", "camera_pro", "lens_set", "light_plus", "studio_basic", "photo_retouch", "thumbnail_pack", "cover_design"],
@@ -516,7 +504,6 @@
           id: "content_day",
           name: "Контент-день",
           cat: "social",
-          priceLabel: "от 45 000 ₽",
           desc: "Один съёмочный день для серии коротких материалов.",
           goodFor: "регулярные соцсети, эксперты, отделы маркетинга",
           items: ["content_day_plan", "shoot_plan", "camera_operator", "assistant", "camera_basic", "light_basic", "sound_kit", "edit_short", "smm_cutdowns", "thumbnail_pack"],
@@ -528,7 +515,6 @@
           id: "graphic_start",
           name: "Графика 1 — Старт",
           cat: "graphic", tier: 1,
-          priceLabel: "от 15 000 ₽",
           desc: "Базовый набор графики: анимация логотипа, титры и простые переходы.",
           goodFor: "YouTube-каналы, блогеры, стартапы, стримеры",
           items: ["logo_anim", "titles", "cover_design"],
@@ -538,7 +524,6 @@
           id: "graphic_pro",
           name: "Графика 2 — Профи",
           cat: "graphic", tier: 2,
-          priceLabel: "от 35 000 ₽",
           desc: "Профессиональный пакет motion-графики: анимации, инфографика, брендинг видео.",
           goodFor: "YouTube-каналы, бренды, рекламодатели, корпоративные видео",
           items: ["concept", "storyboard", "motion_basic", "logo_anim", "titles", "thumbnail_pack", "cover_design", "sound_post"],
@@ -548,7 +533,6 @@
           id: "graphic_explainer",
           name: "Графика 3 — Explainer",
           cat: "graphic", tier: 3,
-          priceLabel: "от 60 000 ₽",
           desc: "Анимационный объясняющий ролик 60–120 сек: визуализирует продукт, услугу или идею.",
           goodFor: "стартапы, SaaS, B2B, инвесторы, лендинги",
           items: ["script_full", "storyboard", "motion_basic", "logo_anim", "titles", "voiceover_text", "voiceover_record", "sound_post", "music"],
@@ -560,7 +544,6 @@
           id: "ai_video_full",
           name: "AI-видео 3 — Полный цикл",
           cat: "ai", tier: 3,
-          priceLabel: "от 74 000 ₽",
           desc: "Полное производство AI-видеоролика: промпты, генерация, монтаж, звук, графика, цвет. Аналог профессионального продакшна без съёмочной группы.",
           goodFor: "AI-продакшн, рекламодатели, агентства, стартапы",
           items: ["ai_sub_higgsfield", "ai_credits_5000", "ai_music_license", "ai_voice_synthesis", "ai_prompt_writing", "ai_video_generation", "ai_motion_graphics", "ai_video_edit_integration", "ai_sound_design", "ai_color_grade"],
@@ -574,7 +557,6 @@
           id: "ai_video_short",
           name: "AI-видео 1 — Старт",
           cat: "ai", tier: 1,
-          priceLabel: "от 25 000 ₽",
           desc: "Быстрый AI-ролик до 30 секунд для соцсетей: промпты, генерация, монтаж и обложка.",
           goodFor: "Reels, TikTok, соцсети, быстрый запуск",
           items: ["ai_sub_higgsfield", "ai_credits_1000", "ai_prompt_writing", "ai_video_generation", "edit_short", "cover_design"],
@@ -584,7 +566,6 @@
           id: "ai_product_promo",
           name: "AI-видео 2 — Промо",
           cat: "ai", tier: 2,
-          priceLabel: "от 45 000 ₽",
           desc: "Промо-ролик продукта или услуги на базе AI-генерации с дикторским голосом и моушн-графикой.",
           goodFor: "товары, приложения, сервисы, лендинги",
           items: ["ai_sub_syntex", "ai_credits_1000", "ai_prompt_writing", "ai_video_generation", "ai_voice_synthesis", "ai_motion_graphics", "ai_video_edit_integration", "ai_music_license"],
@@ -646,7 +627,6 @@
           id: "event_basic",
           name: "Мероприятие 1 — Базовое",
           cat: "events", tier: 1,
-          priceLabel: "от 38 000 ₽",
           desc: "Видеосъёмка события двумя операторами, монтаж ролика и нарезки для соцсетей.",
           goodFor: "корпоративы, дни открытых дверей, небольшие конференции",
           // Описание пакета обещает съёмку ДВУМЯ операторами — теперь это и в составе,
@@ -662,7 +642,6 @@
           id: "event_conference",
           name: "Мероприятие 2 — Конференция",
           cat: "events", tier: 2,
-          priceLabel: "от 85 000 ₽",
           desc: "Многокамерная съёмка конференции, интервью со спикерами, стрим и монтаж полной версии.",
           goodFor: "бизнес-форумы, IT-конференции, отраслевые события",
           items: ["event_multicam", "event_stream", "event_presenter_reel", "soundman", "sound_kit", "edit", "color", "event_clip_edit", "event_graphic_pack"],
@@ -672,7 +651,6 @@
           id: "event_online",
           name: "Мероприятие 3 — Онлайн / стрим",
           cat: "events", tier: 3,
-          priceLabel: "от 32 000 ₽",
           desc: "Прямая трансляция вебинара или онлайн-ивента с записью и монтажом итогового ролика.",
           goodFor: "вебинары, онлайн-конференции, запуски продуктов",
           items: ["event_stream", "soundman", "sound_kit", "edit"],
@@ -684,7 +662,6 @@
           id: "brand_film",
           name: "Имиджевый фильм о компании",
           cat: "business",
-          priceLabel: "от 85 000 ₽",
           desc: "Полноценный имиджевый ролик 2–5 минут: концепция, съёмка, интервью, монтаж, цвет, звук.",
           goodFor: "сайт компании, HR-бренд, инвесторы, партнёры",
           items: ["concept", "script_full", "shoot_plan", "director", "dop", "soundman", "producer", "camera_pro", "lens_set", "light_plus", "sound_kit", "edit", "color", "sound_post", "titles", "voiceover_record"],
@@ -694,7 +671,6 @@
           id: "reels_series",
           name: "Серия Reels / Shorts (5 роликов)",
           cat: "social",
-          priceLabel: "от 55 000 ₽",
           desc: "Пять коротких роликов для соцсетей, снятых за один контент-день и смонтированных.",
           goodFor: "регулярный контент, эксперты, блогеры, бренды",
           items: ["content_day_plan", "shoot_plan", "camera_operator", "camera_basic", "light_basic", "sound_kit", "edit_short", "smm_cutdowns", "thumbnail_pack"],
@@ -704,7 +680,6 @@
           id: "youtube_project",
           name: "YouTube-проект / обзор",
           cat: "business",
-          priceLabel: "от 65 000 ₽",
           desc: "Обзорное или обучающее YouTube-видео 5–15 минут: сценарий, съёмка, монтаж, анимации.",
           goodFor: "YouTube-каналы, обзоры, туториалы, экспертный контент",
           items: ["script_full", "shoot_plan", "dop", "camera_pro", "light_plus", "soundman", "sound_kit", "edit", "color", "sound_post", "motion_basic", "titles", "thumbnail_pack", "vertical_adapt"],
@@ -716,7 +691,6 @@
           id: "wedding_full",
           name: "Свадьба — полный день",
           cat: "photo",
-          priceLabel: "от 120 000 ₽",
           desc: "Полная видеосъёмка свадьбы: сборы, церемония, банкет. Свадебный фильм + клип + фото.",
           goodFor: "свадьбы, торжества, выездные регистрации",
           items: ["dop", "camera_operator", "second_camera_operator", "photographer", "soundman", "camera_pro", "lens_set", "light_plus", "sound_kit", "stabilizer", "edit", "color", "sound_post", "music", "photo_retouch"],
@@ -726,7 +700,6 @@
           id: "wedding_mini",
           name: "Свадьба — мини",
           cat: "photo",
-          priceLabel: "от 55 000 ₽",
           desc: "Компактная съёмка: ЗАГС + прогулка. Видеоклип и фото без банкета.",
           goodFor: "небольшие свадьбы, расписка, камерные торжества",
           items: ["camera_operator", "photographer", "camera_pro", "lens_set", "light_basic", "stabilizer", "edit_short", "color", "music", "photo_retouch"],
@@ -736,7 +709,6 @@
           id: "love_story",
           name: "Love Story / Фотосессия пары",
           cat: "photo",
-          priceLabel: "от 22 000 ₽",
           desc: "Романтическая фото- и видеосессия пары на природе или в городе.",
           goodFor: "пары, love story, годовщины, предложение руки",
           items: ["photographer", "camera_operator", "camera_pro", "lens_set", "light_basic", "photo_retouch", "cover_design"],
@@ -746,7 +718,6 @@
           id: "kids_photo",
           name: "Детская / Семейная съёмка",
           cat: "photo",
-          priceLabel: "от 18 000 ₽",
           desc: "Фотосъёмка детей и семьи в студии или на выезде.",
           goodFor: "дети, семьи, праздники, дни рождения",
           items: ["photographer", "camera_basic", "light_basic", "props", "photo_retouch"],
@@ -758,7 +729,6 @@
           id: "ad_video_full",
           name: "Рекламный ролик — полный цикл",
           cat: "business",
-          priceLabel: "от 150 000 ₽",
           desc: "Полноценный рекламный ролик 30–60 сек: концепция, продакшн, постпродакшн.",
           goodFor: "ТВ-реклама, digital, бренд-кампании, e-com",
           items: ["concept", "script_short", "storyboard", "shoot_plan", "director", "dop", "assistant", "makeup", "camera_pro", "lens_set", "light_plus", "soundman", "sound_kit", "producer", "location_rent", "edit", "color", "sound_post", "motion_basic", "titles", "voiceover_record"],
@@ -768,7 +738,6 @@
           id: "motion_pack",
           name: "Motion-графика / Анимация",
           cat: "graphic",
-          priceLabel: "от 35 000 ₽",
           desc: "Анимационный ролик до 60 сек: моушн, инфографика, анимированный логотип, заставки.",
           goodFor: "презентации, YouTube, соцсети, рекламные вставки",
           items: ["concept", "storyboard", "motion_basic", "logo_anim", "titles", "sound_post", "music"],
@@ -778,7 +747,6 @@
           id: "explainer_video",
           name: "Explainer / Презентационная анимация",
           cat: "graphic",
-          priceLabel: "от 60 000 ₽",
           desc: "Объясняющий анимационный ролик 60–120 сек: визуализирует продукт, услугу или идею.",
           goodFor: "стартапы, SaaS, B2B, инвесторы, лендинги",
           items: ["script_full", "storyboard", "motion_basic", "logo_anim", "titles", "voiceover_text", "voiceover_record", "sound_post", "music"],
@@ -788,7 +756,6 @@
           id: "brand_graphics_pack",
           name: "Графический пакет для бренда",
           cat: "graphic",
-          priceLabel: "от 25 000 ₽",
           desc: "Анимированный логотип, интро/аутро, нижние трети, шаблоны для соцсетей.",
           goodFor: "YouTube-каналы, блогеры, бренды, продакшн-студии",
           items: ["logo_anim", "titles", "motion_basic", "thumbnail_pack", "cover_design"],
@@ -800,7 +767,6 @@
           id: "cinematic_interview",
           name: "Кино-интервью / Спикер",
           cat: "interview",
-          priceLabel: "от 45 000 ₽",
           desc: "Профессиональное кино-интервью с постановочным светом, двумя камерами и чистым звуком.",
           goodFor: "эксперты, CEO, спикеры, HR-бренд, публичные персоны",
           items: ["interview_questions", "shoot_plan", "dop", "second_camera_operator", "gaffer", "soundman", "camera_pro", "lens_set", "light_plus", "sound_kit", "edit", "color", "sound_post", "titles"],
@@ -810,7 +776,6 @@
           id: "documentary_short",
           name: "Документальный мини-фильм",
           cat: "business",
-          priceLabel: "от 90 000 ₽",
           desc: "Короткий документальный фильм 5–15 мин о человеке, бизнесе или событии.",
           goodFor: "бизнес-истории, социальные проекты, личный бренд",
           items: ["concept", "script_full", "shoot_plan", "director", "dop", "soundman", "producer", "camera_pro", "lens_set", "light_plus", "sound_kit", "stabilizer", "drone", "edit", "color", "sound_post", "music", "titles", "voiceover_record"],
@@ -822,7 +787,6 @@
           id: "corporate_start",
           name: "Корпоратив 1 — Старт",
           cat: "corporate", tier: 1,
-          priceLabel: "от 28 000 ₽",
           desc: "Базовый корпоративный контент: фотосессия команды и короткое видео-приветствие.",
           goodFor: "HR-бренд, сайт, соцсети компании",
           items: ["photographer", "camera_operator", "camera_basic", "light_basic", "photo_retouch", "cover_design", "edit_short"],
@@ -832,7 +796,6 @@
           id: "corporate_video",
           name: "Корпоратив 2 — Профи",
           cat: "corporate", tier: 2,
-          priceLabel: "от 75 000 ₽",
           desc: "Имиджевый корпоративный фильм: команда, офис, производство, интервью сотрудников.",
           goodFor: "HR-бренд, инвесторы, партнёры, сайт компании",
           items: ["concept", "script_full", "shoot_plan", "director", "camera_operator", "second_camera_operator", "gaffer", "soundman", "camera_pro", "lens_set", "light_plus", "sound_kit", "producer", "edit", "color", "sound_post", "motion_basic", "titles"],
@@ -842,7 +805,6 @@
           id: "corporate_premium",
           name: "Корпоратив 3 — Премиум",
           cat: "corporate", tier: 3,
-          priceLabel: "от 140 000 ₽",
           desc: "Полный корпоративный медиапакет: имиджевый фильм, фотосессия, интервью топ-менеджмента, серия для соцсетей.",
           goodFor: "крупные компании, ESG-отчётность, IPO, корпоративный PR",
           // Объёмы приведены к цене, которую агентство объявляло (140 000 ₽): два дня
@@ -868,7 +830,6 @@
           id: "teambuilding_photo",
           name: "Корпоративная фотосъёмка",
           cat: "corporate",
-          priceLabel: "от 28 000 ₽",
           desc: "Профессиональная фотосессия команды в офисе или на выезде: портреты и групповые фото.",
           goodFor: "команда, LinkedIn, сайт компании, HR, пресс-кит",
           items: ["photographer", "camera_pro", "lens_set", "light_plus", "photo_retouch", "cover_design"],
@@ -7704,10 +7665,12 @@
         return { id, itemData, line };
       }
 
-      // Цена пакета = сумма его состава по ТЕКУЩИМ ценам каталога. Раньше на карточке
-      // стоял вручную вписанный priceLabel, который жил своей жизнью: замер 28.07
-      // показал, что у 19 пакетов из 27 он выше реального состава, а у 8 — ниже,
-      // то есть карточка обещала дешевле, чем сама же и насчитывала.
+      // Цена пакета = сумма его состава по ТЕКУЩИМ ценам каталога. Единственный
+      // источник цены: поля priceLabel не существует вовсе (удалено 29.07.2026 по
+      // решению владельца «цены все от услуг»). До этого оно жило своей жизнью —
+      // замер показал, что у 19 пакетов из 27 вписанная цена была выше реального
+      // состава, а у 8 ниже, то есть карточка обещала дешевле, чем сама насчитывала.
+      // Хотите продавать пакет дороже — добавьте в него работы, а не цифру.
       function packagePrice(pkg) {
         if (!pkg) return 0;
         return (pkg.items || []).reduce((sum, entry) => {
@@ -7749,7 +7712,6 @@
         state.packages.unshift({
           id: uid("package"),
           name,
-          priceLabel: "Свой пакет",
           desc: "Пользовательский пакет из текущей сметы.",
           goodFor: "Индивидуальные проекты",
           items: ids,
@@ -12344,7 +12306,6 @@
           desc:       pkg.desc || "",
           cat:        pkg.cat  || "",
           goodFor:    pkg.goodFor || "",
-          priceLabel: pkg.priceLabel || "",
           note:       (pkg.notes || [])[0] || ""
         };
         _armDirtyCheck(state.packageEditModal);
@@ -12372,7 +12333,6 @@
           desc:       m.desc.trim(),
           cat:        m.cat,
           goodFor:    m.goodFor.trim(),
-          priceLabel: m.priceLabel.trim(),
           notes:      m.note.trim() ? [m.note.trim()] : []
         });
         state.packageEditModal = null;
@@ -12646,9 +12606,7 @@
           const tc = TIER_COLORS[tier] || {};
           const catMeta = CAT_META[cat] || {};
           const pkgItems = getPackageItems(pkg);
-          // Цена считается по текущим ценам каталога (29.07.2026). Вручную вписанный
-          // priceLabel больше не показываем: он жил своей жизнью и у 27 пакетов
-          // расходился с составом в обе стороны — замер 28.07.
+          // Цена считается по текущим ценам каталога — единственный её источник.
           const price = escapeHtml(money(packagePrice(pkg)));
           const borderStyle = tier ? `border-color:${tc.border}` : "";
           return `
@@ -16970,11 +16928,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
          результата, а это ровно тот класс расхождений «несколько входов в одно
          действие», который в проекте ловился 7+ раз.
 
-         Ценовой пол по priceLabel убран 29.07.2026: цена пакета теперь считается
-         из каталога везде — и в CRM, и здесь, — поэтому расходиться ей больше не с
-         чем. Пол существовал ровно из-за того расхождения (замер 28.07: у 19 из 27
-         пакетов вписанная цена была выше состава, у 8 — ниже). Владелец правит цены
-         в «Услугах», и публичная цена следует за ними без второго источника правды. */
+         Ценового пола больше нет (29.07.2026): цена пакета считается из каталога
+         везде — и в CRM, и здесь, — поэтому расходиться ей не с чем. Пол существовал
+         из-за вручную вписанного priceLabel, которого в данных уже не осталось.
+         Владелец правит цены в «Услугах», публичная цена следует за ними. */
       const _calcPkgCache = {};
       function _calcPkgPricing(pkgId) {
         if (_calcPkgCache[pkgId]) return _calcPkgCache[pkgId];
