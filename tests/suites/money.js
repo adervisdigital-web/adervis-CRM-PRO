@@ -239,7 +239,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
       window.app.wizardSetField("projectName", "Сверка с бюджетом");
       window.app.wizardSetField("budget", "37 985");
       window.app.finishWizard("estimate");
-      window.app.applyPackage("event_report_solo"); // состав 30 300 ₽
+      window.app.applyPackage("event_report_full"); // состав 30 300 ₽ по ценам каталога
     });
     await p3.waitForTimeout(400);
     const txt = await p3.$eval("#appContent", (el) => el.textContent.replace(/\s+/g, " "));

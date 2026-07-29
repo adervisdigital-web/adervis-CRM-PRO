@@ -207,26 +207,47 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(cards > 0, "в открытой группе нет позиций");
   });
 
-  // Пакеты мероприятий: объявленная цена не должна быть НИЖЕ суммы состава — иначе
-  // пакет обещает дешевле, чем сам же и насчитает при применении. (У части старых
-  // пакетов разрыв обратный и разбирается отдельно — здесь стерегутся новые.)
-  await test("пакеты мероприятий: цена на карточке не ниже суммы состава", async () => {
-    const cases = [
-      ["event_report_solo", 32000],
-      ["event_photo_report", 8000],
-      ["event_video_photo", 36000],
-    ];
-    for (const [id, label] of cases) {
-      await page.evaluate((pid) => { window.app.newProject(); window.app.applyPackage(pid); window.app.go("deal"); }, id);
-      await page.waitForTimeout(300);
-      const sum = await page.evaluate(() => {
+  // Цена пакета считается из каталога, а не вписывается руками: раньше priceLabel жил
+  // своей жизнью и у 27 пакетов расходился с составом в обе стороны (замер 28.07).
+  // Проверяем три вещи разом: карточка = смета; правка цены услуги двигает пакет;
+  // параметры строки в составе («полсмены») реально влияют на цену.
+  await test("цена пакета считается по каталогу и следует за ценами услуг", async () => {
+    const cardPrice = (pid) =>
+      page.evaluate((id) => {
+        window.app.go("packages");
+        const el = document.querySelector("[onclick*='" + id + "']");
+        const card = el && el.closest(".package-card");
+        const m = card && card.textContent.replace(/\s+/g, " ").match(/([\d\s]+)\s*₽/);
+        return m ? Number(m[1].replace(/\D/g, "")) : null;
+      }, pid);
+    const appliedPrice = async (pid) => {
+      await page.evaluate((id) => { window.app.newProject(); window.app.applyPackage(id); window.app.go("deal"); }, pid);
+      await page.waitForTimeout(250);
+      return page.evaluate(() => {
         const t = document.getElementById("appContent").textContent.replace(/\s+/g, " ");
         const m = t.match(/([\d\s]+)\s*₽\s*\d+ позиц/);
         return m ? Number(m[1].replace(/\D/g, "")) : null;
       });
-      assert(sum > 0, `пакет ${id} не собрал смету`);
-      assert(sum <= label, `пакет ${id}: состав ${sum} ₽ дороже объявленных ${label} ₽`);
-    }
+    };
+
+    const halfCard = await cardPrice("event_report_half");
+    const halfReal = await appliedPrice("event_report_half");
+    assertEqual(halfCard, halfReal, "цена на карточке пакета разошлась с реальной сметой");
+
+    const fullCard = await cardPrice("event_report_full");
+    assert(fullCard > halfCard, `полная смена (${fullCard}) должна стоить дороже полусмены (${halfCard})`);
+
+    // Правим ставку оператора вдвое — обе цены обязаны поехать, и по-разному:
+    // полусмена дорожает на половинную ставку, полная — на полную.
+    await page.evaluate(() => { window.app.updateCatalogPrice("event_cameraman", 12000); });
+    await page.waitForSelector(".confirm-dialog-overlay", { timeout: 5000 });
+    await page.click(".confirm-dialog-overlay .confirm-ok");
+    await page.waitForTimeout(300);
+
+    const halfAfter = await cardPrice("event_report_half");
+    const fullAfter = await cardPrice("event_report_full");
+    assert(halfAfter > halfCard, "цена пакета не изменилась после правки цены услуги");
+    assert(fullAfter - fullCard > halfAfter - halfCard, "полсмены подорожали не меньше полной смены — параметры строки не учтены");
   });
 
   // Доска CRM держала в DOM карточки ВСЕХ сделок (замер: 12 745 узлов при 600),

@@ -581,20 +581,36 @@
         // («Раздолье», открытие сезона), объявленная цена выше суммы состава —
         // иначе пакет обещает дешевле, чем сам же и насчитает.
         {
-          id: "event_report_solo",
-          name: "Мероприятие — Видеоотчёт (1 оператор)",
+          id: "event_report_half",
+          name: "Мероприятие — Видеоотчёт, полсмены",
           cat: "events", tier: 1,
-          priceLabel: "от 32 000 ₽",
-          desc: "Репортажная съёмка события одним оператором, монтаж отчётного ролика, музыка и цвет.",
-          goodFor: "открытия, праздники, отчётные съёмки, небольшие мероприятия",
-          items: ["event_cameraman", "camera_basic", "lens_set", "stabilizer", "light_oncam", "event_clip_edit", "sound_design", "color", "music", "cover_design"],
-          notes: ["Один оператор с накамерным светом и стабилизатором — стандарт репортажа.", "Итог: ролик до 3 минут с обложкой для публикации."]
+          desc: "Один оператор 4 часа на событии и монтаж отчётного ролика.",
+          goodFor: "открытия, небольшие праздники, короткие события",
+          items: [
+            { id: "event_cameraman", line: { shiftType: "half" } },
+            "camera_basic", "lens_set", "light_oncam",
+            { id: "event_clip_edit", line: {} },
+            "music"
+          ],
+          notes: ["4 часа — событие на пару часов плюс подготовка и сбор.", "Итог: ролик до 2 минут."]
+        },
+        {
+          id: "event_report_full",
+          name: "Мероприятие — Видеоотчёт, полная смена",
+          cat: "events", tier: 2,
+          desc: "Один оператор 8 часов, монтаж, саунд-дизайн, цвет и обложка.",
+          goodFor: "открытия, корпоративы, отчётные съёмки на весь день",
+          items: [
+            { id: "event_cameraman", line: { shiftType: "full" } },
+            "camera_basic", "lens_set", "stabilizer", "light_oncam",
+            "event_clip_edit", "sound_design", "color", "music", "cover_design"
+          ],
+          notes: ["Полный день со стабилизатором и накамерным светом — стандарт репортажа.", "Итог: ролик до 3 минут с обложкой для публикации."]
         },
         {
           id: "event_photo_report",
           name: "Мероприятие — Фотоотчёт",
           cat: "events", tier: 1,
-          priceLabel: "от 8 000 ₽",
           desc: "Фотосъёмка события и базовая обработка отобранных кадров.",
           goodFor: "мероприятия, где нужны фотографии, а не видео",
           items: ["event_photographer", "photo_retouch", "cover_design"],
@@ -604,7 +620,6 @@
           id: "event_video_photo",
           name: "Мероприятие — Видео + фото",
           cat: "events", tier: 2,
-          priceLabel: "от 36 000 ₽",
           desc: "Оператор и фотограф на одном событии: отчётный ролик, нарезки для соцсетей и обработанные фото.",
           goodFor: "корпоративы, форумы, городские события",
           items: ["event_cameraman", "event_photographer", "camera_basic", "lens_set", "light_oncam", "event_clip_edit", "smm_cutdowns", "sound_design", "color", "photo_retouch"],
@@ -6266,9 +6281,12 @@
         rows.push({ label, value: amount, note });
       }
 
-      function lineBreakdown(id) {
+      // lineOverride позволяет посчитать строку, которой ещё нет в смете — так цена
+      // пакета считается по тем же формулам, что и настоящая смета, без дублирования
+      // математики и без загрузки пакета в проект (см. packagePrice).
+      function lineBreakdown(id, lineOverride) {
         const itemData = findItem(id);
-        const line = state.selected[id];
+        const line = lineOverride || state.selected[id];
 
         if (!itemData || !line) {
           return { total: 0, rows: [], warnings: [], formula: "" };
@@ -6473,13 +6491,16 @@
         }, 0);
       }
 
+      // Состав пакета может быть строкой id или { id, line } — см. packageLineFor.
       function getPackageItems(pkg) {
-        return (pkg.items || []).map(id => findItem(id, true)).filter(Boolean);
+        return (pkg.items || [])
+          .map(entry => findItem(typeof entry === "string" ? entry : (entry && entry.id), true))
+          .filter(Boolean);
       }
 
-      function packageApproxTotal(pkg) {
-        return getPackageItems(pkg).reduce((sum, itemData) => sum + getCatalogPrice(itemData), 0);
-      }
+      // packageApproxTotal() удалён 29.07.2026: он складывал базовые цены позиций и
+      // игнорировал модели расчёта (смена, аренда по дням, монтаж по хронометражу),
+      // то есть был вторым, неверным источником цены пакета. Считает packagePrice().
 
       function filteredItems() {
         let items = state.tab === "hidden" ? hiddenItemsList() : allItems(false);
@@ -7618,16 +7639,55 @@
         });
       }
 
+      /* Состав пакета: либо "id" (как было), либо { id, line: {…} } с параметрами
+         строки. Второй формат появился 29.07.2026, потому что «оператор на 4 часа» и
+         «оператор на 8 часов» — это ОДНА позиция каталога с разными параметрами, и без
+         них три пакета съёмки мероприятия отличались бы только названием.
+         Старый формат продолжает работать: пользовательские пакеты в state.packages
+         сохранены строками, и переписывать их миграцией ради этого не нужно. */
+      function packageLineFor(entry) {
+        const id = typeof entry === "string" ? entry : (entry && entry.id);
+        const itemData = id && findItem(id, true);
+        if (!itemData) return null;
+        const line = defaultLineForItem(itemData);
+        const over = (entry && typeof entry === "object" && entry.line) || null;
+        if (over) {
+          Object.assign(line, over);
+          // Длительность смены сама по себе цену не меняет (в lineBreakdown она лишь
+          // запасное значение) — поэтому, если пакет задал смену, а цену не задал,
+          // подставляем ставку каталога за эту длительность. Иначе «полсмены» в пакете
+          // считались бы по полной ставке, и цена пакета врала бы молча.
+          if (over.shiftType && over.price === undefined) {
+            const rate = numberValue(getEffectiveRates(itemData)[over.shiftType], 0);
+            if (rate > 0) line.price = rate;
+          }
+        }
+        return { id, itemData, line };
+      }
+
+      // Цена пакета = сумма его состава по ТЕКУЩИМ ценам каталога. Раньше на карточке
+      // стоял вручную вписанный priceLabel, который жил своей жизнью: замер 28.07
+      // показал, что у 19 пакетов из 27 он выше реального состава, а у 8 — ниже,
+      // то есть карточка обещала дешевле, чем сама же и насчитывала.
+      function packagePrice(pkg) {
+        if (!pkg) return 0;
+        return (pkg.items || []).reduce((sum, entry) => {
+          const l = packageLineFor(entry);
+          if (!l) return sum;
+          return sum + Math.max(0, numberValue(lineBreakdown(l.id, l.line).total, 0));
+        }, 0);
+      }
+
       function applyPackage(pkgId) {
         const pkg = (state.packages || DEFAULT_PACKAGES).find(x => x.id === pkgId);
         if (!pkg) return;
 
         saveHistory();
-        (pkg.items || []).forEach(id => {
-          const itemData = findItem(id, true);
-          if (itemData && !state.selected[id]) {
-            state.selected[id] = defaultLineForItem(itemData);
-            if (!state.estimateOrder.includes(id)) state.estimateOrder.push(id);
+        (pkg.items || []).forEach(entry => {
+          const l = packageLineFor(entry);
+          if (l && !state.selected[l.id]) {
+            state.selected[l.id] = l.line;
+            if (!state.estimateOrder.includes(l.id)) state.estimateOrder.push(l.id);
           }
         });
 
@@ -12464,8 +12524,11 @@
                   </select>
                 </div>
                 <div class="field">
-                  <label>Цена (отображение)</label>
-                  <input value="${escapeHtml(m.priceLabel)}" oninput="app.setPackageEditField('priceLabel',this.value)" placeholder="от 50 000 ₽">
+                  <label>Цена пакета</label>
+                  <div style="padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);font-weight:800">
+                    ${escapeHtml(money(packagePrice(m)))}
+                    <span class="mini-note" style="display:block;font-weight:400;margin-top:2px">считается по ценам каталога — правьте цены в «Услугах»</span>
+                  </div>
                 </div>
               </div>
               <div class="field" style="margin-bottom:12px">
@@ -12540,7 +12603,10 @@
           const tc = TIER_COLORS[tier] || {};
           const catMeta = CAT_META[cat] || {};
           const pkgItems = getPackageItems(pkg);
-          const price = escapeHtml(pkg.priceLabel || money(packageApproxTotal(pkg)));
+          // Цена считается по текущим ценам каталога (29.07.2026). Вручную вписанный
+          // priceLabel больше не показываем: он жил своей жизнью и у 27 пакетов
+          // расходился с составом в обе стороны — замер 28.07.
+          const price = escapeHtml(money(packagePrice(pkg)));
           const borderStyle = tier ? `border-color:${tc.border}` : "";
           return `
             <article class="package-card pkg-tier-${tier}" style="${borderStyle};cursor:pointer" onclick="app.openPackageEditModal('${pkg.id}')">
@@ -15970,7 +16036,7 @@
                       <span style="font-size:12px;padding:3px 7px;border-radius:999px;background:${catColor};white-space:nowrap;color:var(--muted)">${catLabel}</span>
                     </div>
                     <p style="font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.4">${escapeHtml(pkg.desc)}</p>
-                    <div style="font-size:13px;font-weight:900;color:var(--primary2)">${escapeHtml(pkg.priceLabel || "")}</div>
+                    <div style="font-size:13px;font-weight:900;color:var(--primary2)">${escapeHtml(money(packagePrice(pkg)))}</div>
                     ${pkg.goodFor ? `<div style="font-size:12px;color:var(--muted);margin-top:4px">${escapeHtml(pkg.goodFor)}</div>` : ""}
                   </div>
                 `;
@@ -16727,7 +16793,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
          ролик, не знает, нужен ли ему гаффер, сорс-пак и вторая камера, — и
          уходит, не досчитав. Переписано в мастер из трёх вопросов на языке
          клиента: задача → уровень → детали. Позиции подставляет пакет, а считает
-         их всё та же математика каталога (packageApproxTotal/totals), поэтому
+         их всё та же математика каталога (packagePrice/totals), поэтому
          вторая реализация формул не появилась.
 
          Цена всегда «от»: реальный бюджет зависит от сценария, локаций и сроков,
@@ -16828,17 +16894,17 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         return Object.keys(_calcExtras).filter(id => _calcExtras[id] && findItem(id, true));
       }
       /* Цена пакета считается ТЕМ ЖЕ путём, что итог на третьем шаге: собираем
-         смету и спрашиваем totals(). packageApproxTotal() складывает базовые цены
-         позиций и игнорирует модели расчёта (смена, аренда по дням, монтаж по
+         смету и спрашиваем totals(). Простое сложение базовых цен позиций
+         игнорировало бы модели расчёта (смена, аренда по дням, монтаж по
          хронометражу) — число на карточке расходилось бы с числом на экране
          результата, а это ровно тот класс расхождений «несколько входов в одно
          действие», который в проекте ловился 7+ раз.
 
-         Нижняя граница — priceLabel пакета: это цена, которую агентство уже
-         объявило клиентам. Калькулятор не имеет права называть сумму НИЖЕ неё,
-         даже если состав пакета в каталоге неполный: клиент запомнит первое
-         число. Расхождения между составом и объявленной ценой — повод поправить
-         каталог, а не повод занизить обещание.                                */
+         Ценовой пол по priceLabel убран 29.07.2026: цена пакета теперь считается
+         из каталога везде — и в CRM, и здесь, — поэтому расходиться ей больше не с
+         чем. Пол существовал ровно из-за того расхождения (замер 28.07: у 19 из 27
+         пакетов вписанная цена была выше состава, у 8 — ниже). Владелец правит цены
+         в «Услугах», и публичная цена следует за ними без второго источника правды. */
       const _calcPkgCache = {};
       function _calcPkgPricing(pkgId) {
         if (_calcPkgCache[pkgId]) return _calcPkgCache[pkgId];
@@ -16850,18 +16916,19 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         state.selected = {};
         state.estimateOrder = [];
         state.project.days = 1;
-        (pkg.items || []).forEach(id => {
-          const itemData = findItem(id, true);
-          if (!itemData || state.selected[id]) return;
-          state.selected[id] = defaultLineForItem(itemData);
-          state.estimateOrder.push(id);
+        (pkg.items || []).forEach(entry => {
+          // packageLineFor учитывает параметры строки из состава пакета («полсмены»),
+          // иначе публичная цена считалась бы по полной ставке и врала бы молча.
+          const l = packageLineFor(entry);
+          if (!l || state.selected[l.id]) return;
+          state.selected[l.id] = l.line;
+          state.estimateOrder.push(l.id);
         });
         const computed = totals().total;
         state.selected = savedSelected;
         state.estimateOrder = savedOrder;
         state.project.days = savedDays;
-        const digits = String(pkg.priceLabel || "").replace(/[^\d]/g, "");
-        const shown = Math.max(computed, digits ? Number(digits) : 0);
+        const shown = computed;
         _calcPkgCache[pkgId] = { computed, shown, gap: shown - computed };
         return _calcPkgCache[pkgId];
       }
@@ -19730,6 +19797,7 @@ Email: ______________________            Email: ______________________
         applyShiftRate,
         updateCatalogPrice,
         resetCatalogPrice,
+        updateCatalogOverride,
 
         updateProject,
         updateCompany,
