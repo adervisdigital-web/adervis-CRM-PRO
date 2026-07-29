@@ -12298,15 +12298,19 @@
       function openPackageEditModal(id) {
         const pkg = (state.packages || []).find(p => p.id === id);
         if (!pkg) return;
-        const isCustom = id.startsWith("package_");
+        // Редактируются ВСЕ пакеты, а не только созданные вручную (29.07.2026):
+        // готовые — тоже заготовки агентства, и первое, что с ними хочется сделать, —
+        // убрать лишнюю позицию или поставить два съёмочных дня вместо одного.
+        // Состав держим рабочей копией: правки применяются по «Сохранить», а не сразу.
         state.packageEditModal = {
           id,
-          isCustom,
+          isCustom:   id.startsWith("package_"),
           name:       pkg.name || "",
           desc:       pkg.desc || "",
           cat:        pkg.cat  || "",
           goodFor:    pkg.goodFor || "",
-          note:       (pkg.notes || [])[0] || ""
+          note:       (pkg.notes || [])[0] || "",
+          items:      deepClone(pkg.items || [])
         };
         _armDirtyCheck(state.packageEditModal);
         renderModal();
@@ -12325,7 +12329,7 @@
 
       function savePackageEdit() {
         const m = state.packageEditModal;
-        if (!m || !m.isCustom) return;
+        if (!m) return;
         const idx = (state.packages || []).findIndex(p => p.id === m.id);
         if (idx < 0) return;
         state.packages[idx] = Object.assign({}, state.packages[idx], {
@@ -12333,6 +12337,7 @@
           desc:       m.desc.trim(),
           cat:        m.cat,
           goodFor:    m.goodFor.trim(),
+          items:      deepClone(m.items || []),
           notes:      m.note.trim() ? [m.note.trim()] : []
         });
         state.packageEditModal = null;
@@ -12485,6 +12490,57 @@
         `;
       }
 
+      /* ─── Редактор состава пакета ──────────────────────────────────────────
+         Объём позиции живёт в разных полях в зависимости от модели расчёта: у людей
+         это дни смены, у техники — дни аренды, у штучных работ — количество. Одно
+         поле «×N» в интерфейсе, разные ключи под капотом — чтобы владелец не думал,
+         как называется поле, а просто ставил «два дня». */
+      function packageQtyKey(itemData) {
+        if (!itemData) return null;
+        if (itemData.calcModel === "crewShift" || itemData.calcModel === "perDay") return "days";
+        if (itemData.calcModel === "equipmentRental") return "rentalDays";
+        if (itemData.calcModel === "fixed+qty") return "qty";
+        return null;
+      }
+
+      function packageEntryQty(entry, itemData) {
+        const key = packageQtyKey(itemData);
+        if (!key) return null;
+        const over = (entry && typeof entry === "object" && entry.line) || {};
+        if (over[key] !== undefined) return numberValue(over[key], 1);
+        return numberValue(defaultLineForItem(itemData)[key], 1);
+      }
+
+      function setPackageItemQty(index, value) {
+        const m = state.packageEditModal;
+        if (!m || !m.items[index]) return;
+        const entry = m.items[index];
+        const id = typeof entry === "string" ? entry : entry.id;
+        const itemData = findItem(id, true);
+        const key = packageQtyKey(itemData);
+        if (!key) return;
+        const n = Math.max(1, Math.round(numberValue(value, 1)));
+        const line = { ...((typeof entry === "object" && entry.line) || {}), [key]: n };
+        m.items[index] = { id, line };
+        renderModal();
+      }
+
+      function removePackageItem(index) {
+        const m = state.packageEditModal;
+        if (!m) return;
+        m.items.splice(index, 1);
+        renderModal();
+      }
+
+      function addPackageItem(itemId) {
+        const m = state.packageEditModal;
+        if (!m || !itemId) return;
+        const already = m.items.some(e => (typeof e === "string" ? e : e.id) === itemId);
+        if (already) { toast("Эта позиция уже в пакете"); return; }
+        m.items.push(itemId);
+        renderModal();
+      }
+
       function renderPackageEditModal() {
         const m = state.packageEditModal;
         if (!m) return "";
@@ -12506,11 +12562,10 @@
           <div class="modal-overlay" onclick="event.target===this&&app.closePackageEditModal()">
             <div class="modal-box" style="max-width:520px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-                <h2 style="margin:0;font-size:18px">${m.isCustom ? "Редактировать пакет" : "Просмотр пакета"}</h2>
+                <h2 style="margin:0;font-size:18px">Редактировать пакет</h2>
                 <button onclick="app.closePackageEditModal()" class="u-modal-close" aria-label="Закрыть">×</button>
               </div>
 
-              ${m.isCustom ? `
               <div class="field" style="margin-bottom:12px">
                 <label>Название</label>
                 <input value="${escapeHtml(m.name)}" oninput="app.setPackageEditField('name',this.value)" placeholder="Название пакета">
@@ -12542,25 +12597,53 @@
                 <label>Заметка (показывается курсивом)</label>
                 <input value="${escapeHtml(m.note)}" oninput="app.setPackageEditField('note',this.value)" placeholder="Необязательно">
               </div>
-              ` : `
-              <div class="mb-16">
-                <div style="font-size:13px;color:var(--muted);margin-bottom:6px">${escapeHtml(m.desc)}</div>
-                <div class="u-meta">Для: ${escapeHtml(m.goodFor)}</div>
-              </div>
-              `}
 
-              ${pkgItems.length ? `
-              <div style="margin-bottom:18px;padding:12px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)">
-                <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Состав пакета (${pkgItems.length} ${plural(pkgItems.length, "позиция", "позиции", "позиций")})</div>
-                <div style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto">
-                  ${pkgItems.map(x => `<div class="fs-12">✓ ${escapeHtml(x.name)}</div>`).join("")}
-                </div>
-              </div>` : ""}
+              ${(() => {
+                // Состав правится прямо здесь: убрать лишнее, добавить своё, поставить
+                // объём. Цена пакета пересчитывается тут же — видно, во что обходится
+                // каждая правка, и не нужно применять пакет в смету, чтобы это узнать.
+                const entries = (m.items || []).map((entry, i) => {
+                  const id = typeof entry === "string" ? entry : entry.id;
+                  const itemData = findItem(id, true);
+                  if (!itemData) return "";
+                  const l = packageLineFor(entry);
+                  const sum = l ? numberValue(lineBreakdown(l.id, l.line).total, 0) : 0;
+                  const qty = packageEntryQty(entry, itemData);
+                  const qtyLabel = itemData.calcModel === "fixed+qty" ? "шт" : "дн.";
+                  return `
+                    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">
+                      <span style="flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(itemData.name)}">${escapeHtml(itemData.name)}</span>
+                      ${qty !== null ? `
+                        <input type="number" min="1" value="${qty}" onchange="app.setPackageItemQty(${i}, this.value)"
+                          style="width:58px;padding:4px 6px;font-size:12px;text-align:center" title="Объём: ${qtyLabel}">
+                        <span class="mini-note" style="width:20px">${qtyLabel}</span>
+                      ` : `<span style="width:82px"></span>`}
+                      <span style="font-size:12px;font-weight:700;width:74px;text-align:right;font-variant-numeric:tabular-nums">${money(sum)}</span>
+                      <button class="icon-del-btn" onclick="app.removePackageItem(${i})" title="Убрать из пакета" aria-label="Убрать ${escapeHtml(itemData.name)}">${TRASH_SVG}</button>
+                    </div>`;
+                }).join("");
+                const inPkg = new Set((m.items || []).map(e => (typeof e === "string" ? e : e.id)));
+                const addable = allItems(false).filter(x => !x.catalogSourceId && !inPkg.has(x.id));
+                return `
+                  <div style="margin-bottom:18px;padding:12px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+                      <span style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Состав (${(m.items || []).length})</span>
+                      <span style="font-size:15px;font-weight:900">${money(packagePrice(m))}</span>
+                    </div>
+                    <div style="max-height:230px;overflow-y:auto">${entries || `<div class="mini-note">Пусто — добавьте позиции ниже</div>`}</div>
+                    <div style="margin-top:10px">
+                      <select onchange="app.addPackageItem(this.value);this.value=''" title="Добавить позицию в пакет">
+                        <option value="">+ добавить позицию из каталога…</option>
+                        ${addable.map(x => `<option value="${x.id}">${escapeHtml(x.name)} — ${money(getCatalogPrice(x))}</option>`).join("")}
+                      </select>
+                    </div>
+                  </div>`;
+              })()}
 
               <div style="display:flex;gap:10px;justify-content:flex-end">
                 <button class="btn" onclick="app.closePackageEditModal()">Закрыть</button>
                 <button class="btn primary" onclick="app.applyPackage('${m.id}');app.closePackageEditModal()">В смету →</button>
-                ${m.isCustom ? `<button class="btn green" onclick="app.savePackageEdit()">Сохранить</button>` : ""}
+                <button class="btn green" onclick="app.savePackageEdit()">Сохранить</button>
               </div>
             </div>
           </div>
@@ -20209,6 +20292,13 @@ Email: ______________________            Email: ______________________
         openPackageEditModal,
         closePackageEditModal,
         savePackageEdit,
+        // setPackageEditField в экспорте не было вовсе: инлайн-обработчики полей
+        // пакета звали app.setPackageEditField и молча падали с ReferenceError —
+        // название/описание своего пакета не сохранялись.
+        setPackageEditField,
+        setPackageItemQty,
+        removePackageItem,
+        addPackageItem,
 
         addTelegramRecipient,
         removeTelegramRecipient,

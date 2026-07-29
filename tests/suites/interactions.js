@@ -220,6 +220,48 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(cards > 0, "в открытой группе нет позиций");
   });
 
+  // Редактировать можно ЛЮБОЙ пакет, не только созданный вручную: готовые — тоже
+  // заготовки агентства. Проверяем весь цикл: объём → удаление → сохранение → карточка.
+  await test("пакет редактируется целиком: объём, состав, сохранение", async () => {
+    await page.evaluate(() => { window.app.go("packages"); window.app.openPackageEditModal("event_report_full"); });
+    await page.waitForTimeout(300);
+
+    const state = () => page.$eval(".modal-box", (b) => {
+      const m = b.textContent.replace(/\s+/g, " ").match(/Состав \((\d+)\)\s*([\d\s]+)\s*₽/);
+      return m ? { count: Number(m[1]), price: Number(m[2].replace(/\D/g, "")) } : null;
+    });
+
+    const head = await page.$eval(".modal-box h2", (h) => h.textContent.trim());
+    assert(/Редактировать/.test(head), "готовый пакет открылся в режиме просмотра: " + head);
+    assert(await page.$$eval(".modal-box button", (bs) => bs.some((b) => /Сохранить/.test(b.textContent))),
+      "у готового пакета нет кнопки «Сохранить»");
+
+    const before = await state();
+    assert(before && before.price > 0, "не видно состава и цены пакета");
+
+    await page.evaluate(() => { window.app.setPackageItemQty(0, 3); });
+    await page.waitForTimeout(200);
+    const withQty = await state();
+    assert(withQty.price > before.price, `объём не поднял цену: ${before.price} → ${withQty.price}`);
+
+    await page.evaluate(() => { window.app.removePackageItem(1); });
+    await page.waitForTimeout(200);
+    const afterDel = await state();
+    assertEqual(afterDel.count, before.count - 1, "позиция не убралась из состава");
+    assert(afterDel.price < withQty.price, "удаление позиции не удешевило пакет");
+
+    await page.evaluate(() => { window.app.savePackageEdit(); });
+    await page.waitForTimeout(300);
+    const card = await page.evaluate(() => {
+      window.app.go("packages");
+      const el = document.querySelector("[onclick*='event_report_full']");
+      const c = el && el.closest(".package-card");
+      const m = c && c.textContent.replace(/\s+/g, " ").match(/([\d\s]+)\s*₽/);
+      return m ? Number(m[1].replace(/\D/g, "")) : null;
+    });
+    assertEqual(card, afterDel.price, "правка пакета не доехала до карточки");
+  });
+
   // Цена пакета считается из каталога, а не вписывается руками: раньше priceLabel жил
   // своей жизнью и у 27 пакетов расходился с составом в обе стороны (замер 28.07).
   // Проверяем три вещи разом: карточка = смета; правка цены услуги двигает пакет;
