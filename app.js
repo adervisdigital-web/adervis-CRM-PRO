@@ -392,7 +392,8 @@
           cat: "social", tier: 2,
           desc: "Расширенный комплект: съёмка + монтаж + субтитры + 3 адаптации форматов.",
           goodFor: "бренды, блогеры, маркетинг, регулярный контент",
-          items: ["script_short", "shoot_plan", "camera_operator", "assistant", "camera_basic", "light_basic", "sound_kit", "edit_short", "subtitles", "smm_cutdowns", "thumbnail_pack", "cover_design", "vertical_adapt"],
+          items: ["script_short", "shoot_plan", "camera_operator", "assistant", "camera_basic", "light_basic", "sound_kit", // Описание обещает три ролика и три адаптации форматов.
+          { id: "edit_short", line: { extraVersions: 2 } }, "subtitles", "smm_cutdowns", "thumbnail_pack", "cover_design", "vertical_adapt"],
           notes: ["3 ролика или 1 основной + нарезки за один день.", "Адаптация под Instagram, ВКонтакте, YouTube Shorts."]
         },
         {
@@ -401,7 +402,8 @@
           cat: "social", tier: 3,
           desc: "Полный медиапакет: контент-день, 5+ роликов, motion-элементы и поддержка публикаций.",
           goodFor: "активные бренды, продакшн-агентства, маркетинговые отделы",
-          items: ["concept", "script_short", "content_day_plan", "shoot_plan", "camera_operator", "second_camera_operator", "assistant", "camera_basic", "light_plus", "sound_kit", "edit_short", "subtitles", "smm_cutdowns", "thumbnail_pack", "cover_design", "vertical_adapt", "motion_basic", "publication_support"],
+          items: ["concept", "script_short", "content_day_plan", "shoot_plan", "camera_operator", "second_camera_operator", "assistant", "camera_basic", "light_plus", "sound_kit", // «5+ роликов» из описания — базовый монтаж плюс четыре дополнительных выхода.
+          { id: "edit_short", line: { extraVersions: 4 } }, "subtitles", "smm_cutdowns", "thumbnail_pack", "cover_design", "vertical_adapt", "motion_basic", "publication_support"],
           notes: ["Один контент-день — 5–7 готовых роликов.", "Включает motion-графику, обложки и помощь с публикацией."]
         },
 
@@ -683,7 +685,14 @@
           cat: "social",
           desc: "Пять коротких роликов для соцсетей, снятых за один контент-день и смонтированных.",
           goodFor: "регулярный контент, эксперты, блогеры, бренды",
-          items: ["content_day_plan", "shoot_plan", "camera_operator", "camera_basic", "light_basic", "sound_kit", "edit_short", "smm_cutdowns", "thumbnail_pack"],
+          // Пакет обещает ПЯТЬ роликов — монтаж считается как базовый + 4 дополнительных
+          // выхода (extraVersions), а не как один ролик: нарезки из общего материала
+          // дешевле пяти независимых монтажей, но и не бесплатны.
+          items: [
+            "content_day_plan", "shoot_plan", "camera_operator", "camera_basic", "light_basic", "sound_kit",
+            { id: "edit_short", line: { extraVersions: 4 } },
+            "smm_cutdowns", "thumbnail_pack"
+          ],
           notes: ["5 роликов по 15–60 сек за один день съёмки.", "В монтаж входят субтитры и базовые переходы."]
         },
         {
@@ -703,7 +712,12 @@
           cat: "photo",
           desc: "Полная видеосъёмка свадьбы: сборы, церемония, банкет. Свадебный фильм + клип + фото.",
           goodFor: "свадьбы, торжества, выездные регистрации",
-          items: ["dop", "camera_operator", "second_camera_operator", "photographer", "soundman", "camera_pro", "lens_set", "light_plus", "sound_kit", "stabilizer", "edit", "color", "sound_post", "music", "photo_retouch"],
+          items: [// «Полный день» в описании — это 12 часов, то есть длинная смена, а не обычная.
+          { id: "dop", line: { shiftType: "long" } },
+          { id: "camera_operator", line: { shiftType: "long" } },
+          { id: "second_camera_operator", line: { shiftType: "long" } },
+          { id: "photographer", line: { shiftType: "long" } },
+          { id: "soundman", line: { shiftType: "long" } }, "camera_pro", "lens_set", "light_plus", "sound_kit", "stabilizer", "edit", "color", "sound_post", "music", "photo_retouch"],
           notes: ["Съёмочный день до 12 часов.", "Свадебный фильм 15–25 мин + эмоциональный клип 3–5 мин + обработанные фото."]
         },
         {
@@ -721,7 +735,12 @@
           cat: "photo",
           desc: "Романтическая фото- и видеосессия пары на природе или в городе.",
           goodFor: "пары, love story, годовщины, предложение руки",
-          items: ["photographer", "camera_operator", "camera_pro", "lens_set", "light_basic", "photo_retouch", "cover_design"],
+          // Съёмка на 3 часа — полсмены, а не полный день.
+          items: [
+            { id: "photographer", line: { shiftType: "half" } },
+            { id: "camera_operator", line: { shiftType: "half" } },
+            "camera_pro", "lens_set", "light_basic", "photo_retouch", "cover_design"
+          ],
           notes: ["Сессия 2–3 часа.", "60+ обработанных фото + короткое видео-видеозарисовка 1–2 мин."]
         },
         {
@@ -730,7 +749,11 @@
           cat: "photo",
           desc: "Фотосъёмка детей и семьи в студии или на выезде.",
           goodFor: "дети, семьи, праздники, дни рождения",
-          items: ["photographer", "camera_basic", "light_basic", "props", "photo_retouch"],
+          // Съёмка на 2 часа — полсмены.
+          items: [
+            { id: "photographer", line: { shiftType: "half" } },
+            "camera_basic", "light_basic", "props", "photo_retouch"
+          ],
           notes: ["Сессия 1.5–2 часа.", "50+ обработанных фотографий.", "Студия или выездная локация — по договорённости."]
         },
 
@@ -788,7 +811,16 @@
           cat: "business",
           desc: "Короткий документальный фильм 5–15 мин о человеке, бизнесе или событии.",
           goodFor: "бизнес-истории, социальные проекты, личный бренд",
-          items: ["concept", "script_full", "shoot_plan", "director", "dop", "soundman", "producer", "camera_pro", "lens_set", "light_plus", "sound_kit", "stabilizer", "drone", "edit", "color", "sound_post", "music", "titles", "voiceover_record"],
+          items: ["concept", "script_full", "shoot_plan", // В notes пакета — «3 съёмочных дня»: теперь это и в расчёте.
+          { id: "director", line: { days: 3 } },
+          { id: "dop", line: { days: 3 } },
+          { id: "soundman", line: { days: 3 } },
+          { id: "producer", line: { days: 3 } },
+          { id: "camera_pro", line: { rentalDays: 3 } },
+          { id: "lens_set", line: { rentalDays: 3 } },
+          { id: "light_plus", line: { rentalDays: 3 } },
+          { id: "sound_kit", line: { rentalDays: 3 } },
+          "stabilizer", "drone", "edit", "color", "sound_post", "music", "titles", "voiceover_record"],
           notes: ["Съёмка 2–3 дня.", "Финальный монтаж с цветокоррекцией, саундтреком и дикторским текстом."]
         },
 
@@ -17079,7 +17111,19 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         state.estimateOrder = [];
         state.project.days = need && need.days ? Math.max(1, _calcDays) : 1;
         if (!pkg) return;
-        (pkg.items || []).concat(_calcExtraIds()).forEach(id => {
+        // Состав пакета — через packageLineFor: там могут лежать параметры строки
+        // ({ id, line: { shiftType: "half" } }), и перебор «как по строкам id» их
+        // терял целиком — позиция просто не попадала в смету, а цена на карточке
+        // уровня расходилась с итогом на третьем шаге. Ровно тот класс «несколько
+        // входов в одно действие», который в этом файле ловился уже семь раз.
+        (pkg.items || []).forEach(entry => {
+          const l = packageLineFor(entry);
+          if (!l || state.selected[l.id]) return;
+          state.selected[l.id] = l.line;
+          state.estimateOrder.push(l.id);
+        });
+        // Доп. опции посетителя приходят простыми id — у них параметров нет.
+        _calcExtraIds().forEach(id => {
           if (state.selected[id]) return;
           const itemData = findItem(id, true);
           if (!itemData) return;
