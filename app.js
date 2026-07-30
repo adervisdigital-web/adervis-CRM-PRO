@@ -8843,9 +8843,15 @@
         _lastModalKey = modalKey;
       }
 
+      // Теги, которые фокусируются и активируются с клавиатуры сами по себе —
+      // поднимать их не нужно и вредно (двойное срабатывание на Space у <button>).
+      const KBD_NATIVE_TAGS = new Set(["BUTTON", "A", "INPUT", "SELECT", "TEXTAREA", "SUMMARY", "LABEL", "OPTION", "DETAILS"]);
+      const KBD_TABLE_TAGS = new Set(["TR", "TD", "TH", "TBODY", "THEAD", "TABLE"]);
+
       // Централизованный проход доступности после каждого render(). Дешевле и надёжнее,
       // чем расставлять role/aria в десятках шаблонных строк: табы → tablist/tab+aria-selected,
-      // канбан-доска и колонки → семантические группы с подписями. Идемпотентен.
+      // канбан-доска и колонки → семантические группы с подписями, кликабельные
+      // не-кнопки → достижимы с клавиатуры. Идемпотентен.
       function _enhanceA11y(root) {
         root = root || document.getElementById("appContent");
         if (!root) return;
@@ -8866,6 +8872,36 @@
               if (h) col.setAttribute("aria-label", h.textContent.trim().replace(/\s+/g, " "));
             }
           });
+        });
+
+        // Кликабельные не-кнопки (карточки сделок, услуг, пакетов, этапы воронки,
+        // плитки статистики, сегменты графиков) — мышью работают, с клавиатуры были
+        // недостижимы совсем: ни фокуса, ни Enter. Поднимаем централизованно здесь,
+        // а не в 130+ мест разметки. Enter/Space обрабатывает делегированный
+        // слушатель в initEvents, рамку фокуса даёт глобальный :focus-visible.
+        root.querySelectorAll("[onclick]").forEach(el => {
+          if (KBD_NATIVE_TAGS.has(el.tagName)) return;      // сами по себе фокусируемы
+          if (el.hasAttribute("tabindex")) return;           // уже кем-то поднят
+          // «Клик по пустому месту» (event.target===this) — мышиная любезность вроде
+          // снятия выделения, а не действие. Такой контейнер таб-стопом делать нельзя:
+          // это огромная область, которая ничего не делает при переходе на неё Tab'ом.
+          const oc = el.getAttribute("onclick") || "";
+          if (/event\.target\s*===\s*this/.test(oc)) return;
+          // Обёртка, которая только гасит всплытие («не открывай карточку, я жму
+          // кнопку внутри»). Ничего не делает — таб-стопом быть не должна.
+          if (/^\s*event\.stopPropagation\(\)\s*;?\s*$/.test(oc)) return;
+          // Уже подняли кликабельного предка — цель он, а не вложенное в него.
+          // querySelectorAll идёт в порядке документа, поэтому предок обработан раньше.
+          if (el.parentElement && el.parentElement.closest("[data-kbd-click]")) return;
+
+          el.setAttribute("data-kbd-click", "");
+          el.setAttribute("tabindex", "0");
+          // role=button на <tr>/<td> сломал бы семантику таблицы (строка перестанет
+          // быть строкой для скринридера) — там оставляем родную роль, клавиатурная
+          // достижимость и без неё появляется.
+          if (!el.hasAttribute("role") && !KBD_TABLE_TAGS.has(el.tagName)) {
+            el.setAttribute("role", "button");
+          }
         });
       }
 
@@ -19841,6 +19877,21 @@ Email: ______________________            Email: ______________________
       }
 
       function initEvents() {
+        // Enter/Space на кликабельных не-кнопках, поднятых в _enhanceA11y.
+        // Слушатель ОДИН и делегированный: вешать его в _enhanceA11y значило бы
+        // плодить копию на каждый элемент после каждого render().
+        // e.target, а не closest(): если фокус стоит на вложенной кнопке карточки,
+        // Enter должен нажать кнопку, а не заодно и всю карточку.
+        document.addEventListener("keydown", e => {
+          if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+          const el = e.target;
+          if (!el || !el.hasAttribute || !el.hasAttribute("data-kbd-click")) return;
+          e.preventDefault(); // Space иначе прокрутит страницу
+          // У SVG-элементов (сегменты графиков) может не быть .click()
+          if (typeof el.click === "function") el.click();
+          else el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        });
+
         document.querySelectorAll(".nav button").forEach(button => {
           button.addEventListener("click", () => {
             const view = button.dataset.view;

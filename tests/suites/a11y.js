@@ -167,6 +167,70 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(bad.length, 0, "поля без доступного имени — " + bad.join(" | "));
   });
 
+  // Карточки сделок/услуг/пакетов, этапы воронки, плитки статистики и сегменты
+  // графиков кликабельны мышью, но это не <button> — без tabindex они были
+  // недостижимы с клавиатуры вообще. Поднимает их централизованно _enhanceA11y.
+  await test("кликабельные не-кнопки достижимы с клавиатуры", async () => {
+    const NATIVE = ["BUTTON", "A", "INPUT", "SELECT", "TEXTAREA", "SUMMARY", "LABEL", "OPTION", "DETAILS"];
+    const bad = [];
+    for (const view of ["home", "crm", "clients", "global-finances", "catalog", "packages", "knowledge"]) {
+      await page.evaluate((v) => window.app.go(v), view);
+      await page.waitForTimeout(220);
+      const nope = await page.evaluate((native) => {
+        const out = [];
+        for (const el of document.querySelectorAll("#appContent [onclick]")) {
+          if (native.includes(el.tagName)) continue;
+          if (el.offsetParent === null) continue;
+          if (el.hasAttribute("tabindex")) continue;
+          const oc = el.getAttribute("onclick") || "";
+          // Исключения по смыслу, а не «чтобы тест позеленел»: клик по пустому
+          // месту и обёртка-глушитель всплытия действием не являются.
+          if (/event\.target\s*===\s*this/.test(oc)) continue;
+          if (/^\s*event\.stopPropagation\(\)\s*;?\s*$/.test(oc)) continue;
+          out.push(el.tagName.toLowerCase() + "." + String(el.className || "").split(" ")[0]);
+        }
+        return out;
+      }, NATIVE);
+      if (nope.length) bad.push(`${view}: ${[...new Set(nope)].join(", ")}`);
+    }
+    assertEqual(bad.length, 0, "кликабельно мышью, но не с клавиатуры — " + bad.join(" | "));
+  });
+
+  // Мало сделать элемент фокусируемым — на нём должен работать Enter. Проверяем
+  // сквозным действием и по ВИДИМОМУ результату (этап воронки стал активным),
+  // а не по внутреннему состоянию: так тест не зависит от того, как хранится state.
+  await test("Enter на кликабельной не-кнопке выполняет то же, что клик", async () => {
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(280);
+
+    const filter = await page.evaluate(() => {
+      const stages = [...document.querySelectorAll(".funnel-stage")];
+      const target = stages.find(s => !s.classList.contains("active"));
+      if (!target) return null;
+      const f = (target.getAttribute("onclick") || "").match(/setCrmFilter\('([^']*)'\)/);
+      if (!f) return null;
+      target.id = "kbdTestStage";
+      return f[1];
+    });
+    assert(filter, "не нашёлся неактивный этап воронки с setCrmFilter");
+
+    await page.focus("#kbdTestStage");
+    const focused = await page.evaluate(() =>
+      document.activeElement && document.activeElement.classList.contains("funnel-stage"));
+    assert(focused, "этап воронки не принимает фокус (нет tabindex?)");
+
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(300);
+
+    // После render() узел пересоздан — ищем этап заново по его фильтру.
+    const nowActive = await page.evaluate((f) => {
+      const el = [...document.querySelectorAll(".funnel-stage")]
+        .find(s => (s.getAttribute("onclick") || "").includes(`setCrmFilter('${f}')`));
+      return el ? el.classList.contains("active") : null;
+    }, filter);
+    assertEqual(nowActive, true, `Enter не применил фильтр «${filter}»`);
+  });
+
   // Контраст цветных «капсул» в ОБЕИХ темах. Проверять глазами здесь бесполезно:
   // фон у них полупрозрачный (rgba(...,.12)), поэтому реальный контраст зависит от
   // того, что под ним — а под ним разный цвет в тёмной и светлой теме. Хардкод
