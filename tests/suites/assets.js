@@ -70,4 +70,56 @@ module.exports = async function ({ test }) {
       assert(/mc\.yandex\.com/.test(val), `${dir} разрешает mc.yandex.ru, но не mc.yandex.com`);
     }
   });
+
+  // ── iCal-фид: agency_id не должен снова стать токеном ──────────────────────
+  //
+  // Эта утечка возвращалась дважды. 26.07 закрыли режим ?portal= (клиент видел
+  // дедлайны всех сделок агентства), но ?token=<agency_id> остался. К 30.07
+  // agency_id стал публичным — get_client_portal отдаёт его анониму, а страница
+  // КП печатает его в ссылку ?ref=<agency_id>. Итог: любой заказчик со ссылкой
+  // на своё КП читал задачи, ответственных и внутренние заметки по ВСЕМ сделкам.
+  //
+  // Инвариант простой и его легко нарушить обратно одной строкой: то, что уходит
+  // в ?token=, обязано быть отдельным отзываемым секретом, а не идентификатором
+  // агентства.
+  const feed = fs.readFileSync(path.join(REPO_ROOT, "supabase/functions/calendar-feed/index.ts"), "utf8");
+
+  await test("iCal-фид: ссылка строится из calendar_token, а не из agency_id", () => {
+    const m = app.match(/calendar-feed\?token=\$\{([^}]+)\}/);
+    assert(m, "в app.js не нашлась ссылка на calendar-feed?token=");
+    assert(
+      !/agencyId|agency_id|getAgencyId/.test(m[1]),
+      "ссылка на фид снова строится из agency_id — он публичен (реф-код в КП): " + m[1]
+    );
+    assert(/calToken|calendar_token/.test(m[1]), "ссылка на фид не использует calendar_token: " + m[1]);
+  });
+
+  await test("calendar-feed: token резолвится через profiles, а не берётся как agency_id", () => {
+    assert(
+      !/agencyId\s*=\s*token\s*;/.test(feed),
+      "calendar-feed снова присваивает agencyId = token напрямую"
+    );
+    assert(
+      /from\("profiles"\)[\s\S]{0,200}eq\("calendar_token"/.test(feed),
+      "calendar-feed не ищет агентство по profiles.calendar_token"
+    );
+  });
+
+  await test("calendar_token нельзя переписать клиентским UPDATE профиля", () => {
+    // profiles_update_own разрешает менять любые колонки своего профиля. Без пина
+    // в триггере пользователь выставил бы себе токен чужого агентства — та же
+    // утечка, только уже с авторизацией.
+    const mig = fs.readFileSync(
+      path.join(REPO_ROOT, "supabase/migrations/20260730000001_calendar_feed_token.sql"),
+      "utf8"
+    );
+    assert(
+      /new\.calendar_token\s*:=\s*old\.calendar_token/i.test(mig),
+      "триггер protect_subscription_fields не пинит calendar_token"
+    );
+    assert(
+      /create or replace function rotate_calendar_token[\s\S]*security definer/i.test(mig),
+      "нет SECURITY DEFINER функции ротации rotate_calendar_token"
+    );
+  });
 };

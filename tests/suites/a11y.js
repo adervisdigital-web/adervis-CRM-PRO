@@ -127,6 +127,46 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(bad.length, 0, "кнопки без доступного имени — " + bad.join(" | "));
   });
 
+  // То же самое для полей ввода. Считаем имя по правилам accname, а НЕ регекспом
+  // по исходнику: у большинства полей подпись стоит визуальным <label> рядом, и
+  // грубый поиск по тексту насчитывает сотни ложных срабатываний.
+  //
+  // placeholder и title сознательно не считаются именем. Формально браузер их
+  // подхватит, но placeholder исчезает при вводе, а title в каталоге был "Цена"
+  // сразу у двух десятков полей подряд — на слух это «Цена, Цена, Цена…» без
+  // единого намёка, к какой услуге относится поле.
+  await test("поля ввода: у каждого видимого есть доступное имя", async () => {
+    const bad = [];
+    for (const view of ["home", "crm", "clients", "global-tasks", "global-finances", "catalog", "settings", "briefs", "knowledge"]) {
+      await page.evaluate((v) => window.app.go(v), view);
+      await page.waitForTimeout(200);
+      const nameless = await page.evaluate(() => {
+        const out = [];
+        for (const el of document.querySelectorAll("#appContent input, #appContent select, #appContent textarea")) {
+          if (el.type === "hidden" || el.offsetParent === null) continue;
+          let name = (el.getAttribute("aria-label") || "").trim();
+          if (!name) {
+            const lb = el.getAttribute("aria-labelledby");
+            const t = lb && document.getElementById(lb);
+            if (t) name = (t.textContent || "").trim();
+          }
+          if (!name && el.id) {
+            const l = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+            if (l) name = (l.textContent || "").trim();
+          }
+          if (!name) {
+            const w = el.closest("label");
+            if (w) name = (w.textContent || "").trim();
+          }
+          if (!name) out.push(`${el.tagName.toLowerCase()}/${el.type || ""}${el.className ? "." + String(el.className).split(" ")[0] : ""}`);
+        }
+        return out;
+      });
+      if (nameless.length) bad.push(`${view}: ${nameless.join(", ")}`);
+    }
+    assertEqual(bad.length, 0, "поля без доступного имени — " + bad.join(" | "));
+  });
+
   // Контраст цветных «капсул» в ОБЕИХ темах. Проверять глазами здесь бесполезно:
   // фон у них полупрозрачный (rgba(...,.12)), поэтому реальный контраст зависит от
   // того, что под ним — а под ним разный цвет в тёмной и светлой теме. Хардкод

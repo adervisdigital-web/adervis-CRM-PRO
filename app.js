@@ -4536,6 +4536,26 @@
         } catch(e) { toast("Ошибка сохранения: " + e.message); }
       }
 
+      // Отзывает старую ссылку на iCal-фид и выдаёт новую. Смена идёт через RPC,
+      // а не UPDATE profiles: колонка calendar_token запинена триггером
+      // protect_subscription_fields, иначе пользователь мог бы выставить себе
+      // токен чужого агентства и читать его фид.
+      async function rotateCalendarToken() {
+        if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
+        const had = !!(_userProfile && _userProfile.calendar_token);
+        if (had && !confirm("Старая ссылка перестанет работать сразу. Календарь на телефоне и у коллег придётся переподписать заново. Продолжить?")) return;
+        try {
+          const { data, error } = await _supabase.rpc("rotate_calendar_token");
+          if (error) throw error;
+          if (!data) throw new Error("пустой ответ");
+          if (_userProfile) _userProfile.calendar_token = data;
+          render();
+          toast(had ? "🔑 Ссылка на календарь обновлена" : "🔑 Ссылка на календарь создана");
+        } catch(e) {
+          toast("Не удалось обновить ссылку: " + (e.message || e));
+        }
+      }
+
       function openChangePassword() {
         const box = document.getElementById("changePasswordBox");
         if (!box) return;
@@ -10760,7 +10780,12 @@
                   submissionId,
                 }),
               }).catch(() => {});
-            } catch(e) {}
+            } catch(e) {
+              // Бриф уже сохранён — уведомление лучшее-из-возможного и клиента
+              // задерживать не должно. Но молчать нельзя: агентство просто не
+              // узнает, что заявка пришла, и решит, что брифов нет.
+              console.warn("agency-notify (brief_submitted) не отправлено:", e);
+            }
           }
         } catch(e) {
           _briefForm.sending = false;
@@ -12013,9 +12038,9 @@
                 <div class="deal-toolbar-controls">
                   <div class="deal-search-wrap">
                     ${icon("search", 13)}
-                    <input type="search" class="no-print deal-search-input" placeholder="Поиск по названию/клиенту..." value="${escapeHtml(state.crmSearch||"")}" oninput="app.setCrmSearch(this.value)">
+                    <input type="search" class="no-print deal-search-input" aria-label="Поиск по сделкам" placeholder="Поиск по названию/клиенту..." value="${escapeHtml(state.crmSearch||"")}" oninput="app.setCrmSearch(this.value)">
                   </div>
-                  <select class="deal-sort-select no-print" style="width:190px" onchange="app.setCrmSort(this.value)" title="Сортировка сделок">
+                  <select class="deal-sort-select no-print" style="width:190px" onchange="app.setCrmSort(this.value)" title="Сортировка сделок" aria-label="Сортировка сделок">
                     <option value="default" ${sortMode==="default"?"selected":""}>По умолчанию</option>
                     <option value="amount" ${sortMode==="amount"?"selected":""}>Сумма ↓</option>
                     <option value="deadline" ${sortMode==="deadline"?"selected":""}>Дедлайн ↑</option>
@@ -12937,15 +12962,15 @@
               <div class="catalog-toolbar no-print">
                 <div class="catalog-search-wrap">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                  <input class="catalog-search-input" value="${escapeHtml(state.search)}" oninput="app.setSearch(this.value)" placeholder="Поиск: монтаж, оператор, свет...">
+                  <input class="catalog-search-input" aria-label="Поиск по каталогу услуг" value="${escapeHtml(state.search)}" oninput="app.setSearch(this.value)" placeholder="Поиск: монтаж, оператор, свет...">
                 </div>
-                <select class="catalog-toolbar-select" style="width:170px" onchange="app.setFilter(this.value)" title="Фильтр">
+                <select class="catalog-toolbar-select" style="width:170px" onchange="app.setFilter(this.value)" title="Фильтр" aria-label="Фильтр каталога">
                   ${optionValueHtml("all", "Без фильтра", state.filter)}
                   ${optionValueHtml("selected", "В смете", state.filter)}
                   ${optionValueHtml("edited", "Изменённые цены", state.filter)}
                   ${optionValueHtml("hourly", "С почасовым расчётом", state.filter)}
                 </select>
-                <select class="catalog-toolbar-select" style="width:150px" onchange="app.setSort(this.value)" title="Сортировка">
+                <select class="catalog-toolbar-select" style="width:150px" onchange="app.setSort(this.value)" title="Сортировка" aria-label="Сортировка каталога">
                   ${optionValueHtml("name", "По названию", state.sort)}
                   ${optionValueHtml("priceAsc", "Цена ↑", state.sort)}
                   ${optionValueHtml("priceDesc", "Цена ↓", state.sort)}
@@ -13093,7 +13118,7 @@
               </div>
 
               <div class="price-editor no-print">
-                <input class="catalog-price-input" type="number" value="${getCatalogPrice(itemData)}" onchange="app.updateCatalogPrice('${itemData.id}', this.value)" title="Цена">
+                <input class="catalog-price-input" type="number" value="${getCatalogPrice(itemData)}" onchange="app.updateCatalogPrice('${itemData.id}', this.value)" title="Цена" aria-label="Цена: ${escapeHtml(itemData.name)}, ₽ за ${escapeHtml(unitAccusative(itemData.unit))}">
                 <div class="u-meta" style="text-align:right">за ${escapeHtml(unitAccusative(itemData.unit))}</div>
               </div>
             </div>
@@ -14131,7 +14156,7 @@
               <div class="gtask-chips">
                 ${statusChips.map(c => `<button class="chip ${statusFilter === c.id ? "active" : ""}" onclick="app.setGlobalTaskFilter('status','${c.id}')">${escapeHtml(c.label)}</button>`).join("")}
               </div>
-              <select class="gtask-project-select" title="Фильтр по проекту" onchange="app.setGlobalTaskFilter('project',this.value)">
+              <select class="gtask-project-select" title="Фильтр по проекту" aria-label="Фильтр задач по проекту" onchange="app.setGlobalTaskFilter('project',this.value)">
                 <option value="all" ${projectFilter === "all" ? "selected" : ""}>Все проекты</option>
                 <option value="personal" ${projectFilter === "personal" ? "selected" : ""}>Личные задачи</option>
                 ${projectOpts.map(p => `<option value="${escapeHtml(p.id)}" ${projectFilter === p.id ? "selected" : ""}>${escapeHtml(p.name)}</option>`).join("")}
@@ -14306,7 +14331,7 @@
                 style="background:${pBg};border-color:${pColor}40;color:${pColor};font-weight:600">
                 ${PRIORITIES.map(p => `<option value="${p}" ${task.priority===p?"selected":""}>${p}</option>`).join("")}
               </select>
-              <select class="task-mini-select" title="Переместить в колонку"
+              <select class="task-mini-select" title="Переместить в колонку" aria-label="Переместить задачу в колонку"
                 onchange="app.setKanbanStatus('task','${task.id}',this.value)">
                 ${TASK_STATUSES.map(s => `<option value="${s}" ${task.status===s?"selected":""}>${s}</option>`).join("")}
               </select>
@@ -14974,7 +14999,7 @@
                             <button class="btn primary small" onclick="app.loadSavedProject('${project.id}')">Открыть</button>
                             <button class="btn small" onclick="app.createClientPortal('${project.id}')" title="Создать ссылку КП для клиента">🔗 КП-ссылка</button>
                           </div>
-                          <select class="task-mini-select no-print" style="margin-top:8px;max-width:100%" title="Переместить в этап"
+                          <select class="task-mini-select no-print" style="margin-top:8px;max-width:100%" title="Переместить в этап" aria-label="Переместить задачу в этап"
                             onchange="app.setKanbanStatus('crm','${project.id}',this.value)">
                             ${CRM_STATUSES.map(s => `<option value="${s}" ${(project.crmStatus || "Лид") === s ? "selected" : ""}>${s}</option>`).join("")}
                           </select>
@@ -15736,15 +15761,15 @@
 
             ${(state.gFinSubTab || "transactions") === "transactions" ? `
             <div class="fin-action-bar no-print" style="margin-bottom:8px;flex-wrap:wrap;gap:8px">
-              <select title="Фильтр по проекту" onchange="app.setGFinFilter(this.value)" style="padding:8px 34px 8px 12px;border-radius:10px;font-size:13px">
+              <select title="Фильтр по проекту" aria-label="Фильтр операций по проекту" onchange="app.setGFinFilter(this.value)" style="padding:8px 34px 8px 12px;border-radius:10px;font-size:13px">
                 ${projects.map(p => `<option value="${p.id}" ${gFilter===p.id?"selected":""}>${escapeHtml(p.name)}</option>`).join("")}
               </select>
-              <select title="Тип операции" onchange="app.setGFinTypeFilter(this.value)" style="padding:8px 34px 8px 12px;border-radius:10px;font-size:13px">
+              <select title="Тип операции" aria-label="Фильтр по типу операции" onchange="app.setGFinTypeFilter(this.value)" style="padding:8px 34px 8px 12px;border-radius:10px;font-size:13px">
                 <option value="all" ${typeFilter==="all"?"selected":""}>Все операции</option>
                 <option value="income" ${typeFilter==="income"?"selected":""}>Только поступления</option>
                 <option value="expense" ${typeFilter==="expense"?"selected":""}>Только расходы</option>
               </select>
-              <input type="search" placeholder="Поиск по описанию..." value="${escapeHtml(state.gFinSearch||"")}"
+              <input type="search" aria-label="Поиск по операциям" placeholder="Поиск по описанию..." value="${escapeHtml(state.gFinSearch||"")}"
                 oninput="app.setGFinSearch(this.value)"
                 style="padding:8px 12px;border-radius:10px;font-size:13px;border:1px solid var(--line);background:var(--panel2);color:var(--text);min-width:180px;flex:1">
             </div>
@@ -16542,8 +16567,22 @@
               if (!_adminSession || !_userProfile) return "";
               const { url } = getSupabaseConfig();
               if (!url) return "";
-              const agencyId = getAgencyId();
-              const feedUrl = `${url}/functions/v1/calendar-feed?token=${agencyId}`;
+              // Токен фида — отдельный секрет из профиля, НЕ agency_id: тот публичен
+              // (он же реферальный код в ссылке на КП), и пока фид ходил по нему,
+              // любой заказчик со ссылкой на своё КП читал задачи всех сделок
+              // агентства. См. миграцию 20260730000001_calendar_feed_token.sql.
+              const calToken = _userProfile.calendar_token || "";
+              if (!calToken) {
+                return `
+              <div class="panel" style="box-shadow:none;background:var(--panel2)">
+                <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("calendar", "var(--blue)")} Синхронизация с iPhone / Google Calendar</h2>
+                <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+                  Ссылка на календарь ещё не создана для этого аккаунта.
+                </p>
+                <button class="btn small primary" onclick="app.rotateCalendarToken()">Создать ссылку</button>
+              </div>`;
+              }
+              const feedUrl = `${url}/functions/v1/calendar-feed?token=${calToken}`;
               const webcalUrl = feedUrl.replace(/^https?:\/\//, "webcal://");
               return `
               <div class="panel" style="box-shadow:none;background:var(--panel2)">
@@ -16567,6 +16606,13 @@
                     <b>Ссылка личная</b> — не передавайте её третьим лицам. В фиде отображаются задачи и дедлайны всех проектов агентства.
                   </div>
                 </details>
+                <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
+                  <button class="btn small" onclick="app.rotateCalendarToken()">Отозвать и создать новую ссылку</button>
+                  <p style="font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.6">
+                    Старая ссылка сразу перестанет работать. Нужно, если ссылка попала к посторонним
+                    или из команды кто-то ушёл — календарь придётся переподписать заново.
+                  </p>
+                </div>
               </div>`;
             })()}
 
@@ -17876,7 +17922,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ type: 'portal_view', portalId: _portalId }),
                 }).catch(() => {});
-              } catch(e) {}
+              } catch(e) {
+                // Не критично для клиента (он видит КП), но агентство теряет
+                // сигнал «клиент открыл КП — хороший момент позвонить».
+                console.warn("agency-notify (portal_view) не отправлено:", e);
+              }
             }
           }
         } catch(e) { console.warn('Portal load:', e); }
@@ -20276,6 +20326,7 @@ Email: ______________________            Email: ______________________
         _setErrorsFilter,
         _toggleErrorGroup,
         forceSaveToCloud,
+        rotateCalendarToken,
         openChangePassword,
         submitChangePassword,
         confirmDeleteAccount,
@@ -20467,7 +20518,17 @@ Email: ______________________            Email: ______________________
         if (_calcMode || !_ownsLsState()) return;
         try {
           if (lsSet(STORAGE_KEY, JSON.stringify(state))) _bumpLsRev();
-        } catch(e) {}
+        } catch(e) {
+          // Сюда попадает НЕ отказ localStorage — его lsSet ловит сам и вернёт
+          // false с предупреждением. Сюда попадает падение самого JSON.stringify:
+          // на практике это RangeError «Invalid string length», когда блоб
+          // состояния перерастает предел длины строки, либо циклическая ссылка,
+          // занесённая в state. И то и другое означает тихую потерю всех
+          // несохранённых правок ровно в момент закрытия вкладки — самый плохой
+          // момент, чтобы промолчать. Поэтому ошибка обязана дойти до телеметрии.
+          console.error("Сохранение состояния перед закрытием не удалось:", e);
+          _reportClientError("error", "flushStateOnUnload: " + (e && e.message ? e.message : e), "app.js");
+        }
       }
       window.addEventListener('pagehide', _flushStateOnUnload);
       window.addEventListener('beforeunload', _flushStateOnUnload);

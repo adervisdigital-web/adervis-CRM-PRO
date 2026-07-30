@@ -12,3 +12,10 @@ Thumbs.db
 
 # QA-артефакты локальных Playwright-тестов (tests/run.js)
 tests/screenshots/
+
+# Разовые ручные пробники и скриншотилки. В regression-suite не входят
+# (tests/run.js гоняет только tests/suites/*), но остаются локально под рукой.
+# Если проверка из пробника нужна навсегда — её место в tests/suites/, а не здесь.
+tests/*-shot.js
+tests/*-probe.js
+tests/sidebar-iso.html

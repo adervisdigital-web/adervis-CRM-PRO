@@ -38,9 +38,17 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // Два режима: ?token=<agency_id> — весь агентский фид (Настройки, для команды), либо
-  // ?portal=<portal_id> — публичный read-only фид ровно одной сделки для клиента портала
-  // КП (без OAuth/логина — клиент просто подписывается на ссылку в своём календаре).
+  // Два режима: ?token=<calendar_token> — весь агентский фид (Настройки, для команды),
+  // либо ?portal=<portal_id> — публичный read-only фид ровно одной сделки для клиента
+  // портала КП (без OAuth/логина — клиент просто подписывается на ссылку в календаре).
+  //
+  // SECURITY: token — это profiles.calendar_token, НЕ agency_id. Раньше сюда шёл
+  // напрямую agency_id, а он публичен: get_client_portal отдаёт его анониму, и
+  // страница КП печатает его в ссылку ?ref=<agency_id>. То есть любой заказчик,
+  // получивший ссылку на своё КП, вытаскивал agency_id и читал здесь задачи,
+  // дедлайны и внутренние заметки по ВСЕМ сделкам агентства. Токен из profiles
+  // не покидает личный кабинет и отзывается через rotate_calendar_token().
+  // См. миграцию 20260730000001_calendar_feed_token.sql.
   let agencyId: string;
   let onlyProjectId: string | null = null;
   let calName = "ADERVIS CRM — Задачи";
@@ -57,7 +65,17 @@ Deno.serve(async (req) => {
     onlyProjectId = (portal.project_id as string) || null;
     calName = `ADERVIS CRM — ${(portal.deal_name as string) || "Проект"}`;
   } else if (token && /^[0-9a-f-]{36}$/i.test(token)) {
-    agencyId = token;
+    // Резолвим агентство по токену. Для участника команды agency_id берётся из
+    // его профиля, поэтому фид у владельца и у сотрудника одинаково агентский.
+    const { data: owner, error: ownerError } = await supabase
+      .from("profiles")
+      .select("agency_id")
+      .eq("calendar_token", token)
+      .maybeSingle();
+    // 404, а не 403: чужой/отозванный токен не должен отличаться по ответу от
+    // несуществующего — иначе перебором можно подтверждать живые токены.
+    if (ownerError || !owner || !owner.agency_id) return new Response("Not found", { status: 404 });
+    agencyId = owner.agency_id as string;
   } else {
     return new Response("Bad token", { status: 400 });
   }
