@@ -4343,6 +4343,10 @@
     .margin-badge.good { background: var(--tint-green-bg); color: var(--tint-green); }
     .margin-badge.ok   { background: var(--tint-amber-bg); color: var(--tint-amber); border-color: rgba(246,189,58,.3); }
     .margin-badge.bad  { background: rgba(220,38,38,.18);  color: var(--tint-red); }
+    /* Выручки ещё нет — судить не о чем. Красное здесь читается как «у тебя всё
+       плохо» на пустой сделке, хотя данных просто нет. Тот же приём, что у
+       health-dot на карточках сделок: отсутствие данных нейтрально, не тревожно. */
+    .margin-badge.none { background: var(--panel2); color: var(--muted); border-color: var(--line); }
 
     /* ── ADMIN / SUPABASE ──────────────────────────── */
     .admin-indicator {

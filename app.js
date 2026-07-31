@@ -8843,6 +8843,16 @@
         _lastModalKey = modalKey;
       }
 
+      // Класс капсулы маржи. Нужен отдельной функцией, потому что считался в
+      // четырёх местах одинаковым тернарником, и во всех четырёх нулевая выручка
+      // (пустая сделка, нет ни позиций, ни поступлений) давала margin=0 → "bad",
+      // то есть КРАСНОЕ предупреждение там, где просто нет данных. Первое, что
+      // видел человек в своей первой сделке, — красная плашка «0% маржа».
+      function marginBadgeClass(revenue, margin) {
+        if (!(revenue > 0)) return "none";
+        return margin >= 40 ? "good" : margin >= 20 ? "ok" : "bad";
+      }
+
       // Теги, которые фокусируются и активируются с клавиатуры сами по себе —
       // поднимать их не нужно и вредно (двойное срабатывание на Space у <button>).
       const KBD_NATIVE_TAGS = new Set(["BUTTON", "A", "INPUT", "SELECT", "TEXTAREA", "SUMMARY", "LABEL", "OPTION", "DETAILS"]);
@@ -12338,7 +12348,7 @@
           profitFact: d.total - f.totalExpensesPaid
         } : f;
         const margin = fin.revenue > 0 ? Math.round(fin.profit / fin.revenue * 100) : 0;
-        const marginClass = margin >= 40 ? "good" : margin >= 20 ? "ok" : "bad";
+        const marginClass = marginBadgeClass(fin.revenue, margin);
         const payPct = d.total > 0 ? Math.min(100, Math.round(fin.paid / d.total * 100)) : 0;
 
         const stagesWithItems = state.stages
@@ -14462,7 +14472,7 @@
         const f = financeTotals();
         const t = totals();
         const margin = f.revenue > 0 ? Math.round(f.profit / f.revenue * 100) : 0;
-        const marginClass = margin >= 40 ? "good" : margin >= 20 ? "ok" : "bad";
+        const marginClass = marginBadgeClass(f.revenue, margin);
         const payPct = t.total > 0 ? Math.min(100, Math.round(f.paid / t.total * 100)) : 0;
         const half = Math.round(t.total / 2);
 
@@ -14543,7 +14553,7 @@
                   <div class="fin-amount">${money(f.profit)}</div>
                   <div class="fin-sub">
                     <span class="margin-badge ${marginClass}">${margin}%</span>
-                    ${f.profitFact !== f.profit ? `<div style="margin-top:4px">факт: ${money(f.profitFact)} <span class="margin-badge ${f.marginFact >= 40 ? "good" : f.marginFact >= 20 ? "ok" : "bad"}">${Math.round(f.marginFact)}%</span></div>` : ""}
+                    ${f.profitFact !== f.profit ? `<div style="margin-top:4px">факт: ${money(f.profitFact)} <span class="margin-badge ${marginBadgeClass(f.revenue, f.marginFact)}">${Math.round(f.marginFact)}%</span></div>` : ""}
                   </div>
                 </div>
               </div>
@@ -16317,7 +16327,7 @@
         const payPct = Math.min(100, Math.round(paid / total * 100));
         const margin = f.revenue > 0 ? Math.round(f.profit / f.revenue * 100) : 0;
 
-        const marginClass = margin >= 40 ? "good" : margin >= 20 ? "ok" : "bad";
+        const marginClass = marginBadgeClass(f.revenue, margin);
         const marginLabel = margin >= 40 ? "Высокая маржа" : margin >= 20 ? "Средняя маржа" : "Низкая маржа";
 
         const crmIdx = CRM_STATUSES.indexOf(state.project.crmStatus || "Лид");
@@ -18042,9 +18052,22 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       async function createClientPortal(projectId) {
         const project = (state.savedProjects || []).find(p => p.id === projectId);
         if (!project) { toast('Проект не найден'); return; }
-        if (!_supabase) { toast('Supabase не настроен'); return; }
         const snap = project.snapshot || {};
         const proj = snap.project || {};
+        // Вкладка КП доступна и на пустой смете, поэтому ссылку клиенту можно было
+        // создать в два клика из четырёх мест — включая чеклист «первые шаги»,
+        // который новичка ровно туда и ведёт. Клиент открывал предложение на 0 ₽
+        // без единой услуги. Смета и КП — то, ради чего продукт покупают, и это
+        // самый неловкий способ их показать. Пропускаем, если сумма всё же есть
+        // (бюджет клиента без разбивки по позициям — законный сценарий).
+        // Проверка ДО _supabase: это валидация того, что человек собрал, а не
+        // состояния бэкенда, и сообщение про пустую смету полезнее, чем про Supabase.
+        const positionCount = Object.keys(snap.selected || {}).length;
+        if (positionCount === 0 && !(project.total > 0)) {
+          toast('В смете нет позиций — клиент получит КП на 0 ₽. Соберите смету или укажите бюджет клиента.');
+          return;
+        }
+        if (!_supabase) { toast('Supabase не настроен'); return; }
         const selectedItems = Object.keys(snap.selected || {})
           .map(id => { const b = BASE_ITEMS.find(x => x.id === id); return b ? b.name : null; })
           .filter(Boolean);

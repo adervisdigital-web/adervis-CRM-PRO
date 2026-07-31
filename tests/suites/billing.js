@@ -209,4 +209,66 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(calls.length, 1, "цель отправлена не один раз: " + JSON.stringify(calls));
     await context.close();
   });
+
+  // Вкладка КП доступна и на пустой смете, а createClientPortal вызывается из
+  // ЧЕТЫРЁХ мест, включая чеклист «первые шаги» — то есть новичок мог отправить
+  // клиенту предложение на 0 ₽ без единой услуги буквально следуя подсказке.
+  // Смета и КП — то, ради чего продукт покупают; это самый неловкий способ их
+  // показать. Гарда живёт в createClientPortal, поэтому закрывает все входы разом.
+  await test("КП: пустая смета не даёт создать ссылку клиенту", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1100, height: 800 });
+
+    const click = (t) => page.evaluate((txt) => {
+      const el = [...document.querySelectorAll("button,[onclick]")]
+        .filter(e => e.offsetParent !== null)
+        .find(e => (e.textContent || "").replace(/\s+/g, " ").includes(txt));
+      if (!el) return false;
+      el.click();
+      return true;
+    }, t);
+    const fill = (v) => page.evaluate((val) => {
+      const i = [...document.querySelectorAll("#appContent input")].filter(e => e.offsetParent !== null)[0];
+      if (i) { i.value = val; i.dispatchEvent(new Event("input", { bubbles: true })); }
+    }, v);
+
+    // Проходим мастер ровно так, как это сделает новичок: клиент, название,
+    // а на шаге пакета — «Пропустить». Получается сделка с 0 позиций и 0 ₽.
+    await page.evaluate(() => window.app.startWizard());
+    await page.waitForTimeout(300);
+    await fill("Тестовый клиент");
+    assert(await click("Далее"), "шаг «Кто клиент» не пройден");
+    await page.waitForTimeout(350);
+    await fill("Пустой проект");
+    assert(await click("Далее"), "шаг «О проекте» не пройден");
+    await page.waitForTimeout(350);
+    assert(await click("Пропустить"), "на шаге пакета нет «Пропустить»");
+    await page.waitForTimeout(600);
+
+    const proj = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const p = (s.savedProjects || [])[0];
+      return p ? { id: p.id, total: p.total, positions: Object.keys((p.snapshot || {}).selected || {}).length } : null;
+    });
+    assert(proj, "мастер не создал сделку");
+    assertEqual(proj.positions, 0, "сделка после «Пропустить» должна быть без позиций");
+    assertEqual(proj.total, 0, "сделка после «Пропустить» должна быть на 0 ₽");
+
+    await page.evaluate((id) => window.app.createClientPortal(id), proj.id);
+    await page.waitForTimeout(350);
+
+    const toast = await page.evaluate(() => {
+      const el = document.getElementById("toast");
+      return el ? (el.textContent || "").trim() : "";
+    });
+    assert(/нет позиций/i.test(toast), "пустая смета должна отказывать с объяснением, получено: «" + toast + "»");
+
+    // И портал действительно не создан — отказ, а не «отказ на словах».
+    const portalId = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return ((s.savedProjects || [])[0] || {}).portalId || null;
+    });
+    assertEqual(portalId, null, "портал не должен быть создан для пустой сметы");
+
+    await context.close();
+  });
 };
