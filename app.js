@@ -1543,7 +1543,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","notifPopupOpen","summaryOpen","briefEditorType"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","notifPopupOpen","summaryOpen","briefEditorType"]);
 
       // Кладёт облачное состояние в state. Отдельно от _loadCloudState, потому что
       // вызывается ещё и из разрешения конфликта.
@@ -5564,6 +5564,13 @@
           helpSlide: 0,
           docsModal: false,
         docsTab: "privacy",
+        // Настройка левой колонки каталога: какие встроенные группы скрыты и
+        // какие свои разделы завёл пользователь. Свой раздел — курируемая
+        // подборка (как «Избранное»), а не переклассификация: itemGroup() не
+        // трогаем, поэтому позиция остаётся и в своей вычисленной группе.
+        catalogGroupsHidden: {},
+        customCatalogGroups: [],
+        itemCustomGroup: {},
           adminModal: null,
           clientModal: null,
           taskModal: null,
@@ -6789,6 +6796,10 @@
           }
           // sub:<группа>:<подгруппа> — второй уровень у Оборудования, ИИ и Расходов,
           // где все позиции лежат в одной категории и подкатегорий не выводится.
+          else if (String(state.tab).startsWith("cg:")) {
+            const cg = String(state.tab);
+            items = items.filter(x => (state.itemCustomGroup || {})[x.id] === cg);
+          }
           else if (String(state.tab).startsWith("sub:")) {
             const [, gid, sid] = String(state.tab).split(":");
             items = items.filter(x => itemGroup(x) === gid && itemSubGroup(x, gid) === sid);
@@ -8985,6 +8996,7 @@
         const modalKey =
           state.mainMenuOpen ? "mainMenu" : state.helpModal ? "help" :
           state.docsModal ? "docs" :
+          state.catalogGroupsConfigOpen ? "catalogGroups" :
           state.adminModal ? "admin" : state.clientModal ? "client" :
           state.dealModal ? "deal" : state.taskModal ? "task" :
           state.editTransactionModal ? "editTx" : state.financeModal ? "finance" :
@@ -8993,6 +9005,7 @@
         if (state.mainMenuOpen) { el.innerHTML = renderMainMenuModal(); }
         else if (state.helpModal) { el.innerHTML = renderHelpModal(); }
         else if (state.docsModal) { el.innerHTML = renderDocsModal(); }
+        else if (state.catalogGroupsConfigOpen) { el.innerHTML = renderCatalogGroupsConfigModal(); }
         else if (state.adminModal) { el.innerHTML = renderAdminModalHtml(); }
         else if (state.clientModal) { el.innerHTML = renderClientModalHtml(); }
         else if (state.dealModal) { el.innerHTML = renderDealModalHtml(); }
@@ -12762,6 +12775,17 @@
             `)}
             ${field("Единица", `<input data-autosave data-scope="custom" data-id="${id}" data-key="unit" value="${escapeHtml(itemData.unit || "шт")}">`)}
           </div>
+          ${(() => {
+            const cgs = state.customCatalogGroups || [];
+            if (!cgs.length) return "";
+            const cur = (state.itemCustomGroup || {})[id] || "";
+            return `<div class="mb-14">${field("Свой раздел", `
+              <select onchange="app.setItemCustomGroup('${id}', this.value)">
+                ${optionValueHtml("", "— не в своём разделе", cur)}
+                ${cgs.map(cg => optionValueHtml(cg.id, cg.label, cur)).join("")}
+              </select>
+            `)}</div>`;
+          })()}
         ` : `
           <div class="mb-14">
             ${field("Название", `<input data-autosave data-scope="catalogOverride" data-id="${id}" data-key="name" value="${escapeHtml(itemData.name)}">`)}
@@ -12782,6 +12806,17 @@
               <span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>
             </div>
           ` : ""}
+          ${(() => {
+            const cgs = state.customCatalogGroups || [];
+            if (!cgs.length) return "";
+            const cur = (state.itemCustomGroup || {})[id] || "";
+            return `<div class="mb-14">${field("Свой раздел", `
+              <select onchange="app.setItemCustomGroup('${id}', this.value)">
+                ${optionValueHtml("", "— не в своём разделе", cur)}
+                ${cgs.map(cg => optionValueHtml(cg.id, cg.label, cur)).join("")}
+              </select>
+            `)}</div>`;
+          })()}
           <div>
             ${field("Цена, ₽", `<input type="number" class="catalog-price-input" value="${currentPrice}" onchange="app.updateCatalogPrice('${id}', this.value)" style="font-size:20px;font-weight:800;padding:12px 14px">`)}
           </div>
@@ -13264,6 +13299,10 @@
                       return CATALOG_GROUPS.map((g, i) => {
                         const list = byGroup[g.id] || [];
                         if (!list.length) return "";
+                        // Скрыт через «Настроить разделы». Прячем только пункт
+                        // навигации: сами услуги остаются в «Все» и в поиске,
+                        // как и в настройках бокового меню.
+                        if ((state.catalogGroupsHidden || {})[g.id]) return "";
                         const active = state.tab === "grp:" + g.id;
                         // Раскрытие не привязано к выбору: групп можно держать открытыми
                         // сколько угодно (раньше подкатегории показывались только у
@@ -13317,9 +13356,35 @@
                     })()}
                   </div>
 
+                  ${(() => {
+                    const cgs = state.customCatalogGroups || [];
+                    if (!cgs.length) return "";
+                    const assigned = state.itemCustomGroup || {};
+                    return `<div class="catalog-cat-group" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
+                      ${cgs.map(cg => {
+                        const n = Object.keys(assigned).filter(k => assigned[k] === cg.id).length;
+                        return `<button class="catalog-cat-item ${state.tab === cg.id ? "active" : ""}"
+                          onclick="app.setTab('${escapeHtml(cg.id)}')" title="Свой раздел">
+                          <span style="display:flex;align-items:center;gap:7px;min-width:0">
+                            <span style="display:inline-block;width:9px"></span>
+                            <span style="color:var(--primary2);display:inline-flex;flex-shrink:0">${icon("star", 15)}</span>
+                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(cg.label)}</span>
+                          </span>
+                          <span class="catalog-cat-count" style="${n ? "" : "opacity:.45"}">${n}</span>
+                        </button>`;
+                      }).join("")}
+                    </div>`;
+                  })()}
+
                   <button class="catalog-cat-item catalog-cat-add" onclick="app.createCustomItem()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                     <span>Своя позиция</span>
+                  </button>
+
+                  <button class="catalog-cat-item catalog-cat-add" onclick="app.openCatalogGroupsConfig()"
+                    style="opacity:.75" title="Скрыть ненужные разделы или завести свой">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>
+                    <span>Настроить разделы</span>
                   </button>
                 </aside>
 
@@ -13872,6 +13937,110 @@
                                        позиций под рукой, пока человек не выберет другое).
          Открытых групп может быть сколько угодно: сравнивать «Команду» и «Оборудование»
          рядом — обычное дело при сборке сметы. */
+      /* Настройка левой колонки каталога — тот же смысл, что «Настроить меню» у
+         сайдбара: спрятать разделы, которыми агентство не пользуется (студия без
+         ИИ-услуг не должна каждый раз смотреть на «ИИ / AI»), и завести свой.
+
+         Скрытие прячет ТОЛЬКО пункт навигации: услуги остаются в «Все» и
+         находятся поиском. Иначе «скрыл раздел» молча означало бы «удалил из
+         сметы половину каталога», а для убирания самих позиций уже есть
+         «Скрытые». */
+      function openCatalogGroupsConfig() {
+        state.catalogGroupsConfigOpen = true;
+        renderModal();
+      }
+      function closeCatalogGroupsConfig() {
+        state.catalogGroupsConfigOpen = false;
+        renderModal();
+      }
+      function toggleCatalogGroupHidden(gid) {
+        const h = { ...(state.catalogGroupsHidden || {}) };
+        if (h[gid]) delete h[gid]; else h[gid] = true;
+        state.catalogGroupsHidden = h;
+        // Скрыли раздел, который сейчас открыт — уводим на «Все», иначе экран
+        // остался бы отфильтрованным по невидимому пункту.
+        if (h[gid] && state.tab === "grp:" + gid) state.tab = "all";
+        save();
+        render();
+      }
+      function addCustomCatalogGroup() {
+        const label = (window.prompt("Название своего раздела:", "") || "").trim();
+        if (!label) return;
+        const groups = [...(state.customCatalogGroups || [])];
+        groups.push({ id: "cg:" + Date.now().toString(36), label: label.slice(0, 32) });
+        state.customCatalogGroups = groups;
+        save();
+        render();
+      }
+      function removeCustomCatalogGroup(cgId) {
+        const g = (state.customCatalogGroups || []).find(x => x.id === cgId);
+        if (!g) return;
+        if (!confirm("Удалить раздел «" + g.label + "»? Сами услуги останутся в каталоге.")) return;
+        state.customCatalogGroups = (state.customCatalogGroups || []).filter(x => x.id !== cgId);
+        const assigned = { ...(state.itemCustomGroup || {}) };
+        Object.keys(assigned).forEach(k => { if (assigned[k] === cgId) delete assigned[k]; });
+        state.itemCustomGroup = assigned;
+        if (state.tab === cgId) state.tab = "all";
+        save();
+        render();
+      }
+      function setItemCustomGroup(itemId, cgId) {
+        const assigned = { ...(state.itemCustomGroup || {}) };
+        if (cgId) assigned[itemId] = cgId; else delete assigned[itemId];
+        state.itemCustomGroup = assigned;
+        save();
+        render();
+      }
+
+      function renderCatalogGroupsConfigModal() {
+        if (!state.catalogGroupsConfigOpen) return "";
+        const hidden = state.catalogGroupsHidden || {};
+        const cgs = state.customCatalogGroups || [];
+        const assigned = state.itemCustomGroup || {};
+        return `
+          <div class="modal-overlay" onclick="event.target===this&&app.closeCatalogGroupsConfig()">
+            <div class="modal-box" style="width:min(460px,calc(100vw - 24px))">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <h2 class="u-title-20" style="margin:0">Разделы каталога</h2>
+                <button onclick="app.closeCatalogGroupsConfig()" class="u-modal-close" aria-label="Закрыть">×</button>
+              </div>
+              <p class="u-meta" style="margin:0 0 16px;line-height:1.5">
+                Скрытый раздел пропадает из списка слева, но его услуги остаются в «Все» и находятся поиском.
+              </p>
+              ${CATALOG_GROUPS.map(g => `
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
+                  <span style="color:${g.color};display:inline-flex;flex-shrink:0">${icon(g.ic, 15)}</span>
+                  <span style="flex:1 1 auto;font-size:13px;font-weight:600">${escapeHtml(g.label)}</span>
+                  <button class="sidebar-nav-switch ${hidden[g.id] ? "" : "on"}"
+                    onclick="app.toggleCatalogGroupHidden('${g.id}')"
+                    aria-label="${hidden[g.id] ? "Показать" : "Скрыть"} раздел «${escapeHtml(g.label)}»"></button>
+                </div>
+              `).join("")}
+
+              ${cgs.length ? `<div class="u-meta" style="margin:16px 0 6px;font-weight:700">Свои разделы</div>` : ""}
+              ${cgs.map(cg => {
+                const n = Object.keys(assigned).filter(k => assigned[k] === cg.id).length;
+                return `
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
+                  <span style="color:var(--primary2);display:inline-flex;flex-shrink:0">${icon("star", 15)}</span>
+                  <span style="flex:1 1 auto;font-size:13px;font-weight:600">${escapeHtml(cg.label)}</span>
+                  <span class="u-meta" style="flex:0 0 auto">${n} поз.</span>
+                  <button onclick="app.removeCustomCatalogGroup('${escapeHtml(cg.id)}')" title="Удалить раздел"
+                    aria-label="Удалить раздел «${escapeHtml(cg.label)}»"
+                    style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;min-width:44px;min-height:44px">×</button>
+                </div>`;
+              }).join("")}
+
+              <button class="btn small" onclick="app.addCustomCatalogGroup()" style="margin-top:14px;width:100%">
+                + Свой раздел
+              </button>
+              <p class="u-meta" style="margin:10px 0 0;line-height:1.5">
+                Услуги добавляются в свой раздел из карточки услуги — поле «Свой раздел».
+              </p>
+            </div>
+          </div>`;
+      }
+
       function toggleCatalogGroup(gid) {
         const open = { ...(state.catalogGroupsOpen || {}) };
         const isActive = state.tab === "grp:" + gid;
@@ -20300,6 +20469,12 @@ Email: ______________________            Email: ______________________
         setTab,
         goCatalogGroup,
         toggleCatalogGroup,
+        openCatalogGroupsConfig,
+        closeCatalogGroupsConfig,
+        toggleCatalogGroupHidden,
+        addCustomCatalogGroup,
+        removeCustomCatalogGroup,
+        setItemCustomGroup,
         setSearch,
         setClientsFilter,
         setFilter,

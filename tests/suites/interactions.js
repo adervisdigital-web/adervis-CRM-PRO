@@ -506,5 +506,81 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(after.length, 1, "javascript:-ссылка попала в меню");
   });
 
+
+  // «Настроить разделы» у каталога — тот же смысл, что «Настроить меню» у сайдбара.
+  // Ключевой инвариант: скрытие убирает ПУНКТ НАВИГАЦИИ, но не сами услуги. Иначе
+  // «скрыл раздел» молча означало бы «выкинул из сметы половину каталога».
+  await test("каталог: скрытый раздел уходит из списка, но услуги остаются", async () => {
+    await page.evaluate(() => window.app.go("catalog"));
+    await page.waitForTimeout(300);
+    const readGroups = () =>
+      page.evaluate(() => [...document.querySelectorAll(".catalog-cat-item[data-group]")].map((b) => b.dataset.group));
+
+    const before = await readGroups();
+    assert(before.includes("ai"), "группы ИИ нет в исходном списке");
+
+    const totalBefore = await page.evaluate(() => {
+      window.app.setTab("all");
+      return null;
+    });
+    await page.waitForTimeout(250);
+    const countBefore = await page.evaluate(() => document.querySelectorAll(".catalog-grid .item").length);
+
+    await page.evaluate(() => window.app.toggleCatalogGroupHidden("ai"));
+    await page.waitForTimeout(350);
+
+    const after = await readGroups();
+    assert(!after.includes("ai"), "скрытая группа осталась в списке слева");
+
+    await page.evaluate(() => window.app.setTab("all"));
+    await page.waitForTimeout(300);
+    const countAfter = await page.evaluate(() => document.querySelectorAll(".catalog-grid .item").length);
+    assertEqual(countAfter, countBefore, "скрытие раздела убрало услуги из «Все» — должно убирать только пункт слева");
+
+    await page.evaluate(() => window.app.toggleCatalogGroupHidden("ai"));
+    await page.waitForTimeout(250);
+    void totalBefore;
+  });
+
+  await test("каталог: свой раздел создаётся, наполняется и фильтрует", async () => {
+    await page.evaluate(() => window.app.go("catalog"));
+    await page.waitForTimeout(250);
+
+    const cg = await page.evaluate(() => {
+      window.prompt = () => "Мои хиты";
+      window.app.addCustomCatalogGroup();
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st.customCatalogGroups || [])[0];
+    });
+    assert(cg && cg.id.startsWith("cg:"), "свой раздел не создался");
+    assertEqual(cg.label, "Мои хиты", "название своего раздела не сохранилось");
+
+    await page.evaluate((id) => window.app.setItemCustomGroup("camera_basic", id), cg.id);
+    await page.waitForTimeout(250);
+    await page.evaluate((id) => window.app.setTab(id), cg.id);
+    await page.waitForTimeout(350);
+
+    const names = await page.evaluate(() =>
+      [...document.querySelectorAll(".catalog-grid .item")].map((x) => (x.textContent || "").trim())
+    );
+    assertEqual(names.length, 1, "в своём разделе должна быть ровно одна назначенная услуга");
+    assert(/Камера базовая/.test(names[0]), "в своём разделе не та услуга: " + names[0].slice(0, 40));
+
+    // Удаление раздела не должно уносить услуги из каталога
+    await page.evaluate((id) => {
+      window.confirm = () => true;
+      window.app.removeCustomCatalogGroup(id);
+    }, cg.id);
+    await page.waitForTimeout(350);
+    const stillThere = await page.evaluate(() => {
+      window.app.setTab("all");
+      return null;
+    });
+    await page.waitForTimeout(300);
+    const total = await page.evaluate(() => document.querySelectorAll(".catalog-grid .item").length);
+    assert(total > 0, "после удаления своего раздела каталог опустел");
+    void stillThere;
+  });
+
   await context.close();
 };
