@@ -215,6 +215,45 @@ module.exports = async function ({ browser, baseUrl, test }) {
   // клиенту предложение на 0 ₽ без единой услуги буквально следуя подсказке.
   // Смета и КП — то, ради чего продукт покупают; это самый неловкий способ их
   // показать. Гарда живёт в createClientPortal, поэтому закрывает все входы разом.
+  // Портал КП на телефоне — самая внешняя страница продукта: её видит заказчик
+  // клиента, решая подписать и заплатить. Здесь ломалось сразу двумя способами.
+  await test("портал КП на 390px: без прокрутки вбок и без навигации CRM", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 900 } });
+    const { context, page } = await bootPortal(browser, baseUrl, PORTAL_ROW, ctx);
+
+    // 1. body.portal-mode прячет .topbar и .nav, но нижняя навигация — это
+    //    <nav class="mobile-bottom-nav"> из index.html, под правило не попадала.
+    //    Заказчик на телефоне видел «Проекты · Смета · + · Финансы · Ещё» чужого
+    //    приложения поверх своего КП. brief-mode и calc-mode её прячут явно.
+    const navVisible = await page.evaluate(() => {
+      const nav = document.querySelector(".mobile-bottom-nav");
+      return !!(nav && nav.offsetParent !== null);
+    });
+    assertEqual(navVisible, false, "на клиентском портале видна нижняя навигация CRM");
+
+    // 2. Глобальное `input,select,textarea { width:100% }` не имело исключения для
+    //    чекбоксов: квадрат согласия становился 266px и выталкивал текст за
+    //    карточку — горизонтальная прокрутка 442px при окне 390.
+    const box = await page.evaluate(() => {
+      const cb = document.getElementById("esignConsent");
+      if (!cb) return null;
+      const r = cb.getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height) };
+    });
+    assert(box, "не нашёлся чекбокс согласия на портале");
+    assert(box.w <= 30, `чекбокс согласия растянут на ${box.w}px — глобальное input{width:100%} снова ловит checkbox`);
+
+    const overflow = await page.evaluate(() => ({
+      sw: document.documentElement.scrollWidth, w: window.innerWidth,
+    }));
+    assert(
+      overflow.sw <= overflow.w + 1,
+      `портал прокручивается вбок: scrollWidth ${overflow.sw} при окне ${overflow.w}`
+    );
+
+    await context.close();
+  });
+
   await test("КП: пустая смета не даёт создать ссылку клиенту", async () => {
     const { context, page } = await bootLocal(browser, baseUrl, { width: 1100, height: 800 });
 

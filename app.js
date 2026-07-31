@@ -17913,8 +17913,8 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                       <div style="font-size:13px;font-weight:700;margin-bottom:6px">📅 Дедлайн в своём календаре</div>
                       <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5">Подпишитесь на ссылку — дедлайн проекта появится в вашем Google Calendar, iPhone или Outlook автоматически, без входа и паролей.</p>
                       <div style="display:flex;gap:8px;flex-wrap:wrap">
-                        <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none">📱 Добавить в календарь</a>
-                        <button class="btn small" onclick="app.copy('${escapeHtml(feedUrl)}','✅ Ссылка скопирована!')">📋 Копировать ссылку</button>
+                        <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none;min-height:44px;display:inline-flex;align-items:center">📱 Добавить в календарь</a>
+                        <button class="btn small" onclick="app.copy('${escapeHtml(feedUrl)}','✅ Ссылка скопирована!')" style="min-height:44px">📋 Копировать ссылку</button>
                       </div>
                     </div>
                   `;
