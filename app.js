@@ -220,6 +220,10 @@
         phone:    `<path d="M5.1 1.5c.5 0 1 .3 1.2.8l.9 2.1c.2.5.1 1-.3 1.4l-.9.9a8.4 8.4 0 003.3 3.3l.9-.9c.4-.4.9-.5 1.4-.3l2.1.9c.5.2.8.7.8 1.2v2.1c0 .8-.7 1.4-1.4 1.3C6.6 13.8 2.2 9.4 1.7 3c-.1-.7.5-1.4 1.3-1.4h2.1z"/>`,
         shield:   `<path d="M8 1.2l5.5 2.1v4.2c0 3.4-2.3 6.4-5.5 7.3-3.2-.9-5.5-3.9-5.5-7.3V3.3L8 1.2zm0 1.7L4.1 4.4v3.1c0 2.5 1.6 4.8 3.9 5.6 2.3-.8 3.9-3.1 3.9-5.6V4.4L8 2.9z"/>`,
         plus:     `<path d="M8 2.2c.5 0 .8.4.8.8v4.2H13a.8.8 0 010 1.6H8.8V13a.8.8 0 01-1.6 0V8.8H3a.8.8 0 010-1.6h4.2V3c0-.4.3-.8.8-.8z"/>`,
+        // Крестик именно иконкой: символ × (U+00D7) не входит в сабсет DM Sans,
+        // браузер подставлял его из системного шрифта — на части машин выходила
+        // «коробочка» вместо крестика, и кнопка закрытия выглядела сломанной.
+        close:    `<path d="M4.2 3.1a.8.8 0 00-1.1 1.1L6.9 8l-3.8 3.8a.8.8 0 101.1 1.1L8 9.1l3.8 3.8a.8.8 0 101.1-1.1L9.1 8l3.8-3.8a.8.8 0 10-1.1-1.1L8 6.9 4.2 3.1z"/>`,
         trash:    `<path d="M6.4 1.2h3.2c.5 0 .9.4.9.9v.7h2.6a.7.7 0 010 1.4h-.5l-.7 9.1c0 .8-.7 1.5-1.5 1.5H5.6c-.8 0-1.5-.7-1.5-1.5l-.7-9.1h-.5a.7.7 0 010-1.4h2.6v-.7c0-.5.4-.9.9-.9zm-.2 3v8.2h1.1V4.2H6.2zm2.5 0v8.2h1.1V4.2H8.7z"/>`,
         external: `<path d="M9.4 1.6h4.2c.4 0 .8.4.8.8v4.2a.8.8 0 01-1.6 0V4.3L8.3 9a.8.8 0 01-1.1-1.1l4.5-4.5H9.4a.8.8 0 010-1.8zM2.4 3.9h3.9a.8.8 0 010 1.6H3.2v7.3h7.3V9.7a.8.8 0 011.6 0v3.9c0 .5-.4.8-.8.8H2.4a.8.8 0 01-.8-.8V4.7c0-.4.3-.8.8-.8z"/>`,
         image:    `<path d="M2.4 2.2h11.2c.7 0 1.2.5 1.2 1.2v9.2c0 .7-.5 1.2-1.2 1.2H2.4c-.7 0-1.2-.5-1.2-1.2V3.4c0-.7.5-1.2 1.2-1.2zm.4 1.6v6.4l2.9-2.9 2.5 2.5 2.6-2.6 2.6 2.6V3.8H2.8zm2.5 1.1a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z"/>`,
@@ -2079,7 +2083,7 @@
                   ondrop="app.sidebarNavDrop('${escapeHtml(item.id)}')">
                   <span class="sidebar-nav-drag-handle" title="Перетащи для сортировки">⠿</span>
                   <span class="sidebar-nav-config-label" title="${custom ? escapeHtml(item.url || "") : ""}">${escapeHtml(label)}</span>
-                  ${custom ? `<button class="sidebar-nav-switch-del" onclick="app.removeCustomNavItem('${escapeHtml(item.id)}')" title="Удалить раздел" aria-label="Удалить раздел «${escapeHtml(label)}»" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 6px;min-width:32px;min-height:32px">×</button>` : ""}
+                  ${custom ? `<button class="sidebar-nav-switch-del" onclick="app.removeCustomNavItem('${escapeHtml(item.id)}')" title="Удалить раздел" aria-label="Удалить раздел «${escapeHtml(label)}»" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 6px;min-width:32px;min-height:32px">${icon("close", 13)}</button>` : ""}
                   <button class="sidebar-nav-switch ${item.hidden ? "" : "on"}" onclick="app.toggleSidebarNavItemHidden('${escapeHtml(item.id)}')" aria-label="${item.hidden ? "Показать" : "Скрыть"} «${escapeHtml(label)}»"></button>
                 </div>
               `;
@@ -3305,7 +3309,7 @@
         const exp = sub.subscription_expires_at ? new Date(sub.subscription_expires_at) : null;
         const daysLeft = exp ? Math.round((exp - new Date()) / 86400000) : null;
 
-        const closeBtn = `<button onclick="event.stopPropagation();app.dismissPayBanner()" title="Скрыть" style="margin-left:4px;background:rgba(255,255,255,.2);border:none;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;cursor:pointer;flex-shrink:0;color:#fff;font-size:14px;line-height:1">×</button>`;
+        const closeBtn = `<button onclick="event.stopPropagation();app.dismissPayBanner()" title="Скрыть" style="margin-left:4px;background:rgba(255,255,255,.2);border:none;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;cursor:pointer;flex-shrink:0;color:#fff;font-size:14px;line-height:1">${icon("close", 13)}</button>`;
 
         if (s === "trial" && daysLeft !== null) {
           if (daysLeft > 7) return "";
@@ -3399,7 +3403,7 @@
               <strong>Уведомления</strong>
               <div style="display:flex;gap:8px;align-items:center">
                 ${notifs.length ? `<button style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer" onclick="app.clearNotifs()">Очистить</button>` : ""}
-                <button onclick="app.toggleNotifPopup()" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1;padding:0 2px">×</button>
+                <button onclick="app.toggleNotifPopup()" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1;padding:0 2px">${icon("close", 16)}</button>
               </div>
             </div>
             <div class="notif-list">
@@ -4860,7 +4864,7 @@
                   <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Шаг ${idx + 1} из ${total}</div>
                   <h2 style="margin:4px 0 0;font-size:19px">Знакомство с ADERVIS CRM</h2>
                 </div>
-                <button onclick="app.closeHelpModal()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto">×</button>
+                <button onclick="app.closeHelpModal()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto">${icon("close", 16)}</button>
               </div>
 
               <div class="ob-slider-wrap">
@@ -5007,7 +5011,7 @@
             <div class="modal-box" style="width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 40px);padding:0;overflow:hidden;display:flex;flex-direction:column">
               <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);flex:0 0 auto">
                 <h2 style="margin:0;font-size:17px">Оферта и политика конфиденциальности</h2>
-                <button onclick="app.closeDocsModal()" aria-label="Закрыть" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto;min-width:44px;min-height:44px">×</button>
+                <button onclick="app.closeDocsModal()" aria-label="Закрыть" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto;min-width:44px;min-height:44px">${icon("close", 16)}</button>
               </div>
               <div role="tablist" style="display:flex;border-bottom:1px solid var(--line);flex:0 0 auto">
                 ${tabBtn("privacy", "Политика конфиденциальности")}
@@ -5225,7 +5229,7 @@
             <div class="admin-modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
         <h2 class="u-title-20"> Вход для администратора</h2>
-                <button onclick="app.closeAdminModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px">×</button>
+                <button onclick="app.closeAdminModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px">${icon("close", 16)}</button>
               </div>
               <p style="margin:0 0 18px;font-size:13px">Войдите через Supabase Auth для совместного редактирования.</p>
               ${m.error ? `<div style="background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(m.error)}</div>` : ""}
@@ -9184,7 +9188,7 @@
             <div class="modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                 <h2 class="u-title-20">${isPayment ? "Поступление" : "Расход"}</h2>
-                <button onclick="app.closeFinanceModal()" class="u-modal-close" aria-label="Закрыть">×</button>
+                <button onclick="app.closeFinanceModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
 
               <div class="modal-type-switch">
@@ -11709,7 +11713,7 @@
                   <h2 style="margin:0;font-size:19px">${tm.icon} Вопросы брифа «${escapeHtml(tm.label)}»</h2>
                   <p class="u-meta" style="margin:3px 0 0">Настройте, что увидит клиент. Изменения применятся к вашей ссылке этого типа.</p>
                 </div>
-                <button onclick="app.closeBriefEditor()" class="u-modal-close" aria-label="Закрыть">×</button>
+                <button onclick="app.closeBriefEditor()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
               <div class="field" style="margin-bottom:10px"><label>Заголовок формы</label><input class="input" value="${escapeHtml(d.title || '')}" oninput="app.briefEditorSetMeta('title',this.value)"></div>
               <div class="field" style="margin-bottom:14px"><label>Подзаголовок</label><textarea class="input" rows="2" style="resize:vertical" oninput="app.briefEditorSetMeta('sub',this.value)">${escapeHtml(d.sub || '')}</textarea></div>
@@ -11993,8 +11997,8 @@
         const done = steps.filter(s => s.done).length;
         // 36×36 — тач-таргет чуть ниже рекомендованных 44px, но это редкое разовое
         // действие («скрыть раз и навсегда»), а не то, что нажимают постоянно;
-        // прежние 18×18 (только сама буква ×) не проходили даже мягкий порог.
-        const hideBtn = `<button onclick="try{localStorage.setItem('_onboardingDismissed','1')}catch(e){};app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;width:36px;height:36px;flex-shrink:0;display:grid;place-items:center;line-height:1" title="Скрыть">×</button>`;
+        // прежние 18×18 (только сам глиф) не проходили даже мягкий порог.
+        const hideBtn = `<button onclick="try{localStorage.setItem('_onboardingDismissed','1')}catch(e){};app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;width:36px;height:36px;flex-shrink:0;display:grid;place-items:center;line-height:1" title="Скрыть" aria-label="Скрыть чеклист первых шагов">${icon("close", 13)}</button>`;
 
         // Пройдено всё — говорим об этом прямо, а не прячем панель молча. Скрывается
         // по крестику: следующий заход начнётся уже без неё.
@@ -13000,7 +13004,7 @@
             <div class="modal-box" style="max-width:520px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                 <h2 style="margin:0;font-size:18px">Редактировать пакет</h2>
-                <button onclick="app.closePackageEditModal()" class="u-modal-close" aria-label="Закрыть">×</button>
+                <button onclick="app.closePackageEditModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
 
               <div class="field" style="margin-bottom:12px">
@@ -14073,7 +14077,7 @@
             <div class="modal-box" style="width:min(460px,calc(100vw - 24px))">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
                 <h2 class="u-title-20" style="margin:0">Разделы каталога</h2>
-                <button onclick="app.closeCatalogGroupsConfig()" class="u-modal-close" aria-label="Закрыть">×</button>
+                <button onclick="app.closeCatalogGroupsConfig()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
               <p class="u-meta" style="margin:0 0 16px;line-height:1.5">
                 Скрытый раздел пропадает из списка слева, но его услуги остаются в «Все» и находятся поиском.
@@ -14098,7 +14102,7 @@
                   <span class="u-meta" style="flex:0 0 auto">${n} поз.</span>
                   <button onclick="app.removeCustomCatalogGroup('${escapeHtml(cg.id)}')" title="Удалить раздел"
                     aria-label="Удалить раздел «${escapeHtml(cg.label)}»"
-                    style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;min-width:44px;min-height:44px">×</button>
+                    style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;min-width:44px;min-height:44px">${icon("close", 13)}</button>
                 </div>`;
               }).join("")}
 
@@ -14658,9 +14662,7 @@
                 <h1>Задачи</h1>
                 <p>Все задачи по проектам и свои личные — в одном месте.</p>
               </div>
-              <div class="toolbar no-print">
-                ${total ? `<button class="btn primary" onclick="app.createGlobalTask()">+ Своя задача</button>` : ""}
-              </div>
+
             </div>
 
             <div class="gtask-stats">
@@ -14678,6 +14680,7 @@
                 <option value="personal" ${projectFilter === "personal" ? "selected" : ""}>Личные задачи</option>
                 ${projectOpts.map(p => `<option value="${escapeHtml(p.id)}" ${projectFilter === p.id ? "selected" : ""}>${escapeHtml(p.name)}</option>`).join("")}
               </select>
+              ${total ? `<button class="btn small gtask-add" onclick="app.createGlobalTask()" title="Личная задача, не привязанная к проекту">${icon("plus", 13)} Своя задача</button>` : ""}
             </div>
 
             ${filtered.length ? `<div class="gtask-list">
@@ -14839,7 +14842,7 @@
                 data-autosave data-scope="task" data-id="${task.id}" data-key="title"
                 value="${escapeHtml(task.title)}" placeholder="Задача...">
               <button onclick="app.deleteTask('${task.id}')"
-                style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 2px;flex:0 0 auto;line-height:1" title="Удалить">×</button>
+                style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 2px;flex:0 0 auto;line-height:1" title="Удалить">${icon("close", 13)}</button>
             </div>
 
             <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
@@ -16509,7 +16512,7 @@
               <div class="cal-day-panel">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
                   <h3 style="margin:0;font-size:15px">${formatDate(selDay)}${selDay === today ? " — Сегодня" : ""}</h3>
-                  <button class="btn small" onclick="app.calSelectDay('')">×</button>
+                  <button class="btn small" onclick="app.calSelectDay('')">${icon("close", 13)}</button>
                 </div>
                 ${selEvents.length ? selEvents.map(ev => `
                   <div class="cal-day-event-row" style="cursor:${ev.projectId || ev.htmlLink ? "pointer" : "default"}"
@@ -18915,7 +18918,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <h2 style="margin:0;font-size:22px">ADERVIS CRM</h2>
                   <p style="margin:2px 0 0;font-size:13px;color:var(--muted)">Что хочешь сделать?</p>
                 </div>
-                <button onclick="app.closeMainMenu()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">×</button>
+                <button onclick="app.closeMainMenu()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">${icon("close", 16)}</button>
               </div>
               <div class="main-menu-modal">
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('home')">
@@ -19111,7 +19114,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             <div class="modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                 <h2 class="u-title-20">Редактировать ${isIncome ? "поступление" : "расход"}</h2>
-                <button onclick="app.closeEditTransactionModal()" class="u-modal-close" aria-label="Закрыть">×</button>
+                <button onclick="app.closeEditTransactionModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
               <div class="field" style="margin-bottom:14px">
                 <label style="font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.04em">СУММА, ₽ *</label>
@@ -19250,7 +19253,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             <div class="modal-box" style="width:min(560px,calc(100vw - 32px))">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                 <h2 class="u-title-20">${m.id ? "Редактировать клиента" : "Новый клиент"}</h2>
-                <button onclick="app.closeClientModal()" class="u-modal-close" aria-label="Закрыть">×</button>
+                <button onclick="app.closeClientModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
               <div class="grid two" style="margin-bottom:12px">
                 ${field("Имя / название *", `<input value="${escapeHtml(m.name || "")}" oninput="app.setClientModalField('name',this.value)" placeholder="Имя клиента">`)}
@@ -19539,7 +19542,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <h2 class="u-title-20">Редактировать сделку</h2>
                 <div style="display:flex;align-items:center;gap:8px">
          <button class="btn small" onclick="app.quickContractFromDeal('${escapeHtml(m.id)}')" title="Создать договор с данными этой сделки"> Договор</button>
-                  <button onclick="app.closeDealModal()" class="u-modal-close" aria-label="Закрыть">×</button>
+                  <button onclick="app.closeDealModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
                 </div>
               </div>
               <div class="grid two" style="margin-bottom:12px">
@@ -19571,7 +19574,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <div class="field" style="margin-bottom:14px">
                 <label style="font-size:12px;color:var(--muted);font-weight:750;margin-bottom:6px;display:block">Теги</label>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-                  ${(m.tags||[]).map(t => `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--primary2)">${escapeHtml(t)}<button onclick="app._removeDealTag('${escapeHtml(t)}')" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0;line-height:1;font-size:14px">×</button></span>`).join("")}
+                  ${(m.tags||[]).map(t => `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--primary2)">${escapeHtml(t)}<button onclick="app._removeDealTag('${escapeHtml(t)}')" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0;line-height:1;font-size:14px">${icon("close", 13)}</button></span>`).join("")}
                 </div>
                 <div style="display:flex;gap:6px">
                   <input id="dealTagInput" placeholder="Новый тег..." style="flex:1;padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--text);font-size:13px"
@@ -19694,7 +19697,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             <div class="task-modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
                 <h2 style="margin:0;font-size:18px">Задача</h2>
-                <button onclick="app.closeTaskModal()" class="u-modal-close" aria-label="Закрыть">×</button>
+                <button onclick="app.closeTaskModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
               <div class="field" style="margin-bottom:12px">
                 ${field("Название", `<input value="${escapeHtml(m.title || "")}" oninput="app.setTaskModalField('title',this.value)">`)}
@@ -19729,7 +19732,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                         <div style="font-size:13px;color:var(--text);line-height:1.5;white-space:pre-wrap;word-break:break-word">${escapeHtml(c.text)}</div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
                           <span class="u-meta">${escapeHtml(c.author || "Я")} · ${new Date(c.createdAt).toLocaleString("ru-RU",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
-                          <button onclick="app.deleteTaskComment('${c.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 2px;line-height:1" title="Удалить комментарий">×</button>
+                          <button onclick="app.deleteTaskComment('${c.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 2px;line-height:1" title="Удалить комментарий">${icon("close", 13)}</button>
                         </div>
                       </div>
                     `).join("")}

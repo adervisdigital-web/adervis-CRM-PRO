@@ -3036,6 +3036,10 @@
     .gtask-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
     .gtask-chips { display: flex; gap: 7px; flex-wrap: wrap; }
     .gtask-project-select { padding: 7px 12px; border-radius: 10px; font-size: 13px; margin-left: auto; }
+    /* «Своя задача» стояла залитой primary-кнопкой в шапке раздела: спорила по весу
+       с заголовком «Задачи» и дублировала глобальный «+» в топбаре. Место действия —
+       рядом со списком и фильтрами, где человек и решает добавить задачу. */
+    .gtask-add { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; white-space: nowrap; }
 
     .gtask-list { display: flex; flex-direction: column; gap: 8px; }
     .gtask-row {
@@ -5597,7 +5601,13 @@ body.portal-mode .nav { display: none !important; }
 .mt-8 { margin-top: 8px; }
 .mb-18 { margin-bottom: 18px; }
 .mb-16 { margin-bottom: 16px; }
-.u-modal-close { background: none; border: none; font-size: 22px; color: var(--muted); cursor: pointer; padding: 0 4px; line-height: 1; }
+.u-modal-close {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px; flex: 0 0 auto;
+  transition: background .15s, color .15s;
+}
+.u-modal-close:hover { background: var(--panel2); color: var(--text); }
 .u-subpanel { margin-top: 18px; box-shadow: none; background: var(--panel2); }
 .u-label-strong { font-weight: 700; font-size: 14px; color: var(--text); }
 .fs-20 { font-size: 20px; }

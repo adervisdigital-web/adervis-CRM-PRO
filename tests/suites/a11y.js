@@ -342,7 +342,9 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await p2.evaluate(() => window.app.go("home"));
     await p2.waitForTimeout(200);
     const size = await p2.evaluate(() => {
-      const btn = [...document.querySelectorAll("#appContent button")].find((b) => b.title === "Скрыть" && b.textContent.trim() === "×");
+      // Ищем по title, а не по тексту: крестик теперь иконка (символ × не входит
+      // в сабсет DM Sans и рисовался системным шрифтом — «коробочкой»).
+      const btn = [...document.querySelectorAll("#appContent button")].find((b) => b.title === "Скрыть");
       if (!btn) return null;
       const r = btn.getBoundingClientRect();
       return { w: Math.round(r.width), h: Math.round(r.height) };
