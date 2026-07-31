@@ -582,5 +582,103 @@ module.exports = async function ({ browser, baseUrl, test }) {
     void stillThere;
   });
 
+
+  // ── Договоры ────────────────────────────────────────────────────────────────
+  // Договор — это на 90% заполнение пропусков, поэтому редактор построен вокруг
+  // них. Именованные {{поля}} заполняются формой и подстановкой из сделки,
+  // свободные ___ — навигацией. Здесь проверяется, что подстановка реально
+  // меняет текст, а не только рисует форму.
+  await test("договоры: восемь шаблонов, включая акт, подряд и согласие на съёмку", async () => {
+    await page.evaluate(() => window.app.go("contracts"));
+    await page.waitForTimeout(300);
+    const ids = await page.evaluate(() =>
+      [...document.querySelectorAll('[onclick*="createContractFromTemplate"]')]
+        .map((el) => (el.getAttribute("onclick") || "").match(/createContractFromTemplate\('([^']+)'\)/))
+        .filter(Boolean)
+        .map((m) => m[1])
+    );
+    assert(ids.length >= 8, "шаблонов меньше восьми: " + ids.length);
+    for (const need of ["tpl_act", "tpl_contractor", "tpl_release"]) {
+      assert(ids.includes(need), "нет шаблона " + need);
+    }
+  });
+
+  await test("договоры: подстановка из сделки заполняет поля и убирает их из формы", async () => {
+    // Сначала открываем сделку: привязка берётся из НЕЁ, и без открытой сделки
+    // пустой dealId — правильное поведение, а не баг. Сделку заводим свою, а не
+    // берём демо-сделку из bootLocal: предыдущие тесты набора её удаляют, и тест
+    // падал бы от порядка выполнения, а не от регрессии.
+    const dealId = await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const existing = ((st.savedProjects || [])[0] || {}).id;
+      if (existing) return existing;
+      window.app.seedDemoDeal();
+      const st2 = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return ((st2.savedProjects || [])[0] || {}).id || "";
+    });
+    assert(dealId, "не удалось получить сделку для проверки привязки");
+    await page.evaluate((id) => window.app.loadSavedProject(id), dealId);
+    await page.waitForTimeout(300);
+
+    const res = await page.evaluate(() => {
+      window.app.go("contracts");
+      window.app.createContractFromTemplate("tpl_act");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (st.contracts || [])[0];
+      return { id: c.id, before: window.app.contractVars(c.body).length, dealId: c.dealId || "" };
+    });
+    assert(res.before > 5, "в акте должно быть больше пяти именованных полей, найдено " + res.before);
+    assertEqual(res.dealId, dealId, "договор из шаблона не привязался к открытой сделке — подставлять будет нечего");
+
+    const after = await page.evaluate((id) => {
+      window.app.autofillContract(id);
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (st.contracts || []).find((x) => x.id === id);
+      return { left: window.app.contractVars(c.body).length, body: c.body };
+    }, res.id);
+    assert(after.left < res.before, `подстановка ничего не заполнила: было ${res.before}, стало ${after.left}`);
+    assert(!/\{\{исполнитель\}\}/.test(after.body), "{{исполнитель}} остался незаполненным после подстановки");
+  });
+
+  await test("договоры: ручное заполнение подставляет значение во ВСЕ вхождения", async () => {
+    const r = await page.evaluate(() => {
+      window.app.createContractFromTemplate("tpl_release");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (st.contracts || [])[0];
+      const occurrences = (c.body.match(/\{\{фио\}\}/g) || []).length;
+      return { id: c.id, occurrences };
+    });
+    assert(r.occurrences >= 2, "в согласии {{фио}} должно встречаться минимум дважды, найдено " + r.occurrences);
+
+    const after = await page.evaluate((id) => {
+      window.app.fillContractVar(id, "фио", "Иванов Иван Иванович");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (st.contracts || []).find((x) => x.id === id);
+      return {
+        left: (c.body.match(/\{\{фио\}\}/g) || []).length,
+        filled: (c.body.match(/Иванов Иван Иванович/g) || []).length,
+      };
+    }, r.id);
+    assertEqual(after.left, 0, "остались незаполненные {{фио}}");
+    assertEqual(after.filled, r.occurrences, "значение подставилось не во все места");
+  });
+
+  // Раньше текст уходил в state только по onchange, то есть при уходе фокуса:
+  // набрал договор, закрыл вкладку не кликнув мимо — потерял всё.
+  await test("договоры: текст сохраняется во время набора, без ухода фокуса", async () => {
+    const id = await page.evaluate(() => {
+      window.app.createContractFromTemplate("tpl_act");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st.contracts || [])[0].id;
+    });
+    await page.evaluate((cid) => window.app.contractBodyInput(cid, "ЧЕРНОВИК ДОГОВОРА"), id);
+    await page.waitForTimeout(900); // дебаунс 600 мс
+    const saved = await page.evaluate((cid) => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st.contracts || []).find((x) => x.id === cid).body;
+    }, id);
+    assertEqual(saved, "ЧЕРНОВИК ДОГОВОРА", "набранный текст не сохранился без ухода фокуса");
+  });
+
   await context.close();
 };

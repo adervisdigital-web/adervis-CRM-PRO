@@ -1,4 +1,4 @@
-const CACHE_NAME = "adervis-crm-v194";
+﻿const CACHE_NAME = "adervis-crm-v195";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -62,7 +62,7 @@ self.addEventListener("fetch", event => {
     // Cache-first: return cached immediately, refresh cache in background via event.waitUntil
     event.respondWith((async () => {
       const cached = await caches.match(event.request);
-      // Background refresh — must use event.waitUntil so SW stays alive until write completes
+      // Background refresh вЂ” must use event.waitUntil so SW stays alive until write completes
       event.waitUntil(
         fetch(event.request).then(async r => {
           if (r.ok) {
@@ -98,10 +98,10 @@ self.addEventListener("fetch", event => {
   })());
 });
 
-// ── Web Push ──────────────────────────────────────────────────────────────────
+// в”Ђв”Ђ Web Push в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 self.addEventListener("push", event => {
   let title = "Adervis CRM";
-  let body  = "Новое уведомление";
+  let body  = "РќРѕРІРѕРµ СѓРІРµРґРѕРјР»РµРЅРёРµ";
   let url   = "./";
   try {
     if (event.data) {
