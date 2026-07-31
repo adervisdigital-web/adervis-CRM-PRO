@@ -429,5 +429,82 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(afterOk, 0, "после подтверждения данные не сброшены");
   });
 
+
+  // Второй уровень каталога. Подкатегории выводятся из item.category, но у трёх
+  // групп все позиции лежат в ОДНОЙ категории (equipment / ai / expenses), поэтому
+  // подкатегорий не выводилось вовсе и разделы на 9–14 позиций были сплошным
+  // списком. Для них второй уровень берётся из тегов позиции.
+  await test("каталог: у Оборудования, ИИ и Расходов есть подгруппы, и счётчики сходятся", async () => {
+    await page.evaluate(() => window.app.go("catalog"));
+    await page.waitForTimeout(300);
+    for (const g of ["gear", "ai", "money"]) {
+      await page.evaluate((gid) => window.app.toggleCatalogGroup(gid), g);
+      await page.waitForTimeout(200);
+    }
+    const data = await page.evaluate(() => {
+      const out = {};
+      document.querySelectorAll(".catalog-cat-item[data-group]").forEach((b) => {
+        const gid = b.dataset.group;
+        const size = +b.dataset.groupSize;
+        const subs = [];
+        let sib = b.nextElementSibling;
+        if (sib && sib.tagName === "DIV") {
+          sib.querySelectorAll("button").forEach((sb) => {
+            const oc = sb.getAttribute("onclick") || "";
+            const m = oc.match(/setTab\('([^']+)'\)/);
+            const n = +(sb.querySelector(".catalog-cat-count")?.textContent || 0);
+            subs.push({ tab: m ? m[1] : "", n });
+          });
+        }
+        out[gid] = { size, subs };
+      });
+      return out;
+    });
+    for (const g of ["gear", "ai", "money"]) {
+      const d = data[g];
+      assert(d, `группа ${g} не отрисована`);
+      assert(d.subs.length > 1, `у группы ${g} нет подгрупп (${d.subs.length})`);
+      assert(d.subs.every((s) => s.tab.startsWith("sub:" + g + ":")), `подгруппы ${g} используют не sub:-вкладки`);
+      const sum = d.subs.reduce((a, s) => a + s.n, 0);
+      assertEqual(sum, d.size, `сумма подгрупп ${g} (${sum}) не равна размеру группы (${d.size}) — позиция потерялась`);
+    }
+  });
+
+  await test("каталог: выбор подгруппы реально фильтрует список", async () => {
+    await page.evaluate(() => window.app.go("catalog"));
+    await page.waitForTimeout(250);
+    await page.evaluate(() => window.app.setTab("sub:gear:light"));
+    await page.waitForTimeout(350);
+    const names = await page.evaluate(() =>
+      [...document.querySelectorAll(".catalog-grid .item")].map((c) => (c.textContent || "").trim())
+    );
+    assert(names.length > 0, "подгруппа «Свет» показала пустой список");
+    assert(names.every((n) => /свет/i.test(n)), "в подгруппе «Свет» оказались посторонние позиции: " + names.map(n => n.slice(0, 24)).join(" | "));
+  });
+
+  // Свой раздел меню = внешняя ссылка. Протоколы кроме http(s) должны отсекаться:
+  // иначе в меню можно вписать javascript:… и получить исполнение кода по клику.
+  await test("меню: свой раздел принимает https и отвергает javascript:", async () => {
+    const before = await page.evaluate(() => {
+      localStorage.removeItem("sidebar_nav_config");
+      let n = 0;
+      window.prompt = () => (++n === 1 ? "Наш Drive" : "drive.google.com/x");
+      window.app.addCustomNavItem();
+      return JSON.parse(localStorage.getItem("sidebar_nav_config") || "[]")
+        .filter((x) => String(x.id).startsWith("custom:"));
+    });
+    assertEqual(before.length, 1, "свой раздел не сохранился");
+    assertEqual(before[0].url, "https://drive.google.com/x", "ссылка без схемы не нормализовалась в https");
+
+    const after = await page.evaluate(() => {
+      let n = 0;
+      window.prompt = () => (++n === 1 ? "Злой" : "javascript:alert(1)");
+      window.app.addCustomNavItem();
+      return JSON.parse(localStorage.getItem("sidebar_nav_config") || "[]")
+        .filter((x) => String(x.id).startsWith("custom:"));
+    });
+    assertEqual(after.length, 1, "javascript:-ссылка попала в меню");
+  });
+
   await context.close();
 };

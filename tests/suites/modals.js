@@ -125,5 +125,38 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     assert(bodyFocused, "фокус потерян после закрытия");
   });
 
+
+  // Оферта и Политика раньше грузились в iframe с https://adervis.ru/docs, а CSP
+  // приложения не содержит adervis.ru в frame-src — пользователь видел
+  // «ERR_BLOCKED_BY_CSP» вместо документов. Текст встроен: работает офлайн и не
+  // требует дырки в CSP. Тест ловит и возврат iframe, и пустой текст.
+  await test("документы: оферта и политика показываются текстом, а не iframe", async () => {
+    await page.evaluate(() => window.app.openDocsModal());
+    await page.waitForTimeout(400);
+
+    const iframe = await page.evaluate(() => !!document.querySelector(".modal-overlay iframe"));
+    assertEqual(iframe, false, "документы снова грузятся через iframe — их заблокирует CSP");
+
+    const priv = await page.evaluate(() => {
+      const el = document.querySelector(".docs-modal-body");
+      return { len: (el?.textContent || "").trim().length, txt: (el?.textContent || "") };
+    });
+    assert(priv.len > 1500, `текст политики подозрительно короткий: ${priv.len} симв.`);
+    assert(/персональных данных/i.test(priv.txt), "в политике нет упоминания персональных данных");
+
+    await page.evaluate(() => window.app.setDocsTab("offer"));
+    await page.waitForTimeout(300);
+    const offer = await page.evaluate(() => {
+      const el = document.querySelector(".docs-modal-body");
+      return { len: (el?.textContent || "").trim().length, txt: (el?.textContent || "") };
+    });
+    assert(offer.len > 1200, `текст оферты подозрительно короткий: ${offer.len} симв.`);
+    assert(/оферта/i.test(offer.txt), "во вкладке оферты нет самой оферты");
+    assert(offer.txt !== priv.txt, "вкладки показывают один и тот же документ");
+
+    await page.evaluate(() => window.app.closeDocsModal());
+    await page.waitForTimeout(200);
+  });
+
   await context.close();
 };

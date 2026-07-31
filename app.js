@@ -43,6 +43,51 @@
         { id: "money", label: "Расходы",      ic: "coins",     color: "var(--red)",      hint: "транспорт, питание, локация" }
       ];
 
+      /* Подгруппы внутри группы каталога.
+
+         Подкатегории в левой колонке выводятся из `category` позиций. Для трёх
+         групп это не работает в принципе: у «Оборудования» все позиции лежат в
+         category="equipment", у «ИИ» — в "ai", у «Расходов» — в "expenses». Одна
+         категория на группу → подкатегорий ноль, и разделы 9–14 позиций
+         оставались сплошным списком без всякой структуры.
+
+         Делим по ТЕГАМ, которые у позиций уже есть, — не заводя ни нового поля,
+         ни ручной разметки. Порядок важен: первое совпадение выигрывает, поэтому
+         «подписка» проверяется раньше «производства». Всё, что не совпало ни с
+         одним правилом, попадает в «Прочее» — новая позиция каталога не может
+         выпасть молча, как и задумано в itemGroup(). */
+      const GROUP_SUBS = {
+        gear: [
+          { id: "cam",   label: "Камера и оптика", tags: ["камера", "оптика", "объектив"] },
+          { id: "light", label: "Свет",            tags: ["свет"] },
+          { id: "sound", label: "Звук",            tags: ["звук", "микрофон"] },
+          { id: "move",  label: "Движение",        tags: ["дрон", "стабилизатор", "стедикам", "слайдер"] },
+        ],
+        ai: [
+          { id: "subs",  label: "Подписки и кредиты", tags: ["подписка", "кредиты", "токены"] },
+          { id: "prep",  label: "Подготовка",         tags: ["промпты", "раскадровка", "консультация"] },
+          { id: "make",  label: "Производство",       tags: ["генерация", "видео", "диктор", "голос", "моушн", "графика", "звук", "саунд", "цвет", "цветокоррекция", "музыка", "лицензия", "SFX", "монтаж", "VFX"] },
+        ],
+        money: [
+          { id: "place", label: "Локация и студия",   tags: ["локация", "студия"] },
+          { id: "trip",  label: "Транспорт",          tags: ["транспорт", "такси", "трансфер", "парковка"] },
+          { id: "food",  label: "Питание и суточные", tags: ["питание", "суточные", "командировка"] },
+          { id: "rent",  label: "Аренда и подписки",  tags: ["аренда", "техника", "подписка", "по"] },
+          { id: "props", label: "Реквизит",           tags: ["реквизит"] },
+        ],
+      };
+
+      // К какой подгруппе относится позиция. "" — если у группы подгрупп нет.
+      function itemSubGroup(itemData, groupId) {
+        const defs = GROUP_SUBS[groupId];
+        if (!defs || !itemData) return "";
+        const tags = (itemData.tags || []).map(t => String(t).toLowerCase());
+        for (const d of defs) {
+          if (d.tags.some(t => tags.includes(String(t).toLowerCase()))) return d.id;
+        }
+        return "other";
+      }
+
       // Группа позиции выводится из того, КАК она считается, а не из её категории:
       // способ расчёта надёжно отличает человека (смена/день) от аренды техники.
       function itemGroup(itemData) {
@@ -1498,7 +1543,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","notifPopupOpen","summaryOpen","briefEditorType"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","notifPopupOpen","summaryOpen","briefEditorType"]);
 
       // Кладёт облачное состояние в state. Отдельно от _loadCloudState, потому что
       // вызывается ещё и из разрешения конфликта.
@@ -1869,7 +1914,17 @@
         };
 
         const navConfig = getSidebarNavConfig();
-        const navItemsHtml = navConfig.filter(x => !x.hidden && navRenderers[x.id]).map(x => navRenderers[x.id]()).join("");
+        const navItemsHtml = navConfig
+          .filter(x => !x.hidden && (navRenderers[x.id] || _isCustomNavId(x.id)))
+          .map(x => {
+            if (navRenderers[x.id]) return navRenderers[x.id]();
+            const href = _safeNavUrl(x.url);
+            if (!href) return "";
+            return `<a class="sidebar-nav-item" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(x.label || "")} — откроется в новой вкладке">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6.5 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V9.5"/><path d="M10 2h4v4M14 2L7.5 8.5"/></svg>
+              <span class="sidebar-label">${escapeHtml(x.label || "Раздел")}</span>
+            </a>`;
+          }).join("");
 
         el.innerHTML = `
           <div class="sidebar-header">
@@ -1921,13 +1976,33 @@
       }
 
       /* ─── НАСТРОЙКА МЕНЮ САЙДБАРА (показ/скрытие, порядок) ─── */
+      function _isCustomNavId(id) { return String(id || "").startsWith("custom:"); }
+
+      /* Свой раздел в меню — ссылка на внешний ресурс агентства (Google Drive,
+         Notion, канал в Telegram). Внутренних страниц не заводим: для заметок уже
+         есть «База знаний», а держать ещё один редактор смысла нет.
+
+         Разрешаем ТОЛЬКО http(s). Без этой проверки в меню можно было бы вписать
+         javascript:… и получить исполнение кода по клику — пусть даже своими
+         руками и в своём аккаунте, такие дырки со временем находят применение. */
+      function _safeNavUrl(raw) {
+        const v = String(raw || "").trim();
+        if (!v) return "";
+        try {
+          const u = new URL(/^https?:\/\//i.test(v) ? v : "https://" + v);
+          return (u.protocol === "http:" || u.protocol === "https:") ? u.href : "";
+        } catch (e) { return ""; }
+      }
+
       function getSidebarNavConfig() {
         let saved;
         try { saved = JSON.parse(lsGet("sidebar_nav_config") || "null"); } catch { saved = null; }
         const defaultIds = SIDEBAR_NAV_DEFS.map(x => x.id);
         if (!Array.isArray(saved)) return defaultIds.map(id => ({ id, hidden: false }));
         const known = new Set(saved.map(x => x.id));
-        const merged = saved.filter(x => defaultIds.includes(x.id));
+        // Свои разделы (id начинается с "custom:") встроенными не являются, поэтому
+        // фильтр по defaultIds их бы выкинул при каждой загрузке.
+        const merged = saved.filter(x => defaultIds.includes(x.id) || _isCustomNavId(x.id));
         defaultIds.forEach(id => { if (!known.has(id)) merged.push({ id, hidden: false }); });
         return merged;
       }
@@ -1965,21 +2040,55 @@
           <div class="sidebar-nav-config" style="left:${r.left}px;bottom:${window.innerHeight - r.top + 6}px" onclick="event.stopPropagation()">
             <div class="sidebar-nav-config-title">Пункты меню</div>
             ${config.map(item => {
-              const def = SIDEBAR_NAV_DEFS.find(x => x.id === item.id);
-              if (!def) return "";
+              const custom = _isCustomNavId(item.id);
+              const def = custom ? null : SIDEBAR_NAV_DEFS.find(x => x.id === item.id);
+              if (!custom && !def) return "";
+              const label = custom ? (item.label || "Раздел") : def.label;
               return `
                 <div class="sidebar-nav-config-row" draggable="true"
-                  ondragstart="app.sidebarNavDragStart('${item.id}')"
+                  ondragstart="app.sidebarNavDragStart('${escapeHtml(item.id)}')"
                   ondragover="event.preventDefault()"
-                  ondrop="app.sidebarNavDrop('${item.id}')">
+                  ondrop="app.sidebarNavDrop('${escapeHtml(item.id)}')">
                   <span class="sidebar-nav-drag-handle" title="Перетащи для сортировки">⠿</span>
-                  <span class="sidebar-nav-config-label">${escapeHtml(def.label)}</span>
-                  <button class="sidebar-nav-switch ${item.hidden ? "" : "on"}" onclick="app.toggleSidebarNavItemHidden('${item.id}')" aria-label="${item.hidden ? "Показать" : "Скрыть"} «${escapeHtml(def.label)}»"></button>
+                  <span class="sidebar-nav-config-label" title="${custom ? escapeHtml(item.url || "") : ""}">${escapeHtml(label)}</span>
+                  ${custom ? `<button class="sidebar-nav-switch-del" onclick="app.removeCustomNavItem('${escapeHtml(item.id)}')" title="Удалить раздел" aria-label="Удалить раздел «${escapeHtml(label)}»" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 6px;min-width:32px;min-height:32px">×</button>` : ""}
+                  <button class="sidebar-nav-switch ${item.hidden ? "" : "on"}" onclick="app.toggleSidebarNavItemHidden('${escapeHtml(item.id)}')" aria-label="${item.hidden ? "Показать" : "Скрыть"} «${escapeHtml(label)}»"></button>
                 </div>
               `;
             }).join("")}
+            <button onclick="app.addCustomNavItem()" class="sidebar-nav-config-add"
+              style="display:flex;align-items:center;gap:7px;width:100%;margin-top:6px;padding:9px 8px;background:none;border:1px dashed var(--line);border-radius:8px;color:var(--muted);cursor:pointer;font-size:12px;font-weight:600;min-height:38px">
+              <span style="font-size:14px;line-height:1">+</span> Свой раздел
+            </button>
           </div>
         `;
+      }
+
+      // Свой раздел = ссылка на внешний ресурс. Спрашиваем через prompt: заводить
+      // ради двух полей отдельную модалку избыточно, а поповер закроется по клику
+      // вне себя, если начать рисовать форму внутри него.
+      function addCustomNavItem() {
+        const label = (window.prompt("Название раздела в меню:", "") || "").trim();
+        if (!label) return;
+        const raw = (window.prompt("Ссылка (например drive.google.com/…):", "https://") || "").trim();
+        const url = _safeNavUrl(raw);
+        if (!url) { toast("Нужна ссылка вида https://… — другие протоколы не поддерживаются"); return; }
+        const config = getSidebarNavConfig();
+        config.push({ id: "custom:" + Date.now().toString(36), label: label.slice(0, 40), url, hidden: false });
+        saveSidebarNavConfig(config);
+        renderSidebar();
+        renderSidebarNavPopover();
+        toast("Раздел «" + label.slice(0, 40) + "» добавлен в меню");
+      }
+
+      function removeCustomNavItem(id) {
+        const config = getSidebarNavConfig();
+        const item = config.find(x => x.id === id);
+        if (!item) return;
+        if (!confirm("Удалить раздел «" + (item.label || "") + "» из меню?")) return;
+        saveSidebarNavConfig(config.filter(x => x.id !== id));
+        renderSidebar();
+        renderSidebarNavPopover();
       }
 
       function toggleSidebarNavItemHidden(id) {
@@ -4775,22 +4884,121 @@
         renderModal();
       }
 
-      // Оферта и Политика конфиденциальности живут на сайте (adervis.ru/docs) —
-      // единственный источник правды для юридических текстов. Показываем их поверх
-      // CRM через iframe в модалке, а не копируем текст сюда (иначе разъедутся при
-      // следующей правке документов на сайте).
+      /* Оферта и Политика конфиденциальности. Раньше сюда грузился iframe на
+         https://adervis.ru/docs — и он НЕ РАБОТАЛ: CSP приложения не содержит
+         adervis.ru в frame-src, поэтому пользователь видел «Сайт adervis.ru
+         заблокирован, ERR_BLOCKED_BY_CSP» вместо документов. Расширять frame-src
+         ради этого не стали: текст встроен, значит открывается офлайн, не зависит
+         от доступности сайта и не требует дырки в CSP. Источник правды остаётся на
+         adervis.ru/docs — при правке документов там обновить и здесь. */
+      const DOCS_PRIVACY_HTML = `<h2>Политика в отношении обработки персональных данных</h2>
+<h3>1. Общие положения</h3>
+<p>1.1. Настоящая Политика конфиденциальности описывает порядок сбора, использования и хранения персональных данных: (а) посетителей сайта adervis.ru, заполняющих формы обратной связи, заявки на расчёт стоимости и калькуляторы услуг (далее — «Сайт»), и (б) пользователей сервиса «Adervis CRM» (далее — «Сервис»); совместно именуемых «Пользователи».</p>
+<p>1.2. Использование Сайта или Сервиса означает безоговорочное согласие Пользователя с настоящей Политикой и указанными в ней условиями обработки данных.</p>
+<h3>2. Какие данные мы собираем</h3>
+<p>2.1. При заполнении форм на Сайте (заявка на консультацию, калькуляторы стоимости, форма записи на обучение) мы собираем:</p>
+<ul>
+<li>Имя;</li>
+<li>Контактные данные (телефон, адрес электронной почты или имя пользователя Telegram);</li>
+<li>Краткое описание задачи, указанное Пользователем добровольно.</li>
+</ul>
+<p>2.2. Для функционирования Сервиса мы собираем следующие данные:</p>
+<ul>
+<li>Имя (или никнейм);</li>
+<li>Адрес электронной почты (email).</li>
+</ul>
+<p>2.3. Ни Сайт, ни Сервис не собирают и не хранят платёжные данные (номера банковских карт). Обработка платежей за доступ к Сервису осуществляется на стороне защищённого партнёра — сервиса «ЮKassa».</p>
+<p>2.4. Сайт использует файлы cookie и сервис веб-аналитики «Яндекс.Метрика» (включая Вебвизор и Карту кликов) для сбора обезличенной статистики посещаемости — какие страницы просматривают, как перемещаются по сайту, из каких источников приходят. Эти данные не содержат имени или контактов Пользователя, если он сам не ввёл их в форму на просматриваемой странице. Пользователь может ограничить или отключить cookie в настройках своего браузера — часть функций Сайта при этом может работать некорректно.</p>
+<h3>3. Цели сбора данных</h3>
+<p>3.1. Данные, полученные через формы Сайта, используются исключительно для обработки заявки, расчёта стоимости услуг, подготовки и направления коммерческого предложения и обратной связи с Пользователем по указанным им контактным данным.</p>
+<p>3.2. Данные cookie и веб-аналитики используются исключительно для анализа посещаемости и улучшения работы Сайта.</p>
+<p>3.3. Данные Пользователей Сервиса используются исключительно для следующих целей:</p>
+<ul>
+<li>Создание учётной записи и обеспечение авторизации в Сервисе;</li>
+<li>Предоставление доступа к функционалу CRM-системы;</li>
+<li>Идентификация платежей;</li>
+<li>Обработка запросов в службу технической поддержки;</li>
+<li>Отправка системных и транзакционных уведомлений.</li>
+</ul>
+<h3>4. Хранение и безопасность данных</h3>
+<p>4.1. Данные, отправленные через формы Сайта, передаются по защищённому протоколу (HTTPS) через серверный прокси напрямую в закрытый чат мессенджера Telegram, доступный ограниченному кругу лиц, привлечённых Исполнителем к обработке заявок с Сайта, и используются для однократной связи по конкретной заявке.</p>
+<p>4.2. Персональные данные пользователей Сервиса хранятся в защищённой облачной инфраструктуре платформы Supabase, обеспечивающей соответствие современным стандартам безопасности.</p>
+<p>4.3. Исполнитель принимает все необходимые организационные и технические меры для защиты персональных данных Пользователя от неправомерного или случайного доступа, уничтожения, изменения, блокирования, копирования и распространения.</p>
+<h3>5. Передача данных третьим лицам</h3>
+<p>5.1. Исполнитель не передаёт персональные данные Пользователей третьим лицам, за исключением случаев:</p>
+<ul>
+<li>Передачи данных заявки в мессенджер Telegram (компания Telegram FZ-LLC) — техническому средству связи, использующемуся для получения и обработки заявок с Сайта;</li>
+<li>Передачи необходимой информации платёжной системе «ЮKassa» исключительно для целей проведения оплаты и формирования чеков;</li>
+<li>Случаев, прямо предусмотренных действующим законодательством.</li>
+</ul>
+<h3>6. Изменение и удаление данных</h3>
+<p>6.1. Пользователь вправе в любой момент отозвать своё согласие на обработку персональных данных и потребовать полного удаления своих данных, переданных через формы Сайта, либо своего аккаунта в Сервисе и всей связанной информации.</p>
+<p>6.2. Для удаления данных Пользователю необходимо направить соответствующий запрос в свободной форме на электронную почту: <a href="mailto:adervis.digital@gmail.com">adervis.digital@gmail.com</a>. Запрос будет обработан в срок, не превышающий 10 рабочих дней.</p>
+<h3>7. Контакты оператора данных</h3>
+<div class="docs-meta">
+<span><strong>Статус:</strong> Самозанятый</span>
+<span><strong>ФИО:</strong> Никитин Артём Юрьевич</span>
+<span><strong>ИНН:</strong> 592110786536</span>
+<span><strong>Email по вопросам конфиденциальности:</strong> <a href="mailto:adervis.digital@gmail.com">adervis.digital@gmail.com</a></span>
+</div>`;
+
+      const DOCS_OFFER_HTML = `<h2>Публичная оферта на предоставление доступа к сервису «Adervis CRM»</h2>
+<h3>1. Общие положения</h3>
+<p>1.1. Настоящий документ является публичной офертой (предложением) Плательщика налога на профессиональный доход (Самозанятого) Никитина Артёма Юрьевича (далее — «Исполнитель») заключить лицензионный договор на предоставление доступа к CRM-системе «Adervis CRM» (далее — «Сервис») с любым заинтересованным физическим или юридическим лицом (далее — «Пользователь»).</p>
+<p>1.2. Акцептом (полным и безоговорочным принятием) условий настоящей оферты считается факт оплаты Пользователем доступа к Сервису.</p>
+<h3>2. Предмет договора</h3>
+<p>2.1. Исполнитель предоставляет Пользователю право использования (доступ) к программному обеспечению «Adervis CRM» на условиях выбранного Пользователем тарифа, а Пользователь обязуется оплатить этот доступ.</p>
+<h3>3. Порядок предоставления доступа</h3>
+<p>3.1. Доступ к Сервису предоставляется в электронном виде (онлайн) в сети Интернет.</p>
+<p>3.2. Активация подписки и предоставление доступа осуществляются автоматически и незамедлительно после поступления 100% оплаты на счёт Исполнителя.</p>
+<h3>4. Стоимость и порядок расчётов</h3>
+<p>4.1. Стоимость использования Сервиса определяется выбранным тарифным планом, указанным на сайте.</p>
+<p>4.2. Оплата производится безналичным путём через защищённый платёжный сервис «ЮKassa».</p>
+<p>4.3. Обязанность Пользователя по оплате считается исполненной с момента успешного проведения транзакции платёжной системой.</p>
+<h3>5. Условия возврата средств</h3>
+<p>5.1. Услуга считается оказанной в полном объёме с момента предоставления Пользователю доступа к функционалу Сервиса (успешной авторизации после оплаты).</p>
+<p>5.2. Для Пользователей — индивидуальных предпринимателей и юридических лиц, использующих Сервис в предпринимательских целях, возврат денежных средств возможен исключительно в случаях, когда доступ к Сервису не был предоставлен по технической вине Исполнителя. При отказе такого Пользователя от использования Сервиса по собственному желанию в течение оплаченного периода возврат средств за текущий период не производится.</p>
+<p>5.3. Пользователь — физическое лицо, оплатившее доступ к Сервису для личных нужд, не связанных с предпринимательской деятельностью, вправе в любой момент до истечения оплаченного периода отказаться от Сервиса в соответствии со ст. 32 Закона РФ «О защите прав потребителей». В этом случае Исполнитель возвращает уплаченную сумму за вычетом стоимости фактически предоставленного доступа к Сервису, рассчитанной пропорционально использованной части оплаченного периода, и документально подтверждённых расходов Исполнителя, понесённых в связи с исполнением договора.</p>
+<h3>6. Реквизиты Исполнителя</h3>
+<div class="docs-meta">
+<span><strong>Статус:</strong> Плательщик налога на профессиональный доход (Самозанятый)</span>
+<span><strong>ФИО:</strong> Никитин Артём Юрьевич</span>
+<span><strong>ИНН:</strong> 592110786536</span>
+<span><strong>Email для связи и поддержки:</strong> <a href="mailto:adervis.digital@gmail.com">adervis.digital@gmail.com</a></span>
+</div>`;
+
       function renderDocsModal() {
+        const tab = state.docsTab === "offer" ? "offer" : "privacy";
+        const tabBtn = (id, label) => `
+          <button role="tab" aria-selected="${tab === id}" onclick="app.setDocsTab('${id}')"
+            style="flex:1 1 0;padding:11px 8px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:700;
+                   color:${tab === id ? "var(--primary)" : "var(--muted)"};
+                   border-bottom:2px solid ${tab === id ? "var(--primary)" : "transparent"}">${label}</button>`;
         return `
           <div class="modal-overlay" onclick="event.target===this&&app.closeDocsModal()">
             <div class="modal-box" style="width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 40px);padding:0;overflow:hidden;display:flex;flex-direction:column">
               <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);flex:0 0 auto">
                 <h2 style="margin:0;font-size:17px">Оферта и политика конфиденциальности</h2>
-                <button onclick="app.closeDocsModal()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto">×</button>
+                <button onclick="app.closeDocsModal()" aria-label="Закрыть" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto;min-width:44px;min-height:44px">×</button>
               </div>
-              <iframe src="https://adervis.ru/docs" title="Документы ADERVIS" style="border:0;width:100%;flex:1 1 auto;min-height:60vh;background:var(--panel)"></iframe>
+              <div role="tablist" style="display:flex;border-bottom:1px solid var(--line);flex:0 0 auto">
+                ${tabBtn("privacy", "Политика конфиденциальности")}
+                ${tabBtn("offer", "Публичная оферта")}
+              </div>
+              <div class="docs-modal-body" style="flex:1 1 auto;overflow-y:auto;padding:18px 20px 24px;font-size:13px;line-height:1.65;color:var(--text)">
+                ${tab === "offer" ? DOCS_OFFER_HTML : DOCS_PRIVACY_HTML}
+                <p style="margin-top:22px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:12px">
+                  Актуальная редакция —
+                  <a href="https://adervis.ru/docs" target="_blank" rel="noopener" style="color:var(--primary)">adervis.ru/docs</a>
+                </p>
+              </div>
             </div>
           </div>
         `;
+      }
+      function setDocsTab(id) {
+        state.docsTab = id;
+        renderModal();
       }
       function openDocsModal() {
         state.docsModal = true;
@@ -5355,6 +5563,7 @@
           helpModal: false,
           helpSlide: 0,
           docsModal: false,
+        docsTab: "privacy",
           adminModal: null,
           clientModal: null,
           taskModal: null,
@@ -6577,6 +6786,12 @@
           else if (String(state.tab).startsWith("grp:")) {
             const gid = String(state.tab).slice(4);
             items = items.filter(x => itemGroup(x) === gid);
+          }
+          // sub:<группа>:<подгруппа> — второй уровень у Оборудования, ИИ и Расходов,
+          // где все позиции лежат в одной категории и подкатегорий не выводится.
+          else if (String(state.tab).startsWith("sub:")) {
+            const [, gid, sid] = String(state.tab).split(":");
+            items = items.filter(x => itemGroup(x) === gid && itemSubGroup(x, gid) === sid);
           }
           else if (state.tab !== "hidden") items = items.filter(x => x.category === state.tab);
         }
@@ -13054,11 +13269,27 @@
                         // сколько угодно (раньше подкатегории показывались только у
                         // активной, и сравнить два раздела рядом было нельзя).
                         const open = !!(state.catalogGroupsOpen || {})[g.id];
-                        const subs = open
-                          ? [...new Set(list.map(x => x.category))]
-                              .filter(c => catLabel[c])
-                              .map(c => ({ id: c, label: catLabel[c], n: list.filter(x => x.category === c).length }))
-                          : [];
+                        // Сначала подкатегории из category (Подготовка, Команда,
+                        // Постпродакшн, Дистрибуция). Если их меньше двух — группа
+                        // сидит в одной категории, и второй уровень берём из тегов
+                        // (Оборудование, ИИ, Расходы), иначе раздел остаётся
+                        // сплошным списком на 9–14 позиций.
+                        let subs = [];
+                        if (open) {
+                          subs = [...new Set(list.map(x => x.category))]
+                            .filter(c => catLabel[c])
+                            .map(c => ({ id: c, label: catLabel[c], n: list.filter(x => x.category === c).length }));
+                          if (subs.length < 2 && GROUP_SUBS[g.id]) {
+                            const defs = [...GROUP_SUBS[g.id], { id: "other", label: "Прочее" }];
+                            subs = defs
+                              .map(d => ({
+                                id: "sub:" + g.id + ":" + d.id,
+                                label: d.label,
+                                n: list.filter(x => itemSubGroup(x, g.id) === d.id).length,
+                              }))
+                              .filter(s => s.n > 0);
+                          }
+                        }
                         const picked = list.filter(x => state.selected[x.id]).length;
                         return `
                           <button class="catalog-cat-item ${g.id === "money" ? "danger" : ""} ${active ? "active" : ""}"
@@ -20409,6 +20640,7 @@ Email: ______________________            Email: ______________________
         closeHelpModal,
         openDocsModal,
         closeDocsModal,
+        setDocsTab,
         helpNext,
         helpPrev,
         startTour,
@@ -20466,6 +20698,8 @@ Email: ______________________            Email: ______________________
         toggleSidebar,
         toggleSidebarNavPopover,
         toggleSidebarNavItemHidden,
+        addCustomNavItem,
+        removeCustomNavItem,
         sidebarNavDragStart,
         sidebarNavDrop,
         toggleHelpDd,
