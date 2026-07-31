@@ -122,4 +122,44 @@ module.exports = async function ({ test }) {
       "нет SECURITY DEFINER функции ротации rotate_calendar_token"
     );
   });
+
+  // ── Иконки вместо эмодзи ────────────────────────────────────────────────────
+  // Эмодзи рисуются шрифтом ОС: у каждого пользователя свой набор, они не
+  // наследуют цвет текста и в тёмной теме выглядят разнокалиберными наклейками.
+  // Единственный источник пиктограмм — ICON_PATHS. Сторож нужен потому, что
+  // эмодзи возвращаются незаметно: одна строка `toast("✅ Готово")` — и снова.
+  await test("иконки: в интерфейсе нет эмодзи (кроме разметки печатных бланков)", () => {
+    const lines = app.split(/\r?\n/);
+    // Шаблоны договоров пропускаем: там ☐ — это чекбокс печатного бланка,
+    // а ─ — линейка раздела. Убрать их значило бы испортить сам документ.
+    const t0 = lines.findIndex((l) => l.includes("const CONTRACT_TEMPLATES"));
+    let t1 = lines.length;
+    for (let i = t0; i < lines.length; i++) {
+      if (/^\s{6}\];\s*$/.test(lines[i])) { t1 = i; break; }
+    }
+    // Граница проходит не по «символ не из латиницы», а по способу отрисовки.
+    // Запрещены ЦВЕТНЫЕ эмодзи: их рисует шрифт ОС, они игнорируют color и
+    // выглядят наклейками. Разрешены монохромные типографские знаки — ✓ (U+2713)
+    // и ✔ (U+2714): это глифы текстового шрифта, они наследуют цвет и кегль,
+    // и «✓ сохранено» в индикаторе не заменить на <svg> (там textContent).
+    const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2701}-\u{2712}\u{2715}-\u{27BF}\u{2B00}-\u{2BFF}]/u;
+    const bad = [];
+    lines.forEach((l, i) => {
+      if (i >= t0 && i <= t1) return;
+      if (EMOJI.test(l)) bad.push(`app.js:${i + 1} ${l.trim().slice(0, 80)}`);
+    });
+    assert(bad.length === 0, "эмодзи вернулись в интерфейс — добавьте иконку в ICON_PATHS:\n" + bad.slice(0, 12).join("\n"));
+  });
+
+  await test("иконки: база ICON_PATHS не пустеет и icon() ей пользуется", () => {
+    const m = app.match(/const ICON_PATHS\s*=\s*\{([\s\S]*?)\n      \};/);
+    assert(m, "не найден ICON_PATHS — база иконок пропала");
+    const names = [...m[1].matchAll(/^\s{8}([a-zA-Z0-9_]+)\s*:/gm)].map((x) => x[1]);
+    assert(names.length >= 50, "иконок в базе стало меньше пятидесяти: " + names.length);
+    for (const need of ["film", "camera", "palette", "robot", "clipboard", "plus", "trash", "link", "eye", "pencil"]) {
+      assert(names.includes(need), "в базе нет иконки " + need);
+    }
+    assert(/function icon\(name, size\)[\s\S]{0,200}ICON_PATHS\[name\]/.test(app), "icon() больше не читает ICON_PATHS");
+  });
+
 };

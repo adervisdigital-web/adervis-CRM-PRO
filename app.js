@@ -9,20 +9,20 @@
       const VAPID_PUBLIC_KEY = "d6EDj4byOmLGERCR7t-xX-YLUuzbyt3Geadj3LHqehwyS17d3VdCyMGIf2PCEpXE0l860ouA8atUreP5RlqZVg";
 
       const CAT = {
-        creative: "💡 Креатив",
-        pre: "🧠 Подготовка",
-        shoot: "🎥 Съёмка",
-        photo: "📸 Фото",
-        equipment: "🧰 Техника",
-        post: "✂️ Постпродакшн",
-        sound: "🎙 Звук",
-        animation: "✨ Графика / анимация",
-        marketing: "📣 Маркетинг",
-        management: "🗂 Менеджмент",
-        expenses: "💸 Расходы",
-        ai: "🤖 ИИ / Нейросети",
-        event: "🎪 Мероприятия",
-        custom: "➕ Свои позиции"
+    creative: "Креатив",
+    pre: "Подготовка",
+    shoot: "Съёмка",
+    photo: "Фото",
+    equipment: "Техника",
+    post: "Постпродакшн",
+    sound: "Звук",
+    animation: "Графика / анимация",
+    marketing: "Маркетинг",
+    management: "Менеджмент",
+    expenses: "Расходы",
+    ai: "ИИ / Нейросети",
+    event: "Мероприятия",
+    custom: "Свои позиции"
       };
 
       /* Группы каталога — порядок производства проекта, а не алфавит категорий.
@@ -196,8 +196,36 @@
       // Иконки Профиля/Настроек/Admin Panel — та же SVG-конвенция, что и у сайдбара/EMPTY_ICON_PATHS
       // (замена эмодзи, см. сессию 2026-07-24). icon(name,size) — helper ниже.
       const ICON_PATHS = {
-        // Иконки разделов каталога и шагов сборки сметы (29.07.2026) — вместо эмодзи:
-        // те рисуются шрифтом ОС и в тёмной теме выглядят разнокалиберными наклейками.
+        // ── База иконок ───────────────────────────────────────────────────────
+        // Единственный источник пиктограмм в интерфейсе. Эмодзи не используем:
+        // они рисуются шрифтом ОС, поэтому у каждого пользователя выглядят
+        // по-разному, не наследуют цвет текста и в тёмной теме смотрятся
+        // разнокалиберными наклейками. Здесь — 16×16, fill="currentColor",
+        // то есть иконка всегда в цвет окружающего текста и темы.
+        // Новую иконку добавлять СЮДА, а не вставлять <svg> по месту.
+        calendar: `<path d="M5 1a.7.7 0 01.7.7v.8h4.6v-.8a.7.7 0 111.4 0v.8h1.1c.9 0 1.6.7 1.6 1.6v8.3c0 .9-.7 1.6-1.6 1.6H3.2c-.9 0-1.6-.7-1.6-1.6V4.1c0-.9.7-1.6 1.6-1.6h1.1v-.8A.7.7 0 015 1zM3 6.2v6.2c0 .1.1.2.2.2h9.6c.1 0 .2-.1.2-.2V6.2H3zm1.8 1.6h1.5v1.5H4.8V7.8zm2.9 0h1.5v1.5H7.7V7.8zm2.9 0h1.5v1.5h-1.5V7.8zM4.8 10.4h1.5v1.5H4.8v-1.5zm2.9 0h1.5v1.5H7.7v-1.5z"/>`,
+        link:     `<path d="M6.6 9.4a2.9 2.9 0 010-4.1l2.2-2.2a2.9 2.9 0 014.1 4.1l-1 1a.7.7 0 11-1-1l1-1a1.5 1.5 0 00-2.1-2.1L7.6 6.3a1.5 1.5 0 000 2.1.7.7 0 11-1 1zM9.4 6.6a2.9 2.9 0 010 4.1l-2.2 2.2a2.9 2.9 0 01-4.1-4.1l1-1a.7.7 0 111 1l-1 1a1.5 1.5 0 002.1 2.1l2.2-2.2a1.5 1.5 0 000-2.1.7.7 0 111-1z"/>`,
+        doc:      `<path d="M4 1h5l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.6 1.3V4.4H11L8.6 2.3zM5 7h6v1.1H5V7zm0 2.6h6v1.1H5V9.6zM5 12.2h4v1.1H5v-1.1z"/>`,
+        clipboard:`<path d="M6.2 1.2h3.6c.5 0 .9.4.9.9v.3h1.1c.8 0 1.4.6 1.4 1.4v9.6c0 .8-.6 1.4-1.4 1.4H4.2c-.8 0-1.4-.6-1.4-1.4V3.8c0-.8.6-1.4 1.4-1.4h1.1v-.3c0-.5.4-.9.9-.9zm-.2 2.6v.6h4v-.6h-4zM5 7h6v1.1H5V7zm0 2.6h6v1.1H5V9.6z"/>`,
+        palette:  `<path d="M8 1.3a6.7 6.7 0 000 13.4c.8 0 1.4-.6 1.4-1.4 0-.4-.1-.7-.4-.9-.2-.3-.4-.6-.4-.9 0-.8.6-1.4 1.4-1.4h1.6a3.7 3.7 0 003.7-3.7c0-3-3-5.1-6.6-5.1zM4.4 8.6a1.2 1.2 0 110-2.3 1.2 1.2 0 010 2.3zm2-3.1a1.2 1.2 0 110-2.3 1.2 1.2 0 010 2.3zm3.2 0a1.2 1.2 0 110-2.3 1.2 1.2 0 010 2.3zm2.5 2a1.2 1.2 0 110-2.3 1.2 1.2 0 010 2.3z"/>`,
+        sparkles: `<path d="M8 1l1.3 3.4L12.7 5.7 9.3 7 8 10.4 6.7 7 3.3 5.7 6.7 4.4 8 1zm4.6 7.3l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6.6-1.6zM3.6 9.9l.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3L1.8 12l1.3-.5.5-1.6z"/>`,
+        search:   `<path fill-rule="evenodd" d="M6.9 1.8a5.1 5.1 0 103.2 9.1l3.5 3.5a.8.8 0 001.1-1.1l-3.5-3.5A5.1 5.1 0 006.9 1.8zm-3.6 5.1a3.6 3.6 0 117.2 0 3.6 3.6 0 01-7.2 0z"/>`,
+        eye:      `<path d="M8 3C4.4 3 1.5 5.9.6 7.6a.8.8 0 000 .8C1.5 10.1 4.4 13 8 13s6.5-2.9 7.4-4.6a.8.8 0 000-.8C14.5 5.9 11.6 3 8 3zm0 8a3 3 0 110-6 3 3 0 010 6zm0-1.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>`,
+        eyeOff:   `<path d="M2.1 1.9a.8.8 0 00-1.1 1.1l2 2C1.9 5.9.9 7 .6 7.6a.8.8 0 000 .8C1.5 10.1 4.4 13 8 13c1.3 0 2.5-.4 3.5-.9l2.4 2.4a.8.8 0 001.1-1.1L2.1 1.9zm4.4 6.6l1.8 1.8A1.5 1.5 0 016.5 8.5zM8 3c-.8 0-1.6.1-2.3.4l1.6 1.6A3 3 0 0110.5 8l2.1 2.1c1.2-.9 2.2-2 2.7-2.7a.8.8 0 000-.8C14.5 5.9 11.6 3 8 3z"/>`,
+        refresh:  `<path d="M8 2.4c1.6 0 3 .7 3.9 1.9l-1.4 1.4h4V1.8L13 3.3A6.6 6.6 0 001.4 7.2h1.5A5.1 5.1 0 018 2.4zm0 11.2c-1.6 0-3-.7-3.9-1.9l1.4-1.4h-4v3.9L3 12.7A6.6 6.6 0 0014.6 8.8h-1.5A5.1 5.1 0 018 13.6z"/>`,
+        receipt:  `<path d="M3 1.2l1.2.9 1.2-.9 1.3.9 1.3-.9 1.3.9 1.2-.9 1.2.9 1.3-.9v13.6l-1.3-.9-1.2.9-1.2-.9-1.3.9-1.3-.9-1.3.9-1.2-.9-1.2.9V1.2zm1.9 3.4v1.2h6.2V4.6H4.9zm0 2.8v1.2h6.2V7.4H4.9zm0 2.8v1.2h4V10.2h-4z"/>`,
+        tent:     `<path d="M8 1.4l6.6 11.4c.3.5-.1 1.2-.7 1.2H2.1c-.6 0-1-.7-.7-1.2L8 1.4zm0 3.3L4.2 11.3h2L8 8.2l1.8 3.1h2L8 4.7z"/>`,
+        target:   `<path d="M8 1.3a6.7 6.7 0 100 13.4A6.7 6.7 0 008 1.3zm0 1.5a5.2 5.2 0 110 10.4 5.2 5.2 0 010-10.4zm0 1.8a3.4 3.4 0 100 6.8 3.4 3.4 0 000-6.8zm0 1.9a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/>`,
+        fire:     `<path d="M8.7.9c.2 2.2-.7 3.4-1.7 4.5C5.9 6.6 4.7 7.8 4.7 10a4.6 4.6 0 009.2 0c0-2.6-1.4-4-2.6-5.2C10.2 3.7 9.2 2.7 8.7.9zM8 12.6a2 2 0 01-2-2c0-1 .5-1.6 1.1-2.2.5-.5.9-1 1.1-1.8.2.8.7 1.3 1.1 1.8.6.6 1 1.2 1 2.2a2 2 0 01-2 2z"/>`,
+        phone:    `<path d="M5.1 1.5c.5 0 1 .3 1.2.8l.9 2.1c.2.5.1 1-.3 1.4l-.9.9a8.4 8.4 0 003.3 3.3l.9-.9c.4-.4.9-.5 1.4-.3l2.1.9c.5.2.8.7.8 1.2v2.1c0 .8-.7 1.4-1.4 1.3C6.6 13.8 2.2 9.4 1.7 3c-.1-.7.5-1.4 1.3-1.4h2.1z"/>`,
+        shield:   `<path d="M8 1.2l5.5 2.1v4.2c0 3.4-2.3 6.4-5.5 7.3-3.2-.9-5.5-3.9-5.5-7.3V3.3L8 1.2zm0 1.7L4.1 4.4v3.1c0 2.5 1.6 4.8 3.9 5.6 2.3-.8 3.9-3.1 3.9-5.6V4.4L8 2.9z"/>`,
+        plus:     `<path d="M8 2.2c.5 0 .8.4.8.8v4.2H13a.8.8 0 010 1.6H8.8V13a.8.8 0 01-1.6 0V8.8H3a.8.8 0 010-1.6h4.2V3c0-.4.3-.8.8-.8z"/>`,
+        trash:    `<path d="M6.4 1.2h3.2c.5 0 .9.4.9.9v.7h2.6a.7.7 0 010 1.4h-.5l-.7 9.1c0 .8-.7 1.5-1.5 1.5H5.6c-.8 0-1.5-.7-1.5-1.5l-.7-9.1h-.5a.7.7 0 010-1.4h2.6v-.7c0-.5.4-.9.9-.9zm-.2 3v8.2h1.1V4.2H6.2zm2.5 0v8.2h1.1V4.2H8.7z"/>`,
+        external: `<path d="M9.4 1.6h4.2c.4 0 .8.4.8.8v4.2a.8.8 0 01-1.6 0V4.3L8.3 9a.8.8 0 01-1.1-1.1l4.5-4.5H9.4a.8.8 0 010-1.8zM2.4 3.9h3.9a.8.8 0 010 1.6H3.2v7.3h7.3V9.7a.8.8 0 011.6 0v3.9c0 .5-.4.8-.8.8H2.4a.8.8 0 01-.8-.8V4.7c0-.4.3-.8.8-.8z"/>`,
+        image:    `<path d="M2.4 2.2h11.2c.7 0 1.2.5 1.2 1.2v9.2c0 .7-.5 1.2-1.2 1.2H2.4c-.7 0-1.2-.5-1.2-1.2V3.4c0-.7.5-1.2 1.2-1.2zm.4 1.6v6.4l2.9-2.9 2.5 2.5 2.6-2.6 2.6 2.6V3.8H2.8zm2.5 1.1a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z"/>`,
+        wallet:   `<path d="M2.6 2.8h9.2c.8 0 1.4.6 1.4 1.4v.8h.8c.6 0 1.2.5 1.2 1.2v5.6c0 .7-.5 1.2-1.2 1.2H2.6c-.9 0-1.6-.7-1.6-1.6V4.4c0-.9.7-1.6 1.6-1.6zm0 1.5a.1.1 0 00-.1.1v7c0 .1 0 .1.1.1h11v-5H2.6v-1.5h9.1v-.6a.1.1 0 00-.1-.1H2.6zm8.6 3.9a1 1 0 110 2 1 1 0 010-2z"/>`,
+        rocket:   `<path d="M9.9 1.2c1.8 0 3.4.5 4.3 1.4.9.9 1.4 2.5 1.4 4.3 0 .3-.2.5-.5.5-2 .3-3.5 1.2-4.7 2.4l-.6.6-3.2-3.2.6-.6c1.2-1.2 2.1-2.7 2.4-4.7 0-.3.2-.5.3-.7zm.8 2.6a1.3 1.3 0 100 2.6 1.3 1.3 0 000-2.6zM4.9 9.4l1.7 1.7-1.2 1.2c-.6.6-2.4 1.5-3 1.2-.3-.6.6-2.4 1.2-3l1.3-1.1z"/>`,
+        list:     `<path d="M2.4 3.2a1 1 0 110 2 1 1 0 010-2zm3.1.3h8a.7.7 0 010 1.4h-8a.7.7 0 010-1.4zM2.4 7a1 1 0 110 2 1 1 0 010-2zm3.1.3h8a.7.7 0 010 1.4h-8a.7.7 0 010-1.4zM2.4 10.8a1 1 0 110 2 1 1 0 010-2zm3.1.3h8a.7.7 0 010 1.4h-8a.7.7 0 010-1.4z"/>`,
         mic:      `<path d="M8 1.4a2.3 2.3 0 00-2.3 2.3v4a2.3 2.3 0 004.6 0v-4A2.3 2.3 0 008 1.4zM4 7.2a.7.7 0 00-1.4 0 5.4 5.4 0 004.7 5.3v1.3H5.6a.7.7 0 000 1.4h4.8a.7.7 0 000-1.4H8.7v-1.3A5.4 5.4 0 0013.4 7.2a.7.7 0 00-1.4 0 4 4 0 01-8 0z"/>`,
         stage:    `<path d="M8 .8L1 4.1v1.5h14V4.1L8 .8zm-5.6 6.3v5.3H1.2c-.4 0-.7.3-.7.7s.3.7.7.7h13.6c.4 0 .7-.3.7-.7s-.3-.7-.7-.7h-1.2V7.1h-1.5v5.3h-2V7.1H8.7v5.3h-1.4V7.1H5.8v5.3h-2V7.1H2.4z"/>`,
         building: `<path d="M2.6 1.4h7.2c.6 0 1 .5 1 1v3.1h2.6c.6 0 1 .5 1 1v7.1H1.6V2.4c0-.6.4-1 1-1zm1.2 2v1.5h1.7V3.4H3.8zm3.3 0v1.5h1.7V3.4H7.1zM3.8 6.4v1.5h1.7V6.4H3.8zm3.3 0v1.5h1.7V6.4H7.1zM3.8 9.4v1.5h1.7V9.4H3.8zm3.3 0v1.5h1.7V9.4H7.1zm5.1-2.3v1.5h1.2V7.1h-1.2zm0 3v1.5h1.2v-1.5h-1.2z"/>`,
@@ -1247,7 +1275,7 @@
           }
           if (kind === "error" && !_errToastShown) {
             _errToastShown = true;
-            toast("⚠️ Что-то пошло не так. Если приложение работает неправильно — обновите страницу.");
+      toast("Что-то пошло не так. Если приложение работает неправильно — обновите страницу.");
           }
         } catch (e) { /* молча */ }
       }
@@ -1342,7 +1370,7 @@
               if ((memberCount || 0) >= maxUsers) {
                 agencyId = userId; // reject invite, create own account
                 joinedTeam = false;
-                setTimeout(() => toast(`⚠️ Агентство достигло лимита пользователей (${maxUsers}) по тарифу. Создан личный аккаунт.`), 1200);
+        setTimeout(() => toast(`Агентство достигло лимита пользователей (${maxUsers}) по тарифу. Создан личный аккаунт.`), 1200);
               }
             }
 
@@ -1359,13 +1387,13 @@
             if (!joinedTeam) { trackGoal("registration"); trackGoal("trial_started"); _justRegistered = true; }
             setTimeout(() => {
               if (joinedTeam) {
-                pushNotification("info", "👥 Вы вошли в команду!", "Теперь вы работаете в общем рабочем пространстве агентства.", "");
+        pushNotification("info", "Вы вошли в команду!", "Теперь вы работаете в общем рабочем пространстве агентства.", "");
                 lsSet(STORAGE_KEY, JSON.stringify(state));
-                toast("👥 Вы присоединились к агентству!");
+        toast("Вы присоединились к агентству!");
               } else {
-                pushNotification("info", "👋 Добро пожаловать в ADERVIS CRM!", "7 дней бесплатно и без карты. Начните с создания первой сделки!", "");
+        pushNotification("info", "Добро пожаловать в ADERVIS CRM!", "7 дней бесплатно и без карты. Начните с создания первой сделки!", "");
                 lsSet(STORAGE_KEY, JSON.stringify(state));
-                toast("🎉 Аккаунт создан! 7 дней бесплатного доступа.");
+        toast("Аккаунт создан! 7 дней бесплатного доступа.");
                 // Приветственный email — fire-and-forget, не блокируем UI
                 if (_adminSession) {
                   const { url: _sbUrl } = getSupabaseConfig();
@@ -1413,7 +1441,7 @@
             p256dh:    keys.p256dh,
             auth_key:  keys.auth,
           }, { onConflict: 'agency_id,endpoint' });
-          toast('✅ Push-уведомления включены');
+     toast('Push-уведомления включены');
           render();
         } catch(e) { console.error('Push subscribe:', e); toast('Ошибка подписки на уведомления'); }
       }
@@ -1496,7 +1524,7 @@
             const date = new Date(data.advance_paid_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
             el.innerHTML = `
               <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.25);border-radius:12px">
-                <span class="fs-20">✅</span>
+        <span class="fs-20"></span>
                 <div>
                   <div style="font-size:12px;font-weight:800;color:var(--green)">Аванс оплачен клиентом</div>
                   <div class="u-meta">${date} · ${amount} ₽</div>
@@ -1586,7 +1614,7 @@
           if (localAhead && !cloudMovedOn) {
             // Локальное строго новее: облако не двигалось с нашей последней удачной
             // записи. Ничего не тянем — досылаем своё.
-            toast("☁️ Отправляем изменения, сделанные без сети");
+      toast("Отправляем изменения, сделанные без сети");
             saveToCloud();
             return;
           }
@@ -1606,13 +1634,13 @@
               danger: true
             });
             if (!takeCloud) {
-              toast("☁️ Оставили данные этого устройства");
+       toast("Оставили данные этого устройства");
               saveToCloud();
               return;
             }
           }
 
-          if (_applyCloudState(data.state_json)) toast("☁️ Данные синхронизированы из облака");
+     if (_applyCloudState(data.state_json)) toast("Данные синхронизированы из облака");
           // Локальное больше не «впереди» — оно теперь копия облачного.
           _setCloudSyncMark({ agencyId, cloudUpdatedAt: data.updated_at || null, dirty: false });
         } catch(e) { console.warn("Cloud load:", e); }
@@ -1622,7 +1650,7 @@
         const ind = document.getElementById("autoSaveIndicator");
         if (!ind) return;
         if (!ok) {
-          ind.textContent = "⚠ Не в облаке";
+     ind.textContent = "Не в облаке";
           ind.className = "autosave-indicator cloud-error show";
         } else {
           ind.textContent = "Сохранено";
@@ -1648,13 +1676,13 @@
             if (_cloudDirty) {
               _cloudDirty = false;
               _setCloudSaveIndicator(true);
-              toast("☁️ Синхронизировано с облаком");
+       toast("Синхронизировано с облаком");
             }
           } catch(e) {
             const firstFail = !_cloudDirty;
             _cloudDirty = true;
             _setCloudSaveIndicator(false);
-            if (firstFail) toast("⚠️ Не удалось сохранить в облако — изменения пока хранятся локально");
+      if (firstFail) toast("Не удалось сохранить в облако — изменения пока хранятся локально");
             console.warn("Cloud save:", e);
           }
         }, 3000);
@@ -1701,7 +1729,7 @@
           const days = exp ? Math.max(0, Math.round((new Date(exp) - new Date()) / 86400000)) : 0;
           return `Пробный · осталось ${days} д.`;
         }
-        if (s === "active") return `${plan === "team" ? "Команда" : "Про"} ✓`;
+    if (s === "active") return `${plan === "team" ? "Команда" : "Про"} ✓`;
         if (s === "expired") return "Подписка истекла";
         if (s === "cancelled") return "Подписка отменена";
         return s;
@@ -1785,7 +1813,7 @@
         state = migrateState(state);
         _needsNormalize = true;
         render();
-        toast("🔄 Обновление от " + (payload.sender || "коллеги"));
+    toast("Обновление от " + (payload.sender || "коллеги"));
       }
 
       function broadcastState() {
@@ -2207,7 +2235,7 @@
             </span>
           `;
         } else {
-          el.innerHTML = `<button class="btn small" onclick="app.exitLocalModeAndLogin()">🔐 Войти</button>`;
+     el.innerHTML = `<button class="btn small" onclick="app.exitLocalModeAndLogin()"> Войти</button>`;
         }
         renderSidebar();
       }
@@ -2231,7 +2259,7 @@
         if (!state.adminModal) return;
         const { email, password } = state.adminModal;
         if (!email || !password) { toast("Введите email и пароль"); return; }
-        if (!_supabase) { toast("❌ Supabase не настроен. Укажите URL и ключ в Настройках."); return; }
+    if (!_supabase) { toast("Supabase не настроен. Укажите URL и ключ в Настройках."); return; }
         state.adminModal.loading = true;
         render();
         try {
@@ -2243,7 +2271,7 @@
             return;
           }
           state.adminModal = null;
-          toast("✅ Вы вошли как " + email);
+     toast("Вы вошли как " + email);
           render();
         } catch (e) {
           state.adminModal.loading = false;
@@ -2268,7 +2296,7 @@
         const vkId = (document.getElementById("vk_app_id_input")?.value || '').trim();
         if (vkId) lsSet("vk_app_id", vkId);
         else lsRemove("vk_app_id");
-        toast("✅ Сохранено. Обновите страницу для подключения.");
+    toast("Сохранено. Обновите страницу для подключения.");
       }
 
       /* ═══════════════════════════════════════════════════════
@@ -2305,7 +2333,7 @@
             </ul>
 
             <div style="display:flex;gap:10px;align-items:flex-start;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:12px;padding:12px 14px;margin-bottom:24px">
-              <span style="font-size:18px;line-height:1.3">🎬</span>
+              <span style="font-size:18px;line-height:1.3"></span>
               <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">ADERVIS CRM создали люди из видеопродакшна — нам самим не хватало нормального инструмента для сделок, смет и финансов. Когда поняли, что он закрывает настоящую боль студий, открыли доступ другим командам.</p>
             </div>
 
@@ -2314,7 +2342,7 @@
               <div><strong>от 490₽</strong><span>в месяц</span></div>
               <div><strong>∞</strong><span>сделок</span></div>
             </div>
-            <p style="margin:14px 0 0;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px">🔒 Карта не нужна для пробного периода — платите только если решите остаться</p>
+            <p style="margin:14px 0 0;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px"> Карта не нужна для пробного периода — платите только если решите остаться</p>
 
           </div>
         `;
@@ -2339,12 +2367,12 @@
                     <h3 style="font-size:16px;margin:0 0 8px">Сброс пароля</h3>
                     <p style="font-size:13px;color:var(--muted);margin:0 0 18px;line-height:1.5">Введите email — мы отправим ссылку для восстановления пароля.</p>
                     ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
-                    ${f.forgotSent ? `<div style="background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:10px 14px;color:var(--green);font-size:13px;margin-bottom:14px">📧 Ссылка отправлена на ${escapeHtml(f.email)}. Проверьте почту и перейдите по ссылке.</div>` : ""}
+                    ${f.forgotSent ? `<div style="background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:10px 14px;color:var(--green);font-size:13px;margin-bottom:14px"> Ссылка отправлена на ${escapeHtml(f.email)}. Проверьте почту и перейдите по ссылке.</div>` : ""}
                     <div class="field" style="margin-bottom:16px"><label>Email</label>
                       <input type="email" placeholder="you@example.com" value="${escapeHtml(f.email)}" oninput="app.setAuthField('email',this.value)" onkeydown="if(event.key==='Enter')app.forgotPasswordSubmit()">
                     </div>
                     <button class="btn primary full" onclick="app.forgotPasswordSubmit()" ${f.loading || f.forgotSent ? "disabled" : ""} style="width:100%;padding:13px">
-                      ${f.loading ? "Отправка..." : f.forgotSent ? "Отправлено ✓" : "Отправить ссылку"}
+           ${f.loading ? "Отправка..." : f.forgotSent ? "Отправлено ✓" : "Отправить ссылку"}
                     </button>
                     <div style="text-align:center;margin-top:16px">
                       <button onclick="app.setAuthTab('login')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Вернуться ко входу</button>
@@ -2397,7 +2425,7 @@
                   <div class="field" style="margin-bottom:${isRegister ? "12px" : "14px"}"><label>Пароль</label>
                     <div style="position:relative">
                       <input type="${f.showPassword ? "text" : "password"}" placeholder="••••••••" value="${escapeHtml(f.password)}" oninput="app.setAuthField('password',this.value)" onkeydown="if(event.key==='Enter')app.authSubmit()" style="padding-right:44px;width:100%">
-                      <button type="button" onclick="app.toggleAuthPasswordVisibility()" title="${f.showPassword ? "Скрыть пароль" : "Показать пароль"}" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px;line-height:1">${f.showPassword ? "🙈" : "👁"}</button>
+                      <button type="button" onclick="app.toggleAuthPasswordVisibility()" title="${f.showPassword ? "Скрыть пароль" : "Показать пароль"}" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px;line-height:1">${f.showPassword ? "" : ""}</button>
                     </div>
                   </div>
 
@@ -2493,10 +2521,10 @@
                 _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `Этот email уже зарегистрирован. Войдите с вашим паролем или воспользуйтесь «Забыли пароль?».`, loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
                 _authTab = "login"; renderAuthGateEl(); return;
               }
-              _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `📧 Письмо отправлено на ${f.email}. Перейдите по ссылке в письме для активации, затем войдите здесь.`, loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
+       _authFields = { email: f.email, password: "", name: "", inviteCode: "", error: `Письмо отправлено на ${f.email}. Перейдите по ссылке в письме для активации, затем войдите здесь.`, loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
               _authTab = "login"; renderAuthGateEl(); return;
             }
-            f.error = ""; _authFields = { email: "", password: "", name: "", inviteCode: "", error: "✅ Аккаунт создан! Войдите ниже.", loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
+      f.error = ""; _authFields = { email: "", password: "", name: "", inviteCode: "", error: "Аккаунт создан! Войдите ниже.", loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
             _authTab = "login"; renderAuthGateEl();
           } else {
             const now = Date.now();
@@ -2921,31 +2949,31 @@
           <div style="padding:6px 0">
             <div class="help-dd-section">Знакомство</div>
             <button class="help-dd-item" onclick="app.openHelpModal();app.toggleHelpDd(false)">
-              <span class="help-dd-item-icon" style="background:rgba(124,58,237,.15)">✨</span>
+              <span class="help-dd-item-icon" style="background:rgba(124,58,237,.15)"></span>
               <div><div>Начало работы</div>${seen ? `<div class="hdi-sub" style="color:var(--green)">Завершено ✓</div>` : `<div class="hdi-sub">Быстрый старт</div>`}</div>
             </button>
             <button class="help-dd-item" onclick="app.toggleHelpDd(false);app.startTour()">
-              <span class="help-dd-item-icon" style="background:rgba(22,163,74,.15)">🎯</span>
+              <span class="help-dd-item-icon" style="background:rgba(22,163,74,.15)"></span>
               <div><div>Тур по интерфейсу</div><div class="hdi-sub">Подсветка разделов меню</div></div>
             </button>
             <button class="help-dd-item" onclick="app.go('knowledge');app.toggleHelpDd(false)">
-              <span class="help-dd-item-icon" style="background:rgba(37,99,235,.15)">📚</span>
+              <span class="help-dd-item-icon" style="background:rgba(37,99,235,.15)"></span>
               <div><div>Руководство</div><div class="hdi-sub">База знаний</div></div>
             </button>
             <div class="pd-sep" style="margin:6px 0"></div>
             <div class="help-dd-section">Обновления</div>
             <a class="help-dd-item" href="https://t.me/adervis_manager" target="_blank" rel="noopener" onclick="app.toggleHelpDd(false)">
-              <span class="help-dd-item-icon" style="background:rgba(8,145,178,.15)">✈️</span>
+              <span class="help-dd-item-icon" style="background:rgba(8,145,178,.15)"></span>
               <div><div>Telegram канал</div><div class="hdi-sub">Новости и обновления</div></div>
             </a>
             <div class="pd-sep" style="margin:6px 0"></div>
             <div class="help-dd-section">Получить помощь</div>
             <a class="help-dd-item" href="mailto:adervis.digital@gmail.com?subject=Помощь по ADERVIS CRM" onclick="app.toggleHelpDd(false)">
-              <span class="help-dd-item-icon" style="background:rgba(22,163,74,.15)">💬</span>
+              <span class="help-dd-item-icon" style="background:rgba(22,163,74,.15)"></span>
               <div><div>Написать нам</div><div class="hdi-sub">adervis.digital@gmail.com</div></div>
             </a>
             <button class="help-dd-item" onclick="app.go('knowledge');app.toggleHelpDd(false)">
-              <span class="help-dd-item-icon" style="background:rgba(202,138,4,.15)">🎥</span>
+              <span class="help-dd-item-icon" style="background:rgba(202,138,4,.15)"></span>
               <div><div>Записаться на демо</div><div class="hdi-sub">Онлайн-показ для вас</div></div>
             </button>
           </div>
@@ -3059,12 +3087,12 @@
         const results = [];
         (state.savedProjects || []).forEach(p => {
           if ((p.name||"").toLowerCase().includes(q) || (p.client||"").toLowerCase().includes(q)) {
-            results.push({ type: "deal", icon: "📋", color: "rgba(124,58,237,.15)", name: p.name || "Без названия", sub: `${p.client||""} · ${money(p.total||0)} · ${p.crmStatus||"Лид"}`, action: `app.openDeal('${p.id}');app.closeSearch()` });
+      results.push({ type: "deal", icon: "", color: "rgba(124,58,237,.15)", name: p.name || "Без названия", sub: `${p.client||""} · ${money(p.total||0)} · ${p.crmStatus||"Лид"}`, action: `app.openDeal('${p.id}');app.closeSearch()` });
           }
         });
         (state.clients || []).forEach(c => {
           if ((c.name||"").toLowerCase().includes(q) || (c.company||"").toLowerCase().includes(q) || (c.phone||"").includes(q)) {
-            results.push({ type: "client", icon: "👤", color: "rgba(37,99,235,.15)", name: c.name || "Клиент", sub: `${c.company||""} · ${c.phone||""}`, action: `app.go('clients');app.closeSearch()` });
+      results.push({ type: "client", icon: "", color: "rgba(37,99,235,.15)", name: c.name || "Клиент", sub: `${c.company||""} · ${c.phone||""}`, action: `app.go('clients');app.closeSearch()` });
           }
         });
         // Задачи по ВСЕМ сделкам (не только активной) — та же агрегация, что и на
@@ -3075,18 +3103,18 @@
             const action = row.kind === "global"
               ? `app.go('global-tasks');app.setGlobalTaskFilter('project','personal');app.closeSearch()`
               : `app.loadSavedProject('${row.projectId}');app.setDealView('tasks');app.closeSearch()`;
-            results.push({ type: "task", icon: "✅", color: "rgba(8,145,178,.15)", name: t.title, sub: `${t.status||""}${row.projectName ? " · " + row.projectName : ""}`, action });
+      results.push({ type: "task", icon: "", color: "rgba(8,145,178,.15)", name: t.title, sub: `${t.status||""}${row.projectName ? " · " + row.projectName : ""}`, action });
           }
         });
         (state.knowledgeDocs || []).forEach(d => {
           if ((d.title||"").toLowerCase().includes(q) || (d.content||"").toLowerCase().includes(q)) {
-            results.push({ type: "kb", icon: "📄", color: "rgba(22,163,74,.15)", name: d.title || "Документ", sub: KB_CATS[d.cat] || "Без категории", action: `app.go('knowledge');app.kbOpen('${d.id}');app.closeSearch()` });
+      results.push({ type: "kb", icon: "", color: "rgba(22,163,74,.15)", name: d.title || "Документ", sub: KB_CATS[d.cat] || "Без категории", action: `app.go('knowledge');app.kbOpen('${d.id}');app.closeSearch()` });
           }
         });
         if (!results.length) {
           el.innerHTML = `
             <div style="padding:32px 20px;text-align:center">
-              <div style="font-size:28px;margin-bottom:10px;opacity:.4">🔍</div>
+              <div style="font-size:28px;margin-bottom:10px;opacity:.4"></div>
               <div style="color:var(--text);font-size:13px;font-weight:600;margin-bottom:4px">Ничего не найдено</div>
               <div style="color:var(--muted);font-size:12px">Нет результатов по «${escapeHtml(q)}»</div>
             </div>`;
@@ -3152,7 +3180,7 @@
         }
         state.savedProjects.unshift(copy);
         save(); render();
-        toast("✅ Сделка продублирована: " + copy.name);
+    toast("Сделка продублирована: " + copy.name);
       }
 
       function _saveUserField(key, value) {
@@ -3210,7 +3238,7 @@
                 onkeydown="if(event.key==='Enter')app.validatePromo()"
               >
               ${promoValid
-                ? `<button onclick="app.clearPromo()" style="border:none;background:transparent;color:var(--muted);padding:9px 10px;cursor:pointer;font-size:16px" title="Убрать промокод">✕</button>`
+                ? `<button onclick="app.clearPromo()" style="border:none;background:transparent;color:var(--muted);padding:9px 10px;cursor:pointer;font-size:16px" title="Убрать промокод"></button>`
                 : `<button onclick="app.validatePromo()" style="border:none;background:var(--primary);color:#fff;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600" ${promoChecking ? "disabled" : ""}>${promoChecking ? "..." : "→"}</button>`
               }
             </div>
@@ -3227,13 +3255,13 @@
         const promoChecking = _promoState === "checking";
         return `
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;text-align:center;padding:32px 16px">
-            <div style="font-size:48px;margin-bottom:18px">🔒</div>
+            <div style="font-size:48px;margin-bottom:18px"></div>
             <h1 style="font-size:26px;margin-bottom:10px">Подписка истекла</h1>
             <p style="max-width:420px;margin-bottom:8px;line-height:1.55;color:var(--muted)">
               Аккаунт <strong style="color:var(--text)">${escapeHtml(email)}</strong>. Выберите тариф, чтобы продолжить работу.
             </p>
             <p style="max-width:420px;margin-bottom:28px;font-size:12px;color:var(--green)">
-              ✅ Все сделки, клиенты и сметы сохранены — после оплаты вы продолжите с того же места
+        Все сделки, клиенты и сметы сохранены — после оплаты вы продолжите с того же места
             </p>
             ${hasSupabase ? `
               <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:640px;margin-bottom:24px">
@@ -3259,7 +3287,7 @@
               <p style="font-size:12px;color:var(--muted);margin-bottom:20px">Безопасная оплата через ЮKassa · карта / СБП / ЮМани</p>
             ` : `
               <a href="mailto:adervis.digital@gmail.com?subject=Продление подписки ADERVIS CRM" class="btn primary" style="text-decoration:none;margin-bottom:20px">
-                📧 Продлить по email
+         Продлить по email
               </a>
             `}
             <button class="btn small" onclick="app.adminLogout()">Выйти</button>
@@ -3297,7 +3325,7 @@
           if (daysLeft > 7) return "";
           return `
             <div id="payBannerBar" style="position:fixed;bottom:70px;right:16px;z-index:200;background:var(--primary);color:#fff;border-radius:14px;padding:10px 16px;box-shadow:0 8px 28px rgba(124,58,237,.45);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;max-width:340px">
-              <span style="cursor:pointer;flex:1" onclick="app.gotoSubscription()">⚡ ${daysLeft <= 0 ? "Подписка истекает сегодня" : `Подписка: осталось ${daysLeft} дн.`} — Продлить →</span>
+              <span style="cursor:pointer;flex:1" onclick="app.gotoSubscription()"> ${daysLeft <= 0 ? "Подписка истекает сегодня" : `Подписка: осталось ${daysLeft} дн.`} — Продлить →</span>
               ${closeBtn}
             </div>`;
         }
@@ -3377,7 +3405,7 @@
             <div class="notif-list">
               ${notifs.length === 0 ? `
                 <div style="padding:32px 20px;text-align:center">
-                  <div style="font-size:28px;margin-bottom:10px;opacity:.5">🔔</div>
+                  <div style="font-size:28px;margin-bottom:10px;opacity:.5"></div>
                   <div style="color:var(--text);font-size:13px;font-weight:600;margin-bottom:4px">Всё тихо</div>
                   <div style="color:var(--muted);font-size:12px">Уведомления о дедлайнах<br>и событиях появятся здесь</div>
                 </div>` :
@@ -3555,7 +3583,7 @@
           p_agency_id: agencyId, p_status: "active", p_plan: "month1", p_expires_at: expires.toISOString()
         });
         if (error) { toast("Ошибка: " + error.message); return; }
-        toast("✅ Подписка активирована на 30 дней");
+    toast("Подписка активирована на 30 дней");
         loadAdminPanel();
       }
 
@@ -3985,7 +4013,7 @@
           const discountedPrice = (promoValid && p.price > 0) ? Math.round(p.price * (1 - _promoState.discount / 100)) : null;
           const totalDisc = discountedPrice ? discountedPrice * Math.max(p.months, 1) : null;
           const payAmount = totalDisc !== null ? totalDisc : p.price * Math.max(p.months, 1);
-          const btnLabel = isCurrent ? "✓ Активен" : isLoading ? "⏳..." : p.price === 0 ? "Бесплатно" : `Оплатить ${payAmount} ₽${p.months > 1 ? ` за ${p.months} мес.` : ""}`;
+     const btnLabel = isCurrent ? "✓ Активен" : isLoading ? "⏳..." : p.price === 0 ? "Бесплатно" : `Оплатить ${payAmount} ₽${p.months > 1 ? ` за ${p.months} мес.` : ""}`;
           const btnOff = isCurrent || p.price === 0 || !!_buyingPlan;
           const feats = planFeatures[p.id] || [];
           const border = isCurrent ? "var(--green)" : p.popular ? "var(--primary)" : "var(--line)";
@@ -3997,7 +4025,7 @@
               : `<div style="font-size:28px;font-weight:900;line-height:1">${p.price} ₽</div><div class="u-meta">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:12px;color:var(--primary2);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)}</div>` : `<div class="mb-16"></div>`}`;
           return `
           <div class="plan-card" style="border-radius:18px;border:2px solid ${border};background:${bg};padding:20px 16px;display:flex;flex-direction:column;position:relative;min-width:0">
-            ${p.popular && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">🔥 Популярный</div>` : ""}
+            ${p.popular && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap"> Популярный</div>` : ""}
             ${isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">✓ Активен</div>` : ""}
             <div style="font-size:14px;font-weight:900;margin-bottom:10px">${escapeHtml(p.label)}</div>
             ${priceHtml}
@@ -4025,7 +4053,7 @@
                   <th style="text-align:left;padding:10px 12px;font-size:13px;min-width:180px">Функция</th>
                   ${hdr("Пробный<br><span style='font-weight:400;color:var(--muted)'>7 дней</span>","trial")}
                   ${hdr("Месяц<br><span style='font-weight:400;color:var(--muted)'>490 ₽</span>","month1")}
-                  ${hdr("3 месяца 🔥<br><span style='font-weight:400;color:var(--muted)'>390 ₽/мес</span>","month3")}
+                  ${hdr("3 месяца <br><span style='font-weight:400;color:var(--muted)'>390 ₽/мес</span>","month3")}
                   ${hdr("6 месяцев<br><span style='font-weight:400;color:var(--muted)'>340 ₽/мес</span>","month6")}
                   ${hdr("Год<br><span style='font-weight:400;color:var(--muted)'>290 ₽/мес</span>","year")}
                 </tr>
@@ -4102,7 +4130,7 @@
             </div>
             ${_promoCodeInputHtml()}
             <p style="font-size:12px;color:var(--muted);padding:10px 16px;background:rgba(124,58,237,.06);border-radius:10px;margin:0;line-height:1.6">
-              ✅ Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Тарифы отличаются только сроком: команда до ${PAID_MAX_USERS} человек входит в любой из них · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
+        Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Тарифы отличаются только сроком: команда до ${PAID_MAX_USERS} человек входит в любой из них · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
             </p>
             ${compTable}
           </div>
@@ -4392,7 +4420,7 @@
             render();
             if (isSubscriptionActive()) {
               trackGoal("payment_success", { planId: _userProfile && _userProfile.subscription_plan });
-              toast("🎉 Подписка активирована! Спасибо за оплату.");
+       toast("Подписка активирована! Спасибо за оплату.");
             } else {
               toast("Оплата обрабатывается — статус обновится автоматически.");
             }
@@ -4439,7 +4467,7 @@
           location.href = data.authUrl;
         } catch (e) {
           toast("Ошибка: " + e.message);
-          if (btn) { btn.disabled = false; btn.textContent = "🔗 Подключить Google Calendar"; }
+     if (btn) { btn.disabled = false; btn.textContent = "Подключить Google Calendar"; }
         }
       }
 
@@ -4464,10 +4492,10 @@
         if (!connected && !err) return;
         history.replaceState({}, "", window.location.pathname);
         if (connected) {
-          toast("✅ Google Calendar подключён");
+     toast("Google Calendar подключён");
           _loadGoogleCalendarStatus();
         } else {
-          toast("⚠️ Не удалось подключить Google Calendar (" + err + ")");
+     toast("Не удалось подключить Google Calendar (" + err + ")");
         }
       }
 
@@ -4485,7 +4513,7 @@
           const data = await resp.json();
           if (data.needsReconnect) {
             _googleCalStatus = { connected: false };
-            toast("⚠️ Доступ к Google Calendar истёк — подключите заново в Настройках");
+      toast("Доступ к Google Calendar истёк — подключите заново в Настройках");
           } else if (Array.isArray(data.events)) {
             _googleCalEvents = data.events;
           } else if (data.error) {
@@ -4527,9 +4555,9 @@
           const googleEventId = await _pushGoogleEvent(task.id, task.title, task.deadline, _myGoogleEventId(task));
           const live = _findLiveTaskById(task.id);
           if (live) { live.googleEventIds = { ...(live.googleEventIds || {}), [_adminSession.user.id]: googleEventId }; save(); render(); }
-          toast("📅 Задача синхронизирована с Google Calendar");
+     toast("Задача синхронизирована с Google Calendar");
         } catch (e) {
-          toast("⚠️ Google Calendar: " + e.message);
+     toast("Google Calendar: " + e.message);
         }
       }
 
@@ -4544,10 +4572,10 @@
           const saved = state.savedProjects.find(p => p.id === state.activeProjectId);
           if (saved) saved.googleEventIds = nextIds;
           save();
-          toast("📅 Дедлайн синхронизирован с Google Calendar");
+     toast("Дедлайн синхронизирован с Google Calendar");
           render();
         } catch (e) {
-          toast("⚠️ Google Calendar: " + e.message);
+     toast("Google Calendar: " + e.message);
         }
       }
 
@@ -4580,7 +4608,7 @@
           const live = _findLiveTaskById(persisted.id);
           if (live) live.googleEventIds = { ...(live.googleEventIds || {}), [_adminSession.user.id]: googleEventId };
           save(); render();
-          toast("📅 Задача синхронизирована с Google Calendar");
+     toast("Задача синхронизирована с Google Calendar");
         } catch (e) {
           save(); render();
           toast("Ошибка: " + e.message);
@@ -4600,7 +4628,7 @@
         try {
           const googleEventId = await _pushGoogleEvent(task.id, task.title, task.deadline, _myGoogleEventId(task));
           updateTask(task.id, "googleEventIds", { ...(task.googleEventIds || {}), [_adminSession.user.id]: googleEventId });
-          toast("📅 Задача синхронизирована с Google Calendar");
+     toast("Задача синхронизирована с Google Calendar");
         } catch (e) {
           render();
           toast("Ошибка: " + e.message);
@@ -4624,7 +4652,7 @@
           const saved = state.savedProjects.find(p => p.id === state.activeProjectId);
           if (saved) saved.googleEventIds = nextIds;
           save();
-          toast("📅 Дедлайн синхронизирован с Google Calendar");
+     toast("Дедлайн синхронизирован с Google Calendar");
           render();
         } catch (e) {
           render();
@@ -4641,7 +4669,7 @@
           await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: updatedAt });
           _setCloudSyncMark({ agencyId, cloudUpdatedAt: updatedAt, dirty: false });
           _cloudDirty = false;
-          toast("☁️ Данные сохранены в облако");
+     toast("Данные сохранены в облако");
         } catch(e) { toast("Ошибка сохранения: " + e.message); }
       }
 
@@ -4659,7 +4687,7 @@
           if (!data) throw new Error("пустой ответ");
           if (_userProfile) _userProfile.calendar_token = data;
           render();
-          toast(had ? "🔑 Ссылка на календарь обновлена" : "🔑 Ссылка на календарь создана");
+     toast(had ? "Ссылка на календарь обновлена" : "Ссылка на календарь создана");
         } catch(e) {
           toast("Не удалось обновить ссылку: " + (e.message || e));
         }
@@ -4697,7 +4725,7 @@
         if (!_supabase) return;
         const { error } = await _supabase.auth.updateUser({ password: p1 });
         if (error) { toast("Ошибка: " + error.message); return; }
-        toast("✅ Пароль успешно изменён");
+    toast("Пароль успешно изменён");
         document.getElementById("changePasswordBox").innerHTML = "";
       }
 
@@ -4723,7 +4751,7 @@
           lsRemove(STORAGE_KEY);
           lsRemove(LAST_AGENCY_KEY);
           await _supabase.auth.signOut();
-          toast("✅ Аккаунт удалён");
+     toast("Аккаунт удалён");
         } catch(e) { toast("Ошибка удаления: " + e.message); }
       }
 
@@ -4764,7 +4792,7 @@
       ];
 
       // Мини-иллюстрации онбординга — было пустое место с текстом-заглушкой
-      // (пунктирная рамка + "🎬 ADERVIS CRM · дашборд агентства"), не готовый вид.
+   // (пунктирная рамка + "ADERVIS CRM · дашборд агентства"), не готовый вид.
       // Реальные скриншоты сюда не завести (нет пайплайна ассетов/бандлера, см.
       // CLAUDE.md «не добавлять npm-зависимости») — рисуем лёгкий CSS-мокап,
       // стилистически похожий на настоящий экран (те же цвета/радиусы, что и в CRM).
@@ -5196,7 +5224,7 @@
           <div class="modal-overlay" onclick="event.target===this&&app.closeAdminModal()">
             <div class="admin-modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-                <h2 class="u-title-20">🔐 Вход для администратора</h2>
+        <h2 class="u-title-20"> Вход для администратора</h2>
                 <button onclick="app.closeAdminModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px">×</button>
               </div>
               <p style="margin:0 0 18px;font-size:13px">Войдите через Supabase Auth для совместного редактирования.</p>
@@ -5570,6 +5598,7 @@
         // трогаем, поэтому позиция остаётся и в своей вычисленной группе.
         catalogGroupsHidden: {},
         customCatalogGroups: [],
+        customBriefTypes: [],
         itemCustomGroup: {},
           adminModal: null,
           clientModal: null,
@@ -6089,7 +6118,7 @@
         // но будущая правка может) переписал бы реальную смету игрой с калькулятором.
         if (_calcMode) return;
         if (!isSubscriptionActive()) {
-          toast("⛔ Подписка истекла — данные не сохранены. Продлите: adervis.digital@gmail.com");
+     toast("Подписка истекла — данные не сохранены. Продлите: adervis.digital@gmail.com");
           return;
         }
         _needsNormalize = true;
@@ -6103,14 +6132,14 @@
         broadcastState();
         saveToCloud();
         _checkActivationGoals();
-        // Индикатор сохранения. Раньше он рисовал «✓ сохранено» даже когда
+    // Индикатор сохранения. Раньше он рисовал «✓ сохранено» даже когда
         // localStorage отказал (переполнена квота ~5 МБ, приватный режим Safari) —
         // lsSet честно возвращает false, но результат игнорировался.
         const el = document.getElementById("autoSaveIndicator");
         if (!lsOk) {
           const cloudAlive = !!(_supabase && _adminSession) && !_cloudDirty;
           if (el) {
-            el.textContent = cloudAlive ? "⚠ Только в облаке" : "⚠ Не сохранено";
+      el.textContent = cloudAlive ? "Только в облаке" : "Не сохранено";
             el.className = "autosave-indicator cloud-error show";
             el.style.opacity = "1";
             clearTimeout(_saveIndicatorTimer);
@@ -6118,14 +6147,14 @@
           if (!_lsFailToastShown) {
             _lsFailToastShown = true;
             toast(cloudAlive
-              ? "⚠️ Память браузера переполнена — данные сохраняются только в облако"
-              : "⛔ Не удалось сохранить: память браузера переполнена. Выгрузите данные в файл (Настройки → Данные)");
+       ? "Память браузера переполнена — данные сохраняются только в облако"
+       : "Не удалось сохранить: память браузера переполнена. Выгрузите данные в файл (Настройки → Данные)");
           }
           return;
         }
         _lsFailToastShown = false;
         if (el) {
-          el.textContent = "✓ сохранено";
+     el.textContent = "✓ сохранено";
           el.className = "autosave-indicator show";
           el.style.opacity = "1";
           clearTimeout(_saveIndicatorTimer);
@@ -8956,7 +8985,7 @@
           if (budget > 0) {
             const newTotal = (state.expenses || []).reduce((s, e) => s + (e.amount || 0), 0) + amount;
             if (newTotal > budget) {
-              setTimeout(() => toast(`⚠️ Перерасход бюджета: ${money(newTotal - budget)} сверх плана (${money(budget)})`), 100);
+       setTimeout(() => toast(`Перерасход бюджета: ${money(newTotal - budget)} сверх плана (${money(budget)})`), 100);
             }
           }
         }
@@ -9177,7 +9206,7 @@
                 <label>Проект</label>
                 <select onchange="app.setFinanceModalField('projectId',this.value)">
                   <option value="">— Без проекта —</option>
-                  ${state.activeProjectId ? `<option value="${state.activeProjectId}" ${m.projectId === state.activeProjectId ? "selected" : ""}>★ ${escapeHtml(state.project.name || "Текущий проект")}</option>` : ""}
+         ${state.activeProjectId ? `<option value="${state.activeProjectId}" ${m.projectId === state.activeProjectId ? "selected" : ""}> ${escapeHtml(state.project.name || "Текущий проект")}</option>` : ""}
                   ${(state.savedProjects || []).filter(p => p.id !== state.activeProjectId).map(p =>
                     `<option value="${p.id}" ${m.projectId === p.id ? "selected" : ""}>${escapeHtml(p.name)}${p.client ? " · " + escapeHtml(p.client) : ""}</option>`
                   ).join("")}
@@ -9344,7 +9373,7 @@
 
       function updateClientField(clientId, key, value) {
         if (key === "phone" && value && !validatePhone(value)) {
-          toast("❌ Неверный формат телефона. Пример: +7 900 000-00-00");
+     toast("Неверный формат телефона. Пример: +7 900 000-00-00");
           return;
         }
         const client = (state.clients || []).find(c => c.id === clientId);
@@ -9469,7 +9498,7 @@
           if (w.clientMode === "new") {
             const name = String(w.name || "").trim();
             if (!name) { toast("Введи имя клиента"); return; }
-            if (w.phone && !validatePhone(w.phone)) { toast("❌ Неверный формат телефона. Пример: +7 900 000-00-00"); return; }
+      if (w.phone && !validatePhone(w.phone)) { toast("Неверный формат телефона. Пример: +7 900 000-00-00"); return; }
             const client = normalizeClient({ name, company: w.company, phone: w.phone, city: "" });
             client.id = uid("client");
             client.createdAt = new Date().toISOString();
@@ -9706,7 +9735,7 @@
         if (prev === "Завершённые") { toast("Сделка уже завершена"); return; }
         _applyCrmStatus(project, "Завершённые");
         _logActivity(id, `Статус: ${prev} → Завершённые`);
-        toast("Сделка завершена ✓");
+    toast("Сделка завершена ✓");
         save();
         render();
       }
@@ -9745,7 +9774,7 @@
         const proj = (state.savedProjects || []).find(p => p.id === id);
         if (!proj) return;
         proj.pinned = !proj.pinned;
-        toast(proj.pinned ? "📌 Сделка закреплена" : "Сделка откреплена");
+    toast(proj.pinned ? "Сделка закреплена" : "Сделка откреплена");
         save();
         render();
       }
@@ -9821,7 +9850,7 @@
             render();
             toast("Данные импортированы");
           } catch (error) {
-            toast("⚠️ Не удалось импортировать файл: " + error.message);
+      toast("Не удалось импортировать файл: " + error.message);
           }
         };
         reader.readAsText(file);
@@ -9863,7 +9892,7 @@
             render();
             toast("Каталог импортирован");
           } catch (error) {
-            toast("⚠️ Не удалось импортировать каталог: " + error.message);
+      toast("Не удалось импортировать каталог: " + error.message);
           }
         };
         reader.readAsText(file);
@@ -9889,7 +9918,7 @@
       }
 
       async function exportCatalogXlsx() {
-        try { await _ensureXLSX(); } catch(e) { toast("⚠️ Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
+    try { await _ensureXLSX(); } catch(e) { toast("Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
         const ids = selectedIds();
         if (!ids.length) { toast("В смете пока нет отмеченных позиций"); return; }
 
@@ -9923,7 +9952,7 @@
       async function importCatalogXlsx(event) {
         const file = event.target.files && event.target.files[0];
         if (!file) return;
-        try { await _ensureXLSX(); } catch(e) { toast("⚠️ Не удалось загрузить библиотеку Excel — проверьте соединение"); event.target.value = ""; return; }
+    try { await _ensureXLSX(); } catch(e) { toast("Не удалось загрузить библиотеку Excel — проверьте соединение"); event.target.value = ""; return; }
 
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -9959,7 +9988,7 @@
             render();
             toast(added ? `Добавлено ${added} ${plural(added, "позиция", "позиции", "позиций")} в «Свои»` : "Не найдено подходящих строк — нужна колонка «Название»");
           } catch (error) {
-            toast("⚠️ Не удалось импортировать файл: " + error.message);
+      toast("Не удалось импортировать файл: " + error.message);
           }
         };
         reader.readAsArrayBuffer(file);
@@ -9975,7 +10004,7 @@
       }
 
       async function exportXlsx() {
-        try { await _ensureXLSX(); } catch(e) { toast("⚠️ Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
+    try { await _ensureXLSX(); } catch(e) { toast("Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
 
         const ids = selectedIds();
         const t = totals();
@@ -10113,7 +10142,7 @@
       }
 
       async function exportMonthlyReport(yearMonth) {
-        try { await _ensureXLSX(); } catch(e) { toast("⚠️ Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
+    try { await _ensureXLSX(); } catch(e) { toast("Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
         const [year, month] = yearMonth ? yearMonth.split("-").map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
         const monthStr = `${year}-${String(month).padStart(2, "0")}`;
         const ML = ["","Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
@@ -10156,7 +10185,7 @@
       }
 
       async function exportClientsXlsx() {
-        try { await _ensureXLSX(); } catch(e) { toast("⚠️ Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
+    try { await _ensureXLSX(); } catch(e) { toast("Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
         const clients = state.clients || [];
         if (!clients.length) { toast("Нет клиентов для экспорта"); return; }
         const rows = clients.map(c => {
@@ -10307,7 +10336,7 @@
 
           ${_googleCalStatus && _googleCalStatus.connected && state.activeProjectId && state.project.deadline ? `
             <div style="margin-top:10px">
-              <button id="projectSyncGoogleBtn" class="btn small" onclick="app.syncProjectDeadlineToGoogle()">${_myGoogleEventId(state.project) ? "🔄 Обновить дедлайн в Google Calendar" : "📅 Дедлайн в Google Calendar"}</button>
+       <button id="projectSyncGoogleBtn" class="btn small" onclick="app.syncProjectDeadlineToGoogle()">${_myGoogleEventId(state.project) ? "Обновить дедлайн в Google Calendar" : "Дедлайн в Google Calendar"}</button>
             </div>
           ` : ""}
 
@@ -10327,7 +10356,7 @@
 
         const clientModeBtn = document.getElementById("clientModeBtn");
         if (clientModeBtn) {
-          clientModeBtn.textContent = state.clientMode ? "🙈 Выйти" : "👁 Клиент";
+     clientModeBtn.textContent = state.clientMode ? "Выйти" : "Клиент";
           clientModeBtn.title = state.clientMode ? "Выйти из режима предпросмотра" : "Предпросмотр КП глазами клиента";
           clientModeBtn.classList.toggle("primary", state.clientMode);
           clientModeBtn.classList.toggle("blue", !state.clientMode);
@@ -10781,13 +10810,50 @@
          читает кастом-шаблон через RPC get_brief_template (с фолбэком на дефолт).
       ═══════════════════════════════════════════════════════ */
       const BRIEF_TYPES = [
-        { id:'video',   label:'Видео',  icon:'🎬' },
-        { id:'photo',   label:'Фото',   icon:'📸' },
-        { id:'design',  label:'Дизайн', icon:'🎨' },
-        { id:'ai',      label:'ИИ',     icon:'🤖' },
-        { id:'general', label:'Общий',  icon:'📋' },
+        { id:'video',   label:'Видео',  icon:'film' },
+        { id:'photo',   label:'Фото',   icon:'camera' },
+        { id:'design',  label:'Дизайн', icon:'palette' },
+        { id:'ai',      label:'ИИ',     icon:'robot' },
+        { id:'general', label:'Общий',  icon:'clipboard' },
       ];
-      function _isBriefType(id) { return BRIEF_TYPES.some(t => t.id === id); }
+      /* Свои типы брифов. Пяти встроенных хватает не всем: студия может вести
+         отдельную форму под «Свадьбу», «Реклама на маркетплейс» и т.п. Тип — это
+         по сути только id + название: набор вопросов уже редактируется штатным
+         редактором (state.briefTemplates[id]), а публичная форма тянет их по
+         тому же RPC get_brief_template. Пока вопросы не изменены, свой тип
+         показывает набор «Общего» — пустую форму клиенту показывать нельзя. */
+      function customBriefTypes() {
+        return (state.customBriefTypes || []).map(t => ({
+          id: t.id, label: t.label, icon: t.icon || 'doc', custom: true,
+        }));
+      }
+      function allBriefTypes() { return BRIEF_TYPES.concat(customBriefTypes()); }
+      function _isBriefType(id) { return allBriefTypes().some(t => t.id === id); }
+
+      function addCustomBriefType() {
+        const label = (window.prompt('Название своего брифа (например «Свадьба»):', '') || '').trim();
+        if (!label) return;
+        const list = [...(state.customBriefTypes || [])];
+        if (list.length >= 8) { toast('Больше восьми своих брифов — список типов станет нечитаемым'); return; }
+        const id = 'own_' + Date.now().toString(36);
+        list.push({ id, label: label.slice(0, 24), icon: 'doc' });
+        state.customBriefTypes = list;
+        _briefTypeTab = id;
+        save();
+        render();
+        toast('Бриф «' + label.slice(0, 24) + '» создан — отредактируйте вопросы под себя');
+      }
+
+      function removeCustomBriefType(id) {
+        const t = (state.customBriefTypes || []).find(x => x.id === id);
+        if (!t) return;
+        if (!confirm('Удалить бриф «' + t.label + '»? Уже полученные заявки останутся.')) return;
+        state.customBriefTypes = (state.customBriefTypes || []).filter(x => x.id !== id);
+        if (state.briefTemplates) delete state.briefTemplates[id];
+        if (_briefTypeTab === id) _briefTypeTab = 'video';
+        save();
+        render();
+      }
 
       const _BRIEF_BUDGETS = ['Обсудим','До 30 000 ₽','30 000 – 80 000 ₽','80 000 – 200 000 ₽','200 000 – 500 000 ₽','500 000 ₽+'];
       const _BRIEF_SOURCES = ['Рекомендация','Instagram / ВКонтакте','Google / Яндекс','TikTok / YouTube','Сарафанное радио','Другое'];
@@ -10811,64 +10877,66 @@
         ];
         const T = {
           video: { title:'Заявка на видеосъёмку', sub:'Расскажите о проекте — мы свяжемся с вами в течение 24 часов и обсудим детали. Чем подробнее опишете задачу, тем точнее будет расчёт.', fields:[
-            _bf({ id:'sec_contacts', type:'section', label:'📋 Контактные данные' }), ...contacts,
+            _bf({ id:'sec_contacts', type:'section', label:'Контактные данные' }), ...contacts,
             _bf({ id:'city', label:'Город съёмки', type:'text', placeholder:'Москва' }),
-            _bf({ id:'sec_project', type:'section', label:'🎬 О проекте' }),
+            _bf({ id:'sec_project', type:'section', label:'О проекте' }),
             _bf({ id:'shootType', label:'Тип проекта', type:'select', half:true, options:['Свадьба','Корпоратив','Рекламный ролик','Музыкальный клип','Мероприятие','Репортаж','Презентация / Обзор','Соцсети / Reels','Документальный фильм','Другое'] }),
             _bf({ id:'format', label:'Формат видео', type:'select', half:true, options:['Горизонтальный (16:9)','Вертикальный (9:16, Reels/Shorts)','Квадратный (1:1)','Несколько форматов','Пока не знаю'] }),
             _bf({ id:'duration', label:'Примерная длительность', type:'select', half:true, options:['До 30 секунд','30–60 секунд','1–3 минуты','3–10 минут','Более 10 минут','Обсудим'] }),
             _bf({ id:'deadline', label:'Желаемая дата съёмки', type:'date', half:true }),
             _bf({ id:'desc', label:'Опишите проект подробно', type:'textarea', primary:true, required:true, placeholder:'Идея, цели видео, аудитория, место съёмки, стиль. Чем больше деталей — тем точнее предложение.' }),
-            _bf({ id:'sec_budget', type:'section', label:'💰 Бюджет и дополнительно' }), ...budgetSource,
+            _bf({ id:'sec_budget', type:'section', label:'Бюджет и дополнительно' }), ...budgetSource,
             _bf({ id:'references', label:'Ссылки на референсы', type:'textarea', placeholder:'https://youtube.com/... или описание стиля...' }),
             _bf({ id:'extra', label:'Дополнительные пожелания', type:'textarea', placeholder:'Особые требования, пожелания к команде, вопросы...' }),
           ]},
           photo: { title:'Заявка на фотосъёмку', sub:'Опишите съёмку — мы свяжемся в течение 24 часов и подготовим предложение.', fields:[
-            _bf({ id:'sec_contacts', type:'section', label:'📋 Контактные данные' }), ...contacts,
+            _bf({ id:'sec_contacts', type:'section', label:'Контактные данные' }), ...contacts,
             _bf({ id:'city', label:'Город съёмки', type:'text', placeholder:'Москва' }),
-            _bf({ id:'sec_project', type:'section', label:'📸 О съёмке' }),
+            _bf({ id:'sec_project', type:'section', label:'О съёмке' }),
             _bf({ id:'shootType', label:'Тип съёмки', type:'select', half:true, options:['Свадьба','Портрет / Личная','Семейная','Предметная / Каталог','Репортаж / Мероприятие','Lookbook / Fashion','Интерьер / Недвижимость','Другое'] }),
             _bf({ id:'shots', label:'Примерно кадров', type:'select', half:true, options:['До 20','20–50','50–100','100+','Обсудим'] }),
             _bf({ id:'location', label:'Место съёмки', type:'text', half:true, placeholder:'Студия / улица / адрес' }),
             _bf({ id:'deadline', label:'Желаемая дата', type:'date', half:true }),
             _bf({ id:'desc', label:'Опишите задачу', type:'textarea', primary:true, required:true, placeholder:'Что снимаем, для чего, желаемый стиль и настроение, нужна ли обработка/ретушь.' }),
-            _bf({ id:'sec_budget', type:'section', label:'💰 Бюджет и дополнительно' }), ...budgetSource,
+            _bf({ id:'sec_budget', type:'section', label:'Бюджет и дополнительно' }), ...budgetSource,
             _bf({ id:'references', label:'Референсы / примеры стиля', type:'textarea', placeholder:'Ссылки или описание...' }),
             _bf({ id:'extra', label:'Дополнительные пожелания', type:'textarea' }),
           ]},
           design: { title:'Заявка на дизайн', sub:'Расскажите о задаче — мы свяжемся в течение 24 часов и обсудим детали.', fields:[
-            _bf({ id:'sec_contacts', type:'section', label:'📋 Контактные данные' }), ...contacts,
-            _bf({ id:'sec_project', type:'section', label:'🎨 О проекте' }),
+            _bf({ id:'sec_contacts', type:'section', label:'Контактные данные' }), ...contacts,
+            _bf({ id:'sec_project', type:'section', label:'О проекте' }),
             _bf({ id:'designType', label:'Что нужно сделать', type:'select', half:true, options:['Логотип','Фирменный стиль','Дизайн для соцсетей','Презентация','Макет сайта / лендинга','Упаковка','Полиграфия','Другое'] }),
             _bf({ id:'brand', label:'Есть ли бренд-стиль?', type:'select', half:true, options:['Есть брендбук','Есть логотип','С нуля','Не знаю'] }),
             _bf({ id:'deadline', label:'Желаемый срок', type:'date', half:true }),
             _bf({ id:'desc', label:'Опишите задачу', type:'textarea', primary:true, required:true, placeholder:'Что нужно, для чего, кто аудитория, желаемое настроение/стиль, где будет использоваться.' }),
-            _bf({ id:'sec_budget', type:'section', label:'💰 Бюджет и дополнительно' }), ...budgetSource,
+            _bf({ id:'sec_budget', type:'section', label:'Бюджет и дополнительно' }), ...budgetSource,
             _bf({ id:'references', label:'Референсы / примеры, что нравится', type:'textarea' }),
             _bf({ id:'extra', label:'Дополнительные пожелания', type:'textarea' }),
           ]},
           ai: { title:'Заявка на ИИ-проект', sub:'Опишите идею — подскажем, что реально сделать с помощью ИИ, и сориентируем по цене.', fields:[
-            _bf({ id:'sec_contacts', type:'section', label:'📋 Контактные данные' }), ...contacts,
-            _bf({ id:'sec_project', type:'section', label:'🤖 О проекте' }),
+            _bf({ id:'sec_contacts', type:'section', label:'Контактные данные' }), ...contacts,
+            _bf({ id:'sec_project', type:'section', label:'О проекте' }),
             _bf({ id:'aiType', label:'Тип задачи', type:'select', half:true, options:['ИИ-видео / генерация','ИИ-аватар / цифровой ведущий','Генеративная графика','Озвучка / синтез речи','Клонирование голоса','Обработка / апскейл','Другое'] }),
             _bf({ id:'deadline', label:'Желаемый срок', type:'date', half:true }),
             _bf({ id:'desc', label:'Опишите идею', type:'textarea', primary:true, required:true, placeholder:'Что хотите получить, где будет использоваться, есть ли исходники (фото / голос / бренд).' }),
-            _bf({ id:'sec_budget', type:'section', label:'💰 Бюджет и дополнительно' }), ...budgetSource,
+            _bf({ id:'sec_budget', type:'section', label:'Бюджет и дополнительно' }), ...budgetSource,
             _bf({ id:'references', label:'Референсы / примеры', type:'textarea' }),
             _bf({ id:'extra', label:'Дополнительные пожелания', type:'textarea' }),
           ]},
           general: { title:'Заявка на проект', sub:'Расскажите, что нужно — мы свяжемся с вами в течение 24 часов.', fields:[
-            _bf({ id:'sec_contacts', type:'section', label:'📋 Контактные данные' }), ...contacts,
-            _bf({ id:'sec_project', type:'section', label:'📋 О проекте' }),
+            _bf({ id:'sec_contacts', type:'section', label:'Контактные данные' }), ...contacts,
+            _bf({ id:'sec_project', type:'section', label:'О проекте' }),
             _bf({ id:'projectType', label:'Что нужно сделать', type:'text', half:true, placeholder:'Видео, фото, дизайн, ИИ, комплекс...' }),
             _bf({ id:'deadline', label:'Желаемый срок', type:'date', half:true }),
             _bf({ id:'desc', label:'Опишите задачу', type:'textarea', primary:true, required:true, placeholder:'Чем подробнее опишете задачу, тем точнее будет предложение.' }),
-            _bf({ id:'sec_budget', type:'section', label:'💰 Бюджет и дополнительно' }), ...budgetSource,
+            _bf({ id:'sec_budget', type:'section', label:'Бюджет и дополнительно' }), ...budgetSource,
             _bf({ id:'references', label:'Референсы / примеры', type:'textarea' }),
             _bf({ id:'extra', label:'Дополнительные пожелания', type:'textarea' }),
           ]},
         };
-        const base = T[typeId] || T.video;
+        // Свой тип (own_*) ещё не имеет своих вопросов — показываем «Общий»,
+        // а не «Видео»: общий набор подходит любой задаче, видео-специфика нет.
+        const base = T[typeId] || (String(typeId).startsWith('own_') ? T.general : T.video);
         return { title: base.title, sub: base.sub, fields: base.fields.map(x => Object.assign({}, x, { options: (x.options || []).slice() })) };
       }
 
@@ -10938,7 +11006,7 @@
               <div class="brief-inner">
                 <div class="brief-card">
                   <div class="brief-success-wrap">
-                    <div class="brief-success-icon">✅</div>
+          <div class="brief-success-icon"></div>
                     <h2>Заявка отправлена!</h2>
                     <p>Мы получили вашу заявку и свяжемся с вами в течение 24 часов.</p>
                   </div>
@@ -11126,7 +11194,7 @@
 
       function copyPortalLink(portalId) {
         const link = location.origin + location.pathname + '?portal=' + portalId;
-        copyToClipboard(link, '🔗 Ссылка на КП скопирована');
+    copyToClipboard(link, 'Ссылка на КП скопирована');
       }
 
       function _portalStatus(p) {
@@ -11174,7 +11242,7 @@
               <div class="kp-row-dot ${st.cls}"></div>
               <div class="kp-row-main" onclick="app.openDeal('${p.project_id}')" title="Открыть сделку" style="cursor:pointer">
                 <div class="kp-row-name">${escapeHtml(p.deal_name || 'Без названия')}</div>
-                <div class="kp-row-sub">${money(p.total_price || 0)}${p.advance_amount ? ` · аванс ${money(p.advance_amount)}${p.advance_paid_at ? ' ✅' : ''}` : ''}${p.signer_name ? ` · подписал ${escapeHtml(p.signer_name)}` : ''}${date ? ` · ${date}` : ''}</div>
+        <div class="kp-row-sub">${money(p.total_price || 0)}${p.advance_amount ? ` · аванс ${money(p.advance_amount)}${p.advance_paid_at ? ' ' : ''}` : ''}${p.signer_name ? ` · подписал ${escapeHtml(p.signer_name)}` : ''}${date ? ` · ${date}` : ''}</div>
               </div>
               <span class="status-pill ${st.cls}" style="font-size:11px;flex-shrink:0">${st.label}</span>
               <button class="icon-btn no-print" onclick="event.stopPropagation();app.copyPortalLink('${p.id}')" title="Скопировать ссылку на КП" aria-label="Скопировать ссылку">
@@ -11314,16 +11382,18 @@
         }
         const activeType = _isBriefType(_briefTypeTab) ? _briefTypeTab : 'video';
         const link = getBriefLink(activeType);
-        const typeMeta = BRIEF_TYPES.find(t => t.id === activeType) || BRIEF_TYPES[0];
+        const typeMeta = allBriefTypes().find(t => t.id === activeType) || BRIEF_TYPES[0];
         const customized = !!(state.briefTemplates && state.briefTemplates[activeType]);
         const newBriefs = _briefs.filter(b => b.status !== 'converted');
         const done = _briefs.filter(b => b.status === 'converted');
-        const chips = BRIEF_TYPES.map(t => {
+        const chips = allBriefTypes().map(t => {
           const isCustom = !!(state.briefTemplates && state.briefTemplates[t.id]);
           return `<button class="brief-type-chip ${t.id === activeType ? 'active' : ''}" onclick="app.setBriefTypeTab('${t.id}')" title="Бриф «${escapeHtml(t.label)}»">
-            <span class="brief-type-ic">${t.icon}</span><span>${escapeHtml(t.label)}</span>${isCustom ? '<span class="brief-type-dot" title="Вопросы изменены под вас"></span>' : ''}
+            <span class="brief-type-ic">${icon(t.icon, 15)}</span><span>${escapeHtml(t.label)}</span>${isCustom ? '<span class="brief-type-dot" title="Вопросы изменены под вас"></span>' : ''}
           </button>`;
-        }).join('');
+        }).join('') + `<button class="brief-type-chip brief-type-add" onclick="app.addCustomBriefType()" title="Создать свой тип брифа">
+            <span class="brief-type-ic">${icon('plus', 15)}</span><span>Свой бриф</span>
+          </button>`;
         return `
           <div>
             <div class="panel" style="margin-bottom:14px">
@@ -11337,16 +11407,17 @@
               <div class="brief-type-panel">
                 <div class="brief-type-panel-head">
                   <div style="min-width:0">
-                    <div class="brief-type-panel-title">${typeMeta.icon} Бриф «${escapeHtml(typeMeta.label)}»</div>
+                    <div class="brief-type-panel-title" style="display:flex;align-items:center;gap:8px">${icon(typeMeta.icon, 17)} Бриф «${escapeHtml(typeMeta.label)}»</div>
                     <div class="u-meta" style="margin-top:2px">${customized ? 'Вопросы изменены под вас' : 'Стандартный набор вопросов'}</div>
                   </div>
                   <div class="toolbar no-print">
-                    <button class="btn small" onclick="app.openBriefEditor('${activeType}')">✏️ Редактировать вопросы</button>
-                    <button class="btn small" onclick="app.previewBrief('${activeType}')" title="Открыть форму как клиент (новая вкладка)">Предпросмотр</button>
+                    <button class="btn small" onclick="app.openBriefEditor('${activeType}')" style="display:inline-flex;align-items:center;gap:6px">${icon('pencil', 14)} Редактировать вопросы</button>
+                    <button class="btn small" onclick="app.previewBrief('${activeType}')" title="Открыть форму как клиент (новая вкладка)" style="display:inline-flex;align-items:center;gap:6px">${icon('eye', 14)} Предпросмотр</button>
+                    ${typeMeta.custom ? `<button class="btn small danger" onclick="app.removeCustomBriefType('${activeType}')" title="Удалить свой бриф" aria-label="Удалить бриф «${escapeHtml(typeMeta.label)}»" style="display:inline-flex;align-items:center;gap:6px">${icon('trash', 14)}</button>` : ''}
                   </div>
                 </div>
                 <div class="brief-link-box" style="margin-top:12px">
-                  <span style="font-size:18px;flex-shrink:0">🔗</span>
+                  <span style="flex-shrink:0;display:inline-flex;color:var(--muted)">${icon('link', 16)}</span>
                   <span class="brief-link-url">${escapeHtml(link)}</span>
                 </div>
                 <div class="toolbar no-print" style="margin-top:10px">
@@ -11360,7 +11431,7 @@
 
             ${newBriefs.length === 0 && done.length === 0 ? `
               <div class="panel" style="text-align:center;padding:48px 24px">
-                <div style="font-size:48px;margin-bottom:16px">📋</div>
+                <div style="font-size:48px;margin-bottom:16px"></div>
                 <h3 style="margin:0 0 8px">Нет новых заявок</h3>
                 <p style="color:var(--muted);font-size:14px">Скопируйте ссылку и поделитесь ею с клиентами</p>
               </div>
@@ -11396,9 +11467,9 @@
       // Иконки для распространённых меток (кастомные метки → «•»). Ключи — по вхождению
       // подстроки, чтобы ловить и переименованные варианты («Референсы / примеры» и т.п.).
       const _BRIEF_ICON_HINTS = [
-        [/референс|пример|ссылк/i, "🔗"], [/дополнит|пожелан/i, "💬"], [/формат/i, "🎬"],
-        [/длительн|срок|дата|дедлайн/i, "📅"], [/компан|организац/i, "🏢"], [/город|место|локац|адрес/i, "📍"],
-        [/источник|узнал/i, "📣"], [/тип|что нужно|задач/i, "🎯"], [/кадр|фото/i, "🖼"], [/бренд|стиль/i, "🎨"],
+    [/референс|пример|ссылк/i, ""], [/дополнит|пожелан/i, ""], [/формат/i, ""],
+    [/длительн|срок|дата|дедлайн/i, ""], [/компан|организац/i, ""], [/город|место|локац|адрес/i, ""],
+    [/источник|узнал/i, ""], [/тип|что нужно|задач/i, ""], [/кадр|фото/i, ""], [/бренд|стиль/i, ""],
       ];
       function _briefFieldMeta(label) {
         const l = String(label || "");
@@ -11445,9 +11516,9 @@
               <div style="min-width:0;flex:1">
                 <div style="font-size:15px;font-weight:800">${escapeHtml(b.client_name || 'Без имени')}</div>
                 <div style="font-size:12px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:8px">
-                  ${b.client_email ? `<span>📧 ${escapeHtml(b.client_email)}</span>` : ''}
-                  ${b.client_phone ? `<span>📞 ${escapeHtml(b.client_phone)}</span>` : ''}
-                  ${date ? `<span>🕐 ${date}</span>` : ''}
+         ${b.client_email ? `<span> ${escapeHtml(b.client_email)}</span>` : ''}
+         ${b.client_phone ? `<span> ${escapeHtml(b.client_phone)}</span>` : ''}
+         ${date ? `<span> ${date}</span>` : ''}
                 </div>
               </div>
               <div style="display:flex;gap:6px;flex-shrink:0;align-items:center" onclick="event.stopPropagation()">
@@ -11463,7 +11534,7 @@
             <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-top:10px">
               ${b.project_type ? `<span style="background:rgba(124,58,237,.1);color:var(--primary2);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.project_type)}</span>` : ''}
               ${b.budget ? `<span style="background:rgba(37,99,235,.1);color:var(--blue);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.budget)}</span>` : ''}
-              ${b.deadline ? `<span style="background:rgba(202,138,4,.1);color:var(--yellow);border-radius:6px;padding:2px 8px;font-weight:700">📅 ${escapeHtml(b.deadline)}</span>` : ''}
+              ${b.deadline ? `<span style="background:rgba(202,138,4,.1);color:var(--yellow);border-radius:6px;padding:2px 8px;font-weight:700"> ${escapeHtml(b.deadline)}</span>` : ''}
             </div>
             ${!expanded && preview ? `<p class="brief-preview" onclick="app.toggleBriefExpand('${b.id}')" style="cursor:pointer">${escapeHtml(preview)}</p>` : ""}
             ${expanded ? (() => {
@@ -11471,7 +11542,7 @@
               if (parsed.free) {
                 parts.push(`
                   <div class="brief-idea">
-                    <span class="brief-field-label">💡 Идея проекта</span>
+          <span class="brief-field-label"> Идея проекта</span>
                     <p>${_linkifyEscaped(parsed.free)}</p>
                   </div>`);
               }
@@ -11600,7 +11671,7 @@
         const type = state.briefEditorType;
         const d = _briefEditorDraft;
         if (!type || !d) return '';
-        const tm = BRIEF_TYPES.find(t => t.id === type) || { label: type, icon: '📋' };
+        const tm = allBriefTypes().find(t => t.id === type) || { label: type, icon: 'clipboard' };
         const TYPE_OPTS = [['text','Текст'],['textarea','Большое поле'],['select','Список'],['tel','Телефон'],['email','Email'],['date','Дата']];
         const fieldRow = (fld, i) => {
           const isSection = fld.type === 'section';
@@ -11930,7 +12001,7 @@
         if (done === steps.length) {
           return `
           <div class="panel" style="margin-bottom:14px;border:1px solid rgba(22,163,74,.3);background:rgba(22,163,74,.05);display:flex;align-items:center;gap:12px">
-            <div style="font-size:22px;flex:0 0 auto">🎉</div>
+            <div style="font-size:22px;flex:0 0 auto"></div>
             <div class="u-flex1">
               <div style="font-weight:700;font-size:14px;margin-bottom:2px">Первые шаги пройдены</div>
               <div class="u-meta">Сделка, смета и КП на месте. Дальше сделка живёт в воронке: статусы, задачи и деньги считаются сами.</div>
@@ -11944,7 +12015,7 @@
           <div class="panel" style="margin-bottom:14px;border:1px solid rgba(124,58,237,.25)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
               <div>
-                <div style="font-weight:700;font-size:14px;margin-bottom:2px">🚀 Начало работы</div>
+                <div style="font-weight:700;font-size:14px;margin-bottom:2px"> Начало работы</div>
                 <div class="u-meta">${done} из ${steps.length} шагов выполнено</div>
               </div>
               ${hideBtn}
@@ -12195,7 +12266,7 @@
             <!-- ── DASHBOARD HEADER ─────────────────────── -->
             <div class="db-header">
               <div class="db-header-left">
-                <h1 class="db-greeting">Привет, ${escapeHtml(_adminSession?.user?.user_metadata?.name || _adminSession?.user?.user_metadata?.full_name || (_adminSession?.user?.email||"").split("@")[0] || "команда")} 👋</h1>
+        <h1 class="db-greeting">Привет, ${escapeHtml(_adminSession?.user?.user_metadata?.name || _adminSession?.user?.user_metadata?.full_name || (_adminSession?.user?.email||"").split("@")[0] || "команда")} </h1>
                 <p class="db-date">В ${curMonthName} · ${projects.length} ${plural(projects.length, "сделка", "сделки", "сделок")} · ${inWork} в работе</p>
               </div>
             </div>
@@ -12220,7 +12291,7 @@
               <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')" title="Долг клиентов">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${totalDebt>0?"rgba(234,88,12,.15);color:var(--text-warning)":"rgba(22,163,74,.15);color:var(--text-success)"}"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Долг клиентов</span></div>
                 <div class="db-stat-value" style="${totalDebt>0?"color:var(--orange)":"color:var(--green)"}">${money(totalDebt)}</div>
-                <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
+        <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
               </div>
               <div class="db-stat" title="Воронка">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.funnel}</svg></span><span class="db-stat-label">Воронка</span></div>
@@ -12249,7 +12320,7 @@
               <div class="db-stat ${overdueCount>0?"db-stat-warn":""}" onclick="app.go('global-calendar')" title="Дедлайны / 7 дн">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${overdueCount>0?"rgba(220,38,38,.13);color:var(--text-danger)":"rgba(22,163,74,.15);color:var(--text-success)"}"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.calendar}</svg></span><span class="db-stat-label">Дедлайны / 7 дн</span></div>
                 <div class="db-stat-value">${uniqueDeadlines.length}</div>
-                <div class="db-stat-delta ${overdueCount>0?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${overdueCount>0?overdueCount+" просрочено":uniqueDeadlines.length>0?"ближ. "+formatDate(uniqueDeadlines[0].date):"нет ✓"}</div>
+        <div class="db-stat-delta ${overdueCount>0?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${overdueCount>0?overdueCount+" просрочено":uniqueDeadlines.length>0?"ближ. "+formatDate(uniqueDeadlines[0].date):"нет ✓"}</div>
               </div>
             </div>
 
@@ -12494,8 +12565,8 @@
                         if (!project.deadline && !note && !tags.length) return "";
                         return `
                       <div class="deal-card-meta">
-                        ${project.deadline ? `<div class="deal-card-deadline" style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${escapeHtml(formatDate(project.deadline))}${u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : ""}</div>` : ""}
-                        ${note ? `<div class="deal-card-note" title="${escapeHtml(note)}">💬 ${escapeHtml(note)}</div>` : ""}
+                        ${project.deadline ? `<div class="deal-card-deadline" style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}"> ${escapeHtml(formatDate(project.deadline))}${u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : ""}</div>` : ""}
+            ${note ? `<div class="deal-card-note" title="${escapeHtml(note)}"> ${escapeHtml(note)}</div>` : ""}
                         ${tags.length ? `<div class="deal-card-tags">${tags.map(t=>`<span class="deal-card-tag" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
                       </div>`;
                       })()}
@@ -12625,7 +12696,7 @@
               <div class="mt-8">
                 <span class="margin-badge ${marginClass}">${margin}% маржа</span>
               </div>
-              ${fin.profit < 0 ? `<div class="no-print" style="margin-top:10px;padding:9px 12px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;font-size:12px;font-weight:700;color:var(--red)">⚠️ Смета в минусе: себестоимость и расходы превышают цену для клиента</div>` : ""}
+              ${fin.profit < 0 ? `<div class="no-print" style="margin-top:10px;padding:9px 12px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;font-size:12px;font-weight:700;color:var(--red)"> Смета в минусе: себестоимость и расходы превышают цену для клиента</div>` : ""}
             </div>
 
             <div class="toolbar no-print" style="margin-top:16px">
@@ -12912,14 +12983,14 @@
         if (!m) return "";
         const PKG_CATS = [
           ["", "— без категории —"],
-          ["social",    "📱 Соц. сети"],
-          ["interview", "🎙 Интервью"],
-          ["business",  "🎬 Бизнес-видео"],
-          ["events",    "🎪 Мероприятия"],
-          ["ai",        "🤖 ИИ / AI"],
-          ["graphic",   "✨ Графика"],
-          ["photo",     "📸 Фото"],
-          ["corporate", "🏢 Корпоративный"]
+     ["social",  "Соц. сети"],
+     ["interview", "Интервью"],
+     ["business", "Бизнес-видео"],
+     ["events",  "Мероприятия"],
+     ["ai",    "ИИ / AI"],
+     ["graphic",  "Графика"],
+     ["photo",   "Фото"],
+     ["corporate", "Корпоративный"]
         ];
         const pkg = (state.packages || []).find(p => p.id === m.id);
         const pkgItems = pkg ? getPackageItems(pkg) : [];
@@ -13081,7 +13152,7 @@
               <div class="pkg-card-for">Для: ${escapeHtml(pkg.goodFor || "проектов")}</div>
 
               <div class="pkg-card-items">
-                ${pkgItems.slice(0, 5).map(x => `<div class="pkg-item-line">✓ ${escapeHtml(x.name)}</div>`).join("")}
+        ${pkgItems.slice(0, 5).map(x => `<div class="pkg-item-line">✓ ${escapeHtml(x.name)}</div>`).join("")}
                 ${pkgItems.length > 5 ? `<div class="pkg-item-line" style="color:var(--muted);opacity:.7">+ ещё ${pkgItems.length - 5} ${plural(pkgItems.length - 5, "позиция", "позиции", "позиций")}</div>` : ""}
               </div>
 
@@ -13421,7 +13492,7 @@
         return `
           ${services.length ? `<div class="catalog-grid">${services.map(renderCatalogItem).join("")}</div>` : ""}
           ${costs.length ? `
-            <div class="catalog-section-divider">💸 Подписки и AI-кредиты — расходы, не услуги с наценкой</div>
+      <div class="catalog-section-divider"> Подписки и AI-кредиты — расходы, не услуги с наценкой</div>
             <div class="catalog-grid">${costs.map(renderCatalogItem).join("")}</div>
           ` : ""}
         `;
@@ -13454,7 +13525,7 @@
                 ${isPassthroughCostItem(itemData) || state.favorites[itemData.id] ? `
                 <div class="badges">
                   ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>` : ""}
-                  ${state.favorites[itemData.id] ? `<span class="status-pill">★ избранное</span>` : ""}
+         ${state.favorites[itemData.id] ? `<span class="status-pill"> избранное</span>` : ""}
                 </div>
                 ` : ""}
               </div>
@@ -13754,7 +13825,7 @@
           <article class="item ${line.optional ? "optional" : ""}" ondragstart="app.dragStart(event,'${id}')" ondragover="app.dragOver(event,'${id}')" ondragleave="app.dragLeaveLine(event)" ondrop="app.dropOn(event,'${id}')" ondragend="app.dragEndLine(event)">
             <div class="item-top">
               <div style="display:flex;gap:12px;flex:1;min-width:0">
-                <div class="drag-handle no-print" title="Перетащи для сортировки" onmousedown="this.closest('.item').draggable=true" onmouseup="this.closest('.item').draggable=false">☰</div>
+        <div class="drag-handle no-print" title="Перетащи для сортировки" onmousedown="this.closest('.item').draggable=true" onmouseup="this.closest('.item').draggable=false"></div>
                 <div class="u-flex1-min0">
                   <input class="line-name-input" type="text" data-autosave data-scope="line" data-id="${id}" data-key="lineName" value="${escapeHtml(line.lineName || "")}" placeholder="${escapeHtml(itemData.name)}" title="Нажми, чтобы переименовать позицию" style="color:var(--text);font-weight:750;font-size:15px">
                   ${!collapsed ? `<textarea class="line-desc-input" data-autosave data-scope="line" data-id="${id}" data-key="editedDesc" placeholder="${escapeHtml(itemData.desc)}" title="Нажми чтобы отредактировать описание" style="color:var(--muted);font-size:12px">${escapeHtml(line.editedDesc || "")}</textarea>` : ""}
@@ -13806,7 +13877,7 @@
               })()}
 
               <details class="mt-10" ${(state.lineCommentsOpen && id in state.lineCommentsOpen ? state.lineCommentsOpen[id] : (line.clientComment || line.internalComment)) ? "open" : ""} ontoggle="app.setLineCommentsOpen('${id}', this.open)">
-                <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:750;padding:4px 0">💬 Комментарий для клиента / внутренняя заметка</summary>
+                <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:750;padding:4px 0"> Комментарий для клиента / внутренняя заметка</summary>
                 <div class="grid two" style="margin-top:8px;gap:8px">
                   <div class="field" style="margin:0">
                     <label>Комментарий для клиента</label>
@@ -14293,8 +14364,8 @@
                       ${cDebt ? `<span style="color:var(--orange)" title="Долг клиента">долг ${money(cDebt)}</span>` : ""}
                     </div>
                     <div class="badges" style="margin-top:8px">
-                      ${client.phone ? `<span class="badge">📞 ${escapeHtml(client.phone)}</span>` : ""}
-                      ${client.email ? `<span class="badge">✉ ${escapeHtml(client.email)}</span>` : ""}
+           ${client.phone ? `<span class="badge"> ${escapeHtml(client.phone)}</span>` : ""}
+           ${client.email ? `<span class="badge"> ${escapeHtml(client.email)}</span>` : ""}
                     </div>
                     ${client.note ? `<p style="font-size:12px;margin-top:8px">${escapeHtml(client.note.slice(0,80))}${client.note.length > 80 ? "…" : ""}</p>` : ""}
                     ${cProjects.length ? `<div class="toolbar no-print" style="margin-top:10px">
@@ -14634,14 +14705,14 @@
         return `
           <div class="gtask-row ${done ? "done" : ""}" onclick="${clickAction}" title="${isGlobal ? "Открыть задачу" : "Открыть в проекте"}">
             ${isGlobal
-              ? `<button class="gtask-check ${done ? "checked" : ""}" onclick="event.stopPropagation();app.toggleGlobalTaskDone('${idSafe}')" title="${done ? "Вернуть в работу" : "Отметить готово"}" aria-label="Готово">${done ? "✓" : ""}</button>`
+       ? `<button class="gtask-check ${done ? "checked" : ""}" onclick="event.stopPropagation();app.toggleGlobalTaskDone('${idSafe}')" title="${done ? "Вернуть в работу" : "Отметить готово"}" aria-label="Готово">${done ? "✓" : ""}</button>`
               : `<span class="gtask-dot" style="background:${statusColor}" title="${escapeHtml(t.status)}"></span>`}
             <div class="gtask-main">
               <div class="gtask-title">${escapeHtml(t.title)}</div>
               <div class="gtask-meta">
-                <span class="gtask-project ${isGlobal ? "personal" : ""}">${isGlobal ? "★ Личная" : escapeHtml(row.projectName)}</span>
-                ${t.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${escapeHtml(formatDate(t.deadline))}${u && u.level !== "ok" ? " · " + escapeHtml(u.label) : ""}</span>` : ""}
-                ${t.assignee ? `<span>👤 ${escapeHtml(t.assignee)}</span>` : ""}
+        <span class="gtask-project ${isGlobal ? "personal" : ""}">${isGlobal ? "Личная" : escapeHtml(row.projectName)}</span>
+                ${t.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}"> ${escapeHtml(formatDate(t.deadline))}${u && u.level !== "ok" ? " · " + escapeHtml(u.label) : ""}</span>` : ""}
+        ${t.assignee ? `<span> ${escapeHtml(t.assignee)}</span>` : ""}
               </div>
             </div>
             <span class="status-pill" style="font-size:12px;border-color:${statusColor}55;color:${statusColor}">${escapeHtml(t.status)}</span>
@@ -14798,7 +14869,7 @@
                   ${TASK_REPEAT_OPTIONS.map(r => `<option value="${r}" ${task.repeat===r?"selected":""}>${TASK_REPEAT_LABELS[r]}</option>`).join("")}
                 </select>`)}
                 ${field("Комментарий", `<textarea data-autosave data-scope="task" data-id="${task.id}" data-key="note" style="min-height:60px">${escapeHtml(task.note)}</textarea>`)}
-                ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn_${task.id}" class="btn small" onclick="app.syncTaskToGoogle('${task.id}')">${_myGoogleEventId(task) ? "🔄 Обновить в Google Calendar" : "📅 В Google Calendar"}</button>` : ""}
+        ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn_${task.id}" class="btn small" onclick="app.syncTaskToGoogle('${task.id}')">${_myGoogleEventId(task) ? "Обновить в Google Calendar" : "В Google Calendar"}</button>` : ""}
               </div>
             </details>
           </article>
@@ -14909,8 +14980,8 @@
                   </div>
                   <div class="toolbar">
                     <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать в Excel (.xlsx)" aria-label="Экспорт в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>
-                    <button class="btn" onclick="app.printInvoice()" title="Сформировать счёт на оплату PDF">🧾 Счёт</button>
-                    ${(state.savedProjects||[]).find(p=>p.id===state.activeProjectId)?.debt > 0 ? `<button class="btn" onclick="app.sendDebtReminder()" title="Отправить напоминание о долге в Telegram">📲 Напомнить об оплате</button>` : ""}
+          <button class="btn" onclick="app.printInvoice()" title="Сформировать счёт на оплату PDF"> Счёт</button>
+          ${(state.savedProjects||[]).find(p=>p.id===state.activeProjectId)?.debt > 0 ? `<button class="btn" onclick="app.sendDebtReminder()" title="Отправить напоминание о долге в Telegram"> Напомнить об оплате</button>` : ""}
                   </div>
                 </div>
               `}
@@ -14944,7 +15015,7 @@
                       if (!budget) return `<button class="btn small no-print" style="margin-top:4px;font-size:12px" onclick="app._setExpenseBudget()">+ Бюджет</button>`;
                       const over = f.totalExpenses - budget;
                       const pct = Math.round(f.totalExpenses / budget * 100);
-                      return `<span style="color:${over>0?"var(--red)":"var(--muted)"}">Бюджет: ${money(budget)} (${pct}%)</span>${over>0?` <span style="color:var(--red);font-size:12px">⚠ +${money(over)}</span>`:""}`;
+                      return `<span style="color:${over>0?"var(--red)":"var(--muted)"}">Бюджет: ${money(budget)} (${pct}%)</span>${over>0?` <span style="color:var(--red);font-size:12px"> +${money(over)}</span>`:""}`;
                     })()}
                   </div>
                 </div>
@@ -15223,7 +15294,7 @@
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
                 <span style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Выплата</span>
                 <span style="font-size:12px;font-weight:700;color:${statusColor}">
-                  ${isFullyPaid ? "✓ Оплачено полностью" : paidAmount > 0 ? `${paidPct}% выплачено` : "Не выплачено"}
+         ${isFullyPaid ? "✓ Оплачено полностью" : paidAmount > 0 ? `${paidPct}% выплачено` : "Не выплачено"}
                 </span>
               </div>
 
@@ -15388,7 +15459,7 @@
                 </div>
               </div>
               <div style="min-height:50vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:48px 24px;text-align:center">
-                <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(37,99,235,.12));display:grid;place-items:center;font-size:32px">📋</div>
+                <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(37,99,235,.12));display:grid;place-items:center;font-size:32px"></div>
                 <h2 style="margin:0;font-size:22px">Воронка пуста</h2>
                 <p style="margin:0;color:var(--muted);max-width:360px;line-height:1.5">Сохраните текущую смету в CRM, чтобы видеть сделки по статусам и отслеживать воронку продаж.</p>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
@@ -15435,7 +15506,7 @@
                           ondragstart="app.onKanbanDragStart(event,'${project.id}','crm')"
                           ondragend="document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('dragover'))">
                           <h3>${escapeHtml(project.name)}</h3>
-                          <p${project.clientId ? "" : ` style="color:var(--yellow);font-weight:700" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно"`}>${project.clientId ? escapeHtml(project.client) : `⚠ ${project.client ? escapeHtml(project.client) + " · не привязан" : "Клиент не привязан"}`}</p>
+                          <p${project.clientId ? "" : ` style="color:var(--yellow);font-weight:700" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно"`}>${project.clientId ? escapeHtml(project.client) : ` ${project.client ? escapeHtml(project.client) + " · не привязан" : "Клиент не привязан"}`}</p>
                           <div class="badges">
                             <span class="badge">${money(project.total)}</span>
                             ${project.deadline ? `<span class="badge">${formatDate(project.deadline)}</span>` : ""}
@@ -15443,7 +15514,7 @@
                           </div>
                           <div class="toolbar no-print" style="margin-top:10px">
                             <button class="btn primary small" onclick="app.loadSavedProject('${project.id}')">Открыть</button>
-                            <button class="btn small" onclick="app.createClientPortal('${project.id}')" title="Создать ссылку КП для клиента">🔗 КП-ссылка</button>
+              <button class="btn small" onclick="app.createClientPortal('${project.id}')" title="Создать ссылку КП для клиента"> КП-ссылка</button>
                           </div>
                           <select class="task-mini-select no-print" style="margin-top:8px;max-width:100%" title="Переместить в этап" aria-label="Переместить задачу в этап"
                             onchange="app.setKanbanStatus('crm','${project.id}',this.value)">
@@ -15883,13 +15954,13 @@
           </div>`;
 
         const insights = [];
-        if (collect >= 90) insights.push(["✅", "good", `Отличная собираемость — оплачено ${collect}% от суммы всех сделок (${money(allPaid)} из ${money(allTotal)}).`]);
-        else if (collect > 0) insights.push(["⚠️", "warn", `Собираемость ${collect}% — оплачено ${money(allPaid)} из ${money(allTotal)}. Есть смысл напомнить клиентам об оплате.`]);
-        if (bestKey) insights.push(["📈", "good", `Лучший месяц — ${monthTitle(bestKey)}: ${money(incByMonth[bestKey])} поступлений.`]);
-        if (topCat && totalExpense > 0) insights.push(["🧾", "", `Больше всего расходов — «${escapeHtml(topCat[0])}»: ${money(topCat[1])} (${Math.round(topCat[1] / totalExpense * 100)}% всех трат).`]);
-        insights.push([margin >= 50 ? "🟢" : margin >= 25 ? "🟡" : "🔴", "", `Маржа ${margin}% — ${margin >= 50 ? "высокая, бизнес прибыльный" : margin >= 25 ? "нормальная" : "низкая: стоит поднять цены или срезать расходы"}.`]);
-        if (trend !== null) insights.push([trend >= 0 ? "⬆️" : "⬇️", trend >= 0 ? "good" : "warn", `Доход этого месяца ${trend >= 0 ? "выше" : "ниже"} прошлого на ${Math.abs(trend)}%.`]);
-        if (avgMonthly > 0) insights.push(["📅", "", `При текущем темпе за год выйдет около ${money(avgMonthly * 12)} поступлений.`]);
+    if (collect >= 90) insights.push(["", "good", `Отличная собираемость — оплачено ${collect}% от суммы всех сделок (${money(allPaid)} из ${money(allTotal)}).`]);
+    else if (collect > 0) insights.push(["", "warn", `Собираемость ${collect}% — оплачено ${money(allPaid)} из ${money(allTotal)}. Есть смысл напомнить клиентам об оплате.`]);
+    if (bestKey) insights.push(["", "good", `Лучший месяц — ${monthTitle(bestKey)}: ${money(incByMonth[bestKey])} поступлений.`]);
+    if (topCat && totalExpense > 0) insights.push(["", "", `Больше всего расходов — «${escapeHtml(topCat[0])}»: ${money(topCat[1])} (${Math.round(topCat[1] / totalExpense * 100)}% всех трат).`]);
+    insights.push([margin >= 50 ? "" : margin >= 25 ? "" : "", "", `Маржа ${margin}% — ${margin >= 50 ? "высокая, бизнес прибыльный" : margin >= 25 ? "нормальная" : "низкая: стоит поднять цены или срезать расходы"}.`]);
+    if (trend !== null) insights.push([trend >= 0 ? "" : "", trend >= 0 ? "good" : "warn", `Доход этого месяца ${trend >= 0 ? "выше" : "ниже"} прошлого на ${Math.abs(trend)}%.`]);
+    if (avgMonthly > 0) insights.push(["", "", `При текущем темпе за год выйдет около ${money(avgMonthly * 12)} поступлений.`]);
 
         const insightsHtml = `
           <div class="analytics-section">
@@ -15943,7 +16014,7 @@
                     <td class="amount-cell expense" style="text-align:right">${money(p._debt)}</td>
                   </tr>
                 `).join("") : `
-                  <tr><td colspan="4" style="text-align:center;padding:32px;color:var(--muted)">Все активные сделки оплачены полностью 🎉</td></tr>
+                  <tr><td colspan="4" style="text-align:center;padding:32px;color:var(--muted)">Все активные сделки оплачены полностью </td></tr>
                 `}
               </tbody>
               ${debtors.length ? `
@@ -16779,7 +16850,7 @@
                 <div id="dealBarSwitcher">${renderDealSwitcherButtonHtml()}</div>
                 ${state.project.client ? `<span class="badge" style="font-size:12px">${escapeHtml(state.project.client)}</span>` : ""}
                 <span class="margin-badge ${marginClass}" style="font-size:12px">${margin}% маржа</span>
-                ${(() => { const u = deadlineUrgency(state.project.deadline); if (!u || u.level === "ok") return ""; return `<span style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px">⚡ ${escapeHtml(u.label)}</span>`; })()}
+                ${(() => { const u = deadlineUrgency(state.project.deadline); if (!u || u.level === "ok") return ""; return `<span style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px"> ${escapeHtml(u.label)}</span>`; })()}
               </div>
 
               <div class="deal-actions-group">
@@ -16811,7 +16882,7 @@
               ${CRM_STATUSES.map((s, i) => {
                 const isDone = i < currentIdx;
                 const isActive = i === currentIdx;
-                return `<div class="dsp-step ${isDone ? "done" : ""} ${isActive ? "active" : ""}" onclick="app.updateProject('crmStatus','${s}')" title="${isDone ? "✓ " : ""}${s}">${isDone ? `<div class="dsp-pill">✓ ${s}</div>` : `<div class="dsp-pill">${isActive ? "● " : ""}${s}</div>`}</div>${i < CRM_STATUSES.length - 1 ? `<div class="dsp-line ${isDone ? "done" : ""}"></div>` : ""}`;
+        return `<div class="dsp-step ${isDone ? "done" : ""} ${isActive ? "active" : ""}" onclick="app.updateProject('crmStatus','${s}')" title="${isDone ? "✓ " : ""}${s}">${isDone ? `<div class="dsp-pill">✓ ${s}</div>` : `<div class="dsp-pill">${isActive ? "● " : ""}${s}</div>`}</div>${i < CRM_STATUSES.length - 1 ? `<div class="dsp-line ${isDone ? "done" : ""}"></div>` : ""}`;
               }).join("")}
             </div>
 
@@ -16831,7 +16902,7 @@
         if (!file) return;
 
         if (!file.type.startsWith("image/")) {
-          toast("⚠️ Выберите файл изображения: SVG, PNG, JPG или WEBP");
+     toast("Выберите файл изображения: SVG, PNG, JPG или WEBP");
           event.target.value = "";
           return;
         }
@@ -17441,7 +17512,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!applied) return false;
         if (draft.name) state.project.name = draft.name;
         state.view = "deal";
-        toast(`✅ Смета из калькулятора перенесена: ${applied} ${plural(applied, "позиция", "позиции", "позиций")}`);
+    toast(`Смета из калькулятора перенесена: ${applied} ${plural(applied, "позиция", "позиции", "позиций")}`);
         trackGoal("calc_draft_imported");
         return true;
       }
@@ -17468,56 +17539,56 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       // всего спрашивают именно к этой задаче.
       const CALC_NEEDS = [
         {
-          id: "social", icon: "📱", title: "Ролики для соцсетей",
+     id: "social", icon: "", title: "Ролики для соцсетей",
           sub: "Reels, Shorts, VK Клипы, регулярный контент",
           tiers: ["social_start", "social_pro", "social_media"],
           days: true, weeks: [1, 2, 3],
           extras: ["vertical_adapt", "smm_cutdowns", "drone", "makeup", "location_rent", "voiceover_record"]
         },
         {
-          id: "business", icon: "🎬", title: "Видео о компании",
+     id: "business", icon: "", title: "Видео о компании",
           sub: "Имиджевый ролик, презентация продукта, реклама",
           tiers: ["business_video", "brand_film_mid", "ad_video_pro"],
           days: true, weeks: [3, 4, 6],
           extras: ["drone", "location_rent", "makeup", "voiceover_record", "motion_basic", "vertical_adapt"]
         },
         {
-          id: "interview", icon: "🎙", title: "Интервью и экспертное видео",
+     id: "interview", icon: "", title: "Интервью и экспертное видео",
           sub: "Спикер, HR-бренд, обучающий контент",
           tiers: ["interview_base", "interview_studio", "interview_cinema"],
           days: true, weeks: [2, 3, 4],
           extras: ["studio_basic", "makeup", "subtitles", "vertical_adapt", "smm_cutdowns", "motion_basic"]
         },
         {
-          id: "events", icon: "🎪", title: "Съёмка мероприятия",
+     id: "events", icon: "", title: "Съёмка мероприятия",
           sub: "Конференция, корпоратив, форум, трансляция",
           tiers: ["event_basic", "event_conference", "event_online"],
           days: true, weeks: [1, 2, 3],
           extras: ["event_photographer", "event_stream", "drone", "event_teaser", "smm_cutdowns", "event_decoration_zone"]
         },
         {
-          id: "corporate", icon: "🏢", title: "Корпоративный фильм",
+     id: "corporate", icon: "", title: "Корпоративный фильм",
           sub: "Команда, производство, интервью сотрудников",
           tiers: ["corporate_start", "corporate_video", "corporate_premium"],
           days: true, weeks: [3, 4, 6],
           extras: ["drone", "photographer", "voiceover_record", "motion_basic", "smm_cutdowns", "location_rent"]
         },
         {
-          id: "photo", icon: "📸", title: "Фотосъёмка",
+     id: "photo", icon: "", title: "Фотосъёмка",
           sub: "Команда, товары, репортаж, портреты",
           tiers: ["photo_content", "photo_content_pro", "photo_content_premium"],
           days: true, weeks: [1, 2, 3],
           extras: ["makeup", "studio_basic", "location_rent", "props", "drone", "cover_design"]
         },
         {
-          id: "graphic", icon: "✨", title: "Анимация и графика",
+     id: "graphic", icon: "", title: "Анимация и графика",
           sub: "Explainer, motion-дизайн, титры, инфографика",
           tiers: ["graphic_start", "graphic_pro", "graphic_explainer"],
           days: false, weeks: [2, 3, 5],
           extras: ["voiceover_record", "music", "titles", "logo_anim", "thumbnail_pack", "vertical_adapt"]
         },
         {
-          id: "ai", icon: "🤖", title: "Видео на нейросетях",
+     id: "ai", icon: "", title: "Видео на нейросетях",
           sub: "Без съёмочной группы, быстрый запуск",
           tiers: ["ai_video_short", "ai_product_promo", "ai_video_full"],
           days: false, weeks: [1, 2, 3],
@@ -17760,7 +17831,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!url) { toast("Сначала выберите задачу и уровень"); return; }
         try {
           await navigator.clipboard.writeText(url);
-          toast("🔗 Ссылка на расчёт скопирована");
+     toast("Ссылка на расчёт скопирована");
         } catch (e) {
           // Clipboard недоступен (нет https / отказ в разрешении) — показываем
           // ссылку, чтобы человек скопировал руками, а не остался ни с чем.
@@ -17799,7 +17870,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const extras = _calcExtraIds().map(id => (findItem(id, true) || {}).name).filter(Boolean);
         const weeks = _calcWeeks();
         return [
-          "🧮 Заявка из калькулятора",
+     "Заявка из калькулятора",
           need ? `Задача: ${need.title}` : "Задача: своя смета",
           pkg ? `Уровень: ${CALC_TIER_LABELS[_calcTierIndex()]} (${pkg.name})` : "",
           need && need.days ? `Съёмочных дней: ${_calcDays}` : "",
@@ -17990,7 +18061,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                     </ul>
                     <button type="button" class="btn ${on ? "primary" : ""} calc-tier-pick"
                       onclick="app.calcPickPkg('${id}')" aria-pressed="${on}">
-                      ${on ? "✓ Выбрано" : "Выбрать"}
+           ${on ? "✓ Выбрано" : "Выбрать"}
                     </button>
                   </div>`;
               }).join("")}
@@ -18038,7 +18109,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             </p>
             <div class="calc-nav">
               <button type="button" class="btn" onclick="app.calcGoStep(2)">← Изменить уровень</button>
-              <button type="button" class="btn" onclick="app.calcShare()">🔗 Ссылка на расчёт</button>
+       <button type="button" class="btn" onclick="app.calcShare()"> Ссылка на расчёт</button>
               <button type="button" class="btn" onclick="app.calcRestart()">Начать заново</button>
             </div>
           </section>`;
@@ -18072,7 +18143,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                       <button type="button" class="calc-extra ${on ? "on" : ""}" aria-pressed="${on}"
                         onclick="app.calcToggleExtra('${it.id}')">
                         <span class="calc-extra-name">${escapeHtml(it.name)}</span>
-                        <span class="calc-extra-price">${on ? "✓ включено" : `+ ${money(getCatalogPrice(it))}`}</span>
+            <span class="calc-extra-price">${on ? "✓ включено" : `+ ${money(getCatalogPrice(it))}`}</span>
                       </button>`;
                   }).join("")}
                 </div>
@@ -18187,7 +18258,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         }
         if (!_portalData) {
           return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:32px;text-align:center">
-            <div style="font-size:64px">🔍</div>
+            <div style="font-size:64px"></div>
             <h2 style="margin:0;font-size:22px">Ссылка недействительна</h2>
             <p style="color:var(--muted);max-width:360px;line-height:1.6">КП не найдено. Проверьте ссылку или обратитесь к менеджеру.</p>
           </div>`;
@@ -18210,7 +18281,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
               <div class="portal-card">
                 <div class="portal-status-badge ${isApproved ? 'approved' : ''}">
-                  ${isApproved ? '✅ Согласовано' : '📋 ' + escapeHtml(d.deal_status || 'На рассмотрении')}
+         ${isApproved ? 'Согласовано' : ' ' + escapeHtml(d.deal_status || 'На рассмотрении')}
                 </div>
 
                 <h1 class="portal-title">${escapeHtml(d.deal_name || 'Коммерческое предложение')}</h1>
@@ -18262,12 +18333,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                     </label>
                     <button class="btn primary full" onclick="app.approvePortal()"
                       style="padding:15px;font-size:15px;font-weight:800;letter-spacing:-.01em">
-                      ✅ Подписать и утвердить КП
+            Подписать и утвердить КП
                     </button>
                   </div>
                 ` : `
                   <div style="text-align:center;margin-top:24px;padding:22px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3);border-radius:14px">
-                    <div style="font-size:36px;margin-bottom:8px">✅</div>
+                    <div style="font-size:36px;margin-bottom:8px"></div>
                     <div style="font-weight:800;color:var(--green);font-size:15px">КП утверждено</div>
                     ${d.signer_name ? `<div style="font-size:12px;color:var(--text2);margin-top:6px">Подписал: <b>${escapeHtml(d.signer_name)}</b></div>` : ''}
                     <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5">Мы получили ваше подтверждение и свяжемся с вами в ближайшее время.</div>
@@ -18276,10 +18347,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
                 ${d.advance_amount > 0 ? `
                   <div style="margin-top:20px;padding:20px;background:var(--panel2);border:1px solid var(--line);border-radius:14px">
-                    <div style="font-size:13px;font-weight:700;margin-bottom:4px">💳 Онлайн-оплата аванса</div>
+                    <div style="font-size:13px;font-weight:700;margin-bottom:4px"> Онлайн-оплата аванса</div>
                     ${d.advance_paid_at ? `
                       <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:12px 14px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:10px">
-                        <span class="fs-20">✅</span>
+            <span class="fs-20"></span>
                         <div>
                           <div style="font-weight:800;color:var(--green);font-size:13px">Аванс оплачен</div>
                           <div class="u-meta">${new Date(d.advance_paid_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</div>
@@ -18294,7 +18365,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                       </div>
                       <button class="btn primary full" id="portalPayBtn" onclick="app.payPortalAdvance()"
                         style="padding:14px;font-size:14px;font-weight:800">
-                        💳 Оплатить ${money(d.advance_amount)}
+             Оплатить ${money(d.advance_amount)}
                       </button>
                       <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5">
                         Безопасная оплата через ЮKassa · Карта, СБП, ЮMoney
@@ -18310,11 +18381,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   const webcalUrl = feedUrl.replace(/^https?:\/\//, 'webcal://');
                   return `
                     <div style="margin-top:20px;padding:18px;background:var(--panel2);border:1px solid var(--line);border-radius:14px">
-                      <div style="font-size:13px;font-weight:700;margin-bottom:6px">📅 Дедлайн в своём календаре</div>
+                      <div style="font-size:13px;font-weight:700;margin-bottom:6px"> Дедлайн в своём календаре</div>
                       <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5">Подпишитесь на ссылку — дедлайн проекта появится в вашем Google Calendar, iPhone или Outlook автоматически, без входа и паролей.</p>
                       <div style="display:flex;gap:8px;flex-wrap:wrap">
-                        <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none;min-height:44px;display:inline-flex;align-items:center">📱 Добавить в календарь</a>
-                        <button class="btn small" onclick="app.copy('${escapeHtml(feedUrl)}','✅ Ссылка скопирована!')" style="min-height:44px">📋 Копировать ссылку</button>
+                        <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none;min-height:44px;display:inline-flex;align-items:center"> Добавить в календарь</a>
+                        <button class="btn small" onclick="app.copy('${escapeHtml(feedUrl)}','Ссылка скопирована!')" style="min-height:44px"> Копировать ссылку</button>
                       </div>
                     </div>
                   `;
@@ -18380,7 +18451,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         render();
         // Возврат с ЮKassa после оплаты аванса — показываем тост
         if (new URLSearchParams(location.search).get('advance') === 'paid') {
-          setTimeout(() => toast('✅ Аванс успешно оплачен! Спасибо.'), 400);
+     setTimeout(() => toast('Аванс успешно оплачен! Спасибо.'), 400);
         }
       }
 
@@ -18400,12 +18471,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             if (signerName) _portalData.signer_name = signerName;
             render();
           } else {
-            if (btn) { btn.disabled = false; btn.textContent = '✅ Подписать и утвердить КП'; }
-            toast("⚠️ Ошибка: " + error.message);
+      if (btn) { btn.disabled = false; btn.textContent = 'Подписать и утвердить КП'; }
+      toast("Ошибка: " + error.message);
           }
         } catch (e) {
-          if (btn) { btn.disabled = false; btn.textContent = '✅ Подписать и утвердить КП'; }
-          toast("⚠️ Ошибка сети. Проверьте соединение и попробуйте ещё раз");
+     if (btn) { btn.disabled = false; btn.textContent = 'Подписать и утвердить КП'; }
+     toast("Ошибка сети. Проверьте соединение и попробуйте ещё раз");
         }
       }
 
@@ -18423,14 +18494,14 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           if (data.paymentUrl) {
             location.href = data.paymentUrl;
           } else {
-            const amtLabel = _portalData?.advance_amount ? `💳 Оплатить ${money(_portalData.advance_amount)}` : '💳 Оплатить';
+      const amtLabel = _portalData?.advance_amount ? `Оплатить ${money(_portalData.advance_amount)}` : 'Оплатить';
             if (btn) { btn.disabled = false; btn.textContent = amtLabel; }
-            toast("⚠️ Ошибка: " + (data.error || "Не удалось создать платёж"));
+      toast("Ошибка: " + (data.error || "Не удалось создать платёж"));
           }
         } catch(e) {
-          const amtLabel = _portalData?.advance_amount ? `💳 Оплатить ${money(_portalData.advance_amount)}` : '💳 Оплатить';
+     const amtLabel = _portalData?.advance_amount ? `Оплатить ${money(_portalData.advance_amount)}` : 'Оплатить';
           if (btn) { btn.disabled = false; btn.textContent = amtLabel; }
-          toast("⚠️ Ошибка сети. Попробуйте ещё раз");
+     toast("Ошибка сети. Попробуйте ещё раз");
         }
       }
 
@@ -18535,9 +18606,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           }
 
           if (emailSent) {
-            toast(`✅ Ссылка скопирована, письмо отправлено на ${client.email}`);
+      toast(`Ссылка скопирована, письмо отправлено на ${client.email}`);
           } else {
-            toast('✅ Ссылка скопирована: ' + url);
+      toast('Ссылка скопирована: ' + url);
           }
         } else {
           toast('Ошибка: ' + (error && error.message));
@@ -18582,7 +18653,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             _applyCrmStatus(proj, newStatus);
             save(); saveToCloud(); render();
             toast('Статус сделки: ' + newStatus);
-            sendTelegramNotification(`📋 <b>${escapeHtml(proj.name || "Сделка")}</b>\nСтатус: ${escapeHtml(newStatus)}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
+      sendTelegramNotification(` <b>${escapeHtml(proj.name || "Сделка")}</b>\nСтатус: ${escapeHtml(newStatus)}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
           }
         } else if (scope === 'task') {
           const task = (state.tasks || []).find(t => t.id === _dragItemId);
@@ -18605,7 +18676,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             _applyCrmStatus(proj, newStatus);
             save(); saveToCloud(); render();
             toast('Статус сделки: ' + newStatus);
-            sendTelegramNotification(`📋 <b>${escapeHtml(proj.name || "Сделка")}</b>\nСтатус: ${escapeHtml(newStatus)}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
+      sendTelegramNotification(` <b>${escapeHtml(proj.name || "Сделка")}</b>\nСтатус: ${escapeHtml(newStatus)}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
           }
         } else if (scope === 'task') {
           if (!TASK_STATUSES.includes(newStatus)) return;
@@ -18691,7 +18762,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!_adminSession) { toast('Войдите в аккаунт, чтобы сгенерировать КП с ИИ'); return; }
 
         if (_userProfile && _userProfile.subscription_status === 'trial' && (state.aiProposalCount || 0) >= AI_PROPOSAL_TRIAL_LIMIT) {
-          toast(`✨ На пробном тарифе доступно ${AI_PROPOSAL_TRIAL_LIMIT} генераций КП с ИИ — лимит исчерпан. Перейдите на платный тариф для безлимитной генерации.`);
+     toast(`На пробном тарифе доступно ${AI_PROPOSAL_TRIAL_LIMIT} генераций КП с ИИ — лимит исчерпан. Перейдите на платный тариф для безлимитной генерации.`);
           go('profile');
           return;
         }
@@ -18732,11 +18803,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           if (typeof aiProposalCount === 'number') state.aiProposalCount = aiProposalCount;
 
           save(); render();
-          toast('✨ КП сгенерировано!');
+     toast('КП сгенерировано!');
         } catch (e) {
           toast('Ошибка генерации КП: ' + e.message);
         } finally {
-          if (btn) { btn.disabled = false; btn.innerHTML = '✨ Сгенерировать с ИИ'; }
+     if (btn) { btn.disabled = false; btn.innerHTML = 'Сгенерировать с ИИ'; }
         }
       }
 
@@ -18749,7 +18820,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const debt = (proj.total || 0) - (proj.paid || 0);
         if (debt <= 0) { toast("Долга нет — оплата полностью получена"); return; }
         if (!(state.telegramChatIds || []).length) { toast("Настройте Telegram-уведомления в Настройках"); return; }
-        const msg = `💰 <b>Напоминание об оплате</b>\n\n<b>${escapeHtml(proj.name || "Проект")}</b>${proj.client ? "\nКлиент: " + escapeHtml(proj.client) : ""}\n\nСумма: ${money(proj.total || 0)}\nОплачено: ${money(proj.paid || 0)}\nОстаток: <b>${money(debt)}</b>`;
+    const msg = ` <b>Напоминание об оплате</b>\n\n<b>${escapeHtml(proj.name || "Проект")}</b>${proj.client ? "\nКлиент: " + escapeHtml(proj.client) : ""}\n\nСумма: ${money(proj.total || 0)}\nОплачено: ${money(proj.paid || 0)}\nОстаток: <b>${money(debt)}</b>`;
         await sendTelegramNotification(msg);
         _logActivity(proj.id, `Отправлено напоминание о долге ${money(debt)}`);
         save();
@@ -18821,7 +18892,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           const resp = await fetch(`${url}/functions/v1/telegram-notify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_adminSession.access_token}` },
-            body: JSON.stringify({ chatId: r.chatId, text: `✅ Adervis CRM подключён${r.name ? ', ' + r.name : ''}!\nУведомления о задачах и сделках будут приходить сюда.` }),
+      body: JSON.stringify({ chatId: r.chatId, text: `Adervis CRM подключён${r.name ? ', ' + r.name : ''}!\nУведомления о задачах и сделках будут приходить сюда.` }),
           });
           toast(resp.ok ? `Сообщение отправлено${r.name ? ' ' + r.name : ''}` : 'Ошибка отправки — проверьте Chat ID');
         } catch(e) { toast('Ошибка сети'); }
@@ -19112,7 +19183,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const m = state.clientModal;
         if (!m) return;
         if (m.phone && !validatePhone(m.phone)) {
-          toast("❌ Неверный формат телефона. Пример: +7 900 000-00-00");
+     toast("Неверный формат телефона. Пример: +7 900 000-00-00");
           return;
         }
         if (!m.id) {
@@ -19193,7 +19264,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               </div>
               ${m._projectId ? `
               <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px;padding:14px 16px;margin-bottom:14px">
-                <div style="font-size:12px;font-weight:800;color:var(--primary2);margin-bottom:10px">📅 Дедлайн проекта</div>
+                <div style="font-size:12px;font-weight:800;color:var(--primary2);margin-bottom:10px"> Дедлайн проекта</div>
                 <input type="date" value="${escapeHtml(m._projectDeadline||"")}"
                   oninput="app.setClientModalField('_projectDeadline',this.value)"
                   style="width:100%;border-radius:10px;border:1px solid var(--line);background:var(--input);color:var(--text);padding:10px 12px;font-size:14px">
@@ -19276,7 +19347,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             <div class="deal-switcher-item-sub">
               ${p.client ? `<span>${escapeHtml(p.client)}</span>` : ""}
               <span class="status-pill" style="font-size:12px;padding:1px 7px">${escapeHtml(p.crmStatus || "Лид")}</span>
-              ${p.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}">📅 ${escapeHtml(formatDate(p.deadline))}</span>` : ""}
+              ${p.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}"> ${escapeHtml(formatDate(p.deadline))}</span>` : ""}
             </div>
           </div>
         `;
@@ -19467,7 +19538,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:8px">
                 <h2 class="u-title-20">Редактировать сделку</h2>
                 <div style="display:flex;align-items:center;gap:8px">
-                  <button class="btn small" onclick="app.quickContractFromDeal('${escapeHtml(m.id)}')" title="Создать договор с данными этой сделки">📄 Договор</button>
+         <button class="btn small" onclick="app.quickContractFromDeal('${escapeHtml(m.id)}')" title="Создать договор с данными этой сделки"> Договор</button>
                   <button onclick="app.closeDealModal()" class="u-modal-close" aria-label="Закрыть">×</button>
                 </div>
               </div>
@@ -19486,7 +19557,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 ${field("Менеджер", `<input value="${escapeHtml(m.manager || "")}" oninput="app.setDealModalField('manager',this.value)" placeholder="Имя менеджера">`)}
               </div>
               <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px;padding:14px 16px;margin-bottom:14px">
-                <div style="font-size:12px;font-weight:800;color:var(--primary2);margin-bottom:10px">📅 Дедлайн проекта${u && u.level !== "ok" ? ` <span style="color:${u.color};font-weight:700">· ${escapeHtml(u.label)}</span>` : ""}</div>
+                <div style="font-size:12px;font-weight:800;color:var(--primary2);margin-bottom:10px"> Дедлайн проекта${u && u.level !== "ok" ? ` <span style="color:${u.color};font-weight:700">· ${escapeHtml(u.label)}</span>` : ""}</div>
                 <input type="date" value="${escapeHtml(m.deadline||"")}"
                   oninput="app.setDealModalField('deadline',this.value)"
                   style="width:100%;border-radius:10px;border:1px solid var(--line);background:var(--input);color:var(--text);padding:10px 12px;font-size:14px">
@@ -19674,7 +19745,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
               <div style="display:flex;justify-content:flex-end;gap:8px">
                 <button class="btn" onclick="app.closeTaskModal()">Отмена</button>
-                ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn" class="btn" onclick="app.syncTaskModalToGoogle()">${_myGoogleEventId(m) ? "🔄 Обновить в Google Calendar" : "📅 В Google Calendar"}</button>` : ""}
+        ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn" class="btn" onclick="app.syncTaskModalToGoogle()">${_myGoogleEventId(m) ? "Обновить в Google Calendar" : "В Google Calendar"}</button>` : ""}
                 <button class="btn primary" onclick="app.saveTaskModal()">Сохранить</button>
               </div>
             </div>
@@ -20416,7 +20487,7 @@ Email: _____________________              Email: _____________________
         const c = (state.contracts || []).find(x => x.id === id);
         if (!c) return;
         const win = window.open("", "_blank");
-        if (!win) { toast("❌ Браузер заблокировал открытие окна. Разрешите всплывающие окна для этого сайта."); return; }
+    if (!win) { toast("Браузер заблокировал открытие окна. Разрешите всплывающие окна для этого сайта."); return; }
         win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(c.name)}</title><style>body{font-family:Arial,sans-serif;margin:40px;line-height:1.6;white-space:pre-wrap;font-size:13px}h1{font-size:18px;margin-bottom:16px}</style></head><body><h1>${escapeHtml(c.name)}</h1>${escapeHtml(c.body)}</body></html>`);
         win.document.close();
         win.print();
@@ -20617,7 +20688,7 @@ Email: _____________________              Email: _____________________
                     onchange="app.updateContractField('${c.id}','body',this.value)">${escapeHtml(c.body||"")}</textarea>
                 </div>
                 <p class="mini-note" style="margin-top:8px">Сохраняется само во время набора. «Печать / PDF» — экспорт, «Копировать» — весь текст в буфер.</p>
-                <p class="mini-note" style="margin-top:2px">ℹ️ Шаблон носит справочный характер и не является юридической консультацией — перед отправкой клиенту рекомендуем проверить текст у юриста.</p>
+                <p class="mini-note" style="margin-top:2px">ℹ Шаблон носит справочный характер и не является юридической консультацией — перед отправкой клиенту рекомендуем проверить текст у юриста.</p>
               </div>
             `;
           }
@@ -20629,7 +20700,7 @@ Email: _____________________              Email: _____________________
               <div>
                 <h1>Договоры</h1>
                 <p>База шаблонов и готовых договоров. Редактируй под каждый проект.</p>
-                <p class="mini-note" style="margin-top:4px">ℹ️ Шаблоны носят справочный характер и не являются юридической консультацией — перед использованием с клиентами рекомендуем проверить текст у юриста.</p>
+                <p class="mini-note" style="margin-top:4px">ℹ Шаблоны носят справочный характер и не являются юридической консультацией — перед использованием с клиентами рекомендуем проверить текст у юриста.</p>
               </div>
               <div class="toolbar no-print">
                 ${contracts.length ? `<button class="btn primary" onclick="app.createBlankContract()">+ Пустой договор</button>` : ""}
@@ -20643,7 +20714,7 @@ Email: _____________________              Email: _____________________
                      onclick="app.createContractFromTemplate('${tpl.id}')"
                      onmouseover="this.style.borderColor='rgba(168,85,247,.5)'"
                      onmouseout="this.style.borderColor='var(--line)'">
-                  <div style="font-size:20px;margin-bottom:8px">📄</div>
+                  <div style="font-size:20px;margin-bottom:8px"></div>
                   <h3 style="font-size:13px;margin:0 0 4px">${escapeHtml(tpl.name)}</h3>
                   <p style="font-size:12px;margin:0">${escapeHtml(tpl.desc)}</p>
                   <span class="badge" style="margin-top:8px;display:inline-flex">${escapeHtml(tpl.category)}</span>
@@ -21260,6 +21331,8 @@ Email: _____________________              Email: _____________________
         convertBriefToDeal,
         deleteBrief,
         setBriefTypeTab,
+        addCustomBriefType,
+        removeCustomBriefType,
         previewBrief,
         resetBriefTemplate,
         openBriefEditor,
@@ -21340,7 +21413,7 @@ Email: _____________________              Email: _____________________
           if (!proj.deadline || ["Сдано", "Оплата", "Завершённые", CRM_ARCHIVED].includes(proj.crmStatus || "")) return;
           const u = deadlineUrgency(proj.deadline);
           if (!u || u.level === "ok") return;
-          const icon = u.level === "overdue" ? "🔴" : "⚡";
+     const icon = u.level === "overdue" ? "" : "";
           pushNotification("deadline", icon + " " + (proj.name || "Проект"), u.label + (proj.client ? " · " + proj.client : ""), proj.id);
           tgLines.push(`${icon} <b>${escapeHtml(proj.name || "Проект")}</b> — ${u.label}${proj.client ? " · " + escapeHtml(proj.client) : ""}`);
         });
@@ -21350,8 +21423,8 @@ Email: _____________________              Email: _____________________
         // отправка была привязана к открытой вкладке браузера и не срабатывала, если
         // пользователь не заходил в CRM в этот день. См. [[finding-telegram-stats-archived-deals]].
         if (tgLines.length) {
-          const overdueCount = tgLines.filter(l => l.startsWith("🔴")).length;
-          const urgentCount  = tgLines.filter(l => l.startsWith("⚡")).length;
+     const overdueCount = tgLines.filter(l => l.startsWith("")).length;
+     const urgentCount = tgLines.filter(l => l.startsWith("")).length;
           const parts = [];
           if (overdueCount) parts.push(`просрочено: ${overdueCount}`);
           if (urgentCount)  parts.push(`скоро: ${urgentCount}`);
@@ -21446,6 +21519,6 @@ Email: _____________________              Email: _____________________
         _deferredInstallPrompt = null;
         renderProfileDd();
         renderPwaInstallBanner();
-        toast('✓ ADERVIS CRM установлен как приложение');
+    toast('✓ ADERVIS CRM установлен как приложение');
       });
     })();

@@ -680,5 +680,30 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(saved, "ЧЕРНОВИК ДОГОВОРА", "набранный текст не сохранился без ухода фокуса");
   });
 
+
+  // Пяти встроенных типов брифа хватает не всем: студия может вести отдельную
+  // форму под «Свадьбу» или «Маркетплейс». Сам раздел «Онлайн-брифы» в тестовом
+  // режиме показывает скелетон (загрузка заявок требует сессии Supabase), поэтому
+  // проверяем модель: тип заводится, попадает в общий список и удаляется.
+  await test("брифы: свой тип создаётся, попадает в список типов и удаляется", async () => {
+    const created = await page.evaluate(() => {
+      window.prompt = () => "Свадьба";
+      window.app.addCustomBriefType();
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return st.customBriefTypes || [];
+    });
+    assertEqual(created.length, 1, "свой тип брифа не создался");
+    assert(created[0].id.startsWith("own_"), "у своего типа неожиданный id: " + created[0].id);
+    assertEqual(created[0].label, "Свадьба", "название своего типа не сохранилось");
+
+    const removed = await page.evaluate((id) => {
+      window.confirm = () => true;
+      window.app.removeCustomBriefType(id);
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st.customBriefTypes || []).length;
+    }, created[0].id);
+    assertEqual(removed, 0, "свой тип брифа не удалился");
+  });
+
   await context.close();
 };
