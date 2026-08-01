@@ -112,11 +112,17 @@ class Suite {
     this.results = []; // { name, ok, err }
   }
   async test(name, fn) {
+    // Результаты печатаются пачкой в конце набора, поэтому зависший тест выглядит
+    // как «ничего не происходит вообще». TESTS_TRACE=1 печатает имя ДО запуска —
+    // видно, на каком именно встало. Держим в харнессе, а не в разовом скрипте:
+    // это первое, что понадобится в следующий раз.
+    if (process.env.TESTS_TRACE) process.stdout.write("   … " + name + "\n");
+    const t0 = Date.now();
     try {
       await fn();
-      this.results.push({ name, ok: true });
+      this.results.push({ name, ok: true, ms: Date.now() - t0 });
     } catch (e) {
-      this.results.push({ name, ok: false, err: e && e.message ? e.message : String(e) });
+      this.results.push({ name, ok: false, ms: Date.now() - t0, err: e && e.message ? e.message : String(e) });
     }
   }
   get passed() {

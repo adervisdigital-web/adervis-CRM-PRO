@@ -22,6 +22,7 @@
     expenses: "Расходы",
     ai: "ИИ / Нейросети",
     event: "Мероприятия",
+    web: "Дизайн и сайты",
     custom: "Свои позиции"
       };
 
@@ -40,6 +41,7 @@
         { id: "post",  label: "Постпродакшн", ic: "film",      color: "var(--green)",    hint: "монтаж, цвет, звук, графика" },
         { id: "dist",  label: "Дистрибуция",  ic: "megaphone", color: "var(--cyan)",     hint: "нарезки, обложки, публикация" },
         { id: "ai",    label: "ИИ / AI",      ic: "robot",     color: "var(--primary)",  hint: "нейросети и подписки" },
+        { id: "web",   label: "Дизайн и сайты", ic: "palette", color: "var(--primary2)", hint: "сайты, лендинги, айдентика, презентации" },
         { id: "money", label: "Расходы",      ic: "coins",     color: "var(--red)",      hint: "транспорт, питание, локация" }
       ];
 
@@ -67,6 +69,12 @@
           { id: "subs",  label: "Подписки и кредиты", tags: ["подписка", "кредиты", "токены"] },
           { id: "prep",  label: "Подготовка",         tags: ["промпты", "раскадровка", "консультация"] },
           { id: "make",  label: "Производство",       tags: ["генерация", "видео", "диктор", "голос", "моушн", "графика", "звук", "саунд", "цвет", "цветокоррекция", "музыка", "лицензия", "SFX", "монтаж", "VFX"] },
+        ],
+        web: [
+          { id: "sites",    label: "Сайты",        tags: ["сайт", "лендинг", "магазин"] },
+          { id: "identity", label: "Айдентика",    tags: ["логотип", "фирстиль", "брендбук"] },
+          { id: "graphics", label: "Графика",      tags: ["презентация", "баннер", "макет"] },
+          { id: "support",  label: "Поддержка",    tags: ["поддержка", "доработка", "хостинг"] },
         ],
         money: [
           { id: "place", label: "Локация и студия",   tags: ["локация", "студия"] },
@@ -98,6 +106,9 @@
         // Категория «Расходы» проверяется ПЕРВОЙ: суточные считаются как «за день»
         // (perDay), и по способу расчёта уехали бы к людям — а это статья затрат.
         if (cat === "expenses") return "money";
+        // Веб проверяется рано: у «дизайна сайта» stage=post, и по способу
+        // расчёта он уехал бы в Постпродакшн к монтажу.
+        if (cat === "web") return "web";
         if (model === "crewShift" || model === "perDay") return "crew";
         if (model === "equipmentRental") return "gear";
         if (cat === "ai") return "ai";
@@ -377,6 +388,16 @@
         item("logo_anim", "animation", "Анимация логотипа простая", "Короткая простая анимация логотипа.", "fixed", 4000, "ролик", { stage: "post", tags: ["логотип"] }),
         item("logo_anim_pro", "animation", "Анимация логотипа профи", "Сложная анимация с частицами, 3D или кинетическими эффектами.", "fixed", 9000, "ролик", { stage: "post", tags: ["логотип", "профи"] }),
         item("intro_outro", "animation", "Интро / Аутро для канала", "Фирменное видео-интро и аутро для YouTube или стримов.", "fixed", 5500, "пакет", { stage: "post", tags: ["интро", "аутро", "канал"] }),
+        item("web_landing", "web", "Лендинг (одностраничный сайт)", "Одностраничный сайт под одну задачу: услуга, мероприятие, промо. Дизайн, вёрстка, адаптив, форма заявки.", "fixed", 60000, "сайт", { stage: "post", tags: ["сайт", "лендинг", "веб"] }),
+        item("web_multipage", "web", "Многостраничный сайт", "Корпоративный сайт: главная, услуги, о компании, портфолио, контакты. С админкой.", "fixed", 150000, "сайт", { stage: "post", tags: ["сайт", "веб", "корпоративный"] }),
+        item("web_shop", "web", "Интернет-магазин", "Каталог, карточки товаров, корзина, оплата и доставка.", "fixed", 250000, "сайт", { stage: "post", tags: ["сайт", "магазин", "веб"] }),
+        item("web_design", "web", "Дизайн сайта (макеты)", "Макеты страниц в Figma без вёрстки — если разработку ведёт другая команда.", "fixed+qty", 8000, "страница", { stage: "post", tags: ["сайт", "дизайн", "макет"] }),
+        item("web_logo", "web", "Логотип", "Разработка логотипа: 3 концепции, доработка выбранной, исходники в векторе.", "fixed", 35000, "логотип", { stage: "pre", tags: ["логотип", "айдентика"] }),
+        item("web_identity", "web", "Фирменный стиль", "Логотип, палитра, шрифты, носители, гайд по применению.", "fixed", 90000, "пакет", { stage: "pre", tags: ["фирстиль", "брендбук", "айдентика"] }),
+        item("web_presentation", "web", "Дизайн презентации", "Оформление презентации под задачу: продажа, инвестор, отчёт.", "fixed+qty", 2500, "слайд", { stage: "post", tags: ["презентация", "макет"] }),
+        item("web_banners", "web", "Баннеры и креативы", "Комплект рекламных баннеров под площадки в нужных форматах.", "fixed+qty", 1500, "баннер", { stage: "marketing", tags: ["баннер", "макет", "реклама"] }),
+        item("web_revision", "web", "Доработка сайта", "Правки и новые блоки на существующем сайте.", "hourly", 2500, "час", { stage: "post", tags: ["доработка", "поддержка"] }),
+        item("web_support", "web", "Поддержка сайта", "Ежемесячное сопровождение: обновления, бэкапы, мелкие правки.", "fixed", 15000, "мес.", { stage: "post", tags: ["поддержка", "хостинг"] }),
         item("social_template", "animation", "Шаблоны для соцсетей", "Набор анимированных шаблонов для Stories и постов.", "fixed+qty", 3000, "пакет", { stage: "marketing", tags: ["шаблоны", "соцсети"] }),
         item("kinetic_typography", "animation", "Кинетическая типографика", "Анимация текста и цитат в стиле кинетической типографики.", "fixed", 7500, "ролик", { stage: "post", tags: ["типографика", "текст"] }),
         item("motion_infographic", "animation", "Анимированная инфографика", "Инфографика с анимацией: диаграммы, схемы, цифры.", "fixed+qty", 8000, "слайд", { stage: "post", tags: ["инфографика", "данные"] }),
@@ -5603,6 +5624,7 @@
         catalogGroupsHidden: {},
         customCatalogGroups: [],
         customBriefTypes: [],
+        financeArticles: {},
         itemCustomGroup: {},
           adminModal: null,
           clientModal: null,
@@ -5803,6 +5825,7 @@
           phone: client?.phone || "",
           email: client?.email || "",
           city: client?.city || "",
+          social: client?.social || "",
           contactPerson: client?.contactPerson || "",
           source: client?.source || "",
           note: client?.note || "",
@@ -8627,6 +8650,80 @@
         render();
       }
 
+      /* Перетаскивание карточек сделок на главной.
+
+         Порядок хранится не отдельным полем, а самим порядком state.savedProjects:
+         режим сортировки "default" — это и есть «как лежит в массиве». Поэтому
+         перетаскивание РАЗРЕШЕНО только в нём. В режимах «по сумме»/«по дедлайну»
+         карточку можно было бы отпустить, но список тут же пересортировался бы
+         обратно — человек решил бы, что приложение его не послушало.
+
+         Только мышь: HTML5 drag-and-drop на тач-экранах не работает в принципе
+         (touch-события не порождают dragstart). Тач-фолбэк тут не делаю — на
+         телефоне ручной порядок из 100 карточек всё равно нерабочий сценарий,
+         а тот же результат даёт «Закрепить» (pinned). */
+      let _dealDragId = null;
+
+      function dealDragStart(id, ev) {
+        _dealDragId = id;
+        if (ev && ev.dataTransfer) {
+          ev.dataTransfer.effectAllowed = "move";
+          // Firefox не начинает перетаскивание без данных в dataTransfer
+          try { ev.dataTransfer.setData("text/plain", id); } catch (e) {}
+        }
+        const el = ev && ev.currentTarget;
+        if (el) el.classList.add("deal-card-dragging");
+      }
+
+      function dealDragEnd(ev) {
+        const el = ev && ev.currentTarget;
+        if (el) el.classList.remove("deal-card-dragging");
+        document.querySelectorAll(".deal-card-dropbefore, .deal-card-dropafter")
+          .forEach(x => x.classList.remove("deal-card-dropbefore", "deal-card-dropafter"));
+        _dealDragId = null;
+      }
+
+      function dealDragOver(id, ev) {
+        if (!_dealDragId || _dealDragId === id) return;
+        ev.preventDefault();
+        if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
+        const el = ev.currentTarget;
+        const r = el.getBoundingClientRect();
+        // Куда встанет карточка — до или после цели. Считаем по горизонтали:
+        // сетка многоколоночная, и «выше/ниже» тут ничего не значит.
+        const after = (ev.clientX - r.left) > r.width / 2;
+        el.classList.toggle("deal-card-dropafter", after);
+        el.classList.toggle("deal-card-dropbefore", !after);
+      }
+
+      function dealDragLeave(ev) {
+        const el = ev && ev.currentTarget;
+        if (el) el.classList.remove("deal-card-dropbefore", "deal-card-dropafter");
+      }
+
+      function dealDrop(targetId, ev) {
+        if (ev) ev.preventDefault();
+        const dragId = _dealDragId;
+        const el = ev && ev.currentTarget;
+        const after = !!(el && el.classList.contains("deal-card-dropafter"));
+        if (el) el.classList.remove("deal-card-dropbefore", "deal-card-dropafter");
+        _dealDragId = null;
+        if (!dragId || dragId === targetId) return;
+
+        const list = state.savedProjects || [];
+        const from = list.findIndex(p => p.id === dragId);
+        const to = list.findIndex(p => p.id === targetId);
+        if (from < 0 || to < 0) return;
+
+        const [moved] = list.splice(from, 1);
+        // После вырезания индексы правее сдвинулись — пересчитываем цель заново,
+        // иначе карточка встаёт на позицию мимо на единицу при движении вправо.
+        const idx = list.findIndex(p => p.id === targetId);
+        list.splice(after ? idx + 1 : idx, 0, moved);
+        save();
+        render();
+      }
+
       function setCrmSort(v) {
         state.crmSort = ["amount", "deadline", "debt", "updated"].includes(v) ? v : "default";
         save();
@@ -8874,6 +8971,67 @@
 
       const PAYMENT_ARTICLES = ["Предоплата", "Оплата", "Частичная оплата", "Доп. оплата", "Возврат"];
 
+      /* Статьи доходов и расходов настраиваются агентством. У всех своя
+         бухгалтерия: кому-то нужен «Налог С/З» и «Диктор», кому-то они мешают.
+         Пустой список = пользователь ничего не менял → отдаём встроенный набор,
+         поэтому в state ничего не пишется, пока человек не тронул настройки. */
+      function financeArticles(kind) {
+        const store = state.financeArticles || {};
+        const own = store[kind];
+        if (Array.isArray(own) && own.length) return own;
+        return kind === "payment" ? PAYMENT_ARTICLES : EXPENSE_CATEGORIES;
+      }
+
+      function _articlesFor(kind) {
+        const store = { ...(state.financeArticles || {}) };
+        if (!Array.isArray(store[kind]) || !store[kind].length) {
+          store[kind] = (kind === "payment" ? PAYMENT_ARTICLES : EXPENSE_CATEGORIES).slice();
+        }
+        state.financeArticles = store;
+        return store[kind];
+      }
+
+      function addFinanceArticle(kind) {
+        const name = (window.prompt("Название статьи:", "") || "").trim();
+        if (!name) return;
+        const list = _articlesFor(kind);
+        if (list.some(x => x.toLowerCase() === name.toLowerCase())) { toast("Такая статья уже есть"); return; }
+        list.push(name.slice(0, 40));
+        save(); render();
+      }
+
+      function renameFinanceArticle(kind, index) {
+        const list = _articlesFor(kind);
+        const cur = list[index];
+        if (cur == null) return;
+        const name = (window.prompt("Название статьи:", cur) || "").trim();
+        if (!name || name === cur) return;
+        list[index] = name.slice(0, 40);
+        // Переименование НЕ трогает уже проведённые операции: у них статья
+        // хранится строкой. Иначе правка справочника задним числом переписала бы
+        // историю платежей, а это последнее, что можно менять молча.
+        save(); render();
+        toast("Переименовано. Прошлые операции сохранили старое название");
+      }
+
+      function removeFinanceArticle(kind, index) {
+        const list = _articlesFor(kind);
+        const name = list[index];
+        if (name == null) return;
+        if (list.length <= 1) { toast("Нужна хотя бы одна статья"); return; }
+        if (!confirm(`Удалить статью «${name}»? Операции с ней останутся, но при выборе её больше не будет.`)) return;
+        list.splice(index, 1);
+        save(); render();
+      }
+
+      function resetFinanceArticles(kind) {
+        if (!confirm("Вернуть встроенный набор статей? Свои названия будут удалены.")) return;
+        const store = { ...(state.financeArticles || {}) };
+        delete store[kind];
+        state.financeArticles = store;
+        save(); render();
+      }
+
       function openFinanceModal(type = "payment") {
         state.financeModal = {
           type,
@@ -8940,10 +9098,31 @@
         // saveFinanceModal() по кнопке.
       }
 
+      /* Дата операции в будущем почти всегда опечатка: деньги отмечают, когда они
+         УЖЕ пришли или ушли. Молча принять — значит испортить отчётность за месяц
+         и дебиторку, а заметить это можно спустя недели. Поэтому спрашиваем, но
+         не запрещаем: предоплата «числом договора» вперёд иногда правда нужна. */
+      function _confirmFutureDate(dateStr, kind) {
+        if (!dateStr) return true;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const d = new Date(dateStr + "T00:00:00");
+        if (isNaN(d) || d <= today) return true;
+        const days = Math.round((d - today) / 86400000);
+        return confirm(
+          `Дата ${kind} — ${formatDate(dateStr)}, это ${days} ${plural(days, "день", "дня", "дней")} вперёд.
+
+` +
+          `Операции обычно вносят по факту. Будущая дата попадёт в отчёт следующего периода.
+
+Всё равно сохранить?`
+        );
+      }
+
       function saveFinanceModal() {
         if (!state.financeModal) return;
         const m = state.financeModal;
         const amount = numberValue(m.amount, 0);
+        if (!_confirmFutureDate(m.date, m.type === "payment" ? "поступления" : "расхода")) return;
         if (amount <= 0) { toast("Введи сумму больше нуля"); return; }
         saveHistory();
 
@@ -9234,8 +9413,8 @@
                   <label>${isPayment ? "Статья" : "Категория"}</label>
                   <select onchange="app.setFinanceModalField('category',this.value)">
                     ${isPayment
-                      ? PAYMENT_ARTICLES.map(c => `<option value="${c}" ${m.category === c ? "selected" : ""}>${c}</option>`).join("")
-                      : EXPENSE_CATEGORIES.map(c => `<option value="${c}" ${m.category === c ? "selected" : ""}>${c}</option>`).join("")
+                      ? financeArticles("payment").map(c => `<option value="${escapeHtml(c)}" ${m.category === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")
+                      : financeArticles("expense").map(c => `<option value="${escapeHtml(c)}" ${m.category === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")
                     }
                   </select>
                 </div>
@@ -9486,6 +9665,16 @@
         state.wizard[key] = value;
         save();
         render();
+      }
+
+      /* Запись поля проекта БЕЗ перерисовки. Нужна денежным и датным полям:
+         render() пересоздаёт <input>, и на каждый введённый символ каретка
+         улетала бы в начало, а у <input type="date"> ещё и сбрасывался бы
+         редактируемый сегмент. Фиксация с перерисовкой — по onchange (blur). */
+      function updateProjectQuiet(key, value) {
+        if (!state.project) return;
+        const numericKeys = ["days", "discount", "clientBudget"];
+        state.project[key] = numericKeys.includes(key) ? numberValue(value, 0) : value;
       }
 
       function wizardSetField(key, value) {
@@ -10314,7 +10503,7 @@
             ${field("Название проекта", `<input data-autosave data-scope="project" data-key="name" value="${escapeHtml(state.project.name)}">`)}
             ${field("Клиент", `<input data-autosave data-scope="project" data-key="client" value="${escapeHtml(state.project.client)}" placeholder="Название клиента">`)}
             ${field("Город", `<input data-autosave data-scope="project" data-key="city" value="${escapeHtml(state.project.city)}">`)}
-            ${field("Бюджет клиента, ₽", `<input type="number" min="0" data-autosave data-scope="project" data-key="clientBudget" value="${escapeHtml(state.project.clientBudget || "")}" placeholder="сколько назвал клиент">`)}
+            ${field("Бюджет клиента, ₽", `<input inputmode="numeric" autocomplete="off" data-scope="project" data-key="clientBudget" value="${escapeHtml(groupDigits(state.project.clientBudget || ""))}" placeholder="сколько назвал клиент" oninput="app.updateProjectQuiet('clientBudget', app.formatAmountField(this))" onchange="app.updateProject('clientBudget', app.formatAmountField(this))">`)}
             ${field("Статус", `
               <select data-autosave data-scope="project" data-key="status">
                 ${["Черновик", "Отправлено", "На согласовании", "Согласовано", "В работе", "Завершено"].map(x => optionValueHtml(x, x, state.project.status)).join("")}
@@ -12171,6 +12360,8 @@
         const _crmKey = filter + "|" + tagFilter + "|" + sortMode;
         if (_crmKey !== _crmLimitKey) { _crmLimitKey = _crmKey; _crmVisibleLimit = CRM_PAGE_SIZE; }
         const pagedItems = visibleItems.slice(0, _crmVisibleLimit);
+        // Ручной порядок виден только в сортировке «по умолчанию» — см. dealDrop().
+        const canReorder = sortMode === "default";
         const crmHiddenCount = visibleItems.length - pagedItems.length;
 
         const totalPipeline = projects.filter(p => !["Сдано", "Оплата", "Завершённые", CRM_ARCHIVED].includes(p.crmStatus || "Лид"))
@@ -12475,7 +12666,14 @@
                   const projectIdSafe = project.id.replace(/'/g,"");
                   const u = project.deadline ? deadlineUrgency(project.deadline) : null;
                   return `
-                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""}" onclick="app.selectActiveDeal('${projectIdSafe}')" style="cursor:pointer;--status-color:${CRM_STATUS_COLOR[project.crmStatus || "Лид"] || "var(--muted)"}" title="${isCurrent ? "Клик — открыть в смете" : "Клик — сделать активным проектом · «Открыть →» — перейти в смету"}">
+                    <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""} ${canReorder ? "deal-card-draggable" : ""}"
+                      ${canReorder ? `draggable="true"
+                        ondragstart="app.dealDragStart('${projectIdSafe}',event)"
+                        ondragend="app.dealDragEnd(event)"
+                        ondragover="app.dealDragOver('${projectIdSafe}',event)"
+                        ondragleave="app.dealDragLeave(event)"
+                        ondrop="app.dealDrop('${projectIdSafe}',event)"` : ""}
+                      onclick="app.selectActiveDeal('${projectIdSafe}')" style="cursor:pointer;--status-color:${CRM_STATUS_COLOR[project.crmStatus || "Лид"] || "var(--muted)"}" title="${isCurrent ? "Клик — открыть в смете" : "Клик — сделать активным проектом · «Открыть →» — перейти в смету"}">
                       <div class="deal-card-head">
                         ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">` : ""}
@@ -16113,7 +16311,7 @@
 
             <div class="fin-subtab-bar no-print">
               <button class="fin-subtab ${state.gFinSubTab==="analytics"?"active":""}" onclick="app.setGFinSubTab('analytics')">Аналитика</button>
-              <button class="fin-subtab ${state.gFinSubTab==="receivables"?"active":""}" onclick="app.setGFinSubTab('receivables')">Дебиторка</button>
+              <button class="fin-subtab ${state.gFinSubTab==="receivables"?"active":""}" onclick="app.setGFinSubTab('receivables')">Задолженность</button>
               <button class="fin-subtab ${(state.gFinSubTab||"transactions")==="transactions"?"active":""}" onclick="app.setGFinSubTab('transactions')">Транзакции</button>
             </div>
 
@@ -16690,8 +16888,8 @@
               ${field("Название проекта *", `<input value="${escapeHtml(w.projectName)}" oninput="app.wizardSetField('projectName',this.value)" placeholder="Рекламный ролик для Компании">`)}
             </div>
             <div class="grid two" style="margin-top:12px">
-              ${field("Дедлайн", `<input type="date" value="${escapeHtml(w.deadline)}" onchange="app.wizardSetData('deadline',this.value)">`)}
-              ${field("Бюджет клиента", `<input value="${escapeHtml(w.budget||"")}" oninput="app.wizardSetField('budget',this.value)" placeholder="Бюджет проекта, ₽">`)}
+              ${field("Дедлайн", `<input type="date" id="wizDeadline" value="${escapeHtml(w.deadline)}" onchange="app.wizardSetField('deadline',this.value)">`)}
+              ${field("Бюджет клиента", `<input id="wizBudget" inputmode="numeric" autocomplete="off" value="${escapeHtml(groupDigits(w.budget||""))}" oninput="app.wizardSetField('budget', app.formatAmountField(this))" placeholder="Бюджет проекта, ₽">`)}
               <p class="mini-note" style="margin:-6px 0 0">Станет суммой сделки, пока смета пустая. Добавите услуги — итог пересчитается по ним.</p>
             </div>
           `;
@@ -16971,6 +17169,7 @@
         const tabs = [
           ["company", icon("gear"), "Компания"],
           ["notify", icon("bell"), "Уведомления"],
+          ["finance", icon("wallet"), "Финансы"],
           ["integrations", icon("calendar"), "Интеграции"],
           ["data", icon("download"), "Данные"]
         ];
@@ -17081,6 +17280,37 @@
 
             ${renderSettingsTelegram()}
         `;
+
+        const financeTab = (() => {
+          const block = (kind, title, hint) => {
+            const list = financeArticles(kind);
+            const customized = Array.isArray((state.financeArticles || {})[kind]) && (state.financeArticles || {})[kind].length > 0;
+            return `
+              <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:14px">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+                  <h2 style="margin:0;font-size:15px">${title}</h2>
+                  <span class="badge" style="font-size:12px">${list.length}</span>
+                  <span style="flex:1 1 auto"></span>
+                  ${customized ? `<button class="btn small" onclick="app.resetFinanceArticles('${kind}')">Вернуть встроенные</button>` : ""}
+                </div>
+                <p class="u-meta" style="margin:0 0 12px;line-height:1.5">${hint}</p>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  ${list.map((a, i) => `
+                    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)">
+                      <span style="flex:1 1 auto;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a)}</span>
+                      <button class="btn small" onclick="app.renameFinanceArticle('${kind}',${i})" aria-label="Переименовать «${escapeHtml(a)}»" title="Переименовать" style="display:inline-flex;align-items:center;padding:6px 8px">${icon("pencil", 13)}</button>
+                      <button class="btn small icon-danger" onclick="app.removeFinanceArticle('${kind}',${i})" aria-label="Удалить «${escapeHtml(a)}»" title="Удалить" style="display:inline-flex;align-items:center;padding:6px 8px">${icon("trash", 13)}</button>
+                    </div>
+                  `).join("")}
+                </div>
+                <button class="btn small" onclick="app.addFinanceArticle('${kind}')" style="margin-top:10px;display:inline-flex;align-items:center;gap:6px">${icon("plus", 13)} Добавить статью</button>
+              </div>`;
+          };
+          return `
+            ${block("payment", "Статьи поступлений", "Чем помечаются приходы: предоплата, оплата, возврат. Видны в выпадающем списке при добавлении поступления.")}
+            ${block("expense", "Статьи расходов", "Чем помечаются траты: аренда, подряд, налоги. Переименование не меняет уже проведённые операции — там статья хранится текстом.")}
+          `;
+        })();
 
         const integrationsTab = `
             ${(() => {
@@ -17403,6 +17633,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
             ${tab === "company" ? companyTab : ""}
             ${tab === "notify" ? notifyTab : ""}
+            ${tab === "finance" ? financeTab : ""}
             ${tab === "integrations" ? integrationsTab : ""}
             ${tab === "data" ? dataTab : ""}
             ${tab === "dev" ? devTab : ""}
@@ -19136,8 +19367,8 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <label>${isIncome ? "Статья" : "Категория"}</label>
                 <select onchange="app.setEditTransactionField('category',this.value)">
                   ${isIncome
-                    ? PAYMENT_ARTICLES.map(c => `<option value="${c}" ${m.category === c ? "selected" : ""}>${c}</option>`).join("")
-                    : EXPENSE_CATEGORIES.map(c => `<option value="${c}" ${m.category === c ? "selected" : ""}>${c}</option>`).join("")
+                    ? financeArticles("payment").map(c => `<option value="${c}" ${m.category === c ? "selected" : ""}>${c}</option>`).join("")
+                    : financeArticles("expense").map(c => `<option value="${c}" ${m.category === c ? "selected" : ""}>${c}</option>`).join("")
                   }
                 </select>
               </div>
@@ -19261,6 +19492,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 ${field("Телефон", `<input value="${escapeHtml(m.phone || "")}" onfocus="app.maskPhoneFocus(this)" oninput="app.maskPhoneInput(this);app.setClientModalField('phone',this.value)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00">`)}
                 ${field("Email", `<input value="${escapeHtml(m.email || "")}" oninput="app.setClientModalField('email',this.value)" placeholder="mail@...">`)}
                 ${field("Город", `<input value="${escapeHtml(m.city || "")}" oninput="app.setClientModalField('city',this.value)">`)}
+                ${field("Соцсети / мессенджеры", `<input value="${escapeHtml(m.social || "")}" oninput="app.setClientModalField('social',this.value)" placeholder="@telegram, vk.com/…, сайт">`)}
                 ${field("Статус", `<select onchange="app.setClientModalField('status',this.value)">
                   ${["new","active","vip","paused","lost"].map(s => `<option value="${s}" ${m.status === s ? "selected" : ""}>${{new:"Новый",active:"Активный",vip:"VIP",paused:"Пауза",lost:"Потерян"}[s]}</option>`).join("")}
                 </select>`)}
@@ -21147,10 +21379,15 @@ Email: _____________________              Email: _____________________
         closeFinanceModal,
         setFinanceModalType,
         setFinanceModalField,
+        addFinanceArticle,
+        renameFinanceArticle,
+        removeFinanceArticle,
+        resetFinanceArticles,
         saveFinanceModal,
         startWizard,
         wizardSetData,
         wizardSetField,
+        updateProjectQuiet,
         wizardNext,
         wizardBack,
         cancelWizard,
@@ -21387,6 +21624,11 @@ Email: _____________________              Email: _____________________
         setServicesTab: (tab) => { state.servicesTab = (tab === "packages" ? "packages" : "catalog"); render(); },
         setCrmView,
         setCrmSort,
+        dealDragStart,
+        dealDragEnd,
+        dealDragOver,
+        dealDragLeave,
+        dealDrop,
         openPackageEditModal,
         closePackageEditModal,
         savePackageEdit,

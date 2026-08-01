@@ -705,5 +705,164 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(removed, 0, "свой тип брифа не удалился");
   });
 
+
+  // ── Ввод даты и денег ───────────────────────────────────────────────────────
+  // У <input type="date"> событие change срабатывает на КАЖДОМ полном валидном
+  // значении, а поле предзаполнено — значит на каждую введённую цифру. Мастер
+  // звал на change полный render(), инпут пересоздавался, и редактируемый
+  // сегмент сбрасывался: дату нельзя было допечатать.
+  await test("мастер: дата допечатывается целиком, не сбрасываясь на каждой цифре", async () => {
+    await page.evaluate(() => window.app.startWizard());
+    await page.waitForTimeout(250);
+    await page.evaluate(() => {
+      const i = document.querySelector("#appContent input");
+      if (i) { i.value = "Тест"; i.dispatchEvent(new Event("input", { bubbles: true })); }
+      const next = [...document.querySelectorAll("button")].find(b => /Далее/.test(b.textContent));
+      if (next) next.click();
+    });
+    await page.waitForTimeout(350);
+
+    await page.focus("#wizDeadline");
+    await page.keyboard.type("24072026");
+    await page.waitForTimeout(150);
+    const v = await page.evaluate(() => document.querySelector("#wizDeadline").value);
+    assertEqual(v, "2026-07-24", "дата набралась не полностью — сегмент сбрасывается перерисовкой");
+  });
+
+  await test("мастер: бюджет показывается с разделением разрядов", async () => {
+    await page.focus("#wizBudget");
+    await page.keyboard.type("150000");
+    await page.waitForTimeout(150);
+    const shown = await page.evaluate(() => document.querySelector("#wizBudget").value);
+    assertEqual(shown, "150 000", "бюджет без группировки разрядов: " + shown);
+  });
+
+  // ── Перетаскивание карточек сделок ──────────────────────────────────────────
+  // Ручной порядок = порядок state.savedProjects, поэтому он виден ТОЛЬКО в
+  // сортировке «по умолчанию». В остальных режимах карточку можно было бы
+  // отпустить, но список тут же пересортировался бы обратно.
+  await test("главная: карточку можно перетащить и порядок сохраняется", async () => {
+    const ids = await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const id = (st.savedProjects || [])[0] && (st.savedProjects || [])[0].id;
+      if (!id) return null;
+      if ((st.savedProjects || []).length < 3) {
+        window.app.duplicateSavedProject(id);
+        window.app.duplicateSavedProject(id);
+      }
+      const st2 = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st2.savedProjects || []).map((p) => p.id);
+    });
+    assert(ids && ids.length >= 3, "нужно минимум три сделки для проверки порядка");
+
+    const after = await page.evaluate(([first, third]) => {
+      const noop = { classList: { add() {}, remove() {}, toggle() {}, contains: () => false } };
+      window.app.dealDragStart(first, { dataTransfer: { setData() {}, effectAllowed: "" }, currentTarget: noop });
+      const target = { classList: { contains: (c) => c === "deal-card-dropafter", remove() {} } };
+      window.app.dealDrop(third, { preventDefault() {}, currentTarget: target });
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st.savedProjects || []).map((p) => p.id);
+    }, [ids[0], ids[2]]);
+
+    assertEqual(after.length, ids.length, "перетаскивание изменило число сделок");
+    // Перенос ПОСЛЕ третьей карточки ставит её на индекс 2 — не в конец списка:
+    // в наборе сделок больше трёх (предыдущий тест наплодил их для пагинации).
+    assertEqual(after[2], ids[0], "перетащенная карточка не встала сразу после цели");
+    assertEqual(after[0], ids[1], "соседи не сдвинулись на освободившееся место");
+  });
+
+  await test("главная: при сортировке «по сумме» перетаскивание выключено", async () => {
+    await page.evaluate(() => { window.app.setCrmView("grid"); window.app.setCrmSort("amount"); window.app.go("home"); });
+    await page.waitForTimeout(350);
+    const on = await page.evaluate(() =>
+      [...document.querySelectorAll(".deal-card")].filter((x) => x.getAttribute("draggable") === "true").length);
+    assertEqual(on, 0, "карточки перетаскиваемы в режиме сортировки — порядок тут же вернулся бы обратно");
+
+    await page.evaluate(() => { window.app.setCrmSort("default"); window.app.go("home"); });
+    await page.waitForTimeout(350);
+    const back = await page.evaluate(() =>
+      [...document.querySelectorAll(".deal-card")].filter((x) => x.getAttribute("draggable") === "true").length);
+    assert(back > 0, "в сортировке «по умолчанию» карточки должны быть перетаскиваемы");
+  });
+
+  // ── Статьи финансов ─────────────────────────────────────────────────────────
+  await test("финансы: статьи добавляются, переименовываются и не ломают операции", async () => {
+    const added = await page.evaluate(() => {
+      window.prompt = () => "Ретейнер";
+      window.app.addFinanceArticle("payment");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st.financeArticles || {}).payment || [];
+    });
+    assert(added.includes("Ретейнер"), "своя статья не добавилась: " + JSON.stringify(added));
+    assert(added.includes("Предоплата"), "встроенные статьи пропали при добавлении своей");
+
+    const renamed = await page.evaluate(() => {
+      window.prompt = () => "Аванс";
+      window.app.renameFinanceArticle("payment", 0);
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st.financeArticles || {}).payment || [];
+    });
+    assertEqual(renamed[0], "Аванс", "статья не переименовалась");
+
+    const reset = await page.evaluate(() => {
+      window.confirm = () => true;
+      window.app.resetFinanceArticles("payment");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st.financeArticles || {}).payment;
+    });
+    assert(!reset || !reset.length, "сброс не вернул встроенный набор");
+  });
+
+  // ── Дата операции в будущем ─────────────────────────────────────────────────
+  // Деньги отмечают по факту. Молча принятая будущая дата портит отчёт за месяц
+  // и задолженность, а заметить это можно спустя недели.
+  await test("финансы: дата операции в будущем требует подтверждения", async () => {
+    // Всё одним evaluate и БЕЗ доведения сохранения до конца: подтверждаем отказом
+    // (confirm → false), иначе тест дописал бы лишнюю операцию в финансы, а
+    // следующие проверки считали бы суммы уже с ней.
+    const res = await page.evaluate(() => {
+      const out = {};
+      window.app.openFinanceModal("payment");
+      window.app.setFinanceModalField("amount", "5000");
+
+      window.confirm = (m) => { out.future = m; return false; };
+      window.app.setFinanceModalField("date", new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10));
+      window.app.saveFinanceModal();
+
+      out.today = null;
+      window.confirm = (m) => { out.today = m; return false; };
+      window.app.setFinanceModalField("date", new Date().toISOString().slice(0, 10));
+      window.app.saveFinanceModal();
+
+      window.app.closeFinanceModal();
+      return out;
+    });
+    assert(res.future && /вперёд/.test(res.future), "будущая дата прошла без предупреждения: " + res.future);
+    assertEqual(res.today, null, "сегодняшняя дата не должна ничего спрашивать");
+  });
+
+  // ── Каталог: раздел «Дизайн и сайты» ────────────────────────────────────────
+  await test("каталог: раздел «Дизайн и сайты» есть, счётчики подгрупп сходятся", async () => {
+    await page.evaluate(() => window.app.go("catalog"));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => window.app.toggleCatalogGroup("web"));
+    await page.waitForTimeout(250);
+    const d = await page.evaluate(() => {
+      const btn = document.querySelector('.catalog-cat-item[data-group="web"]');
+      if (!btn) return null;
+      const subs = [];
+      const sib = btn.nextElementSibling;
+      if (sib && sib.tagName === "DIV") {
+        sib.querySelectorAll("button").forEach((b) =>
+          subs.push(+(b.querySelector(".catalog-cat-count") || {}).textContent || 0));
+      }
+      return { size: +btn.dataset.groupSize, subs };
+    });
+    assert(d, "раздела «Дизайн и сайты» нет в каталоге");
+    assert(d.size >= 10, "в разделе меньше десяти позиций: " + d.size);
+    assert(d.subs.length > 1, "у раздела нет подгрупп");
+    assertEqual(d.subs.reduce((a, b) => a + b, 0), d.size, "сумма подгрупп не равна размеру раздела");
+  });
+
   await context.close();
 };
