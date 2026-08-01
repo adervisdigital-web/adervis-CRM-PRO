@@ -2999,52 +2999,43 @@
       box-shadow: inset 0 0 0 1px var(--primary), 0 4px 18px rgba(124,58,237,.15);
     }
     /* ── Перетаскивание карточек сделок ──────────────────────────────────────
-       Тащим за РУЧКУ, а не за всю карточку. Причина не в красоте: карточка —
-       основная кликабельная область (выбор активной сделки) и в ней живут свои
-       кнопки. Когда draggable висит на карточке целиком, любое движение мышью с
-       зажатой кнопкой превращается в перетаскивание, текст не выделить, а на
-       случайном протаскивании порядок менялся незаметно для человека.
+       Карточка берётся В ЛЮБОМ МЕСТЕ, на её месте остаётся серое пятно, а сама
+       она едет за указателем. Ручки нет: она занимала место рядом с кнопкой
+       действий и требовала прицеливаться. Клик по карточке при этом сохранён —
+       перенос начинается только после смещения на 6px (порог в dealPointerDown).
 
-       Ручка появляется при наведении — в покое сетка остаётся чистой. */
-    .deal-card-draggable { cursor: pointer; }
-    .deal-card-drag-handle {
-      position: absolute; top: 10px; right: 10px;
-      width: 26px; height: 26px; border-radius: 7px;
-      display: grid; place-items: center;
-      color: var(--muted); background: var(--panel2);
-      border: 1px solid var(--line);
-      opacity: 0; transition: opacity .14s, color .14s, border-color .14s;
-      cursor: grab; z-index: 2;
+       Курсор grab на всей карточке был бы враньём: он обещает «тащи», а одиночный
+       клик выбирает активную сделку. Поэтому обычный pointer, а «взято» показываем
+       уже в процессе — курсором grabbing на всём документе. */
+    .deal-card-draggable { cursor: pointer; touch-action: manipulation; }
+    body.is-dragging-card, body.is-dragging-card * { cursor: grabbing !important; }
+    /* Во время переноса гасим выделение текста и подсветку по наведению —
+       иначе под летящим клоном «загораются» карточки, над которыми он проходит. */
+    body.is-dragging-card { -webkit-user-select: none; user-select: none; }
+    body.is-dragging-card .deal-card:hover { transform: none; }
+
+    /* Пятно на месте карточки: та же геометрия, но без содержимого — видно
+       ровно тот слот, куда она вернётся или встанет соседняя. */
+    .deal-card-placeholder {
+      background: var(--panel2) !important;
+      border-style: dashed;
+      border-color: var(--line) !important;
+      box-shadow: none !important;
+      transform: none !important;
     }
-    .deal-card:hover .deal-card-drag-handle { opacity: 1; }
-    .deal-card-drag-handle:hover { color: var(--primary); border-color: rgba(124,58,237,.45); }
-    .deal-card-drag-handle:active { cursor: grabbing; }
+    .deal-card-placeholder > * { visibility: hidden; }
 
-    /* Перетаскиваемая карточка: лёгкий подъём вместо «полупрозрачного огрызка» —
-       прежние opacity:.45 + scale читались как сбой отрисовки. */
-    .deal-card-dragging {
-      opacity: .92;
-      box-shadow: 0 14px 34px rgba(0,0,0,.28);
-      border-color: var(--primary);
-    }
-    .deal-card-dragging .deal-card-drag-handle { opacity: 1; color: var(--primary); }
-
-    /* Место вставки — планка МЕЖДУ карточками. Сетка многоколоночная, поэтому
-       показываем именно куда встанет; подсветка всей карточки читалась бы как
-       «положить внутрь неё». */
-    .deal-card-dropbefore::after,
-    .deal-card-dropafter::after {
-      content: ""; position: absolute; top: 6px; bottom: 6px; width: 3px;
-      background: var(--primary); border-radius: 3px; pointer-events: none;
-      box-shadow: 0 0 10px rgba(124,58,237,.55);
-    }
-    .deal-card-dropbefore::after { left: -10px; }
-    .deal-card-dropafter::after { right: -10px; }
-
-    /* На телефоне HTML5 drag-and-drop не работает в принципе — ручку не
-       показываем, чтобы не обещать действие, которого нет. */
-    @media (hover: none), (max-width: 768px) {
-      .deal-card-drag-handle { display: none; }
+    /* Клон, который едет за указателем. pointer-events:none обязателен — иначе
+       он сам оказывается элементом под курсором, и цель вставки не находится. */
+    .deal-card-flying {
+      position: fixed !important;
+      margin: 0 !important;
+      z-index: 90;
+      pointer-events: none;
+      opacity: .95;
+      box-shadow: 0 18px 42px rgba(0,0,0,.32);
+      border-color: var(--primary) !important;
+      transform: rotate(1.5deg);
     }
 
     .deal-card:hover.current { box-shadow: inset 0 0 0 1px var(--green), 0 10px 30px rgba(22,163,74,.18); }

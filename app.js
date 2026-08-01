@@ -8672,70 +8672,118 @@
          карточку можно было бы отпустить, но список тут же пересортировался бы
          обратно — человек решил бы, что приложение его не послушало.
 
-         Только мышь: HTML5 drag-and-drop на тач-экранах не работает в принципе
-         (touch-события не порождают dragstart). Тач-фолбэк тут не делаю — на
-         телефоне ручной порядок из 100 карточек всё равно нерабочий сценарий,
-         а тот же результат даёт «Закрепить» (pinned). */
-      let _dealDragId = null;
+         Сделано на pointer-событиях, а НЕ на HTML5 drag-and-drop:
+           • HTML5 DnD не работает на тач-экранах — на телефоне переноса бы не было;
+           • он не даёт взять карточку в любом месте, не ломая клик по ней: атрибут
+             draggable перехватывает любое движение с зажатой кнопкой, и выбрать
+             активную сделку одним кликом становится нельзя;
+           • «призрак» там рисует браузер — это полупрозрачный скриншот, а не наш
+             элемент, поэтому серое пятно на месте карточки и живое перестроение
+             сетки с ним недостижимы.
 
-      function dealDragStart(id, ev) {
-        _dealDragId = id;
-        if (ev && ev.dataTransfer) {
-          ev.dataTransfer.effectAllowed = "move";
-          // Firefox не начинает перетаскивание без данных в dataTransfer
-          try { ev.dataTransfer.setData("text/plain", id); } catch (e) {}
+         Как устроено: карточка-оригинал остаётся в потоке и превращается в серый
+         placeholder, а за указателем едет её клон (position:fixed). Порядок
+         пересобирается прямо в DOM — placeholder переезжает между соседями, и
+         сетка перестраивается на глазах. По отпусканию читаем итоговый порядок
+         id из DOM и применяем к state.
+
+         Порог 6px обязателен: без него любой клик по карточке (а это основное
+         действие — выбор активной сделки) начинал бы перетаскивание. На тач-экране
+         вдобавок нужно придержать 220 мс, иначе список нельзя было бы прокрутить
+         пальцем. */
+      const DRAG_THRESHOLD = 6;
+      const TOUCH_HOLD_MS = 220;
+      let _drag = null;
+
+      function _dragCards(grid) { return [...grid.querySelectorAll(".deal-card")]; }
+
+      function dealPointerDown(id, ev) {
+        if (ev.button != null && ev.button !== 0) return;
+        // На интерактивных потомках не начинаем — иначе нельзя нажать «Открыть»,
+        // меню действий или чекбокс выбора.
+        if (ev.target.closest("button, a, input, select, textarea, .deal-ctx-menu")) return;
+        const card = ev.currentTarget;
+        const grid = card.parentElement;
+        if (!grid) return;
+        _drag = {
+          id, card, grid, pointerId: ev.pointerId,
+          x0: ev.clientX, y0: ev.clientY,
+          started: false, armed: ev.pointerType !== "touch",
+          holdTimer: null, clone: null, dx: 0, dy: 0,
+        };
+        if (ev.pointerType === "touch") {
+          _drag.holdTimer = setTimeout(() => { if (_drag) _drag.armed = true; }, TOUCH_HOLD_MS);
         }
-        // dragstart приходит с РУЧКИ — подсвечиваем карточку-родителя, а не её.
-        const el = ev && ev.currentTarget && ev.currentTarget.closest(".deal-card");
-        if (el) el.classList.add("deal-card-dragging");
       }
 
-      function dealDragEnd(ev) {
-        const el = ev && ev.currentTarget && ev.currentTarget.closest(".deal-card");
-        if (el) el.classList.remove("deal-card-dragging");
-        document.querySelectorAll(".deal-card-dragging").forEach(x => x.classList.remove("deal-card-dragging"));
-        document.querySelectorAll(".deal-card-dropbefore, .deal-card-dropafter")
-          .forEach(x => x.classList.remove("deal-card-dropbefore", "deal-card-dropafter"));
-        _dealDragId = null;
+      function _dragBegin(d) {
+        const r = d.card.getBoundingClientRect();
+        d.dx = d.x0 - r.left;
+        d.dy = d.y0 - r.top;
+        const clone = d.card.cloneNode(true);
+        clone.classList.add("deal-card-flying");
+        clone.style.width = r.width + "px";
+        clone.style.height = r.height + "px";
+        clone.style.left = r.left + "px";
+        clone.style.top = r.top + "px";
+        document.body.appendChild(clone);
+        d.clone = clone;
+        d.card.classList.add("deal-card-placeholder");
+        document.body.classList.add("is-dragging-card");
+        d.started = true;
       }
 
-      function dealDragOver(id, ev) {
-        if (!_dealDragId || _dealDragId === id) return;
+      function dealPointerMove(ev) {
+        const d = _drag;
+        if (!d) return;
+        if (!d.started) {
+          const moved = Math.hypot(ev.clientX - d.x0, ev.clientY - d.y0);
+          // Палец поехал раньше, чем истекло удержание — это прокрутка, не перенос.
+          if (!d.armed) { if (moved > 10) dealPointerUp(ev, true); return; }
+          if (moved < DRAG_THRESHOLD) return;
+          _dragBegin(d);
+          try { d.card.setPointerCapture(d.pointerId); } catch (e) {}
+        }
         ev.preventDefault();
-        if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
-        const el = ev.currentTarget;
-        const r = el.getBoundingClientRect();
-        // Куда встанет карточка — до или после цели. Считаем по горизонтали:
-        // сетка многоколоночная, и «выше/ниже» тут ничего не значит.
-        const after = (ev.clientX - r.left) > r.width / 2;
-        el.classList.toggle("deal-card-dropafter", after);
-        el.classList.toggle("deal-card-dropbefore", !after);
+        d.clone.style.left = (ev.clientX - d.dx) + "px";
+        d.clone.style.top = (ev.clientY - d.dy) + "px";
+
+        const target = _dragCards(d.grid).find(c => {
+          if (c === d.card) return false;
+          const r = c.getBoundingClientRect();
+          return ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
+        });
+        if (!target) return;
+        const tr = target.getBoundingClientRect();
+        const after = (ev.clientX - tr.left) > tr.width / 2;
+        // insertBefore сам вырезает узел из старого места — отдельный remove не нужен.
+        d.grid.insertBefore(d.card, after ? target.nextSibling : target);
       }
 
-      function dealDragLeave(ev) {
-        const el = ev && ev.currentTarget;
-        if (el) el.classList.remove("deal-card-dropbefore", "deal-card-dropafter");
-      }
+      function dealPointerUp(ev, cancelled) {
+        const d = _drag;
+        if (!d) return;
+        clearTimeout(d.holdTimer);
+        _drag = null;
+        try { d.card.releasePointerCapture(d.pointerId); } catch (e) {}
+        if (!d.started) return;
 
-      function dealDrop(targetId, ev) {
-        if (ev) ev.preventDefault();
-        const dragId = _dealDragId;
-        const el = ev && ev.currentTarget;
-        const after = !!(el && el.classList.contains("deal-card-dropafter"));
-        if (el) el.classList.remove("deal-card-dropbefore", "deal-card-dropafter");
-        _dealDragId = null;
-        if (!dragId || dragId === targetId) return;
+        if (d.clone) d.clone.remove();
+        d.card.classList.remove("deal-card-placeholder");
+        document.body.classList.remove("is-dragging-card");
+        if (cancelled) { render(); return; }
 
+        // Итоговый порядок берём из DOM. В state переставляем только те сделки,
+        // что сейчас на экране: список отфильтрован и разбит на страницы, поэтому
+        // трогать остальные нельзя — они просто не участвовали в переносе.
+        const domIds = _dragCards(d.grid)
+          .map(c => (c.getAttribute("onclick") || "").match(/selectActiveDeal\('([^']+)'\)/))
+          .filter(Boolean).map(m => m[1]);
         const list = state.savedProjects || [];
-        const from = list.findIndex(p => p.id === dragId);
-        const to = list.findIndex(p => p.id === targetId);
-        if (from < 0 || to < 0) return;
-
-        const [moved] = list.splice(from, 1);
-        // После вырезания индексы правее сдвинулись — пересчитываем цель заново,
-        // иначе карточка встаёт на позицию мимо на единицу при движении вправо.
-        const idx = list.findIndex(p => p.id === targetId);
-        list.splice(after ? idx + 1 : idx, 0, moved);
+        const pos = new Map(domIds.map((x, i) => [x, i]));
+        const moved = list.filter(p => pos.has(p.id)).sort((a, b) => pos.get(a.id) - pos.get(b.id));
+        let k = 0;
+        state.savedProjects = list.map(p => (pos.has(p.id) ? moved[k++] : p));
         save();
         render();
       }
@@ -12394,7 +12442,7 @@
         const _crmKey = filter + "|" + tagFilter + "|" + sortMode;
         if (_crmKey !== _crmLimitKey) { _crmLimitKey = _crmKey; _crmVisibleLimit = CRM_PAGE_SIZE; }
         const pagedItems = visibleItems.slice(0, _crmVisibleLimit);
-        // Ручной порядок виден только в сортировке «по умолчанию» — см. dealDrop().
+        // Ручной порядок виден только в сортировке «по умолчанию» — см. dealPointerUp().
         const canReorder = sortMode === "default";
         const crmHiddenCount = visibleItems.length - pagedItems.length;
 
@@ -12701,15 +12749,11 @@
                   const u = dealDeadlineUrgency(project);
                   return `
                     <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""} ${canReorder ? "deal-card-draggable" : ""}"
-                      ${canReorder ? `ondragover="app.dealDragOver('${projectIdSafe}',event)"
-                        ondragleave="app.dealDragLeave(event)"
-                        ondrop="app.dealDrop('${projectIdSafe}',event)"` : ""}
+                      ${canReorder ? `onpointerdown="app.dealPointerDown('${projectIdSafe}',event)"
+                        onpointermove="app.dealPointerMove(event)"
+                        onpointerup="app.dealPointerUp(event)"
+                        onpointercancel="app.dealPointerUp(event,true)"` : ""}
                       onclick="app.selectActiveDeal('${projectIdSafe}')" style="cursor:pointer;--status-color:${CRM_STATUS_COLOR[project.crmStatus || "Лид"] || "var(--muted)"}" title="${isCurrent ? "Клик — открыть в смете" : "Клик — сделать активным проектом · «Открыть →» — перейти в смету"}">
-                      ${canReorder ? `<span class="deal-card-drag-handle no-print" draggable="true"
-                        ondragstart="app.dealDragStart('${projectIdSafe}',event)"
-                        ondragend="app.dealDragEnd(event)"
-                        onclick="event.stopPropagation()"
-                        title="Перетащите, чтобы изменить порядок" aria-hidden="true">${icon("drag", 13)}</span>` : ""}
                       <div class="deal-card-head">
                         ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">` : ""}
@@ -21659,11 +21703,9 @@ Email: _____________________              Email: _____________________
         setServicesTab: (tab) => { state.servicesTab = (tab === "packages" ? "packages" : "catalog"); render(); },
         setCrmView,
         setCrmSort,
-        dealDragStart,
-        dealDragEnd,
-        dealDragOver,
-        dealDragLeave,
-        dealDrop,
+        dealPointerDown,
+        dealPointerMove,
+        dealPointerUp,
         openPackageEditModal,
         closePackageEditModal,
         savePackageEdit,

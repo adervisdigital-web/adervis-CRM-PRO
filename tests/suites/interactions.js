@@ -760,7 +760,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
   // Ручной порядок = порядок state.savedProjects, поэтому он виден ТОЛЬКО в
   // сортировке «по умолчанию». В остальных режимах карточку можно было бы
   // отпустить, но список тут же пересортировался бы обратно.
-  await test("главная: карточку можно перетащить и порядок сохраняется", async () => {
+  await test("главная: карточка тащится из любой точки, порядок сохраняется", async () => {
     const ids = await page.evaluate(() => {
       const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
       const id = (st.savedProjects || [])[0] && (st.savedProjects || [])[0].id;
@@ -774,43 +774,88 @@ module.exports = async function ({ browser, baseUrl, test }) {
     });
     assert(ids && ids.length >= 3, "нужно минимум три сделки для проверки порядка");
 
-    const after = await page.evaluate(([first, third]) => {
-      // dragstart приходит с РУЧКИ, а подсветить надо карточку-родителя, поэтому
-      // код зовёт closest(".deal-card") — фейк обязан это уметь.
-      const cls = { add() {}, remove() {}, toggle() {}, contains: () => false };
-      const handle = { classList: cls, closest: () => ({ classList: cls }) };
-      window.app.dealDragStart(first, { dataTransfer: { setData() {}, effectAllowed: "" }, currentTarget: handle });
-      const target = { classList: { contains: (c) => c === "deal-card-dropafter", remove() {} } };
-      window.app.dealDrop(third, { preventDefault() {}, currentTarget: target });
-      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
-      return (st.savedProjects || []).map((p) => p.id);
-    }, [ids[0], ids[2]]);
+    await page.evaluate(() => { window.app.setCrmView("grid"); window.app.setCrmSort("default"); window.app.go("home"); });
+    await page.waitForTimeout(400);
+    // Карточки лежат ниже сгиба — без прокрутки события мыши до них не доходят
+    // и перетаскивание «не работает», хотя код исправен.
+    await page.evaluate(() => document.querySelector(".deal-card").scrollIntoView({ block: "center" }));
+    await page.waitForTimeout(250);
 
-    assertEqual(after.length, ids.length, "перетаскивание изменило число сделок");
-    // Перенос ПОСЛЕ третьей карточки ставит её на индекс 2 — не в конец списка:
-    // в наборе сделок больше трёх (предыдущий тест наплодил их для пагинации).
-    assertEqual(after[2], ids[0], "перетащенная карточка не встала сразу после цели");
-    assertEqual(after[0], ids[1], "соседи не сдвинулись на освободившееся место");
+    const before = await page.evaluate(() =>
+      [...document.querySelectorAll(".deal-card")]
+        .map((c) => (c.getAttribute("onclick") || "").match(/selectActiveDeal\('([^']+)'\)/)[1]));
+    const box = await page.evaluate(() => {
+      const cards = [...document.querySelectorAll(".deal-card")];
+      const a = cards[0].getBoundingClientRect();
+      const b = cards[2].getBoundingClientRect();
+      // Берём за ЗАГОЛОВОК — точка заведомо не на кнопке внутри карточки.
+      return { from: { x: a.left + 60, y: a.top + 26 }, to: { x: b.left + b.width * 0.75, y: b.top + b.height / 2 } };
+    });
+
+    await page.mouse.move(box.from.x, box.from.y);
+    await page.mouse.down();
+    await page.mouse.move(box.from.x + 14, box.from.y + 5, { steps: 3 });
+    await page.waitForTimeout(120);
+
+    const mid = await page.evaluate(() => ({
+      placeholder: document.querySelectorAll(".deal-card-placeholder").length,
+      flying: document.querySelectorAll(".deal-card-flying").length,
+      body: document.body.classList.contains("is-dragging-card"),
+    }));
+    assertEqual(mid.placeholder, 1, "на месте карточки не появилось серое пятно");
+    assertEqual(mid.flying, 1, "за указателем не поехал клон карточки");
+    assertEqual(mid.body, true, "не выставлен режим перетаскивания на body");
+
+    await page.mouse.move(box.to.x, box.to.y, { steps: 10 });
+    await page.waitForTimeout(150);
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    const after = await page.evaluate(() =>
+      [...document.querySelectorAll(".deal-card")]
+        .map((c) => (c.getAttribute("onclick") || "").match(/selectActiveDeal\('([^']+)'\)/)[1]));
+    assert(after[0] !== before[0], "порядок не изменился после переноса");
+    assertEqual(after.length, before.length, "перетаскивание изменило число карточек");
+
+    const clean = await page.evaluate(() => ({
+      placeholder: document.querySelectorAll(".deal-card-placeholder").length,
+      flying: document.querySelectorAll(".deal-card-flying").length,
+      body: document.body.classList.contains("is-dragging-card"),
+    }));
+    assertEqual(clean.placeholder + clean.flying, 0, "после отпускания остался мусор в DOM");
+    assertEqual(clean.body, false, "режим перетаскивания не снят с body");
+  });
+
+  // Клик по карточке — основное действие (выбор активной сделки). Порог в 6px
+  // существует ровно для того, чтобы обычный клик не превращался в перенос.
+  await test("главная: клик по карточке без движения не меняет порядок", async () => {
+    await page.evaluate(() => document.querySelector(".deal-card").scrollIntoView({ block: "center" }));
+    await page.waitForTimeout(200);
+    const read = () => page.evaluate(() =>
+      [...document.querySelectorAll(".deal-card")]
+        .map((c) => (c.getAttribute("onclick") || "").match(/selectActiveDeal\('([^']+)'\)/)[1]));
+    const before = await read();
+    const pt = await page.evaluate(() => {
+      const r = document.querySelector(".deal-card").getBoundingClientRect();
+      return { x: r.left + 60, y: r.top + 26 };
+    });
+    await page.mouse.click(pt.x, pt.y);
+    await page.waitForTimeout(350);
+    assertEqual(JSON.stringify(await read()), JSON.stringify(before), "простой клик переставил карточки");
   });
 
   await test("главная: при сортировке «по сумме» перетаскивание выключено", async () => {
     await page.evaluate(() => { window.app.setCrmView("grid"); window.app.setCrmSort("amount"); window.app.go("home"); });
     await page.waitForTimeout(350);
-    // Тащим за ручку, а не за карточку целиком (иначе любое движение мышью по
-    // карточке начинало перетаскивание). Признак доступности — наличие ручки.
-    const on = await page.evaluate(() => document.querySelectorAll(".deal-card-drag-handle").length);
-    assertEqual(on, 0, "ручки перетаскивания видны в режиме сортировки — порядок тут же вернулся бы обратно");
+    const off = await page.evaluate(() =>
+      [...document.querySelectorAll(".deal-card")].filter((c) => c.hasAttribute("onpointerdown")).length);
+    assertEqual(off, 0, "карточки перетаскиваемы в режиме сортировки — порядок тут же вернулся бы обратно");
 
     await page.evaluate(() => { window.app.setCrmSort("default"); window.app.go("home"); });
     await page.waitForTimeout(350);
-    const back = await page.evaluate(() => ({
-      handles: document.querySelectorAll(".deal-card-drag-handle").length,
-      onHandle: (document.querySelector(".deal-card-drag-handle") || {}).draggable,
-      onCard: document.querySelector(".deal-card") && document.querySelector(".deal-card").getAttribute("draggable"),
-    }));
-    assert(back.handles > 0, "в сортировке «по умолчанию» у карточек должна быть ручка перетаскивания");
-    assertEqual(back.onHandle, true, "draggable должен стоять на ручке");
-    assertEqual(back.onCard, null, "draggable не должен висеть на всей карточке");
+    const on = await page.evaluate(() =>
+      [...document.querySelectorAll(".deal-card")].filter((c) => c.hasAttribute("onpointerdown")).length);
+    assert(on > 0, "в сортировке «по умолчанию» карточки должны быть перетаскиваемы");
   });
 
   // ── Статьи финансов ─────────────────────────────────────────────────────────
