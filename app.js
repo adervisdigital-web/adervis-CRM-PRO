@@ -240,6 +240,7 @@
         image:    `<path d="M2.4 2.2h11.2c.7 0 1.2.5 1.2 1.2v9.2c0 .7-.5 1.2-1.2 1.2H2.4c-.7 0-1.2-.5-1.2-1.2V3.4c0-.7.5-1.2 1.2-1.2zm.4 1.6v6.4l2.9-2.9 2.5 2.5 2.6-2.6 2.6 2.6V3.8H2.8zm2.5 1.1a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z"/>`,
         wallet:   `<path d="M2.6 2.8h9.2c.8 0 1.4.6 1.4 1.4v.8h.8c.6 0 1.2.5 1.2 1.2v5.6c0 .7-.5 1.2-1.2 1.2H2.6c-.9 0-1.6-.7-1.6-1.6V4.4c0-.9.7-1.6 1.6-1.6zm0 1.5a.1.1 0 00-.1.1v7c0 .1 0 .1.1.1h11v-5H2.6v-1.5h9.1v-.6a.1.1 0 00-.1-.1H2.6zm8.6 3.9a1 1 0 110 2 1 1 0 010-2z"/>`,
         rocket:   `<path d="M9.9 1.2c1.8 0 3.4.5 4.3 1.4.9.9 1.4 2.5 1.4 4.3 0 .3-.2.5-.5.5-2 .3-3.5 1.2-4.7 2.4l-.6.6-3.2-3.2.6-.6c1.2-1.2 2.1-2.7 2.4-4.7 0-.3.2-.5.3-.7zm.8 2.6a1.3 1.3 0 100 2.6 1.3 1.3 0 000-2.6zM4.9 9.4l1.7 1.7-1.2 1.2c-.6.6-2.4 1.5-3 1.2-.3-.6.6-2.4 1.2-3l1.3-1.1z"/>`,
+        drag:     `<path d="M6 2.6a1.3 1.3 0 110 2.6 1.3 1.3 0 010-2.6zm4 0a1.3 1.3 0 110 2.6 1.3 1.3 0 010-2.6zM6 6.7a1.3 1.3 0 110 2.6 1.3 1.3 0 010-2.6zm4 0a1.3 1.3 0 110 2.6 1.3 1.3 0 010-2.6zM6 10.8a1.3 1.3 0 110 2.6 1.3 1.3 0 010-2.6zm4 0a1.3 1.3 0 110 2.6 1.3 1.3 0 010-2.6z"/>`,
         list:     `<path d="M2.4 3.2a1 1 0 110 2 1 1 0 010-2zm3.1.3h8a.7.7 0 010 1.4h-8a.7.7 0 010-1.4zM2.4 7a1 1 0 110 2 1 1 0 010-2zm3.1.3h8a.7.7 0 010 1.4h-8a.7.7 0 010-1.4zM2.4 10.8a1 1 0 110 2 1 1 0 010-2zm3.1.3h8a.7.7 0 010 1.4h-8a.7.7 0 010-1.4z"/>`,
         mic:      `<path d="M8 1.4a2.3 2.3 0 00-2.3 2.3v4a2.3 2.3 0 004.6 0v-4A2.3 2.3 0 008 1.4zM4 7.2a.7.7 0 00-1.4 0 5.4 5.4 0 004.7 5.3v1.3H5.6a.7.7 0 000 1.4h4.8a.7.7 0 000-1.4H8.7v-1.3A5.4 5.4 0 0013.4 7.2a.7.7 0 00-1.4 0 4 4 0 01-8 0z"/>`,
         stage:    `<path d="M8 .8L1 4.1v1.5h14V4.1L8 .8zm-5.6 6.3v5.3H1.2c-.4 0-.7.3-.7.7s.3.7.7.7h13.6c.4 0 .7-.3.7-.7s-.3-.7-.7-.7h-1.2V7.1h-1.5v5.3h-2V7.1H8.7v5.3h-1.4V7.1H5.8v5.3h-2V7.1H2.4z"/>`,
@@ -2867,7 +2868,7 @@
               <span>Быстрый доступ с рабочего стола, без браузера</span>
             </div>
             <button class="btn primary small" onclick="app.installPWA()">Установить</button>
-            <button class="pwa-install-toast-close" onclick="app.dismissPwaInstallBanner()" aria-label="Закрыть">&times;</button>
+            <button class="pwa-install-toast-close" onclick="app.dismissPwaInstallBanner()" aria-label="Закрыть">${icon("close", 13)}</button>
           </div>
         `;
       }
@@ -5388,6 +5389,19 @@
         return { days, level: "ok", label: `${days} дн.`, color: "var(--muted)" };
       }
 
+      /* Плашка дедлайна для СДЕЛКИ. deadlineUrgency() считает чистую арифметику по
+         дате и про статус ничего не знает — поэтому на завершённом проекте висело
+         «Просрочен на 655 дн.». Дедлайн — обещание клиенту о сроке сдачи: после
+         того как работа сдана, обещание закрыто, и красная плашка врёт.
+         Комментарий у CRM_ARCHIVED это и подразумевал («исключается из … и
+         дедлайнов»), но к самой плашке правило не применялось. */
+      const DEAL_DELIVERED = new Set(["Сдано", "Оплата", "Завершённые", CRM_ARCHIVED]);
+      function dealDeadlineUrgency(project) {
+        if (!project || !project.deadline) return null;
+        if (DEAL_DELIVERED.has(project.crmStatus || "Лид")) return null;
+        return deadlineUrgency(project.deadline);
+      }
+
       function taxRateByType(type) {
         const option = TAX_OPTIONS.find(item => item.id === type);
         return option ? option.rate : 0;
@@ -6202,7 +6216,7 @@
       function toast(message) {
         const el = document.getElementById("toast");
         if (!el) return;
-        el.innerHTML = `<span class="toast-msg">${escapeHtml(message)}</span><button class="toast-close" onclick="this.parentElement.classList.remove('show')" aria-label="Закрыть">&times;</button>`;
+        el.innerHTML = `<span class="toast-msg">${escapeHtml(message)}</span><button class="toast-close" onclick="this.parentElement.classList.remove('show')" aria-label="Закрыть">${icon("close", 12)}</button>`;
         el.classList.add("show");
         clearTimeout(toast._timer);
         toast._timer = setTimeout(() => el.classList.remove("show"), 3500);
@@ -6347,7 +6361,7 @@
         if (!el) return;
         clearTimeout(toast._timer);
         if (_pendingUndo) clearTimeout(_pendingUndo.timer);
-        el.innerHTML = `<span class="toast-msg">${escapeHtml(message)}</span><button class="toast-undo" onclick="app.undoLastDelete()">↩ Отменить</button><button class="toast-close" onclick="app.dismissUndo()" aria-label="Закрыть">&times;</button>`;
+        el.innerHTML = `<span class="toast-msg">${escapeHtml(message)}</span><button class="toast-undo" onclick="app.undoLastDelete()">↩ Отменить</button><button class="toast-close" onclick="app.dismissUndo()" aria-label="Закрыть">${icon("close", 12)}</button>`;
         el.classList.add("show");
         _pendingUndo = { restore: restoreFn, timer: setTimeout(() => { el.classList.remove("show"); _pendingUndo = null; }, 5000) };
       }
@@ -8671,13 +8685,15 @@
           // Firefox не начинает перетаскивание без данных в dataTransfer
           try { ev.dataTransfer.setData("text/plain", id); } catch (e) {}
         }
-        const el = ev && ev.currentTarget;
+        // dragstart приходит с РУЧКИ — подсвечиваем карточку-родителя, а не её.
+        const el = ev && ev.currentTarget && ev.currentTarget.closest(".deal-card");
         if (el) el.classList.add("deal-card-dragging");
       }
 
       function dealDragEnd(ev) {
-        const el = ev && ev.currentTarget;
+        const el = ev && ev.currentTarget && ev.currentTarget.closest(".deal-card");
         if (el) el.classList.remove("deal-card-dragging");
+        document.querySelectorAll(".deal-card-dragging").forEach(x => x.classList.remove("deal-card-dragging"));
         document.querySelectorAll(".deal-card-dropbefore, .deal-card-dropafter")
           .forEach(x => x.classList.remove("deal-card-dropbefore", "deal-card-dropafter"));
         _dealDragId = null;
@@ -9323,6 +9339,24 @@
             }
           });
         });
+
+        /* Лента разделов каталога на телефоне прокручивается по горизонтали, и
+           выбранный раздел запросто оказывается за краем экрана — человек видит
+           отфильтрованный список и не видит, ЧЕМ отфильтровано. Подтягиваем
+           активный пункт в видимую часть.
+           Только если он реально вне зоны: иначе каждый render дёргал бы ленту
+           под рукой у того, кто её сейчас листает. */
+        const catBar = root.querySelector(".catalog-cat-sidebar");
+        if (catBar && catBar.scrollWidth > catBar.clientWidth + 4) {
+          const act = catBar.querySelector(".catalog-cat-item.active");
+          if (act) {
+            const br = catBar.getBoundingClientRect();
+            const ar = act.getBoundingClientRect();
+            if (ar.left < br.left + 4 || ar.right > br.right - 4) {
+              catBar.scrollLeft += (ar.left - br.left) - (br.width - ar.width) / 2;
+            }
+          }
+        }
 
         // Кликабельные не-кнопки (карточки сделок, услуг, пакетов, этапы воронки,
         // плитки статистики, сегменты графиков) — мышью работают, с клавиатуры были
@@ -12627,7 +12661,7 @@
                 ${pagedItems.map(project => {
                   const payPct = project.total > 0 ? Math.min(100, Math.round((project.paid||0)/project.total*100)) : 0;
                   const isCurrent = project.id === state.activeProjectId;
-                  const u = project.deadline ? deadlineUrgency(project.deadline) : null;
+                  const u = dealDeadlineUrgency(project);
                   const nextLabel = CRM_NEXT[project.crmStatus || "Лид"];
                   const projectIdSafe = project.id.replace(/'/g,"");
                   const margin = project.revenue > 0 ? Math.round((project.profit||0)/project.revenue*100) : 0;
@@ -12664,16 +12698,18 @@
                   const clientIdSafe = (project.clientId||"").replace(/'/g,"\\x27");
                   const clientNameSafe = (project.client||"").replace(/'/g,"\\x27");
                   const projectIdSafe = project.id.replace(/'/g,"");
-                  const u = project.deadline ? deadlineUrgency(project.deadline) : null;
+                  const u = dealDeadlineUrgency(project);
                   return `
                     <div class="deal-card ${isCurrent ? "current" : ""} ${isSelected ? "deal-card-selected" : ""} ${canReorder ? "deal-card-draggable" : ""}"
-                      ${canReorder ? `draggable="true"
-                        ondragstart="app.dealDragStart('${projectIdSafe}',event)"
-                        ondragend="app.dealDragEnd(event)"
-                        ondragover="app.dealDragOver('${projectIdSafe}',event)"
+                      ${canReorder ? `ondragover="app.dealDragOver('${projectIdSafe}',event)"
                         ondragleave="app.dealDragLeave(event)"
                         ondrop="app.dealDrop('${projectIdSafe}',event)"` : ""}
                       onclick="app.selectActiveDeal('${projectIdSafe}')" style="cursor:pointer;--status-color:${CRM_STATUS_COLOR[project.crmStatus || "Лид"] || "var(--muted)"}" title="${isCurrent ? "Клик — открыть в смете" : "Клик — сделать активным проектом · «Открыть →» — перейти в смету"}">
+                      ${canReorder ? `<span class="deal-card-drag-handle no-print" draggable="true"
+                        ondragstart="app.dealDragStart('${projectIdSafe}',event)"
+                        ondragend="app.dealDragEnd(event)"
+                        onclick="event.stopPropagation()"
+                        title="Перетащите, чтобы изменить порядок" aria-hidden="true">${icon("drag", 13)}</span>` : ""}
                       <div class="deal-card-head">
                         ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">` : ""}
@@ -13118,7 +13154,7 @@
                   <h2 style="margin:0 0 4px;font-size:18px;line-height:1.3">${escapeHtml(itemData.name)}</h2>
                   ${custom ? `<span class="status-pill" style="font-size:12px">Своя позиция</span>` : `<span class="badge">${escapeHtml(itemData.section)}</span>`}
                 </div>
-                <button class="modal-close" onclick="app.closeCatalogEdit()" style="flex-shrink:0">&times;</button>
+                <button class="u-modal-close" onclick="app.closeCatalogEdit()" aria-label="Закрыть" style="flex-shrink:0">${icon("close", 15)}</button>
               </div>
 
               ${contentHtml}
@@ -13614,11 +13650,10 @@
                             </span>
                             <span class="catalog-cat-count" style="${picked ? "" : "opacity:.45"}">${picked || list.length}</span>
                           </button>
-                          ${subs.length > 1 ? `<div style="margin:2px 0 6px 10px;display:flex;flex-direction:column;gap:2px">
+                          ${subs.length > 1 ? `<div class="catalog-subgroups">
                             ${subs.map(s => `
-                              <button class="catalog-cat-item ${state.tab === s.id ? "active" : ""}"
-                                onclick="event.stopPropagation();app.setTab('${s.id}')"
-                                style="font-size:12px;min-height:36px;opacity:.85">
+                              <button class="catalog-cat-item catalog-subgroup ${state.tab === s.id ? "active" : ""}"
+                                onclick="event.stopPropagation();app.setTab('${s.id}')">
                                 <span>${escapeHtml(s.label)}</span>
                                 <span class="catalog-cat-count">${s.n}</span>
                               </button>
@@ -16184,7 +16219,7 @@
       function renderReceivablesTab() {
         const debtors = (state.savedProjects || [])
           .filter(p => !isDealInactive(p.crmStatus || "Лид") && Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)) > 0)
-          .map(p => ({ ...p, _debt: Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), _u: p.deadline ? deadlineUrgency(p.deadline) : null }))
+          .map(p => ({ ...p, _debt: Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), _u: dealDeadlineUrgency(p) }))
           .sort((a, b) => {
             const rank = u => !u ? 3 : u.level === "overdue" ? 0 : u.level === "critical" ? 1 : u.level === "warning" ? 2 : 3;
             const ra = rank(a._u), rb = rank(b._u);
@@ -17051,7 +17086,7 @@
                 <div id="dealBarSwitcher">${renderDealSwitcherButtonHtml()}</div>
                 ${state.project.client ? `<span class="badge" style="font-size:12px">${escapeHtml(state.project.client)}</span>` : ""}
                 <span class="margin-badge ${marginClass}" style="font-size:12px">${margin}% маржа</span>
-                ${(() => { const u = deadlineUrgency(state.project.deadline); if (!u || u.level === "ok") return ""; return `<span style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px"> ${escapeHtml(u.label)}</span>`; })()}
+                ${(() => { const u = dealDeadlineUrgency(state.project); if (!u || u.level === "ok") return ""; return `<span style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px"> ${escapeHtml(u.label)}</span>`; })()}
               </div>
 
               <div class="deal-actions-group">
@@ -19575,7 +19610,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       function _dealSwitcherItemHtml(p, extraClass) {
         const cur = state.activeProjectId;
         const isActive = p.id === cur;
-        const u = p.deadline ? deadlineUrgency(p.deadline) : null;
+        const u = dealDeadlineUrgency(p);
         return `
           <div class="deal-switcher-item ${isActive ? "active" : ""} ${extraClass || ""}" onclick="app.switchDeal('${p.id.replace(/'/g, "")}')">
             <div class="deal-switcher-item-name">${escapeHtml(p.name || "Без названия")}</div>
@@ -19644,7 +19679,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           <div class="deal-switcher-panel" style="left:${panelLeft}px" onclick="event.stopPropagation()">
             <div class="deal-switcher-panel-header">
               <h3>Все сделки</h3>
-              <button class="deal-switcher-panel-close" onclick="app.closeDealSwitcher()" aria-label="Закрыть">&times;</button>
+              <button class="u-modal-close deal-switcher-panel-close" onclick="app.closeDealSwitcher()" aria-label="Закрыть">${icon("close", 15)}</button>
             </div>
             <div class="deal-switcher-search-wrap">
               <input id="dealSwitcherSearch" class="deal-switcher-search" type="text" placeholder="Поиск по названию или клиенту…" value="${escapeHtml(_dealSwitcherQuery)}" oninput="app.filterDealSwitcher(this.value)">
@@ -21656,7 +21691,7 @@ Email: _____________________              Email: _____________________
         const tgLines = [];
         projects.forEach(proj => {
           if (!proj.deadline || ["Сдано", "Оплата", "Завершённые", CRM_ARCHIVED].includes(proj.crmStatus || "")) return;
-          const u = deadlineUrgency(proj.deadline);
+          const u = dealDeadlineUrgency(proj);
           if (!u || u.level === "ok") return;
      const icon = u.level === "overdue" ? "" : "";
           pushNotification("deadline", icon + " " + (proj.name || "Проект"), u.label + (proj.client ? " · " + proj.client : ""), proj.id);

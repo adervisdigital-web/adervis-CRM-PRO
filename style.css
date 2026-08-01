@@ -1198,6 +1198,10 @@
       align-items: start;
     }
 
+    /* Второй уровень каталога. На десктопе — вложенный столбик под своей группой. */
+    .catalog-subgroups { margin: 2px 0 6px 10px; display: flex; flex-direction: column; gap: 2px; }
+    .catalog-subgroup { font-size: 12px; min-height: 36px; opacity: .85; }
+
     @media (max-width: 768px) {
       .catalog-body { flex-direction: column; }
       .catalog-cat-sidebar {
@@ -1216,6 +1220,26 @@
       .catalog-cat-divider { width: 1px; height: auto; align-self: stretch; margin: 4px 6px; }
       .catalog-cat-add { margin-top: 0; padding-top: 0; border-top: none; border-left: 1px solid var(--line); padding-left: 10px; }
       .catalog-toolbar-select { min-width: 0; flex: 1 1 45%; }
+
+      /* Подгруппы на телефоне. Ленты категорий горизонтальная, а подгруппы —
+         вложенный СТОЛБИК: он вклинивался посреди строки и наезжал на соседние
+         разделы (было видно на 390px: «Сайты/Айдентика/Графика» поверх ленты).
+         display:contents убирает сам контейнер из раскладки — кнопки становятся
+         прямыми элементами ленты и встают сразу после своей группы, в правильном
+         порядке и без наложений. */
+      .catalog-subgroups { display: contents; }
+      .catalog-subgroup {
+        flex: 0 0 auto;
+        margin-left: 2px;
+        font-size: 12px;
+        opacity: 1;
+        /* Отличаем от разделов: подгруппа — пилюля-«потомок», не самостоятельный
+           пункт. Пунктирная рамка читается как «часть предыдущего», а не «ещё один». */
+        border-style: dashed;
+      }
+      /* Лента прокручивается по горизонтали — вертикальный отступ у элементов
+         должен быть одинаковым, иначе строка «прыгает» при прокрутке. */
+      .catalog-cat-sidebar > .catalog-cat-group { align-items: center; }
     }
 
     .tab {
@@ -2974,28 +2998,54 @@
       border-color: var(--primary);
       box-shadow: inset 0 0 0 1px var(--primary), 0 4px 18px rgba(124,58,237,.15);
     }
-    /* Перетаскивание карточек. Курсор grab только у перетаскиваемых — в режимах
-       сортировки «по сумме»/«по дедлайну» порядок задаёт сортировка, и обещать
-       перетаскивание там нельзя (карточка вернулась бы на место). */
-    /* Удаление в списках-справочниках. Залитая красная кнопка в КАЖДОЙ строке
-       превращает спокойный список в предупреждение: глаз читает ряд красных
-       пятен раньше, чем сами названия. Действие остаётся тем же, но заявляет
-       о себе только когда до него дотянулись. */
-    .btn.icon-danger { color: var(--muted); }
-    .btn.icon-danger:hover { color: var(--red); border-color: rgba(220,38,38,.4); background: rgba(220,38,38,.08); }
+    /* ── Перетаскивание карточек сделок ──────────────────────────────────────
+       Тащим за РУЧКУ, а не за всю карточку. Причина не в красоте: карточка —
+       основная кликабельная область (выбор активной сделки) и в ней живут свои
+       кнопки. Когда draggable висит на карточке целиком, любое движение мышью с
+       зажатой кнопкой превращается в перетаскивание, текст не выделить, а на
+       случайном протаскивании порядок менялся незаметно для человека.
 
-    .deal-card-draggable { cursor: grab; }
-    .deal-card-draggable:active { cursor: grabbing; }
-    .deal-card-dragging { opacity: .45; transform: scale(.98); }
-    /* Место вставки — вертикальная планка у края карточки, а не подсветка всей
-       карточки: сетка многоколоночная, и надо показать ИМЕННО куда встанет. */
+       Ручка появляется при наведении — в покое сетка остаётся чистой. */
+    .deal-card-draggable { cursor: pointer; }
+    .deal-card-drag-handle {
+      position: absolute; top: 10px; right: 10px;
+      width: 26px; height: 26px; border-radius: 7px;
+      display: grid; place-items: center;
+      color: var(--muted); background: var(--panel2);
+      border: 1px solid var(--line);
+      opacity: 0; transition: opacity .14s, color .14s, border-color .14s;
+      cursor: grab; z-index: 2;
+    }
+    .deal-card:hover .deal-card-drag-handle { opacity: 1; }
+    .deal-card-drag-handle:hover { color: var(--primary); border-color: rgba(124,58,237,.45); }
+    .deal-card-drag-handle:active { cursor: grabbing; }
+
+    /* Перетаскиваемая карточка: лёгкий подъём вместо «полупрозрачного огрызка» —
+       прежние opacity:.45 + scale читались как сбой отрисовки. */
+    .deal-card-dragging {
+      opacity: .92;
+      box-shadow: 0 14px 34px rgba(0,0,0,.28);
+      border-color: var(--primary);
+    }
+    .deal-card-dragging .deal-card-drag-handle { opacity: 1; color: var(--primary); }
+
+    /* Место вставки — планка МЕЖДУ карточками. Сетка многоколоночная, поэтому
+       показываем именно куда встанет; подсветка всей карточки читалась бы как
+       «положить внутрь неё». */
     .deal-card-dropbefore::after,
     .deal-card-dropafter::after {
-      content: ""; position: absolute; top: 8px; bottom: 8px; width: 3px;
+      content: ""; position: absolute; top: 6px; bottom: 6px; width: 3px;
       background: var(--primary); border-radius: 3px; pointer-events: none;
+      box-shadow: 0 0 10px rgba(124,58,237,.55);
     }
     .deal-card-dropbefore::after { left: -10px; }
     .deal-card-dropafter::after { right: -10px; }
+
+    /* На телефоне HTML5 drag-and-drop не работает в принципе — ручку не
+       показываем, чтобы не обещать действие, которого нет. */
+    @media (hover: none), (max-width: 768px) {
+      .deal-card-drag-handle { display: none; }
+    }
 
     .deal-card:hover.current { box-shadow: inset 0 0 0 1px var(--green), 0 10px 30px rgba(22,163,74,.18); }
     .deal-card:hover.deal-card-selected { box-shadow: inset 0 0 0 1px var(--primary), 0 10px 30px rgba(124,58,237,.2); }

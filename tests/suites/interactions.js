@@ -775,8 +775,11 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(ids && ids.length >= 3, "нужно минимум три сделки для проверки порядка");
 
     const after = await page.evaluate(([first, third]) => {
-      const noop = { classList: { add() {}, remove() {}, toggle() {}, contains: () => false } };
-      window.app.dealDragStart(first, { dataTransfer: { setData() {}, effectAllowed: "" }, currentTarget: noop });
+      // dragstart приходит с РУЧКИ, а подсветить надо карточку-родителя, поэтому
+      // код зовёт closest(".deal-card") — фейк обязан это уметь.
+      const cls = { add() {}, remove() {}, toggle() {}, contains: () => false };
+      const handle = { classList: cls, closest: () => ({ classList: cls }) };
+      window.app.dealDragStart(first, { dataTransfer: { setData() {}, effectAllowed: "" }, currentTarget: handle });
       const target = { classList: { contains: (c) => c === "deal-card-dropafter", remove() {} } };
       window.app.dealDrop(third, { preventDefault() {}, currentTarget: target });
       const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
@@ -793,15 +796,21 @@ module.exports = async function ({ browser, baseUrl, test }) {
   await test("главная: при сортировке «по сумме» перетаскивание выключено", async () => {
     await page.evaluate(() => { window.app.setCrmView("grid"); window.app.setCrmSort("amount"); window.app.go("home"); });
     await page.waitForTimeout(350);
-    const on = await page.evaluate(() =>
-      [...document.querySelectorAll(".deal-card")].filter((x) => x.getAttribute("draggable") === "true").length);
-    assertEqual(on, 0, "карточки перетаскиваемы в режиме сортировки — порядок тут же вернулся бы обратно");
+    // Тащим за ручку, а не за карточку целиком (иначе любое движение мышью по
+    // карточке начинало перетаскивание). Признак доступности — наличие ручки.
+    const on = await page.evaluate(() => document.querySelectorAll(".deal-card-drag-handle").length);
+    assertEqual(on, 0, "ручки перетаскивания видны в режиме сортировки — порядок тут же вернулся бы обратно");
 
     await page.evaluate(() => { window.app.setCrmSort("default"); window.app.go("home"); });
     await page.waitForTimeout(350);
-    const back = await page.evaluate(() =>
-      [...document.querySelectorAll(".deal-card")].filter((x) => x.getAttribute("draggable") === "true").length);
-    assert(back > 0, "в сортировке «по умолчанию» карточки должны быть перетаскиваемы");
+    const back = await page.evaluate(() => ({
+      handles: document.querySelectorAll(".deal-card-drag-handle").length,
+      onHandle: (document.querySelector(".deal-card-drag-handle") || {}).draggable,
+      onCard: document.querySelector(".deal-card") && document.querySelector(".deal-card").getAttribute("draggable"),
+    }));
+    assert(back.handles > 0, "в сортировке «по умолчанию» у карточек должна быть ручка перетаскивания");
+    assertEqual(back.onHandle, true, "draggable должен стоять на ручке");
+    assertEqual(back.onCard, null, "draggable не должен висеть на всей карточке");
   });
 
   // ── Статьи финансов ─────────────────────────────────────────────────────────
