@@ -711,7 +711,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
   // значении, а поле предзаполнено — значит на каждую введённую цифру. Мастер
   // звал на change полный render(), инпут пересоздавался, и редактируемый
   // сегмент сбрасывался: дату нельзя было допечатать.
-  await test("мастер: дата допечатывается целиком, не сбрасываясь на каждой цифре", async () => {
+  await test("мастер: поле даты не теряет фокус на изменении (можно допечатать)", async () => {
     await page.evaluate(() => window.app.startWizard());
     await page.waitForTimeout(250);
     await page.evaluate(() => {
@@ -722,11 +722,30 @@ module.exports = async function ({ browser, baseUrl, test }) {
     });
     await page.waitForTimeout(350);
 
+    // Порядок сегментов у <input type="date"> задаёт ЛОКАЛЬ браузера: у нас
+    // ДД.ММ.ГГГГ, на раннере CI (en-US) — ММ/ДД/ГГГГ. Поэтому набор цифр
+    // клавиатурой проверять нельзя — тест был бы зелёным локально и красным в CI.
+    // Проверяем саму регрессию: change на поле даты НЕ должен выбивать фокус.
+    // Раньше мастер звал на change полный render(), инпут пересоздавался, фокус
+    // улетал в body — и дату нельзя было допечатать до конца.
     await page.focus("#wizDeadline");
-    await page.keyboard.type("24072026");
-    await page.waitForTimeout(150);
-    const v = await page.evaluate(() => document.querySelector("#wizDeadline").value);
-    assertEqual(v, "2026-07-24", "дата набралась не полностью — сегмент сбрасывается перерисовкой");
+    const res = await page.evaluate(() => {
+      const el = document.querySelector("#wizDeadline");
+      el.value = "2026-07-24";
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      return {
+        focused: document.activeElement ? document.activeElement.id : null,
+        value: document.querySelector("#wizDeadline").value,
+      };
+    });
+    assertEqual(res.focused, "wizDeadline", "фокус слетел с поля даты — дату нельзя допечатать");
+    assertEqual(res.value, "2026-07-24", "введённая дата не удержалась в поле");
+
+    const inState = await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st.wizard || {}).deadline;
+    });
+    void inState; // черновик мастера фиксируется на шаге «Далее», не на каждый ввод
   });
 
   await test("мастер: бюджет показывается с разделением разрядов", async () => {
