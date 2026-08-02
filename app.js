@@ -12102,7 +12102,7 @@
       async function openProposalModal(portalId) {
         if (!_supabase || !_adminSession) { toast('Нет связи с сервером'); return; }
         const { data, error } = await _supabase.from('client_portals')
-          .select('id, deal_name, total_price, advance_amount, included_text, excluded_text, proposal_note, approved_at, advance_paid_at, advance_payment_id, deal_status, pay_method, pay_link')
+          .select('id, deal_name, total_price, advance_amount, included_text, excluded_text, proposal_note, approved_at, signer_name, advance_paid_at, advance_payment_id, deal_status, pay_method, pay_link')
           .eq('id', portalId).single();
         if (error || !data) { toast('Не удалось открыть КП'); return; }
         const st = _portalStatus(data);
@@ -12116,6 +12116,8 @@
           proposal_note: data.proposal_note || '',
           _statusLabel: st.label,
           _locked: st.key !== 'sent',
+          _approvedAt: data.approved_at || null,
+          _signerName: data.signer_name || '',
           _advancePaidAt: data.advance_paid_at || null,
           _advancePaymentId: data.advance_payment_id || null,
           pay_method: data.pay_method || 'none',
@@ -12225,6 +12227,7 @@
                   </p>
                 </div>
               ` : ''}
+              ${_proposalApprovalRowHtml(m)}
               ${_proposalAdvanceRowHtml(m)}
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
                 <button class="btn danger small" onclick="app.deleteProposal('${m.id}')">${icon("trash", 14)} Удалить</button>
@@ -12256,6 +12259,51 @@
               ? (online ? "" : `<button class="btn small" onclick="app.unmarkAdvancePaid('${m.id}')">Снять отметку</button>`)
               : `<button class="btn small green" onclick="app.markAdvancePaid('${m.id}')">Аванс получен</button>`}
           </div>`;
+      }
+
+      /* Согласование ставит сам клиент с портала. Снять его может только
+         агентство: у клиента доступ анонимный по ссылке, и отзыв согласия
+         в его руках означал бы дёрганье статуса туда-сюда. */
+      function _proposalApprovalRowHtml(m) {
+        if (!m) return "";
+        const approved = !!m._approvedAt;
+        if (!approved) return "";
+        const when = new Date(m._approvedAt).toLocaleDateString("ru-RU");
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px">
+            <span style="color:var(--text-success);display:inline-flex">${icon("check", 15)}</span>
+            <span style="flex:1;min-width:0;font-size:13px">
+              Согласовано ${escapeHtml(when)}${m._signerName ? ` · ${escapeHtml(m._signerName)}` : ""}
+            </span>
+            <button class="btn small" onclick="app.unapproveProposal('${m.id}')">Снять согласование</button>
+          </div>`;
+      }
+
+      async function unapproveProposal(portalId) {
+        if (!_supabase || !_adminSession) { toast("Нет связи с сервером"); return; }
+        const m = state.proposalModal;
+        const paidOnline = m && m._advancePaidAt && m._advancePaymentId && m._advancePaymentId !== "manual";
+        const ok = await confirmDialog({
+          title: "Снять согласование?",
+          message: paidOnline
+            ? "По этому КП уже прошла онлайн-оплата аванса. Согласование снимется, платёж останется."
+            : "КП вернётся в состояние «Отправлено», подпись клиента удалится. Клиент сможет согласовать заново по той же ссылке.",
+          okText: "Снять", danger: true
+        });
+        if (!ok) return;
+        const { error } = await _supabase.rpc("owner_unapprove_portal", { p_portal_id: portalId });
+        if (error) { toast("Не удалось снять: " + error.message); return; }
+        if (state.proposalModal && state.proposalModal.id === portalId) {
+          state.proposalModal._approvedAt = null;
+          state.proposalModal._signerName = "";
+          state.proposalModal._locked = false;
+          state.proposalModal._statusLabel = "Отправлено";
+          _armDirtyCheck(state.proposalModal);
+        }
+        const row = _allPortals.find(p => p.id === portalId);
+        if (row) { row.approved_at = null; row.signer_name = null; row.deal_status = "КП отправлено"; }
+        toast("Согласование снято");
+        render(); renderModal();
       }
 
       async function markAdvancePaid(portalId) {
@@ -22606,6 +22654,7 @@ Email: _____________________              Email: _____________________
         saveProposalModal,
         deleteProposal,
         markAdvancePaid,
+        unapproveProposal,
         unmarkAdvancePaid,
         setPayMethod,
         setPayField,
