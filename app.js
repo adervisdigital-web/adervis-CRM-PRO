@@ -6383,6 +6383,16 @@
         if (el) el.classList.remove("show");
       }
 
+      /* Позиция, которая живёт в state.customItems ТОЛЬКО ради строки сметы, а не
+         как пункт каталога: вторая единица того же пункта («ещё одна»), копия строки,
+         либо своя позиция, удалённая из каталога, но нужная старой смете. В списках
+         каталога таких быть не должно — иначе вкладка «Свои» пополняется сама собой
+         при обычном переходе по сделкам (правка 02.08.2026).
+         `custom_line_` в id — ретроспективная метка для данных, созданных до флага. */
+      function isLineOnlyItem(x) {
+        return !!x && (x.lineOnly === true || !!x.catalogSourceId || String(x.id || "").startsWith("custom_line_"));
+      }
+
       function allItems(includeHidden = false) {
         const items = [...BASE_ITEMS, ...(state.customItems || [])]
           .filter(x => !state.permanentlyDeleted?.[x.id])
@@ -6852,7 +6862,7 @@
 
       function filteredItems() {
         let items = state.tab === "hidden" ? hiddenItemsList() : allItems(false);
-        items = items.filter(x => !x.catalogSourceId);
+        items = items.filter(x => !isLineOnlyItem(x));
 
         if (state.tab !== "all") {
           if (state.tab === "favorites") items = items.filter(x => state.favorites[x.id]);
@@ -7099,6 +7109,27 @@
       // Мёрж глобального списка каталога (свои позиции / этапы) со снимком сделки:
       // берём актуальный глобальный, добавляем из снимка только записи с id, которых
       // в глобальном уже нет (удалены из каталога, но нужны старой смете).
+      /* Свои позиции из снимка сделки. Каталог ГЛОБАЛЬНЫЙ, снимок — нет, поэтому
+         до-восстанавливаем только те позиции, на которые ссылается смета ИМЕННО этой
+         сделки, и помечаем их lineOnly — строка старой сметы не осиротеет, но
+         удалённая из каталога позиция в каталог не вернётся.
+         До 02.08.2026 тут стоял общий _mergeCatalogById: он тащил из снимка ВСЕ свои
+         позиции подряд, включая давно удалённые и служебные копии строк. Удалишь
+         позицию — и она возвращается сама собой при следующем открытии любой сделки,
+         которая её когда-то знала. Пользователь видел это как «услуги в „Свои“
+         создаются сами». */
+      function _mergeCustomItemsFromSnapshot(current, snap, selected) {
+        const result = deepClone(Array.isArray(current) ? current : []);
+        const ids = new Set(result.map(x => x && x.id).filter(Boolean));
+        const used = (selected && typeof selected === "object") ? selected : {};
+        (Array.isArray(snap) ? snap : []).forEach(item => {
+          if (!item || !item.id || ids.has(item.id) || !used[item.id]) return;
+          result.push({ ...deepClone(item), lineOnly: true });
+          ids.add(item.id);
+        });
+        return result;
+      }
+
       function _mergeCatalogById(current, snap, fallback) {
         const base = Array.isArray(current) && current.length ? current
           : (Array.isArray(fallback) ? deepClone(fallback) : []);
@@ -7146,7 +7177,7 @@
         // терял их. Теперь каталог оставляем текущим, а из снимка ДО-восстанавливаем
         // только свои позиции/этапы, которых уже нет в каталоге (удалены) — чтобы
         // строки старой сметы на них не осиротели. Цены/скрытые/overrides — глобальные.
-        state.customItems = _mergeCatalogById(state.customItems, snapshot.customItems);
+        state.customItems = _mergeCustomItemsFromSnapshot(state.customItems, snapshot.customItems, snapshot.selected);
         state.stages = _mergeCatalogById(state.stages, snapshot.stages, DEFAULT_STAGES);
         state.versions = deepClone(snapshot.versions || state.versions || []);
         state.tasks = deepClone(snapshot.tasks || []);
@@ -7425,6 +7456,7 @@
         customItem.category = itemData.category || "custom";
         customItem.section = itemData.section || CAT.custom;
         customItem.catalogSourceId = id;
+        customItem.lineOnly = true;
         customItem.price = numberValue(line.price, getCatalogPrice(itemData));
 
         state.customItems.unshift(customItem);
@@ -7478,6 +7510,10 @@
         customItem.category = itemData.category || "custom";
         customItem.section = itemData.section || CAT.custom;
         customItem.tags = [...(itemData.tags || []), "копия"];
+        // Это копия СТРОКИ сметы, а не новая услуга каталога: в списках каталога
+        // её быть не должно (иначе «Режиссёр — копия» оседает в разделе «Съёмка»).
+        // Скопировать позицию именно в каталог — отдельное действие, duplicateToCustom.
+        customItem.lineOnly = true;
         customItem.price = numberValue(line.price, getCatalogPrice(itemData));
 
         state.customItems.unshift(customItem);
@@ -13342,7 +13378,7 @@
                     </div>`;
                 }).join("");
                 const inPkg = new Set((m.items || []).map(e => (typeof e === "string" ? e : e.id)));
-                const addable = allItems(false).filter(x => !x.catalogSourceId && !inPkg.has(x.id));
+                const addable = allItems(false).filter(x => !isLineOnlyItem(x) && !inPkg.has(x.id));
                 return `
                   <div style="margin-bottom:18px;padding:12px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)">
                     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
@@ -13645,7 +13681,7 @@
                       // Позиции каждой группы считаем один раз: и для счётчика, и для
                       // списка подкатегорий — он выводится из фактического состава,
                       // поэтому новая позиция каталога не может из него выпасть.
-                      const catalogAll = allItems(false).filter(x => !x.catalogSourceId);
+                      const catalogAll = allItems(false).filter(x => !isLineOnlyItem(x));
                       const byGroup = {};
                       catalogAll.forEach(x => { (byGroup[itemGroup(x)] = byGroup[itemGroup(x)] || []).push(x); });
                       const catLabel = Object.fromEntries(categoryTabs);

@@ -937,5 +937,83 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(d.subs.reduce((a, b) => a + b, 0), d.size, "сумма подгрупп не равна размеру раздела");
   });
 
+  // ── Каталог не пополняется сам собой ────────────────────────────────────────
+  // Свои позиции лежат в state.customItems, а он целиком копируется в снимок
+  // КАЖДОЙ сделки. Пока снимок вливался в каталог целиком, удалённая позиция
+  // возвращалась при переходе в любую сделку, которая её когда-то знала, — со
+  // стороны это выглядело как «услуги в „Свои“ создаются сами».
+  await test("каталог: удалённая своя позиция не возвращается при переходе по сделкам", async () => {
+    const ids = await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const first = (st.savedProjects || [])[0];
+      if (!first) return null;
+      if ((st.savedProjects || []).length < 2) window.app.duplicateSavedProject(first.id);
+      const st2 = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st2.savedProjects || []).map((p) => p.id);
+    });
+    assert(ids && ids.length >= 2, "нужно минимум две сделки");
+
+    const свои = () => page.evaluate(() => {
+      window.app.setTab("custom");
+      window.app.go("services");
+      return null;
+    }).then(() => page.waitForTimeout(300)).then(() => page.evaluate(() =>
+      +((document.querySelector(".catalog-found-count") || {}).textContent || "0").replace(/\D+/g, "")));
+
+    // Сделка A: своя позиция попадает в смету и в снимок
+    await page.evaluate((id) => window.app.selectActiveDeal(id), ids[0]);
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      window.app.createCustomItem();
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      window.app.addItem(st.customItems[0].id);
+      window.app.saveCurrentProject();
+    });
+    await page.waitForTimeout(300);
+    assertEqual(await свои(), 1, "своя позиция не появилась во вкладке «Свои»");
+
+    // Удаляем её, находясь в ДРУГОЙ сделке — снимок A остаётся со старым составом
+    await page.evaluate((id) => window.app.selectActiveDeal(id), ids[1]);
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      window.app.deleteCustomItem((st.customItems.find((x) => x.category === "custom") || {}).id);
+    });
+    await page.waitForTimeout(300);
+    assertEqual(await свои(), 0, "позиция не удалилась из каталога");
+
+    await page.evaluate((id) => window.app.selectActiveDeal(id), ids[0]);
+    await page.waitForTimeout(300);
+    assertEqual(await свои(), 0, "удалённая позиция вернулась в каталог после перехода в сделку");
+  });
+
+  await test("каталог: копия строки сметы не становится карточкой каталога", async () => {
+    const до = await page.evaluate(() => {
+      window.app.setTab("all");
+      window.app.go("services");
+      return null;
+    }).then(() => page.waitForTimeout(300)).then(() => page.evaluate(() =>
+      +((document.querySelector(".catalog-found-count") || {}).textContent || "0").replace(/\D+/g, "")));
+
+    const ok = await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const id = Object.keys(st.selected || {})[0];
+      if (!id) return false;
+      window.app.duplicateEstimateLine(id);
+      window.app.catalogAddOne(id);
+      return true;
+    });
+    assert(ok, "в смете нет ни одной строки для дублирования");
+    await page.waitForTimeout(300);
+
+    const после = await page.evaluate(() => {
+      window.app.setTab("all");
+      window.app.go("services");
+      return null;
+    }).then(() => page.waitForTimeout(300)).then(() => page.evaluate(() =>
+      +((document.querySelector(".catalog-found-count") || {}).textContent || "0").replace(/\D+/g, "")));
+    assertEqual(после, до, "каталог вырос после дублирования строк сметы: " + до + " → " + после);
+  });
+
   await context.close();
 };
