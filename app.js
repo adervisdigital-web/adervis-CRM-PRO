@@ -2008,7 +2008,7 @@
               <span class="sidebar-label">Настроить меню</span>
             </button>
             ${_isSuperAdmin() ? `
-            <button class="sidebar-nav-item" onclick="app.go('admin')" title="Панель администратора" style="color:var(--red);opacity:.7">
+            <button class="sidebar-nav-item" onclick="app.go('admin')" title="Панель администратора" style="color:var(--text-danger);opacity:.7">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
               <span class="sidebar-label">Admin Panel</span>
             </button>` : ""}
@@ -2397,7 +2397,7 @@
                     </div>
                     <h3 style="font-size:16px;margin:0 0 8px">Сброс пароля</h3>
                     <p style="font-size:13px;color:var(--muted);margin:0 0 18px;line-height:1.5">Введите email — мы отправим ссылку для восстановления пароля.</p>
-                    ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
+                    ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--text-danger);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
                     ${f.forgotSent ? `<div style="background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:10px 14px;color:var(--text-success);font-size:13px;margin-bottom:14px"> Ссылка отправлена на ${escapeHtml(f.email)}. Проверьте почту и перейдите по ссылке.</div>` : ""}
                     <div class="field" style="margin-bottom:16px"><label>Email</label>
                       <input type="email" placeholder="you@example.com" value="${escapeHtml(f.email)}" oninput="app.setAuthField('email',this.value)" onkeydown="if(event.key==='Enter')app.forgotPasswordSubmit()">
@@ -2439,7 +2439,7 @@
                     <button class="auth-tab ${isRegister ? "active" : ""}" onclick="app.setAuthTab('register')">Регистрация</button>
                   </div>
 
-                  ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
+                  ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--text-danger);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
 
                   ${isRegister ? `
                   <div class="field" style="margin-bottom:12px"><label>Имя</label>
@@ -2467,7 +2467,7 @@
                   </div>` : `
                   <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:16px;padding:10px 12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:10px">
                     <input type="checkbox" id="auth-consent" ${f.consent ? "checked" : ""} onchange="app.setAuthField('consent',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);margin-top:1px;flex-shrink:0">
-                    <label for="auth-consent" style="font-size:12px;color:var(--muted);cursor:pointer;margin:0;user-select:none;line-height:1.5">Я принимаю <a href="https://adervis.ru/docs" target="_blank" rel="noopener" style="color:var(--primary2)">Оферту и Политику конфиденциальности</a></label>
+                    <label for="auth-consent" style="font-size:12px;color:var(--muted);cursor:pointer;margin:0;user-select:none;line-height:1.5">Я принимаю <a href="https://adervis.ru/docs" target="_blank" rel="noopener" style="color:var(--primary-text)">Оферту и Политику конфиденциальности</a></label>
                   </div>`}
 
                   <button class="btn primary full" onclick="app.authSubmit()" ${canSubmit ? "" : "disabled"} style="width:100%;padding:13px;${!canSubmit && isRegister ? "opacity:.5;cursor:not-allowed" : ""}">
@@ -2931,7 +2931,7 @@
               <div class="pd-avatar">${avatarHtml}</div>
               <div style="min-width:0">
                 <div class="pd-email" title="${escapeHtml(email)}">${escapeHtml(email)}</div>
-                <div class="pd-sub" style="${!active ? "color:var(--red)" : ""}">${escapeHtml(getSubscriptionPlanName() || "Активна")}</div>
+                <div class="pd-sub" style="${!active ? "color:var(--text-danger)" : ""}">${escapeHtml(getSubscriptionPlanName() || "Активна")}</div>
               </div>
             </div>
             <div class="pd-sep"></div>
@@ -2944,7 +2944,7 @@
               const s = _userProfile && _userProfile.subscription_status;
               const isUrgent = !active || (s === "trial" && daysLeft !== null && daysLeft <= 7);
               const urgentBadge = isUrgent
-                ? `<span style="font-size:12px;background:rgba(220,38,38,.18);color:var(--red);border-radius:99px;padding:2px 8px;font-weight:750;white-space:nowrap">${s === "expired" || s === "cancelled" ? "Оплатить" : `${daysLeft} д.`}</span>`
+                ? `<span style="font-size:12px;background:rgba(220,38,38,.18);color:var(--text-danger);border-radius:99px;padding:2px 8px;font-weight:750;white-space:nowrap">${s === "expired" || s === "cancelled" ? "Оплатить" : `${daysLeft} д.`}</span>`
                 : "";
               return `<button class="pd-item" style="background:rgba(124,58,237,.08);border-radius:10px" onclick="app.gotoSubscription();app.toggleProfileDd(false)" title="Тарифы, оплата, история платежей">
               <span class="pd-item-icon">${icon("card")}</span>
@@ -3252,7 +3252,7 @@
         const statusHtml = promoValid
           ? `<span style="color:var(--text-success);font-size:12px;font-weight:600">✓ −${_promoState.discount}% применено</span>`
           : promoInvalid
-            ? `<span style="color:var(--red);font-size:12px">Промокод не найден или истёк</span>`
+            ? `<span style="color:var(--text-danger);font-size:12px">Промокод не найден или истёк</span>`
             : promoChecking
               ? `<span style="color:var(--muted);font-size:12px">Проверяем...</span>`
               : "";
@@ -3748,7 +3748,7 @@
                             ${_adminSubLabel(ast)}
                           </span>
                           ${a.subscription_plan ? `<span style="font-size:12px;font-weight:600;color:var(--muted)">${_adminPlanLabel(a.subscription_plan)}</span>` : ""}
-                          ${a.subscription_expires_at ? `<span style="font-size:12px;color:${isExpired?"var(--red)":"var(--muted)"}">${daysLeft}</span>` : ""}
+                          ${a.subscription_expires_at ? `<span style="font-size:12px;color:${isExpired?"var(--text-danger)":"var(--muted)"}">${daysLeft}</span>` : ""}
                           ${!a.email_confirmed ? `<span title="Email не подтверждён" style="font-size:12px;color:var(--yellow);display:inline-flex">${icon("warning", 13)}</span>` : ""}
                         </div>
                         <!-- Actions -->
@@ -3799,7 +3799,7 @@
             ${_adminPanelTab === "promos" ? `
               <div style="background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px">
                 <h3 style="margin:0 0 16px;font-size:15px">+ Новый промокод</h3>
-                ${_adminPromoForm.error ? `<div style="color:var(--red);font-size:13px;margin-bottom:10px;padding:8px 12px;background:rgba(220,38,38,.1);border-radius:8px">${escapeHtml(_adminPromoForm.error)}</div>` : ""}
+                ${_adminPromoForm.error ? `<div style="color:var(--text-danger);font-size:13px;margin-bottom:10px;padding:8px 12px;background:rgba(220,38,38,.1);border-radius:8px">${escapeHtml(_adminPromoForm.error)}</div>` : ""}
                 <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
                   ${field("Код", `<input placeholder="PROMO2026" value="${escapeHtml(_adminPromoForm.code)}" oninput="app._setPromoForm('code',this.value)" style="text-transform:uppercase">`)}
                   ${field("Скидка %", `<input type="number" min="1" max="100" placeholder="20" value="${_adminPromoForm.discount||""}" oninput="app._setPromoForm('discount',this.value)">`)}
@@ -4012,11 +4012,11 @@
                 </div>
                 <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
                   <span class="u-muted">Email</span>
-                  <a href="mailto:adervis.digital@gmail.com" style="color:var(--primary2)">adervis.digital@gmail.com</a>
+                  <a href="mailto:adervis.digital@gmail.com" style="color:var(--primary-text)">adervis.digital@gmail.com</a>
                 </div>
                 <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
                   <span class="u-muted">Приложение</span>
-                  <a href="https://app.adervis.ru" target="_blank" rel="noopener" style="color:var(--primary2)">app.adervis.ru</a>
+                  <a href="https://app.adervis.ru" target="_blank" rel="noopener" style="color:var(--primary-text)">app.adervis.ru</a>
                 </div>
               </div>
             </div>
@@ -4053,7 +4053,7 @@
             ? `<div style="font-size:28px;font-weight:900;color:var(--text-success);line-height:1">Бесплатно</div><div style="font-size:12px;color:var(--muted);margin-bottom:16px">${escapeHtml(p.period)}</div>`
             : discountedPrice !== null
               ? `<div style="font-size:13px;color:var(--muted);text-decoration:line-through;line-height:1">${p.price} ₽</div><div style="font-size:28px;font-weight:900;color:var(--text-success);line-height:1.1">${discountedPrice} ₽</div><div class="u-meta">${escapeHtml(p.period)}</div><div style="font-size:12px;color:var(--text-success);font-weight:700;margin-bottom:16px">−${_promoState.discount}% по промокоду</div>`
-              : `<div style="font-size:28px;font-weight:900;line-height:1">${p.price} ₽</div><div class="u-meta">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:12px;color:var(--primary2);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)}</div>` : `<div class="mb-16"></div>`}`;
+              : `<div style="font-size:28px;font-weight:900;line-height:1">${p.price} ₽</div><div class="u-meta">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:12px;color:var(--primary-text);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)}</div>` : `<div class="mb-16"></div>`}`;
           return `
           <div class="plan-card" style="border-radius:18px;border:2px solid ${border};background:${bg};padding:20px 16px;display:flex;flex-direction:column;position:relative;min-width:0">
             ${p.popular && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap"> Популярный</div>` : ""}
@@ -4061,7 +4061,7 @@
             <div style="font-size:14px;font-weight:900;margin-bottom:10px">${escapeHtml(p.label)}</div>
             ${priceHtml}
             <div style="flex:1;display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
-              ${feats.map(f => `<div style="font-size:12px;display:flex;align-items:flex-start;gap:5px"><span style="color:${isCurrent ? "var(--text-success)" : "var(--primary2)"};flex-shrink:0;font-size:12px;margin-top:1px">✓</span><span>${escapeHtml(f)}</span></div>`).join("")}
+              ${feats.map(f => `<div style="font-size:12px;display:flex;align-items:flex-start;gap:5px"><span style="color:${isCurrent ? "var(--text-success)" : "var(--primary-text)"};flex-shrink:0;font-size:12px;margin-top:1px">✓</span><span>${escapeHtml(f)}</span></div>`).join("")}
             </div>
             <button class="btn ${p.popular && !isCurrent ? "primary" : "small"}" style="width:100%;white-space:normal;line-height:1.25;text-align:center;${btnOff ? "opacity:.55;cursor:not-allowed" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
               ${btnLabel}
@@ -4205,9 +4205,9 @@
             subStatusBlock = `
               <div style="background:rgba(202,138,4,.1);border:1px solid rgba(202,138,4,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                  <span style="color:${urgency ? "var(--red)" : "var(--yellow)"};flex-shrink:0">${icon("warning", 20)}</span>
+                  <span style="color:${urgency ? "var(--text-danger)" : "var(--yellow)"};flex-shrink:0">${icon("warning", 20)}</span>
                   <div>
-                    <div style="font-weight:900;font-size:15px;color:${urgency ? "var(--red)" : "var(--yellow)"}">Пробный период${daysLeft !== null ? ` — осталось ${daysLeft} дн.` : ""}</div>
+                    <div style="font-weight:900;font-size:15px;color:${urgency ? "var(--text-danger)" : "var(--yellow)"}">Пробный период${daysLeft !== null ? ` — осталось ${daysLeft} дн.` : ""}</div>
                     ${exp ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">Истекает: ${escapeHtml(expStr)}</div>` : ""}
                   </div>
                 </div>
@@ -4216,7 +4216,7 @@
           } else {
             subStatusBlock = `
               <div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;color:var(--red);font-weight:900">${icon("xcircle")} Подписка истекла</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;color:var(--text-danger);font-weight:900">${icon("xcircle")} Подписка истекла</div>
                 <p style="font-size:13px;margin:0;color:var(--muted)">Выберите тариф ниже для продолжения работы.</p>
               </div>`;
           }
@@ -4848,9 +4848,9 @@
           finance: `
             <div class="ob-mock-finance">
               <div class="ob-mock-row"><span class="ob-mock-line" style="width:58%"></span><span class="ob-mock-num">32 000 ₽</span></div>
-              <div class="ob-mock-row"><span class="ob-mock-line" style="width:38%"></span><span class="ob-mock-num" style="color:var(--red)">18 500 ₽</span></div>
+              <div class="ob-mock-row"><span class="ob-mock-line" style="width:38%"></span><span class="ob-mock-num" style="color:var(--text-danger)">18 500 ₽</span></div>
               <div class="ob-mock-row"><span class="ob-mock-line" style="width:72%"></span><span class="ob-mock-num">54 200 ₽</span></div>
-              <div class="ob-mock-row ob-mock-total"><span class="ob-mock-line" style="width:46%"></span><span class="ob-mock-num" style="color:var(--primary2)">104 700 ₽</span></div>
+              <div class="ob-mock-row ob-mock-total"><span class="ob-mock-line" style="width:46%"></span><span class="ob-mock-num" style="color:var(--primary-text)">104 700 ₽</span></div>
             </div>`,
           team: `
             <div class="ob-mock-team">
@@ -5391,7 +5391,7 @@
                 <button onclick="app.closeAdminModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px">${icon("close", 16)}</button>
               </div>
               <p style="margin:0 0 18px;font-size:13px">Войдите через Supabase Auth для совместного редактирования.</p>
-              ${m.error ? `<div style="background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:14px">${escapeHtml(m.error)}</div>` : ""}
+              ${m.error ? `<div style="background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--text-danger);font-size:13px;margin-bottom:14px">${escapeHtml(m.error)}</div>` : ""}
               <div class="field" style="margin-bottom:14px">
                 <label>Email</label>
                 <input type="email" placeholder="you@example.com" value="${escapeHtml(m.email)}"
@@ -9651,7 +9651,7 @@
                   value="${escapeHtml(groupDigits(m.amount))}"
                   oninput="app.setFinanceModalField('amount',app.formatAmountField(this))"
                   id="finModalAmount">
-                ${m.amount && !isValid ? `<span style="color:var(--red);font-size:12px;display:block;margin-top:3px">Должно быть больше нуля</span>` : ""}
+                ${m.amount && !isValid ? `<span style="color:var(--text-danger);font-size:12px;display:block;margin-top:3px">Должно быть больше нуля</span>` : ""}
               </div>
 
               <div class="field" style="margin-bottom:14px">
@@ -10970,7 +10970,7 @@
                 </div>
                 <div style="margin-top:20px;padding:12px;background:var(--panel2);border-radius:10px;font-size:12px;color:var(--muted);font-family:monospace;text-align:left;word-break:break-all">${escapeHtml(String(err))}</div>
                 <div style="margin-top:16px;font-size:12px;color:var(--muted)">
-                  Если ошибка повторяется — напишите нам: <a href="mailto:adervis.digital@gmail.com" style="color:var(--primary2)">adervis.digital@gmail.com</a>
+                  Если ошибка повторяется — напишите нам: <a href="mailto:adervis.digital@gmail.com" style="color:var(--primary-text)">adervis.digital@gmail.com</a>
                 </div>
               </div>
             </div>
@@ -11923,7 +11923,7 @@
               </div>
               <p class="u-meta" style="margin:0 0 16px;font-size:12px;line-height:1.5">
                 Меняется только то, что видит клиент по ссылке. Смета в сделке остаётся как есть.
-                ${m._locked ? `<br><strong style="color:var(--red)">Клиент уже отметил «${escapeHtml(m._statusLabel)}» — правки увидит именно он.</strong>` : ''}
+                ${m._locked ? `<br><strong style="color:var(--text-danger)">Клиент уже отметил «${escapeHtml(m._statusLabel)}» — правки увидит именно он.</strong>` : ''}
               </p>
               <div class="field" style="margin-bottom:14px">
                 <label>Название</label>
@@ -12201,7 +12201,7 @@
       function _linkifyEscaped(text) {
         return escapeHtml(String(text || "")).replace(
           /(https?:\/\/[^\s]+)/g,
-          '<a href="$1" target="_blank" rel="noopener" style="color:var(--primary2);word-break:break-all">$1</a>'
+          '<a href="$1" target="_blank" rel="noopener" style="color:var(--primary-text);word-break:break-all">$1</a>'
         );
       }
 
@@ -12234,7 +12234,7 @@
               </div>
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-top:10px">
-              ${b.project_type ? `<span style="background:rgba(124,58,237,.1);color:var(--primary2);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.project_type)}</span>` : ''}
+              ${b.project_type ? `<span style="background:rgba(124,58,237,.1);color:var(--primary-text);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.project_type)}</span>` : ''}
               ${b.budget ? `<span style="background:rgba(37,99,235,.1);color:var(--blue);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.budget)}</span>` : ''}
               ${b.deadline ? `<span style="background:rgba(202,138,4,.1);color:var(--yellow);border-radius:6px;padding:2px 8px;font-weight:700"> ${escapeHtml(b.deadline)}</span>` : ''}
             </div>
@@ -12548,7 +12548,7 @@
           <div class="panel" style="margin-bottom:14px">
             <div class="db-analytics-header">
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="width:22px;height:22px;border-radius:7px;background:var(--primary-bg);color:var(--primary2);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto">
+                <span style="width:22px;height:22px;border-radius:7px;background:var(--primary-bg);color:var(--primary-text);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto">
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="9" width="3.2" height="6" rx="1"/><rect x="6.4" y="4.5" width="3.2" height="10.5" rx="1"/><rect x="11.8" y="1.5" width="3.2" height="13.5" rx="1"/></svg>
                 </span>
                 <span style="font-weight:700;font-size:13px">За 6 месяцев</span>
@@ -12561,7 +12561,7 @@
               <div class="db-analytics-legend">
                 <span style="color:var(--text-success)">▋ ${money(totalRev)}</span>
                 <span style="color:var(--text-danger)">▋ ${money(totalExp)}</span>
-                <span style="color:${profit>=0?'var(--text-success)':'var(--red)'}">= ${money(profit)}</span>
+                <span style="color:${profit>=0?'var(--text-success)':'var(--text-danger)'}">= ${money(profit)}</span>
               </div>
             </div>
             <div class="db-analytics-body">
@@ -12753,7 +12753,7 @@
           <div class="panel" style="margin-bottom:14px;border:1px solid rgba(220,38,38,.3);background:rgba(220,38,38,.06);display:flex;align-items:center;gap:12px">
             <div style="font-size:20px;flex:0 0 auto">⏳</div>
             <div class="u-flex1">
-              <div style="font-weight:700;font-size:13px;color:var(--red);margin-bottom:2px">Пробный период</div>
+              <div style="font-weight:700;font-size:13px;color:var(--text-danger);margin-bottom:2px">Пробный период</div>
               <div class="u-meta">${text}</div>
             </div>
             <button onclick="app.go('plans')" class="btn primary small" style="white-space:nowrap">Выбрать тариф</button>
@@ -12984,12 +12984,12 @@
               </div>
               <div class="db-stat" onclick="app.go('global-finances')" title="Расходы / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(220,38,38,.13);color:var(--text-danger)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Расходы / мес</span></div>
-                <div class="db-stat-value" style="${monthExpenses>0?"color:var(--red)":""}">${money(monthExpenses)}</div>
+                <div class="db-stat-value" style="${monthExpenses>0?"color:var(--text-danger)":""}">${money(monthExpenses)}</div>
                 <div class="db-stat-delta neu">${curMonthName}</div>
               </div>
               <div class="db-stat" onclick="app.go('global-finances')" title="Прибыль / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${monthProfit>=0?"rgba(22,163,74,.15);color:var(--text-success)":"rgba(220,38,38,.13);color:var(--text-danger)"}"><svg viewBox="0 0 16 16" fill="currentColor">${monthProfit>=0?EMPTY_ICON_PATHS.trendUp:EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Прибыль / мес</span></div>
-                <div class="db-stat-value" style="color:${monthProfit>=0?"var(--text-success)":"var(--red)"}">${money(monthProfit)}</div>
+                <div class="db-stat-value" style="color:${monthProfit>=0?"var(--text-success)":"var(--text-danger)"}">${money(monthProfit)}</div>
                 <div class="db-stat-delta ${monthProfit>=0?"pos":"neg"}">${monthProfit>=0?"доход":"убыток"}</div>
               </div>
               <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')" title="Долг клиентов">
@@ -12998,17 +12998,17 @@
         <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
               </div>
               <div class="db-stat" title="Воронка">
-                <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.funnel}</svg></span><span class="db-stat-label">Воронка</span></div>
+                <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.funnel}</svg></span><span class="db-stat-label">Воронка</span></div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>
                 <div class="db-stat-delta neu">${(() => { const n = projects.filter(p=>!["Сдано","Оплата","Завершённые",CRM_ARCHIVED].includes(p.crmStatus||"Лид")).length; return `${n} ${plural(n, "активная", "активные", "активных")}`; })()}</div>
               </div>
               <div class="db-stat" title="В работе">
-                <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.tasks}</svg></span><span class="db-stat-label">В работе</span></div>
+                <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.tasks}</svg></span><span class="db-stat-label">В работе</span></div>
                 <div class="db-stat-value">${inWork}</div>
                 <div class="db-stat-delta neu">${closedCount} закрыто</div>
               </div>
               <div class="db-stat" title="Средний чек">
-                <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.doc}</svg></span><span class="db-stat-label">Ср. чек</span></div>
+                <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.doc}</svg></span><span class="db-stat-label">Ср. чек</span></div>
                 <div class="db-stat-value">${avgDeal>0?money(avgDeal):"—"}</div>
                 <div class="db-stat-delta neu">${closedCount>0?`по ${closedCount} ${plural(closedCount, "сделке", "сделкам", "сделкам")}`:"нет закрытых"}</div>
               </div>
@@ -13016,7 +13016,7 @@
                 const weights = { "Лид":0.10, "Бриф":0.20, "КП отправлено":0.30, "Согласование":0.50, "Договор":0.70, "Предоплата":0.90, "В работе":0.95, "Сдано":1.0, "Оплата":1.0 };
                 const forecast30 = projects.filter(p => !isDealInactive(p.crmStatus||"Лид")).reduce((s,p) => s + (p.total||0)*(weights[p.crmStatus||"Лид"]||0.10), 0);
                 return `<div class="db-stat" title="Взвешенная вероятность закрытия сделок из воронки (30 дней)">
-                  <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary2)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.target}</svg></span><span class="db-stat-label">Прогноз 30 дн</span></div>
+                  <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.target}</svg></span><span class="db-stat-label">Прогноз 30 дн</span></div>
                   <div class="db-stat-value">${money(Math.round(forecast30))}</div>
                   <div class="db-stat-delta neu">по вероятности</div>
                 </div>`;
@@ -13148,7 +13148,7 @@
                       <span class="status-pill ${project.crmStatus === CRM_ARCHIVED ? "archived" : ""}" style="font-size:12px">${escapeHtml(project.crmStatus||"Лид")}</span>
                       <div class="deal-list-name" style="display:flex;align-items:center;gap:6px;min-width:0">
                         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${escapeHtml(project.name)}</span>
-                        ${(project.tags||[]).slice(0,2).map(t=>`<span style="font-size:12px;background:rgba(108,0,255,.12);border-radius:99px;padding:1px 6px;color:var(--primary2);white-space:nowrap;flex-shrink:0">${escapeHtml(t)}</span>`).join("")}
+                        ${(project.tags||[]).slice(0,2).map(t=>`<span style="font-size:12px;background:rgba(108,0,255,.12);border-radius:99px;padding:1px 6px;color:var(--primary-text);white-space:nowrap;flex-shrink:0">${escapeHtml(t)}</span>`).join("")}
                       </div>
                       <div class="deal-list-client">${escapeHtml(project.client||"—")}</div>
                       <div class="deal-list-budget">${money(project.total)}</div>
@@ -13251,7 +13251,7 @@
                         </div>
                         <div class="deal-card-stat">
                           <span class="lbl">Расходы</span>
-                          <span class="val" style="color:${project.expensesTotal > 0 ? "var(--red)" : "var(--muted)"}">${money(project.expensesTotal || 0)}</span>
+                          <span class="val" style="color:${project.expensesTotal > 0 ? "var(--text-danger)" : "var(--muted)"}">${money(project.expensesTotal || 0)}</span>
                         </div>
                       </div>
 
@@ -13399,13 +13399,13 @@
               ${fin.totalExpensesPaid !== fin.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них оплачено (факт)</span><strong>${money(fin.totalExpensesPaid)}</strong></div>` : ""}
               <div class="summary-line">
                 <span>Прибыль (план)</span>
-                <strong style="${fin.profit < 0 ? "color:var(--red)" : ""}">${money(fin.profit)}</strong>
+                <strong style="${fin.profit < 0 ? "color:var(--text-danger)" : ""}">${money(fin.profit)}</strong>
               </div>
               ${fin.totalExpensesPaid !== fin.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>Прибыль (факт)</span><strong>${money(fin.profitFact)}</strong></div>` : ""}
               <div class="mt-8">
                 <span class="margin-badge ${marginClass}">${margin}% маржа</span>
               </div>
-              ${fin.profit < 0 ? `<div class="no-print" style="margin-top:10px;padding:9px 12px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;font-size:12px;font-weight:700;color:var(--red)"> Смета в минусе: себестоимость и расходы превышают цену для клиента</div>` : ""}
+              ${fin.profit < 0 ? `<div class="no-print" style="margin-top:10px;padding:9px 12px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;font-size:12px;font-weight:700;color:var(--text-danger)"> Смета в минусе: себестоимость и расходы превышают цену для клиента</div>` : ""}
             </div>
 
             <div class="toolbar no-print" style="margin-top:16px">
@@ -13583,7 +13583,7 @@
           </div>
           ${isPassthroughCostItem(itemData) ? `
             <div class="badges" style="margin-bottom:14px">
-              <span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>
+              <span class="badge" style="background:rgba(220,38,38,.12);color:var(--text-danger);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>
             </div>
           ` : ""}
           ${(() => {
@@ -14146,7 +14146,7 @@
                           onclick="app.setTab('${escapeHtml(cg.id)}')" title="Свой раздел">
                           <span style="display:flex;align-items:center;gap:7px;min-width:0">
                             <span style="display:inline-block;width:9px"></span>
-                            <span style="color:var(--primary2);display:inline-flex;flex-shrink:0">${icon("star", 15)}</span>
+                            <span style="color:var(--primary-text);display:inline-flex;flex-shrink:0">${icon("star", 15)}</span>
                             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(cg.label)}</span>
                           </span>
                           <span class="catalog-cat-count" style="${n ? "" : "opacity:.45"}">${n}</span>
@@ -14232,7 +14232,7 @@
 
                 ${isPassthroughCostItem(itemData) || state.favorites[itemData.id] ? `
                 <div class="badges">
-                  ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>` : ""}
+                  ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--text-danger);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>` : ""}
          ${state.favorites[itemData.id] ? `<span class="status-pill"> избранное</span>` : ""}
                 </div>
                 ` : ""}
@@ -14542,7 +14542,7 @@
                     <span class="badge" style="background:${stageColor}22;color:${stageColor};border-color:${stageColor}44">${escapeHtml(itemData.section)}</span>
                     <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
                     ${line.optional ? `<span class="status-pill yellow">опция</span>` : `<span class="status-pill green">основная</span>`}
-                    ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.3)" title="Расход агентства — по умолчанию не приносит прибыль, себестоимость = цене">Расходы</span>` : ""}
+                    ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--text-danger);border-color:rgba(220,38,38,.3)" title="Расход агентства — по умолчанию не приносит прибыль, себестоимость = цене">Расходы</span>` : ""}
                   </div>
                 </div>
               </div>
@@ -14801,7 +14801,7 @@
                 const n = Object.keys(assigned).filter(k => assigned[k] === cg.id).length;
                 return `
                 <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
-                  <span style="color:var(--primary2);display:inline-flex;flex-shrink:0">${icon("star", 15)}</span>
+                  <span style="color:var(--primary-text);display:inline-flex;flex-shrink:0">${icon("star", 15)}</span>
                   <span style="flex:1 1 auto;font-size:13px;font-weight:600">${escapeHtml(cg.label)}</span>
                   <span class="u-meta" style="flex:0 0 auto">${n} поз.</span>
                   <button onclick="app.removeCustomCatalogGroup('${escapeHtml(cg.id)}')" title="Удалить раздел"
@@ -15408,7 +15408,7 @@
 
             <div class="gtask-stats">
               <div class="gtask-stat"><span class="lbl">Всего</span><span class="val">${total}</span></div>
-              <div class="gtask-stat"><span class="lbl">Просрочено</span><span class="val" style="color:${overdue ? "var(--red)" : "var(--muted)"}">${overdue}</span></div>
+              <div class="gtask-stat"><span class="lbl">Просрочено</span><span class="val" style="color:${overdue ? "var(--text-danger)" : "var(--muted)"}">${overdue}</span></div>
               <div class="gtask-stat"><span class="lbl">Готово</span><span class="val" style="color:${done ? "var(--text-success)" : "var(--muted)"}">${done}</span></div>
             </div>
 
@@ -15596,7 +15596,7 @@
                 onchange="app.setKanbanStatus('task','${task.id}',this.value)">
                 ${TASK_STATUSES.map(s => `<option value="${s}" ${task.status===s?"selected":""}>${s}</option>`).join("")}
               </select>
-              ${task.deadline ? `<span class="badge" style="${isOverdue?"color:var(--red);border-color:rgba(220,38,38,.4)":""}">${isOverdue?"!" : ""}${escapeHtml(formatDate(task.deadline))}</span>` : ""}
+              ${task.deadline ? `<span class="badge" style="${isOverdue?"color:var(--text-danger);border-color:rgba(220,38,38,.4)":""}">${isOverdue?"!" : ""}${escapeHtml(formatDate(task.deadline))}</span>` : ""}
               ${task.assignee ? `<span class="u-meta">${escapeHtml(task.assignee)}</span>` : ""}
             </div>
 
@@ -15759,7 +15759,7 @@
                       if (!budget) return `<button class="btn small no-print" style="margin-top:4px;font-size:12px" onclick="app._setExpenseBudget()">+ Бюджет</button>`;
                       const over = f.totalExpenses - budget;
                       const pct = Math.round(f.totalExpenses / budget * 100);
-                      return `<span style="color:${over>0?"var(--red)":"var(--muted)"}">Бюджет: ${money(budget)} (${pct}%)</span>${over>0?` <span style="color:var(--red);font-size:12px"> +${money(over)}</span>`:""}`;
+                      return `<span style="color:${over>0?"var(--text-danger)":"var(--muted)"}">Бюджет: ${money(budget)} (${pct}%)</span>${over>0?` <span style="color:var(--text-danger);font-size:12px"> +${money(over)}</span>`:""}`;
                     })()}
                   </div>
                 </div>
@@ -16053,7 +16053,7 @@
                   <button class="btn small no-print" onclick="app.updateTeamMember('${member.id}','paidAmount',${Math.round(payout * 0.5)})" title="50% предоплата">50%</button>
                   <button class="btn small no-print" onclick="app.updateTeamMember('${member.id}','paidAmount',${payout})" title="Выплатить полностью">100%</button>
                   ${paidAmount > 0 ? `<button class="btn small no-print" onclick="app.updateTeamMember('${member.id}','paidAmount',0)" title="Сбросить">Сброс</button>` : ""}
-                  ${remaining > 0 && paidAmount > 0 ? `<span style="font-size:12px;color:var(--red);font-weight:700;margin-left:auto">Остаток: ${money(remaining)}</span>` : ""}
+                  ${remaining > 0 && paidAmount > 0 ? `<span style="font-size:12px;color:var(--text-danger);font-weight:700;margin-left:auto">Остаток: ${money(remaining)}</span>` : ""}
                 </div>
 
                 <div style="margin-top:8px;height:4px;background:var(--line);border-radius:99px;overflow:hidden">
@@ -16146,7 +16146,7 @@
         ].sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
         function calDateClass(date) {
-          if (date < today) return "color:var(--red)";
+          if (date < today) return "color:var(--text-danger)";
           const diff = (new Date(date) - new Date(today)) / 86400000;
           if (diff <= 3) return "color:var(--text-warning)";
           return "color:var(--muted)";
@@ -16681,7 +16681,7 @@
               </div>
               <div class="fin-forecast-card" title="Ожидаемая прибыль к концу месяца: прогноз поступлений минус прогноз расходов">
                 <div class="fc-lbl">Прогноз прибыли</div>
-                <div class="fc-val" style="color:${projProfit >= 0 ? "var(--primary2)" : "var(--red)"}">${money(projProfit)}</div>
+                <div class="fc-val" style="color:${projProfit >= 0 ? "var(--primary-text)" : "var(--red)"}">${money(projProfit)}</div>
                 <div class="fc-sub">расходы ~${money(projExpense)}</div>
               </div>
               <div class="fin-forecast-card" title="Сколько клиенты ещё должны заплатить по всем сделкам — деньги, которые реально собрать">
@@ -16991,7 +16991,7 @@
                       <div style="flex:2;background:var(--line);border-radius:999px;height:8px;overflow:hidden">
                         <div class="category-bar-fill" style="background:${p.profit >= 0 ? "var(--primary2)" : "var(--red)"};width:${Math.round(Math.abs(p.profit)/maxProfit*100)}%"></div>
                       </div>
-                      <div class="category-bar-amount" style="color:${p.profit >= 0 ? "var(--primary2)" : "var(--red)"}">${money(p.profit)}</div>
+                      <div class="category-bar-amount" style="color:${p.profit >= 0 ? "var(--primary-text)" : "var(--red)"}">${money(p.profit)}</div>
                     </div>
                   `).join("") || `<p style="color:var(--muted);font-size:13px">Нет данных</p>`;
                 })()}
@@ -17168,6 +17168,9 @@
 
         const typeLabel = { deadline: "Дедлайн", task: "Задача", payment: "Платёж", expense: "Расход", google: "Google" };
         const typeColor = { deadline: "var(--red)", task: "var(--blue)", payment: "var(--green)", expense: "var(--orange)", google: "var(--primary)" };
+        // Те же типы, но для ТЕКСТА: сырые --red/--green/--orange одинаковы в обеих
+        // темах и на светлом фоне дают 3.0-4.2:1. Точкам-маркерам это не мешает.
+        const typeTextColor = { deadline: "var(--text-danger)", task: "var(--text-info)", payment: "var(--text-success)", expense: "var(--text-warning)", google: "var(--primary-text)" };
 
         setTimeout(() => {
           const scroller = document.getElementById("calMonthsScroll");
@@ -17261,7 +17264,7 @@
                     <div class="cal-day-event-type" style="background:${typeColor[ev.type]}"></div>
                     <div class="cal-day-event-info">
                       <h4>${escapeHtml(ev.title)}</h4>
-                      <p>${escapeHtml(ev.project || "")}${ev.amount ? ` · ${money(ev.amount)}` : ""} · <span style="color:${typeColor[ev.type]};font-weight:750">${typeLabel[ev.type] || ""}</span></p>
+                      <p>${escapeHtml(ev.project || "")}${ev.amount ? ` · ${money(ev.amount)}` : ""} · <span style="color:${typeTextColor[ev.type]};font-weight:750">${typeLabel[ev.type] || ""}</span></p>
                     </div>
                     ${ev.projectId || ev.htmlLink ? `<span class="u-meta">→</span>` : ""}
                   </div>
@@ -17295,7 +17298,7 @@
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px">
                   <span style="font-size:12px;font-weight:750;color:var(--muted);margin-right:2px">${calAllMode ? yr + " год" : monthNames[mo-1] + " " + yr}:</span>
                   <div style="display:flex;gap:4px;flex-wrap:wrap">
-                    ${typeFilters.map(f => `<button style="padding:4px 10px;font-size:12px;font-weight:750;border-radius:99px;border:1px solid ${calTypeFilter===f.id?"var(--primary)":"var(--line)"};background:${calTypeFilter===f.id?"rgba(124,58,237,.15)":"transparent"};color:${calTypeFilter===f.id?"var(--primary2)":"var(--muted)"};cursor:pointer" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
+                    ${typeFilters.map(f => `<button style="padding:4px 10px;font-size:12px;font-weight:750;border-radius:99px;border:1px solid ${calTypeFilter===f.id?"var(--primary)":"var(--line)"};background:${calTypeFilter===f.id?"rgba(124,58,237,.15)":"transparent"};color:${calTypeFilter===f.id?"var(--primary-on-tint)":"var(--muted)"};cursor:pointer" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
                   </div>
                   <span style="font-size:12px;color:var(--muted);margin-left:auto">${listEvents.length} событий</span>
                 </div>
@@ -17313,7 +17316,7 @@
                         <div style="font-size:13px;font-weight:750;${isPast&&!isToday?"opacity:.6":""}overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(ev.title)}</div>
                         <div class="u-meta">${formatDate(ev.date)}${ev.project ? ` · ${escapeHtml(ev.project)}` : ""}${ev.amount ? ` · ${money(ev.amount)}` : ""}</div>
                       </div>
-                      <span style="font-size:12px;color:${typeColor[ev.type]};font-weight:750;flex:0 0 auto;white-space:nowrap">${escapeHtml(typeLabel[ev.type]||"")}</span>
+                      <span style="font-size:12px;color:${typeTextColor[ev.type]};font-weight:750;flex:0 0 auto;white-space:nowrap">${escapeHtml(typeLabel[ev.type]||"")}</span>
                     </div>`;
                   }).join("")}
                   ${calHiddenCount > 0 ? `
@@ -17332,7 +17335,7 @@
           <div class="welcome-screen">
             <div style="display:inline-flex;align-items:center;gap:10px;background:var(--primary-bg);border:1px solid rgba(108,0,255,.2);border-radius:99px;padding:6px 16px;margin-bottom:24px">
               <div style="width:8px;height:8px;border-radius:50%;background:var(--primary)"></div>
-              <span style="font-size:13px;color:var(--primary2);font-weight:600">7 дней бесплатно · карта не нужна</span>
+              <span style="font-size:13px;color:var(--primary-text);font-weight:600">7 дней бесплатно · карта не нужна</span>
             </div>
             <h1 style="font-size:32px;letter-spacing:-.04em;margin-bottom:10px">Смета и КП за 15 минут<br>вместо вечера в Excel</h1>
             <p style="font-size:15px;max-width:460px;margin:0 auto 36px">Соберите смету по каталогу и отправьте клиенту ссылку —<br>он согласится и оплатит аванс онлайн.</p>
@@ -17516,7 +17519,7 @@
                       <span style="font-size:12px;padding:3px 7px;border-radius:999px;background:${catColor};white-space:nowrap;color:var(--muted)">${catLabel}</span>
                     </div>
                     <p style="font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.4">${escapeHtml(pkg.desc)}</p>
-                    <div style="font-size:13px;font-weight:900;color:var(--primary2)">${escapeHtml(money(packagePrice(pkg)))}</div>
+                    <div style="font-size:13px;font-weight:900;color:var(--primary-text)">${escapeHtml(money(packagePrice(pkg)))}</div>
                     ${pkg.goodFor ? `<div style="font-size:12px;color:var(--muted);margin-top:4px">${escapeHtml(pkg.goodFor)}</div>` : ""}
                   </div>
                 `;
@@ -20115,7 +20118,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               </div>
               ${m._projectId ? `
               <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px;padding:14px 16px;margin-bottom:14px">
-                <div style="font-size:12px;font-weight:800;color:var(--primary2);margin-bottom:10px"> Дедлайн проекта</div>
+                <div style="font-size:12px;font-weight:800;color:var(--primary-text);margin-bottom:10px"> Дедлайн проекта</div>
                 <input type="date" value="${escapeHtml(m._projectDeadline||"")}"
                   oninput="app.setClientModalField('_projectDeadline',this.value)"
                   style="width:100%;border-radius:10px;border:1px solid var(--line);background:var(--input);color:var(--text);padding:10px 12px;font-size:14px">
@@ -20408,7 +20411,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 ${field("Менеджер", `<input value="${escapeHtml(m.manager || "")}" oninput="app.setDealModalField('manager',this.value)" placeholder="Имя менеджера">`)}
               </div>
               <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px;padding:14px 16px;margin-bottom:14px">
-                <div style="font-size:12px;font-weight:800;color:var(--primary2);margin-bottom:10px"> Дедлайн проекта${u && u.level !== "ok" ? ` <span style="color:${u.color};font-weight:700">· ${escapeHtml(u.label)}</span>` : ""}</div>
+                <div style="font-size:12px;font-weight:800;color:var(--primary-text);margin-bottom:10px"> Дедлайн проекта${u && u.level !== "ok" ? ` <span style="color:${u.color};font-weight:700">· ${escapeHtml(u.label)}</span>` : ""}</div>
                 <input type="date" value="${escapeHtml(m.deadline||"")}"
                   oninput="app.setDealModalField('deadline',this.value)"
                   style="width:100%;border-radius:10px;border:1px solid var(--line);background:var(--input);color:var(--text);padding:10px 12px;font-size:14px">
@@ -20422,7 +20425,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <div class="field" style="margin-bottom:14px">
                 <label style="font-size:12px;color:var(--muted);font-weight:750;margin-bottom:6px;display:block">Теги</label>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-                  ${(m.tags||[]).map(t => `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--primary2)">${escapeHtml(t)}<button onclick="app._removeDealTag('${escapeHtml(t)}')" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0;line-height:1;font-size:14px">${icon("close", 13)}</button></span>`).join("")}
+                  ${(m.tags||[]).map(t => `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--primary-text)">${escapeHtml(t)}<button onclick="app._removeDealTag('${escapeHtml(t)}')" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0;line-height:1;font-size:14px">${icon("close", 13)}</button></span>`).join("")}
                 </div>
                 <div style="display:flex;gap:6px">
                   <input id="dealTagInput" placeholder="Новый тег..." style="flex:1;padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--text);font-size:13px"

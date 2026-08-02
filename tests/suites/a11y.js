@@ -340,10 +340,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
      нашлось 19 мест, где цвет физически не менялся при переключении темы, и
      113 провалов AA; после чистки осталось 58, все не ниже 3:1.
 
-     Пороги ниже — «не хуже, чем сейчас», а не идеал: довести всё до 4.5:1 мешает
-     акцентный --primary2 (3.6:1 на белой панели), а это уже бренд-цвет, менять
-     его — решение владельца, не побочный эффект правки контраста. */
-  await test("текст в интерфейсе: контраст не ниже 3:1 в обеих темах", async () => {
+     Порог — полный AA: 4.5:1 для обычного текста и 3:1 для крупного (≥24px либо
+     ≥18.66px жирный), как в WCAG. После чистки 02.08.2026 ему отвечает ВЕСЬ текст
+     в обеих темах, поэтому планка стоит на конечной цели, а не на «не хуже». */
+  await test("текст в интерфейсе: контраст отвечает WCAG AA в обеих темах", async () => {
     const VIEWS = ["home", "crm", "clients", "catalog", "packages", "global-finances",
       "global-calendar", "contracts", "plans", "proposals", "knowledge"];
     const MEASURE = (theme) => {
@@ -409,7 +409,11 @@ module.exports = async function ({ browser, baseUrl, test }) {
         if (!fg) continue;
         const bg = bgOf(el);
         const eff = fg.a < 1 ? over(fg, bg) : fg;
+        const size = parseFloat(cs.fontSize) || 14;
+        const bold = (parseInt(cs.fontWeight, 10) || 400) >= 700;
+        const large = size >= 24 || (size >= 18.66 && bold);
         out.push({
+          need: large ? 3 : 4.5,
           cls: (el.className || "").toString().split(/\s+/)[0] || el.tagName.toLowerCase(),
           txt: txt.slice(0, 24), color: cs.color,
           bg: "rgb(" + Math.round(bg.r) + "," + Math.round(bg.g) + "," + Math.round(bg.b) + ")",
@@ -435,12 +439,12 @@ module.exports = async function ({ browser, baseUrl, test }) {
         const rows = await page.evaluate(MEASURE, theme);
         for (const r of rows) {
           r.actual = actual;
-          if (r.ratio < 3) bad.push(`${theme}(факт:${r.actual})/${view}: .${r.cls} «${r.txt}» ${r.color} на ${r.bg} — ${r.ratio}:1`);
+          if (r.ratio < r.need) bad.push(`${theme}(факт:${r.actual})/${view}: .${r.cls} «${r.txt}» ${r.color} на ${r.bg} — ${r.ratio}:1 (нужно ${r.need})`);
         }
       }
     }
     await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
-    assertEqual(bad.length, 0, "текст с контрастом ниже 3:1 — " + [...new Set(bad)].slice(0, 10).join(" | "));
+    assertEqual(bad.length, 0, "текст ниже порога WCAG AA — " + [...new Set(bad)].slice(0, 10).join(" | "));
   });
 
   // Кнопка «Скрыть» чеклиста «первые шаги» была 18×18 — меньше даже мягкого порога
