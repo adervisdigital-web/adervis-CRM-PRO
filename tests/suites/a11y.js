@@ -334,6 +334,115 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(bad.length, 0, "низкий контраст капсул — " + bad.join(" | "));
   });
 
+  /* Предыдущий тест проверяет капсулы точечно, по списку классов. Этот идёт от
+     обратного: обходит живые вьюхи в обеих темах и меряет ВЕСЬ видимый текст.
+     Так ловятся цвета, захардкоженные в разметке (не в CSS) — 02.08.2026 замером
+     нашлось 19 мест, где цвет физически не менялся при переключении темы, и
+     113 провалов AA; после чистки осталось 58, все не ниже 3:1.
+
+     Пороги ниже — «не хуже, чем сейчас», а не идеал: довести всё до 4.5:1 мешает
+     акцентный --primary2 (3.6:1 на белой панели), а это уже бренд-цвет, менять
+     его — решение владельца, не побочный эффект правки контраста. */
+  await test("текст в интерфейсе: контраст не ниже 3:1 в обеих темах", async () => {
+    const VIEWS = ["home", "crm", "clients", "catalog", "packages", "global-finances",
+      "global-calendar", "contracts", "plans", "proposals", "knowledge"];
+    const MEASURE = (theme) => {
+      const parse = (c) => {
+        const m = (c || "").match(/rgba?\(([^)]+)\)/);
+        if (!m) return null;
+        const p = m[1].split(",").map((s) => parseFloat(s.trim()));
+        return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+      };
+      // Композиция ДВУХ полупрозрачных слоёв (source-over). Наивная формула
+      // «fg*a + bg*(1-a)» с результатом a:1 считает нижний слой непрозрачным:
+      // под кнопкой лежал .empty c rgba(255,255,255,.016), и фон в тёмной теме
+      // выходил светло-серым — тест сообщал о провале, которого нет.
+      const over = (fg, bg) => {
+        const a = fg.a + bg.a * (1 - fg.a);
+        if (a <= 0) return { r: 0, g: 0, b: 0, a: 0 };
+        return {
+          r: (fg.r * fg.a + bg.r * bg.a * (1 - fg.a)) / a,
+          g: (fg.g * fg.a + bg.g * bg.a * (1 - fg.a)) / a,
+          b: (fg.b * fg.a + bg.b * bg.a * (1 - fg.a)) / a,
+          a,
+        };
+      };
+      const lum = (c) => {
+        const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+        return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+      };
+      const ratio = (a, b) => {
+        const l1 = lum(a), l2 = lum(b);
+        return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+      };
+      // Фактический фон: копим альфу вверх по родителям. Прозрачный body/html
+      // (градиент) нельзя считать чёрным — иначе в светлой теме половина замеров
+      // превращается в ложные провалы.
+      const bgOf = (el) => {
+        let acc = null, node = el;
+        while (node) {
+          const bg = parse(getComputedStyle(node).backgroundColor);
+          if (bg && bg.a > 0) { acc = acc ? over(acc, bg) : bg; if (acc.a >= 0.999) break; }
+          node = node.parentElement;
+        }
+        if (!acc || acc.a < 0.999) {
+          let page = null;
+          for (const n of [document.body, document.documentElement]) {
+            const c = parse(getComputedStyle(n).backgroundColor);
+            if (c && c.a >= 0.999) { page = c; break; }
+          }
+          if (!page) page = theme === "light" ? { r: 255, g: 255, b: 255, a: 1 } : { r: 12, g: 12, b: 18, a: 1 };
+          acc = acc ? over(acc, page) : page;
+        }
+        return acc;
+      };
+      const out = [];
+      for (const el of document.querySelectorAll("#appContent *")) {
+        const txt = (el.textContent || "").trim();
+        if (!txt || txt.length > 60) continue;
+        if (el.children.length && !Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) continue;
+        const cs = getComputedStyle(el);
+        if (cs.visibility === "hidden" || cs.opacity === "0") continue;
+        const fg = parse(cs.color);
+        if (!fg) continue;
+        const bg = bgOf(el);
+        const eff = fg.a < 1 ? over(fg, bg) : fg;
+        out.push({
+          cls: (el.className || "").toString().split(/\s+/)[0] || el.tagName.toLowerCase(),
+          txt: txt.slice(0, 24), color: cs.color,
+          bg: "rgb(" + Math.round(bg.r) + "," + Math.round(bg.g) + "," + Math.round(bg.b) + ")",
+          ratio: Math.round(ratio(eff, bg) * 100) / 100,
+        });
+      }
+      return out;
+    };
+
+    const bad = [];
+    for (const theme of ["dark", "light"]) {
+      // Тему ставим ОТДЕЛЬНО и ждём: переключение анимировано (transition на
+      // background/color), и замер в тот же кадр ловит промежуточный цвет —
+      // тест «находил» белый текст на светлом фоне и тёмный на тёмном.
+      await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
+      await page.waitForTimeout(450);
+      for (const view of VIEWS) {
+        await page.evaluate((v) => window.app.go(v), view);
+        // 350 мс, а не 150: пустые состояния и панели появляются с анимацией,
+        // и замер в переходном кадре давал ложные провалы (белый текст «на сером»).
+        await page.waitForTimeout(350);
+        const actual = await page.evaluate(() => document.documentElement.getAttribute("data-theme"));
+        const rows = await page.evaluate(MEASURE, theme);
+        for (const r of rows) {
+          r.actual = actual;
+          if (r.ratio < 3) bad.push(`${theme}(факт:${r.actual})/${view}: .${r.cls} «${r.txt}» ${r.color} на ${r.bg} — ${r.ratio}:1`);
+        }
+      }
+    }
+    await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+    assertEqual(bad.length, 0, "текст с контрастом ниже 3:1 — " + [...new Set(bad)].slice(0, 10).join(" | "));
+  });
+
   // Кнопка «Скрыть» чеклиста «первые шаги» была 18×18 — меньше даже мягкого порога
   // тач-таргета. Сам чеклист виден только со свежим demo-аккаунтом (seedDemo),
   // поэтому открываем отдельный контекст вместо общего page из этого набора.

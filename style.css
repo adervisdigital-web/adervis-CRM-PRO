@@ -58,6 +58,10 @@
       --primary:    #6c00ff;
       --primary2:   #9b4dff;
       --primary-bg: rgba(108, 0, 255, .09);
+      /* Текст поверх фиолетовой подсветки (--primary-bg и rgba(124,58,237,.1x)).
+         Отдельно от --primary2: тот в светлой теме светлее основного и на тинте
+         даёт 3.1:1 — ниже AA. Замер: tests/suites/a11y.js «активные элементы». */
+      --primary-on-tint: #9b4dff;
 
       --blue:   #2563eb;
       --cyan:   #0891b2;
@@ -148,6 +152,7 @@
       --primary: #5b4ee8;
       --primary2: #7c6fef;
       --primary-bg: rgba(91, 78, 232, .09);
+      --primary-on-tint: #5b21b6;
       --blue: #2563eb;
       --cyan: #0891b2;
       --green: #16a34a;
@@ -502,7 +507,7 @@
     .sidebar-nav-item:hover svg { opacity: 1; }
     .sidebar-nav-item.active {
       background: rgba(108,0,255,.14);
-      color: var(--primary2);
+      color: var(--primary-on-tint);
       border-color: rgba(108,0,255,.26);
     }
     .sidebar-nav-item.active svg { opacity: 1; color: var(--primary2); }
@@ -1159,7 +1164,7 @@
       white-space: nowrap;
     }
     .catalog-cat-item:hover { background: var(--panel2); color: var(--text); }
-    .catalog-cat-item.active { background: rgba(124,58,237,.14); color: var(--primary2); font-weight: 700; }
+    .catalog-cat-item.active { background: rgba(124,58,237,.14); color: var(--primary-on-tint); font-weight: 700; }
     .catalog-cat-count {
       flex: 0 0 auto;
       font-size: 12px;
@@ -1169,7 +1174,7 @@
       border-radius: 999px;
       padding: 1px 7px;
     }
-    .catalog-cat-item.active .catalog-cat-count { background: rgba(124,58,237,.22); color: var(--primary2); }
+    .catalog-cat-item.active .catalog-cat-count { background: rgba(124,58,237,.22); color: var(--primary-on-tint); }
     .catalog-cat-item.danger {
       margin-top: 10px;
       padding-top: 10px;
@@ -1188,7 +1193,7 @@
       justify-content: flex-start;
       color: var(--primary2);
     }
-    .catalog-cat-add:hover { background: rgba(124,58,237,.1); color: var(--primary2); }
+    .catalog-cat-add:hover { background: rgba(124,58,237,.1); color: var(--primary-on-tint); }
     .catalog-body-main { flex: 1; min-width: 0; }
 
     .catalog-grid {
@@ -1377,6 +1382,14 @@
       opacity: .92;
     }
 
+    /* Тот же тёмно-синий тинт на белом фоне даёт плотную серую плашку, и --muted
+       поверх неё падает до 3.2:1. В светлой теме капсуле нужна своя, лёгкая
+       заливка — замер держит тест «бейджи и капсулы читаемы в обеих темах». */
+    [data-theme="light"] .badge {
+      background: rgba(15, 23, 42, .06);
+      opacity: 1;
+    }
+
     .status-pill {
       color: var(--text);
       font-weight: 700;
@@ -1466,7 +1479,7 @@
       margin-bottom: 4px;
       border-radius: 50%;
       background: var(--primary-bg);
-      color: var(--primary2);
+      color: var(--primary-on-tint);
     }
     .empty__actions {
       display: flex;
@@ -1593,7 +1606,7 @@
 
     .drag-handle:hover {
       color: var(--text);
-      border-color: var(--primary2);
+      border-color: var(--primary-on-tint);
       background: rgba(124, 58, 237, .08);
     }
 
@@ -2212,7 +2225,7 @@
       color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer;
       text-align: left; transition: background .12s, color .12s;
     }
-    .pd-item:hover { background: rgba(124,58,237,.08); color: var(--primary2); }
+    .pd-item:hover { background: rgba(124,58,237,.08); color: var(--primary-on-tint); }
     .pd-item.danger { color: var(--red); }
     .pd-item.danger:hover { background: rgba(220,38,38,.07); color: var(--red); }
     .pd-item-icon { width: 18px; text-align: center; opacity: .7; font-size: 14px; flex: 0 0 18px; }
@@ -2234,7 +2247,7 @@
       color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer;
       text-align: left; transition: .12s; text-decoration: none;
     }
-    .help-dd-item:hover { background: rgba(124,58,237,.08); color: var(--primary2); }
+    .help-dd-item:hover { background: rgba(124,58,237,.08); color: var(--primary-on-tint); }
     .help-dd-item .hdi-sub { font-size: 12px; font-weight: 500; color: var(--muted); margin-top: 1px; }
     .help-dd-item-icon { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex: 0 0 20px; }
 
@@ -2269,7 +2282,7 @@
       width: 100%; text-align: left;
     }
     .currency-opt:hover { background: rgba(124,58,237,.08); }
-    .currency-opt.active { background: rgba(124,58,237,.12); color: var(--primary2); font-weight: 600; }
+    .currency-opt.active { background: rgba(124,58,237,.12); color: var(--primary-on-tint); font-weight: 600; }
     .currency-sym { font-size: 15px; font-weight: 900; width: 22px; text-align: center; opacity: .8; }
 
     /* ── Универсальный кастом-дропдаун (заменяет нативные select на десктопе) ── */
@@ -2312,7 +2325,7 @@
       white-space: normal; overflow-wrap: break-word; line-height: 1.35;
     }
     .uu-select-opt:hover { background: rgba(124,58,237,.1); }
-    .uu-select-opt.active { background: rgba(124,58,237,.16); color: var(--primary2); font-weight: 700; }
+    .uu-select-opt.active { background: rgba(124,58,237,.16); color: var(--primary-on-tint); font-weight: 700; }
     .uu-select-opt.uu-opt-hidden { display: none; }
 
     /* ── MOBILE BOTTOM NAV ──────────────────────── */
@@ -2554,7 +2567,7 @@
        iconBadge() в заголовке контента внутри вкладки (не рассинхронизировано). */
     .seg-switch button.seg-switch-yellow.active svg { color: var(--yellow); }
     .seg-switch button.seg-switch-blue.active svg { color: var(--blue); }
-    .seg-switch button.seg-switch-green.active svg { color: var(--green); }
+    .seg-switch button.seg-switch-green.active svg { color: var(--text-success); }
 
     /* Карточка «Установить ADERVIS CRM» (Настройки → Интеграции). Три флекс-элемента
        (иконка/текст/кнопка) на узком экране раньше не переносились на новую строку —
@@ -2640,7 +2653,7 @@
       flex: 0 0 auto; display: grid; gap: 2px; text-align: right;
       font-size: 12px; color: var(--muted);
     }
-    .client-select-sum { font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+    .client-select-sum { font-weight: 700; color: var(--text-success); font-variant-numeric: tabular-nums; }
     @media (max-width: 560px) {
       .client-select-meta { font-size: 11px; }
     }
@@ -2656,8 +2669,8 @@
     .client-list-name { font-size: 14px; font-weight: 600; flex: 1 1 150px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .client-list-company { font-size: 12px; color: var(--muted); flex: 0 0 150px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .client-list-deals { font-size: 12px; color: var(--muted); flex: 0 0 84px; text-align: right; }
-    .client-list-paid { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 100px; text-align: right; color: var(--green); }
-    .client-list-debt { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 100px; text-align: right; color: var(--orange); }
+    .client-list-paid { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 100px; text-align: right; color: var(--text-success); }
+    .client-list-debt { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 100px; text-align: right; color: var(--text-warning); }
     /* Ширину держим постоянной, даже когда кнопки нет: иначе строка без сделок
        растягивается и колонки соседних строк разъезжаются по горизонтали. */
     .client-list-actions { flex: 0 0 112px; display: flex; gap: 6px; justify-content: flex-end; }
@@ -2760,7 +2773,7 @@
     .db-kpi-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
     .db-kpi-value { font-size: 20px; font-weight: 900; letter-spacing: -.02em; margin: 2px 0; font-variant-numeric: tabular-nums; }
     .db-kpi-delta { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .db-kpi-delta.pos { color: var(--green); }
+    .db-kpi-delta.pos { color: var(--text-success); }
     .db-kpi-delta.neg { color: var(--red); }
     .db-kpi-delta.neu { color: var(--muted); }
 
@@ -2812,7 +2825,7 @@
       font-variant-numeric: tabular-nums; line-height: 1.2; margin-bottom: 2px;
     }
     .db-stat-delta { font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .db-stat-delta.pos { color: var(--green); }
+    .db-stat-delta.pos { color: var(--text-success); }
     .db-stat-delta.neg { color: var(--red); }
     .db-stat-delta.neu { color: var(--muted); }
     .db-stat[onclick]:hover { box-shadow: inset 0 0 0 1px rgba(155,77,255,.25); }
@@ -2999,7 +3012,7 @@
       cursor: pointer; transition: .15s;
     }
     .funnel-stage:hover { border-color: rgba(168,85,247,.5); transform: translateY(-1px); }
-    .funnel-stage.active { border-color: var(--primary2); background: rgba(124,58,237,.12); }
+    .funnel-stage.active { border-color: var(--primary-on-tint); background: rgba(124,58,237,.12); }
     .funnel-stage h3 { font-size: 11px; color: var(--muted); margin: 0 0 2px; }
     .funnel-stage .fs-count { font-size: 19px; font-weight: 900; line-height: 1.1; }
     .funnel-stage .fs-amount { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
@@ -3049,7 +3062,7 @@
        физически, — плюс лёгкая заливка и мягкая тень вниз для объёма.
        Заметно, но не светится. */
     .deal-card.current {
-      border-color: var(--green);
+      border-color: var(--text-success);
       box-shadow: inset 0 0 0 1px var(--green), 0 4px 18px rgba(22,163,74,.13);
       --card-fill: rgba(22,163,74,.05);
     }
@@ -3164,7 +3177,7 @@
     .deal-card-deadline { font-size: 11.5px; font-weight: 650; display: flex; align-items: center; gap: 5px; }
     .deal-card-note { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
     .deal-card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-    .deal-card-tag { font-size: 11px; background: rgba(124,58,237,.12); border-radius: 99px; padding: 1px 8px; color: var(--primary2); cursor: pointer; }
+    .deal-card-tag { font-size: 11px; background: rgba(124,58,237,.12); border-radius: 99px; padding: 1px 8px; color: var(--primary-on-tint); cursor: pointer; }
 
     /* ── РАЗДЕЛ «ЗАДАЧИ» (все задачи + свободные) ────────── */
     .chip {
@@ -3173,7 +3186,7 @@
       cursor: pointer; white-space: nowrap; transition: background .14s, border-color .14s, color .14s;
     }
     .chip:hover { border-color: rgba(168,85,247,.5); color: var(--text); }
-    .chip.active { background: rgba(124,58,237,.15); border-color: var(--primary); color: var(--primary2); }
+    .chip.active { background: rgba(124,58,237,.15); border-color: var(--primary); color: var(--primary-on-tint); }
 
     .gtask-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
     .gtask-stat {
@@ -3208,15 +3221,15 @@
       display: grid; place-items: center; color: var(--on-color); font-size: 14px; font-weight: 800;
       transition: background .14s, border-color .14s;
     }
-    .gtask-check:hover { border-color: var(--green); }
-    .gtask-check.checked { background: var(--green); border-color: var(--green); }
+    .gtask-check:hover { border-color: var(--text-success); }
+    .gtask-check.checked { background: var(--green); border-color: var(--text-success); }
     .gtask-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; margin: 0 7px; }
 
     .gtask-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
     .gtask-title { font-size: 14px; font-weight: 700; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .gtask-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); font-weight: 500; }
     .gtask-project { background: var(--panel2); border: 1px solid var(--line); border-radius: 99px; padding: 1px 9px; font-weight: 600; }
-    .gtask-project.personal { background: rgba(124,58,237,.12); border-color: rgba(124,58,237,.3); color: var(--primary2); }
+    .gtask-project.personal { background: rgba(124,58,237,.12); border-color: rgba(124,58,237,.3); color: var(--primary-on-tint); }
     .gtask-del {
       width: 30px; height: 30px; flex: 0 0 auto; border-radius: 8px;
       border: 1px solid transparent; background: transparent; color: var(--muted);
@@ -3340,11 +3353,11 @@
        текст, и иконку (fill="currentColor"), чтобы пункты меню читались с первого
        взгляда, не только по подписи. */
     .dcm-purple { color: var(--primary2); }
-    .dcm-purple:hover { background: rgba(124,58,237,.12) !important; color: var(--primary2); }
+    .dcm-purple:hover { background: rgba(124,58,237,.12) !important; color: var(--primary-on-tint); }
     .dcm-blue { color: var(--blue); }
     .dcm-blue:hover { background: rgba(37,99,235,.12) !important; color: var(--blue); }
-    .dcm-cyan { color: var(--cyan); }
-    .dcm-cyan:hover { background: rgba(8,145,178,.12) !important; color: var(--cyan); }
+    .dcm-cyan { color: var(--tint-cyan); }
+    .dcm-cyan:hover { background: rgba(8,145,178,.12) !important; color: var(--tint-cyan); }
     .dcm-sep { height: 1px; background: var(--line); margin: 4px 5px; }
     [data-theme="light"] .dcm-green { color: var(--text-success); }
     [data-theme="light"] .dcm-item:hover { background: rgba(0,0,0,.05); }
@@ -3530,17 +3543,18 @@
       white-space: nowrap; flex: 0 0 auto;
     }
     .fin-quick-btn:hover { opacity: .85; transform: translateY(-1px); }
-    .fin-quick-btn.income { background: var(--green); }
+    /* Белый текст на #16a34a даёт 3.3:1 — берём насыщенную ступень. */
+    .fin-quick-btn.income { background: var(--green-strong); }
     .fin-quick-btn.expense { background: var(--red); }
     .fin-quick-extra { display: none; }
     .fin-quick-input, .fin-quick-amount { display: none; }
 
     /* ── ESTIMATE IN DEAL: clear tab context ───── */
     .deal-bar .deal-tab.active {
-      color: var(--primary2);
+      color: var(--primary-on-tint);
       background: rgba(108,0,255,.12);
       border-radius: 8px 8px 0 0;
-      border-bottom-color: var(--primary2);
+      border-bottom-color: var(--primary-on-tint);
     }
     .estimate-section-title {
       display: flex; justify-content: space-between;
@@ -3674,7 +3688,7 @@
     }
     .deal-switcher-section-label:hover { background: var(--panel2); }
     .deal-switcher-section-label:first-child { padding-top: 4px; }
-    .deal-switcher-section-label.active-label { color: var(--green); }
+    .deal-switcher-section-label.active-label { color: var(--text-success); }
     .deal-switcher-section-label.completed-label { color: var(--red); }
     .deal-switcher-section-label.archived-label { color: var(--muted); }
     .deal-switcher-section-chevron { transition: transform .15s; font-size: 11px; }
@@ -3763,7 +3777,7 @@
       transition: .13s; display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-    .cal-nav2-arrow:hover { border-color: rgba(168,85,247,.5); color: var(--primary2); background: rgba(124,58,237,.08); }
+    .cal-nav2-arrow:hover { border-color: rgba(168,85,247,.5); color: var(--primary-on-tint); background: rgba(124,58,237,.08); }
     .cal-nav2-month {
       font-size: 18px; font-weight: 900; color: var(--text);
       min-width: 130px; text-align: center; letter-spacing: -.02em;
@@ -3801,8 +3815,8 @@
     }
     .cal-month-pill:hover { border-color: rgba(168,85,247,.5); color: var(--text); }
     .cal-month-pill.active {
-      background: rgba(124,58,237,.18); border-color: var(--primary2);
-      color: var(--primary2);
+      background: rgba(124,58,237,.18); border-color: var(--primary-on-tint);
+      color: var(--primary-on-tint);
     }
     @media (max-width: 768px) {
       .cal-months-scroll { gap: 4px; }
@@ -3830,7 +3844,7 @@
     }
     .cal-cell:hover { border-color: rgba(168,85,247,.45); background: rgba(124,58,237,.06); }
     .cal-cell.today {
-      border-color: var(--primary2);
+      border-color: var(--primary-on-tint);
       background: rgba(124,58,237,.1);
       box-shadow: 0 0 0 2px rgba(124,58,237,.22) inset;
     }
@@ -3851,7 +3865,7 @@
     }
     .cal-cell:hover .cal-day-add { opacity: 1; }
     .cal-day-add:hover {
-      background: var(--primary-bg); border-color: var(--primary2); color: var(--primary2);
+      background: var(--primary-bg); border-color: var(--primary-on-tint); color: var(--primary-on-tint);
     }
     .cal-day-add:focus-visible { opacity: 1; outline: 2px solid var(--primary2); outline-offset: 1px; }
     /* Прошлые/будущие месяцы — не предлагаем ставить туда задачу */
@@ -3883,7 +3897,7 @@
     .cal-event-label.task { background: rgba(37,99,235,.18); color: var(--text-info); }
     .cal-event-label.payment { background: rgba(22,163,74,.18); color: var(--text-success); }
     .cal-event-label.expense { background: rgba(234,88,12,.18); color: var(--text-warning); }
-    .cal-event-label.google { background: rgba(124,58,237,.18); color: var(--primary2); }
+    .cal-event-label.google { background: rgba(124,58,237,.18); color: var(--primary-on-tint); }
     [data-theme="light"] .cal-event-label.deadline { color: var(--text-danger); }
     [data-theme="light"] .cal-event-label.task { color: var(--text-info); }
     [data-theme="light"] .cal-event-label.payment { color: var(--text-success); }
@@ -3940,7 +3954,7 @@
       font-weight: 700; font-size: 13px; white-space: nowrap;
     }
     .gcal-date-overdue { color: var(--red); }
-    .gcal-date-soon { color: var(--orange); }
+    .gcal-date-soon { color: var(--text-warning); }
     .gcal-date-ok { color: var(--muted); }
     .gcal-group-header {
       font-size: 12px; font-weight: 700; color: var(--muted);
@@ -3997,7 +4011,7 @@
       transition: .15s; white-space: nowrap;
     }
     .fin-subtab.active {
-      color: var(--primary2); border-bottom-color: var(--primary2);
+      color: var(--primary-on-tint); border-bottom-color: var(--primary-on-tint);
       background: rgba(108,0,255,.12); border-radius: 8px 8px 0 0;
     }
     .fin-subtab:hover { color: var(--text); }
@@ -4205,7 +4219,7 @@
       background: transparent; color: var(--muted);
     }
     .modal-type-btn.income.active {
-      background: var(--green); border-color: var(--green); color: var(--on-color);
+      background: var(--green); border-color: var(--text-success); color: var(--on-color);
     }
     .modal-type-btn.expense.active {
       background: var(--red); border-color: var(--red); color: var(--on-color);
@@ -4397,10 +4411,10 @@
     .xlsx-icon-btn {
       width: 38px; height: 38px; flex: 0 0 auto; display: grid; place-items: center;
       border: 1px solid rgba(22,163,74,.4); border-radius: 10px;
-      background: rgba(22,163,74,.12); color: var(--green);
+      background: rgba(22,163,74,.12); color: var(--text-success);
       cursor: pointer; transition: background .14s, border-color .14s, transform .12s;
     }
-    .xlsx-icon-btn:hover { background: rgba(22,163,74,.2); border-color: var(--green); transform: translateY(-1px); }
+    .xlsx-icon-btn:hover { background: rgba(22,163,74,.2); border-color: var(--text-success); transform: translateY(-1px); }
     .xlsx-icon-btn svg { display: block; }
     /* Импорт — та же иконка-кнопка, но нейтральная (отличать «загрузку внутрь» от зелёного экспорта) */
     .xlsx-icon-btn.import { border-color: var(--line); background: var(--panel2); color: var(--muted); }
@@ -4416,7 +4430,7 @@
     .fin-forecast-card .fc-val { font-size: 21px; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -.01em; margin: 5px 0 2px; }
     .fin-forecast-card .fc-sub { font-size: 12px; color: var(--muted); }
     .fin-trend { font-weight: 700; }
-    .fin-trend.up { color: var(--green); }
+    .fin-trend.up { color: var(--text-success); }
     .fin-trend.down { color: var(--red); }
 
     /* Инсайты «Что важно» */
@@ -4441,12 +4455,12 @@
     .fin-row-info h4 { margin: 0 0 3px; font-size: 14px; }
     .fin-row-info p { margin: 0; font-size: 12px; color: var(--muted); }
     .fin-row-amount { font-weight: 900; font-size: 16px; white-space: nowrap; }
-    .fin-row-amount.positive { color: var(--green); }
+    .fin-row-amount.positive { color: var(--text-success); }
     .fin-row-amount.negative { color: var(--red); }
     .fin-category-badge {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 3px 8px; border-radius: 999px; font-size: 12px;
-      background: rgba(124,58,237,.12); color: var(--primary2);
+      background: rgba(124,58,237,.12); color: var(--primary-on-tint);
       margin-top: 4px;
     }
     .fin-section-head {
@@ -4560,7 +4574,7 @@
       background: rgba(22,163,74,.12); border: 1px solid rgba(22,163,74,.25);
       border-radius: 999px; padding: 4px 10px; white-space: nowrap;
     }
-    .admin-indicator::before { content: "●"; color: var(--green); font-size: 12px; }
+    .admin-indicator::before { content: "●"; color: var(--text-success); font-size: 12px; }
     .presence-dot {
       display: inline-flex; align-items: center; justify-content: center;
       width: 26px; height: 26px; border-radius: 50%;
@@ -4589,7 +4603,7 @@
     }
     .sync-badge {
       display: inline-flex; align-items: center; gap: 4px;
-      font-size: 12px; color: var(--green);
+      font-size: 12px; color: var(--text-success);
       background: rgba(22,163,74,.1); border-radius: 999px;
       padding: 2px 8px;
     }
@@ -4647,7 +4661,7 @@
       width: 28px; height: 28px; flex-shrink: 0; margin-top: 1px;
       display: grid; place-items: center;
       background: rgba(124, 58, 237, .12); border-radius: 8px;
-      color: var(--primary2);
+      color: var(--primary-on-tint);
     }
     .auth-features-list li div {
       display: flex; flex-direction: column; gap: 2px;
@@ -4908,7 +4922,7 @@
       font-size: 12px; font-weight: 900; border-radius: 999px;
       padding: 2px 10px; margin-bottom: 8px; text-transform: uppercase;
     }
-    .plan-save { font-size: 12px; color: var(--green); font-weight: 700; margin-top: 4px; }
+    .plan-save { font-size: 12px; color: var(--text-success); font-weight: 700; margin-top: 4px; }
 
     /* ── KNOWLEDGE BASE ────────────────────────────── */
     /* Приведено к общему языку пустых состояний (.empty/.empty__icon): 1px пунктир,
@@ -4920,12 +4934,12 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 10px; min-height: 130px; color: var(--muted);
     }
-    .kb-new-card:hover { border-color: var(--primary2); color: var(--primary2); background: rgba(124,58,237,.06); }
+    .kb-new-card:hover { border-color: var(--primary-on-tint); color: var(--primary-on-tint); background: rgba(124,58,237,.06); }
     .kb-new-icon {
       width: 44px; height: 44px; border-radius: 50%;
       background: var(--primary-bg);
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px; font-weight: 400; color: var(--primary2); transition: .14s;
+      font-size: 22px; font-weight: 400; color: var(--primary-on-tint); transition: .14s;
     }
     .kb-new-card:hover .kb-new-icon { background: rgba(124,58,237,.2); }
     .kb-new-label { font-size: 13px; font-weight: 600; }
@@ -5148,7 +5162,7 @@ body.calc-mode #appContent { padding: 0; }
   cursor: pointer; display: grid; place-items: center;
   transition: transform .18s ease, color .14s, border-color .14s, background .14s;
 }
-.brief-expand-btn:hover { color: var(--primary2); border-color: var(--primary); background: rgba(124,58,237,.08); }
+.brief-expand-btn:hover { color: var(--primary-on-tint); border-color: var(--primary); background: rgba(124,58,237,.08); }
 .brief-expand-btn.open { transform: rotate(180deg); color: var(--primary2); border-color: var(--primary); }
 .brief-preview {
   margin: 10px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;
@@ -5199,7 +5213,7 @@ body.calc-mode #appContent { padding: 0; }
 .brief-type-chip:hover { border-color: rgba(124,58,237,.4); color: var(--text); }
 .brief-type-chip.active {
   background: rgba(124,58,237,.14); border-color: var(--primary);
-  color: var(--primary2);
+  color: var(--primary-on-tint);
 }
 .brief-type-ic { font-size: 15px; line-height: 1; }
 .brief-type-dot {
@@ -5332,7 +5346,7 @@ body.portal-mode .nav { display: none !important; }
   color: var(--yellow); margin-bottom: 18px;
 }
 .portal-status-badge.approved {
-  background: rgba(22,163,74,.1); border-color: rgba(22,163,74,.3); color: var(--green);
+  background: rgba(22,163,74,.1); border-color: rgba(22,163,74,.3); color: var(--text-success);
 }
 .portal-title {
   font-size: 26px; font-weight: 900; letter-spacing: -.035em;
@@ -5364,7 +5378,7 @@ body.portal-mode .nav { display: none !important; }
   font-size: 13px; padding: 6px 10px; border-radius: 8px;
   background: var(--panel2); border: 1px solid var(--line);
 }
-.portal-services-list li::before { content: "✓ "; color: var(--green); font-weight: 700; }
+.portal-services-list li::before { content: "✓ "; color: var(--text-success); font-weight: 700; }
 @media (max-width: 640px) {
   .portal-card { padding: 22px 18px; border-radius: 18px; }
   .portal-title { font-size: 20px; }
@@ -5375,7 +5389,7 @@ body.portal-mode .nav { display: none !important; }
    DRAG-AND-DROP КАНБАН
 ═══════════════════════════════════════════════════════ */
 .kanban-col.dragover {
-  border-color: var(--primary2) !important;
+  border-color: var(--primary-on-tint) !important;
   background: rgba(124,58,237,.1) !important;
   box-shadow: 0 0 0 2px rgba(124,58,237,.2) inset;
   transition: background .12s, border-color .12s;
@@ -5819,7 +5833,7 @@ body.portal-mode .nav { display: none !important; }
 .calc-badge {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-  color: var(--primary2); background: var(--primary-bg);
+  color: var(--primary-on-tint); background: var(--primary-bg);
   border: 1px solid var(--primary-bg); border-radius: 999px;
   padding: 5px 14px; margin-bottom: 14px;
 }
@@ -5844,7 +5858,7 @@ body.portal-mode .nav { display: none !important; }
   display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
   background: var(--line); color: var(--text); font-size: 11px; font-weight: 800;
 }
-.calc-step.on > span { color: var(--text); border-color: var(--primary2); background: var(--primary-bg); }
+.calc-step.on > span { color: var(--text); border-color: var(--primary-on-tint); background: var(--primary-bg); }
 .calc-step.on b { background: var(--primary); color: #fff; }
 .calc-step.done b { background: var(--green); color: #fff; }
 @media (max-width: 560px) {
@@ -5882,7 +5896,7 @@ body.portal-mode .nav { display: none !important; }
   padding: 20px 18px; background: var(--panel);
   border: 1px solid var(--line); border-radius: 16px;
 }
-.calc-tier.on { border-color: var(--primary2); background: var(--primary-bg); }
+.calc-tier.on { border-color: var(--primary-on-tint); background: var(--primary-bg); }
 .calc-tier-flag {
   position: absolute; top: -10px; left: 18px;
   padding: 3px 10px; border-radius: 999px; background: var(--primary); color: #fff;
@@ -5926,7 +5940,7 @@ body.portal-mode .nav { display: none !important; }
 }
 .calc-opt:hover, .calc-extra:hover { border-color: var(--primary2); }
 .calc-opt:focus-visible, .calc-extra:focus-visible { outline: 2px solid var(--primary2); outline-offset: 2px; }
-.calc-opt.on, .calc-extra.on { border-color: var(--primary2); background: var(--primary-bg); font-weight: 700; }
+.calc-opt.on, .calc-extra.on { border-color: var(--primary-on-tint); background: var(--primary-bg); font-weight: 700; }
 
 .calc-extras { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .calc-extra { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
