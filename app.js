@@ -5193,7 +5193,7 @@
                 <p>Полезные статьи о продажах, производстве и работе с клиентами.</p>
               </div>
               <div class="toolbar no-print">
-                <button class="btn small" onclick="app.openKbCatsModal()" title="Свои тематики и переименование встроенных">${icon("pencil", 13)} Тематики</button>
+                <button class="btn small" onclick="app.openKbCatsModal()" title="Свои тематики и переименование встроенных">${icon("pencil", 13)} Редактировать</button>
               </div>
             </div>
 
