@@ -2597,17 +2597,83 @@
       margin-bottom: 14px; grid-column: 1 / -1;
     }
 
+    .client-select-search {
+      position: relative; display: flex; align-items: center; gap: 8px;
+      padding: 0 12px; margin-top: 10px;
+      border: 1px solid var(--line); border-radius: 12px; background: var(--panel2);
+    }
+    .client-select-search svg { flex: 0 0 auto; color: var(--muted); }
+    .client-select-search input {
+      flex: 1 1 auto; width: auto; min-width: 0; border: none; background: none;
+      padding: 11px 0; font-size: 14px; color: var(--text);
+    }
+    .client-select-search input:focus { outline: none; }
+    .client-select-search:focus-within { border-color: rgba(168, 85, 247, .6); }
+    .client-select-search-clear {
+      flex: 0 0 auto; width: 24px; height: 24px; display: flex; align-items: center;
+      justify-content: center; border: none; background: none; color: var(--muted);
+      cursor: pointer; border-radius: 6px;
+    }
+    .client-select-search-clear:hover { background: var(--panel); color: var(--text); }
+
     .client-select-list {
       display: grid; gap: 8px; max-height: 280px; overflow-y: auto;
       scrollbar-width: thin; margin-top: 10px;
     }
     .client-select-item {
       padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
-      cursor: pointer; display: flex; justify-content: space-between;
+      cursor: pointer; display: flex; gap: 12px;
       align-items: center; background: var(--panel2); transition: .15s;
     }
     .client-select-item:hover, .client-select-item.selected {
       border-color: rgba(168, 85, 247, .6); background: rgba(124,58,237,.1);
+    }
+    /* Место под галочку держим всегда — иначе выбор клиента дёргает всю строку вбок. */
+    .client-select-check {
+      flex: 0 0 16px; height: 16px; display: flex; align-items: center;
+      justify-content: center; color: var(--primary2);
+    }
+    .client-select-main { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+    .client-select-main strong { font-size: 14px; }
+    .client-select-main small { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .client-select-meta {
+      flex: 0 0 auto; display: grid; gap: 2px; text-align: right;
+      font-size: 12px; color: var(--muted);
+    }
+    .client-select-sum { font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+    @media (max-width: 560px) {
+      .client-select-meta { font-size: 11px; }
+    }
+
+    /* ── КЛИЕНТЫ СПИСКОМ ─────────────────────────── */
+    .client-list-row {
+      display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+      border-bottom: 1px solid var(--line); cursor: pointer; transition: background .15s;
+    }
+    .client-list-row:last-child { border-bottom: none; }
+    .client-list-row:hover { background: var(--panel2); }
+    .client-list-row .status-pill { flex: 0 0 90px; text-align: center; justify-content: center; }
+    .client-list-name { font-size: 14px; font-weight: 600; flex: 1 1 150px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .client-list-company { font-size: 12px; color: var(--muted); flex: 0 0 150px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .client-list-deals { font-size: 12px; color: var(--muted); flex: 0 0 84px; text-align: right; }
+    .client-list-paid { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 100px; text-align: right; color: var(--green); }
+    .client-list-debt { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 100px; text-align: right; color: var(--orange); }
+    /* Ширину держим постоянной, даже когда кнопки нет: иначе строка без сделок
+       растягивается и колонки соседних строк разъезжаются по горизонтали. */
+    .client-list-actions { flex: 0 0 112px; display: flex; gap: 6px; justify-content: flex-end; }
+    @media (max-width: 900px) {
+      .client-list-company { display: none; }
+    }
+    /* На узком экране смысл списка — плотность. Имя и статус держим в одной строке,
+       деньги переносим во вторую и только если они есть; пустые ячейки схлопываются
+       (flex: 0 0 auto), поэтому клиент без сделок занимает ровно одну строку. */
+    @media (max-width: 680px) {
+      .client-list-row { flex-wrap: wrap; gap: 2px 10px; padding: 10px 14px; }
+      .client-list-name { order: 1; flex: 1 1 auto; }
+      .client-list-row .status-pill { order: 2; flex: 0 0 auto; font-size: 11px; }
+      .client-list-deals { order: 3; flex: 0 0 auto; text-align: left; }
+      .client-list-paid, .client-list-debt { order: 4; flex: 0 0 auto; text-align: left; font-size: 12px; }
+      .client-list-actions { order: 5; flex: 0 0 auto; margin-left: auto; }
     }
 
     /* ── DEAL VIEW ───────────────────────────────── */

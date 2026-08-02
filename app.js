@@ -5662,6 +5662,7 @@
           financeModal: null,
           packageEditModal: null,
           crmView: "grid",
+          clientsView: "grid",
           crmSort: "default",
           gFinFilter: "all",
           gFinTypeFilter: "all",
@@ -8700,6 +8701,12 @@
         render();
       }
 
+      function setClientsView(v) {
+        state.clientsView = v === "list" ? "list" : "grid";
+        save();
+        render();
+      }
+
       /* Перетаскивание карточек сделок на главной.
 
          Порядок хранится не отдельным полем, а самим порядком state.savedProjects:
@@ -9793,6 +9800,14 @@
         if (!state.project) return;
         const numericKeys = ["days", "discount", "clientBudget"];
         state.project[key] = numericKeys.includes(key) ? numberValue(value, 0) : value;
+      }
+
+      // Поиск по базе клиентов в мастере. Перерисовка отложенная (как у остальных
+      // поисков), фокус и каретку возвращает render() по id поля.
+      function wizardSetSearch(value) {
+        if (!state.wizard) return;
+        state.wizard.clientSearch = value;
+        _debouncedSearchRender();
       }
 
       function wizardSetField(key, value) {
@@ -14639,6 +14654,36 @@
         const filteredClients = clientQ
           ? clients.filter(c => (c.name + c.company + c.phone + c.email).toLowerCase().includes(clientQ))
           : clients;
+        const clientsView = state.clientsView === "list" ? "list" : "grid";
+
+        // Деньги клиента считаем один раз на карточку — обе раскладки берут одно и то же.
+        // «Оплачено» — по всем сделкам (реальный факт, статус не важен). «Долг» — только
+        // по активным сделкам (тот же isDealInactive, что и у «Общего долга» на дашборде):
+        // архивная или отменённая сделка с неоплаченным бюджетом рисовала бы клиенту
+        // несуществующий долг.
+        const clientMoney = client => {
+          const cProjects = (state.savedProjects || []).filter(p => p.clientId === client.id);
+          return {
+            count: cProjects.length,
+            paid: cProjects.reduce((s, p) => s + numberValue(p.paid, 0), 0),
+            debt: cProjects.filter(p => !isDealInactive(p.crmStatus || "Лид"))
+              .reduce((s, p) => s + Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), 0)
+          };
+        };
+        const statusLabel = s => ({ new: "Новый", active: "Активный", vip: "VIP", paused: "Пауза", lost: "Потерян" })[s] || "Новый";
+        const clientsEmpty = () => !clientQ
+          ? emptyState({
+              icon: "users",
+              title: "Клиентов пока нет",
+              text: "Создайте первого клиента — или он появится сам при создании сделки.",
+              style: "grid-column:1/-1"
+            })
+          : emptyState({
+              icon: "search",
+              title: `Нет клиентов по запросу «${escapeHtml(clientQ)}»`,
+              style: "grid-column:1/-1"
+            });
+
         return `
           <div class="panel">
             <div class="section-title">
@@ -14647,25 +14692,43 @@
               </div>
               <div style="display:flex;gap:8px;align-items:center">
                 ${clients.length > 4 ? `<input class="clients-search-input" placeholder="Поиск клиентов..." value="${escapeHtml(state.clientsFilter || "")}" oninput="app.setClientsFilter(this.value)" style="width:180px;padding:7px 12px;font-size:13px">` : ""}
+                ${clients.length ? `<div class="deal-view-toggle no-print">
+                  <button class="deal-view-btn ${clientsView === "grid" ? "active" : ""}" onclick="app.setClientsView('grid')" title="Плитка" aria-label="Показать клиентов плиткой">${icon("grid", 14)}</button>
+                  <button class="deal-view-btn ${clientsView === "list" ? "active" : ""}" onclick="app.setClientsView('list')" title="Список" aria-label="Показать клиентов списком">${icon("tasks", 14)}</button>
+                </div>` : ""}
                 ${clients.length ? `<button class="xlsx-icon-btn no-print" onclick="app.exportClientsXlsx()" title="Скачать клиентов в Excel (.xlsx)" aria-label="Экспорт клиентов в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>` : ""}
               </div>
             </div>
 
+            ${clientsView === "list" ? `
+            <div class="toolbar no-print" style="margin-bottom:10px">
+              <button class="btn small" onclick="app.openClientModal('')">${icon("plus", 13)} Новый клиент</button>
+            </div>
+            <div class="panel" style="padding:0;overflow:hidden">
+              ${filteredClients.length ? filteredClients.map(client => {
+                  const m = clientMoney(client);
+                  return `
+                  <div class="client-list-row" onclick="app.openClientModal('${client.id}')" title="Открыть карточку клиента">
+                    <span class="status-pill">${statusLabel(client.status)}</span>
+                    <div class="client-list-name">${escapeHtml(client.name)}</div>
+                    <div class="client-list-company">${escapeHtml(client.company || client.city || "—")}</div>
+                    <div class="client-list-deals" title="Сделок с клиентом">${m.count ? `${m.count} ${plural(m.count, "сделка", "сделки", "сделок")}` : ""}</div>
+                    <div class="client-list-paid" title="Всего оплачено клиентом">${m.paid ? money(m.paid) : ""}</div>
+                    <div class="client-list-debt" title="Долг клиента">${m.debt ? money(m.debt) : ""}</div>
+                    <div class="client-list-actions" onclick="event.stopPropagation()">
+                      ${m.count ? `<button class="btn small" onclick="app.openClientDetail('${client.id}')">Проекты →</button>` : ""}
+                    </div>
+                  </div>`;
+                }).join("") : `<div style="padding:8px 16px">${clientsEmpty()}</div>`}
+            </div>
+            ` : `
             <div class="grid three clients-grid">
               <div class="kb-new-card" onclick="app.openClientModal('')">
                 <div class="kb-new-icon">+</div>
                 <div class="kb-new-label">Новый клиент</div>
               </div>
               ${filteredClients.length ? filteredClients.map(client => {
-                  // Ценность клиента сразу на карточке: сколько сделок и сколько денег принёс.
-                  // «Оплачено» — по всем сделкам (реальный факт, статус не важен). «Долг» — только
-                  // по активным сделкам (не Завершённые/Архив), тот же isDealInactive, что и у
-                  // «Общего долга» на дашборде — иначе архивная/отменённая сделка с неоплаченным
-                  // бюджетом рисует несуществующий долг у клиента, который просто отказался.
-                  const cProjects = (state.savedProjects || []).filter(p => p.clientId === client.id);
-                  const cPaid = cProjects.reduce((s, p) => s + numberValue(p.paid, 0), 0);
-                  const cDebt = cProjects.filter(p => !isDealInactive(p.crmStatus || "Лид"))
-                    .reduce((s, p) => s + Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), 0);
+                  const m = clientMoney(client);
                   return `
                   <article class="client-card" style="cursor:pointer" onclick="app.openClientModal('${client.id}')">
                     <div class="line-head">
@@ -14673,35 +14736,24 @@
                         <h3>${escapeHtml(client.name)}</h3>
                         <p>${escapeHtml(client.company || client.city || "")}</p>
                       </div>
-                      <span class="status-pill">${{new:"Новый",active:"Активный",vip:"VIP",paused:"Пауза",lost:"Потерян"}[client.status] || "Новый"}</span>
+                      <span class="status-pill">${statusLabel(client.status)}</span>
                     </div>
                     <div class="client-card-stats">
-                      <span title="Сделок с клиентом">${cProjects.length} ${plural(cProjects.length, "сделка", "сделки", "сделок")}</span>
-                      ${cPaid ? `<span style="color:var(--green)" title="Всего оплачено клиентом">${money(cPaid)}</span>` : ""}
-                      ${cDebt ? `<span style="color:var(--orange)" title="Долг клиента">долг ${money(cDebt)}</span>` : ""}
+                      <span title="Сделок с клиентом">${m.count} ${plural(m.count, "сделка", "сделки", "сделок")}</span>
+                      ${m.paid ? `<span style="color:var(--green)" title="Всего оплачено клиентом">${money(m.paid)}</span>` : ""}
+                      ${m.debt ? `<span style="color:var(--orange)" title="Долг клиента">долг ${money(m.debt)}</span>` : ""}
                     </div>
                     <div class="badges" style="margin-top:8px">
            ${client.phone ? `<span class="badge"> ${escapeHtml(client.phone)}</span>` : ""}
            ${client.email ? `<span class="badge"> ${escapeHtml(client.email)}</span>` : ""}
                     </div>
                     ${client.note ? `<p style="font-size:12px;margin-top:8px">${escapeHtml(client.note.slice(0,80))}${client.note.length > 80 ? "…" : ""}</p>` : ""}
-                    ${cProjects.length ? `<div class="toolbar no-print" style="margin-top:10px">
+                    ${m.count ? `<div class="toolbar no-print" style="margin-top:10px">
                       <button class="btn small" onclick="event.stopPropagation();app.openClientDetail('${client.id}')">Проекты →</button>
                     </div>` : ""}
                   </article>`;
-                }).join("") : (!clientQ
-                  ? emptyState({
-                      icon: "users",
-                      title: "Клиентов пока нет",
-                      text: "Создайте первого клиента — или он появится сам при создании сделки.",
-                      style: "grid-column:1/-1"
-                    })
-                  : emptyState({
-                      icon: "search",
-                      title: `Нет клиентов по запросу «${escapeHtml(clientQ)}»`,
-                      style: "grid-column:1/-1"
-                    }))}
-            </div>
+                }).join("") : clientsEmpty()}
+            </div>`}
           </div>
         `;
       }
@@ -16972,27 +17024,54 @@
               <div class="mt-12">
                 ${field("Компания", `<input value="${escapeHtml(w.company)}" oninput="app.wizardSetField('company',this.value)" placeholder="Название компании (необязательно)">`)}
               </div>
-            ` : `
+            ` : (() => {
+              const q = String(w.clientSearch || "").trim().toLowerCase();
+              const list = q
+                ? clients.filter(c => [c.name, c.company, c.phone, c.email].filter(Boolean).join(" ").toLowerCase().includes(q))
+                : clients;
+              return `
+              ${clients.length > 4 ? `
+                <div class="client-select-search">
+                  ${icon("search", 14)}
+                  <input id="wzClientSearch" value="${escapeHtml(w.clientSearch || "")}" oninput="app.wizardSetSearch(this.value)"
+                    placeholder="Поиск: имя, компания, телефон" aria-label="Поиск клиента в базе">
+                  ${q ? `<button type="button" class="client-select-search-clear" onclick="app.wizardSetSearch('')" aria-label="Очистить поиск">${icon("close", 12)}</button>` : ""}
+                </div>` : ""}
               <div class="client-select-list">
-                ${clients.length ? clients.map(c => `
-                  <div class="client-select-item ${w.clientId === c.id ? "selected" : ""}" onclick="app.wizardSetData('clientId','${c.id}')">
-                    <div>
-                      <strong>${escapeHtml(c.name)}</strong>
-                      ${c.company ? `<br><small class="u-muted">${escapeHtml(c.company)}</small>` : ""}
-                    </div>
-                    <div class="badges">
-                      ${c.phone ? `<span class="badge">${escapeHtml(c.phone)}</span>` : ""}
-                      <span class="status-pill">${escapeHtml(c.status || "new")}</span>
-                    </div>
-                  </div>
-                `).join("") : emptyState({
+                ${!clients.length ? emptyState({
                   icon: "users",
                   size: "sm",
                   title: "Клиентов пока нет",
                   text: "Переключитесь на «Новый клиент» — он сохранится в базу автоматически."
-                })}
+                }) : (list.length ? list.map(c => {
+                  // Справа раньше висел сырой статус («active», «paused»): по-английски,
+                  // в виде пилюли — читался как непонятная кнопка и выбрать клиента не
+                  // помогал. Показываем то, по чему клиента реально узнают: сколько с ним
+                  // сделок и сколько денег он принёс.
+                  const cp = (state.savedProjects || []).filter(p => p.clientId === c.id);
+                  const paid = cp.reduce((s, p) => s + numberValue(p.paid, 0), 0);
+                  const sel = w.clientId === c.id;
+                  return `
+                  <div class="client-select-item ${sel ? "selected" : ""}" role="button" tabindex="0"
+                    aria-pressed="${sel}" onclick="app.wizardSetData('clientId','${c.id}')">
+                    <span class="client-select-check" aria-hidden="true">${sel ? icon("check", 13) : ""}</span>
+                    <div class="client-select-main">
+                      <strong>${escapeHtml(c.name)}</strong>
+                      <small class="u-muted">${escapeHtml([c.company, c.phone].filter(Boolean).join(" · ")) || "—"}</small>
+                    </div>
+                    <div class="client-select-meta">
+                      <span>${cp.length ? `${cp.length} ${plural(cp.length, "сделка", "сделки", "сделок")}` : "нет сделок"}</span>
+                      ${paid ? `<span class="client-select-sum">${money(paid)}</span>` : ""}
+                    </div>
+                  </div>`;
+                }).join("") : emptyState({
+                  icon: "search",
+                  size: "sm",
+                  title: `Нет клиентов по запросу «${escapeHtml(q)}»`,
+                  text: "Проверьте написание или создайте нового клиента."
+                }))}
               </div>
-            `}
+            `; })()}
           `;
         }
 
@@ -21501,6 +21580,7 @@ Email: _____________________              Email: _____________________
         saveFinanceModal,
         startWizard,
         wizardSetData,
+        wizardSetSearch,
         wizardSetField,
         updateProjectQuiet,
         wizardNext,
@@ -21738,6 +21818,7 @@ Email: _____________________              Email: _____________________
         setPkgCatFilter: (cat) => { state.pkgCatFilter = cat; render(); },
         setServicesTab: (tab) => { state.servicesTab = (tab === "packages" ? "packages" : "catalog"); render(); },
         setCrmView,
+        setClientsView,
         setCrmSort,
         dealPointerDown,
         dealPointerMove,

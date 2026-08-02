@@ -20,6 +20,19 @@ async function dealId(page) {
   });
 }
 
+
+// В наборе одна страница на все тесты, и предыдущий тест может оставить висеть
+// подтверждение «Закрыть окно?» — оно перехватывает клики следующего. Начинаем
+// с чистого экрана: отвечаем «Отменить» на всё, что осталось открытым.
+async function dismissStaleDialog(page) {
+  const overlay = await page.$(".confirm-dialog-overlay");
+  if (!overlay) return;
+  const cancel = await page.$(".confirm-dialog-overlay button:not(.primary):not(.danger)");
+  if (cancel) await cancel.click();
+  else await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+}
+
 module.exports = async function ({ browser, baseUrl, test }) {
   const { context, page } = await bootLocal(browser, baseUrl, { width: 1000, height: 820, seedDemo: true });
 
@@ -1013,6 +1026,89 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }).then(() => page.waitForTimeout(300)).then(() => page.evaluate(() =>
       +((document.querySelector(".catalog-found-count") || {}).textContent || "0").replace(/\D+/g, "")));
     assertEqual(после, до, "каталог вырос после дублирования строк сметы: " + до + " → " + после);
+  });
+
+  // ── Выбор клиента в мастере и раскладки на «Клиентах» ───────────────────────
+  await test("мастер: выбор клиента из базы ищется, а статусы не висят пилюлями", async () => {
+    await dismissStaleDialog(page);
+    // Клиенты добавляются по одному: saveClientModal асинхронна, и пачкой в одном
+    // evaluate вызовы переплетаются и упираются в диалог «Возможный дубль».
+    const люди = [["Шахзод", "Ск Ферма"], ["Оськина Ксения", "Freedom"], ["Никита Юткин", "ROCKSTAR"],
+      ["Рома Черемных", "Загадкино"], ["Саша Спиридонова", "Битва Роботов"]];
+    for (let i = 0; i < люди.length; i++) {
+      await page.evaluate(async ([name, company, phone]) => {
+        window.app.openClientModal("");
+        window.app.setClientModalField("name", name);
+        window.app.setClientModalField("company", company);
+        window.app.setClientModalField("phone", phone);
+        await window.app.saveClientModal();
+      }, [люди[i][0], люди[i][1], "+7 93" + i + " 111-22-3" + i]);
+      await page.waitForTimeout(60);
+    }
+
+    await page.evaluate(() => { window.app.startWizard(); });
+    await page.waitForTimeout(250);
+    await page.evaluate(() => window.app.wizardSetData("clientMode", "existing"));
+    await page.waitForTimeout(250);
+
+    const было = await page.evaluate(() => ({
+      строк: document.querySelectorAll(".client-select-item").length,
+      поиск: !!document.getElementById("wzClientSearch"),
+      // «active»/«paused» по-английски читались как непонятные кнопки — их быть не должно
+      пилюли: document.querySelectorAll(".client-select-item .status-pill").length,
+    }));
+    assert(было.строк >= 5, "в списке меньше пяти клиентов: " + было.строк);
+    assert(было.поиск, "в мастере нет поиска по базе клиентов");
+    assertEqual(было.пилюли, 0, "в списке снова висят пилюли со статусом");
+
+    await page.fill("#wzClientSearch", "Шах");
+    await page.waitForTimeout(400);
+    const найдено = await page.evaluate(() =>
+      [...document.querySelectorAll(".client-select-item strong")].map((e) => e.textContent.trim()));
+    assertEqual(найдено.join("|"), "Шахзод", "поиск по базе не отфильтровал список: " + найдено.join("|"));
+
+    await page.click(".client-select-item");
+    await page.waitForTimeout(250);
+    assertEqual(await page.evaluate(() => document.querySelectorAll(".client-select-item.selected").length), 1,
+      "клик по строке не выбрал клиента");
+
+    await page.evaluate(() => window.app.cancelWizard());
+    await page.waitForTimeout(200);
+  });
+
+  await test("клиенты: переключатель плитка/список меняет раскладку", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => { window.app.setClientsView("grid"); window.app.go("clients"); });
+    await page.waitForTimeout(300);
+    const плитка = await page.evaluate(() => ({
+      карточек: document.querySelectorAll(".client-card").length,
+      строк: document.querySelectorAll(".client-list-row").length,
+      кнопок: document.querySelectorAll(".deal-view-toggle .deal-view-btn").length,
+    }));
+    assert(плитка.карточек >= 5, "в плитке нет карточек клиентов");
+    assertEqual(плитка.строк, 0, "в режиме плитки отрисованы строки списка");
+    assertEqual(плитка.кнопок, 2, "нет переключателя вида на «Клиентах»");
+
+    await page.evaluate(() => window.app.setClientsView("list"));
+    await page.waitForTimeout(300);
+    const список = await page.evaluate(() => ({
+      карточек: document.querySelectorAll(".client-card").length,
+      строк: document.querySelectorAll(".client-list-row").length,
+      выбор: JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}").clientsView,
+    }));
+    assertEqual(список.карточек, 0, "в режиме списка остались карточки плитки");
+    assert(список.строк >= 5, "в списке нет строк клиентов: " + список.строк);
+    assertEqual(список.выбор, "list", "выбранная раскладка не сохранилась");
+
+    // Строка ведёт в карточку клиента, а не проваливается в пустоту. Проверяем
+    // обработчик, а не кликаем: закрытие модалки спрашивает «Закрыть окно?» и
+    // диалог остаётся висеть поверх следующих тестов.
+    assert(await page.evaluate(() =>
+      /openClientModal\('[^']+'\)/.test(document.querySelector(".client-list-row").getAttribute("onclick") || "")),
+      "строка списка не открывает карточку клиента");
+
+    await page.evaluate(() => window.app.setClientsView("grid"));
+    await page.waitForTimeout(200);
   });
 
   await context.close();
