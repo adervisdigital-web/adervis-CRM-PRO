@@ -186,6 +186,23 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  // Счёт в «Мой налог» выставляется на конкретную сумму, поэтому ссылка у каждого
+  // КП своя и её легко забыть. Клиенту в этом случае нельзя показывать кнопку,
+  // ведущую в никуда, — блок оплаты просто не рисуется.
+  await test("портал КП: способ «ссылка» без ссылки не рисует кнопку в никуда", async () => {
+    const { context, page, errors } = await bootPortal(browser, baseUrl,
+      { ...PORTAL_ROW, pay_method: "link", pay_link: "" });
+    const res = await page.evaluate(() => ({
+      hasLink: [...document.querySelectorAll("#appContent a")].some((a) => /Перейти к оплате/.test(a.textContent || "")),
+      payBtn: !!document.getElementById("portalPayBtn"),
+      txt: document.querySelector("#appContent").textContent || "",
+    }));
+    assert(!res.hasLink && !res.payBtn, "показана кнопка оплаты, хотя ссылка не задана");
+    assert(/Рекламный ролик для бренда/.test(res.txt), "само КП не отрисовалось");
+    assert(errors.length === 0, "ошибки на портале: " + errors.join(" | "));
+    await context.close();
+  });
+
   // Чужая схема в ссылке (javascript:, data:) — это XSS через настройку агентства.
   await test("портал КП: ссылка оплаты принимается только http(s)", async () => {
     const { context, page } = await bootPortal(browser, baseUrl,

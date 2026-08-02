@@ -1815,13 +1815,14 @@
 
             ${method === "link" ? `
               <div class="field" style="margin:0">
-                <label>Ссылка на оплату</label>
+                <label>Ссылка на оплату по умолчанию</label>
                 <input type="url" inputmode="url" placeholder="https://…" value="${escapeHtml(c.payLink || "")}"
                   oninput="app.setPayField('payLink',this.value)" onblur="app.savePayFields()">
               </div>
               <p style="font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.5">
-                Самозанятому: выставьте счёт в «Мой налог» и вставьте ссылку сюда.
-                Сумма в счёте задаётся вами, поэтому проверяйте, что она совпадает с авансом в КП.
+                Это ссылка <b>по умолчанию</b> — она подставится в новые КП. Счёт в «Мой налог»
+                выставляется на конкретную сумму, поэтому у каждого КП ссылка обычно своя:
+                задайте её в самом КП («Все КП» → изменить). Можно оставить поле пустым.
               </p>
             ` : ""}
 
@@ -11897,7 +11898,7 @@
         if (!_supabase || !_adminSession || _allPortalsLoaded) return;
         try {
           const { data } = await _supabase.from('client_portals')
-            .select('id, project_id, deal_name, deal_status, total_price, approved_at, advance_amount, advance_paid_at, signer_name, created_at')
+            .select('id, project_id, deal_name, deal_status, total_price, approved_at, advance_amount, advance_paid_at, signer_name, created_at, pay_method, pay_link')
             .order('created_at', { ascending: false });
           _allPortals = data || [];
           _allPortalsLoaded = true;
@@ -11977,6 +11978,8 @@
           p.signer_name ? `подписал ${escapeHtml(p.signer_name)}` : '',
           date
         ].filter(Boolean).join(' · ');
+        const needsLink = p.pay_method === 'link' && numberValue(p.advance_amount, 0) > 0
+          && !/^https?:\/\//i.test(String(p.pay_link || '').trim());
         const act = (fn, name, title) =>
           `<button class="icon-btn no-print" onclick="event.stopPropagation();app.${fn}('${p.id}')" title="${title}" aria-label="${title}">${icon(name, 15)}</button>`;
         return `
@@ -11986,6 +11989,7 @@
               <div class="kp-row-name">${escapeHtml(p.deal_name || 'Без названия')}</div>
               <div class="kp-row-sub">${sub}</div>
             </div>
+            ${needsLink ? `<span class="status-pill" style="font-size:11px;flex-shrink:0;color:var(--text-warning)" title="Способ оплаты «ссылка», но ссылка не задана — клиент увидит КП без кнопки оплаты">Нет ссылки оплаты</span>` : ''}
             <span class="status-pill ${st.cls}" style="font-size:11px;flex-shrink:0">${st.label}</span>
             <div class="kp-row-actions no-print">
               ${act('openPortalPreview', 'eye', 'Посмотреть КП глазами клиента')}
@@ -12098,7 +12102,7 @@
       async function openProposalModal(portalId) {
         if (!_supabase || !_adminSession) { toast('Нет связи с сервером'); return; }
         const { data, error } = await _supabase.from('client_portals')
-          .select('id, deal_name, total_price, advance_amount, included_text, excluded_text, proposal_note, approved_at, advance_paid_at, advance_payment_id, deal_status')
+          .select('id, deal_name, total_price, advance_amount, included_text, excluded_text, proposal_note, approved_at, advance_paid_at, advance_payment_id, deal_status, pay_method, pay_link')
           .eq('id', portalId).single();
         if (error || !data) { toast('Не удалось открыть КП'); return; }
         const st = _portalStatus(data);
@@ -12113,7 +12117,9 @@
           _statusLabel: st.label,
           _locked: st.key !== 'sent',
           _advancePaidAt: data.advance_paid_at || null,
-          _advancePaymentId: data.advance_payment_id || null
+          _advancePaymentId: data.advance_payment_id || null,
+          pay_method: data.pay_method || 'none',
+          pay_link: data.pay_link || ''
         };
         _armDirtyCheck(state.proposalModal);
         renderModal();
@@ -12139,6 +12145,11 @@
         const advanceRaw = String(m.advance_amount ?? '').trim();
         const advance = advanceRaw === '' ? null : numberValue(advanceRaw, 0);
         if (advance != null && advance > total) { toast('Аванс больше суммы КП'); return; }
+        const link = String(m.pay_link || '').trim();
+        if (m.pay_method === 'link' && link && !/^https?:\/\//i.test(link)) {
+          toast('Ссылка на оплату должна начинаться с https://');
+          return;
+        }
         const patch = {
           deal_name: m.deal_name || '',
           total_price: total,
@@ -12147,6 +12158,7 @@
           excluded_text: m.excluded_text || '',
           proposal_note: m.proposal_note || ''
         };
+        if (m.pay_method === 'link') patch.pay_link = link;
         const { error } = await _supabase.from('client_portals').update(patch).eq('id', m.id);
         if (error) { toast('Не удалось сохранить КП'); return; }
         // Локально правим уже загруженный список, чтобы не перезапрашивать всё.
@@ -12202,6 +12214,17 @@
                 <label>Комментарий клиенту</label>
                 <textarea style="min-height:60px" oninput="app.setProposalModalField('proposal_note',this.value)" placeholder="Необязательно">${escapeHtml(m.proposal_note)}</textarea>
               </div>
+              ${m.pay_method === 'link' ? `
+                <div class="field" style="margin-bottom:14px">
+                  <label>Ссылка на оплату этого КП</label>
+                  <input type="url" inputmode="url" placeholder="https://lknpd.nalog.ru/… — счёт на ${escapeHtml(money(numberValue(m.advance_amount, 0)))}"
+                    value="${escapeHtml(m.pay_link || '')}" oninput="app.setProposalModalField('pay_link',this.value)">
+                  <p class="u-meta" style="font-size:12px;margin:6px 0 0;line-height:1.5">
+                    Счёт в «Мой налог» выставляется на конкретную сумму, поэтому ссылка у каждого КП своя.
+                    Пока её нет, клиент увидит КП без кнопки оплаты.
+                  </p>
+                </div>
+              ` : ''}
               ${_proposalAdvanceRowHtml(m)}
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
                 <button class="btn danger small" onclick="app.deleteProposal('${m.id}')">${icon("trash", 14)} Удалить</button>
