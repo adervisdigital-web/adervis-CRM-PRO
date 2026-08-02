@@ -1111,5 +1111,51 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.waitForTimeout(200);
   });
 
+  // Тематики базы знаний были захардкожены одной строкой (KB_CATS): ни своей
+  // завести, ни встроенную переименовать. Проверяем оба пути целиком, включая
+  // главное свойство переименования — документы остаются на месте.
+  await test("база знаний: своя тематика заводится, встроенная переименовывается", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => window.app.go("knowledge"));
+    await page.waitForTimeout(200);
+
+    const catText = () => page.$eval("#appContent .tabs", (el) => el.textContent || "");
+    const before = await catText();
+    assert(/Продажи/.test(before), "во вкладках нет встроенной тематики «Продажи»");
+
+    const docsBefore = await page.$$eval("#appContent .kb-doc-card", (els) => els.length);
+    await page.click("[onclick*='openKbCatsModal']");
+    await page.waitForSelector(".kb-cat-row", { timeout: 3000 });
+
+    // Своя тематика: promptDialog — не нативный prompt, поэтому заполняем поле.
+    await page.click("button[onclick*='kbAddCat']");
+    await page.waitForSelector(".confirm-dialog-input", { timeout: 3000 });
+    await page.fill(".confirm-dialog-input", "Съёмка дронами");
+    await page.click(".confirm-dialog-overlay .confirm-ok");
+    await page.waitForTimeout(250);
+    const rows = await page.$$eval(".kb-cat-row", (els) => els.map((e) => e.textContent.trim()));
+    assert(rows.some((r) => /Съёмка дронами/.test(r) && /своя/.test(r)), "своей тематики нет в окне настройки: " + rows.join(" | "));
+
+    // Переименование встроенной: документы не должны переехать.
+
+    await page.click(".kb-cat-row:nth-child(1) [onclick*='kbRenameCat']");
+    await page.waitForSelector(".confirm-dialog-input", { timeout: 3000 });
+    await page.fill(".confirm-dialog-input", "Как продавать");
+    await page.click(".confirm-dialog-overlay .confirm-ok");
+    await page.waitForTimeout(250);
+    // Именно button: тот же onclick висит и на самом оверлее (event.target===this),
+    // и клик по нему приходится в центр окна — модалка осталась бы открытой.
+    await page.click("button[onclick*='closeKbCatsModal']");
+    await page.waitForTimeout(200);
+    assert(!(await page.$(".kb-cat-row")), "окно настройки тематик не закрылось");
+
+    const after = await catText();
+    assert(/Как продавать/.test(after), "переименование встроенной тематики не применилось");
+    assert(!/Продажи/.test(after), "старое название тематики осталось во вкладках");
+    assert(/Съёмка дронами/.test(after), "своя тематика не появилась во вкладках");
+    const docsAfter = await page.$$eval("#appContent .kb-doc-card", (els) => els.length);
+    assert(docsAfter === docsBefore, `переименование увело документы: было ${docsBefore}, стало ${docsAfter}`);
+  });
+
   await context.close();
 };

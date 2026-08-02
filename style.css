@@ -4951,6 +4951,12 @@
     .kb-cat-badge.client { background: var(--tint-violet-bg); color: var(--tint-violet); }
     .kb-cat-badge.guide  { background: var(--tint-cyan-bg);   color: var(--tint-cyan); }
 
+    .kb-cat-list { display: flex; flex-direction: column; gap: 6px; }
+    .kb-cat-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px;
+    }
+
     /* ── BURGER MENU ──────────────────────────────── */
     .burger-btn {
       display: none;

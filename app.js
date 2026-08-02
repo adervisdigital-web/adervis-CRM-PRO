@@ -1599,7 +1599,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
 
       // Кладёт облачное состояние в state. Отдельно от _loadCloudState, потому что
       // вызывается ещё и из разрешения конфликта.
@@ -3139,7 +3139,7 @@
         });
         (state.knowledgeDocs || []).forEach(d => {
           if ((d.title||"").toLowerCase().includes(q) || (d.content||"").toLowerCase().includes(q)) {
-      results.push({ type: "kb", icon: "", color: "rgba(22,163,74,.15)", name: d.title || "Документ", sub: KB_CATS[d.cat] || "Без категории", action: `app.go('knowledge');app.kbOpen('${d.id}');app.closeSearch()` });
+      results.push({ type: "kb", icon: "", color: "rgba(22,163,74,.15)", name: d.title || "Документ", sub: kbCats()[d.cat] || "Без тематики", action: `app.go('knowledge');app.kbOpen('${d.id}');app.closeSearch()` });
           }
         });
         if (!results.length) {
@@ -5084,7 +5084,33 @@
       /* ═══════════════════════════════════════════════════════
          БАЗА ЗНАНИЙ
       ═══════════════════════════════════════════════════════ */
-      const KB_CATS = { all: "Все", sales: "Продажи", price: "Ценообразование", prod: "Производство", client: "Клиенты", guide: "Руководство" };
+      const KB_CATS_BUILTIN = { all: "Все", sales: "Продажи", price: "Ценообразование", prod: "Производство", client: "Клиенты", guide: "Руководство" };
+      // Цвета бейджей встроенных тематик заданы классами в style.css; свои получают
+      // цвет по кругу из той же палитры, чтобы не заводить переменную на каждую.
+      const KB_TINTS = ["sales", "prod", "price", "client", "guide"];
+
+      /* Тематики базы знаний настраиваются агентством — как статьи финансов
+         (см. financeArticles). Два независимых слоя поверх встроенного набора:
+           • state.kbCatNames  — переименования встроенных: { sales: "Своё имя" }.
+             Ключ («sales») остаётся, поэтому документы и цвет бейджа не трогаются,
+             а вернуть исходное имя можно в один клик.
+           • state.customKbCats — свои тематики: [{ id, name }].
+         Пусто = человек ничего не менял, в state ничего не пишется. */
+      function kbCats() {
+        const names = state.kbCatNames || {};
+        const out = {};
+        for (const [k, v] of Object.entries(KB_CATS_BUILTIN)) out[k] = names[k] || v;
+        for (const c of (state.customKbCats || [])) if (c && c.id) out[c.id] = c.name || "Без названия";
+        return out;
+      }
+
+      // Ключ тематики → класс бейджа. Встроенные красятся своим классом, свои —
+      // по позиции в списке, чтобы соседние тематики не сливались в один цвет.
+      function kbCatClass(key) {
+        if (KB_CATS_BUILTIN[key]) return key;
+        const i = (state.customKbCats || []).findIndex(c => c && c.id === key);
+        return i < 0 ? "guide" : KB_TINTS[i % KB_TINTS.length];
+      }
 
       function renderKnowledge() {
         const docs = (state.knowledgeDocs || []);
@@ -5116,8 +5142,8 @@
                   <div class="field">
                     <label>Категория</label>
                     <select id="kb_cat">
-                      ${Object.entries(KB_CATS).filter(([k]) => k !== "all").map(([k, v]) =>
-                        `<option value="${k}" ${doc.cat === k ? "selected" : ""}>${v}</option>`).join("")}
+                      ${Object.entries(kbCats()).filter(([k]) => k !== "all").map(([k, v]) =>
+                        `<option value="${escapeHtml(k)}" ${doc.cat === k ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}
                     </select>
                   </div>
                 </div>
@@ -5166,6 +5192,9 @@
                 <h1>База знаний</h1>
                 <p>Полезные статьи о продажах, производстве и работе с клиентами.</p>
               </div>
+              <div class="toolbar no-print">
+                <button class="btn small" onclick="app.openKbCatsModal()" title="Свои тематики и переименование встроенных">${icon("pencil", 13)} Тематики</button>
+              </div>
             </div>
 
             <div style="margin-bottom:16px">
@@ -5173,9 +5202,9 @@
             </div>
 
             <div class="tabs" style="margin-bottom:20px">
-              ${Object.entries(KB_CATS).map(([k, v]) => {
+              ${Object.entries(kbCats()).map(([k, v]) => {
                 const cnt = k === "all" ? docs.length : docs.filter(d => d.cat === k).length;
-                return `<button class="tab ${catFilter===k?"active":""}" onclick="app.kbSetCat('${k}')">${v} <span style="opacity:.6;font-size:12px">${cnt}</span></button>`;
+                return `<button class="tab ${catFilter===k?"active":""}" onclick="app.kbSetCat('${k}')">${escapeHtml(v)} <span style="opacity:.6;font-size:12px">${cnt}</span></button>`;
               }).join("")}
             </div>
 
@@ -5186,7 +5215,7 @@
               </div>
               ${filtered.map(d => `
                 <div class="kb-doc-card" onclick="app.kbOpen('${d.id}')">
-                  <span class="kb-cat-badge ${d.cat || "guide"}">${escapeHtml(KB_CATS[d.cat] || d.cat || "")}</span>
+                  <span class="kb-cat-badge ${kbCatClass(d.cat)}">${escapeHtml(kbCats()[d.cat] || "Без тематики")}</span>
                   <h3>${escapeHtml(d.title)}</h3>
                   <p>${escapeHtml(kbPreview(d.content, 100))}</p>
                   <div style="display:flex;gap:8px;margin-top:12px" onclick="event.stopPropagation()">
@@ -5210,6 +5239,109 @@
       // необработанным местом ввода в приложении.
       function kbSetSearch(v) { state.kbSearch = v; _debouncedSearchRender(); }
       function kbSetCat(v) { state.kbCatFilter = v; render(); }
+
+      /* ── Тематики базы знаний: свои и переименование встроенных ── */
+
+      async function kbAddCat() {
+        const name = (await promptDialog({
+          title: "Своя тематика", placeholder: "Напр. Монтаж или Съёмка дронами", okText: "Добавить"
+        }) || "").trim();
+        if (!name) return;
+        const exists = Object.values(kbCats()).some(v => v.toLowerCase() === name.toLowerCase());
+        if (exists) { toast("Такая тематика уже есть"); return; }
+        const list = [...(state.customKbCats || []), { id: uid("kbcat"), name: name.slice(0, 40) }];
+        state.customKbCats = list;
+        save(); render();
+        toast(`Тематика «${name}» добавлена`);
+      }
+
+      async function kbRenameCat(key) {
+        const cur = kbCats()[key];
+        if (cur == null) return;
+        const name = (await promptDialog({
+          title: "Название тематики", defaultValue: cur, okText: "Сохранить"
+        }) || "").trim();
+        if (!name || name === cur) return;
+        const clash = Object.entries(kbCats()).some(([k, v]) => k !== key && v.toLowerCase() === name.toLowerCase());
+        if (clash) { toast("Тематика с таким названием уже есть"); return; }
+        if (KB_CATS_BUILTIN[key]) {
+          // Встроенную не подменяем в документах: переименование живёт отдельным
+          // слоем, поэтому d.cat остаётся прежним и статьи никуда не переезжают.
+          state.kbCatNames = { ...(state.kbCatNames || {}), [key]: name.slice(0, 40) };
+        } else {
+          state.customKbCats = (state.customKbCats || []).map(c =>
+            c && c.id === key ? { ...c, name: name.slice(0, 40) } : c);
+        }
+        save(); render();
+      }
+
+      function kbResetCatName(key) {
+        if (!KB_CATS_BUILTIN[key]) return;
+        const names = { ...(state.kbCatNames || {}) };
+        delete names[key];
+        state.kbCatNames = names;
+        save(); render();
+      }
+
+      async function kbRemoveCat(key) {
+        if (KB_CATS_BUILTIN[key]) return; // встроенные не удаляются, только переименовываются
+        const name = kbCats()[key] || "";
+        const docs = (state.knowledgeDocs || []).filter(d => d.cat === key);
+        const ok = await confirmDialog({
+          title: `Удалить тематику «${name}»?`,
+          message: docs.length
+            ? `${docs.length} ${plural(docs.length, "документ", "документа", "документов")} переедет в «${kbCats().guide}». Сами документы останутся.`
+            : "Документов в этой тематике нет.",
+          okText: "Удалить", danger: true
+        });
+        if (!ok) return;
+        (state.knowledgeDocs || []).forEach(d => { if (d.cat === key) d.cat = "guide"; });
+        state.customKbCats = (state.customKbCats || []).filter(c => c && c.id !== key);
+        if (state.kbCatFilter === key) state.kbCatFilter = "all";
+        save(); render();
+        toast(`Тематика «${name}» удалена`);
+      }
+
+      function openKbCatsModal() { state.kbCatsModal = true; renderModal(); }
+      function closeKbCatsModal() { state.kbCatsModal = false; renderModal(); }
+
+      function renderKbCatsModal() {
+        if (!state.kbCatsModal) return "";
+        const docs = state.knowledgeDocs || [];
+        const row = (key, name) => {
+          const builtin = !!KB_CATS_BUILTIN[key];
+          const renamed = builtin && (state.kbCatNames || {})[key];
+          const cnt = docs.filter(d => d.cat === key).length;
+          return `
+            <div class="kb-cat-row">
+              <span class="kb-cat-badge ${kbCatClass(key)}">${escapeHtml(name)}</span>
+              <span class="u-meta" style="font-size:12px;flex:1">${cnt} ${plural(cnt, "документ", "документа", "документов")}${builtin ? "" : " · своя"}</span>
+              <button class="icon-btn" onclick="app.kbRenameCat('${key}')" title="Переименовать" aria-label="Переименовать тематику">${icon("pencil", 14)}</button>
+              ${renamed ? `<button class="icon-btn" onclick="app.kbResetCatName('${key}')" title="Вернуть встроенное название «${escapeHtml(KB_CATS_BUILTIN[key])}»" aria-label="Вернуть исходное название">${icon("refresh", 14)}</button>` : ""}
+              ${builtin ? "" : `<button class="icon-btn" onclick="app.kbRemoveCat('${key}')" title="Удалить тематику" aria-label="Удалить тематику">${icon("trash", 14)}</button>`}
+            </div>`;
+        };
+        return `
+          <div class="modal-overlay" onclick="event.target===this&&app.closeKbCatsModal()">
+            <div class="modal-box">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <h2 class="u-title-20">Тематики базы знаний</h2>
+                <button onclick="app.closeKbCatsModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
+              </div>
+              <p class="u-meta" style="margin:0 0 16px;font-size:12px;line-height:1.5">
+                Встроенные тематики можно переименовать — документы при этом никуда не переезжают.
+                Свои можно и удалить.
+              </p>
+              <div class="kb-cat-list">
+                ${Object.entries(kbCats()).filter(([k]) => k !== "all").map(([k, v]) => row(k, v)).join("")}
+              </div>
+              <div style="display:flex;justify-content:space-between;gap:10px;margin-top:20px">
+                <button class="btn small" onclick="app.kbAddCat()">${icon("plus", 14)} Своя тематика</button>
+                <button class="btn primary" onclick="app.closeKbCatsModal()">Готово</button>
+              </div>
+            </div>
+          </div>`;
+      }
       function kbNew() {
         const doc = { id: uid("kb"), cat: "guide", title: "Новый документ", content: "# Заголовок\n\nВаш текст...", updatedAt: new Date().toISOString() };
         state.knowledgeDocs = [doc, ...(state.knowledgeDocs || [])];
@@ -5643,6 +5775,8 @@
         catalogGroupsHidden: {},
         customCatalogGroups: [],
         customBriefTypes: [],
+        customKbCats: [],
+        kbCatNames: {},
         financeArticles: {},
         itemCustomGroup: {},
           adminModal: null,
@@ -9327,7 +9461,8 @@
           state.dealModal ? "deal" : state.taskModal ? "task" :
           state.editTransactionModal ? "editTx" : state.financeModal ? "finance" :
           state.packageEditModal ? "package" : state.catalogEditId ? "catalog" :
-          state.briefEditorType ? "briefEditor" : state.proposalModal ? "proposal" : null;
+          state.briefEditorType ? "briefEditor" : state.proposalModal ? "proposal" :
+          state.kbCatsModal ? "kbCats" : null;
         if (state.mainMenuOpen) { el.innerHTML = renderMainMenuModal(); }
         else if (state.helpModal) { el.innerHTML = renderHelpModal(); }
         else if (state.docsModal) { el.innerHTML = renderDocsModal(); }
@@ -9342,6 +9477,7 @@
         else if (state.catalogEditId) { el.innerHTML = renderCatalogEditModal(); }
         else if (state.briefEditorType) { el.innerHTML = renderBriefEditorModal(); }
         else if (state.proposalModal) { el.innerHTML = renderProposalModal(); }
+        else if (state.kbCatsModal) { el.innerHTML = renderKbCatsModal(); }
         else { el.innerHTML = ""; }
         // renderModal() иногда вызывается отдельно от полного render() (напр. открытие
         // модалки каталога через openCatalogEdit) — без этого свежие data-autosave
@@ -22040,6 +22176,12 @@ Email: _____________________              Email: _____________________
         kbBack,
         kbSetSearch,
         kbSetCat,
+        kbAddCat,
+        kbRenameCat,
+        kbResetCatName,
+        kbRemoveCat,
+        openKbCatsModal,
+        closeKbCatsModal,
         kbNew,
         kbSave,
         kbDuplicate,
