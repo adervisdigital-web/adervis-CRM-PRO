@@ -13,11 +13,15 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors, status: 204 });
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
-  const shopId = Deno.env.get("YOOKASSA_SHOP_ID")!;
-  const secret = Deno.env.get("YOOKASSA_SECRET_KEY")!;
+  // Ключи сервиса — фолбэк ТОЛЬКО для агентства самого владельца (см. ниже).
+  // Для всех остальных платёж создаётся ключами их собственного магазина,
+  // иначе чужой аванс приходил бы на счёт владельца сервиса.
+  const ownerShopId = Deno.env.get("YOOKASSA_SHOP_ID") ?? "";
+  const ownerSecret = Deno.env.get("YOOKASSA_SECRET_KEY") ?? "";
+  const ownerAgencyId = Deno.env.get("OWNER_AGENCY_ID") ?? "";
   const appUrl = Deno.env.get("APP_URL")!;
 
-  if (!shopId || !secret || !appUrl) {
+  if (!appUrl) {
     return json({ error: "Server misconfigured" }, 500);
   }
 
@@ -37,7 +41,7 @@ Deno.serve(async (req) => {
 
   const { data: portal, error: dbErr } = await supabase
     .from("client_portals")
-    .select("deal_name, total_price, advance_amount, advance_paid_at")
+    .select("deal_name, total_price, advance_amount, advance_paid_at, agency_id, pay_method")
     .eq("id", portalId)
     .maybeSingle();
 
@@ -49,6 +53,36 @@ Deno.serve(async (req) => {
   }
   if (portal.advance_paid_at) {
     return json({ error: "Advance already paid" }, 409);
+  }
+  // Онлайн-платёж создаётся только если агентство выбрало именно этот способ.
+  // «link» и «requisites» деньги через сервис не проводят вовсе.
+  if (portal.pay_method && portal.pay_method !== "yookassa") {
+    return json({ error: "Online payment is not enabled for this proposal" }, 400);
+  }
+
+  // Ключи магазина того агентства, чьё это КП.
+  let shopId = "";
+  let secret = "";
+  if (portal.agency_id) {
+    const { data: keys } = await supabase
+      .from("agency_payment_keys")
+      .select("shop_id, secret_key")
+      .eq("agency_id", portal.agency_id)
+      .maybeSingle();
+    if (keys?.shop_id && keys?.secret_key) {
+      shopId = keys.shop_id;
+      secret = keys.secret_key;
+    }
+  }
+  // Фолбэк на магазин сервиса допустим ТОЛЬКО для агентства владельца: это его
+  // собственные деньги. Для любого другого агентства без своих ключей платёж
+  // не создаётся — иначе выручка чужой студии уходила бы владельцу сервиса.
+  if (!shopId && ownerAgencyId && portal.agency_id === ownerAgencyId) {
+    shopId = ownerShopId;
+    secret = ownerSecret;
+  }
+  if (!shopId || !secret) {
+    return json({ error: "Payment is not configured for this agency" }, 409);
   }
 
   const amount = portal.advance_amount;

@@ -141,6 +141,61 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  /* Деньги клиента не должны проходить через магазин сервиса: у чужой студии
+     аванс уходил бы владельцу сервиса (и падал в его лимит по НПД). Способ
+     оплаты выбирает само агентство, и КП обязано показывать именно его. */
+  await test("портал КП: без настроенной оплаты кнопки нет вовсе", async () => {
+    const { context, page, errors } = await bootPortal(browser, baseUrl, { ...PORTAL_ROW, pay_method: "none" });
+    const res = await page.evaluate(() => ({
+      txt: document.querySelector("#appContent").textContent || "",
+      payBtn: !!document.getElementById("portalPayBtn"),
+    }));
+    assert(!res.payBtn, "показана кнопка онлайн-оплаты, хотя агентство её не настраивало");
+    assert(!/Онлайн-оплата аванса/.test(res.txt), "остался блок онлайн-оплаты при pay_method=none");
+    assert(/Рекламный ролик для бренда/.test(res.txt), "само КП не отрисовалось");
+    assert(errors.length === 0, "ошибки на портале: " + errors.join(" | "));
+    await context.close();
+  });
+
+  await test("портал КП: способ «ссылка» ведёт на сайт агентства, а не в ЮKassa", async () => {
+    const link = "https://lknpd.nalog.ru/invoice/12345";
+    const { context, page, errors } = await bootPortal(browser, baseUrl,
+      { ...PORTAL_ROW, pay_method: "link", pay_link: link });
+    const res = await page.evaluate(() => {
+      const a = [...document.querySelectorAll("#appContent a")].find((x) => /Перейти к оплате/.test(x.textContent || ""));
+      return { href: a ? a.getAttribute("href") : null, rel: a ? a.getAttribute("rel") : "", payBtn: !!document.getElementById("portalPayBtn") };
+    });
+    assert(res.href === link, "ссылка оплаты не совпала с заданной агентством: " + res.href);
+    assert(/noopener/.test(res.rel || ""), "внешняя ссылка без rel=noopener");
+    assert(!res.payBtn, "рядом со ссылкой осталась кнопка платежа через сервис");
+    assert(errors.length === 0, "ошибки на портале: " + errors.join(" | "));
+    await context.close();
+  });
+
+  await test("портал КП: «реквизиты» показывают текст агентства и не создают платёж", async () => {
+    const details = "Перевод по СБП на +7 900 000-00-00, получатель Артём Н.";
+    const { context, page, errors } = await bootPortal(browser, baseUrl,
+      { ...PORTAL_ROW, pay_method: "requisites", pay_details: details });
+    const res = await page.evaluate(() => ({
+      txt: document.querySelector("#appContent").textContent || "",
+      payBtn: !!document.getElementById("portalPayBtn"),
+    }));
+    assert(res.txt.includes("Перевод по СБП"), "реквизиты агентства не показаны клиенту");
+    assert(!res.payBtn, "при оплате переводом не должно быть кнопки платежа через сервис");
+    assert(errors.length === 0, "ошибки на портале: " + errors.join(" | "));
+    await context.close();
+  });
+
+  // Чужая схема в ссылке (javascript:, data:) — это XSS через настройку агентства.
+  await test("портал КП: ссылка оплаты принимается только http(s)", async () => {
+    const { context, page } = await bootPortal(browser, baseUrl,
+      { ...PORTAL_ROW, pay_method: "link", pay_link: "javascript:alert(1)" });
+    const bad = await page.evaluate(() =>
+      [...document.querySelectorAll("#appContent a")].some((a) => /^javascript:/i.test(a.getAttribute("href") || "")));
+    assert(!bad, "в КП попала ссылка с чужой схемой");
+    await context.close();
+  });
+
   await test("портал КП: оплаченный аванс шлёт цель advance_paid один раз на КП", async () => {
     const context = await browser.newContext({ viewport: { width: 900, height: 1000 } });
     const paidRow = { ...PORTAL_ROW, advance_paid_at: "2026-07-27T10:00:00Z" };

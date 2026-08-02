@@ -1716,6 +1716,156 @@
         }, 3000);
       }
 
+      /* ═══════════════════════════════════════════════════════
+         СПОСОБ ОПЛАТЫ АВАНСА (настройка агентства)
+
+         Деньги клиента не должны проходить через сервис: у агентств разные
+         формы (ИП, ООО, самозанятый), и у самозанятого приём вообще идёт
+         переводом с чеком в «Мой налог». Поэтому агентство само выбирает,
+         как получать аванс, а сервис лишь показывает это клиенту.
+      ═══════════════════════════════════════════════════════ */
+      const PAY_METHODS = [
+        { id: "none",       label: "Не показывать оплату", hint: "В КП не будет блока оплаты — договариваетесь с клиентом как обычно" },
+        { id: "link",       label: "Ссылка на оплату",     hint: "Счёт из «Мой налог», банка или любого сервиса. Кнопка в КП ведёт по вашей ссылке" },
+        { id: "requisites", label: "Реквизиты и перевод",  hint: "Клиент видит реквизиты и платит переводом, вы отмечаете получение в сделке" },
+        { id: "yookassa",   label: "Свой магазин ЮKassa",  hint: "Платёж создаётся вашими ключами — деньги идут сразу вам" },
+      ];
+
+      let _payKeysConnected = null;   // null = ещё не спрашивали у сервера
+      let _payKeysForm = { shopId: "", secret: "", saving: false, error: "" };
+
+      async function _checkPayKeys() {
+        if (!_supabase || !_adminSession || _payKeysConnected !== null) return;
+        try {
+          const { data } = await _supabase.rpc("has_payment_keys");
+          _payKeysConnected = !!data;
+        } catch (e) { _payKeysConnected = false; }
+        render();
+      }
+
+      function setPayMethod(v) {
+        state.company.payMethod = v;
+        save(); render();
+      }
+      function setPayField(key, value) {
+        state.company[key] = value;
+        // Поля неуправляемые: значение читается при сохранении, render не нужен.
+      }
+      function _setPayKeysForm(k, v) { _payKeysForm[k] = v; }
+      // Поля способа оплаты неуправляемые (без re-render на каждый символ),
+      // поэтому сохраняем по blur. save() наружу не экспортирован — обёртка.
+      function savePayFields() { save(); }
+
+      async function savePayKeys() {
+        if (!_supabase || !_adminSession) { toast("Нет связи с сервером"); return; }
+        const shopId = (_payKeysForm.shopId || "").trim();
+        const secret = (_payKeysForm.secret || "").trim();
+        if (!/^\d{4,12}$/.test(shopId)) { toast("shopId — это число из кабинета ЮKassa"); return; }
+        if (secret.length < 20) { toast("Секретный ключ выглядит неполным"); return; }
+        _payKeysForm.saving = true; render();
+        const { error } = await _supabase.from("agency_payment_keys")
+          .upsert({ agency_id: getAgencyId(), shop_id: shopId, secret_key: secret, updated_at: new Date().toISOString() });
+        _payKeysForm.saving = false;
+        if (error) { toast("Не удалось сохранить ключи: " + error.message); render(); return; }
+        // Секрет в состоянии не держим: он больше не понадобится браузеру.
+        _payKeysForm = { shopId: "", secret: "", saving: false, error: "" };
+        _payKeysConnected = true;
+        toast("Магазин подключён — авансы будут приходить вам");
+        render();
+      }
+
+      async function removePayKeys() {
+        const ok = await confirmDialog({
+          title: "Отключить магазин?",
+          message: "Ключи будут удалены. Кнопка онлайн-оплаты в новых КП перестанет работать.",
+          okText: "Отключить", danger: true
+        });
+        if (!ok) return;
+        const { error } = await _supabase.from("agency_payment_keys").delete().eq("agency_id", getAgencyId());
+        if (error) { toast("Не удалось отключить: " + error.message); return; }
+        _payKeysConnected = false;
+        toast("Магазин отключён");
+        render();
+      }
+
+      function _renderPayMethodSettings() {
+        const c = state.company || {};
+        const method = c.payMethod || "none";
+        if (_adminSession && _payKeysConnected === null) _checkPayKeys();
+        const opt = (m) => `
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid ${method === m.id ? "var(--primary)" : "var(--line)"};border-radius:12px;cursor:pointer;background:${method === m.id ? "var(--primary-bg)" : "transparent"}">
+            <input type="radio" name="payMethod" value="${m.id}" ${method === m.id ? "checked" : ""}
+              onchange="app.setPayMethod('${m.id}')"
+              style="width:16px;height:16px;margin-top:2px;flex:0 0 auto;accent-color:var(--primary)">
+            <span style="min-width:0">
+              <span style="display:block;font-size:13px;font-weight:700">${m.label}</span>
+              <span style="display:block;font-size:12px;color:var(--muted);line-height:1.5;margin-top:2px">${m.hint}</span>
+            </span>
+          </label>`;
+        return `
+          <div class="panel" style="box-shadow:none;background:var(--panel2);margin-top:14px">
+            <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("wallet", "var(--green)")} Оплата аванса в КП</h2>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+              Деньги идут напрямую вам — сервис их не принимает и не хранит.
+              Выберите способ, которым вам удобно получать аванс.
+            </p>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+              ${PAY_METHODS.map(opt).join("")}
+            </div>
+
+            ${method === "link" ? `
+              <div class="field" style="margin:0">
+                <label>Ссылка на оплату</label>
+                <input type="url" inputmode="url" placeholder="https://…" value="${escapeHtml(c.payLink || "")}"
+                  oninput="app.setPayField('payLink',this.value)" onblur="app.savePayFields()">
+              </div>
+              <p style="font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.5">
+                Самозанятому: выставьте счёт в «Мой налог» и вставьте ссылку сюда.
+                Сумма в счёте задаётся вами, поэтому проверяйте, что она совпадает с авансом в КП.
+              </p>
+            ` : ""}
+
+            ${method === "requisites" ? `
+              <div class="field" style="margin:0">
+                <label>Реквизиты для перевода</label>
+                <textarea style="min-height:88px" placeholder="Например: перевод по СБП на +7 900 000-00-00 (Тинькофф), получатель Артём Н."
+                  oninput="app.setPayField('payDetails',this.value)" onblur="app.savePayFields()">${escapeHtml(c.payDetails || "")}</textarea>
+              </div>
+              <p style="font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.5">
+                Клиент увидит этот текст в КП и оплатит переводом. После получения денег
+                отметьте аванс в сделке — и не забудьте про чек в «Мой налог».
+              </p>
+            ` : ""}
+
+            ${method === "yookassa" ? (
+              _payKeysConnected
+                ? `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px">
+                     <span style="color:var(--text-success);display:inline-flex">${icon("check", 16)}</span>
+                     <span style="font-size:13px;flex:1">Магазин подключён — авансы приходят на ваш счёт</span>
+                     <button class="btn small danger" onclick="app.removePayKeys()">Отключить</button>
+                   </div>`
+                : `<div class="grid two" style="margin-bottom:10px">
+                     <div class="field" style="margin:0">
+                       <label>shopId</label>
+                       <input inputmode="numeric" placeholder="1234567" oninput="app._setPayKeysForm('shopId',this.value)">
+                     </div>
+                     <div class="field" style="margin:0">
+                       <label>Секретный ключ</label>
+                       <input type="password" autocomplete="off" placeholder="live_…" oninput="app._setPayKeysForm('secret',this.value)">
+                     </div>
+                   </div>
+                   <button class="btn primary small" onclick="app.savePayKeys()" ${_payKeysForm.saving ? "disabled" : ""}>
+                     ${_payKeysForm.saving ? "Сохранение…" : "Подключить магазин"}
+                   </button>
+                   <p style="font-size:12px;color:var(--muted);margin:10px 0 0;line-height:1.5">
+                     Ключи берутся в кабинете ЮKassa → Интеграция → Ключи API. Они хранятся
+                     на сервере и не возвращаются в браузер: сервис использует их только
+                     чтобы создать платёж по вашему КП.
+                   </p>`
+            ) : ""}
+          </div>`;
+      }
+
       function _isSuperAdmin() {
         return !!(_adminSession && _adminSession.user.email === atob("YWRlcnZpcy5kaWdpdGFsQGdtYWlsLmNvbQ=="));
       }
@@ -5991,6 +6141,18 @@
             details: "Видеопроизводство и digital-упаковка для бизнеса.",
             terms: "Срок действия предложения — 7 календарных дней. Финальные сроки и состав работ уточняются после брифа.",
             requisites: "",
+            /* Способ оплаты аванса в клиентском КП. Форма у агентств разная
+               (ИП, ООО, самозанятый), поэтому единого эквайринга быть не может:
+                 none       — блок оплаты не показывать;
+                 link       — своя ссылка на оплату (счёт из «Мой налог», банка);
+                 requisites — реквизиты и QR по СБП, оплата подтверждается вручную;
+                 yookassa   — свой магазин ЮKassa (ключи лежат в отдельной таблице,
+                              браузеру они не отдаются — см. миграцию 20260803000001).
+               По умолчанию «none»: пока агентство не настроило приём денег,
+               клиенту нельзя предлагать кнопку, которая ведёт в чужой кошелёк. */
+            payMethod: "none",
+            payLink: "",
+            payDetails: "",
             // Подпись «Сделано в ADERVIS» внизу клиентского портала КП.
             // Снимается только на оплаченном тарифе (см. isPaidPlan / setProposalBranding).
             hideProposalBranding: false
@@ -11936,7 +12098,7 @@
       async function openProposalModal(portalId) {
         if (!_supabase || !_adminSession) { toast('Нет связи с сервером'); return; }
         const { data, error } = await _supabase.from('client_portals')
-          .select('id, deal_name, total_price, advance_amount, included_text, excluded_text, proposal_note, approved_at, advance_paid_at, deal_status')
+          .select('id, deal_name, total_price, advance_amount, included_text, excluded_text, proposal_note, approved_at, advance_paid_at, advance_payment_id, deal_status')
           .eq('id', portalId).single();
         if (error || !data) { toast('Не удалось открыть КП'); return; }
         const st = _portalStatus(data);
@@ -11949,7 +12111,9 @@
           excluded_text: data.excluded_text || '',
           proposal_note: data.proposal_note || '',
           _statusLabel: st.label,
-          _locked: st.key !== 'sent'
+          _locked: st.key !== 'sent',
+          _advancePaidAt: data.advance_paid_at || null,
+          _advancePaymentId: data.advance_payment_id || null
         };
         _armDirtyCheck(state.proposalModal);
         renderModal();
@@ -12038,6 +12202,7 @@
                 <label>Комментарий клиенту</label>
                 <textarea style="min-height:60px" oninput="app.setProposalModalField('proposal_note',this.value)" placeholder="Необязательно">${escapeHtml(m.proposal_note)}</textarea>
               </div>
+              ${_proposalAdvanceRowHtml(m)}
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
                 <button class="btn danger small" onclick="app.deleteProposal('${m.id}')">${icon("trash", 14)} Удалить</button>
                 <div class="u-flex-g8">
@@ -12047,6 +12212,57 @@
               </div>
             </div>
           </div>`;
+      }
+
+      /* Аванс по ссылке или переводом приходит мимо сервиса — вебхука ЮKassa
+         не будет, и отметить получение может только сам исполнитель. Права
+         проверяет owner_mark_advance_paid: КП должно принадлежать агентству. */
+      function _proposalAdvanceRowHtml(m) {
+        if (!m || !m.advance_amount) return "";
+        const paid = !!m._advancePaidAt;
+        const online = m._advancePaymentId && m._advancePaymentId !== "manual";
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">
+            <span style="color:${paid ? "var(--text-success)" : "var(--muted)"};display:inline-flex">${icon(paid ? "check" : "wallet", 15)}</span>
+            <span style="flex:1;min-width:0;font-size:13px">
+              ${paid
+                ? `Аванс получен${online ? " · оплачен онлайн" : ""}`
+                : "Аванс ещё не отмечен как полученный"}
+            </span>
+            ${paid
+              ? (online ? "" : `<button class="btn small" onclick="app.unmarkAdvancePaid('${m.id}')">Снять отметку</button>`)
+              : `<button class="btn small green" onclick="app.markAdvancePaid('${m.id}')">Аванс получен</button>`}
+          </div>`;
+      }
+
+      async function markAdvancePaid(portalId) {
+        if (!_supabase || !_adminSession) { toast("Нет связи с сервером"); return; }
+        const { error } = await _supabase.rpc("owner_mark_advance_paid", { p_portal_id: portalId });
+        if (error) { toast("Не удалось отметить: " + error.message); return; }
+        if (state.proposalModal && state.proposalModal.id === portalId) {
+          state.proposalModal._advancePaidAt = new Date().toISOString();
+          state.proposalModal._advancePaymentId = "manual";
+          _armDirtyCheck(state.proposalModal);
+        }
+        const row = _allPortals.find(p => p.id === portalId);
+        if (row) row.advance_paid_at = new Date().toISOString();
+        toast("Аванс отмечен полученным");
+        render(); renderModal();
+      }
+
+      async function unmarkAdvancePaid(portalId) {
+        if (!_supabase || !_adminSession) { toast("Нет связи с сервером"); return; }
+        const { error } = await _supabase.rpc("owner_unmark_advance_paid", { p_portal_id: portalId });
+        if (error) { toast("Не удалось снять отметку: " + error.message); return; }
+        if (state.proposalModal && state.proposalModal.id === portalId) {
+          state.proposalModal._advancePaidAt = null;
+          state.proposalModal._advancePaymentId = null;
+          _armDirtyCheck(state.proposalModal);
+        }
+        const row = _allPortals.find(p => p.id === portalId);
+        if (row) row.advance_paid_at = null;
+        toast("Отметка снята");
+        render(); renderModal();
       }
 
       async function deleteProposal(portalId) {
@@ -17902,6 +18118,8 @@
                 </p>`}
               </div>`;
             })()}
+
+            ${_renderPayMethodSettings()}
         `;
 
         const notifyTab = `
@@ -19236,9 +19454,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   </div>
                 `}
 
-                ${d.advance_amount > 0 ? `
+                ${(d.advance_amount > 0 && (d.pay_method || 'none') !== 'none') ? `
                   <div style="margin-top:20px;padding:20px;background:var(--panel2);border:1px solid var(--line);border-radius:14px">
-                    <div style="font-size:13px;font-weight:700;margin-bottom:4px"> Онлайн-оплата аванса</div>
+                    <div style="font-size:13px;font-weight:700;margin-bottom:4px">${_portalPayTitle(d)}</div>
                     ${d.advance_paid_at ? `
                       <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:12px 14px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:10px">
             <span class="fs-20"></span>
@@ -19249,18 +19467,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                         <div style="margin-left:auto;font-size:18px;font-weight:900;color:var(--text-success)">${money(d.advance_amount)}</div>
                       </div>
                     ` : `
-                      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Вы можете оплатить аванс онлайн прямо сейчас — картой, СБП или ЮMoney</div>
-                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-                        <span style="font-size:13px;color:var(--text2)">Сумма аванса (50%)</span>
-                        <span style="font-size:22px;font-weight:900">${money(d.advance_amount)}</span>
-                      </div>
-                      <button class="btn primary full" id="portalPayBtn" onclick="app.payPortalAdvance()"
-                        style="padding:14px;font-size:14px;font-weight:800">
-             Оплатить ${money(d.advance_amount)}
-                      </button>
-                      <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5">
-                        Безопасная оплата через ЮKassa · Карта, СБП, ЮMoney
-                      </p>
+                      ${_portalPayBlockHtml(d)}
                     `}
                   </div>
                 ` : ''}
@@ -19371,6 +19578,61 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         }
       }
 
+      // Заголовок и тело блока оплаты зависят от способа, который агентство
+      // выбрало в настройках. Способ зафиксирован в самом КП (pay_method), а не
+      // читается из настроек: портал открывает аноним.
+      function _portalPayTitle(d) {
+        const m = d.pay_method || "none";
+        if (m === "requisites") return "Оплата аванса";
+        if (m === "link") return "Оплата аванса";
+        return "Онлайн-оплата аванса";
+      }
+
+      function _portalPayBlockHtml(d) {
+        const m = d.pay_method || "none";
+        const sum = money(d.advance_amount);
+        const amountRow = `
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <span style="font-size:13px;color:var(--text2)">Сумма аванса</span>
+            <span style="font-size:22px;font-weight:900">${sum}</span>
+          </div>`;
+
+        if (m === "link") {
+          const href = (d.pay_link || "").trim();
+          if (!/^https?:\/\//i.test(href)) return "";   // только http(s), чужие схемы не пускаем
+          return `
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Оплатите аванс по ссылке от исполнителя</div>
+            ${amountRow}
+            <a class="btn primary full" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
+               style="padding:14px;font-size:14px;font-weight:800;text-decoration:none;display:block;text-align:center">
+              Перейти к оплате ${sum}
+            </a>`;
+        }
+
+        if (m === "requisites") {
+          const details = (d.pay_details || "").trim();
+          return `
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Оплатите аванс переводом по реквизитам ниже</div>
+            ${amountRow}
+            ${details ? `<div style="white-space:pre-wrap;font-size:13px;line-height:1.6;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)">${escapeHtml(details)}</div>` : ""}
+            <p style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5">
+              После перевода напишите исполнителю — он подтвердит получение аванса.
+            </p>`;
+        }
+
+        // yookassa
+        return `
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Вы можете оплатить аванс онлайн прямо сейчас — картой, СБП или ЮMoney</div>
+          ${amountRow}
+          <button class="btn primary full" id="portalPayBtn" onclick="app.payPortalAdvance()"
+            style="padding:14px;font-size:14px;font-weight:800">
+            Оплатить ${sum}
+          </button>
+          <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5">
+            Безопасная оплата через ЮKassa · Карта, СБП, ЮMoney
+          </p>`;
+      }
+
       async function payPortalAdvance() {
         const btn = document.getElementById('portalPayBtn');
         if (btn) { btn.disabled = true; btn.textContent = '⏳ Подготовка платежа...'; }
@@ -19470,7 +19732,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           services_list: selectedItems,
           advance_amount: advanceAmount,
           // Право убрать подпись даёт оплаченный тариф — и именно на момент отправки КП.
-          hide_branding: isPaidPlan() && !!state.company.hideProposalBranding
+          hide_branding: isPaidPlan() && !!state.company.hideProposalBranding,
+          // Способ оплаты копируется в КП: портал читает аноним, к настройкам
+          // агентства у него доступа нет. Уже отправленные ссылки не меняются.
+          pay_method: state.company.payMethod || 'none',
+          pay_link: (state.company.payLink || '').trim(),
+          pay_details: (state.company.payDetails || '').trim()
         };
         // Каждое нажатие «КП-ссылка» раньше делало insert: одна сделка порождала
         // несколько КП с РАЗНЫМИ ссылками. Клиент согласовывал по той, что у него на
@@ -19500,6 +19767,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         // запись падает целиком — КП важнее подписи, поэтому повторяем без поля.
         if (error && /hide_branding/.test(error.message || '')) {
           delete row.hide_branding;
+          ({ data, error } = await runWrite());
+        }
+        // То же для способа оплаты: миграция 20260803000001 может быть ещё не
+        // накачена на прод, а КП важнее блока оплаты.
+        if (error && /pay_method|pay_link|pay_details/.test(error.message || '')) {
+          delete row.pay_method; delete row.pay_link; delete row.pay_details;
           ({ data, error } = await runWrite());
         }
         if (data && !error) {
@@ -22309,6 +22582,14 @@ Email: _____________________              Email: _____________________
         setProposalModalField,
         saveProposalModal,
         deleteProposal,
+        markAdvancePaid,
+        unmarkAdvancePaid,
+        setPayMethod,
+        setPayField,
+        savePayFields,
+        _setPayKeysForm,
+        savePayKeys,
+        removePayKeys,
 
         buyPlan,
         validatePromo,
