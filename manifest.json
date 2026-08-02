@@ -1,7 +1,7 @@
 {
-  "name": "ADERVIS CRM",
+  "name": "ADERVIS — сметы и КП",
   "short_name": "Adervis",
-  "description": "CRM и калькулятор смет для видеопродакшна",
+  "description": "Сметы и коммерческие предложения для видеопродакшна: расчёт по каталогу, КП ссылкой, аванс онлайн",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",

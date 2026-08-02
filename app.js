@@ -1419,7 +1419,7 @@
                 lsSet(STORAGE_KEY, JSON.stringify(state));
         toast("Вы присоединились к агентству!");
               } else {
-        pushNotification("info", "Добро пожаловать в ADERVIS CRM!", "7 дней бесплатно и без карты. Начните с создания первой сделки!", "");
+        pushNotification("info", "Добро пожаловать в ADERVIS!", "7 дней бесплатно и без карты. Соберите первую смету и отправьте КП.", "");
                 lsSet(STORAGE_KEY, JSON.stringify(state));
         toast("Аккаунт создан! 7 дней бесплатного доступа.");
                 // Приветственный email — fire-and-forget, не блокируем UI
@@ -1738,7 +1738,7 @@
 
       // Именно ОПЛАЧЕННЫЙ тариф, без пробного периода. Нужно там, где право даётся
       // за деньги, а не за факт живого доступа: например снятие подписи
-      // «Сделано в ADERVIS CRM» с клиентского портала (white-label).
+      // «Сделано в ADERVIS» с клиентского портала (white-label).
       function isPaidPlan() {
         if (_isSuperAdmin()) return true;
         if (!_adminSession) return false;
@@ -1903,7 +1903,7 @@
         const el = document.getElementById("topbarPageTitle");
         if (!el) return;
         if (!_adminSession || _briefAgencyId || _portalId || _calcMode) { el.innerHTML = ""; return; }
-        let [title, sub] = _PAGE_TITLES[state.view] || ["ADERVIS CRM", ""];
+        let [title, sub] = _PAGE_TITLES[state.view] || ["ADERVIS", ""];
         if (state.view === "deal" && state.project?.name) sub = escapeHtml(state.project.name);
         if (state.view === "clients") {
           const n = (state.clients||[]).length;
@@ -1992,7 +1992,7 @@
                 <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:20px;height:20px;object-fit:contain">
               </div>
               <div class="sidebar-label">
-                <div class="sidebar-brand-name">ADERVIS CRM</div>
+                <div class="sidebar-brand-name">ADERVIS</div>
                 <div class="sidebar-brand-sub">v${APP_VERSION}</div>
               </div>
             </div>
@@ -2346,26 +2346,26 @@
                 <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
               </div>
               <div>
-                <div style="font-weight:900;font-size:20px;letter-spacing:-.3px">ADERVIS CRM</div>
-                <div class="u-meta">CRM для видеопродакшна</div>
+                <div style="font-weight:900;font-size:20px;letter-spacing:-.3px">ADERVIS</div>
+                <div class="u-meta">Сметы и КП для видеопродакшна</div>
               </div>
             </div>
 
-            <h2 style="font-size:26px;font-weight:900;line-height:1.2;margin:28px 0 12px;letter-spacing:-.4px">CRM для видеостудий<br>и продакшн-агентств</h2>
-            <p style="font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 28px">Сделки, сметы, КП, финансы, договоры и задачи —<br>всё в одном инструменте, созданном продакшном для продакшна.</p>
+            <h2 style="font-size:26px;font-weight:900;line-height:1.2;margin:28px 0 12px;letter-spacing:-.4px">Смета и КП за 15 минут<br>вместо вечера в Excel</h2>
+            <p style="font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 28px">Клиент открывает ссылку, соглашается<br>и платит аванс онлайн.</p>
 
             <ul class="auth-features-list">
-              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg></span><div><strong>Калькулятор смет</strong><span>Считайте смету за минуты с пакетами услуг</span></div></li>
-              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2h13l-5 6v5.5l-3-1.5V8l-5-6z"/></svg></span><div><strong>Воронка продаж</strong><span>Ведите сделки от брифа до получения оплаты</span></div></li>
-              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg></span><div><strong>Финансы и аналитика</strong><span>Доходы, расходы, рентабельность каждого проекта</span></div></li>
-              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg></span><div><strong>Задачи и дедлайны</strong><span>Командный календарь с push-уведомлениями</span></div></li>
-              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 011.06 2.56L5.12 11H3v-2.12l7.44-7.44A1.5 1.5 0 0111.5 1zM2 12.5V15h2.5l.1-.1-2.4-2.4-.2.1z"/></svg></span><div><strong>Договоры и КП</strong><span>Готовые шаблоны и онлайн-портал для клиента</span></div></li>
+              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg></span><div><strong>Смета по каталогу</strong><span>93 позиции с вашими ценами и готовые пакеты — забытая строка не съест прибыль</span></div></li>
+              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 011.06 2.56L5.12 11H3v-2.12l7.44-7.44A1.5 1.5 0 0111.5 1zM2 12.5V15h2.5l.1-.1-2.4-2.4-.2.1z"/></svg></span><div><strong>КП одной ссылкой</strong><span>Клиент открывает страницу, а не файл, и соглашается в один клик</span></div></li>
+              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg></span><div><strong>Аванс онлайн</strong><span>Оплата картой прямо со страницы КП — без счёта и ожидания</span></div></li>
+              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h5l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.5 1.2V4.5H11L8.5 2.2zM5 7h6v1H5V7zm0 2.5h6v1H5v-1zM5 12h4v1H5v-1z"/></svg></span><div><strong>Договор из шаблона</strong><span>8 готовых бланков — заполняются полями, а не поиском по чужому файлу</span></div></li>
+              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2h13l-5 6v5.5l-3-1.5V8l-5-6z"/></svg></span><div><strong>А дальше сделка живёт сама</strong><span>Воронка, финансы и рентабельность, задачи с дедлайнами</span></div></li>
               <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M15 1L1 6.9l4.7 1.8L13.5 3 7.2 9.5 7 14l2.5-3.1 3.6 2.8L15 1z"/></svg></span><div><strong>Управление из Telegram</strong><span>Сделки, финансы и статистика прямо в боте</span></div></li>
             </ul>
 
             <div style="display:flex;gap:10px;align-items:flex-start;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:12px;padding:12px 14px;margin-bottom:24px">
               <span style="font-size:18px;line-height:1.3"></span>
-              <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">ADERVIS CRM создали люди из видеопродакшна — нам самим не хватало нормального инструмента для сделок, смет и финансов. Когда поняли, что он закрывает настоящую боль студий, открыли доступ другим командам.</p>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">ADERVIS сделали люди из видеопродакшна — мы сами теряли вечера на смету в Excel и отправляли клиенту невнятный файл. Инструмент вырос из своей практики: агентство ведёт в нём настоящие сделки, а не демо.</p>
             </div>
 
             <div class="auth-stats-row">
@@ -2391,8 +2391,8 @@
                         <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:24px;height:24px;object-fit:contain">
                       </div>
                       <div>
-                        <div style="font-weight:900;font-size:15px">ADERVIS CRM</div>
-                        <div class="u-meta">CRM для видеопродакшна</div>
+                        <div style="font-weight:900;font-size:15px">ADERVIS</div>
+                        <div class="u-meta">Сметы и КП для видеопродакшна</div>
                       </div>
                     </div>
                     <h3 style="font-size:16px;margin:0 0 8px">Сброс пароля</h3>
@@ -2429,8 +2429,8 @@
                       <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:24px;height:24px;object-fit:contain">
                     </div>
                     <div>
-                      <div style="font-weight:900;font-size:15px">ADERVIS CRM</div>
-                      <div class="u-meta">CRM для видеопродакшна</div>
+                      <div style="font-weight:900;font-size:15px">ADERVIS</div>
+                      <div class="u-meta">Сметы и КП для видеопродакшна</div>
                     </div>
                   </div>
 
@@ -2869,7 +2869,7 @@
           <div class="pwa-install-toast">
             <img src="logo-icon.svg" alt="" class="pwa-install-toast-icon">
             <div class="pwa-install-toast-text">
-              <strong>Установите ADERVIS CRM</strong>
+              <strong>Установите ADERVIS</strong>
               <span>Быстрый доступ с рабочего стола, без браузера</span>
             </div>
             <button class="btn primary small" onclick="app.installPWA()">Установить</button>
@@ -2999,7 +2999,7 @@
             </a>
             <div class="pd-sep" style="margin:6px 0"></div>
             <div class="help-dd-section">Получить помощь</div>
-            <a class="help-dd-item" href="mailto:adervis.digital@gmail.com?subject=Помощь по ADERVIS CRM" onclick="app.toggleHelpDd(false)">
+            <a class="help-dd-item" href="mailto:adervis.digital@gmail.com?subject=Помощь по ADERVIS" onclick="app.toggleHelpDd(false)">
               <span class="help-dd-item-icon" style="background:rgba(22,163,74,.15)"></span>
               <div><div>Написать нам</div><div class="hdi-sub">adervis.digital@gmail.com</div></div>
             </a>
@@ -3317,7 +3317,7 @@
               ${_promoCodeInputHtml()}
               <p style="font-size:12px;color:var(--muted);margin-bottom:20px">Безопасная оплата через ЮKassa · карта / СБП / ЮМани</p>
             ` : `
-              <a href="mailto:adervis.digital@gmail.com?subject=Продление подписки ADERVIS CRM" class="btn primary" style="text-decoration:none;margin-bottom:20px">
+              <a href="mailto:adervis.digital@gmail.com?subject=Продление подписки ADERVIS" class="btn primary" style="text-decoration:none;margin-bottom:20px">
          Продлить по email
               </a>
             `}
@@ -3948,7 +3948,7 @@
               </div>
               <div>
                 <h1 class="u-title-20">Поддержка и контакты</h1>
-                <div class="u-meta-13">ADERVIS CRM · автоматизация для видеопродакшна</div>
+                <div class="u-meta-13">ADERVIS · сметы и КП для видеопродакшна</div>
               </div>
             </div>
 
@@ -3989,7 +3989,7 @@
                 </div>
               </button>
 
-              <a href="https://t.me/adervis_manager?text=${encodeURIComponent('Привет! Хочу оставить отзыв о ADERVIS CRM:\n\n[напишите пару предложений — что понравилось, что помогло в работе]\n\nМожно опубликовать его (с моим именем/компанией) на сайте? (да/нет)')}" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
+              <a href="https://t.me/adervis_manager?text=${encodeURIComponent('Привет! Хочу оставить отзыв о ADERVIS:\n\n[напишите пару предложений — что понравилось, что помогло в работе]\n\nМожно опубликовать его (с моим именем/компанией) на сайте? (да/нет)')}" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
                 ${iconBadge("star", "var(--yellow)", 44)}
                 <div>
                   <div class="u-label-strong">Оставить отзыв о продукте</div>
@@ -4309,7 +4309,7 @@
             ` : `
             <div style="text-align:center;padding:32px 24px;margin-bottom:24px;background:var(--panel2);border-radius:16px;border:1px solid var(--line)">
               <div style="width:72px;height:72px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;margin:0 auto 16px;box-shadow:0 8px 28px rgba(124,58,237,.4)">A</div>
-              <h2 style="margin:0 0 6px;font-size:20px">Войдите в ADERVIS CRM</h2>
+              <h2 style="margin:0 0 6px;font-size:20px">Войдите в ADERVIS</h2>
               <p style="color:var(--muted);margin:0 0 18px;font-size:14px">Облачное хранение · Синхронизация · Подписка</p>
               <button class="btn primary" onclick="app.exitLocalModeAndLogin()" style="padding:12px 28px;font-size:15px;width:100%;max-width:280px;display:inline-flex;align-items:center;justify-content:center;gap:8px">${icon("lock")} Войти / Зарегистрироваться</button>
               <p style="font-size:12px;color:var(--muted);margin:12px 0 0">7 дней бесплатно · Без карты · Данные не удаляются</p>
@@ -4791,8 +4791,8 @@
       ═══════════════════════════════════════════════════════ */
       const ONBOARD_SLIDES = [
         {
-          title: "Добро пожаловать в ADERVIS CRM",
-          body: "Полноценная CRM для видеопродакшн агентств. Управляйте сделками, сметами, клиентами и финансами — всё в одном месте.",
+          title: "Добро пожаловать в ADERVIS",
+          body: "Смета и КП для видеопродакшна за 15 минут вместо вечера в Excel. Клиент открывает ссылку, соглашается и платит аванс онлайн — а дальше сделка живёт в воронке.",
           mock: "dashboard"
         },
         {
@@ -4817,13 +4817,13 @@
         },
         {
           title: "Тарифы и подписка",
-          body: "ADERVIS CRM работает по подписке. Напишите на adervis.digital@gmail.com для оплаты и активации нужного тарифа. Установите как приложение (PWA) для работы офлайн.",
+          body: "ADERVIS работает по подписке. Напишите на adervis.digital@gmail.com для оплаты и активации нужного тарифа. Установите как приложение (PWA) для работы офлайн.",
           mock: "plans"
         }
       ];
 
       // Мини-иллюстрации онбординга — было пустое место с текстом-заглушкой
-   // (пунктирная рамка + "ADERVIS CRM · дашборд агентства"), не готовый вид.
+   // (пунктирная рамка + "ADERVIS · дашборд агентства"), не готовый вид.
       // Реальные скриншоты сюда не завести (нет пайплайна ассетов/бандлера, см.
       // CLAUDE.md «не добавлять npm-зависимости») — рисуем лёгкий CSS-мокап,
       // стилистически похожий на настоящий экран (те же цвета/радиусы, что и в CRM).
@@ -4889,7 +4889,7 @@
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
                 <div>
                   <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Шаг ${idx + 1} из ${total}</div>
-                  <h2 style="margin:4px 0 0;font-size:19px">Знакомство с ADERVIS CRM</h2>
+                  <h2 style="margin:4px 0 0;font-size:19px">Знакомство с ADERVIS</h2>
                 </div>
                 <button onclick="app.closeHelpModal()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto">${icon("close", 16)}</button>
               </div>
@@ -5582,7 +5582,7 @@
 | Сайт | 16:9, 1080p | MP4, WebM |
 | ТВ | 16:9, 1080i/4K | MXF/ProRes |`, updatedAt: new Date().toISOString() },
 
-        { id: "kb_guide_1", cat: "guide", title: "Начало работы в ADERVIS CRM", content: `# Начало работы в ADERVIS CRM digital v4.0
+        { id: "kb_guide_1", cat: "guide", title: "Начало работы в ADERVIS", content: `# Начало работы в ADERVIS digital v4.0
 
 ## Что умеет программа
 
@@ -5777,7 +5777,7 @@
             details: "Видеопроизводство и digital-упаковка для бизнеса.",
             terms: "Срок действия предложения — 7 календарных дней. Финальные сроки и состав работ уточняются после брифа.",
             requisites: "",
-            // Подпись «Сделано в ADERVIS CRM» внизу клиентского портала КП.
+            // Подпись «Сделано в ADERVIS» внизу клиентского портала КП.
             // Снимается только на оплаченном тарифе (см. isPaidPlan / setProposalBranding).
             hideProposalBranding: false
           },
@@ -11361,7 +11361,7 @@
                   <span style="display:none;color:#fff;font-weight:900;font-size:20px">A</span>
                 </div>
                 <div>
-                  <div style="font-size:18px;font-weight:900;line-height:1.2">ADERVIS CRM</div>
+                  <div style="font-size:18px;font-weight:900;line-height:1.2">ADERVIS</div>
                   <div class="u-meta">Видеопродакшн</div>
                 </div>
               </div>
@@ -11375,7 +11375,7 @@
                 ${f.error ? `<p class="brief-error">${escapeHtml(f.error)}</p>` : ''}
               </div>
               <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:20px">
-                Powered by <strong>ADERVIS CRM</strong> · Данные используются только для связи с вами
+                Powered by <strong>ADERVIS</strong> · Данные используются только для связи с вами
               </p>
             </div>
           </div>`;
@@ -16336,7 +16336,7 @@
             ` : ""}
 
             <p style="margin-top:32px;color:#6b7280">
-              КП сформировано в ADERVIS CRM ${escapeHtml(APP_VERSION)} · ${escapeHtml(formatDate(new Date().toISOString()))}
+              КП сформировано в ADERVIS ${escapeHtml(APP_VERSION)} · ${escapeHtml(formatDate(new Date().toISOString()))}
             </p>
           </div>
         `;
@@ -17198,8 +17198,8 @@
               <div style="width:8px;height:8px;border-radius:50%;background:var(--primary)"></div>
               <span style="font-size:13px;color:var(--primary2);font-weight:600">7 дней бесплатно · карта не нужна</span>
             </div>
-            <h1 style="font-size:32px;letter-spacing:-.04em;margin-bottom:10px">Добро пожаловать<br>в ADERVIS CRM</h1>
-            <p style="font-size:15px;max-width:460px;margin:0 auto 36px">Сметы, КП, финансы и задачи для видеопродакшна —<br>всё в одном рабочем инструменте.</p>
+            <h1 style="font-size:32px;letter-spacing:-.04em;margin-bottom:10px">Смета и КП за 15 минут<br>вместо вечера в Excel</h1>
+            <p style="font-size:15px;max-width:460px;margin:0 auto 36px">Соберите смету по каталогу и отправьте клиенту ссылку —<br>он согласится и оплатит аванс онлайн.</p>
 
             <div class="welcome-steps">
               <div class="welcome-step">
@@ -17655,7 +17655,7 @@
             </div>
 
             ${(() => {
-              // Подпись «Сделано в ADERVIS CRM» внизу клиентского портала — бесплатный
+              // Подпись «Сделано в ADERVIS» внизу клиентского портала — бесплатный
               // канал распространения: каждое КП видит заказчик студии. Убрать её можно,
               // но только на оплаченном тарифе; флаг фиксируется в момент создания КП,
               // уже отправленные ссылки не переписываются задним числом.
@@ -17666,7 +17666,7 @@
                 <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("card", "var(--primary)")} Подпись на клиентском КП</h2>
                 <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.6">
                   Внизу страницы КП, которую открывает заказчик, стоит сдержанная строка
-                  «Сделано в ADERVIS&nbsp;CRM» со ссылкой. На оплаченном тарифе её можно убрать.
+                  «Сделано в ADERVIS» со ссылкой. На оплаченном тарифе её можно убрать.
                 </p>
                 <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.5;${paid ? "cursor:pointer" : "opacity:.6;cursor:not-allowed"}">
                   <input type="checkbox" id="hideProposalBranding" ${hidden ? "checked" : ""} ${paid ? "" : "disabled"}
@@ -17827,7 +17827,7 @@
                   <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
                 </div>
                 <div class="u-flex1-min0">
-                  <h2 style="margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:9px">${iconBadge("mobile", "var(--blue)")} Установить ADERVIS CRM</h2>
+                  <h2 style="margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:9px">${iconBadge("mobile", "var(--blue)")} Установить ADERVIS</h2>
                   <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.6">Работает как полноценное приложение — быстрый запуск с рабочего стола, без вкладки браузера, поддержка push-уведомлений.</p>
                 </div>
                 <div class="pwa-install-cta">
@@ -17905,7 +17905,7 @@
               <details class="mb-14">
                 <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:700">SQL — создать таблицы в Supabase (нажмите чтобы раскрыть)</summary>
                 <pre style="font-size:12px;background:rgba(0,0,0,.15);border-radius:10px;padding:12px;margin-top:10px;overflow-x:auto;white-space:pre-wrap;line-height:1.5">-- ═══════════════════════════════════════════════════
--- ADERVIS CRM — Схема базы данных v4.2
+-- ADERVIS — Схема базы данных v4.2
 -- Выполнить один раз в Supabase SQL Editor
 -- ═══════════════════════════════════════════════════
 
@@ -18073,7 +18073,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             ${tab === "dev" ? devTab : ""}
 
             <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--line);text-align:center;font-size:12px;color:var(--muted);line-height:1.8">
-              ADERVIS CRM · CRM для видеопродакшн · Самозанятый · ИНН&nbsp;592110786536 ·
+              ADERVIS · сметы и КП для видеопродакшна · Самозанятый · ИНН&nbsp;592110786536 ·
               <a href="mailto:adervis.digital@gmail.com" style="color:var(--muted)">adervis.digital@gmail.com</a> ·
               <a href="https://adervis.ru/docs" target="_blank" rel="noopener" style="color:var(--muted)">Оферта и политика конфиденциальности</a><br>
               Доступ предоставляется онлайн сразу после оплаты
@@ -18906,7 +18906,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       function _calcRenderFoot() {
         return `
           <p class="calc-foot">
-            Вы студия или продюсер? Этот расчёт собран в ADERVIS CRM — там 90+ позиций,
+            Вы студия или продюсер? Этот расчёт собран в ADERVIS — там 90+ позиций,
             свои ставки, КП с оплатой аванса, задачи и финансы.
             ${_calcStep === 3
               ? `<button type="button" class="calc-link" onclick="app.calcSaveToAccount()">Открыть этот расчёт в CRM →</button>`
@@ -19071,7 +19071,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <span style="width:16px;height:16px;border-radius:5px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">
                   <img src="logo-icon.svg" alt="" style="width:11px;height:11px;object-fit:contain" onerror="this.style.display='none'">
                 </span>
-                Сделано в <strong style="color:var(--text2);font-weight:700">ADERVIS&nbsp;CRM</strong> — CRM для видеопродакшн-студий
+                Сделано в <strong style="color:var(--text2);font-weight:700">ADERVIS</strong> — сметы и КП для видеопродакшна
               </a>`}
             </div>
           </div>
@@ -19173,7 +19173,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         }
       }
 
-      // Переключатель подписи «Сделано в ADERVIS CRM» на клиентском портале.
+      // Переключатель подписи «Сделано в ADERVIS» на клиентском портале.
       // Проверка тарифа дублируется здесь, а не только в disabled-атрибуте: инлайн-
       // обработчик вызывается из DOM, и полагаться на то, что кнопку нельзя нажать,
       // нельзя (флаг всё равно уезжает в client_portals при создании КП).
@@ -19606,7 +19606,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           const resp = await fetch(`${url}/functions/v1/telegram-notify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_adminSession.access_token}` },
-      body: JSON.stringify({ chatId: r.chatId, text: `Adervis CRM подключён${r.name ? ', ' + r.name : ''}!\nУведомления о задачах и сделках будут приходить сюда.` }),
+      body: JSON.stringify({ chatId: r.chatId, text: `Adervis подключён${r.name ? ', ' + r.name : ''}!\nУведомления о задачах и сделках будут приходить сюда.` }),
           });
           toast(resp.ok ? `Сообщение отправлено${r.name ? ' ' + r.name : ''}` : 'Ошибка отправки — проверьте Chat ID');
         } catch(e) { toast('Ошибка сети'); }
@@ -19626,7 +19626,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             <div class="modal-box" style="width:min(640px,calc(100vw - 32px))">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
                 <div>
-                  <h2 style="margin:0;font-size:22px">ADERVIS CRM</h2>
+                  <h2 style="margin:0;font-size:22px">ADERVIS</h2>
                   <p style="margin:2px 0 0;font-size:13px;color:var(--muted)">Что хочешь сделать?</p>
                 </div>
                 <button onclick="app.closeMainMenu()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">${icon("close", 16)}</button>
@@ -22161,7 +22161,7 @@ Email: _____________________              Email: _____________________
           const parts = [];
           if (overdueCount) parts.push(`просрочено: ${overdueCount}`);
           if (urgentCount)  parts.push(`скоро: ${urgentCount}`);
-          sendWebPush("⏰ Дедлайны Adervis CRM", parts.join(", "), "./");
+          sendWebPush("⏰ Дедлайны Adervis", parts.join(", "), "./");
         }
       }
 
@@ -22252,6 +22252,6 @@ Email: _____________________              Email: _____________________
         _deferredInstallPrompt = null;
         renderProfileDd();
         renderPwaInstallBanner();
-    toast('✓ ADERVIS CRM установлен как приложение');
+    toast('✓ ADERVIS установлен как приложение');
       });
     })();

@@ -1,4 +1,4 @@
-const CACHE_NAME = "adervis-crm-v203";
+const CACHE_NAME = "adervis-crm-v204";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -100,7 +100,7 @@ self.addEventListener("fetch", event => {
 
 // ── Web Push ──────────────────────────────────────────────────────────────────
 self.addEventListener("push", event => {
-  let title = "Adervis CRM";
+  let title = "Adervis";
   let body  = "Новое уведомление";
   let url   = "./";
   try {

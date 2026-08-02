@@ -4,7 +4,7 @@
 //   • число мест в команде НЕ должно зависеть от купленного периода (27.07.2026) —
 //     раньше «до 3 пользователей» продавалось вместе с «3 месяца», и команда из трёх
 //     человек была обязана купить сразу квартал;
-//   • подпись «Сделано в ADERVIS CRM» внизу портала КП — бесплатный канал
+//   • подпись «Сделано в ADERVIS» внизу портала КП — бесплатный канал
 //     распространения: она должна быть по умолчанию и исчезать только по флагу
 //     hide_branding, который выставляется на оплаченном тарифе;
 //   • переключатель подписи не должен быть доступен на неоплаченном тарифе.
@@ -122,7 +122,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
-  await test("портал КП: подпись «Сделано в ADERVIS CRM» показана по умолчанию", async () => {
+  await test("портал КП: подпись «Сделано в ADERVIS» показана по умолчанию", async () => {
     const { context, page, errors } = await bootPortal(browser, baseUrl, PORTAL_ROW);
     const txt = await page.$eval("#appContent", (el) => el.textContent || "");
     assert(/Сделано в\s*ADERVIS/i.test(txt), "нет подписи на портале КП");
@@ -183,8 +183,15 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
   await test("чеклист: совсем пустой аккаунт видит welcome-экран, а не чеклист", async () => {
     const { context, page } = await bootLocal(browser, baseUrl);
-    const txt = await page.$eval("#appContent", (el) => el.textContent || "");
-    assert(/Добро пожаловать/.test(txt), "пустое состояние перестало показывать welcome-экран");
+    // Якорь — разметка экрана, а не его текст: раньше тест искал «Добро пожаловать»
+    // и упал на смене позиционирования (02.08), хотя сам экран никуда не делся.
+    // Заголовок там продающий и будет меняться ещё не раз.
+    const found = await page.evaluate(() => ({
+      welcome: !!document.querySelector("#appContent .welcome-screen"),
+      steps: document.querySelectorAll("#appContent .welcome-step").length,
+    }));
+    assert(found.welcome, "пустое состояние перестало показывать welcome-экран");
+    assert(found.steps >= 3, "на welcome-экране пропали шаги первого запуска: " + found.steps);
     await context.close();
   });
 

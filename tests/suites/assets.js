@@ -162,4 +162,32 @@ module.exports = async function ({ test }) {
     assert(/function icon\(name, size\)[\s\S]{0,200}ICON_PATHS\[name\]/.test(app), "icon() больше не читает ICON_PATHS");
   });
 
+  // PLAN.md §2: витрина продаёт смету и КП, а не «ещё одну CRM» — на слове CRM
+  // посетитель сравнивает нас с Bitrix24/amoCRM. Имя продукта наружу — «ADERVIS»;
+  // «CRM» остаётся внутри как название раздела и в оферте как юр. наименование.
+  await test("позиционирование: витрина продаёт смету и КП, а не «ещё одну CRM»", () => {
+    assert(/<title>ADERVIS — сметы и КП/.test(head), "заголовок вкладки перестал продавать смету и КП");
+    assert(!/ADERVIS CRM/.test(head), "«ADERVIS CRM» вернулось в <head> (title/og/JSON-LD)");
+
+    const manifest = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "manifest.json"), "utf8"));
+    assert(!/ADERVIS CRM/.test(manifest.name), "«ADERVIS CRM» вернулось в имя PWA: " + manifest.name);
+
+    // Экран входа и подпись на клиентском портале — две самые внешние поверхности.
+    assert(/Смета и КП за 15 минут/.test(app), "с экрана входа пропал заголовок про смету и КП");
+    assert(/Сделано в <strong[^>]*>ADERVIS<\/strong>/.test(app), "подпись на клиентском КП снова называет продукт «ADERVIS CRM»");
+
+    // В самом app.js «ADERVIS CRM» допустимо только в юр. документах (оферта,
+    // политика) — там это наименование сервиса в договоре.
+    const offerStart = app.indexOf("DOCS_PRIVACY_HTML");
+    const offerEnd = app.indexOf("function renderDocsModal");
+    const bad = [];
+    app.split(/\r?\n/).forEach((line, i) => {
+      if (!/ADERVIS CRM|Adervis CRM/.test(line)) return;
+      const pos = app.indexOf(line);
+      if (offerStart > 0 && pos > offerStart && pos < offerEnd) return; // юр. тексты
+      bad.push(`app.js:${i + 1} ${line.trim().slice(0, 80)}`);
+    });
+    assert(bad.length === 0, "«ADERVIS CRM» вне юр. документов:\n" + bad.slice(0, 8).join("\n"));
+  });
+
 };
