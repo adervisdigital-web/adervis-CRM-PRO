@@ -1933,7 +1933,7 @@
         const activeProject = state.activeProjectId && state.project?.name ? state.project.name : "";
 
         const navItem = (view, icon, label, badge, extraId, extraClass) => `
-          <button class="sidebar-nav-item ${v === view ? "active" : ""} ${extraClass||""}" onclick="app.go('${view}')"
+          <button class="sidebar-nav-item ${v === view ? "active" : ""} ${extraClass||""}" ${v === view ? 'aria-current="page"' : ""} onclick="app.go('${view}')"
             ${extraId ? `id="${extraId}"` : ""} data-tour="${view}" title="${label}">
             ${icon}
             <span class="sidebar-label">${label}</span>
@@ -1965,7 +1965,7 @@
           proposals: () => navItem("proposals",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h5l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.5 1.2V4.5H11L8.5 2.2zM5 7h6v1H5V7zm0 2.5h6v1H5v-1zM5 12h4v1H5v-1z"/></svg>`,"Все КП"),
           briefs: () => navItem("briefs",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h6l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 1v3h3L9 2zM5 7h6v1H5V7zm0 3h6v1H5v-1z"/></svg>`,"Онлайн-брифы"),
           "company-team": () => navItem("company-team",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm5-1a2 2 0 100-4 2 2 0 000 4zM1 13.5c0-2.5 2.2-4 4.5-4s4.5 1.5 4.5 4H1zm9-3.3c1.9.4 3 1.6 3 3.3h-2c0-1.2-.4-2.3-1-3.3z"/></svg>`,"Команда"),
-          "global-finances": () => navItem("global-finances",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg>`,"Финансы"),
+          "global-finances": () => navItem("global-finances", icon("wallet", 15), "Финансы"),
           "global-calendar": () => navItem("global-calendar",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>`,"Календарь","","","", overdueCount ? `badge${overdueCount}` : ""),
           "global-tasks": () => navItem("global-tasks",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h2v2H2V3zm4 0h8v1.5H6V3zM2 7h2v2H2V7zm4 .25h8v1.5H6v-1.5zM2 11h2v2H2v-2zm4 .25h8v1.5H6v-1.5z"/></svg>`,"Задачи","","","", overdueCount ? `badge${overdueCount}` : ""),
           contracts: () => navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора"),
@@ -3514,6 +3514,10 @@
       let _adminErrors = null; // сырые строки client_errors
       let _adminErrorsFilter = { q: "", kind: "" };
       let _adminErrorExpanded = null; // ключ развёрнутой группы
+      // Поиск и отбор на вкладке «Пользователи». Список плоский и растёт с каждой
+      // регистрацией — без отбора нужного человека приходится искать глазами.
+      let _adminUsersFilter = { q: "", status: "" };
+      let _adminUsersSort = "created"; // created | expires | signin
 
       async function loadAdminPanel() {
         if (!_isSuperAdmin() || !_supabase) return;
@@ -3663,6 +3667,121 @@
         return `${Math.abs(d)} дн. назад`;
       }
 
+      // Поиск, отбор по статусу и сортировка над списком пользователей.
+      function _adminUsersToolbarHtml() {
+        const all = _adminAgencies || [];
+        const cnt = (st) => st ? all.filter(a => _adminUserStatus(a) === st).length : all.length;
+        const chip = (key, label) => {
+          const active = (_adminUsersFilter.status || "") === key;
+          const n = cnt(key);
+          return `<button class="fin-subtab ${active ? "active" : ""}" onclick="app._setAdminUsersStatus('${key}')">${label} · ${n}</button>`;
+        };
+        const shown = _adminFilteredUsers().length;
+        return `
+          <div class="fin-subtab-bar" style="margin-bottom:10px;flex-wrap:wrap">
+            ${chip("", "Все")}${chip("active", "Активные")}${chip("trial", "Триал")}${chip("expired", "Истёкшие")}${chip("blocked", "Заблокированные")}${chip("none", "Без профиля")}
+          </div>
+          <div class="kp-toolbar">
+            <div class="kp-search">
+              <span class="kp-search-icon" aria-hidden="true">${icon("search", 14)}</span>
+              <input type="search" id="adminUsersSearch" placeholder="Поиск по email или agency_id…"
+                aria-label="Поиск по пользователям" value="${escapeHtml(_adminUsersFilter.q)}"
+                oninput="app._setAdminUsersQuery(this.value)">
+            </div>
+            <div class="kp-sort" role="group" aria-label="Сортировка пользователей">
+              <span class="u-meta" style="font-size:12px">Сначала:</span>
+              <button class="fin-subtab ${_adminUsersSort === "created" ? "active" : ""}" onclick="app._setAdminUsersSort('created')">новые</button>
+              <button class="fin-subtab ${_adminUsersSort === "expires" ? "active" : ""}" onclick="app._setAdminUsersSort('expires')">срок ближе</button>
+              <button class="fin-subtab ${_adminUsersSort === "signin" ? "active" : ""}" onclick="app._setAdminUsersSort('signin')">заходили</button>
+            </div>
+          </div>
+          <div class="u-meta" style="font-size:12px;margin-bottom:10px">Показано ${shown} из ${all.length}</div>`;
+      }
+
+      // Одна строка пользователя. Вынесено из шаблона renderAdminPanel, чтобы
+      // поиск перерисовывал только список, а не всю страницу.
+      function _adminUsersListHtml() {
+        const statusColor = { trial: "rgba(202,138,4,.15)", active: "rgba(22,163,74,.15)", expired: "rgba(220,38,38,.12)", blocked: "rgba(220,38,38,.2)", "": "var(--panel2)" };
+        const statusText = { trial: "var(--tint-amber)", active: "var(--text-success)", expired: "var(--text-danger)", blocked: "var(--text-danger)" };
+        const list = _adminFilteredUsers();
+        if (!list.length) {
+          return `<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px">Никого не нашлось. Смените отбор или очистите поиск.</div>`;
+        }
+        return list.map(a => {
+                  const aid = escapeHtml(a.agency_id||"");
+                  const ast = a.subscription_status || "";
+                  const isEditing = _adminEditSub && _adminEditSub.agencyId === (a.agency_id||"");
+                  const daysLeft = _adminDaysLeft(a.subscription_expires_at);
+                  const isBlocked = ast === "blocked";
+                  const isExpired = ast === "expired";
+                  return `
+                    <div style="border:1px solid var(--line);border-radius:14px;overflow:hidden;${isBlocked?"opacity:.6":""}">
+                      <!-- User row -->
+                      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;flex-wrap:wrap">
+                        <!-- Avatar -->
+                        <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:14px;font-weight:900;color:#fff;flex-shrink:0">
+                          ${(a.email||"?")[0].toUpperCase()}
+                        </div>
+                        <!-- Info -->
+                        <div class="u-flex1-min0">
+                          <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.email||"—")}</div>
+                          <div style="font-size:12px;color:var(--muted);margin-top:2px">
+                            Зарег.: ${a.created_at ? new Date(a.created_at).toLocaleDateString("ru-RU") : "—"}
+                            ${a.last_sign_in_at ? ` · Вход: ${new Date(a.last_sign_in_at).toLocaleDateString("ru-RU")}` : ""}
+                          </div>
+                        </div>
+                        <!-- Status + plan + expiry -->
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0">
+                          <span style="padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;background:${statusColor[ast]||"var(--panel2)"};color:${statusText[ast]||"var(--muted)"}">
+                            ${_adminSubLabel(ast)}
+                          </span>
+                          ${a.subscription_plan ? `<span style="font-size:12px;font-weight:600;color:var(--muted)">${_adminPlanLabel(a.subscription_plan)}</span>` : ""}
+                          ${a.subscription_expires_at ? `<span style="font-size:12px;color:${isExpired?"var(--text-danger)":"var(--muted)"}">${daysLeft}</span>` : ""}
+                          ${!a.email_confirmed ? `<span title="Email не подтверждён" style="font-size:12px;color:var(--yellow);display:inline-flex">${icon("warning", 13)}</span>` : ""}
+                        </div>
+                        <!-- Actions -->
+                        <div style="display:flex;gap:6px;flex-shrink:0">
+                          ${!isEditing ? `
+                            ${(isExpired || ast === "") ? `<button class="btn small green" onclick="app.adminActivate('${aid}')" title="Активировать на 30 дней">${icon("check")} Активировать</button>` : ""}
+                            <button class="btn small" onclick="app.adminExtendTrial('${aid}')" title="+14 дней к триалу">+14д</button>
+                            <button class="btn small" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Изменить подписку" aria-label="Изменить подписку">${icon("pencil")}</button>
+                            <button class="btn small ${isBlocked?"green":"danger"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}" aria-label="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?icon("unlock"):icon("lock")}</button>
+                          ` : `
+                            <button class="btn small" onclick="app._closeEditSub()" style="opacity:.6">Отмена</button>
+                          `}
+                        </div>
+                      </div>
+                      <!-- Inline editor -->
+                      ${isEditing ? `
+                        <div style="border-top:1px solid var(--line);padding:14px 16px;background:var(--panel2)">
+                          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px">
+                            <div class="field" style="margin:0">
+                              <label>Статус</label>
+                              <select onchange="app._setEditSub('status',this.value)">
+                                ${["trial","active","expired","blocked"].map(sv => `<option value="${sv}" ${_adminEditSub.status===sv?"selected":""}>${_adminSubLabel(sv)}</option>`).join("")}
+                              </select>
+                            </div>
+                            <div class="field" style="margin:0">
+                              <label>Тариф</label>
+                              <select onchange="app._setEditSub('plan',this.value)">
+                                ${["month1","month3","month6","year","pro"].map(pv => `<option value="${pv}" ${_adminEditSub.plan===pv?"selected":""}>${_adminPlanLabel(pv)}</option>`).join("")}
+                              </select>
+                            </div>
+                            <div class="field" style="margin:0">
+                              <label>Истекает</label>
+                              <input type="date" value="${escapeHtml(_adminEditSub.expires||"")}" onchange="app._setEditSub('expires',this.value)">
+                            </div>
+                          </div>
+                          <div class="u-flex-g8">
+                            <button class="btn primary small" onclick="app.adminSetSubscription()">Сохранить</button>
+                            <button class="btn small" onclick="app._closeEditSub()">Отмена</button>
+                          </div>
+                        </div>
+                      ` : ""}
+                    </div>`;
+        }).join("");
+      }
+
       function renderAdminPanel() {
         if (!_isSuperAdmin()) return `<div class="panel"><p class="u-muted">Доступ запрещён.</p></div>`;
         if (_adminLoading) return `<div class="panel" style="text-align:center;padding:48px"><div class="spinner" style="margin:0 auto 12px"></div><p class="u-muted">Загрузка...</p></div>`;
@@ -3718,82 +3837,10 @@
 
             <!-- Users tab -->
             ${_adminPanelTab === "users" ? `
-              <div style="display:flex;flex-direction:column;gap:8px">
-                ${(_adminAgencies||[]).map(a => {
-                  const aid = escapeHtml(a.agency_id||"");
-                  const ast = a.subscription_status || "";
-                  const isEditing = _adminEditSub && _adminEditSub.agencyId === (a.agency_id||"");
-                  const daysLeft = _adminDaysLeft(a.subscription_expires_at);
-                  const isBlocked = ast === "blocked";
-                  const isExpired = ast === "expired";
-                  return `
-                    <div style="border:1px solid var(--line);border-radius:14px;overflow:hidden;${isBlocked?"opacity:.6":""}">
-                      <!-- User row -->
-                      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;flex-wrap:wrap">
-                        <!-- Avatar -->
-                        <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:14px;font-weight:900;color:#fff;flex-shrink:0">
-                          ${(a.email||"?")[0].toUpperCase()}
-                        </div>
-                        <!-- Info -->
-                        <div class="u-flex1-min0">
-                          <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.email||"—")}</div>
-                          <div style="font-size:12px;color:var(--muted);margin-top:2px">
-                            Зарег.: ${a.created_at ? new Date(a.created_at).toLocaleDateString("ru-RU") : "—"}
-                            ${a.last_sign_in_at ? ` · Вход: ${new Date(a.last_sign_in_at).toLocaleDateString("ru-RU")}` : ""}
-                          </div>
-                        </div>
-                        <!-- Status + plan + expiry -->
-                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0">
-                          <span style="padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;background:${statusColor[ast]||"var(--panel2)"};color:${statusText[ast]||"var(--muted)"}">
-                            ${_adminSubLabel(ast)}
-                          </span>
-                          ${a.subscription_plan ? `<span style="font-size:12px;font-weight:600;color:var(--muted)">${_adminPlanLabel(a.subscription_plan)}</span>` : ""}
-                          ${a.subscription_expires_at ? `<span style="font-size:12px;color:${isExpired?"var(--text-danger)":"var(--muted)"}">${daysLeft}</span>` : ""}
-                          ${!a.email_confirmed ? `<span title="Email не подтверждён" style="font-size:12px;color:var(--yellow);display:inline-flex">${icon("warning", 13)}</span>` : ""}
-                        </div>
-                        <!-- Actions -->
-                        <div style="display:flex;gap:6px;flex-shrink:0">
-                          ${!isEditing ? `
-                            ${(isExpired || ast === "") ? `<button class="btn small green" onclick="app.adminActivate('${aid}')" title="Активировать на 30 дней">${icon("check")} Активировать</button>` : ""}
-                            <button class="btn small" onclick="app.adminExtendTrial('${aid}')" title="+14 дней к триалу">+14д</button>
-                            <button class="btn small" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Изменить подписку" aria-label="Изменить подписку">${icon("pencil")}</button>
-                            <button class="btn small ${isBlocked?"green":"danger"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}" aria-label="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?icon("unlock"):icon("xcircle")}</button>
-                          ` : `
-                            <button class="btn small" onclick="app._closeEditSub()" style="opacity:.6">Отмена</button>
-                          `}
-                        </div>
-                      </div>
-                      <!-- Inline editor -->
-                      ${isEditing ? `
-                        <div style="border-top:1px solid var(--line);padding:14px 16px;background:var(--panel2)">
-                          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px">
-                            <div class="field" style="margin:0">
-                              <label>Статус</label>
-                              <select onchange="app._setEditSub('status',this.value)">
-                                ${["trial","active","expired","blocked"].map(sv => `<option value="${sv}" ${_adminEditSub.status===sv?"selected":""}>${_adminSubLabel(sv)}</option>`).join("")}
-                              </select>
-                            </div>
-                            <div class="field" style="margin:0">
-                              <label>Тариф</label>
-                              <select onchange="app._setEditSub('plan',this.value)">
-                                ${["month1","month3","month6","year","pro"].map(pv => `<option value="${pv}" ${_adminEditSub.plan===pv?"selected":""}>${_adminPlanLabel(pv)}</option>`).join("")}
-                              </select>
-                            </div>
-                            <div class="field" style="margin:0">
-                              <label>Истекает</label>
-                              <input type="date" value="${escapeHtml(_adminEditSub.expires||"")}" onchange="app._setEditSub('expires',this.value)">
-                            </div>
-                          </div>
-                          <div class="u-flex-g8">
-                            <button class="btn primary small" onclick="app.adminSetSubscription()">Сохранить</button>
-                            <button class="btn small" onclick="app._closeEditSub()">Отмена</button>
-                          </div>
-                        </div>
-                      ` : ""}
-                    </div>`;
-                }).join("")}
-              </div>
+              ${_adminUsersToolbarHtml()}
+              <div id="adminUsersList" style="display:flex;flex-direction:column;gap:8px">${_adminUsersListHtml()}</div>
             ` : ""}
+
 
             <!-- Promos tab -->
             ${_adminPanelTab === "promos" ? `
@@ -3904,6 +3951,39 @@
       function _setAdminTab(tab) { _adminPanelTab = tab; render(); }
       function _setSettingsTab(tab) { _settingsTab = tab; render(); }
       function _setErrorsFilter(k, v) { _adminErrorsFilter[k] = v; render(); }
+      function _setAdminUsersStatus(v) { _adminUsersFilter.status = v; render(); }
+      function _setAdminUsersSort(v) { _adminUsersSort = v; render(); }
+      // Поиск перерисовывает только список: полный render() пересоздал бы поле
+      // и увёл фокус после первой буквы (тот же приём, что на «Все КП»).
+      function _setAdminUsersQuery(v) {
+        _adminUsersFilter.q = v;
+        const el = document.getElementById("adminUsersList");
+        if (el) el.innerHTML = _adminUsersListHtml();
+      }
+
+      // Статус для отбора: «» у профиля значит «не заводился», это отдельная
+      // категория — такие аккаунты зарегистрировались, но в продукт не вошли.
+      function _adminUserStatus(a) { return a.subscription_status || "none"; }
+
+      function _adminFilteredUsers() {
+        const all = _adminAgencies || [];
+        const q = (_adminUsersFilter.q || "").trim().toLowerCase();
+        const st = _adminUsersFilter.status || "";
+        let list = all.filter(a =>
+          (!st || _adminUserStatus(a) === st) &&
+          (!q || (a.email || "").toLowerCase().includes(q) || (a.agency_id || "").toLowerCase().includes(q))
+        );
+        const ts = (v) => (v ? new Date(v).getTime() : 0);
+        if (_adminUsersSort === "expires") {
+          // Сначала те, у кого срок ближе (и уже истёк) — с ними и надо работать.
+          list = list.slice().sort((a, b) => (ts(a.subscription_expires_at) || Infinity) - (ts(b.subscription_expires_at) || Infinity));
+        } else if (_adminUsersSort === "signin") {
+          list = list.slice().sort((a, b) => ts(b.last_sign_in_at) - ts(a.last_sign_in_at));
+        } else {
+          list = list.slice().sort((a, b) => ts(b.created_at) - ts(a.created_at));
+        }
+        return list;
+      }
       function _toggleErrorGroup(key) { _adminErrorExpanded = _adminErrorExpanded === key ? null : key; render(); }
       function _agencyEmailById(agencyId) {
         if (!agencyId) return null;
@@ -10906,7 +10986,11 @@
         const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","company-team","knowledge","services","catalog","packages","contracts","support","crm"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions"], mbnFinances: ["global-finances","global-calendar"] };
         Object.entries(mbnViewMap).forEach(([id, views]) => {
           const el = document.getElementById(id);
-          if (el) el.classList.toggle("active", views.includes(state.view));
+          if (!el) return;
+          const on = views.includes(state.view);
+          el.classList.toggle("active", on);
+          // Подсветка сообщает «вы здесь» только зрячему; скрин-ридеру нужен aria-current.
+          if (on) el.setAttribute("aria-current", "page"); else el.removeAttribute("aria-current");
         });
 
         const navEstimateBtn = document.getElementById("navEstimateBtn");
@@ -19792,7 +19876,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <div class="mm-sub">Каталог и пакеты</div>
                 </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('global-finances')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg></span>
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2.6 2.8h9.2c.8 0 1.4.6 1.4 1.4v.8h.8c.6 0 1.2.5 1.2 1.2v5.6c0 .7-.5 1.2-1.2 1.2H2.6c-.9 0-1.6-.7-1.6-1.6V4.4c0-.9.7-1.6 1.6-1.6zm0 1.5a.1.1 0 00-.1.1v7c0 .1 0 .1.1.1h11v-5H2.6v-1.5h9.1v-.6a.1.1 0 00-.1-.1H2.6zm8.6 3.9a1 1 0 110 2 1 1 0 010-2z"/></svg></span>
                   <div class="mm-label">Финансы</div>
                   <div class="mm-sub">Все транзакции</div>
                 </button>
@@ -22155,6 +22239,9 @@ Email: _____________________              Email: _____________________
         _setEditSub,
         _setPromoForm,
         _setErrorsFilter,
+        _setAdminUsersStatus,
+        _setAdminUsersSort,
+        _setAdminUsersQuery,
         _toggleErrorGroup,
         forceSaveToCloud,
         rotateCalendarToken,

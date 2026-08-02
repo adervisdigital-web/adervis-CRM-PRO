@@ -111,6 +111,40 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     assert(bad.length === 0, "строка КП на узком экране: " + bad.join("; "));
   });
 
+  // На телефоне из топбара убрано почти всё ради места, и вместе с прочим туда
+  // уехал глобальный поиск — при сотне сделок это значит «искать листанием».
+  // Заодно проверяем, что активный пункт нижней навигации объявляется не только
+  // цветом: подсветка ничего не говорит скрин-ридеру.
+  await test("телефон: поиск доступен из топбара, активный пункт нав. помечен aria-current", async () => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(250);
+    const res = await page.evaluate(() => {
+      const vis = (el) => {
+        if (!el) return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 2 && r.height > 2 && getComputedStyle(el).display !== "none";
+      };
+      const search = document.getElementById("searchBtn");
+      const nav = [...document.querySelectorAll(".mobile-bottom-nav button")];
+      const active = nav.filter((b) => b.classList.contains("active"));
+      return {
+        searchVisible: vis(search),
+        searchName: search ? (search.getAttribute("aria-label") || "").trim() : "",
+        activeCount: active.length,
+        activeCurrent: active.filter((b) => b.getAttribute("aria-current") === "page").length,
+        navCount: nav.length,
+      };
+    });
+    assert(res.searchVisible, "на 390px нет кнопки глобального поиска в топбаре");
+    assert(res.searchName.length > 0, "у кнопки поиска нет доступного имени");
+    assert(res.navCount >= 4, "нижняя навигация не отрисовалась: " + res.navCount);
+    assert(res.activeCount > 0, "ни один пункт нижней навигации не активен на «Проектах»");
+    assert(res.activeCurrent === res.activeCount,
+      `активный пункт без aria-current: ${res.activeCurrent} из ${res.activeCount}`);
+    await page.setViewportSize({ width: 900, height: 800 });
+  });
+
   // Визуальная фиксация каталога на самом узком экране (п.20 — визуальный обход)
   await test("каталог на 320px: снимок для ревью", async () => {
     await page.setViewportSize({ width: 320, height: 800 });
