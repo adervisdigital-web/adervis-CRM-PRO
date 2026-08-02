@@ -57,7 +57,12 @@
 
       --primary:    #6c00ff;
       --primary2:   #9b4dff;
-      --primary-bg: rgba(108, 0, 255, .09);
+      /* Тот же акцент в виде тройки каналов — для подсветок и свечения:
+         rgb(var(--primary-rgb) / .12). Раньше на этих местах стояло 168 хардкодов
+         rgba(124,58,237,…) / rgba(108,0,255,…), из-за чего подсветки не следовали ни
+         за темой, ни тем более за выбранной схемой. Держать в синхроне с --primary. */
+      --primary-rgb: 108 0 255;
+      --primary-bg: rgb(var(--primary-rgb) / .09);
       /* Текст поверх фиолетовой подсветки (--primary-bg и rgba(124,58,237,.1x)).
          Отдельно от --primary2: тот в светлой теме светлее основного и на тинте
          даёт 3.1:1 — ниже AA. Замер: tests/suites/a11y.js «активные элементы». */
@@ -73,11 +78,16 @@
       --orange: #ea580c;
       --red:    #f22822;
 
-      /* Status text — readable variant of each hue, dark-theme default */
-      --text-success: #86efac;
-      --text-danger:  #fca5a5;
-      --text-info:    #93c5fd;
-      --text-warning: #fdba74;
+      /* Status text — readable variant of each hue, dark-theme default.
+         Цель — 5-8:1, а не «чем больше, тем лучше». Прежние значения (200-я ступень
+         Tailwind: #fca5a5/#86efac/#93c5fd/#fdba74) давали 9-13:1 при пороге AA 4.5 —
+         запас вдвое, купленный обесцвечиванием: «Расходы» и «Долг клиентов» на
+         дашборде выходили бледно-розовыми, а не красными. Ниже — насыщенные оттенки
+         с двукратным запасом над AA. Замер: tests/suites/a11y.js. */
+      --text-success: #22c55e;
+      --text-danger:  #ff5147;
+      --text-info:    #57a5ff;
+      --text-warning: #ff9d3d;
 
       /* Darker hue shade — hover-darken for solid buttons, same in both themes */
       --green-strong:  #15803d;
@@ -101,7 +111,7 @@
       --tint-red:    #fca5a5;
       --tint-slate:  #cbd5e1;
       /* Фоны капсул — альфа-тинты, работают в обеих темах, поэтому не дублируются */
-      --tint-violet-bg: rgba(124, 58, 237, .12);
+      --tint-violet-bg: rgb(var(--primary-rgb) / .12);
       --tint-blue-bg:   rgba(37, 99, 235, .12);
       --tint-green-bg:  rgba(22, 163, 74, .14);
       --tint-orange-bg: rgba(234, 88, 12, .12);
@@ -123,6 +133,23 @@
       --elev-2: 0 8px 24px rgba(0,0,0,.36), 0 2px 8px rgba(0,0,0,.22);
       --elev-3: 0 20px 56px rgba(0,0,0,.52), 0 6px 18px rgba(0,0,0,.28);
       --shadow: var(--elev-2);
+
+      /* ── Движение ──────────────────────────────────────────────────────────
+         До этих токенов длительности расползлись по файлу десятью значениями
+         (.12/.14/.15/.16/.18/.2/.22/.3/.35s) и пятью кривыми, из-за чего соседние
+         элементы на одном экране двигались с разной скоростью. Три шага хватает:
+           dur-1 — отклик на нажатие/наведение, глазом не читается как анимация;
+           dur-2 — смена состояния (подсветка, раскрытие);
+           dur-3 — появление слоя (модалка, шторка, всплывашка).
+         ease-out для входа, ease-in для ухода, spring — только там, где нужен
+         «отскок» (кружок схемы, счётчик), иначе интерфейс начинает пружинить весь.
+         Уважение к prefers-reduced-motion — глобальным правилом ниже, не здесь. */
+      --dur-1: .12s;
+      --dur-2: .2s;
+      --dur-3: .32s;
+      --ease-out:    cubic-bezier(.16, 1, .3, 1);
+      --ease-in:     cubic-bezier(.4, 0, 1, 1);
+      --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
 
       --radius: 16px;
       --input:  rgba(19, 19, 27, .95);
@@ -154,9 +181,14 @@
       --shadow: 0 2px 12px rgba(0, 0, 0, .09);
       --primary: #5b4ee8;
       --primary2: #7c6fef;
-      --primary-bg: rgba(91, 78, 232, .09);
+      --primary-rgb: 91 78 232;
+      --primary-bg: rgb(var(--primary-rgb) / .09);
+      /* on-tint темнее, чем primary-text, и это не опечатка: подсветки местами
+         накладываются друг на друга (активный пункт каталога + счётчик внутри него),
+         и суммарный тинт заметно темнее одиночного. На нём #6d28d9 даёт 4.33:1.
+         Ловится тестом «текст в интерфейсе: контраст отвечает WCAG AA». */
       --primary-on-tint: #5b21b6;
-      --primary-text: #5b21b6;
+      --primary-text: #6d28d9;
       --blue: #2563eb;
       --cyan: #0891b2;
       --green: #16a34a;
@@ -164,10 +196,15 @@
       --orange: #ea580c;
       --red: #dc2626;
 
-      --text-success: var(--green-strong);
-      --text-danger:  var(--tint-red);
+      /* Светлая тема: та же цель 5-6:1. Прежние значения уходили в другую крайность —
+         #991b1b (7.4:1) читается кирпично-бурым, а не красным. Плюс здесь закрыт
+         скрытый промах: --text-success был var(--green-strong) = #15803d, и на фоне
+         страницы --bg #f0f2f5 это 4.47:1 — ниже AA. Пробник a11y ловил его только на
+         белых панелях (5.02:1), поэтому тест молчал. */
+      --text-success: #14783c;
+      --text-danger:  #c81e1e;
       --text-info:    var(--blue-strong);
-      --text-warning: #c2410c;
+      --text-warning: #b8400c;
 
       /* Тёмные варианты тех же оттенков: на белом читаются 5-8:1 вместо 2-4:1.
          У зелёного, оранжевого и янтарного взята 800-я ступень, а не 700-я:
@@ -184,9 +221,67 @@
       --tint-slate:  #475569;
     }
 
+    /* ── Цветовые схемы (акцент) ─────────────────────────────────────────────
+       Настройки → Оформление. Схема меняет ТОЛЬКО акцент; фоны, текст и статусные
+       цвета (успех/ошибка) общие — иначе «зелёная» схема сделала бы неотличимыми
+       акцент и признак успеха, а «красная» — акцент и ошибку. По той же причине в
+       наборе нет красной схемы: она конфликтует с --text-danger.
+
+       Специфичность: [data-accent=…] и [data-theme=light] равны (0,1,0), поэтому
+       светлые значения задаются парой селекторов (0,2,0) — она выигрывает
+       независимо от порядка правил в файле.
+
+       Каждое значение проверено на AA: --primary держит ≥4.5:1 с белой подписью
+       кнопки, --primary-text — ≥4.5:1 на всех трёх фонах своей темы.
+       Сторож: tests/suites/a11y.js «цветовые схемы читаемы в обеих темах». */
+    [data-accent="indigo"] {
+      --primary: #1f6feb; --primary2: #4d9dff; --primary-rgb: 31 111 235;
+      --primary-text: #6ba8ff; --primary-on-tint: #6ba8ff;
+    }
+    [data-theme="light"][data-accent="indigo"] {
+      --primary: #1d4ed8; --primary2: #3b82f6; --primary-rgb: 29 78 216;
+      --primary-text: #1d4ed8; --primary-on-tint: #1e40af;
+    }
+
+    [data-accent="emerald"] {
+      --primary: #0a7a43; --primary2: #16b364; --primary-rgb: 10 122 67;
+      --primary-text: #22c55e; --primary-on-tint: #22c55e;
+    }
+    [data-theme="light"][data-accent="emerald"] {
+      --primary: #047857; --primary2: #10b981; --primary-rgb: 4 120 87;
+      --primary-text: #14783c; --primary-on-tint: #14532d;
+    }
+
+    [data-accent="amber"] {
+      --primary: #b45309; --primary2: #e08c0b; --primary-rgb: 180 83 9;
+      --primary-text: #f0b429; --primary-on-tint: #f0b429;
+    }
+    [data-theme="light"][data-accent="amber"] {
+      --primary: #b45309; --primary2: #d97706; --primary-rgb: 180 83 9;
+      --primary-text: #9a4c07; --primary-on-tint: #713f12;
+    }
+
+    [data-accent="teal"] {
+      --primary: #0d7f8f; --primary2: #14b8c4; --primary-rgb: 13 127 143;
+      --primary-text: #22d3ee; --primary-on-tint: #22d3ee;
+    }
+    [data-theme="light"][data-accent="teal"] {
+      --primary: #0f766e; --primary2: #0d9488; --primary-rgb: 15 118 110;
+      --primary-text: #0e6b64; --primary-on-tint: #115e59;
+    }
+
+    [data-accent="graphite"] {
+      --primary: #4b5563; --primary2: #7c8a9e; --primary-rgb: 75 85 99;
+      --primary-text: #9aa8bc; --primary-on-tint: #9aa8bc;
+    }
+    [data-theme="light"][data-accent="graphite"] {
+      --primary: #475569; --primary2: #64748b; --primary-rgb: 71 85 105;
+      --primary-text: #3f4c5f; --primary-on-tint: #3f4c5f;
+    }
+
     [data-theme="light"] body {
       background:
-        radial-gradient(circle at top left, rgba(91,78,232,.06), transparent 40%),
+        radial-gradient(circle at top left, rgb(var(--primary-rgb) / .06), transparent 40%),
         linear-gradient(160deg, #f0f2f5 0%, #e6e9ee 100%);
     }
 
@@ -225,7 +320,7 @@
       overflow-x: hidden;
       font-family: var(--font-ui);
       background:
-        radial-gradient(circle at top left, rgba(108, 0, 255, .12), transparent 40%),
+        radial-gradient(circle at top left, rgb(var(--primary-rgb) / .12), transparent 40%),
         linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
       color: var(--text);
     }
@@ -507,12 +602,12 @@
       white-space: nowrap;
     }
     .sidebar-nav-item svg { flex-shrink: 0; opacity: .65; transition: opacity .14s, color .3s cubic-bezier(0.16, 1, 0.3, 1); }
-    .sidebar-nav-item:hover { background: var(--primary-bg); color: var(--text); border-color: rgba(108,0,255,.14); }
+    .sidebar-nav-item:hover { background: var(--primary-bg); color: var(--text); border-color: rgb(var(--primary-rgb) / .14); }
     .sidebar-nav-item:hover svg { opacity: 1; }
     .sidebar-nav-item.active {
-      background: rgba(108,0,255,.14);
+      background: rgb(var(--primary-rgb) / .14);
       color: var(--primary-on-tint);
-      border-color: rgba(108,0,255,.26);
+      border-color: rgb(var(--primary-rgb) / .26);
     }
     .sidebar-nav-item.active svg { opacity: 1; color: var(--primary-text); }
 
@@ -547,7 +642,7 @@
       text-align: left;
       transition: background .14s;
     }
-    .sidebar-user-btn:hover { background: var(--primary-bg); border-color: rgba(108,0,255,.12); }
+    .sidebar-user-btn:hover { background: var(--primary-bg); border-color: rgb(var(--primary-rgb) / .12); }
     .sidebar-user-avatar {
       width: 30px; height: 30px; border-radius: 50%;
       background: var(--primary);
@@ -572,7 +667,7 @@
     .topbar-icon-btn:hover {
       background: var(--primary-bg);
       color: var(--text);
-      border-color: rgba(108,0,255,.18);
+      border-color: rgb(var(--primary-rgb) / .18);
     }
     .topbar-utils { display: flex; align-items: center; gap: 2px; }
     .topbar-page-title { display: none; }
@@ -587,10 +682,10 @@
       color: var(--on-color); font-size: 22px; font-weight: 300; line-height: 1;
       display: grid; place-items: center;
       cursor: pointer; transition: background .15s, transform .15s, box-shadow .15s;
-      box-shadow: 0 4px 14px rgba(108,0,255,.35);
+      box-shadow: 0 4px 14px rgb(var(--primary-rgb) / .35);
       flex-shrink: 0;
     }
-    .topbar-add-btn:hover { background: var(--primary2); transform: scale(1.07); box-shadow: 0 6px 20px rgba(108,0,255,.45); }
+    .topbar-add-btn:hover { background: var(--primary2); transform: scale(1.07); box-shadow: 0 6px 20px rgb(var(--primary-rgb) / .45); }
     .topbar-add-label, .topbar-add-chevron { display: none !important; }
     .topbar-add-icon { display: none; }
 
@@ -643,7 +738,7 @@
     }
     .sidebar-tool-btn:hover {
       background: var(--primary-bg); color: var(--text);
-      border-color: rgba(108,0,255,.18);
+      border-color: rgb(var(--primary-rgb) / .18);
     }
     .sidebar-logout-btn {
       width: 30px; height: 30px; padding: 0;
@@ -700,7 +795,7 @@
       place-items: center;
       border-radius: 14px;
       background: var(--primary);
-      box-shadow: 0 12px 36px rgba(124, 58, 237, .35);
+      box-shadow: 0 12px 36px rgb(var(--primary-rgb) / .35);
       color: var(--on-color);
       font-weight: 900;
       flex: 0 0 auto;
@@ -783,8 +878,8 @@
     .nav button:hover,
     .btn:hover {
       transform: translateY(-1px);
-      border-color: rgba(168, 85, 247, .55);
-      background: rgba(124,58,237,.1);
+      border-color: rgb(var(--primary-rgb) / .55);
+      background: rgb(var(--primary-rgb) / .1);
     }
 
     .nav button.active {
@@ -971,7 +1066,7 @@
     [data-theme="light"] select {
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     }
-    select:hover { border-color: rgba(168, 85, 247, .35); }
+    select:hover { border-color: rgb(var(--primary-rgb) / .35); }
 
     /* Тема браузера для нативного dropdown popup */
     [data-theme="dark"] select { color-scheme: dark; }
@@ -1011,8 +1106,8 @@
     input:focus,
     select:focus,
     textarea:focus {
-      border-color: rgba(168, 85, 247, .65);
-      box-shadow: 0 0 0 4px rgba(124, 58, 237, .14);
+      border-color: rgb(var(--primary-rgb) / .65);
+      box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / .14);
     }
 
     input.input-error {
@@ -1168,7 +1263,7 @@
       white-space: nowrap;
     }
     .catalog-cat-item:hover { background: var(--panel2); color: var(--text); }
-    .catalog-cat-item.active { background: rgba(124,58,237,.14); color: var(--primary-on-tint); font-weight: 700; }
+    .catalog-cat-item.active { background: rgb(var(--primary-rgb) / .14); color: var(--primary-on-tint); font-weight: 700; }
     .catalog-cat-count {
       flex: 0 0 auto;
       font-size: 12px;
@@ -1178,7 +1273,7 @@
       border-radius: 999px;
       padding: 1px 7px;
     }
-    .catalog-cat-item.active .catalog-cat-count { background: rgba(124,58,237,.22); color: var(--primary-on-tint); }
+    .catalog-cat-item.active .catalog-cat-count { background: rgb(var(--primary-rgb) / .22); color: var(--primary-on-tint); }
     .catalog-cat-item.danger {
       margin-top: 10px;
       padding-top: 10px;
@@ -1197,7 +1292,7 @@
       justify-content: flex-start;
       color: var(--primary-text);
     }
-    .catalog-cat-add:hover { background: rgba(124,58,237,.1); color: var(--primary-on-tint); }
+    .catalog-cat-add:hover { background: rgb(var(--primary-rgb) / .1); color: var(--primary-on-tint); }
     .catalog-body-main { flex: 1; min-width: 0; }
 
     .catalog-grid {
@@ -1324,7 +1419,7 @@
       height: 3px;
       border-radius: 99px;
       background: var(--primary);
-      box-shadow: 0 0 10px rgba(124, 58, 237, .65);
+      box-shadow: 0 0 10px rgb(var(--primary-rgb) / .65);
       animation: dragIndicatorPulse 1s ease-in-out infinite;
     }
 
@@ -1397,7 +1492,7 @@
     .status-pill {
       color: var(--text);
       font-weight: 700;
-      background: rgba(124, 58, 237, .16);
+      background: rgb(var(--primary-rgb) / .16);
     }
 
     /* Цвета через --tint-*: на полупрозрачном фоне капсулы читаемость зависит от темы,
@@ -1446,8 +1541,8 @@
       margin-top: 16px;
       padding: 16px 18px;
       border-radius: 14px;
-      background: rgba(108, 0, 255, .1);
-      border: 1px solid rgba(108, 0, 255, .2);
+      background: rgb(var(--primary-rgb) / .1);
+      border: 1px solid rgb(var(--primary-rgb) / .2);
       display: grid;
       gap: 3px;
     }
@@ -1532,8 +1627,8 @@
     .line-name-input:hover { border-color: var(--line); }
     .line-name-input:focus {
       background: var(--input);
-      border-color: rgba(168,85,247,.65);
-      box-shadow: 0 0 0 4px rgba(124,58,237,.14);
+      border-color: rgb(var(--primary-rgb) / .65);
+      box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / .14);
     }
 
     .line-desc-input {
@@ -1557,9 +1652,9 @@
 
     .line-desc-input:focus {
       background: var(--input);
-      border-color: rgba(168, 85, 247, .65);
+      border-color: rgb(var(--primary-rgb) / .65);
       color: var(--text);
-      box-shadow: 0 0 0 4px rgba(124, 58, 237, .14);
+      box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / .14);
     }
 
     .home-clients-grid {
@@ -1579,7 +1674,7 @@
     }
 
     .home-client-card:hover {
-      border-color: rgba(168, 85, 247, .55);
+      border-color: rgb(var(--primary-rgb) / .55);
       transform: translateY(-1px);
     }
 
@@ -1611,12 +1706,12 @@
     .drag-handle:hover {
       color: var(--text);
       border-color: var(--primary-on-tint);
-      background: rgba(124, 58, 237, .08);
+      background: rgb(var(--primary-rgb) / .08);
     }
 
     .drag-handle:active {
       cursor: grabbing;
-      background: rgba(124, 58, 237, .16);
+      background: rgb(var(--primary-rgb) / .16);
     }
 
     .proposal-preview {
@@ -1724,7 +1819,7 @@
       height: 22px;
       padding: 0 7px;
       border-radius: 999px;
-      background: rgba(124, 58, 237, .22);
+      background: rgb(var(--primary-rgb) / .22);
       color: var(--text);
       font-size: 12px;
       font-weight: 700;
@@ -1892,7 +1987,7 @@
       gap: 2px;
       border: none;
       border-radius: 999px;
-      background: rgba(124,58,237,.1);
+      background: rgb(var(--primary-rgb) / .1);
       padding: 0 2px;
       flex: 0 0 auto;
     }
@@ -1909,8 +2004,8 @@
       cursor: pointer;
       transition: background .12s;
     }
-    .catalog-qty-btn:hover { background: rgba(124,58,237,.22); }
-    .catalog-qty-btn:active { background: rgba(124,58,237,.32); }
+    .catalog-qty-btn:hover { background: rgb(var(--primary-rgb) / .22); }
+    .catalog-qty-btn:active { background: rgb(var(--primary-rgb) / .32); }
 
     .catalog-qty-value {
       min-width: 20px;
@@ -2195,7 +2290,7 @@
       padding: 10px 16px; cursor: pointer;
       transition: background .1s;
     }
-    .search-result:hover { background: rgba(124,58,237,.1); }
+    .search-result:hover { background: rgb(var(--primary-rgb) / .1); }
     .search-result-icon { width: 32px; height: 32px; border-radius: 8px; flex: 0 0 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
     .search-result-name { font-size: 13px; font-weight: 600; }
     .search-result-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
@@ -2231,7 +2326,7 @@
       color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer;
       text-align: left; transition: background .12s, color .12s;
     }
-    .pd-item:hover { background: rgba(124,58,237,.08); color: var(--primary-on-tint); }
+    .pd-item:hover { background: rgb(var(--primary-rgb) / .08); color: var(--primary-on-tint); }
     .pd-item.danger { color: var(--text-danger); }
     .pd-item.danger:hover { background: rgba(220,38,38,.07); color: var(--text-danger); }
     .pd-item-icon { width: 18px; text-align: center; opacity: .7; font-size: 14px; flex: 0 0 18px; }
@@ -2253,7 +2348,7 @@
       color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer;
       text-align: left; transition: .12s; text-decoration: none;
     }
-    .help-dd-item:hover { background: rgba(124,58,237,.08); color: var(--primary-on-tint); }
+    .help-dd-item:hover { background: rgb(var(--primary-rgb) / .08); color: var(--primary-on-tint); }
     .help-dd-item .hdi-sub { font-size: 12px; font-weight: 500; color: var(--muted); margin-top: 1px; }
     .help-dd-item-icon { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex: 0 0 20px; }
 
@@ -2265,7 +2360,7 @@
       border-radius: 12px; background: var(--input); color: var(--text);
       font-size: 14px; font-weight: 700; cursor: pointer; transition: .14s;
     }
-    .currency-select-btn:hover { border-color: rgba(124,58,237,.5); }
+    .currency-select-btn:hover { border-color: rgb(var(--primary-rgb) / .5); }
     /* Длинное название валюты (напр. «Казахстанский тенге») переносилось на 2 строки —
        кнопка становилась выше соседнего поля «Описание» и ломала выравнивание сетки.
        Одна строка с многоточием — высота всегда одинаковая. */
@@ -2287,8 +2382,8 @@
       font-size: 13px; border: none; background: none; color: var(--text);
       width: 100%; text-align: left;
     }
-    .currency-opt:hover { background: rgba(124,58,237,.08); }
-    .currency-opt.active { background: rgba(124,58,237,.12); color: var(--primary-on-tint); font-weight: 600; }
+    .currency-opt:hover { background: rgb(var(--primary-rgb) / .08); }
+    .currency-opt.active { background: rgb(var(--primary-rgb) / .12); color: var(--primary-on-tint); font-weight: 600; }
     .currency-sym { font-size: 15px; font-weight: 900; width: 22px; text-align: center; opacity: .8; }
 
     /* ── Универсальный кастом-дропдаун (заменяет нативные select на десктопе) ── */
@@ -2301,7 +2396,7 @@
       font-size: 13px; font-weight: 600; cursor: pointer; text-align: left;
       transition: border-color .14s; line-height: 1.3;
     }
-    .uu-select-btn:hover { border-color: rgba(168,85,247,.5); }
+    .uu-select-btn:hover { border-color: rgb(var(--primary-rgb) / .5); }
     .uu-select-btn.uu-open { border-color: var(--primary); }
     .uu-select-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .uu-select-chev { flex-shrink: 0; opacity: .55; transition: transform .15s; display: grid; place-items: center; }
@@ -2330,8 +2425,8 @@
       font-size: 13px; cursor: pointer; border-radius: 8px; transition: background .1s;
       white-space: normal; overflow-wrap: break-word; line-height: 1.35;
     }
-    .uu-select-opt:hover { background: rgba(124,58,237,.1); }
-    .uu-select-opt.active { background: rgba(124,58,237,.16); color: var(--primary-on-tint); font-weight: 700; }
+    .uu-select-opt:hover { background: rgb(var(--primary-rgb) / .1); }
+    .uu-select-opt.active { background: rgb(var(--primary-rgb) / .16); color: var(--primary-on-tint); font-weight: 700; }
     .uu-select-opt.uu-opt-hidden { display: none; }
 
     /* ── MOBILE BOTTOM NAV ──────────────────────── */
@@ -2364,17 +2459,17 @@
     }
     .mbn-item:active { transform: scale(.9); }
     .mbn-item svg { flex: 0 0 auto; display: block; }
-    .mbn-item.active svg { filter: drop-shadow(0 0 4px rgba(155,77,255,.5)); }
+    .mbn-item.active svg { filter: drop-shadow(0 0 4px rgb(var(--primary-rgb) / .5)); }
     .mbn-add {
       flex: 0 0 52px; width: 52px; height: 52px; border-radius: 50%;
       background: var(--primary);
       color: var(--on-color); font-size: 26px; font-weight: 300; line-height: 1;
-      box-shadow: 0 4px 20px rgba(108,0,255,.5);
+      box-shadow: 0 4px 20px rgb(var(--primary-rgb) / .5);
       display: flex; align-items: center; justify-content: center;
       border: none; cursor: pointer; margin-top: -18px; transition: background .15s, box-shadow .15s;
       flex-shrink: 0; position: relative; z-index: 1;
     }
-    .mbn-add:hover { background: var(--primary2); box-shadow: 0 6px 24px rgba(108,0,255,.65); }
+    .mbn-add:hover { background: var(--primary2); box-shadow: 0 6px 24px rgb(var(--primary-rgb) / .65); }
     .mbn-add:active { transform: scale(.9); }
     @media (max-width: 768px) {
       .mobile-bottom-nav { display: flex; }
@@ -2446,7 +2541,7 @@
     .wstep.active .wstep-num {
       background: var(--primary);
       border-color: transparent; color: var(--on-color);
-      box-shadow: 0 0 0 5px rgba(108,0,255,.15);
+      box-shadow: 0 0 0 5px rgb(var(--primary-rgb) / .15);
     }
     .wstep.done .wstep-num {
       background: var(--green); border-color: transparent; color: var(--on-color);
@@ -2481,10 +2576,10 @@
       background: var(--panel2);
     }
     .wizard-pkg-card:hover {
-      border-color: rgba(168, 85, 247, .7);
-      background: rgba(124,58,237,.08);
+      border-color: rgb(var(--primary-rgb) / .7);
+      background: rgb(var(--primary-rgb) / .08);
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(124,58,237,.18);
+      box-shadow: 0 8px 24px rgb(var(--primary-rgb) / .18);
     }
     .wizard-pkg-card:active { transform: translateY(0); }
     .wizard-pkg-card h3 { font-size: 14px; margin-bottom: 4px; }
@@ -2500,7 +2595,7 @@
     .package-card:hover { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 12px 32px rgba(0,0,0,.22); transform: translateY(-2px); }
 
     /* Category identity is carried by .pkg-cat-badge — no decorative stripe needed */
-    .package-card[data-cat="social"]    { border-top-color: rgba(124, 58, 237, .45); }
+    .package-card[data-cat="social"]    { border-top-color: rgb(var(--primary-rgb) / .45); }
     .package-card[data-cat="interview"] { border-top-color: rgba(37, 99, 235, .45); }
     .package-card[data-cat="business"]  { border-top-color: rgba(5, 150, 105, .45); }
     .package-card[data-cat="events"]    { border-top-color: rgba(234, 88, 12, .45); }
@@ -2514,11 +2609,11 @@
     .pkg-card-desc { margin: 0 0 12px; font-size: 12px; color: var(--muted); line-height: 1.5; }
     .pkg-card-price {
       font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 22px;
-      font-variant-numeric: tabular-nums; color: var(--fg); margin-bottom: 6px; letter-spacing: -.02em;
+      font-variant-numeric: tabular-nums; color: var(--text); margin-bottom: 6px; letter-spacing: -.02em;
     }
     .pkg-card-for { font-size: 12px; color: var(--muted); margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
     .pkg-card-items { flex: 1; margin-bottom: 14px; }
-    .pkg-item-line { font-size: 12px; padding: 3px 0; color: var(--fg2); border-bottom: 1px solid var(--line); }
+    .pkg-item-line { font-size: 12px; padding: 3px 0; color: var(--muted); border-bottom: 1px solid var(--line); }
     .pkg-item-line:last-child { border-bottom: none; }
     /* Сегмент-переключатель раздела «Услуги»: Каталог | Пакеты. Отделён визуально от
        нижележащих табов-фильтров (пилюля-контейнер, а не подчёркивание). */
@@ -2589,7 +2684,7 @@
       .seg-switch.wrap button { flex: 1 1 calc(50% - 4px); min-width: 0; }
     }
 
-    .pkg-note { font-size: 12px; color: var(--muted); font-style: italic; background: var(--surface2); padding: 6px 10px; border-radius: 6px; margin: 0 0 12px; line-height: 1.4; }
+    .pkg-note { font-size: 12px; color: var(--muted); font-style: italic; background: var(--panel2); padding: 6px 10px; border-radius: 6px; margin: 0 0 12px; line-height: 1.4; }
     .pkg-card-actions { display: flex; gap: 8px; margin-top: auto; }
 
     .pkg-cat-badge {
@@ -2627,7 +2722,7 @@
       padding: 11px 0; font-size: 14px; color: var(--text);
     }
     .client-select-search input:focus { outline: none; }
-    .client-select-search:focus-within { border-color: rgba(168, 85, 247, .6); }
+    .client-select-search:focus-within { border-color: rgb(var(--primary-rgb) / .6); }
     .client-select-search-clear {
       flex: 0 0 auto; width: 24px; height: 24px; display: flex; align-items: center;
       justify-content: center; border: none; background: none; color: var(--muted);
@@ -2645,7 +2740,7 @@
       align-items: center; background: var(--panel2); transition: .15s;
     }
     .client-select-item:hover, .client-select-item.selected {
-      border-color: rgba(168, 85, 247, .6); background: rgba(124,58,237,.1);
+      border-color: rgb(var(--primary-rgb) / .6); background: rgb(var(--primary-rgb) / .1);
     }
     /* Место под галочку держим всегда — иначе выбор клиента дёргает всю строку вбок. */
     .client-select-check {
@@ -2769,7 +2864,7 @@
       background: var(--panel2); border: 1px solid var(--line);
       border-radius: 14px; padding: 14px; transition: .14s;
     }
-    .db-kpi:hover { border-color: rgba(124,58,237,.35); }
+    .db-kpi:hover { border-color: rgb(var(--primary-rgb) / .35); }
     .db-kpi-warn { border-color: rgba(234,88,12,.3) !important; }
     .db-kpi-icon {
       width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
@@ -2834,7 +2929,7 @@
     .db-stat-delta.pos { color: var(--text-success); }
     .db-stat-delta.neg { color: var(--text-danger); }
     .db-stat-delta.neu { color: var(--muted); }
-    .db-stat[onclick]:hover { box-shadow: inset 0 0 0 1px rgba(155,77,255,.25); }
+    .db-stat[onclick]:hover { box-shadow: inset 0 0 0 1px rgb(var(--primary-rgb) / .25); }
 
     @media (max-width: 900px) { .db-stat { min-width: 45%; padding: 9px 12px; } .db-stat-value { font-size: 15px; } }
     @media (max-width: 480px) { .db-stat { min-width: 50%; } }
@@ -2860,7 +2955,7 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 14px; line-height: 1; transition: .12s;
     }
-    .db-chart-nav-btn:hover:not(:disabled) { border-color: rgba(168,85,247,.5); color: var(--primary-text); }
+    .db-chart-nav-btn:hover:not(:disabled) { border-color: rgb(var(--primary-rgb) / .5); color: var(--primary-text); }
     .db-chart-nav-btn:disabled { opacity: .35; cursor: default; }
 
     /* Наведение/тап по колонке месяца — hover-подсветка + курсор, клик уводит в «Финансы» */
@@ -2894,7 +2989,7 @@
     }
     .deal-list-row:last-child { border-bottom: none; }
     .deal-list-row:hover { background: var(--panel2); }
-    .deal-list-row.current { background: rgba(124,58,237,.06); }
+    .deal-list-row.current { background: rgb(var(--primary-rgb) / .06); }
     .deal-list-row .status-pill { flex: 0 0 108px; text-align: center; justify-content: center; }
     .deal-list-name { font-size: 14px; font-weight: 600; flex: 1 1 160px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .deal-list-client { font-size: 12px; color: var(--muted); flex: 0 0 140px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2921,7 +3016,7 @@
       font-size: 12.5px; font-weight: 600; padding: 0 14px; border-radius: 99px;
       cursor: pointer; white-space: nowrap; transition: border-color .12s, color .12s, background .12s;
     }
-    .deal-tag-chip:hover { border-color: rgba(168,85,247,.5); color: var(--text); }
+    .deal-tag-chip:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--text); }
     .deal-tag-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
     /* «+N» — попап с остальными тегами, когда их больше, чем помещается в ряд. */
     .tag-overflow-wrap { position: relative; }
@@ -2940,7 +3035,7 @@
       color: var(--text); font-size: 12.5px; font-weight: 600; cursor: pointer;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .tag-overflow-row:hover { background: rgba(124,58,237,.1); }
+    .tag-overflow-row:hover { background: rgb(var(--primary-rgb) / .1); }
     .deal-toolbar-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 0 0 auto; margin-left: auto; }
     .deal-search-wrap { position: relative; display: flex; align-items: center; }
     .deal-search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
@@ -2952,7 +3047,7 @@
       cursor: pointer; color: var(--muted); transition: background .12s, color .12s;
     }
     .deal-view-btn svg { display: block; }
-    .deal-view-btn:hover { color: var(--text); background: rgba(124,58,237,.1); }
+    .deal-view-btn:hover { color: var(--text); background: rgb(var(--primary-rgb) / .1); }
     .deal-view-btn.active { background: var(--primary); color: var(--on-color); }
     @media (max-width: 640px) {
       .deal-search-input { width: 100%; }
@@ -2987,7 +3082,7 @@
       padding: 0 10px; padding-right: 34px; font-size: 12.5px; color: var(--text); cursor: pointer;
       font-weight: 600; transition: border-color .12s;
     }
-    .deal-sort-select:hover { border-color: rgba(168,85,247,.5); }
+    .deal-sort-select:hover { border-color: rgb(var(--primary-rgb) / .5); }
     .deal-sort-select:focus { outline: none; border-color: var(--primary); }
     @media (max-width: 900px) {
       /* На планшете actions-колонка — auto, не фиксированная */
@@ -3017,8 +3112,8 @@
       border-radius: 11px; background: var(--panel2);
       cursor: pointer; transition: .15s;
     }
-    .funnel-stage:hover { border-color: rgba(168,85,247,.5); transform: translateY(-1px); }
-    .funnel-stage.active { border-color: var(--primary-on-tint); background: rgba(124,58,237,.12); }
+    .funnel-stage:hover { border-color: rgb(var(--primary-rgb) / .5); transform: translateY(-1px); }
+    .funnel-stage.active { border-color: var(--primary-on-tint); background: rgb(var(--primary-rgb) / .12); }
     .funnel-stage h3 { font-size: 11px; color: var(--muted); margin: 0 0 2px; }
     .funnel-stage .fs-count { font-size: 19px; font-weight: 900; line-height: 1.1; }
     .funnel-stage .fs-amount { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
@@ -3057,9 +3152,9 @@
       display: flex; flex-direction: column; gap: 9px;
     }
     .deal-card:hover {
-      border-color: rgba(168,85,247,.5);
+      border-color: rgb(var(--primary-rgb) / .5);
       transform: translateY(-2px);
-      box-shadow: 0 8px 28px rgba(108,0,255,.1);
+      box-shadow: 0 8px 28px rgb(var(--primary-rgb) / .1);
     }
     /* Выделение карточки. Было: рамка + свечение box-shadow наружу. Свечение
        расплывалось ореолом и спорило с цветной полосой статуса слева, а на
@@ -3074,14 +3169,14 @@
     }
     .deal-card.deal-card-selected {
       border-color: var(--primary);
-      box-shadow: inset 0 0 0 1px var(--primary), 0 4px 18px rgba(124,58,237,.15);
-      --card-fill: rgba(124,58,237,.07);
+      box-shadow: inset 0 0 0 1px var(--primary), 0 4px 18px rgb(var(--primary-rgb) / .15);
+      --card-fill: rgb(var(--primary-rgb) / .07);
     }
     /* Обе пометки разом: приоритет у выбора — это то, что человек делает СЕЙЧАС,
        а «текущая» остаётся видна по зелёному уголку-лейблу. */
     .deal-card.current.deal-card-selected {
       border-color: var(--primary);
-      box-shadow: inset 0 0 0 1px var(--primary), 0 4px 18px rgba(124,58,237,.15);
+      box-shadow: inset 0 0 0 1px var(--primary), 0 4px 18px rgb(var(--primary-rgb) / .15);
     }
     /* ── Перетаскивание карточек сделок ──────────────────────────────────────
        Карточка берётся В ЛЮБОМ МЕСТЕ, на её месте остаётся серое пятно, а сама
@@ -3124,7 +3219,7 @@
     }
 
     .deal-card:hover.current { box-shadow: inset 0 0 0 1px var(--green), 0 10px 30px rgba(22,163,74,.18); }
-    .deal-card:hover.deal-card-selected { box-shadow: inset 0 0 0 1px var(--primary), 0 10px 30px rgba(124,58,237,.2); }
+    .deal-card:hover.deal-card-selected { box-shadow: inset 0 0 0 1px var(--primary), 0 10px 30px rgb(var(--primary-rgb) / .2); }
     /* Уголок-лейбл слева, под названием — без фона-капсулы, вне потока
        (position:absolute), поэтому не спорит с заголовком и не давит на межстрочный
        интервал. Место под него зарезервировано padding-bottom на .deal-card-head
@@ -3183,7 +3278,7 @@
     .deal-card-deadline { font-size: 11.5px; font-weight: 650; display: flex; align-items: center; gap: 5px; }
     .deal-card-note { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
     .deal-card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-    .deal-card-tag { font-size: 11px; background: rgba(124,58,237,.12); border-radius: 99px; padding: 1px 8px; color: var(--primary-on-tint); cursor: pointer; }
+    .deal-card-tag { font-size: 11px; background: rgb(var(--primary-rgb) / .12); border-radius: 99px; padding: 1px 8px; color: var(--primary-on-tint); cursor: pointer; }
 
     /* ── РАЗДЕЛ «ЗАДАЧИ» (все задачи + свободные) ────────── */
     .chip {
@@ -3191,8 +3286,8 @@
       background: transparent; color: var(--muted); font-size: 13px; font-weight: 600;
       cursor: pointer; white-space: nowrap; transition: background .14s, border-color .14s, color .14s;
     }
-    .chip:hover { border-color: rgba(168,85,247,.5); color: var(--text); }
-    .chip.active { background: rgba(124,58,237,.15); border-color: var(--primary); color: var(--primary-on-tint); }
+    .chip:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--text); }
+    .chip.active { background: rgb(var(--primary-rgb) / .15); border-color: var(--primary); color: var(--primary-on-tint); }
 
     .gtask-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
     .gtask-stat {
@@ -3217,7 +3312,7 @@
       background: var(--panel); cursor: pointer;
       transition: border-color .14s, transform .1s, box-shadow .14s;
     }
-    .gtask-row:hover { border-color: rgba(168,85,247,.5); box-shadow: 0 4px 16px rgba(108,0,255,.08); }
+    .gtask-row:hover { border-color: rgb(var(--primary-rgb) / .5); box-shadow: 0 4px 16px rgb(var(--primary-rgb) / .08); }
     .gtask-row.done { opacity: .6; }
     .gtask-row.done .gtask-title { text-decoration: line-through; color: var(--muted); }
 
@@ -3235,7 +3330,7 @@
     .gtask-title { font-size: 14px; font-weight: 700; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .gtask-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); font-weight: 500; }
     .gtask-project { background: var(--panel2); border: 1px solid var(--line); border-radius: 99px; padding: 1px 9px; font-weight: 600; }
-    .gtask-project.personal { background: rgba(124,58,237,.12); border-color: rgba(124,58,237,.3); color: var(--primary-on-tint); }
+    .gtask-project.personal { background: rgb(var(--primary-rgb) / .12); border-color: rgb(var(--primary-rgb) / .3); color: var(--primary-on-tint); }
     .gtask-del {
       width: 30px; height: 30px; flex: 0 0 auto; border-radius: 8px;
       border: 1px solid transparent; background: transparent; color: var(--muted);
@@ -3282,7 +3377,7 @@
       background: transparent; color: var(--primary-text); font-size: 12px; font-weight: 600;
       cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s;
     }
-    .deal-open-btn:hover { border-color: var(--primary); background: rgba(124,58,237,.08); }
+    .deal-open-btn:hover { border-color: var(--primary); background: rgb(var(--primary-rgb) / .08); }
     .next-action-btn {
       padding: 6px 13px; border-radius: 999px; border: none;
       background: var(--primary);
@@ -3359,7 +3454,7 @@
        текст, и иконку (fill="currentColor"), чтобы пункты меню читались с первого
        взгляда, не только по подписи. */
     .dcm-purple { color: var(--primary-text); }
-    .dcm-purple:hover { background: rgba(124,58,237,.12) !important; color: var(--primary-on-tint); }
+    .dcm-purple:hover { background: rgb(var(--primary-rgb) / .12) !important; color: var(--primary-on-tint); }
     .dcm-blue { color: var(--blue); }
     .dcm-blue:hover { background: rgba(37,99,235,.12) !important; color: var(--blue); }
     .dcm-cyan { color: var(--tint-cyan); }
@@ -3374,12 +3469,12 @@
       bottom: 28px; right: 20px;
       width: 36px; height: 36px;
       border-radius: 50%;
-      background: rgba(124,58,237,.82);
+      background: rgb(var(--primary-rgb) / .82);
       -webkit-backdrop-filter: blur(10px);
       backdrop-filter: blur(10px);
       color: var(--on-color); border: none; cursor: pointer;
       font-size: 14px; font-weight: 900;
-      box-shadow: 0 4px 18px rgba(124,58,237,.38);
+      box-shadow: 0 4px 18px rgb(var(--primary-rgb) / .38);
       opacity: 0; transform: translateY(12px) scale(.9);
       transition: opacity .22s ease, transform .22s ease;
       z-index: 200;
@@ -3392,7 +3487,7 @@
     .scroll-top-btn:hover {
       background: var(--primary2);
       transform: translateY(-2px) scale(1.08);
-      box-shadow: 0 8px 28px rgba(124,58,237,.55);
+      box-shadow: 0 8px 28px rgb(var(--primary-rgb) / .55);
     }
     @media (max-width: 768px) {
       .scroll-top-btn { bottom: 88px; right: 14px; }
@@ -3465,7 +3560,7 @@
       background: var(--panel); gap: 14px;
       cursor: pointer; transition: .15s;
     }
-    .client-project-row:hover { border-color: rgba(168,85,247,.5); }
+    .client-project-row:hover { border-color: rgb(var(--primary-rgb) / .5); }
     .client-project-row h4 { margin: 0 0 3px; font-size: 14px; }
     .client-project-row p { margin: 0; font-size: 12px; color: var(--muted); }
 
@@ -3559,7 +3654,7 @@
     /* ── ESTIMATE IN DEAL: clear tab context ───── */
     .deal-bar .deal-tab.active {
       color: var(--primary-on-tint);
-      background: rgba(108,0,255,.12);
+      background: rgb(var(--primary-rgb) / .12);
       border-radius: 8px 8px 0 0;
       border-bottom-color: var(--primary-on-tint);
     }
@@ -3577,16 +3672,35 @@
     }
 
     .deal-card, .project-card, .client-card, .item, .package-card {
-      transition: transform .15s ease, border-color .15s, box-shadow .15s;
+      transition: transform var(--dur-2) var(--ease-out),
+                  border-color var(--dur-2) var(--ease-out),
+                  box-shadow var(--dur-2) var(--ease-out);
     }
-    .deal-card:hover {
+    /* Подъём карточки при наведении был только у .deal-card, хотя переход объявлен
+       для пяти видов сразу — остальные держали transform, но никуда не двигались. */
+    .deal-card:hover, .project-card:hover, .client-card:hover, .package-card:hover {
       transform: translateY(-2px);
-      box-shadow: 0 12px 36px rgba(0,0,0,.28);
+      box-shadow: var(--elev-2);
+      border-color: rgb(var(--primary-rgb) / .3);
     }
     .btn, .nav button, .tab, .deal-tab, .next-action-btn {
-      transition: background .15s, border-color .15s, color .15s, transform .12s, box-shadow .15s !important;
+      transition: background var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out),
+                  color var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out),
+                  box-shadow var(--dur-2) var(--ease-out) !important;
     }
-    .funnel-stage { transition: border-color .15s, background .15s, transform .12s; }
+    /* Отклик на нажатие. Раньше кнопка поднималась на hover и НИКАК не отвечала на
+       клик — на телефоне, где hover нет вовсе, нажатие вообще не подтверждалось. */
+    .btn:active, .nav button:active, .tab:active, .deal-tab:active, .next-action-btn:active,
+    .icon-btn:active, .topbar-icon-btn:active {
+      transform: scale(.96) !important;
+    }
+    .deal-card:active, .project-card:active, .client-card:active, .package-card:active {
+      transform: translateY(-1px) scale(.995);
+    }
+    .funnel-stage {
+      transition: border-color var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out),
+                  transform var(--dur-1) var(--ease-out);
+    }
 
     /* ── LOGO ANIMATION ──────────────────────────── */
     .logo {
@@ -3595,7 +3709,7 @@
     }
     .logo:hover {
       transform: scale(1.07) !important;
-      box-shadow: 0 6px 24px rgba(108,0,255,.55) !important;
+      box-shadow: 0 6px 24px rgb(var(--primary-rgb) / .55) !important;
     }
 
     /* ── DEAL HEADER COMPACT ─────────────────────── */
@@ -3626,7 +3740,7 @@
     .deal-stat-sep { width: 1px; height: 28px; background: var(--line); flex: 0 0 auto; }
     .crm-select-pill {
       padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
-      background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.3); color: var(--text);
+      background: rgb(var(--primary-rgb) / .15); border: 1px solid rgb(var(--primary-rgb) / .3); color: var(--text);
       cursor: pointer; max-width: 130px;
     }
 
@@ -3635,7 +3749,7 @@
     .deal-switcher-btn {
       display: flex; align-items: center; gap: 8px;
       padding: 6px 12px 6px 14px; border-radius: 10px;
-      background: var(--card); border: 1px solid var(--line);
+      background: var(--panel2); border: 1px solid var(--line);
       color: var(--text); font-size: 14px; font-weight: 800;
       cursor: pointer; transition: border-color .15s, background .15s;
       max-width: 240px; min-width: 0;
@@ -3706,7 +3820,7 @@
       cursor: pointer; transition: background .1s;
     }
     .deal-switcher-item:hover { background: var(--panel2); }
-    .deal-switcher-item.active { background: rgba(124,58,237,.13); }
+    .deal-switcher-item.active { background: rgb(var(--primary-rgb) / .13); }
     .deal-switcher-item.active-deal { border-left: 2px solid var(--green); }
     .deal-switcher-item.completed-deal { border-left: 2px solid var(--red); opacity: .75; }
     .deal-switcher-item.completed-deal:hover { opacity: 1; }
@@ -3740,7 +3854,7 @@
       background: var(--primary);
       border-color: transparent; color: var(--on-color);
     }
-    .date-preset-btn:hover:not(.active) { border-color: rgba(168,85,247,.5); color: var(--text); }
+    .date-preset-btn:hover:not(.active) { border-color: rgb(var(--primary-rgb) / .5); color: var(--text); }
     .date-range-inputs {
       display: flex; align-items: center; gap: 6px; margin-left: 8px;
     }
@@ -3784,7 +3898,7 @@
       transition: .13s; display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-    .cal-nav2-arrow:hover { border-color: rgba(168,85,247,.5); color: var(--primary-on-tint); background: rgba(124,58,237,.08); }
+    .cal-nav2-arrow:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--primary-on-tint); background: rgb(var(--primary-rgb) / .08); }
     .cal-nav2-month {
       font-size: 18px; font-weight: 900; color: var(--text);
       min-width: 130px; text-align: center; letter-spacing: -.02em;
@@ -3820,9 +3934,9 @@
       background: transparent; color: var(--muted); font-size: 12px; font-weight: 600;
       cursor: pointer; transition: .13s; white-space: nowrap; flex-shrink: 0;
     }
-    .cal-month-pill:hover { border-color: rgba(168,85,247,.5); color: var(--text); }
+    .cal-month-pill:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--text); }
     .cal-month-pill.active {
-      background: rgba(124,58,237,.18); border-color: var(--primary-on-tint);
+      background: rgb(var(--primary-rgb) / .18); border-color: var(--primary-on-tint);
       color: var(--primary-on-tint);
     }
     @media (max-width: 768px) {
@@ -3849,11 +3963,11 @@
       cursor: pointer; transition: .14s; position: relative;
       overflow: hidden;
     }
-    .cal-cell:hover { border-color: rgba(168,85,247,.45); background: rgba(124,58,237,.06); }
+    .cal-cell:hover { border-color: rgb(var(--primary-rgb) / .45); background: rgb(var(--primary-rgb) / .06); }
     .cal-cell.today {
       border-color: var(--primary-on-tint);
-      background: rgba(124,58,237,.1);
-      box-shadow: 0 0 0 2px rgba(124,58,237,.22) inset;
+      background: rgb(var(--primary-rgb) / .1);
+      box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / .22) inset;
     }
     .cal-cell.other-month { opacity: .32; }
     .cal-cell.selected { border-color: var(--blue); background: rgba(37,99,235,.1); }
@@ -3904,7 +4018,7 @@
     .cal-event-label.task { background: rgba(37,99,235,.18); color: var(--text-info); }
     .cal-event-label.payment { background: rgba(22,163,74,.18); color: var(--text-success); }
     .cal-event-label.expense { background: rgba(234,88,12,.18); color: var(--text-warning); }
-    .cal-event-label.google { background: rgba(124,58,237,.18); color: var(--primary-on-tint); }
+    .cal-event-label.google { background: rgb(var(--primary-rgb) / .18); color: var(--primary-on-tint); }
     [data-theme="light"] .cal-event-label.deadline { color: var(--tint-red); }
     [data-theme="light"] .cal-event-label.task { color: var(--text-info); }
     [data-theme="light"] .cal-event-label.payment { color: var(--tint-green); }
@@ -3953,7 +4067,7 @@
       align-items: center; gap: 12px;
       transition: .15s;
     }
-    .gcal-event:hover { border-color: rgba(168,85,247,.45); }
+    .gcal-event:hover { border-color: rgb(var(--primary-rgb) / .45); }
     .gcal-event-left h4 { margin: 0 0 2px; font-size: 14px; }
     .gcal-event-left p { margin: 0; font-size: 12px; color: var(--muted); }
     .gcal-date-badge {
@@ -4019,7 +4133,7 @@
     }
     .fin-subtab.active {
       color: var(--primary-on-tint); border-bottom-color: var(--primary-on-tint);
-      background: rgba(108,0,255,.12); border-radius: 8px 8px 0 0;
+      background: rgb(var(--primary-rgb) / .12); border-radius: 8px 8px 0 0;
     }
     .fin-subtab:hover { color: var(--text); }
 
@@ -4112,7 +4226,7 @@
 
     /* Карточки шагов сборки сметы: подсветка как у остальных кликабельных карточек */
     .estimate-step-card:hover {
-      border-color: rgba(168,85,247,.45) !important;
+      border-color: rgb(var(--primary-rgb) / .45) !important;
       transform: translateY(-1px);
     }
     .estimate-step-card:active { transform: translateY(0); }
@@ -4135,7 +4249,7 @@
       border: 1.5px solid var(--line); color: var(--muted); white-space: nowrap;
       background: transparent; transition: all .18s; -webkit-user-select: none; user-select: none;
     }
-    .dsp-step:hover .dsp-pill { border-color: rgba(168,85,247,.4); color: var(--text); }
+    .dsp-step:hover .dsp-pill { border-color: rgb(var(--primary-rgb) / .4); color: var(--text); }
     .dsp-step.done .dsp-pill {
       background: rgba(22,163,74,.1); border-color: rgba(22,163,74,.35);
       color: var(--text-success);
@@ -4144,7 +4258,7 @@
     .dsp-step.active .dsp-pill {
       background: var(--primary);
       border-color: transparent; color: var(--on-color);
-      box-shadow: 0 4px 16px rgba(108,0,255,.35);
+      box-shadow: 0 4px 16px rgb(var(--primary-rgb) / .35);
     }
     .dsp-line {
       height: 2px; min-width: 14px; flex: 1 1 14px;
@@ -4181,7 +4295,7 @@
       display: flex; align-items: center; justify-content: center;
       -webkit-backdrop-filter: blur(6px);
       backdrop-filter: blur(6px);
-      animation: fadeIn .18s ease;
+      animation: fadeIn var(--dur-2) var(--ease-out);
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .modal-box {
@@ -4192,11 +4306,19 @@
       width: min(480px, calc(100vw - 32px));
       max-height: calc(100dvh - 48px);
       overflow-y: auto;
-      box-shadow: 0 32px 80px rgba(0,0,0,.55);
-      animation: slideUp .2s ease;
+      box-shadow: var(--elev-3);
+      animation: modalIn var(--dur-3) var(--ease-out);
     }
     @media (max-width: 768px) {
       .modal-box { padding: 20px 16px; border-radius: 16px; }
+    }
+    /* Прежний slideUp двигал окно на 16px вверх линейным ease. Лёгкий доворот
+       масштаба (.97 → 1) читается как «окно вышло вперёд», а не «подъехало снизу»,
+       и заодно скрывает рывок на длинных модалках. slideUp оставлен: на нём висят
+       другие элементы (дропдауны шапки), их поведение менять не нужно. */
+    @keyframes modalIn {
+      from { transform: translateY(12px) scale(.97); opacity: 0; }
+      to   { transform: translateY(0) scale(1); opacity: 1; }
     }
     @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
@@ -4205,7 +4327,7 @@
     .confirm-dialog-box { width: min(400px, calc(100vw - 32px)); }
     .confirm-dialog-title { margin: 0 0 8px; }
     .confirm-dialog-msg {
-      color: var(--text2);
+      color: var(--muted);
       font-size: 14px;
       line-height: 1.5;
       white-space: pre-line;
@@ -4264,7 +4386,7 @@
       padding: 2px 0; width: 100%;
     }
     .task-title-input:hover { border-bottom-color: var(--line); }
-    .task-title-input:focus { border-bottom-color: rgba(168,85,247,.65); outline: none; }
+    .task-title-input:focus { border-bottom-color: rgb(var(--primary-rgb) / .65); outline: none; }
     .task-mini-select {
       /* padding-right — место под шеврон, см. .deal-sort-select */
       padding: 5px 8px; padding-right: 32px; font-size: 12px; border-radius: 8px;
@@ -4282,7 +4404,7 @@
       background: var(--primary); color: var(--on-color); border: none;
       font-size: 22px; font-weight: 900; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: .15s; box-shadow: 0 4px 18px rgba(124,58,237,.45);
+      transition: .15s; box-shadow: 0 4px 18px rgb(var(--primary-rgb) / .45);
       flex: 0 0 auto; line-height: 1;
     }
     .global-add-btn:hover { background: var(--primary2); transform: scale(1.08); }
@@ -4300,7 +4422,7 @@
       font-size: 13px; font-weight: 600; cursor: pointer; transition: .12s;
       display: flex; align-items: center; gap: 8px;
     }
-    .global-add-menu-item:hover { background: rgba(124,58,237,.14); }
+    .global-add-menu-item:hover { background: rgb(var(--primary-rgb) / .14); }
     .global-add-menu-item .icon {
       width: 26px; height: 26px; border-radius: 8px;
       display: flex; align-items: center; justify-content: center;
@@ -4425,7 +4547,7 @@
     .xlsx-icon-btn svg { display: block; }
     /* Импорт — та же иконка-кнопка, но нейтральная (отличать «загрузку внутрь» от зелёного экспорта) */
     .xlsx-icon-btn.import { border-color: var(--line); background: var(--panel2); color: var(--muted); }
-    .xlsx-icon-btn.import:hover { border-color: rgba(168,85,247,.5); background: var(--panel2); color: var(--text); }
+    .xlsx-icon-btn.import:hover { border-color: rgb(var(--primary-rgb) / .5); background: var(--panel2); color: var(--text); }
 
     /* Прогноз */
     .fin-h3-note { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 6px; }
@@ -4467,7 +4589,7 @@
     .fin-category-badge {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 3px 8px; border-radius: 999px; font-size: 12px;
-      background: rgba(124,58,237,.12); color: var(--primary-on-tint);
+      background: rgb(var(--primary-rgb) / .12); color: var(--primary-on-tint);
       margin-top: 4px;
     }
     .fin-section-head {
@@ -4485,7 +4607,7 @@
       cursor: pointer;
       transition: .15s;
     }
-    .contract-card:hover { border-color: rgba(168,85,247,.5); transform: translateY(-2px); box-shadow: 0 12px 36px rgba(0,0,0,.28); }
+    .contract-card:hover { border-color: rgb(var(--primary-rgb) / .5); transform: translateY(-2px); box-shadow: 0 12px 36px rgba(0,0,0,.28); }
     .contract-card h3 { margin: 0 0 6px; }
     .contract-card p { margin: 0; font-size: 13px; }
     .contract-editor {
@@ -4501,7 +4623,7 @@
       color: var(--text);
       resize: vertical;
     }
-    .contract-editor:focus { border-color: rgba(168,85,247,.65); box-shadow: 0 0 0 4px rgba(124,58,237,.14); outline: none; }
+    .contract-editor:focus { border-color: rgb(var(--primary-rgb) / .65); box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / .14); outline: none; }
 
     /* ── MAIN MENU MODAL ─────────────────────────── */
     .main-menu-modal {
@@ -4520,7 +4642,7 @@
       transition: .15s;
       color: var(--text);
     }
-    .main-menu-item:hover { background: rgba(124,58,237,.14); transform: translateY(-2px); border-color: rgba(124,58,237,.3); }
+    .main-menu-item:hover { background: rgb(var(--primary-rgb) / .14); transform: translateY(-2px); border-color: rgb(var(--primary-rgb) / .3); }
     .main-menu-item .mm-icon { font-size: 26px; display: block; margin-bottom: 6px; }
     .main-menu-item .mm-icon svg { width: 1em; height: 1em; vertical-align: middle; }
     .main-menu-item .mm-label { font-size: 12px; font-weight: 600; }
@@ -4644,7 +4766,7 @@
       position: fixed; inset: 0; z-index: var(--z-auth);
       display: flex; align-items: center; justify-content: center;
       background: var(--bg);
-      background-image: radial-gradient(circle at top left, rgba(124,58,237,.18), transparent 40%),
+      background-image: radial-gradient(circle at top left, rgb(var(--primary-rgb) / .18), transparent 40%),
         radial-gradient(circle at bottom right, rgba(37,99,235,.12), transparent 40%);
       overflow-y: auto; padding: 16px;
     }
@@ -4667,7 +4789,7 @@
     .auth-feat-icon {
       width: 28px; height: 28px; flex-shrink: 0; margin-top: 1px;
       display: grid; place-items: center;
-      background: rgba(124, 58, 237, .12); border-radius: 8px;
+      background: rgb(var(--primary-rgb) / .12); border-radius: 8px;
       color: var(--primary-on-tint);
     }
     .auth-features-list li div {
@@ -4684,7 +4806,7 @@
     }
     .auth-stats-row div {
       display: flex; flex-direction: column; gap: 2px;
-      background: rgba(124,58,237,.08); border: 1px solid rgba(124,58,237,.2);
+      background: rgb(var(--primary-rgb) / .08); border: 1px solid rgb(var(--primary-rgb) / .2);
       border-radius: 12px; padding: 10px 16px;
     }
     .auth-stats-row strong { font-size: 18px; font-weight: 900; color: var(--primary-text); }
@@ -4760,7 +4882,7 @@
       cursor: pointer; transition: .12s;
     }
     .notif-item:hover { background: rgba(148,163,184,.06); }
-    .notif-item.unread { background: rgba(124,58,237,.05); }
+    .notif-item.unread { background: rgb(var(--primary-rgb) / .05); }
     .notif-dot {
       width: 8px; height: 8px; border-radius: 50%;
       background: var(--primary); flex: 0 0 8px; margin-top: 5px;
@@ -4791,7 +4913,7 @@
       background: rgba(10, 13, 28, .92);
       -webkit-backdrop-filter: blur(16px);
       backdrop-filter: blur(16px);
-      border: 1px solid rgba(124, 58, 237, .5);
+      border: 1px solid rgb(var(--primary-rgb) / .5);
       border-radius: 10px;
       padding: 7px 14px 7px 10px;
       display: flex; align-items: center; gap: 8px;
@@ -4802,7 +4924,7 @@
       transform: translateY(-6px);
       transition: opacity .18s cubic-bezier(0.16, 1, 0.3, 1),
                   transform .18s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: 0 8px 24px rgba(0,0,0,.35), 0 0 0 1px rgba(124,58,237,.12);
+      box-shadow: 0 8px 24px rgba(0,0,0,.35), 0 0 0 1px rgb(var(--primary-rgb) / .12);
     }
     .estimate-nav-tooltip-fixed.visible {
       opacity: 1;
@@ -4818,7 +4940,7 @@
     }
     [data-theme="light"] .estimate-nav-tooltip-fixed {
       background: rgba(255,255,255,.95);
-      box-shadow: 0 8px 24px rgba(0,0,0,.12), 0 0 0 1px rgba(124,58,237,.15);
+      box-shadow: 0 8px 24px rgba(0,0,0,.12), 0 0 0 1px rgb(var(--primary-rgb) / .15);
     }
 
     /* ── ONBOARDING SPOTLIGHT TOUR ───────────────────── */
@@ -4837,7 +4959,10 @@
     .tour-popover {
       position: fixed;
       z-index: calc(var(--z-tour) + 1);
-      background: var(--card);
+      /* Было var(--card) — такой переменной нет ни в одной теме, из-за чего
+         объявление отбрасывалось и всплывашка тура рисовалась ПРОЗРАЧНОЙ
+         поверх затемнения. Тот же баг был у .deal-switcher-btn. */
+      background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 14px;
       padding: 16px 18px;
@@ -4904,14 +5029,14 @@
       color: var(--on-color); font-size: 14px; font-weight: 900;
       display: flex; align-items: center; justify-content: center;
       overflow: hidden; flex: 0 0 34px;
-      transition: .15s; box-shadow: 0 4px 14px rgba(124,58,237,.35);
+      transition: .15s; box-shadow: 0 4px 14px rgb(var(--primary-rgb) / .35);
     }
-    .profile-avatar-btn:hover { box-shadow: 0 6px 20px rgba(124,58,237,.5); transform: scale(1.06); }
+    .profile-avatar-btn:hover { box-shadow: 0 6px 20px rgb(var(--primary-rgb) / .5); transform: scale(1.06); }
     .profile-avatar-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
     /* Признак «открыт профиль». Было `0 0 0 2px #fff` — в тёмной теме белое кольцо
        читалось, в светлой оно ложилось на светлый топбар и состояние пропадало.
        Теперь: внутренний зазор цветом фона + внешнее кольцо акцентом — видно в обеих. */
-    .profile-avatar-btn.active { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px var(--primary2), 0 4px 14px rgba(124,58,237,.35); }
+    .profile-avatar-btn.active { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px var(--primary2), 0 4px 14px rgb(var(--primary-rgb) / .35); }
 
     /* ── PROFILE PAGE ─────────────────────────────── */
     .plan-card {
@@ -4919,7 +5044,7 @@
       padding: 20px; text-align: center; transition: .18s; cursor: default;
     }
     .plan-card.popular {
-      border-color: var(--primary); background: rgba(124,58,237,.06);
+      border-color: var(--primary); background: rgb(var(--primary-rgb) / .06);
     }
     .plan-card .plan-price { font-size: 28px; font-weight: 900; margin: 10px 0 4px; }
     .plan-card .plan-period { font-size: 12px; color: var(--muted); }
@@ -4941,20 +5066,20 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 10px; min-height: 130px; color: var(--muted);
     }
-    .kb-new-card:hover { border-color: var(--primary-on-tint); color: var(--primary-on-tint); background: rgba(124,58,237,.06); }
+    .kb-new-card:hover { border-color: var(--primary-on-tint); color: var(--primary-on-tint); background: rgb(var(--primary-rgb) / .06); }
     .kb-new-icon {
       width: 44px; height: 44px; border-radius: 50%;
       background: var(--primary-bg);
       display: flex; align-items: center; justify-content: center;
       font-size: 22px; font-weight: 400; color: var(--primary-on-tint); transition: .14s;
     }
-    .kb-new-card:hover .kb-new-icon { background: rgba(124,58,237,.2); }
+    .kb-new-card:hover .kb-new-icon { background: rgb(var(--primary-rgb) / .2); }
     .kb-new-label { font-size: 13px; font-weight: 600; }
     .kb-doc-card {
       background: var(--panel2); border: 1px solid var(--line);
       border-radius: 14px; padding: 16px; cursor: pointer; transition: .14s;
     }
-    .kb-doc-card:hover { border-color: rgba(124,58,237,.4); background: rgba(124,58,237,.04); }
+    .kb-doc-card:hover { border-color: rgb(var(--primary-rgb) / .4); background: rgb(var(--primary-rgb) / .04); }
     .kb-doc-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 800; }
     .kb-doc-card p { margin: 0; font-size: 12px; }
     .kb-editor { display: flex; flex-direction: column; gap: 12px; }
@@ -5018,7 +5143,7 @@
     .ob-mock {
       width: 100%; aspect-ratio: 16 / 8; max-height: 46vh;
       border-radius: 14px; overflow: hidden;
-      background: linear-gradient(135deg, rgba(124,58,237,.14), rgba(37,99,235,.1));
+      background: linear-gradient(135deg, rgb(var(--primary-rgb) / .14), rgba(37,99,235,.1));
       border: 1px solid var(--line);
       margin-bottom: 18px;
     }
@@ -5055,7 +5180,7 @@
     .ob-mock-doc { height: 20px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); }
     .ob-mock-plans { display: flex; gap: 8px; height: 100%; align-items: stretch; }
     .ob-mock-plan { flex: 1; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); }
-    .ob-mock-plan-active { background: rgba(124,58,237,.14); border-color: var(--primary); }
+    .ob-mock-plan-active { background: rgb(var(--primary-rgb) / .14); border-color: var(--primary); }
     .ob-slide h3 { margin: 0 0 8px; font-size: 17px; }
     .ob-slide p { margin: 0; font-size: 14px; line-height: 1.5; }
     .ob-nav {
@@ -5080,7 +5205,7 @@
       transition: .15s;
     }
     .ob-arrow:disabled { opacity: .3; cursor: default; }
-    .ob-arrow:not(:disabled):hover { border-color: rgba(124,58,237,.5); background: rgba(124,58,237,.08); }
+    .ob-arrow:not(:disabled):hover { border-color: rgb(var(--primary-rgb) / .5); background: rgb(var(--primary-rgb) / .08); }
 
 /* ── MOBILE TOPBAR: show only logo + profile icon ── */
 @media (max-width: 768px) {
@@ -5145,7 +5270,7 @@ body.calc-mode #appContent { padding: 0; }
 .brief-success-wrap h2 { margin: 0 0 10px; font-size: 26px; font-weight: 900; }
 .brief-success-wrap p { color: var(--muted); font-size: 15px; line-height: 1.55; margin: 0; }
 .brief-link-box {
-  background: rgba(124,58,237,.08); border: 1px solid rgba(124,58,237,.3);
+  background: rgb(var(--primary-rgb) / .08); border: 1px solid rgb(var(--primary-rgb) / .3);
   border-radius: 12px; padding: 12px 14px;
   display: flex; align-items: center; gap: 10px; margin-top: 16px;
 }
@@ -5158,8 +5283,8 @@ body.calc-mode #appContent { padding: 0; }
   background: var(--panel2); border: 1px solid var(--line);
   border-radius: 14px; padding: 16px; transition: .14s;
 }
-.brief-card-item:hover { border-color: rgba(124,58,237,.3); }
-.brief-card-item.expanded { border-color: rgba(124,58,237,.35); }
+.brief-card-item:hover { border-color: rgb(var(--primary-rgb) / .3); }
+.brief-card-item.expanded { border-color: rgb(var(--primary-rgb) / .35); }
 
 /* Раскрывающаяся заявка брифа */
 .brief-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-radius: 10px; }
@@ -5169,7 +5294,7 @@ body.calc-mode #appContent { padding: 0; }
   cursor: pointer; display: grid; place-items: center;
   transition: transform .18s ease, color .14s, border-color .14s, background .14s;
 }
-.brief-expand-btn:hover { color: var(--primary-on-tint); border-color: var(--primary); background: rgba(124,58,237,.08); }
+.brief-expand-btn:hover { color: var(--primary-on-tint); border-color: var(--primary); background: rgb(var(--primary-rgb) / .08); }
 .brief-expand-btn.open { transform: rotate(180deg); color: var(--primary-text); border-color: var(--primary); }
 .brief-preview {
   margin: 10px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;
@@ -5179,7 +5304,7 @@ body.calc-mode #appContent { padding: 0; }
 /* Структурированная заявка брифа (вместо одного блока текста) */
 .brief-idea {
   margin-top: 12px; padding: 12px 14px;
-  background: rgba(124,58,237,.06); border: 1px solid rgba(124,58,237,.18);
+  background: rgb(var(--primary-rgb) / .06); border: 1px solid rgb(var(--primary-rgb) / .18);
   border-radius: 12px;
 }
 .brief-idea p { margin: 6px 0 0; font-size: 13.5px; color: var(--text); line-height: 1.6; white-space: pre-line; }
@@ -5217,9 +5342,9 @@ body.calc-mode #appContent { padding: 0; }
   color: var(--muted); font-size: 13px; font-weight: 700;
   cursor: pointer; transition: .14s; position: relative; white-space: nowrap;
 }
-.brief-type-chip:hover { border-color: rgba(124,58,237,.4); color: var(--text); }
+.brief-type-chip:hover { border-color: rgb(var(--primary-rgb) / .4); color: var(--text); }
 .brief-type-chip.active {
-  background: rgba(124,58,237,.14); border-color: var(--primary);
+  background: rgb(var(--primary-rgb) / .14); border-color: var(--primary);
   color: var(--primary-on-tint);
 }
 .brief-type-ic { font-size: 15px; line-height: 1; }
@@ -5244,7 +5369,7 @@ body.calc-mode #appContent { padding: 0; }
   padding: 12px; background: var(--panel2);
   display: flex; flex-direction: column; gap: 9px;
 }
-.bfe-field.bfe-section { background: rgba(124,58,237,.06); border-color: rgba(124,58,237,.22); }
+.bfe-field.bfe-section { background: rgb(var(--primary-rgb) / .06); border-color: rgb(var(--primary-rgb) / .22); }
 .bfe-field.bfe-off { opacity: .55; }
 .bfe-row1 { display: flex; align-items: center; gap: 8px; }
 .bfe-row2 { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -5335,7 +5460,7 @@ body.portal-mode .nav { display: none !important; }
   padding: 40px 16px 60px;
   background: var(--bg);
   background-image:
-    radial-gradient(circle at top left, rgba(124,58,237,.14), transparent 40%),
+    radial-gradient(circle at top left, rgb(var(--primary-rgb) / .14), transparent 40%),
     radial-gradient(circle at bottom right, rgba(37,99,235,.1), transparent 40%);
 }
 .portal-inner { width: 100%; max-width: 580px; }
@@ -5360,7 +5485,7 @@ body.portal-mode .nav { display: none !important; }
   margin: 0 0 22px; line-height: 1.15;
 }
 .portal-price-block {
-  background: rgba(124,58,237,.07); border: 1px solid rgba(124,58,237,.18);
+  background: rgb(var(--primary-rgb) / .07); border: 1px solid rgb(var(--primary-rgb) / .18);
   border-radius: 14px; padding: 16px 20px; margin-bottom: 24px;
   display: flex; justify-content: space-between; align-items: center;
   flex-wrap: wrap; gap: 8px;
@@ -5397,8 +5522,8 @@ body.portal-mode .nav { display: none !important; }
 ═══════════════════════════════════════════════════════ */
 .kanban-col.dragover {
   border-color: var(--primary-on-tint) !important;
-  background: rgba(124,58,237,.1) !important;
-  box-shadow: 0 0 0 2px rgba(124,58,237,.2) inset;
+  background: rgb(var(--primary-rgb) / .1) !important;
+  box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / .2) inset;
   transition: background .12s, border-color .12s;
 }
 .kanban-drop-hint { opacity: .5; font-style: italic; }
@@ -5411,7 +5536,7 @@ body.portal-mode .nav { display: none !important; }
 .task-card[draggable="true"]:active { cursor: grabbing; }
 .crm-card[draggable="true"]:hover,
 .task-card[draggable="true"]:hover {
-  border-color: rgba(124,58,237,.45);
+  border-color: rgb(var(--primary-rgb) / .45);
   transform: translateY(-1px);
   box-shadow: 0 6px 18px rgba(0,0,0,.18);
   transition: transform .14s, box-shadow .14s, border-color .14s;
@@ -5466,8 +5591,8 @@ body.portal-mode .nav { display: none !important; }
   transition: .14s; white-space: nowrap; overflow: hidden;
 }
 .oauth-btn:hover {
-  border-color: rgba(168,85,247,.4);
-  background: rgba(124,58,237,.07);
+  border-color: rgb(var(--primary-rgb) / .4);
+  background: rgb(var(--primary-rgb) / .07);
   transform: translateY(-1px);
 }
 .oauth-btn svg { flex-shrink: 0; }
@@ -5661,7 +5786,7 @@ body.portal-mode .nav { display: none !important; }
   flex-shrink: 0;
   transition: background .15s, color .15s, transform .2s;
 }
-.line-collapse-btn:hover { background: rgba(124,58,237,.1); color: var(--primary); border-color: var(--primary); }
+.line-collapse-btn:hover { background: rgb(var(--primary-rgb) / .1); color: var(--primary); border-color: var(--primary); }
 .line-collapse-btn.collapsed { transform: rotate(180deg); }
 .line-collapse-btn.collapsed:hover { transform: rotate(180deg); }
 
@@ -5714,7 +5839,7 @@ body.portal-mode .nav { display: none !important; }
   min-height: 32px;
 }
 .catalog-action-btn:hover {
-  background: var(--panel3, rgba(124,58,237,.08));
+  background: var(--panel3, rgb(var(--primary-rgb) / .08));
   color: var(--text);
   border-color: var(--primary);
 }
@@ -6000,3 +6125,58 @@ body.portal-mode .nav { display: none !important; }
 .calc-foot a, .calc-link { color: var(--primary-text); font-weight: 700; }
 .calc-link { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; cursor: pointer; }
 .calc-link:focus-visible { outline: 2px solid var(--primary2); outline-offset: 2px; }
+
+/* ── Настройки → Оформление ─────────────────────────────────────────────────
+   Переключатель темы и сетка цветовых схем. Обе группы — role="radiogroup" из
+   обычных <button>: у радиокнопок нужного вида (крупная плитка с иконкой) нет,
+   а нативный <input type=radio> здесь пришлось бы прятать и рисовать заново. */
+.appearance-modes {
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+.appearance-mode {
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 16px; min-height: 44px;      /* 44px — минимальный тач-таргет */
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--bg2); color: var(--muted);
+  font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  transition: color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out),
+              background var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out);
+}
+.appearance-mode:hover { color: var(--text); border-color: var(--primary2); }
+.appearance-mode:active { transform: scale(.97); }
+.appearance-mode.active {
+  color: var(--primary-on-tint);
+  border-color: rgb(var(--primary-rgb) / .45);
+  background: var(--primary-bg);
+}
+.appearance-mode-ic { display: inline-flex; opacity: .85; }
+
+.accent-grid {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.accent-chip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; min-height: 44px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--bg2); color: var(--muted);
+  font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; text-align: left;
+  transition: color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out),
+              background var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out);
+}
+.accent-chip:hover { color: var(--text); border-color: var(--primary2); }
+.accent-chip:active { transform: scale(.97); }
+.accent-chip.active {
+  color: var(--text);
+  border-color: rgb(var(--primary-rgb) / .45);
+  background: var(--primary-bg);
+}
+.accent-swatch {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff;                                /* галочка на насыщенной заливке */
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.16);
+  transition: transform var(--dur-2) var(--ease-spring);
+}
+.accent-chip:hover .accent-swatch { transform: scale(1.12); }
+.accent-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

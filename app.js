@@ -4,7 +4,21 @@
       const APP_VERSION = "4.3";
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
+      const THEME_MODE_KEY = "adervis_pro_theme_mode";
+      const ACCENT_KEY = "adervis_pro_accent";
       const LAST_AGENCY_KEY = "adervis_last_agency_id";
+
+      // Цветовые схемы. sw — образец для кружка-переключателя в Настройках
+      // (тот же оттенок, что --primary тёмной темы, чтобы кружок не врал).
+      // Сами переменные схем — в style.css, блоки [data-accent="…"].
+      const ACCENTS = [
+        { id: "violet",   label: "Фиолетовая", sw: "#6c00ff" },
+        { id: "indigo",   label: "Синяя",      sw: "#1f6feb" },
+        { id: "emerald",  label: "Зелёная",    sw: "#0a7a43" },
+        { id: "amber",    label: "Янтарная",   sw: "#b45309" },
+        { id: "teal",     label: "Бирюзовая",  sw: "#0d7f8f" },
+        { id: "graphite", label: "Графитовая", sw: "#4b5563" }
+      ];
 
       const VAPID_PUBLIC_KEY = "d6EDj4byOmLGERCR7t-xX-YLUuzbyt3Geadj3LHqehwyS17d3VdCyMGIf2PCEpXE0l860ouA8atUreP5RlqZVg";
 
@@ -220,6 +234,9 @@
         clipboard:`<path d="M6.2 1.2h3.6c.5 0 .9.4.9.9v.3h1.1c.8 0 1.4.6 1.4 1.4v9.6c0 .8-.6 1.4-1.4 1.4H4.2c-.8 0-1.4-.6-1.4-1.4V3.8c0-.8.6-1.4 1.4-1.4h1.1v-.3c0-.5.4-.9.9-.9zm-.2 2.6v.6h4v-.6h-4zM5 7h6v1.1H5V7zm0 2.6h6v1.1H5V9.6z"/>`,
         palette:  `<path d="M8 1.3a6.7 6.7 0 000 13.4c.8 0 1.4-.6 1.4-1.4 0-.4-.1-.7-.4-.9-.2-.3-.4-.6-.4-.9 0-.8.6-1.4 1.4-1.4h1.6a3.7 3.7 0 003.7-3.7c0-3-3-5.1-6.6-5.1zM4.4 8.6a1.2 1.2 0 110-2.3 1.2 1.2 0 010 2.3zm2-3.1a1.2 1.2 0 110-2.3 1.2 1.2 0 010 2.3zm3.2 0a1.2 1.2 0 110-2.3 1.2 1.2 0 010 2.3zm2.5 2a1.2 1.2 0 110-2.3 1.2 1.2 0 010 2.3z"/>`,
         sparkles: `<path d="M8 1l1.3 3.4L12.7 5.7 9.3 7 8 10.4 6.7 7 3.3 5.7 6.7 4.4 8 1zm4.6 7.3l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6.6-1.6zM3.6 9.9l.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3L1.8 12l1.3-.5.5-1.6z"/>`,
+        sun:      `<path d="M8 4.9a3.1 3.1 0 100 6.2 3.1 3.1 0 000-6.2zm0 1.4a1.7 1.7 0 110 3.4 1.7 1.7 0 010-3.4zM8 .8a.7.7 0 01.7.7v1a.7.7 0 01-1.4 0v-1A.7.7 0 018 .8zm0 11.7a.7.7 0 01.7.7v1a.7.7 0 01-1.4 0v-1a.7.7 0 01.7-.7zM.8 8a.7.7 0 01.7-.7h1a.7.7 0 010 1.4h-1A.7.7 0 01.8 8zm11.7 0a.7.7 0 01.7-.7h1a.7.7 0 010 1.4h-1a.7.7 0 01-.7-.7zM2.9 2.9a.7.7 0 011 0l.7.7a.7.7 0 01-1 1l-.7-.7a.7.7 0 010-1zm8.5 8.5a.7.7 0 011 0l.7.7a.7.7 0 01-1 1l-.7-.7a.7.7 0 010-1zm1.7-8.5a.7.7 0 010 1l-.7.7a.7.7 0 01-1-1l.7-.7a.7.7 0 011 0zM4.6 11.4a.7.7 0 010 1l-.7.7a.7.7 0 01-1-1l.7-.7a.7.7 0 011 0z"/>`,
+        moon:     `<path d="M6.2 1.4a.7.7 0 01.2.9 5 5 0 007 6.7.7.7 0 011 .8A6.4 6.4 0 116.2 1.4z"/>`,
+        monitor:  `<path d="M2.6 2.2h10.8c.8 0 1.4.6 1.4 1.4v6.5c0 .8-.6 1.4-1.4 1.4H9v1.4h1.8a.7.7 0 010 1.4H5.2a.7.7 0 010-1.4H7v-1.4H2.6c-.8 0-1.4-.6-1.4-1.4V3.6c0-.8.6-1.4 1.4-1.4zm0 1.4v6.5h10.8V3.6H2.6z"/>`,
         search:   `<path fill-rule="evenodd" d="M6.9 1.8a5.1 5.1 0 103.2 9.1l3.5 3.5a.8.8 0 001.1-1.1l-3.5-3.5A5.1 5.1 0 006.9 1.8zm-3.6 5.1a3.6 3.6 0 117.2 0 3.6 3.6 0 01-7.2 0z"/>`,
         eye:      `<path d="M8 3C4.4 3 1.5 5.9.6 7.6a.8.8 0 000 .8C1.5 10.1 4.4 13 8 13s6.5-2.9 7.4-4.6a.8.8 0 000-.8C14.5 5.9 11.6 3 8 3zm0 8a3 3 0 110-6 3 3 0 010 6zm0-1.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>`,
         eyeOff:   `<path d="M2.1 1.9a.8.8 0 00-1.1 1.1l2 2C1.9 5.9.9 7 .6 7.6a.8.8 0 000 .8C1.5 10.1 4.4 13 8 13c1.3 0 2.5-.4 3.5-.9l2.4 2.4a.8.8 0 001.1-1.1L2.1 1.9zm4.4 6.6l1.8 1.8A1.5 1.5 0 016.5 8.5zM8 3c-.8 0-1.6.1-2.3.4l1.6 1.6A3 3 0 0110.5 8l2.1 2.1c1.2-.9 2.2-2 2.7-2.7a.8.8 0 000-.8C14.5 5.9 11.6 3 8 3z"/>`,
@@ -2514,7 +2531,7 @@
               <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M15 1L1 6.9l4.7 1.8L13.5 3 7.2 9.5 7 14l2.5-3.1 3.6 2.8L15 1z"/></svg></span><div><strong>Управление из Telegram</strong><span>Сделки, финансы и статистика прямо в боте</span></div></li>
             </ul>
 
-            <div style="display:flex;gap:10px;align-items:flex-start;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:12px;padding:12px 14px;margin-bottom:24px">
+            <div style="display:flex;gap:10px;align-items:flex-start;background:rgb(var(--primary-rgb) / .06);border:1px solid rgb(var(--primary-rgb) / .18);border-radius:12px;padding:12px 14px;margin-bottom:24px">
               <span style="font-size:18px;line-height:1.3"></span>
               <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">ADERVIS сделали люди из видеопродакшна — мы сами теряли вечера на смету в Excel и отправляли клиенту невнятный файл. Инструмент вырос из своей практики: агентство ведёт в нём настоящие сделки, а не демо.</p>
             </div>
@@ -2616,7 +2633,7 @@
                     <input type="checkbox" id="auth-remember-me" ${f.rememberMe ? "checked" : ""} onchange="app.setAuthField('rememberMe',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)">
                     <label for="auth-remember-me" style="font-size:13px;color:var(--muted);cursor:pointer;margin:0;user-select:none">Запомнить меня</label>
                   </div>` : `
-                  <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:16px;padding:10px 12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:10px">
+                  <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:16px;padding:10px 12px;background:rgb(var(--primary-rgb) / .06);border:1px solid rgb(var(--primary-rgb) / .2);border-radius:10px">
                     <input type="checkbox" id="auth-consent" ${f.consent ? "checked" : ""} onchange="app.setAuthField('consent',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);margin-top:1px;flex-shrink:0">
                     <label for="auth-consent" style="font-size:12px;color:var(--muted);cursor:pointer;margin:0;user-select:none;line-height:1.5">Я принимаю <a href="https://adervis.ru/docs" target="_blank" rel="noopener" style="color:var(--primary-text)">Оферту и Политику конфиденциальности</a></label>
                   </div>`}
@@ -3097,7 +3114,7 @@
               const urgentBadge = isUrgent
                 ? `<span style="font-size:12px;background:rgba(220,38,38,.18);color:var(--text-danger);border-radius:99px;padding:2px 8px;font-weight:750;white-space:nowrap">${s === "expired" || s === "cancelled" ? "Оплатить" : `${daysLeft} д.`}</span>`
                 : "";
-              return `<button class="pd-item" style="background:rgba(124,58,237,.08);border-radius:10px" onclick="app.gotoSubscription();app.toggleProfileDd(false)" title="Тарифы, оплата, история платежей">
+              return `<button class="pd-item" style="background:rgb(var(--primary-rgb) / .08);border-radius:10px" onclick="app.gotoSubscription();app.toggleProfileDd(false)" title="Тарифы, оплата, история платежей">
               <span class="pd-item-icon">${icon("card")}</span>
               <span class="u-flex1">Тарифный план</span>
               ${urgentBadge}
@@ -3131,7 +3148,7 @@
           <div style="padding:6px 0">
             <div class="help-dd-section">Знакомство</div>
             <button class="help-dd-item" onclick="app.openHelpModal();app.toggleHelpDd(false)">
-              <span class="help-dd-item-icon" style="background:rgba(124,58,237,.15)"></span>
+              <span class="help-dd-item-icon" style="background:rgb(var(--primary-rgb) / .15)"></span>
               <div><div>Начало работы</div>${seen ? `<div class="hdi-sub" style="color:var(--text-success)">Завершено ✓</div>` : `<div class="hdi-sub">Быстрый старт</div>`}</div>
             </button>
             <button class="help-dd-item" onclick="app.toggleHelpDd(false);app.startTour()">
@@ -3269,7 +3286,7 @@
         const results = [];
         (state.savedProjects || []).forEach(p => {
           if ((p.name||"").toLowerCase().includes(q) || (p.client||"").toLowerCase().includes(q)) {
-      results.push({ type: "deal", icon: "", color: "rgba(124,58,237,.15)", name: p.name || "Без названия", sub: `${p.client||""} · ${money(p.total||0)} · ${p.crmStatus||"Лид"}`, action: `app.openDeal('${p.id}');app.closeSearch()` });
+      results.push({ type: "deal", icon: "", color: "rgb(var(--primary-rgb) / .15)", name: p.name || "Без названия", sub: `${p.client||""} · ${money(p.total||0)} · ${p.crmStatus||"Лид"}`, action: `app.openDeal('${p.id}');app.closeSearch()` });
           }
         });
         (state.clients || []).forEach(c => {
@@ -3506,7 +3523,7 @@
         if (s === "active" && daysLeft !== null) {
           if (daysLeft > 7) return "";
           return `
-            <div id="payBannerBar" style="position:fixed;bottom:70px;right:16px;z-index:200;background:var(--primary);color:#fff;border-radius:14px;padding:10px 16px;box-shadow:0 8px 28px rgba(124,58,237,.45);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;max-width:340px">
+            <div id="payBannerBar" style="position:fixed;bottom:70px;right:16px;z-index:200;background:var(--primary);color:#fff;border-radius:14px;padding:10px 16px;box-shadow:0 8px 28px rgb(var(--primary-rgb) / .45);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;max-width:340px">
               <span style="cursor:pointer;flex:1" onclick="app.gotoSubscription()"> ${daysLeft <= 0 ? "Подписка истекает сегодня" : `Подписка: осталось ${daysLeft} дн.`} — Продлить →</span>
               ${closeBtn}
             </div>`;
@@ -4092,7 +4109,7 @@
       }
 
       function _adminStatCard(label, value, color) {
-        const colors = { green: "rgba(22,163,74,.12)", yellow: "rgba(202,138,4,.12)", blue: "rgba(37,99,235,.12)", purple: "rgba(124,58,237,.12)", "": "var(--panel2)" };
+        const colors = { green: "rgba(22,163,74,.12)", yellow: "rgba(202,138,4,.12)", blue: "rgba(37,99,235,.12)", purple: "rgb(var(--primary-rgb) / .12)", "": "var(--panel2)" };
         return `<div class="panel" style="background:${colors[color]||"var(--panel2)"};box-shadow:none;padding:18px">
           <div style="font-size:22px;font-weight:900;font-variant-numeric:tabular-nums">${value}</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px">${label}</div>
@@ -4252,7 +4269,7 @@
               </div>
             </div>
 
-            <div style="margin-top:16px;padding:14px 16px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px;font-size:13px;color:var(--muted)">
+            <div style="margin-top:16px;padding:14px 16px;background:rgb(var(--primary-rgb) / .06);border:1px solid rgb(var(--primary-rgb) / .2);border-radius:12px;font-size:13px;color:var(--muted)">
               Версия приложения: <strong style="color:var(--text)">${escapeHtml(APP_VERSION)}</strong> · Доступ предоставляется онлайн сразу после оплаты
             </div>
           </div>
@@ -4279,7 +4296,7 @@
           const btnOff = isCurrent || p.price === 0 || !!_buyingPlan;
           const feats = planFeatures[p.id] || [];
           const border = isCurrent ? "var(--green)" : p.popular ? "var(--primary)" : "var(--line)";
-          const bg = isCurrent ? "rgba(22,163,74,.06)" : p.popular ? "rgba(124,58,237,.05)" : "var(--panel2)";
+          const bg = isCurrent ? "rgba(22,163,74,.06)" : p.popular ? "rgb(var(--primary-rgb) / .05)" : "var(--panel2)";
           const priceHtml = p.price === 0
             ? `<div style="font-size:28px;font-weight:900;color:var(--text-success);line-height:1">Бесплатно</div><div style="font-size:12px;color:var(--muted);margin-bottom:16px">${escapeHtml(p.period)}</div>`
             : discountedPrice !== null
@@ -4301,10 +4318,10 @@
         }).join("");
         const yes = `<span style="color:var(--text-success);font-size:16px;font-weight:700">✓</span>`;
         const no  = `<span style="color:var(--muted);font-size:15px">—</span>`;
-        const colStyle = (id) => id === "month3" ? "background:rgba(124,58,237,.07);font-weight:600" : "";
+        const colStyle = (id) => id === "month3" ? "background:rgb(var(--primary-rgb) / .07);font-weight:600" : "";
         const hdr = (label, id) => `<th style="text-align:center;padding:10px 8px;font-size:12px;font-weight:700;white-space:nowrap;${colStyle(id)}">${label}</th>`;
         const cell = (val, id) => `<td style="text-align:center;padding:9px 8px;${colStyle(id)}">${val}</td>`;
-        const row = (label, vals) => `<tr><td style="padding:9px 12px;font-size:13px;color:var(--text2)">${label}</td>${PLANS.map((p,i) => cell(vals[i], p.id)).join("")}</tr>`;
+        const row = (label, vals) => `<tr><td style="padding:9px 12px;font-size:13px;color:var(--muted)">${label}</td>${PLANS.map((p,i) => cell(vals[i], p.id)).join("")}</tr>`;
         const group = (title) => `<tr><td colspan="6" style="padding:10px 12px 4px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:var(--panel2);border-top:1px solid var(--line)">${title}</td></tr>`;
 
         const compTable = `
@@ -4391,7 +4408,7 @@
               ${cards}
             </div>
             ${_promoCodeInputHtml()}
-            <p style="font-size:12px;color:var(--muted);padding:10px 16px;background:rgba(124,58,237,.06);border-radius:10px;margin:0;line-height:1.6">
+            <p style="font-size:12px;color:var(--muted);padding:10px 16px;background:rgb(var(--primary-rgb) / .06);border-radius:10px;margin:0;line-height:1.6">
         Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Тарифы отличаются только сроком: команда до ${PAID_MAX_USERS} человек входит в любой из них · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
             </p>
             ${compTable}
@@ -4470,7 +4487,7 @@
               <h2 style="margin-top:0;font-size:15px">Фото и имя</h2>
               <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
                 <div style="position:relative;flex:0 0 80px">
-                  <div style="width:80px;height:80px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;overflow:hidden;box-shadow:0 6px 20px rgba(124,58,237,.35)">
+                  <div style="width:80px;height:80px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;overflow:hidden;box-shadow:0 6px 20px rgb(var(--primary-rgb) / .35)">
                     ${avatarHtml}
                   </div>
                 </div>
@@ -4539,7 +4556,7 @@
             })()}
             ` : `
             <div style="text-align:center;padding:32px 24px;margin-bottom:24px;background:var(--panel2);border-radius:16px;border:1px solid var(--line)">
-              <div style="width:72px;height:72px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;margin:0 auto 16px;box-shadow:0 8px 28px rgba(124,58,237,.4)">A</div>
+              <div style="width:72px;height:72px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;margin:0 auto 16px;box-shadow:0 8px 28px rgb(var(--primary-rgb) / .4)">A</div>
               <h2 style="margin:0 0 6px;font-size:20px">Войдите в ADERVIS</h2>
               <p style="color:var(--muted);margin:0 0 18px;font-size:14px">Облачное хранение · Синхронизация · Подписка</p>
               <button class="btn primary" onclick="app.exitLocalModeAndLogin()" style="padding:12px 28px;font-size:15px;width:100%;max-width:280px;display:inline-flex;align-items:center;justify-content:center;gap:8px">${icon("lock")} Войти / Зарегистрироваться</button>
@@ -4559,7 +4576,7 @@
                   Поделитесь ссылкой с другой видеостудией или фрилансером. Когда они оплатят любой тариф — вы получите <b>+30 дней</b> к подписке бесплатно.
                 </p>
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-                  <code id="refLinkCode" style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--text2)">${refUrl}</code>
+                  <code id="refLinkCode" style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--muted)">${refUrl}</code>
                   <button class="btn small" onclick="app.copy(document.getElementById('refLinkCode').textContent.trim(),'Реферальная ссылка скопирована!')" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span style="color:var(--primary);display:inline-flex">${icon("copy")}</span> Копировать</button>
                 </div>
                 <div id="refStats" class="u-meta" aria-busy="true"><div class="skeleton" style="height:14px;width:240px"></div></div>
@@ -5064,7 +5081,7 @@
             <div class="ob-mock-kpis">
               <span class="ob-mock-kpi" style="background:rgba(22,163,74,.22)"></span>
               <span class="ob-mock-kpi" style="background:rgba(37,99,235,.22)"></span>
-              <span class="ob-mock-kpi" style="background:rgba(124,58,237,.24)"></span>
+              <span class="ob-mock-kpi" style="background:rgb(var(--primary-rgb) / .24)"></span>
             </div>
             <div class="ob-mock-bars">
               <span style="height:38%"></span><span style="height:68%"></span><span style="height:52%"></span>
@@ -6595,7 +6612,51 @@
 
       function toggleTheme() {
         const current = document.documentElement.getAttribute("data-theme") || "dark";
-        setTheme(current === "dark" ? "light" : "dark");
+        const next = current === "dark" ? "light" : "dark";
+        setTheme(next);
+        // Кнопка в шапке — это явный ручной выбор, поэтому она выводит из режима
+        // «как в системе». Без этой строки настройка на вкладке Оформление и кнопка
+        // расходились: тема менялась, а после перезагрузки возвращалась системная.
+        lsSet(THEME_MODE_KEY, next);
+      }
+
+      // ── Оформление: режим темы и цветовая схема ───────────────────────────
+      // Обе настройки живут только в localStorage, как и раньше тема: они про
+      // конкретное устройство (телефон в тёмной комнате / ноут на солнце), а не
+      // про агентство, поэтому в agency_state и в облачную синхронизацию не идут.
+
+      // Режим "system" = следовать настройке ОС. Отдельный ключ нужен потому, что
+      // THEME_KEY хранит уже РАЗРЕШЁННОЕ значение (light/dark) — по нему нельзя
+      // отличить "пользователь выбрал светлую" от "у него светло в системе".
+      function getThemeMode() {
+        const m = lsGet(THEME_MODE_KEY);
+        return (m === "light" || m === "dark" || m === "system") ? m : (lsGet(THEME_KEY) || "system");
+      }
+
+      function setThemeMode(mode) {
+        if (mode !== "light" && mode !== "dark" && mode !== "system") mode = "system";
+        lsSet(THEME_MODE_KEY, mode);
+        if (mode === "system") {
+          const prefersLight = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+          setTheme(prefersLight ? "light" : "dark");
+        } else {
+          setTheme(mode);
+        }
+        render();
+      }
+
+      function getAccent() {
+        const a = lsGet(ACCENT_KEY);
+        return ACCENTS.some(x => x.id === a) ? a : "violet";
+      }
+
+      function setAccent(id) {
+        if (!ACCENTS.some(x => x.id === id)) id = "violet";
+        // violet — базовые значения в :root, отдельного [data-accent] блока у него нет.
+        if (id === "violet") document.documentElement.removeAttribute("data-accent");
+        else document.documentElement.setAttribute("data-accent", id);
+        lsSet(ACCENT_KEY, id);
+        render();
       }
 
       function toast(message) {
@@ -12165,7 +12226,15 @@
         if (error) { toast('Не удалось сохранить КП'); return; }
         // Локально правим уже загруженный список, чтобы не перезапрашивать всё.
         const row = _allPortals.find(p => p.id === m.id);
-        if (row) Object.assign(row, { deal_name: patch.deal_name, total_price: patch.total_price, advance_amount: patch.advance_amount });
+        // pay_link обязателен в этом списке: по нему считается пилюля «Нет ссылки
+        // оплаты» (_proposalRowHtml). Без него пилюля висела до перезагрузки страницы,
+        // хотя ссылку только что вписали.
+        if (row) Object.assign(row, {
+          deal_name: patch.deal_name,
+          total_price: patch.total_price,
+          advance_amount: patch.advance_amount,
+          ...(m.pay_method === 'link' ? { pay_link: link } : {})
+        });
         state.proposalModal = null;
         _armDirtyCheck(null);
         toast('КП обновлено — клиент видит изменения по той же ссылке');
@@ -12605,7 +12674,7 @@
               </div>
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-top:10px">
-              ${b.project_type ? `<span style="background:rgba(124,58,237,.1);color:var(--primary-text);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.project_type)}</span>` : ''}
+              ${b.project_type ? `<span style="background:rgb(var(--primary-rgb) / .1);color:var(--primary-text);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.project_type)}</span>` : ''}
               ${b.budget ? `<span style="background:rgba(37,99,235,.1);color:var(--blue);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.budget)}</span>` : ''}
               ${b.deadline ? `<span style="background:rgba(202,138,4,.1);color:var(--yellow);border-radius:6px;padding:2px 8px;font-weight:700"> ${escapeHtml(b.deadline)}</span>` : ''}
             </div>
@@ -13085,7 +13154,7 @@
 
         const pct = Math.round(done / steps.length * 100);
         return `
-          <div class="panel" style="margin-bottom:14px;border:1px solid rgba(124,58,237,.25)">
+          <div class="panel" style="margin-bottom:14px;border:1px solid rgb(var(--primary-rgb) / .25)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
               <div>
                 <div style="font-weight:700;font-size:14px;margin-bottom:2px"> Начало работы</div>
@@ -13356,7 +13425,7 @@
               <div class="db-stat" onclick="app.go('global-finances')" title="Расходы / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(220,38,38,.13);color:var(--text-danger)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Расходы / мес</span></div>
                 <div class="db-stat-value" style="${monthExpenses>0?"color:var(--text-danger)":""}">${money(monthExpenses)}</div>
-                <div class="db-stat-delta neu">${curMonthName}</div>
+                <div class="db-stat-delta neu">В ${curMonthName}</div>
               </div>
               <div class="db-stat" onclick="app.go('global-finances')" title="Прибыль / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${monthProfit>=0?"rgba(22,163,74,.15);color:var(--text-success)":"rgba(220,38,38,.13);color:var(--text-danger)"}"><svg viewBox="0 0 16 16" fill="currentColor">${monthProfit>=0?EMPTY_ICON_PATHS.trendUp:EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Прибыль / мес</span></div>
@@ -13519,7 +13588,7 @@
                       <span class="status-pill ${project.crmStatus === CRM_ARCHIVED ? "archived" : ""}" style="font-size:12px">${escapeHtml(project.crmStatus||"Лид")}</span>
                       <div class="deal-list-name" style="display:flex;align-items:center;gap:6px;min-width:0">
                         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${escapeHtml(project.name)}</span>
-                        ${(project.tags||[]).slice(0,2).map(t=>`<span style="font-size:12px;background:rgba(108,0,255,.12);border-radius:99px;padding:1px 6px;color:var(--primary-text);white-space:nowrap;flex-shrink:0">${escapeHtml(t)}</span>`).join("")}
+                        ${(project.tags||[]).slice(0,2).map(t=>`<span style="font-size:12px;background:rgb(var(--primary-rgb) / .12);border-radius:99px;padding:1px 6px;color:var(--primary-text);white-space:nowrap;flex-shrink:0">${escapeHtml(t)}</span>`).join("")}
                       </div>
                       <div class="deal-list-client">${escapeHtml(project.client||"—")}</div>
                       <div class="deal-list-budget">${money(project.total)}</div>
@@ -14178,7 +14247,7 @@
           ai:        { label: "ИИ / AI",        ic: "robot",    color: "var(--primary)" },
           graphic:   { label: "Графика",        ic: "star",     color: "var(--orange)" },
           photo:     { label: "Фото",           ic: "camera",   color: "var(--green)" },
-          corporate: { label: "Корпоративный",  ic: "building", color: "var(--text2)" },
+          corporate: { label: "Корпоративный",  ic: "building", color: "var(--muted)" },
         };
         const catIcon = (meta) => meta && meta.ic
           ? `<span style="color:${meta.color};display:inline-flex;vertical-align:-2px">${icon(meta.ic, 14)}</span>`
@@ -14201,7 +14270,7 @@
 
         const TIER_COLORS = {
           1: { bg: "rgba(8,145,178,.12)", border: "rgba(8,145,178,.3)", text: "var(--tint-cyan)", label: "Старт" },
-          2: { bg: "rgba(124,58,237,.12)", border: "rgba(124,58,237,.35)", text: "var(--tint-violet)", label: "Профи" },
+          2: { bg: "rgb(var(--primary-rgb) / .12)", border: "rgb(var(--primary-rgb) / .35)", text: "var(--tint-violet)", label: "Профи" },
           3: { bg: "rgba(246,189,58,.1)", border: "rgba(246,189,58,.4)", text: "var(--tint-amber)", label: "Премиум" },
         };
 
@@ -14949,7 +15018,7 @@
                 // только когда в ней реально есть расчёт (дни × ставка, часы и т.п.)
                 if (!bd.rows.length) return "";
                 if (bd.rows.length === 1 && bd.rows[0].label === "Фиксированная стоимость") return "";
-                return `<div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.15);border-radius:10px;padding:10px 14px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                return `<div style="background:rgb(var(--primary-rgb) / .06);border:1px solid rgb(var(--primary-rgb) / .15);border-radius:10px;padding:10px 14px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
                   <div class="u-meta">${bd.rows.map(r=>`<span>${escapeHtml(r.label)}: <strong>${money(r.value)}</strong></span>`).join(" · ")}</div>
                   <div style="font-weight:900;font-size:14px;white-space:nowrap">= ${money(bd.total)}</div>
                 </div>`;
@@ -15523,7 +15592,7 @@
                   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                     <button class="btn small" onclick="app.closeClientDetail()">← Все клиенты</button>
                     <h1 class="m-0">${escapeHtml(client.name)}</h1>
-                    <select style="border-radius:999px;padding:6px 30px 6px 12px;font-size:12px;font-weight:750;background:rgba(124,58,237,.16);border:1px solid rgba(124,58,237,.3);color:var(--text)" onchange="app.updateClientField('${client.id}','status',this.value)">
+                    <select style="border-radius:999px;padding:6px 30px 6px 12px;font-size:12px;font-weight:750;background:rgb(var(--primary-rgb) / .16);border:1px solid rgb(var(--primary-rgb) / .3);color:var(--text)" onchange="app.updateClientField('${client.id}','status',this.value)">
                       ${["new", "active", "vip", "paused", "lost"].map(s => `<option value="${s}" ${client.status === s ? "selected" : ""}>${{new:"Новый",active:"Активный",vip:"VIP",paused:"Пауза",lost:"Потерян"}[s]||s}</option>`).join("")}
                     </select>
                   </div>
@@ -16574,7 +16643,7 @@
                 </div>
               </div>
               <div style="min-height:50vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:48px 24px;text-align:center">
-                <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(37,99,235,.12));display:grid;place-items:center;font-size:32px"></div>
+                <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgb(var(--primary-rgb) / .12),rgba(37,99,235,.12));display:grid;place-items:center;font-size:32px"></div>
                 <h2 style="margin:0;font-size:22px">Воронка пуста</h2>
                 <p style="margin:0;color:var(--muted);max-width:360px;line-height:1.5">Сохраните текущую смету в CRM, чтобы видеть сделки по статусам и отслеживать воронку продаж.</p>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
@@ -17669,7 +17738,7 @@
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px">
                   <span style="font-size:12px;font-weight:750;color:var(--muted);margin-right:2px">${calAllMode ? yr + " год" : monthNames[mo-1] + " " + yr}:</span>
                   <div style="display:flex;gap:4px;flex-wrap:wrap">
-                    ${typeFilters.map(f => `<button style="padding:4px 10px;font-size:12px;font-weight:750;border-radius:99px;border:1px solid ${calTypeFilter===f.id?"var(--primary)":"var(--line)"};background:${calTypeFilter===f.id?"rgba(124,58,237,.15)":"transparent"};color:${calTypeFilter===f.id?"var(--primary-on-tint)":"var(--muted)"};cursor:pointer" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
+                    ${typeFilters.map(f => `<button style="padding:4px 10px;font-size:12px;font-weight:750;border-radius:99px;border:1px solid ${calTypeFilter===f.id?"var(--primary)":"var(--line)"};background:${calTypeFilter===f.id?"rgb(var(--primary-rgb) / .15)":"transparent"};color:${calTypeFilter===f.id?"var(--primary-on-tint)":"var(--muted)"};cursor:pointer" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
                   </div>
                   <span style="font-size:12px;color:var(--muted);margin-left:auto">${listEvents.length} событий</span>
                 </div>
@@ -17680,7 +17749,7 @@
                     const isToday = ev.date === today;
                     const isPast = ev.date < today;
                     return `
-                    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid ${isToday ? "rgba(124,58,237,.4)" : "var(--line)"};cursor:${ev.projectId ? "pointer" : "default"};transition:.12s"
+                    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid ${isToday ? "rgb(var(--primary-rgb) / .4)" : "var(--line)"};cursor:${ev.projectId ? "pointer" : "default"};transition:.12s"
                       onclick="${ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : ev.htmlLink ? `window.open('${escapeHtml(ev.htmlLink)}','_blank')` : `app.calSelectDay('${ev.date}')`}">
                       <div style="width:8px;height:8px;border-radius:50%;background:${typeColor[ev.type]};flex:0 0 8px"></div>
                       <div class="u-flex1-min0">
@@ -17704,7 +17773,7 @@
       function renderWelcome() {
         return `
           <div class="welcome-screen">
-            <div style="display:inline-flex;align-items:center;gap:10px;background:var(--primary-bg);border:1px solid rgba(108,0,255,.2);border-radius:99px;padding:6px 16px;margin-bottom:24px">
+            <div style="display:inline-flex;align-items:center;gap:10px;background:var(--primary-bg);border:1px solid rgb(var(--primary-rgb) / .2);border-radius:99px;padding:6px 16px;margin-bottom:24px">
               <div style="width:8px;height:8px;border-radius:50%;background:var(--primary)"></div>
               <span style="font-size:13px;color:var(--primary-text);font-weight:600">7 дней бесплатно · карта не нужна</span>
             </div>
@@ -17881,7 +17950,7 @@
             <div class="wizard-pkg-grid" style="grid-template-columns:repeat(auto-fill,minmax(210px,1fr))">
               ${visiblePkgs.map(pkg => {
                 const cat = pkgCategory(pkg);
-                const catColor = cat === "ai" ? "rgba(124,58,237,.18)" : cat === "event" ? "rgba(8,145,178,.12)" : cat === "photo" ? "rgba(217,119,6,.14)" : "rgba(37,99,235,.1)";
+                const catColor = cat === "ai" ? "rgb(var(--primary-rgb) / .18)" : cat === "event" ? "rgba(8,145,178,.12)" : cat === "photo" ? "rgba(217,119,6,.14)" : "rgba(37,99,235,.1)";
                 const catLabel = cat === "ai" ? "ИИ" : cat === "event" ? "Мероприятие" : cat === "photo" ? "Фото" : "Видео";
                 return `
                   <div class="wizard-pkg-card" onclick="app.finishWizardWithPackage('${pkg.id}')">
@@ -18088,7 +18157,7 @@
         return `
             <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
               <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("chat", "var(--yellow)")} Уведомления (Telegram)</h2>
-              <p style="font-size:13px;color:var(--text2);margin-bottom:14px">
+              <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
                 Напишите боту <a href="https://t.me/adervis_crm_bot" target="_blank" style="color:var(--primary)">@adervis_crm_bot</a> команду <code>/start</code> — он пришлёт Chat ID. Добавьте столько получателей, сколько нужно.
               </p>
               ${(state.telegramChatIds || []).map(r => `
@@ -18109,9 +18178,56 @@
         `;
       }
 
+      // Вкладка «Оформление»: режим темы + цветовая схема. Обе настройки —
+      // локальные для устройства (см. setThemeMode/setAccent), поэтому здесь нет
+      // ни data-autosave, ни записи в state: кнопки применяют изменение сразу.
+      function renderSettingsAppearance() {
+        const mode = getThemeMode();
+        const accent = getAccent();
+        const modes = [
+          ["system", "monitor", "Как в системе"],
+          ["light",  "sun",     "Светлая"],
+          ["dark",   "moon",    "Тёмная"]
+        ];
+        return `
+          <div class="panel" style="box-shadow:none;background:var(--panel2)">
+            <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("sun", "var(--yellow)")} Тема</h2>
+            <div class="appearance-modes" role="radiogroup" aria-label="Тема оформления">
+              ${modes.map(([id, ic, label]) => `
+                <button class="appearance-mode ${mode === id ? "active" : ""}"
+                        role="radio" aria-checked="${mode === id}"
+                        onclick="app.setThemeMode('${id}')">
+                  <span class="appearance-mode-ic">${icon(ic, 18)}</span>
+                  <span>${label}</span>
+                </button>`).join("")}
+            </div>
+            <p style="font-size:12px;color:var(--muted);margin-top:12px">«Как в системе» переключается вместе с ночным режимом телефона или ноутбука.</p>
+          </div>
+
+          <div class="panel" style="margin-top:18px;box-shadow:none;background:var(--panel2)">
+            <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("palette", "var(--primary2)")} Цветовая схема</h2>
+            <div class="accent-grid" role="radiogroup" aria-label="Цветовая схема">
+              ${ACCENTS.map(a => `
+                <button class="accent-chip ${accent === a.id ? "active" : ""}"
+                        role="radio" aria-checked="${accent === a.id}"
+                        onclick="app.setAccent('${a.id}')">
+                  <span class="accent-swatch" style="background:${a.sw}">${accent === a.id ? icon("check", 13) : ""}</span>
+                  <span class="accent-label">${escapeHtml(a.label)}</span>
+                </button>`).join("")}
+            </div>
+            <p style="font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5">
+              Схема меняет только акцент — кнопки, ссылки, выделение. Зелёный «прибыль» и
+              красный «расход» одинаковы в любой схеме: иначе их нельзя было бы отличить
+              от акцента. Настройка живёт на этом устройстве и не меняет ничего у команды.
+            </p>
+          </div>
+        `;
+      }
+
       function renderSettings() {
         const tabs = [
           ["company", icon("gear"), "Компания"],
+          ["appearance", icon("palette"), "Оформление"],
           ["notify", icon("bell"), "Уведомления"],
           ["finance", icon("wallet"), "Финансы"],
           ["integrations", icon("calendar"), "Интеграции"],
@@ -18288,7 +18404,7 @@
                 </p>
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
                   <input readonly onclick="this.select()" value="${escapeHtml(feedUrl)}"
-                    style="flex:1;font-size:12px;min-width:0;background:rgba(0,0,0,.15);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--fg);cursor:text">
+                    style="flex:1;font-size:12px;min-width:0;background:rgba(0,0,0,.15);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--text);cursor:text">
                   <button class="btn small" onclick="app.copy('${escapeHtml(feedUrl)}','Ссылка скопирована!')" style="display:inline-flex;align-items:center;gap:6px"><span style="color:var(--primary);display:inline-flex">${icon("copy")}</span> Копировать</button>
                   <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px">${icon("mobile")} Открыть на iPhone</a>
                 </div>
@@ -18333,9 +18449,9 @@
             </div>` : ""}
 
             <!-- PWA Установка -->
-            <div class="panel" style="margin-top:16px;box-shadow:none;background:linear-gradient(135deg,rgba(124,58,237,.10),rgba(37,99,235,.08));border:1px solid rgba(124,58,237,.25)">
+            <div class="panel" style="margin-top:16px;box-shadow:none;background:linear-gradient(135deg,rgb(var(--primary-rgb) / .10),rgba(37,99,235,.08));border:1px solid rgb(var(--primary-rgb) / .25)">
               <div class="pwa-install-head">
-                <div style="width:56px;height:56px;border-radius:16px;background:var(--primary);display:grid;place-items:center;flex-shrink:0;box-shadow:0 6px 20px rgba(108,0,255,.35)">
+                <div style="width:56px;height:56px;border-radius:16px;background:var(--primary);display:grid;place-items:center;flex-shrink:0;box-shadow:0 6px 20px rgb(var(--primary-rgb) / .35)">
                   <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
                 </div>
                 <div class="u-flex1-min0">
@@ -18356,7 +18472,7 @@
                 </div>
               </div>
               <div class="grid three" style="margin-top:16px;gap:10px">
-                <div style="background:rgba(124,58,237,.08);border-radius:10px;padding:10px 14px">
+                <div style="background:rgb(var(--primary-rgb) / .08);border-radius:10px;padding:10px 14px">
                   <div style="margin-bottom:4px;color:var(--primary)">${icon("check", 18)}</div>
                   <div style="font-size:12px;font-weight:700;margin-bottom:2px">Быстрый запуск</div>
                   <div class="u-meta">Иконка на рабочем столе или в доке, открывается мгновенно</div>
@@ -18540,7 +18656,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
                 Edge Function <code>ai-proposal</code> уже задеплоена. Для активации — добавить бесплатный ключ Gemini в Supabase Secrets:
               </p>
-              <ol style="font-size:13px;color:var(--text2);padding-left:18px;line-height:2">
+              <ol style="font-size:13px;color:var(--muted);padding-left:18px;line-height:2">
                 <li>Получить ключ: <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--primary)">aistudio.google.com</a> → Create API key (без карты)</li>
                 <li>Установить секрет: <code style="background:var(--bg);padding:2px 6px;border-radius:6px">supabase secrets set GEMINI_API_KEY=ваш_ключ</code></li>
                 <li>Передеплоить функцию: <code style="background:var(--bg);padding:2px 6px;border-radius:6px">supabase functions deploy ai-proposal</code></li>
@@ -18556,7 +18672,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             <div class="section-title">
               <div>
                 <h1>Настройки</h1>
-                <p>Тема и режим клиента — в шапке.</p>
+                <p>Тема и цветовая схема — на вкладке «Оформление», режим клиента — в шапке.</p>
               </div>
             </div>
 
@@ -18578,6 +18694,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             </div>
 
             ${tab === "company" ? companyTab : ""}
+            ${tab === "appearance" ? renderSettingsAppearance() : ""}
             ${tab === "notify" ? notifyTab : ""}
             ${tab === "finance" ? financeTab : ""}
             ${tab === "integrations" ? integrationsTab : ""}
@@ -19520,7 +19637,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <div style="text-align:center;margin-top:24px;padding:22px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3);border-radius:14px">
                     <div style="font-size:36px;margin-bottom:8px"></div>
                     <div style="font-weight:800;color:var(--text-success);font-size:15px">КП утверждено</div>
-                    ${d.signer_name ? `<div style="font-size:12px;color:var(--text2);margin-top:6px">Подписал: <b>${escapeHtml(d.signer_name)}</b></div>` : ''}
+                    ${d.signer_name ? `<div style="font-size:12px;color:var(--muted);margin-top:6px">Подписал: <b>${escapeHtml(d.signer_name)}</b></div>` : ''}
                     <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5">Мы получили ваше подтверждение и свяжемся с вами в ближайшее время.</div>
                   </div>
                 `}
@@ -19572,7 +19689,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <span style="width:16px;height:16px;border-radius:5px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">
                   <img src="logo-icon.svg" alt="" style="width:11px;height:11px;object-fit:contain" onerror="this.style.display='none'">
                 </span>
-                Сделано в <strong style="color:var(--text2);font-weight:700">ADERVIS</strong> — сметы и КП для видеопродакшна
+                Сделано в <strong style="color:var(--muted);font-weight:700">ADERVIS</strong> — сметы и КП для видеопродакшна
               </a>`}
             </div>
           </div>
@@ -19664,7 +19781,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const sum = money(d.advance_amount);
         const amountRow = `
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <span style="font-size:13px;color:var(--text2)">Сумма аванса</span>
+            <span style="font-size:13px;color:var(--muted)">Сумма аванса</span>
             <span style="font-size:22px;font-weight:900">${sum}</span>
           </div>`;
 
@@ -20545,7 +20662,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 </select>`)}
               </div>
               ${m._projectId ? `
-              <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px;padding:14px 16px;margin-bottom:14px">
+              <div style="background:rgb(var(--primary-rgb) / .06);border:1px solid rgb(var(--primary-rgb) / .2);border-radius:12px;padding:14px 16px;margin-bottom:14px">
                 <div style="font-size:12px;font-weight:800;color:var(--primary-text);margin-bottom:10px"> Дедлайн проекта</div>
                 <input type="date" value="${escapeHtml(m._projectDeadline||"")}"
                   oninput="app.setClientModalField('_projectDeadline',this.value)"
@@ -20838,7 +20955,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 </select>`)}
                 ${field("Менеджер", `<input value="${escapeHtml(m.manager || "")}" oninput="app.setDealModalField('manager',this.value)" placeholder="Имя менеджера">`)}
               </div>
-              <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px;padding:14px 16px;margin-bottom:14px">
+              <div style="background:rgb(var(--primary-rgb) / .06);border:1px solid rgb(var(--primary-rgb) / .2);border-radius:12px;padding:14px 16px;margin-bottom:14px">
                 <div style="font-size:12px;font-weight:800;color:var(--primary-text);margin-bottom:10px"> Дедлайн проекта${u && u.level !== "ok" ? ` <span style="color:${u.color};font-weight:700">· ${escapeHtml(u.label)}</span>` : ""}</div>
                 <input type="date" value="${escapeHtml(m.deadline||"")}"
                   oninput="app.setDealModalField('deadline',this.value)"
@@ -20853,7 +20970,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <div class="field" style="margin-bottom:14px">
                 <label style="font-size:12px;color:var(--muted);font-weight:750;margin-bottom:6px;display:block">Теги</label>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-                  ${(m.tags||[]).map(t => `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--primary-text)">${escapeHtml(t)}<button onclick="app._removeDealTag('${escapeHtml(t)}')" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0;line-height:1;font-size:14px">${icon("close", 13)}</button></span>`).join("")}
+                  ${(m.tags||[]).map(t => `<span style="display:inline-flex;align-items:center;gap:4px;background:rgb(var(--primary-rgb) / .12);border:1px solid rgb(var(--primary-rgb) / .3);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--primary-text)">${escapeHtml(t)}<button onclick="app._removeDealTag('${escapeHtml(t)}')" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0;line-height:1;font-size:14px">${icon("close", 13)}</button></span>`).join("")}
                 </div>
                 <div style="display:flex;gap:6px">
                   <input id="dealTagInput" placeholder="Новый тег..." style="flex:1;padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--text);font-size:13px"
@@ -21994,7 +22111,7 @@ Email: _____________________              Email: _____________________
               ${CONTRACT_TEMPLATES.map(tpl => `
                 <div style="padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);cursor:pointer;transition:.15s"
                      onclick="app.createContractFromTemplate('${tpl.id}')"
-                     onmouseover="this.style.borderColor='rgba(168,85,247,.5)'"
+                     onmouseover="this.style.borderColor='rgb(var(--primary-rgb) / .5)'"
                      onmouseout="this.style.borderColor='var(--line)'">
                   <div style="font-size:20px;margin-bottom:8px"></div>
                   <h3 style="font-size:13px;margin:0 0 4px">${escapeHtml(tpl.name)}</h3>
@@ -22219,15 +22336,30 @@ Email: _____________________              Email: _____________________
           }
         }
 
-        const savedTheme = lsGet(THEME_KEY);
+        // Схему применяет уже theme-init.js (до первого кадра, иначе интерфейс
+        // перекрашивается на глазах). Здесь — только страховка на случай, если
+        // этот скрипт не загрузился: атрибут ставится повторно, это идемпотентно.
+        // В calc-режиме до сюда не доходим: встраиваемый калькулятор наследует
+        // оформление хоста, а не личные настройки владельца.
+        const accent = getAccent();
+        if (accent !== "violet") document.documentElement.setAttribute("data-accent", accent);
 
-        if (savedTheme === "light" || savedTheme === "dark") {
-          setTheme(savedTheme);
+        const mode = getThemeMode();
+        if (mode === "light" || mode === "dark") {
+          setTheme(mode);
           return;
         }
 
-        const prefersLight = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
-        setTheme(prefersLight ? "light" : "dark");
+        const mq = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)");
+        setTheme(mq && mq.matches ? "light" : "dark");
+        // В режиме «как в системе» следим за переключением ночного режима ОС на лету —
+        // иначе настройка работала бы только до следующей перезагрузки страницы.
+        if (mq && mq.addEventListener) {
+          mq.addEventListener("change", (e) => {
+            if (getThemeMode() !== "system") return;
+            setTheme(e.matches ? "light" : "dark");
+          });
+        }
       }
 
       window.app = {
@@ -22249,6 +22381,8 @@ Email: _____________________              Email: _____________________
         setProjectSort,
 
         toggleTheme,
+        setThemeMode,
+        setAccent,
         toggleClientMode,
 
         addItem,

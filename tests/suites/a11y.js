@@ -443,7 +443,34 @@ module.exports = async function ({ browser, baseUrl, test }) {
         }
       }
     }
-    await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+
+    // Тот же замер для остальных цветовых схем (Настройки → Оформление). Полный
+    // список вьюх им не нужен — схема меняет только акцент, а «packages» держит
+    // самый опасный случай: подсветка активного пункта и счётчик .catalog-cat-count
+    // внутри неё дают ДВОЙНОЙ тинт, заметно темнее одиночного. Именно на нём
+    // светлые схемы и проваливались, пока --primary-on-tint равнялся --primary-text.
+    // (В «catalog» активного пункта в этот момент нет, и случай не воспроизводится —
+    //  проверено подстановкой заведомо провального цвета.)
+    const ACCENT_VIEWS = ["home", "packages", "crm"];
+    for (const accent of ["indigo", "emerald", "amber", "teal", "graphite"]) {
+      await page.evaluate((a) => document.documentElement.setAttribute("data-accent", a), accent);
+      for (const theme of ["dark", "light"]) {
+        await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
+        await page.waitForTimeout(450);
+        for (const view of ACCENT_VIEWS) {
+          await page.evaluate((v) => window.app.go(v), view);
+          await page.waitForTimeout(350);
+          const rows = await page.evaluate(MEASURE, theme);
+          for (const r of rows) {
+            if (r.ratio < r.need) bad.push(`схема ${accent}/${theme}/${view}: .${r.cls} «${r.txt}» ${r.color} на ${r.bg} — ${r.ratio}:1 (нужно ${r.need})`);
+          }
+        }
+      }
+    }
+    await page.evaluate(() => {
+      document.documentElement.removeAttribute("data-accent");
+      document.documentElement.setAttribute("data-theme", "dark");
+    });
     assertEqual(bad.length, 0, "текст ниже порога WCAG AA — " + [...new Set(bad)].slice(0, 10).join(" | "));
   });
 
