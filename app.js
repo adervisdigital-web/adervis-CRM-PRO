@@ -1099,6 +1099,8 @@
       let _allPortals = [];          // все КП агентства (client_portals) для раздела «Все КП»
       let _allPortalsLoaded = false;
       let _proposalsFilter = "all";  // all | sent | approved | paid
+      let _proposalsQuery = "";      // поиск по названию сделки и клиенту на «Все КП»
+      let _proposalsSort = "date";   // date | sum — сортировка списка КП
       // Пагинация списка сделок: рендерим первые N, «показать ещё» доращивает лимит.
       // При смене фильтра/тега/сортировки лимит сбрасывается (ключ _crmLimitKey).
       const CRM_PAGE_SIZE = 30;
@@ -1597,7 +1599,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","notifPopupOpen","summaryOpen","briefEditorType"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal"]);
 
       // Кладёт облачное состояние в state. Отдельно от _loadCloudState, потому что
       // вызывается ещё и из разрешения конфликта.
@@ -5646,6 +5648,7 @@
           dealModal: null,
           dealSwitcherOpen: false,
           editTransactionModal: null,
+          proposalModal: null,
           contracts: [],
           contractEditId: "",
           calendarMonth: "",
@@ -6029,6 +6032,7 @@
           dealModal: null,
           dealSwitcherOpen: false,
           editTransactionModal: null,
+          proposalModal: null,
           contractEditId: old.contractEditId || "",
           calendarMonth: old.calendarMonth || "",
           calendarSelectedDay: "",
@@ -9320,7 +9324,7 @@
           state.dealModal ? "deal" : state.taskModal ? "task" :
           state.editTransactionModal ? "editTx" : state.financeModal ? "finance" :
           state.packageEditModal ? "package" : state.catalogEditId ? "catalog" :
-          state.briefEditorType ? "briefEditor" : null;
+          state.briefEditorType ? "briefEditor" : state.proposalModal ? "proposal" : null;
         if (state.mainMenuOpen) { el.innerHTML = renderMainMenuModal(); }
         else if (state.helpModal) { el.innerHTML = renderHelpModal(); }
         else if (state.docsModal) { el.innerHTML = renderDocsModal(); }
@@ -9334,6 +9338,7 @@
         else if (state.packageEditModal) { el.innerHTML = renderPackageEditModal(); }
         else if (state.catalogEditId) { el.innerHTML = renderCatalogEditModal(); }
         else if (state.briefEditorType) { el.innerHTML = renderBriefEditorModal(); }
+        else if (state.proposalModal) { el.innerHTML = renderProposalModal(); }
         else { el.innerHTML = ""; }
         // renderModal() иногда вызывается отдельно от полного render() (напр. открытие
         // модалки каталога через openCatalogEdit) — без этого свежие data-autosave
@@ -11517,10 +11522,35 @@
 
       function refreshAllProposals() { _allPortalsLoaded = false; _loadAllPortals(); }
       function setProposalsFilter(f) { _proposalsFilter = f; render(); }
+      function setProposalsSort(s) { _proposalsSort = s; render(); }
+      // Поиск перерисовывает ТОЛЬКО список, а не всю страницу: полный render()
+      // пересоздал бы поле ввода и увёл фокус после первой же буквы (тот же приём,
+      // что в переключателе сделок — filterDealSwitcher).
+      function filterProposals(value) {
+        _proposalsQuery = value;
+        const list = document.getElementById('proposalsList');
+        if (list) list.innerHTML = _proposalsListHtml();
+      }
 
       function copyPortalLink(portalId) {
         const link = location.origin + location.pathname + '?portal=' + portalId;
     copyToClipboard(link, 'Ссылка на КП скопирована');
+      }
+
+      // Открыть КП ровно так, как его видит клиент. Новая вкладка, а не переход
+      // в текущей: из CRM человек уходит «посмотреть» и должен вернуться на место.
+      function openPortalPreview(portalId) {
+        const url = location.origin + location.pathname + '?portal=' + portalId;
+        window.open(url, '_blank', 'noopener');
+      }
+
+      // Имя клиента в client_portals не хранится — тянем через сделку.
+      // Пусто, если сделка удалена: КП переживает свой проект.
+      function _portalClientName(p) {
+        if (!p.project_id) return '';
+        const proj = (state.savedProjects || []).find(x => x.id === p.project_id);
+        if (!proj) return '';
+        return proj.client || (getClientById(proj.clientId) || {}).name || '';
       }
 
       function _portalStatus(p) {
@@ -11529,6 +11559,65 @@
         if (paid) return { key: 'paid', label: 'Аванс оплачен', cls: 'green' };
         if (approved) return { key: 'approved', label: 'Согласовано', cls: 'green' };
         return { key: 'sent', label: 'Отправлено', cls: '' };
+      }
+
+      // Фильтр + поиск + сортировка одним местом: список перерисовывается и целиком
+      // (render()), и точечно из filterProposals() — правила отбора должны совпадать.
+      function _proposalsFiltered() {
+        const filter = _proposalsFilter || 'all';
+        let list = filter === 'all' ? _allPortals.slice() : _allPortals.filter(p => _portalStatus(p).key === filter);
+        const q = (_proposalsQuery || '').trim().toLowerCase();
+        if (q) {
+          list = list.filter(p =>
+            (p.deal_name || '').toLowerCase().includes(q) ||
+            _portalClientName(p).toLowerCase().includes(q)
+          );
+        }
+        if (_proposalsSort === 'sum') {
+          list.sort((a, b) => numberValue(b.total_price, 0) - numberValue(a.total_price, 0));
+        } else {
+          list.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+        }
+        return list;
+      }
+
+      function _proposalRowHtml(p) {
+        const st = _portalStatus(p);
+        const date = p.created_at ? formatDate(p.created_at) : '';
+        const client = _portalClientName(p);
+        const sub = [
+          money(p.total_price || 0),
+          p.advance_amount ? `аванс ${money(p.advance_amount)}${p.advance_paid_at ? ' (оплачен)' : ''}` : '',
+          client,
+          p.signer_name ? `подписал ${escapeHtml(p.signer_name)}` : '',
+          date
+        ].filter(Boolean).join(' · ');
+        const act = (fn, name, title) =>
+          `<button class="icon-btn no-print" onclick="event.stopPropagation();app.${fn}('${p.id}')" title="${title}" aria-label="${title}">${icon(name, 15)}</button>`;
+        return `
+          <div class="kp-row">
+            <div class="kp-row-dot ${st.cls}"></div>
+            <div class="kp-row-main"${p.project_id ? ` onclick="app.openDeal('${p.project_id}')" title="Открыть сделку" style="cursor:pointer"` : ''}>
+              <div class="kp-row-name">${escapeHtml(p.deal_name || 'Без названия')}</div>
+              <div class="kp-row-sub">${sub}</div>
+            </div>
+            <span class="status-pill ${st.cls}" style="font-size:11px;flex-shrink:0">${st.label}</span>
+            <div class="kp-row-actions no-print">
+              ${act('openPortalPreview', 'eye', 'Посмотреть КП глазами клиента')}
+              ${act('openProposalModal', 'pencil', 'Изменить КП')}
+              ${act('copyPortalLink', 'link', 'Скопировать ссылку на КП')}
+              ${act('deleteProposal', 'trash', 'Удалить КП')}
+            </div>
+          </div>`;
+      }
+
+      function _proposalsListHtml() {
+        const list = _proposalsFiltered();
+        if (list.length) return list.map(_proposalRowHtml).join('');
+        return emptyState({
+          icon: "search", size: "sm",
+          text: (_proposalsQuery || '').trim() ? "Ничего не найдено." : "Нет КП с таким статусом."
+        });
       }
 
       function renderAllProposals() {
@@ -11546,7 +11635,6 @@
         }
 
         const filter = _proposalsFilter || 'all';
-        const portals = filter === 'all' ? _allPortals : _allPortals.filter(p => _portalStatus(p).key === filter);
         const withPortal = new Set(_allPortals.map(p => p.project_id).filter(Boolean));
         const drafts = (state.savedProjects || []).filter(p => !withPortal.has(p.id) && !isDealInactive(p.crmStatus || 'Лид'));
 
@@ -11559,23 +11647,7 @@
         const totalSum = _allPortals.reduce((s, p) => s + numberValue(p.total_price, 0), 0);
         const paidSum = _allPortals.filter(p => p.advance_paid_at).reduce((s, p) => s + numberValue(p.advance_amount, 0), 0);
         const tab = (key, label) => `<button class="fin-subtab ${filter === key ? 'active' : ''}" onclick="app.setProposalsFilter('${key}')">${label} · ${counts[key] ?? 0}</button>`;
-
-        const row = (p) => {
-          const st = _portalStatus(p);
-          const date = p.created_at ? formatDate(p.created_at) : '';
-          return `
-            <div class="kp-row">
-              <div class="kp-row-dot ${st.cls}"></div>
-              <div class="kp-row-main" onclick="app.openDeal('${p.project_id}')" title="Открыть сделку" style="cursor:pointer">
-                <div class="kp-row-name">${escapeHtml(p.deal_name || 'Без названия')}</div>
-        <div class="kp-row-sub">${money(p.total_price || 0)}${p.advance_amount ? ` · аванс ${money(p.advance_amount)}${p.advance_paid_at ? ' ' : ''}` : ''}${p.signer_name ? ` · подписал ${escapeHtml(p.signer_name)}` : ''}${date ? ` · ${date}` : ''}</div>
-              </div>
-              <span class="status-pill ${st.cls}" style="font-size:11px;flex-shrink:0">${st.label}</span>
-              <button class="icon-btn no-print" onclick="event.stopPropagation();app.copyPortalLink('${p.id}')" title="Скопировать ссылку на КП" aria-label="Скопировать ссылку">
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6.5 9.5l3-3M5 7L3.5 8.5a2.1 2.1 0 003 3L8 10M11 9l1.5-1.5a2.1 2.1 0 00-3-3L8 6"/></svg>
-              </button>
-            </div>`;
-        };
+        const sortBtn = (key, label) => `<button class="fin-subtab ${_proposalsSort === key ? 'active' : ''}" onclick="app.setProposalsSort('${key}')">${label}</button>`;
 
         return `
           <div class="panel">
@@ -11590,12 +11662,22 @@
             </div>
 
             ${_allPortals.length ? `
-              <div class="fin-subtab-bar no-print" style="margin-bottom:14px">
+              <div class="fin-subtab-bar no-print" style="margin-bottom:10px">
                 ${tab('all', 'Все')}${tab('sent', 'Отправлено')}${tab('approved', 'Согласовано')}${tab('paid', 'Оплачено')}
               </div>
-              <div class="kp-list">
-                ${portals.length ? portals.map(row).join('') : emptyState({ icon: "search", size: "sm", text: "Нет КП с таким статусом." })}
+              <div class="kp-toolbar no-print">
+                <div class="kp-search">
+                  <span class="kp-search-icon" aria-hidden="true">${icon('search', 14)}</span>
+                  <input type="search" id="proposalsSearch" placeholder="Поиск по сделке или клиенту…"
+                    aria-label="Поиск по КП" value="${escapeHtml(_proposalsQuery)}"
+                    oninput="app.filterProposals(this.value)">
+                </div>
+                <div class="kp-sort" role="group" aria-label="Сортировка КП">
+                  <span class="u-meta" style="font-size:12px">Сначала:</span>
+                  ${sortBtn('date', 'новые')}${sortBtn('sum', 'дорогие')}
+                </div>
               </div>
+              <div class="kp-list" id="proposalsList">${_proposalsListHtml()}</div>
             ` : emptyState({
                 icon: "doc",
                 title: "КП пока нет",
@@ -11619,6 +11701,161 @@
               </div>
             ` : ''}
           </div>`;
+      }
+
+      /* ═══════════════════════════════════════════════════════
+         РЕДАКТИРОВАНИЕ И УДАЛЕНИЕ КП («Все КП»)
+      ═══════════════════════════════════════════════════════ */
+
+      // Тексты КП (что входит / не входит / комментарий) в список не грузятся —
+      // при 100 КП это лишние килобайты на каждый рендер. Дочитываем одну запись
+      // при открытии окна.
+      async function openProposalModal(portalId) {
+        if (!_supabase || !_adminSession) { toast('Нет связи с сервером'); return; }
+        const { data, error } = await _supabase.from('client_portals')
+          .select('id, deal_name, total_price, advance_amount, included_text, excluded_text, proposal_note, approved_at, advance_paid_at, deal_status')
+          .eq('id', portalId).single();
+        if (error || !data) { toast('Не удалось открыть КП'); return; }
+        const st = _portalStatus(data);
+        state.proposalModal = {
+          id: data.id,
+          deal_name: data.deal_name || '',
+          total_price: numberValue(data.total_price, 0),
+          advance_amount: data.advance_amount == null ? '' : numberValue(data.advance_amount, 0),
+          included_text: data.included_text || '',
+          excluded_text: data.excluded_text || '',
+          proposal_note: data.proposal_note || '',
+          _statusLabel: st.label,
+          _locked: st.key !== 'sent'
+        };
+        _armDirtyCheck(state.proposalModal);
+        renderModal();
+      }
+
+      async function closeProposalModal() {
+        if (!(await _confirmDiscardIfDirty(state.proposalModal))) return;
+        state.proposalModal = null;
+        renderModal();
+      }
+
+      function setProposalModalField(key, value) {
+        if (!state.proposalModal) return;
+        state.proposalModal[key] = value;
+        // Перерисовка не нужна: поля неуправляемые, значения читает saveProposalModal().
+      }
+
+      async function saveProposalModal() {
+        const m = state.proposalModal;
+        if (!m || !_supabase) return;
+        const total = numberValue(m.total_price, 0);
+        if (total <= 0) { toast('Сумма КП должна быть больше нуля — клиент не должен получить КП на 0 ₽'); return; }
+        const advanceRaw = String(m.advance_amount ?? '').trim();
+        const advance = advanceRaw === '' ? null : numberValue(advanceRaw, 0);
+        if (advance != null && advance > total) { toast('Аванс больше суммы КП'); return; }
+        const patch = {
+          deal_name: m.deal_name || '',
+          total_price: total,
+          advance_amount: advance,
+          included_text: m.included_text || '',
+          excluded_text: m.excluded_text || '',
+          proposal_note: m.proposal_note || ''
+        };
+        const { error } = await _supabase.from('client_portals').update(patch).eq('id', m.id);
+        if (error) { toast('Не удалось сохранить КП'); return; }
+        // Локально правим уже загруженный список, чтобы не перезапрашивать всё.
+        const row = _allPortals.find(p => p.id === m.id);
+        if (row) Object.assign(row, { deal_name: patch.deal_name, total_price: patch.total_price, advance_amount: patch.advance_amount });
+        state.proposalModal = null;
+        _armDirtyCheck(null);
+        toast('КП обновлено — клиент видит изменения по той же ссылке');
+        render();
+        renderModal();
+      }
+
+      function renderProposalModal() {
+        const m = state.proposalModal;
+        if (!m) return "";
+        return `
+          <div class="modal-overlay" onclick="event.target===this&&app.closeProposalModal()">
+            <div class="modal-box">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <h2 class="u-title-20">Изменить КП</h2>
+                <button onclick="app.closeProposalModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
+              </div>
+              <p class="u-meta" style="margin:0 0 16px;font-size:12px;line-height:1.5">
+                Меняется только то, что видит клиент по ссылке. Смета в сделке остаётся как есть.
+                ${m._locked ? `<br><strong style="color:var(--red)">Клиент уже отметил «${escapeHtml(m._statusLabel)}» — правки увидит именно он.</strong>` : ''}
+              </p>
+              <div class="field" style="margin-bottom:14px">
+                <label>Название</label>
+                <input value="${escapeHtml(m.deal_name)}" oninput="app.setProposalModalField('deal_name',this.value)">
+              </div>
+              <div class="grid two" style="margin-bottom:14px">
+                <div class="field">
+                  <label>Сумма, ₽ *</label>
+                  <input type="text" inputmode="numeric" autocomplete="off" value="${escapeHtml(groupDigits(m.total_price))}"
+                    oninput="app.setProposalModalField('total_price',app.formatAmountField(this))">
+                </div>
+                <div class="field">
+                  <label>Аванс, ₽</label>
+                  <input type="text" inputmode="numeric" autocomplete="off" value="${escapeHtml(groupDigits(m.advance_amount))}"
+                    placeholder="Без аванса"
+                    oninput="app.setProposalModalField('advance_amount',app.formatAmountField(this))">
+                </div>
+              </div>
+              <div class="field" style="margin-bottom:14px">
+                <label>Что входит</label>
+                <textarea style="min-height:76px" oninput="app.setProposalModalField('included_text',this.value)" placeholder="Каждый пункт с новой строки">${escapeHtml(m.included_text)}</textarea>
+              </div>
+              <div class="field" style="margin-bottom:14px">
+                <label>Что не входит</label>
+                <textarea style="min-height:60px" oninput="app.setProposalModalField('excluded_text',this.value)" placeholder="Необязательно">${escapeHtml(m.excluded_text)}</textarea>
+              </div>
+              <div class="field" style="margin-bottom:22px">
+                <label>Комментарий клиенту</label>
+                <textarea style="min-height:60px" oninput="app.setProposalModalField('proposal_note',this.value)" placeholder="Необязательно">${escapeHtml(m.proposal_note)}</textarea>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+                <button class="btn danger small" onclick="app.deleteProposal('${m.id}')">${icon("trash", 14)} Удалить</button>
+                <div class="u-flex-g8">
+                  <button class="btn" onclick="app.closeProposalModal()">Отмена</button>
+                  <button class="btn primary" onclick="app.saveProposalModal()">Сохранить</button>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      async function deleteProposal(portalId) {
+        if (!_supabase || !_adminSession) { toast('Нет связи с сервером'); return; }
+        const p = _allPortals.find(x => x.id === portalId);
+        const st = p ? _portalStatus(p) : null;
+        const ok = await confirmDialog({
+          title: 'Удалить КП?',
+          message: st && st.key !== 'sent'
+            ? `Клиент отметил «${st.label}». Ссылка перестанет открываться, смета в сделке останется.`
+            : 'Ссылка перестанет открываться у клиента. Смета в сделке останется.',
+          okText: 'Удалить', danger: true
+        });
+        if (!ok) return;
+        const { error } = await _supabase.from('client_portals').delete().eq('id', portalId);
+        if (error) { toast('Не удалось удалить КП'); return; }
+        _allPortals = _allPortals.filter(x => x.id !== portalId);
+        // Сделка не должна остаться со ссылкой на удалённое КП — иначе вкладка КП
+        // покажет статус аванса от записи, которой больше нет.
+        let touched = false;
+        (state.savedProjects || []).forEach(proj => {
+          if (proj.portalId === portalId) { proj.portalId = ''; touched = true; }
+        });
+        if (state.project && state.project.portalId === portalId) state.project.portalId = '';
+        if (touched) save();
+        if (state.proposalModal && state.proposalModal.id === portalId) {
+          state.proposalModal = null;
+          _armDirtyCheck(null);
+          renderModal();
+        }
+        toast('КП удалено');
+        render();
       }
 
       async function convertBriefToDeal(briefId) {
@@ -18948,6 +19185,26 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         toast(hide ? "Подпись убрана из новых КП" : "Подпись возвращена в новые КП");
       }
 
+      // Ищет уже существующее КП сделки. Сначала по project_id (надёжно), потом по
+      // сохранённому portalId — колонка project_id появилась миграцией 20260704000002,
+      // и у КП, созданных до неё, её нет. Возвращает null, если КП ещё не было.
+      async function _findPortalForProject(projectId, portalId) {
+        if (!_supabase) return null;
+        const cols = 'id, approved_at, advance_paid_at';
+        try {
+          const { data } = await _supabase.from('client_portals')
+            .select(cols).eq('project_id', projectId)
+            .order('created_at', { ascending: false }).limit(1);
+          if (data && data.length) return data[0];
+          if (portalId) {
+            const { data: byId } = await _supabase.from('client_portals')
+              .select(cols).eq('id', portalId).maybeSingle();
+            if (byId) return byId;
+          }
+        } catch (e) { console.warn('Portal lookup:', e); }
+        return null;
+      }
+
       async function createClientPortal(projectId) {
         const project = (state.savedProjects || []).find(p => p.id === projectId);
         if (!project) { toast('Проект не найден'); return; }
@@ -18989,12 +19246,35 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           // Право убрать подпись даёт оплаченный тариф — и именно на момент отправки КП.
           hide_branding: isPaidPlan() && !!state.company.hideProposalBranding
         };
-        let { data, error } = await _supabase.from('client_portals').insert(row).select('id').single();
+        // Каждое нажатие «КП-ссылка» раньше делало insert: одна сделка порождала
+        // несколько КП с РАЗНЫМИ ссылками. Клиент согласовывал по той, что у него на
+        // руках, а project.portalId уже указывал на последнюю — согласование и оплата
+        // аванса переставали быть видны в сделке. Теперь повторная отправка обновляет
+        // существующее КП: ссылка у клиента одна и живая.
+        const existing = await _findPortalForProject(projectId, project.portalId);
+        if (existing && (existing.approved_at || existing.advance_paid_at)) {
+          const okUpdate = await confirmDialog({
+            title: 'Клиент уже ответил по этому КП',
+            message: existing.advance_paid_at
+              ? 'Аванс оплачен. Обновить КП новой сметой? Клиент увидит новую сумму по той же ссылке.'
+              : 'КП уже согласовано. Обновить его новой сметой? Клиент увидит изменения по той же ссылке.',
+            okText: 'Обновить', cancelText: 'Отмена'
+          });
+          if (!okUpdate) return;
+          // Согласование не сбрасываем: оно принадлежит клиенту, а не смете.
+          delete row.deal_status;
+        }
+
+        let data = null, error = null;
+        const runWrite = async () => existing
+          ? await _supabase.from('client_portals').update(row).eq('id', existing.id).select('id').single()
+          : await _supabase.from('client_portals').insert(row).select('id').single();
+        ({ data, error } = await runWrite());
         // Колонка появляется миграцией 20260727000001. Пока она не накатана на прод,
-        // insert падает целиком — КП важнее подписи, поэтому повторяем без поля.
+        // запись падает целиком — КП важнее подписи, поэтому повторяем без поля.
         if (error && /hide_branding/.test(error.message || '')) {
           delete row.hide_branding;
-          ({ data, error } = await _supabase.from('client_portals').insert(row).select('id').single());
+          ({ data, error } = await runWrite());
         }
         if (data && !error) {
           const url = location.origin + location.pathname + '?portal=' + data.id;
@@ -19033,11 +19313,14 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             } catch(e) { /* письмо не обязательно — портал создан успешно */ }
           }
 
+          const verb = existing ? 'КП обновлено, ссылка прежняя' : 'Ссылка скопирована';
           if (emailSent) {
-      toast(`Ссылка скопирована, письмо отправлено на ${client.email}`);
+      toast(`${verb}, письмо отправлено на ${client.email}`);
           } else {
-      toast('Ссылка скопирована: ' + url);
+      toast(existing ? verb + ' и скопирована' : 'Ссылка скопирована: ' + url);
           }
+          // Список «Все КП» уже мог быть загружен — иначе там останется старая сумма.
+          if (_allPortalsLoaded) _allPortalsLoaded = false;
         } else {
           toast('Ошибка: ' + (error && error.message));
         }
@@ -21781,8 +22064,16 @@ Email: _____________________              Email: _____________________
         briefEditorAdd,
         saveBriefEditor,
         setProposalsFilter,
+        setProposalsSort,
+        filterProposals,
         refreshAllProposals,
         copyPortalLink,
+        openPortalPreview,
+        openProposalModal,
+        closeProposalModal,
+        setProposalModalField,
+        saveProposalModal,
+        deleteProposal,
 
         buyPlan,
         validatePromo,

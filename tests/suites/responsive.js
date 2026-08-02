@@ -51,6 +51,66 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     });
   }
 
+  // Строка «Все КП» несёт четыре действия (посмотреть, изменить, ссылка, удалить)
+  // плюс пилюлю статуса. Проверять тут переполнение документа БЕСПОЛЕЗНО: .kp-row-main
+  // имеет min-width:0 и молча сжимается — при отключённом переносе тест оставался
+  // зелёным, а название сделки схлопывалось в «Мон…». Меряем то, что реально ломается:
+  // сколько места остаётся названию. Живых КП в локальном режиме нет (нужен Supabase),
+  // поэтому строку вставляем в настоящий список настоящей вьюхи: CSS, вьюпорт и
+  // измерение подлинные, синтетическая тут только сама запись.
+  await test("строка КП: четыре действия не съедают название на 320–560px", async () => {
+    await page.evaluate(() => window.app.go("proposals"));
+    await page.waitForTimeout(150);
+    const bad = [];
+    for (const w of [320, 360, 390, 480, 560]) {
+      await page.setViewportSize({ width: w, height: 800 });
+      const placed = await page.evaluate(() => {
+        const panel = document.querySelector("#appContent .panel");
+        if (!panel) return false;
+        let host = document.getElementById("kpRowProbe");
+        if (!host) {
+          host = document.createElement("div");
+          host.id = "kpRowProbe";
+          host.className = "kp-list";
+          panel.appendChild(host);
+        }
+        host.innerHTML =
+          '<div class="kp-row">' +
+            '<div class="kp-row-dot green"></div>' +
+            '<div class="kp-row-main">' +
+              '<div class="kp-row-name">Монтаж серии из 3 видеороликов для маркетплейса</div>' +
+              '<div class="kp-row-sub">157 834 ₽ · аванс 78 900 ₽ (оплачен) · База отдыха «Раздолье» · 01.07.2026</div>' +
+            '</div>' +
+            '<span class="status-pill green" style="font-size:11px;flex-shrink:0">Аванс оплачен</span>' +
+            '<div class="kp-row-actions">' +
+              '<button class="icon-btn"></button><button class="icon-btn"></button>' +
+              '<button class="icon-btn"></button><button class="icon-btn"></button>' +
+            '</div>' +
+          '</div>';
+        return true;
+      });
+      assert(placed, "не нашёл панель «Все КП», чтобы вставить пробную строку");
+      await page.waitForTimeout(60);
+      const m = await page.evaluate(() => {
+        const row = document.querySelector("#kpRowProbe .kp-row");
+        const main = row.querySelector(".kp-row-main");
+        return { row: row.getBoundingClientRect().width, main: main.getBoundingClientRect().width };
+      });
+      // Название с суммой и клиентом должно получать хотя бы 3/4 ширины строки —
+      // иначе от него остаётся многоточие и строки не отличить одну от другой.
+      const share = m.row ? m.main / m.row : 0;
+      if (share < 0.75) bad.push(`${w}px: названию ${Math.round(share * 100)}% ширины`);
+      const { over, culprit } = await overflow(page);
+      if (over > 1) bad.push(`${w}px +${over}px (${culprit || "?"})`);
+    }
+    // Страница общая для всех тестов набора — за собой убираем.
+    await page.evaluate(() => {
+      const host = document.getElementById("kpRowProbe");
+      if (host) host.remove();
+    });
+    assert(bad.length === 0, "строка КП на узком экране: " + bad.join("; "));
+  });
+
   // Визуальная фиксация каталога на самом узком экране (п.20 — визуальный обход)
   await test("каталог на 320px: снимок для ревью", async () => {
     await page.setViewportSize({ width: 320, height: 800 });

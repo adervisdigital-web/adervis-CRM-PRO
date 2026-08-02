@@ -173,7 +173,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
   await test("кликабельные не-кнопки достижимы с клавиатуры", async () => {
     const NATIVE = ["BUTTON", "A", "INPUT", "SELECT", "TEXTAREA", "SUMMARY", "LABEL", "OPTION", "DETAILS"];
     const bad = [];
-    for (const view of ["home", "crm", "clients", "global-finances", "catalog", "packages", "knowledge"]) {
+    for (const view of ["home", "crm", "clients", "global-finances", "catalog", "packages", "knowledge", "proposals"]) {
       await page.evaluate((v) => window.app.go(v), view);
       await page.waitForTimeout(220);
       const nope = await page.evaluate((native) => {

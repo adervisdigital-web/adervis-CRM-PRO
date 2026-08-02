@@ -4015,6 +4015,38 @@
     .kp-row-main { flex: 1; min-width: 0; }
     .kp-row-name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .kp-row-sub { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .kp-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+    /* Поиск + сортировка над списком КП */
+    .kp-toolbar {
+      display: flex; align-items: center; gap: 12px;
+      flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .kp-search { position: relative; flex: 1; min-width: 180px; }
+    .kp-search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      color: var(--muted); display: grid; place-items: center; pointer-events: none;
+    }
+    .kp-search input { width: 100%; padding-left: 30px; }
+    .kp-sort { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+    /* На телефоне четыре действия в один ряд с названием не помещаются —
+       строка переносит их вниз, под сумму, вместо горизонтальной прокрутки
+       (та же болезнь, что чинили в каталоге). */
+    @media (max-width: 560px) {
+      .kp-row { flex-wrap: wrap; }
+      .kp-row-main { flex: 1 1 100%; order: 1; }
+      .kp-row-dot { order: 0; }
+      .kp-row .status-pill { order: 2; }
+      .kp-row-actions { order: 3; margin-left: auto; }
+      /* Строки «Без отправленного КП» несут обычную кнопку вместо ряда иконок —
+         без своего order она по умолчанию уезжала выше названия сделки. */
+      .kp-row > .btn { order: 3; margin-left: auto; }
+      /* Четыре действия подряд пальцем: 32px — промах через раз. Ряд ушёл на
+         отдельную строку, место есть (4×40 + зазоры ≈ 172px из ~340 доступных). */
+      .kp-row-actions { gap: 6px; }
+      .kp-row-actions .icon-btn { width: 40px; height: 40px; }
+    }
     .icon-btn {
       background: none; border: 1px solid var(--line); border-radius: 8px;
       width: 32px; height: 32px; display: grid; place-items: center;
