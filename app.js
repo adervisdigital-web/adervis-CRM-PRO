@@ -1112,6 +1112,9 @@
       let _briefForm = { values:{}, sending:false, sent:false, error:'' };
       let _briefTemplateLoaded = false; // публичная форма: пробовали ли уже подтянуть кастом-шаблон
       let _briefCustomTemplate = null;  // публичная форма: кастом-шаблон агентства (или null → дефолт)
+      // Кто спрашивает: название и логотип агентства для шапки публичной формы.
+      // null → шапку с компанией не рисуем вовсе (см. renderBriefPage).
+      let _briefAgency = null;
       let _briefEditorDraft = null;     // CRM: рабочая копия шаблона в редакторе вопросов
       let _briefs = [];
       let _briefsLoaded = false;
@@ -11778,8 +11781,18 @@
         _briefTemplateLoaded = true;
         try {
           const sb = window.supabase.createClient(_DEFAULT_SB_URL, _DEFAULT_SB_KEY);
-          const { data } = await sb.rpc('get_brief_template', { p_agency_id: _briefAgencyId, p_type: _briefType });
-          if (data && Array.isArray(data.fields) && data.fields.length) { _briefCustomTemplate = data; render(); }
+          // Шаблон вопросов и «кто спрашивает» — два независимых запроса: если RPC
+          // get_brief_agency ещё не накатан (миграция 20260803000005), форма всё равно
+          // должна открыться с вопросами. Поэтому allSettled, а не Promise.all.
+          const [tplRes, agRes] = await Promise.allSettled([
+            sb.rpc('get_brief_template', { p_agency_id: _briefAgencyId, p_type: _briefType }),
+            sb.rpc('get_brief_agency', { p_agency_id: _briefAgencyId })
+          ]);
+          const data = tplRes.status === 'fulfilled' ? tplRes.value.data : null;
+          if (data && Array.isArray(data.fields) && data.fields.length) _briefCustomTemplate = data;
+          const ag = agRes.status === 'fulfilled' ? agRes.value.data : null;
+          if (ag && (ag.name || ag.logo)) _briefAgency = { name: String(ag.name || ''), logo: String(ag.logo || '') };
+          render();
         } catch (e) { /* нет RPC / нет кастома → остаётся дефолт */ }
       }
 
@@ -11819,6 +11832,34 @@
         return html;
       }
 
+      // Шапка публичной формы брифа: КТО спрашивает.
+      //
+      // Раньше здесь стояли зашитые logo-icon.svg и «ADERVIS · Видеопродакшн». Для
+      // владельца это незаметно — он и есть ADERVIS. Для любой другой студии это
+      // значило, что её заказчик открывает бриф и видит, что вопросы задаёт чужая
+      // компания, к тому же прямой конкурент по видеопродакшну. Портал КП этот случай
+      // решает правильно (контент агентства сверху, «Сделано в ADERVIS» мелко внизу) —
+      // бриф был единственным местом, где сервис представлялся отправителем.
+      //
+      // Имя берётся из get_brief_agency (миграция 20260803000005). Пока она не
+      // накатана, RPC нет и шапки не будет вовсе — это сознательный выбор: лучше без
+      // имени, чем с чужим. Заголовок формы задаёт само агентство, так что страница
+      // не остаётся безымянной. Подпись сервиса живёт в подвале, как и у КП.
+      function _briefAgencyHeaderHtml() {
+        const name = (_briefAgency && _briefAgency.name || '').trim();
+        const logo = (_briefAgency && _briefAgency.logo || '').trim();
+        if (!name && !logo) return '';
+        return `
+          <div class="brief-logo-row">
+            ${logo ? `
+              <div class="brief-logo-box">
+                <img src="${escapeHtml(logo)}" alt="${escapeHtml(name || 'Логотип')}" width="32" height="32"
+                     onerror="this.closest('.brief-logo-box').style.display='none'">
+              </div>` : ''}
+            ${name ? `<div><div style="font-size:18px;font-weight:900;line-height:1.2">${escapeHtml(name)}</div></div>` : ''}
+          </div>`;
+      }
+
       function renderBriefPage() {
         const f = _briefForm;
         if (f.sent) {
@@ -11842,16 +11883,7 @@
         return `
           <div class="brief-wrap">
             <div class="brief-inner">
-              <div class="brief-logo-row">
-                <div class="brief-logo-box">
-                  <img src="logo-icon.svg" alt="A" width="32" height="32" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-                  <span style="display:none;color:#fff;font-weight:900;font-size:20px">A</span>
-                </div>
-                <div>
-                  <div style="font-size:18px;font-weight:900;line-height:1.2">ADERVIS</div>
-                  <div class="u-meta">Видеопродакшн</div>
-                </div>
-              </div>
+              ${_briefAgencyHeaderHtml()}
               <div class="brief-card">
                 <h1>${escapeHtml(tpl.title)}</h1>
                 ${tpl.sub ? `<p class="brief-sub">${escapeHtml(tpl.sub)}</p>` : ''}

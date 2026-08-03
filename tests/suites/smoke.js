@@ -66,4 +66,35 @@ module.exports = async function ({ browser, baseUrl, test }) {
     );
     await context.close();
   });
+
+  // Публичная форма брифа рисовала в шапке зашитые «ADERVIS · Видеопродакшн».
+  // Для владельца незаметно — он и есть ADERVIS; для любой другой студии это
+  // значит, что её заказчик видит бриф от чужой компании и прямого конкурента.
+  // Имя агентства приходит из get_brief_agency; пока RPC нет — шапки нет вовсе.
+  await test("бриф: шапка не представляется клиенту чужой компанией", async () => {
+    const context = await browser.newContext({ viewport: { width: 900, height: 1000 } });
+    const page = await context.newPage();
+    await page.goto(baseUrl + "/index.html?brief=47880b74-de7b-4ef5-8fcf-5e9ae7497edc");
+    // Ждём именно формы: шапка дорисовывается после ответа RPC.
+    await page.waitForSelector(".brief-card", { timeout: 15000 });
+    await page.waitForTimeout(1200);
+
+    const header = await page.evaluate(() => {
+      const r = document.querySelector(".brief-logo-row");
+      return r ? (r.textContent || "").replace(/\s+/g, " ").trim() : "";
+    });
+    assert(
+      !/видеопродакшн/i.test(header),
+      "в шапке брифа осталась зашитая подпись сервиса: «" + header + "»"
+    );
+
+    // Форма при этом обязана открыться и быть подписана — заголовок задаёт агентство.
+    const title = await page.evaluate(() => {
+      const h = document.querySelector(".brief-card h1");
+      return h ? (h.textContent || "").trim() : "";
+    });
+    assert(title.length > 0, "форма брифа осталась без заголовка");
+
+    await context.close();
+  });
 };
