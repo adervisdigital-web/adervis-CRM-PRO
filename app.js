@@ -1303,8 +1303,27 @@
       let _errReported = 0;
       let _errToastShown = false;
       const _errSeen = new Set();
+
+      // Отчёты шлём только из прода. Раньше проверялось лишь наличие _supabase, и в
+      // таблицу писали ещё два источника, забивая её так, что читать было нечего:
+      //   - разработка на Live Server (127.0.0.1:5500);
+      //   - КАЖДЫЙ прогон `node tests/run.js` — Playwright поднимает сервер на
+      //     случайном порту, поэтому одна и та же ошибка попадала под разными URL и
+      //     даже не схлопывалась в группы. Из 199 записей 199 были от одного
+      //     «агентства» — самого владельца, и почти все от тестов и локалки.
+      // Ошибки на localhost видны в консоли прямо во время работы; телеметрия нужна
+      // для того, чего не видно — падений у живых пользователей.
+      function _isTelemetryEnvironment() {
+        const h = location.hostname;
+        if (h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "" || /^192\.168\./.test(h)) return false;
+        if (location.protocol === "file:") return false;
+        if (lsGet("adervis_local_mode") === "1") return false;
+        return true;
+      }
+
       function _reportClientError(kind, message, source) {
         try {
+          if (!_isTelemetryEnvironment()) return;
           const msg = String(message || "").slice(0, 1000);
           // "Script error." — кросс-доменная ошибка без деталей; ResizeObserver — шум браузера
           if (!msg || msg === "Script error." || msg.includes("ResizeObserver loop")) return;
@@ -4162,7 +4181,27 @@
         const a = (_adminAgencies || []).find(x => x.agency_id === agencyId);
         return a ? a.email : null;
       }
-      // Группировка сырых client_errors по (kind + первые 120 символов сообщения) —
+      // Ключ группировки: из текста вычищается всё, что меняется от запуска к запуску,
+      // но не меняет сути сбоя. Без этого одна ошибка VK-SDK расползлась на десяток
+      // «уникальных» строк — Playwright поднимает сервер на СЛУЧАЙНОМ порту, и
+      // http://127.0.0.1:33249/... и http://127.0.0.1:39645/... считались разными.
+      // Счётчик «Уникальных» показывал 95 при примерно десятке реальных причин.
+      function _errorGroupKey(message) {
+        return String(message || "")
+          .replace(/https?:\/\/[^\s)]+/g, (u) => {
+            try {
+              const p = new URL(u);
+              // Оставляем хост без порта и путь: суть в том, ЧТО не загрузилось.
+              return p.hostname + p.pathname;
+            } catch (e) { return u; }
+          })
+          .replace(/:\d+:\d+/g, ":L:C")   // позиция в файле уезжает при пересборке
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 120);
+      }
+
+      // Группировка сырых client_errors по (kind + нормализованное сообщение) —
       // одна и та же ошибка у разных юзеров/сессий иначе тонет в списке дублей
       function _adminErrorGroups() {
         const rows = _adminErrors || [];
@@ -4174,7 +4213,7 @@
         );
         const map = new Map();
         for (const r of filtered) {
-          const key = r.kind + "|" + (r.message || "").slice(0, 120);
+          const key = r.kind + "|" + _errorGroupKey(r.message);
           if (!map.has(key)) {
             map.set(key, { key, kind: r.kind, message: r.message, count: 0, lastSeen: r.created_at, agencies: new Set(), rows: [] });
           }

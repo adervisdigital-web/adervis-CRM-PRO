@@ -33,4 +33,37 @@ module.exports = async function ({ browser, baseUrl, test }) {
     );
     await context.close();
   });
+
+  // Телеметрия проверяла только наличие _supabase, поэтому в боевую таблицу
+  // client_errors писали ещё и локальная разработка, и КАЖДЫЙ прогон этих тестов
+  // (Playwright поднимает сервер на случайном порту — записи даже не схлопывались
+  // в группы). Вкладка «Ошибки» в Admin Panel из-за этого показывала 199 записей,
+  // почти целиком мусорных. Проверяем сетевой факт, а не намерение.
+  await test("телеметрия: ошибки с localhost не уезжают в client_errors", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl);
+
+    const telemetryCalls = [];
+    page.on("request", (r) => {
+      if (r.url().includes("/rest/v1/client_errors")) telemetryCalls.push(r.url());
+    });
+
+    // Роняем необработанное отклонение промиса — ровно то, что ловит репортёр.
+    await page.evaluate(() => {
+      Promise.reject(new Error("ADERVIS-TEST: намеренная ошибка для проверки телеметрии"));
+    });
+    // И синхронную ошибку через window.onerror.
+    await page.evaluate(() => {
+      window.dispatchEvent(new ErrorEvent("error", {
+        message: "ADERVIS-TEST: намеренная синхронная ошибка",
+        error: new Error("ADERVIS-TEST: намеренная синхронная ошибка"),
+      }));
+    });
+    await page.waitForTimeout(600);
+
+    assert(
+      telemetryCalls.length === 0,
+      "с localhost ушло " + telemetryCalls.length + " запрос(ов) в client_errors: " + telemetryCalls.join(", ")
+    );
+    await context.close();
+  });
 };
