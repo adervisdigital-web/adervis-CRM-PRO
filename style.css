@@ -6252,3 +6252,55 @@ body.portal-mode .nav { display: none !important; }
 }
 .accent-chip:hover .accent-swatch { transform: scale(1.12); }
 .accent-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── «Смета»: постоянная колонка со списком сделок ───────────────────────────
+   Раньше список сделок жил только в выезжающей панели: чтобы перейти к соседней
+   сделке, её приходилось каждый раз раскрывать кнопкой. На широком экране место
+   есть — держим колонку открытой всегда. На узком она прячется, и там работает
+   прежняя кнопка с панелью (обе разметки в DOM одновременно, поэтому у поля
+   поиска в колонке отдельный id — см. renderDealRailHtml). */
+.deal-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.deal-layout-main { min-width: 0; }   /* без этого грид растягивается под самую широкую строку сметы */
+
+.deal-rail {
+  position: sticky;
+  /* 86px, как у .summary справа: шапка sticky и имеет высоту 62px, при top:8px
+     колонка уезжала под неё и «Сделки» обрезались. */
+  top: 86px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 104px);
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.deal-rail-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.deal-rail-head h3 { margin: 0; font-size: 14px; flex: 1; }
+.deal-rail-search-wrap { padding: 10px 12px; flex: 0 0 auto; }
+.deal-rail-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0 8px 10px;
+}
+
+/* Ниже 1100px колонка не помещается рядом со сметой — возвращаемся к кнопке. */
+@media (max-width: 1100px) {
+  .deal-layout { display: block; }
+  .deal-rail { display: none; }
+}
+/* На широком экране кнопка-переключатель в шапке сделки не нужна: список и так
+   виден слева. Оставляем её только там, где колонка скрыта. */
+@media (min-width: 1101px) {
+  .deal-switcher { display: none; }
+}

@@ -11,12 +11,12 @@ async function homeDealCount(page) {
 async function dealId(page) {
   await page.evaluate(() => window.app.go("home"));
   await page.waitForTimeout(80);
+  // data-deal-id, а не разбор onclick: имя обработчика меняли (selectActiveDeal →
+  // openDeal), и такой разбор молча переставал находить карточки — ровно на этом
+  // однажды сломалось и само перетаскивание в app.js.
   return page.evaluate(() => {
-    for (const el of document.querySelectorAll("[onclick]")) {
-      const m = (el.getAttribute("onclick") || "").match(/openDeal\('([^']+)'\)/);
-      if (m) return m[1];
-    }
-    return null;
+    const el = document.querySelector("[data-deal-id]");
+    return el ? el.getAttribute("data-deal-id") : null;
   });
 }
 
@@ -796,7 +796,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
     const before = await page.evaluate(() =>
       [...document.querySelectorAll(".deal-card")]
-        .map((c) => (c.getAttribute("onclick") || "").match(/selectActiveDeal\('([^']+)'\)/)[1]));
+        .map((c) => c.getAttribute("data-deal-id")));
     const box = await page.evaluate(() => {
       const cards = [...document.querySelectorAll(".deal-card")];
       const a = cards[0].getBoundingClientRect();
@@ -826,7 +826,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
     const after = await page.evaluate(() =>
       [...document.querySelectorAll(".deal-card")]
-        .map((c) => (c.getAttribute("onclick") || "").match(/selectActiveDeal\('([^']+)'\)/)[1]));
+        .map((c) => c.getAttribute("data-deal-id")));
     assert(after[0] !== before[0], "порядок не изменился после переноса");
     assertEqual(after.length, before.length, "перетаскивание изменило число карточек");
 
@@ -839,14 +839,15 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(clean.body, false, "режим перетаскивания не снят с body");
   });
 
-  // Клик по карточке — основное действие (выбор активной сделки). Порог в 6px
-  // существует ровно для того, чтобы обычный клик не превращался в перенос.
+  // Клик по карточке — основное действие (открыть смету). Порог в 6px существует
+  // ровно для того, чтобы обычный клик не превращался в перенос. Поскольку клик
+  // теперь УВОДИТ в смету, порядок читаем, вернувшись на главную.
   await test("главная: клик по карточке без движения не меняет порядок", async () => {
     await page.evaluate(() => document.querySelector(".deal-card").scrollIntoView({ block: "center" }));
     await page.waitForTimeout(200);
     const read = () => page.evaluate(() =>
       [...document.querySelectorAll(".deal-card")]
-        .map((c) => (c.getAttribute("onclick") || "").match(/selectActiveDeal\('([^']+)'\)/)[1]));
+        .map((c) => c.getAttribute("data-deal-id")));
     const before = await read();
     const pt = await page.evaluate(() => {
       const r = document.querySelector(".deal-card").getBoundingClientRect();
@@ -854,6 +855,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
     });
     await page.mouse.click(pt.x, pt.y);
     await page.waitForTimeout(350);
+    const opened = await page.evaluate(() => !!document.querySelector(".deal-layout"));
+    assert(opened, "клик по карточке должен открывать смету");
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(300);
     assertEqual(JSON.stringify(await read()), JSON.stringify(before), "простой клик переставил карточки");
   });
 
@@ -1155,6 +1160,76 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(/Съёмка дронами/.test(after), "своя тематика не появилась во вкладках");
     const docsAfter = await page.$$eval("#appContent .kb-doc-card", (els) => els.length);
     assert(docsAfter === docsBefore, `переименование увело документы: было ${docsBefore}, стало ${docsAfter}`);
+  });
+
+  // Карточка сделки несла две кнопки-пилюли — «Открыть →» и следующий статус
+  // («Сдать проект →» / «Завершено»). Владелец попросил убрать: карточка и так
+  // кликабельна целиком. Важно проверить не только отсутствие кнопок, но и что
+  // клик по карточке ВЕДЁТ в смету — раньше он лишь делал сделку активной, а в
+  // смету уводила как раз убранная кнопка.
+  await test("карточка сделки: без кнопок-пилюль, клик открывает смету", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(250);
+
+    const pills = await page.evaluate(() => ({
+      open: document.querySelectorAll(".deal-cards-grid .deal-open-btn").length,
+      next: document.querySelectorAll(".deal-cards-grid .next-action-btn").length,
+    }));
+    assertEqual(pills.open, 0, "на карточке вернулась кнопка «Открыть →»");
+    assertEqual(pills.next, 0, "на карточке вернулась кнопка следующего статуса");
+
+    const card = await page.$(".deal-card");
+    assert(card, "нет ни одной карточки сделки — проверять нечего");
+    await card.click();
+    await page.waitForTimeout(400);
+    const opened = await page.evaluate(() => !!document.querySelector(".deal-layout"));
+    assert(opened, "клик по карточке не открыл смету");
+  });
+
+  // Список сделок в «Смете» должен быть виден постоянно, без раскрытия по кнопке.
+  // На узком экране места нет — там остаётся прежняя кнопка с выезжающей панелью.
+  await test("«Смета»: список сделок открыт сбоку, на узком экране — кнопкой", async () => {
+    await dismissStaleDialog(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(200);
+    const card = await page.$(".deal-card");
+    assert(card, "нет карточки сделки");
+    await card.click();
+    await page.waitForTimeout(400);
+
+    const wide = await page.evaluate(() => {
+      const rail = document.querySelector(".deal-rail");
+      const sw = document.querySelector(".deal-switcher");
+      return {
+        rail: rail ? getComputedStyle(rail).display : "нет",
+        btn: sw ? getComputedStyle(sw).display : "нет",
+        items: document.querySelectorAll("#dealRailList .deal-switcher-item").length,
+        search: !!document.getElementById("dealRailSearch"),
+      };
+    });
+    assert(wide.rail !== "none" && wide.rail !== "нет", "на широком экране колонки сделок нет");
+    assertEqual(wide.btn, "none", "на широком экране осталась кнопка-раскрывалка");
+    assert(wide.items > 0, "колонка сделок пуста");
+    assert(wide.search, "в колонке нет поля поиска");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(300);
+    const narrow = await page.evaluate(() => {
+      const rail = document.querySelector(".deal-rail");
+      const sw = document.querySelector(".deal-switcher");
+      return {
+        rail: rail ? getComputedStyle(rail).display : "нет",
+        btn: sw ? getComputedStyle(sw).display : "нет",
+        sideScroll: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    assertEqual(narrow.rail, "none", "на телефоне колонка сделок должна прятаться");
+    assert(narrow.btn !== "none" && narrow.btn !== "нет", "на телефоне пропала кнопка выбора сделки");
+    assert(narrow.sideScroll <= 1, "на телефоне появилась прокрутка вбок: " + narrow.sideScroll + "px");
+
+    await page.setViewportSize({ width: 1280, height: 900 });
   });
 
   await context.close();

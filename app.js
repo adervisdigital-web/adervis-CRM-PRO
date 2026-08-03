@@ -9310,9 +9310,14 @@
         // Итоговый порядок берём из DOM. В state переставляем только те сделки,
         // что сейчас на экране: список отфильтрован и разбит на страницы, поэтому
         // трогать остальные нельзя — они просто не участвовали в переносе.
+        // id берём из data-deal-id, а НЕ разбором onclick регэкспом. Раньше здесь
+        // искалось имя обработчика — и когда клик по карточке перевели с
+        // selectActiveDeal на openDeal, регэксп перестал совпадать, domIds оказывался
+        // пустым, и перетаскивание молча переставало сохранять порядок. Разметка не
+        // должна зависеть от того, как называется функция в onclick.
         const domIds = _dragCards(d.grid)
-          .map(c => (c.getAttribute("onclick") || "").match(/selectActiveDeal\('([^']+)'\)/))
-          .filter(Boolean).map(m => m[1]);
+          .map(c => c.getAttribute("data-deal-id"))
+          .filter(Boolean);
         const list = state.savedProjects || [];
         const pos = new Map(domIds.map((x, i) => [x, i]));
         const moved = list.filter(p => pos.has(p.id)).sort((a, b) => pos.get(a.id) - pos.get(b.id));
@@ -13679,7 +13684,6 @@
                 ${pagedItems.map(project => {
                   const margin = project.revenue > 0 ? Math.round((project.profit || 0) / project.revenue * 100) : 0;
                   const healthClass = margin >= 40 ? "green" : margin >= 20 ? "yellow" : margin > 0 ? "red" : "grey";
-                  const nextLabel = CRM_NEXT[project.crmStatus || "Лид"];
                   const isCurrent = project.id === state.activeProjectId;
                   const payPct = project.total > 0 ? Math.min(100, Math.round((project.paid || 0) / project.total * 100)) : 0;
                   const isSelected = !!(state.crmSelected || {})[project.id];
@@ -13695,7 +13699,8 @@
                         onpointermove="app.dealPointerMove(event)"
                         onpointerup="app.dealPointerUp(event)"
                         onpointercancel="app.dealPointerUp(event,true)"` : ""}
-                      onclick="app.selectActiveDeal('${projectIdSafe}')" style="cursor:pointer;--status-color:${CRM_STATUS_COLOR[project.crmStatus || "Лид"] || "var(--muted)"}" title="${isCurrent ? "Клик — открыть в смете" : "Клик — сделать активным проектом · «Открыть →» — перейти в смету"}">
+                      data-deal-id="${projectIdSafe}"
+                      onclick="app.openDeal('${projectIdSafe}')" style="cursor:pointer;--status-color:${CRM_STATUS_COLOR[project.crmStatus || "Лид"] || "var(--muted)"}" title="Открыть смету">
                       <div class="deal-card-head">
                         ${state.crmSelectMode ? `<input type="checkbox" class="crm-cb no-print" ${isSelected?"checked":""} onclick="event.stopPropagation();app.toggleCrmSelect('${projectIdSafe}')"
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">` : ""}
@@ -13795,18 +13800,14 @@
                       </div>`;
                       })()}
 
+                      ${project.crmStatus === CRM_ARCHIVED ? `
                       <div class="deal-card-footer">
-                        <button class="deal-open-btn" onclick="event.stopPropagation();app.openDeal('${projectIdSafe}')" title="Открыть смету">Открыть →</button>
-                        <div style="display:flex;align-items:center;gap:8px">
-                          ${project.crmStatus === CRM_ARCHIVED
-                            ? `<span class="badge deal-archived-badge" onclick="event.stopPropagation();app.unarchiveDeal('${projectIdSafe}')" title="Вернуть сделку в работу">В архиве · вернуть</span>
-                               <button class="deal-del-btn" onclick="event.stopPropagation();app.deleteSavedProject('${projectIdSafe}')" title="Удалить проект навсегда">
-                                 <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>
-                                 Удалить
-                               </button>`
-                            : nextLabel ? `<button class="next-action-btn" onclick="event.stopPropagation();app.advanceCrmStatus('${projectIdSafe}')" title="Перевести в следующий статус">${nextLabel} →</button>` : `<span class="badge" onclick="event.stopPropagation()">Завершено</span>`}
-                        </div>
-                      </div>
+                        <span class="badge deal-archived-badge" onclick="event.stopPropagation();app.unarchiveDeal('${projectIdSafe}')" title="Вернуть сделку в работу">В архиве · вернуть</span>
+                        <button class="deal-del-btn" onclick="event.stopPropagation();app.deleteSavedProject('${projectIdSafe}')" title="Удалить проект навсегда">
+                          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>
+                          Удалить
+                        </button>
+                      </div>` : ""}
                     </div>
                   `;
                 }).join("")}
@@ -18133,6 +18134,9 @@
         const currentIdx = CRM_STATUSES.indexOf(state.project.crmStatus || "Лид");
 
         return `
+          <div class="deal-layout">
+          ${renderDealRailHtml()}
+          <div class="deal-layout-main">
           <div class="deal-bar no-print">
             <div class="deal-compact-row">
               <div class="deal-nav-group">
@@ -18184,6 +18188,8 @@
           </div>
 
           ${(tabContent[state.dealView] || renderEstimate)()}
+          </div>
+          </div>
         `;
       }
 
@@ -20804,10 +20810,19 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       // «Завершённые» обычно самая длинная группа (сотни сделок) и перекрывает собой
       // «В работе»/«Архив» при скролле — по умолчанию свёрнута, остальные две открыты.
       let _dealSwitcherCollapsed = { active: false, completed: true, archived: false };
+      // Список сделок живёт в двух местах сразу: постоянная колонка слева в «Смете»
+      // (десктоп) и выезжающая панель по кнопке (телефон). Точечно обновляем оба —
+      // полный render() сбросил бы фокус в поле поиска на первом же символе.
+      function _refreshDealLists() {
+        const html = renderDealSwitcherListHtml();
+        for (const id of ["dealSwitcherList", "dealRailList"]) {
+          const el = document.getElementById(id);
+          if (el) el.innerHTML = html;
+        }
+      }
       function toggleDealSwitcherSection(key) {
         _dealSwitcherCollapsed[key] = !_dealSwitcherCollapsed[key];
-        const list = document.getElementById("dealSwitcherList");
-        if (list) list.innerHTML = renderDealSwitcherListHtml();
+        _refreshDealLists();
       }
       function toggleDealSwitcher(e) {
         e && e.stopPropagation();
@@ -20826,8 +20841,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       }
       function filterDealSwitcher(value) {
         _dealSwitcherQuery = value;
-        const list = document.getElementById("dealSwitcherList");
-        if (list) list.innerHTML = renderDealSwitcherListHtml();
+        _refreshDealLists();
       }
       function switchDeal(projectId) {
         state.dealSwitcherOpen = false;
@@ -20910,6 +20924,31 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           </div>
         `;
       }
+      // Постоянная колонка со списком сделок слева в разделе «Смета» (десктоп).
+      // Раньше список был только в выезжающей панели по кнопке — чтобы перейти к
+      // соседней сделке, приходилось каждый раз её раскрывать. На узком экране
+      // колонка прячется (CSS), и там по-прежнему работает кнопка с панелью.
+      // id поля поиска НЕ dealSwitcherSearch: панель может существовать в DOM
+      // одновременно с колонкой, а два одинаковых id ломают focus() и getElementById.
+      function renderDealRailHtml() {
+        return `
+          <aside class="deal-rail no-print" aria-label="Сделки">
+            <div class="deal-rail-head">
+              <h3>Сделки</h3>
+              <button class="btn small" onclick="app.go('home')" title="Все проекты">Все</button>
+            </div>
+            <div class="deal-rail-search-wrap">
+              <input id="dealRailSearch" class="deal-switcher-search" type="text"
+                     placeholder="Поиск по названию или клиенту…"
+                     aria-label="Поиск по сделкам"
+                     value="${escapeHtml(_dealSwitcherQuery)}"
+                     oninput="app.filterDealSwitcher(this.value)">
+            </div>
+            <div class="deal-rail-list" id="dealRailList">${renderDealSwitcherListHtml()}</div>
+          </aside>
+        `;
+      }
+
       function renderDealSwitcherOverlayHtml() {
         if (!state.dealSwitcherOpen) return "";
         const sidebarEl = document.getElementById("appSidebar");
