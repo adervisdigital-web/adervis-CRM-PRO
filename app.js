@@ -20062,6 +20062,18 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           delete row.pay_method; delete row.pay_link; delete row.pay_details;
           ({ data, error } = await runWrite());
         }
+        // client_portals.project_id заведён колонкой UUID (миграция 20260704000002),
+        // а id проекта UUID никогда не был: uid("project") даёт «project_<32 hex>», у
+        // импорта из O!task — «proj_otask_18924». Postgres отвечал
+        // «invalid input syntax for type uuid», insert падал целиком, и КНОПКА «СОЗДАТЬ
+        // КП» НЕ РАБОТАЛА НИ ДЛЯ ОДНОЙ СДЕЛКИ — то есть главная функция продукта. Тесты
+        // этого не видели: в local mode _supabase нет и до записи дело не доходит.
+        // Настоящее лечение — сменить тип колонки на text (миграция 20260803000006).
+        // Здесь — страховка: без связки с проектом КП всё равно лучше, чем никакого.
+        if (error && /invalid input syntax for type uuid/i.test(error.message || '')) {
+          delete row.project_id;
+          ({ data, error } = await runWrite());
+        }
         if (data && !error) {
           const url = location.origin + location.pathname + '?portal=' + data.id;
           try { await navigator.clipboard.writeText(url); } catch(e) {}

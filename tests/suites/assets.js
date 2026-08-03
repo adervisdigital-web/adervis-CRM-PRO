@@ -123,6 +123,44 @@ module.exports = async function ({ test }) {
     );
   });
 
+  // Колонка client_portals.project_id была заведена как UUID, а идентификатор
+  // проекта UUID никогда не был: uid("project") даёт «project_<32 hex>», импорт из
+  // O!task — «proj_otask_18924». Postgres отвечал «invalid input syntax for type
+  // uuid», INSERT падал целиком, и КП не создавалось НИ ДЛЯ ОДНОЙ сделки — то есть
+  // главная функция продукта была сломана с 04.07 по 03.08.2026.
+  //
+  // Прогоны в браузере этого не видят: тесты идут в local mode, где _supabase нет и
+  // до записи в базу дело не доходит. Поэтому сторож статический — он сверяет ровно
+  // те два факта, чьё расхождение и было багом, и поймал бы его в день заведения
+  // колонки.
+  await test("client_portals.project_id хранит id проекта, а не uuid", () => {
+    assert(
+      /function uid\(prefix[\s\S]{0,160}\$\{prefix\}_\$\{crypto\.randomUUID\(\)/.test(app),
+      "uid() перестал добавлять префикс — проверку формата id нужно пересмотреть"
+    );
+
+    const migDir = path.join(REPO_ROOT, "supabase/migrations");
+    const sql = fs.readdirSync(migDir)
+      .filter(f => f.endsWith(".sql"))
+      .sort()
+      .map(f => fs.readFileSync(path.join(migDir, f), "utf8"))
+      .join("\n");
+
+    // Последнее слово о типе должно быть за text: колонку заводили как uuid, потом
+    // чинили ALTER-ом, и порядок файлов здесь важен.
+    const decls = [...sql.matchAll(/client_portals[\s\S]{0,200}?project_id\s+(uuid|text)/gi)]
+      .map(m => m[1].toLowerCase());
+    const alters = [...sql.matchAll(/alter column project_id type\s+(uuid|text)/gi)]
+      .map(m => m[1].toLowerCase());
+    const finalType = alters.length ? alters[alters.length - 1] : (decls.length ? decls[decls.length - 1] : null);
+
+    assert(finalType, "в миграциях не найдено объявление client_portals.project_id");
+    assert(
+      finalType === "text",
+      "client_portals.project_id остаётся " + finalType + ", а id проекта — строка с префиксом: INSERT будет падать"
+    );
+  });
+
   // ── Иконки вместо эмодзи ────────────────────────────────────────────────────
   // Эмодзи рисуются шрифтом ОС: у каждого пользователя свой набор, они не
   // наследуют цвет текста и в тёмной теме выглядят разнокалиберными наклейками.
