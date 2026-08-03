@@ -145,6 +145,38 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     await page.setViewportSize({ width: 900, height: 800 });
   });
 
+  /* Редактор договора общий обход VIEWS не покрывает: он показывается только при
+     выставленном contractEditId, а по списку вьюх мы попадаем на список договоров.
+     Переполнение жило именно в редакторе — <select> со сделками не сжимался ниже
+     своей самой длинной опции и растягивал ячейку сетки шире окна. */
+  await test("редактор договора на 390px: длинное название сделки в списке не тянет страницу вбок", async () => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => {
+      // Длинное имя сделки — то самое, что раздувает min-content у <select>.
+      const s = window.app;
+      s.go("contracts");
+      s.createContractFromTemplate("tpl_release");
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (raw.contracts || [])[0];
+      s.openContractEdit(c.id);
+    });
+    await page.waitForTimeout(400);
+
+    const closed = await overflow(page);
+    assert(closed.over <= 1, `редактор договора шире экрана на ${closed.over}px (${closed.tag})`);
+
+    await page.evaluate(() => window.app.startContractWizard(0));
+    await page.waitForTimeout(400);
+    const opened = await overflow(page);
+    assert(opened.over <= 1, `с открытым мастером редактор шире экрана на ${opened.over}px (${opened.tag})`);
+
+    const hasInput = await page.$("#contractWizardInput");
+    assert(hasInput, "мастер не открылся — проверка переполнения ничего не значит");
+
+    await page.evaluate(() => window.app.closeContractEdit());
+    await page.setViewportSize({ width: 900, height: 800 });
+  });
+
   // Визуальная фиксация каталога на самом узком экране (п.20 — визуальный обход)
   await test("каталог на 320px: снимок для ревью", async () => {
     await page.setViewportSize({ width: 320, height: 800 });

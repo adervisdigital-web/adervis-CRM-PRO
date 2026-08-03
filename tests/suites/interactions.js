@@ -1272,5 +1272,161 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.waitForTimeout(200);
   });
 
+  // ── Договор: мастер по полям, нумерация, статус подписания ────────────────
+
+  // Номер — юридический реквизит: два документа с одним номером это ошибка в
+  // бумагах. Считаем по МАКСИМУМУ выданных, а не по количеству договоров, иначе
+  // после удаления среднего следующий номер повторит уже существующий.
+  await test("договоры: номер не повторяется после удаления договора из середины", async () => {
+    await dismissStaleDialog(page);
+    const nums = await page.evaluate(() => {
+      // Заводим три договора подряд и удаляем средний.
+      window.app.go("contracts");
+      window.app.createBlankContract();
+      window.app.createBlankContract();
+      window.app.createBlankContract();
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const three = (raw.contracts || []).slice(0, 3).map((c) => c.number);
+      // unshift → [новейший, средний, старейший]; удаляем средний.
+      const midId = (raw.contracts || [])[1].id;
+      window.app.deleteContract(midId);
+      const next = window.app.nextContractNumber();
+      return { three, next };
+    });
+
+    const uniq = new Set(nums.three);
+    assertEqual(uniq.size, 3, "три подряд созданных договора получили не три разных номера: " + nums.three.join(", "));
+    assert(
+      !nums.three.includes(nums.next),
+      "следующий номер " + nums.next + " повторяет уже выданный (" + nums.three.join(", ") + ") — счёт идёт по количеству, а не по максимуму"
+    );
+  });
+
+  // «{{срок}}» в отрыве от текста не значит ничего — мастер показывает фразу
+  // вокруг токена. Но только СВОЮ строку: соседний пункт договора про другое.
+  await test("договоры: подсказка мастера берёт фразу вокруг поля и не залезает в соседнюю строку", async () => {
+    const ctx = await page.evaluate(() => {
+      const body = "1.1. Первый пункт про совсем другое.\n2.1. Результат передаётся в срок до {{срок}} с момента подписания.\n3.1. Третий пункт.";
+      return window.app.contractVarContext(body, "срок");
+    });
+    assert(ctx, "контекст поля не найден вовсе");
+    assert(/Результат передаётся в срок до/.test(ctx.before), "перед полем не видно фразы: «" + ctx.before + "»");
+    assert(/с момента подписания/.test(ctx.after), "после поля не видно фразы: «" + ctx.after + "»");
+    assert(!/Первый пункт/.test(ctx.before), "подсказка затащила предыдущую строку договора: «" + ctx.before + "»");
+    assert(!/Третий пункт/.test(ctx.after), "подсказка затащила следующую строку договора: «" + ctx.after + "»");
+  });
+
+  await test("договоры: мастер заполняет поле по Enter и сам переходит к следующему", async () => {
+    await dismissStaleDialog(page);
+    const start = await page.evaluate(() => {
+      window.app.go("contracts");
+      window.app.createContractFromTemplate("tpl_release");
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (raw.contracts || [])[0];
+      window.app.openContractEdit(c.id);
+      window.app.startContractWizard(0);
+      return { id: c.id, vars: window.app.contractVars(c.body) };
+    });
+    assert(start.vars.length >= 2, "в шаблоне меньше двух полей — на нём мастер не проверить");
+    await page.waitForTimeout(250);
+
+    const input = await page.$("#contractWizardInput");
+    assert(input, "мастер не показал поле ввода");
+    const firstLabel = await page.$eval("#contractWizardInput", (el) => el.getAttribute("aria-label") || "");
+    assert(firstLabel.includes(start.vars[0]), "мастер начал не с первого поля: " + firstLabel);
+
+    await input.type("Проверочное значение");
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(400);
+
+    const after = await page.evaluate((id) => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (raw.contracts || []).find((x) => x.id === id);
+      const el = document.getElementById("contractWizardInput");
+      return {
+        left: window.app.contractVars(c.body),
+        body: c.body,
+        label: el ? el.getAttribute("aria-label") || "" : ""
+      };
+    }, start.id);
+
+    assert(!after.left.includes(start.vars[0]), "заполненное поле осталось в списке незаполненных");
+    assert(after.body.includes("Проверочное значение"), "значение не подставилось в текст договора");
+    assert(after.label.includes(start.vars[1]), "мастер не перешёл ко второму полю, показывает: " + after.label);
+
+    // Фокус проверяем на КНОПОЧНОМ пути, а не на Enter. render() умеет сам вернуть
+    // фокус по id, но только если в фокусе был input/textarea/select — при нажатии
+    // Enter это так, и проверка через Enter проходила бы даже с вырезанным
+    // возвратом фокуса (проверено). При клике по «Дальше» в фокусе кнопка,
+    // восстановления не происходит, и работает только код мастера.
+    await page.type("#contractWizardInput", "Второе значение");
+    await page.click('button.primary[onclick*="contractWizardSubmit"]');
+    await page.waitForTimeout(400);
+    const focused = await page.evaluate(() => {
+      const el = document.getElementById("contractWizardInput");
+      return !!el && document.activeElement === el;
+    });
+    assert(focused, "после кнопки «Дальше» фокус не вернулся в поле ввода — набирать следующее значение придётся с мышкой");
+  });
+
+  await test("договоры: «Пропустить» не заполняет поле и идёт по кругу", async () => {
+    const res = await page.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (raw.contracts || []).find((x) => window.app.contractVars(x.body).length >= 2);
+      if (!c) return null;
+      window.app.openContractEdit(c.id);
+      window.app.startContractWizard(0);
+      const vars = window.app.contractVars(c.body);
+      window.app.contractWizardSkip();
+      const el = document.getElementById("contractWizardInput");
+      const afterSkip = el ? el.getAttribute("aria-label") || "" : "";
+      const raw2 = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c2 = (raw2.contracts || []).find((x) => x.id === c.id);
+      return { vars, afterSkip, stillThere: window.app.contractVars(c2.body) };
+    });
+    assert(res, "не нашлось договора с двумя незаполненными полями");
+    assert(res.afterSkip.includes(res.vars[1]), "после «Пропустить» мастер не перешёл ко второму полю: " + res.afterSkip);
+    assert(res.stillThere.includes(res.vars[0]), "«Пропустить» удалило поле из договора — оно должно остаться незаполненным");
+  });
+
+  // Ради этого договоры и живут в CRM: воронка не должна врать. Но синхронизация
+  // только вперёд — подписанный договор не откатывает сделку, уехавшую дальше.
+  await test("договоры: статус «На подписи» двигает сделку на этап «Договор», но только вперёд", async () => {
+    await dismissStaleDialog(page);
+    const id = await dealId(page);
+    assert(id, "нет сделки для проверки");
+
+    // Этап меняем штатной функцией, а не правкой localStorage: статус сделки живёт
+    // сразу в трёх местах (top-level, snapshot, state.project активной сделки), и
+    // подмена одного из них проверяла бы не то поведение, а живучесть подмены.
+    const cid = await page.evaluate((dealIdArg) => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (raw.contracts || [])[0];
+      window.app.updateContractField(c.id, "dealId", dealIdArg);
+      window.app.setKanbanStatus("crm", dealIdArg, "Лид");
+      return c.id;
+    }, id);
+    await page.waitForTimeout(200);
+
+    const moved = await page.evaluate((args) => {
+      window.app.setContractStatus(args.cid, "sent");
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const d = (raw.savedProjects || []).find((p) => p.id === args.did);
+      return d ? d.crmStatus : "";
+    }, { cid, did: id });
+    assertEqual(moved, "Договор", "сделка не переехала на этап «Договор» при отправке договора на подпись");
+
+    await page.evaluate((args) => window.app.setKanbanStatus("crm", args.did, "В работе"), { did: id });
+    await page.waitForTimeout(200);
+
+    const kept = await page.evaluate((args) => {
+      window.app.setContractStatus(args.cid, "signed");
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const d = (raw.savedProjects || []).find((p) => p.id === args.did);
+      return d ? d.crmStatus : "";
+    }, { cid, did: id });
+    assertEqual(kept, "В работе", "подписание договора откатило сделку назад с «В работе» — синхронизация обязана быть только вперёд");
+  });
+
   await context.close();
 };

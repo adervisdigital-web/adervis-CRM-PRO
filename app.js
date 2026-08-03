@@ -22068,6 +22068,16 @@ Email: _____________________              Email: _____________________
         }
       ];
 
+      /* Статус подписания. Три состояния, а не «подписан / не подписан»: между
+         «сочинил» и «подписан» есть долгое «отправил и жду», и именно в нём договор
+         забывают. Ключ хранится в данных, подпись — только для показа.
+         Порядок в объекте = порядок в интерфейсе. */
+      const CONTRACT_STATUSES = {
+        draft:  { label: "Черновик",  cls: "",      hint: "Ещё правится, клиенту не отправлен" },
+        sent:   { label: "На подписи", cls: "warn", hint: "Отправлен клиенту, ждём подписи" },
+        signed: { label: "Подписан",  cls: "green", hint: "Подписан обеими сторонами" }
+      };
+
       function normalizeContract(c) {
         return {
           id: c?.id || uid("contract"),
@@ -22077,9 +22087,34 @@ Email: _____________________              Email: _____________________
           clientId: c?.clientId || "",
           dealId: c?.dealId || "",
           body: c?.body || "",
+          // Номер и статус подписания. У договоров, заведённых до их появления,
+          // полей нет — пустой номер и статус «Черновик» это законное состояние,
+          // задним числом ничего не присваиваем (номер — юридический реквизит,
+          // его нельзя менять у документа, который мог уже уйти клиенту).
+          number: c?.number || "",
+          status: CONTRACT_STATUSES[c?.status] ? c.status : "draft",
+          signedAt: c?.signedAt || "",
           createdAt: c?.createdAt || new Date().toISOString(),
           updatedAt: c?.updatedAt || new Date().toISOString()
         };
+      }
+
+      /* Следующий номер договора: «2026-001», год берётся текущий, порядковый —
+         максимум среди уже выданных за ЭТОТ год плюс один. Считаем по максимуму, а
+         не по количеству: удалили договор №2 из трёх — счёт по количеству выдал бы
+         №3 повторно, а два документа с одним номером это ошибка в реквизитах.
+         Номер редактируется руками: у многих своя схема нумерации, и она главнее. */
+      function nextContractNumber() {
+        const year = new Date().getFullYear();
+        const prefix = String(year) + "-";
+        let max = 0;
+        (state.contracts || []).forEach(c => {
+          const n = String(c.number || "");
+          if (!n.startsWith(prefix)) return;
+          const num = parseInt(n.slice(prefix.length), 10);
+          if (Number.isFinite(num) && num > max) max = num;
+        });
+        return prefix + String(max + 1).padStart(3, "0");
       }
 
       function createContractFromTemplate(tplId) {
@@ -22098,6 +22133,7 @@ Email: _____________________              Email: _____________________
           name: (base.name || "Договор") + " — " + (clientName || state.company.name || "Новый"),
           desc: base.desc || "",
           category: base.category || "Прочее",
+          number: nextContractNumber(),
           dealId: (activeDeal && activeDeal.id) || "",
           clientId: (matchedClient && matchedClient.id) || "",
           body: (base.body || "").replace("[ИСПОЛНИТЕЛЬ]", state.company.name || "Исполнитель").replace("[ЗАКАЗЧИК]", clientName || "Заказчик")
@@ -22142,6 +22178,7 @@ Email: _____________________              Email: _____________________
           name: `${base.name} — ${clientName}`,
           desc: projectName,
           category: base.category || "Видео",
+          number: nextContractNumber(),
           dealId: (proj && proj.id) || state.project.id || "",
           clientId: (matchedClient && matchedClient.id) || "",
           body
@@ -22158,6 +22195,7 @@ Email: _____________________              Email: _____________________
       function createBlankContract() {
         const contract = normalizeContract({
           name: "Новый договор — " + (state.project.client || state.company.name || ""),
+          number: nextContractNumber(),
           body: "ДОГОВОР\n\nг. _____________, «___» ___________ 202_ г.\n\n[Исполнитель] и [Заказчик]\n\n1. ПРЕДМЕТ ДОГОВОРА\n\n2. СТОИМОСТЬ И ОПЛАТА\n\n3. СРОКИ\n\n4. ПОДПИСИ\n\nИСПОЛНИТЕЛЬ ________________    ЗАКАЗЧИК ________________"
         });
         if (!state.contracts) state.contracts = [];
@@ -22170,6 +22208,43 @@ Email: _____________________              Email: _____________________
         const c = (state.contracts || []).find(x => x.id === id);
         if (c) { c[key] = value; c.updatedAt = new Date().toISOString(); }
         save();
+      }
+
+      /* Статус подписания. Заодно двигает сделку на этап «Договор» — ради этого
+         договоры и живут в CRM, иначе воронка врёт: договор отправлен, а сделка
+         второй месяц висит в «Согласовании».
+
+         Двигаем ТОЛЬКО ВПЕРЁД и только по активной сделке:
+           — сделка уже в «Предоплате» или «В работе» → откатывать её назад нельзя,
+             это потеря факта, а не синхронизация;
+           — «Архив» в CRM_STATUSES отсутствует (indexOf = -1) и под условие не
+             попадает: подписанный когда-то договор не должен воскрешать отказ. */
+      function setContractStatus(id, status) {
+        const c = (state.contracts || []).find(x => x.id === id);
+        if (!c || !CONTRACT_STATUSES[status]) return;
+        c.status = status;
+        c.signedAt = status === "signed" ? (c.signedAt || new Date().toISOString()) : "";
+        c.updatedAt = new Date().toISOString();
+
+        let movedName = "";
+        const deal = c.dealId ? (state.savedProjects || []).find(p => p.id === c.dealId) : null;
+        if (deal && status !== "draft") {
+          const target = CRM_STATUSES.indexOf("Договор");
+          const now = CRM_STATUSES.indexOf(deal.crmStatus || "Лид");
+          if (now >= 0 && now < target) {
+            // Через _applyCrmStatus, а НЕ присваиванием deal.crmStatus: у открытой
+            // сейчас сделки статус живёт ещё в snapshot и в state.project, и
+            // следующий flushActiveProjectToSaved перезапишет им top-level — правка
+            // молча откатится. Тест на это и падал.
+            _applyCrmStatus(deal, "Договор");
+            movedName = deal.name || "Сделка";
+          }
+        }
+        save();
+        render();
+        toast(movedName
+          ? `${CONTRACT_STATUSES[status].label} · «${movedName}» → этап «Договор»`
+          : CONTRACT_STATUSES[status].label);
       }
 
       function deleteContract(id) {
@@ -22191,7 +22266,10 @@ Email: _____________________              Email: _____________________
         if (!c) return;
         const win = window.open("", "_blank");
     if (!win) { toast("Браузер заблокировал открытие окна. Разрешите всплывающие окна для этого сайта."); return; }
-        win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(c.name)}</title><style>body{font-family:Arial,sans-serif;margin:40px;line-height:1.6;white-space:pre-wrap;font-size:13px}h1{font-size:18px;margin-bottom:16px}</style></head><body><h1>${escapeHtml(c.name)}</h1>${escapeHtml(c.body)}</body></html>`);
+        // Номер печатается рядом с названием: это реквизит документа, а не пометка
+        // для внутреннего учёта — на бумаге он должен быть виден.
+        const title = escapeHtml(c.name) + (c.number ? ` № ${escapeHtml(c.number)}` : "");
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(c.name)}</title><style>body{font-family:Arial,sans-serif;margin:40px;line-height:1.6;white-space:pre-wrap;font-size:13px}h1{font-size:18px;margin-bottom:16px}</style></head><body><h1>${title}</h1>${escapeHtml(c.body)}</body></html>`);
         win.document.close();
         win.print();
       }
@@ -22248,15 +22326,21 @@ Email: _____________________              Email: _____________________
         const co = state.company || {};
         const today = new Date();
         const pad = n => String(n).padStart(2, "0");
+        const dateStr = `${pad(today.getDate())}.${pad(today.getMonth() + 1)}.${today.getFullYear()}`;
         const map = {
           "исполнитель": co.name || "",
           "заказчик": (client && (client.company || client.name)) || (deal && deal.client) || "",
           "фио": (client && client.name) || "",
           "город": co.city || "",
-          "дата": `${pad(today.getDate())}.${pad(today.getMonth() + 1)}.${today.getFullYear()}`,
+          "дата": dateStr,
           "проект": (deal && deal.name) || c.desc || "",
           "сумма": deal && deal.total ? String(Math.round(Number(deal.total))) : "",
           "дата съёмки": (deal && deal.deadline) || "",
+          // Номер договора система выдаёт сама (nextContractNumber), поэтому три
+          // токена шаблонов закрываются без единого вопроса человеку.
+          "номер": c.number || "",
+          "номер договора": c.number || "",
+          "дата договора": dateStr,
         };
         let body = String(c.body || "");
         let filled = 0;
@@ -22275,6 +22359,83 @@ Email: _____________________              Email: _____________________
         save();
         render();
         toast(`Подставлено полей: ${filled}`);
+      }
+
+      /* ── Пошаговый мастер заполнения ──────────────────────────────────────
+         Раньше все незаполненные поля показывались сеткой сразу. Беда была не в
+         виде, а в поведении: fillContractVar зовёт render(), сетка пересоздаётся,
+         фокус слетает — и на шести полях это шесть потерь фокуса плюс поиск
+         глазами, где ты остановился.
+
+         Мастер ведёт по одному полю, сам возвращает фокус и показывает ФРАЗУ
+         ВОКРУГ токена. Это главное: «{{срок}}» в отрыве от текста не значит
+         ничего, а «Результат передаётся в срок до {{срок}}» — значит, и человек
+         отвечает не гадая.
+
+         Пропуск не выбрасывает поле, а сдвигает указатель по кругу: к пропущенному
+         можно вернуться, и договор не окажется молча дозаполненным наполовину. */
+      function contractVarContext(body, name) {
+        const src = String(body || "");
+        const re = new RegExp("\\{\\{\\s*" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\}\\}");
+        const m = re.exec(src);
+        if (!m) return null;
+        const end = m.index + m[0].length;
+        // Контекст ограничен СВОЕЙ строкой: в договоре соседний пункт — про другое,
+        // затащить его в подсказку значит запутать сильнее, чем не показать ничего.
+        const lineFrom = src.lastIndexOf("\n", Math.max(0, m.index - 1)) + 1;
+        let lineTo = src.indexOf("\n", end);
+        if (lineTo < 0) lineTo = src.length;
+        const RADIUS = 70;
+        const from = Math.max(lineFrom, m.index - RADIUS);
+        const to = Math.min(lineTo, end + RADIUS);
+        return {
+          before: (from > lineFrom ? "…" : "") + src.slice(from, m.index),
+          after: src.slice(end, to) + (to < lineTo ? "…" : "")
+        };
+      }
+
+      // Указатель по кругу: пропустили последнее — возвращаемся к первому.
+      function _contractWizardIdx(vars) {
+        if (!vars.length) return 0;
+        const raw = state.contractWizardIdx;
+        return ((Number(raw) || 0) % vars.length + vars.length) % vars.length;
+      }
+
+      function _focusWizardInput() {
+        setTimeout(() => { const i = document.getElementById("contractWizardInput"); if (i) i.focus(); }, 60);
+      }
+
+      function startContractWizard(atIdx) {
+        state.contractWizardIdx = Number(atIdx) || 0;
+        render();
+        _focusWizardInput();
+      }
+
+      function closeContractWizard() {
+        state.contractWizardIdx = null;
+        render();
+      }
+
+      function contractWizardSkip() {
+        state.contractWizardIdx = (Number(state.contractWizardIdx) || 0) + 1;
+        render();
+        _focusWizardInput();
+      }
+
+      function contractWizardSubmit(id, value) {
+        const v = String(value || "").trim();
+        if (!v) { contractWizardSkip(); return; }
+        const c = (state.contracts || []).find(x => x.id === id);
+        if (!c) return;
+        const vars = contractVars(c.body);
+        const name = vars[_contractWizardIdx(vars)];
+        if (!name) return;
+        // Указатель НЕ двигаем: заполненное поле уходит из списка, и следующее само
+        // встаёт на его место. Сдвиг здесь означал бы перепрыгивание через одно.
+        fillContractVar(id, name, v);   // внутри save() + render()
+        const left = contractVars(c.body).length;
+        if (!left) { toast("Все поля заполнены"); return; }
+        _focusWizardInput();
       }
 
       // Ставит курсор на следующий свободный прочерк и выделяет его.
@@ -22349,6 +22510,7 @@ Email: _____________________              Email: _____________________
           name: `${base.name} — ${clientName || state.company.name || "новый"}`,
           desc: (deal && deal.name) || state.project.name || "",
           category: base.category || "Прочее",
+          number: nextContractNumber(),
           dealId,
           clientId: (client && client.id) || "",
           body: base.body || ""
@@ -22421,9 +22583,11 @@ Email: _____________________              Email: _____________________
                   <div class="panel" style="box-shadow:none;background:var(--panel2);padding:14px 16px">
                     <div style="font-weight:800;font-size:14px;margin-bottom:4px">${escapeHtml(c.name)}</div>
                     <div class="u-meta" style="margin-bottom:10px">
-                      ${escapeHtml(c.category || "Прочее")}${c.updatedAt ? " · изменён " + escapeHtml(formatDate(c.updatedAt.slice(0, 10))) : ""}
+                      ${c.number ? "№ " + escapeHtml(c.number) + " · " : ""}${escapeHtml(c.category || "Прочее")}${c.updatedAt ? " · изменён " + escapeHtml(formatDate(c.updatedAt.slice(0, 10))) : ""}
                     </div>
                     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+                      ${(() => { const st = CONTRACT_STATUSES[c.status] || CONTRACT_STATUSES.draft;
+                        return `<span class="badge ${st.cls}" style="font-size:12px">${escapeHtml(st.label)}</span>`; })()}
                       ${vars ? `<span class="badge" style="font-size:12px;color:var(--text-warning)">${vars} ${plural(vars, "поле", "поля", "полей")} не заполнено</span>` : ""}
                       ${blanks ? `<span class="badge" style="font-size:12px;opacity:.75">${blanks} ${plural(blanks, "прочерк", "прочерка", "прочерков")}</span>` : ""}
                       ${!vars && !blanks ? `<span class="badge green" style="font-size:12px">готов</span>` : ""}
@@ -22477,8 +22641,20 @@ Email: _____________________              Email: _____________________
                     <button class="btn danger" onclick="app.deleteContract('${c.id}');app.closeContractEdit()">${TRASH_SVG} Удалить</button>
                   </div>
                 </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+                  <span style="font-size:12px;color:var(--muted);font-weight:750">Статус:</span>
+                  ${Object.keys(CONTRACT_STATUSES).map(k => {
+                    const st = CONTRACT_STATUSES[k];
+                    const on = (c.status || "draft") === k;
+                    return `<button class="badge${on ? " " + (st.cls || "") : ""}" onclick="app.setContractStatus('${c.id}','${k}')"
+                      title="${escapeHtml(st.hint)}" aria-pressed="${on}"
+                      style="cursor:pointer;padding:5px 12px;border-radius:99px;font-size:12px;font-weight:700;border:1px solid ${on ? "transparent" : "var(--line)"};${on ? "" : "background:transparent;color:var(--muted)"}">${escapeHtml(st.label)}</button>`;
+                  }).join("")}
+                  ${c.signedAt ? `<span class="mini-note" style="margin:0">Подписан ${formatDate(c.signedAt)}</span>` : ""}
+                </div>
                 <div class="field" style="margin-bottom:12px">
                   <div class="grid two">
+                    ${field("Номер договора", `<input value="${escapeHtml(c.number||"")}" onchange="app.updateContractField('${c.id}','number',this.value)" placeholder="${escapeHtml(nextContractNumber())}">`)}
                     ${field("Категория", `<input value="${escapeHtml(c.category||"")}" onchange="app.updateContractField('${c.id}','category',this.value)" placeholder="Видео, Фото...">`)}
                     ${field("Описание", `<input value="${escapeHtml(c.desc||"")}" onchange="app.updateContractField('${c.id}','desc',this.value)" placeholder="Краткое описание">`)}
                     ${field("Клиент", `<select onchange="app.updateContractField('${c.id}','clientId',this.value)">
@@ -22495,29 +22671,51 @@ Email: _____________________              Email: _____________________
                   const vars = contractVars(c.body);
                   const blanks = contractBlankCount(c.body);
                   if (!vars.length && !blanks) return "";
+                  // Мастер живёт, только пока есть именованные поля: у свободных
+                  // прочерков имени нет, спрашивать по ним нечего — для них кнопка
+                  // «к следующему прочерку», она ставит курсор в текст.
+                  const wizardOn = state.contractWizardIdx != null && vars.length > 0;
+                  const idx = _contractWizardIdx(vars);
+                  const cur = vars[idx];
+                  const ctx = wizardOn && cur ? contractVarContext(c.body, cur) : null;
                   return `
                   <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:14px;padding:14px 16px">
-                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:${vars.length ? "12px" : "0"}">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
                       <strong style="font-size:13px">Что осталось заполнить</strong>
                       ${vars.length ? `<span class="badge" style="font-size:12px">${vars.length} ${plural(vars.length, "поле", "поля", "полей")}</span>` : ""}
                       ${blanks ? `<span class="badge" style="font-size:12px;opacity:.75">${blanks} ${plural(blanks, "прочерк", "прочерка", "прочерков")}</span>` : ""}
-                      ${!vars.length && !blanks ? `<span class="badge green" style="font-size:12px">всё заполнено</span>` : ""}
                       <span style="flex:1 1 auto"></span>
                       ${vars.length ? `<button class="btn small primary" onclick="app.autofillContract('${c.id}')" title="Взять реквизиты из компании, клиента и сделки">Подставить из сделки</button>` : ""}
                       ${blanks ? `<button class="btn small" onclick="app.contractNextBlank()" title="Поставить курсор на следующий прочерк">К следующему прочерку →</button>` : ""}
                     </div>
-                    ${vars.length ? `
-                      <div class="grid three">
-                        ${vars.map(v => `
-                          <div class="field">
-                            <label style="font-size:12px;color:var(--muted);font-weight:750;margin-bottom:4px;display:block">${escapeHtml(v)}</label>
-                            <input placeholder="вписать и нажать Enter" aria-label="Значение поля «${escapeHtml(v)}»"
-                              onchange="app.fillContractVar('${c.id}','${escapeHtml(v)}',this.value)"
-                              onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
-                          </div>
-                        `).join("")}
+
+                    ${wizardOn ? `
+                      <div style="border:1px solid rgb(var(--primary-rgb) / .45);border-radius:12px;padding:14px;background:var(--panel)">
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                          <span class="badge" style="font-size:12px">Поле ${idx + 1} из ${vars.length}</span>
+                          <strong style="font-size:14px">${escapeHtml(cur)}</strong>
+                          <span style="flex:1 1 auto"></span>
+                          <button class="btn small" onclick="app.closeContractWizard()">Закрыть мастер</button>
+                        </div>
+                        <div style="height:4px;border-radius:99px;background:var(--line);overflow:hidden;margin-bottom:12px" role="presentation">
+                          <div style="height:100%;width:${Math.round(idx / vars.length * 100)}%;background:var(--primary);transition:width var(--dur-2) var(--ease-out)"></div>
+                        </div>
+                        ${ctx ? `<p style="font-size:13px;line-height:1.7;margin:0 0 12px;color:var(--muted)">${escapeHtml(ctx.before)}<span style="background:rgb(var(--primary-rgb) / .18);color:var(--primary-on-tint);font-weight:800;padding:1px 6px;border-radius:6px">${escapeHtml(cur)}</span>${escapeHtml(ctx.after)}</p>` : ""}
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                          <input id="contractWizardInput" style="flex:1 1 240px;min-width:0"
+                            placeholder="Значение для «${escapeHtml(cur)}»" aria-label="Значение поля «${escapeHtml(cur)}»"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();app.contractWizardSubmit('${c.id}',this.value);}">
+                          <button class="btn primary" onclick="app.contractWizardSubmit('${c.id}',(document.getElementById('contractWizardInput')||{}).value)">Дальше →</button>
+                          <button class="btn small" onclick="app.contractWizardSkip()" title="Вернуться к нему можно, пройдя круг">Пропустить</button>
+                        </div>
+                        <p class="mini-note" style="margin-top:8px">Enter — подставить и перейти к следующему. Значение встаёт во все места сразу; опечатку можно поправить прямо в тексте ниже.</p>
                       </div>
-                      <p class="mini-note" style="margin-top:8px">Значение подставляется во все места сразу и поле исчезает из списка. Опечатку можно поправить прямо в тексте ниже.</p>
+                    ` : vars.length ? `
+                      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+                        ${vars.map((v, i) => `<button class="badge" onclick="app.startContractWizard(${i})" title="Начать заполнение с этого поля"
+                          style="cursor:pointer;font-size:12px;border:1px dashed var(--line);background:transparent">${escapeHtml(v)}</button>`).join("")}
+                      </div>
+                      <button class="btn primary small" onclick="app.startContractWizard(0)">Заполнить по шагам →</button>
                     ` : ""}
                   </div>`;
                 })()}
@@ -22582,6 +22780,13 @@ Email: _____________________              Email: _____________________
                       <h3 style="margin:0;font-size:15px">${escapeHtml(c.name)}</h3>
                       <span class="badge">${escapeHtml(c.category||"Прочее")}</span>
                     </div>
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+                      ${(() => { const st = CONTRACT_STATUSES[c.status] || CONTRACT_STATUSES.draft;
+                        return `<span class="badge ${st.cls}" style="font-size:11px">${escapeHtml(st.label)}</span>`; })()}
+                      ${c.number ? `<span style="font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums">№ ${escapeHtml(c.number)}</span>` : ""}
+                      ${(() => { const left = contractVars(c.body).length;
+                        return left ? `<span class="badge" style="font-size:11px;opacity:.8">${left} ${plural(left, "поле", "поля", "полей")} не заполнено</span>` : ""; })()}
+                    </div>
                     ${c.desc ? `<p style="font-size:12px;margin:0 0 8px">${escapeHtml(c.desc)}</p>` : ""}
                     <p style="font-size:12px;margin:0;color:var(--muted)">Обновлён: ${formatDate(c.updatedAt)}</p>
                     <div class="toolbar no-print" style="margin-top:10px">
@@ -22612,14 +22817,18 @@ Email: _____________________              Email: _____________________
         render();
       }
 
+      // Мастер закрывается при смене договора: указатель — позиция в списке полей
+      // ЭТОГО документа, у другого он означал бы совсем другое поле.
       function openContractEdit(id) {
         state.contractEditId = id;
+        state.contractWizardIdx = null;
         save();
         render();
       }
 
       function closeContractEdit() {
         state.contractEditId = "";
+        state.contractWizardIdx = null;
         save();
         render();
       }
@@ -23119,6 +23328,13 @@ Email: _____________________              Email: _____________________
         autofillContract,
         createDealContract,
         contractNextBlank,
+        contractVarContext,
+        startContractWizard,
+        closeContractWizard,
+        contractWizardSkip,
+        contractWizardSubmit,
+        setContractStatus,
+        nextContractNumber,
         contractBodyInput,
         copyContractText,
         updateContractField,
