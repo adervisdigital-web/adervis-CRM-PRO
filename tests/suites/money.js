@@ -293,5 +293,88 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(errors.length === 0, "ошибки страницы: " + errors.slice(0, 3).join(" | "));
   });
 
+  // Смета уходит клиенту файлом и печатается, поэтому её вид — часть продукта, а
+  // не украшение. До этого лист выгружался голой сеткой: названия обрезались
+  // соседней колонкой, суммы стояли как 15000 без разрядов и валюты, разделы
+  // ничем не выделялись, а две колонки «Переработка»/«Час. перераб.» висели
+  // пустыми даже в смете, где нет ни одной съёмочной смены.
+  //
+  // Оформление пишет xlsx-js-style (community-сборка xlsx свойство s молча
+  // теряет). Проверять объект книги в памяти НЕДОСТАТОЧНО: cell.s там лежит при
+  // любой библиотеке, разница — переживёт ли он сериализацию. Поэтому книгу
+  // прогоняем через XLSX.write + XLSX.read и смотрим, что осталось в файле;
+  // проверено, что на обычном xlsx@0.18.5 этот тест падает.
+  await test("выгрузка сметы в Excel: ширины, деньги, разделы и заголовок", async () => {
+    const { context: c2, page: p2 } = await bootLocal(browser, baseUrl, { seedDemo: true, width: 1280, height: 900 });
+    await p2.evaluate(() => window.app.go("home"));
+    await p2.waitForTimeout(250);
+    await p2.click(".deal-card");
+    await p2.waitForTimeout(400);
+
+    // Перехватываем writeFile — так книга достаётся без возни со скачиванием.
+    const wb = await p2.evaluate(async () => {
+      await window.app._ensureXLSX();
+      const orig = XLSX.writeFile;
+      let captured = null;
+      XLSX.writeFile = (book) => { captured = book; };
+      try { await window.app.exportXlsx(); } finally { XLSX.writeFile = orig; }
+      if (!captured) return null;
+
+      // Ключевой шаг: сериализуем книгу и читаем обратно — так видно, что реально
+      // попало в файл, а не что мы положили в объект.
+      const bytes = XLSX.write(captured, { type: "array", bookType: "xlsx", cellStyles: true });
+      const back = XLSX.read(bytes, { type: "array", cellStyles: true });
+      const ws = back.Sheets["Смета"];
+      const ref = XLSX.utils.decode_range(ws["!ref"]);
+      // На чтении оформление приходит «расплющенным»: fill лежит прямо в s
+      // (s.patternType / s.fgColor), а не в s.fill — проверено на живом файле.
+      let fills = 0, money = 0;
+      const rows = [];
+      for (let r = ref.s.r; r <= ref.e.r; r++) {
+        const line = [];
+        for (let c = ref.s.c; c <= ref.e.c; c++) {
+          const cell = ws[XLSX.utils.encode_cell({ r, c })];
+          line.push(cell && cell.v != null ? String(cell.v) : "");
+          if (!cell) continue;
+          const st = cell.s || {};
+          const pat = st.patternType || (st.fill && st.fill.patternType);
+          if (pat && pat !== "none") fills++;
+          if (cell.z && String(cell.z).indexOf("₽") >= 0) money++;
+        }
+        rows.push(line);
+      }
+      return {
+        sheets: back.SheetNames,
+        cols: (ws["!cols"] || []).map((x) => x && x.wch),
+        merges: (ws["!merges"] || []).length,
+        fills, money,
+        secondCell: rows[1] ? rows[1][0] : "",
+        flat: rows.map((r) => r.join("|")).join("\n"),
+      };
+    });
+
+    assert(wb, "exportXlsx не собрал книгу");
+    assert(wb.sheets.includes("Смета"), "нет листа «Смета»: " + JSON.stringify(wb.sheets));
+
+    assert(wb.cols.length > 0 && wb.cols[0] >= 40,
+      "первая колонка узкая — длинные названия обрежутся: " + JSON.stringify(wb.cols));
+    assert(wb.merges >= 2, "заголовок документа не растянут на ширину таблицы (объединений: " + wb.merges + ")");
+    assert(wb.money > 0, "суммы выгружены без денежного формата");
+    assert(wb.fills > 0,
+      "в записанном файле нет ни одной залитой ячейки — разделы и итог не выделены " +
+      "(так бывает, если библиотеку вернули на обычный xlsx: он теряет cell.s при записи)");
+
+    assert(/смета/i.test(wb.secondCell), "во второй строке нет подзаголовка со сметой: «" + wb.secondCell + "»");
+    assert(/ИТОГО К ОПЛАТЕ/.test(wb.flat), "в листе нет строки общего итога");
+    // Название раздела должно стоять ПЕРЕД шапкой колонок, а не после неё.
+    const lines = wb.flat.split("\n");
+    const secIdx = lines.findIndex((l) => /^(Подготовка|Команда|Оборудование|Пост-продакшн|Прочее)\|/.test(l));
+    const headIdx = lines.findIndex((l) => /^Наименование\|/.test(l));
+    assert(secIdx >= 0 && headIdx >= 0, "не найдены раздел и шапка колонок");
+    assert(secIdx < headIdx, "название раздела идёт после шапки колонок — читается как первая строка таблицы");
+
+    await c2.close();
+  });
+
   await context.close();
 };

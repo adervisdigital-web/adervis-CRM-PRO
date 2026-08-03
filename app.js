@@ -10724,16 +10724,23 @@
         event.target.value = "";
       }
 
-      // Ленивая подгрузка xlsx (~880 КБ) — нужна ~1% сессий (экспорт/импорт Excel),
+      // Ленивая подгрузка xlsx (~425 КБ) — нужна ~1% сессий (экспорт/импорт Excel),
       // не грузим её в критический путь всем посетителям. Пиннинг + SRI как у остальных CDN.
+      //
+      // xlsx-js-style, а не обычный xlsx: это тот же SheetJS 0.18.5 (см. баннер файла),
+      // но умеющий ПИСАТЬ оформление ячеек — cell.s со шрифтом, заливкой, рамками и
+      // выравниванием. В community-сборке xlsx свойство s молча теряется при записи, и
+      // выгруженная смета выходила голой сеткой: колонки по умолчанию, названия
+      // обрезаны, суммы без разрядов. API совместим полностью, поэтому чтение
+      // (XLSX.read / sheet_to_json) и остальные листы работают как раньше.
       let _xlsxPromise = null;
       function _ensureXLSX() {
         if (window.XLSX) return Promise.resolve(true);
         if (_xlsxPromise) return _xlsxPromise;
         _xlsxPromise = new Promise((resolve, reject) => {
           const s = document.createElement("script");
-          s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
-          s.integrity = "sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw";
+          s.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js";
+          s.integrity = "sha384-OUW9euuUyxyHcAhTqbhI+Iyb8LMssXt/cpz0yXhs9UWG2/R/uaWdakx/4cfww7Vb";
           s.crossOrigin = "anonymous";
           s.onload = () => resolve(true);
           s.onerror = () => { _xlsxPromise = null; reject(new Error("xlsx load failed")); };
@@ -10828,6 +10835,37 @@
           .slice(0, 80) || "project";
       }
 
+      // ── Оформление выгрузки в Excel ─────────────────────────────────────────
+      // Смета — документ, который уходит клиенту и печатается. Голая сетка из
+      // aoa_to_sheet выглядела как черновик: названия обрезаны соседней колонкой,
+      // суммы без разрядов и валюты, разделы ничем не выделены. Ниже — минимальный
+      // набор помощников, чтобы задавать оформление не по одной ячейке.
+      const XLS = {
+        // Палитра документа: белый фон, фиолетовые акценты — то же, что в интерфейсе.
+        ink:    "1A2332",   // основной текст
+        muted:  "64748B",   // подписи
+        accent: "5B21B6",   // заголовок и итог
+        band:   "EDE9FE",   // заливка полосы раздела и общего итога
+        head:   "F1F5F9",   // заливка шапки таблицы
+        line:   "E2E8F0",   // рамки
+        money:  '#,##0" ₽"',
+        int:    "#,##0"
+      };
+      function _xlsBorder(color) {
+        const s = { style: "thin", color: { rgb: color } };
+        return { top: s, bottom: s, left: s, right: s };
+      }
+      // Ставит оформление на ячейку, создавая её, если aoa_to_sheet пропустил пустую.
+      function _xlsSet(ws, r, c, style, numFmt) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+        ws[addr].s = Object.assign({}, ws[addr].s, style);
+        if (numFmt) ws[addr].z = numFmt;
+      }
+      function _xlsRow(ws, r, c0, c1, style, numFmt) {
+        for (let c = c0; c <= c1; c++) _xlsSet(ws, r, c, style, numFmt);
+      }
+
       async function exportXlsx() {
     try { await _ensureXLSX(); } catch(e) { toast("Не удалось загрузить библиотеку Excel — проверьте соединение"); return; }
 
@@ -10853,15 +10891,27 @@
         const groups = { crew: [], equip: [], pre: [], post: [], other: [] };
         ids.forEach(id => { const g = getSectionGroup(id); groups[g].push(id); });
 
+        // Колонки «Переработка» и «Час. перераб.» нужны только съёмочным сменам и
+        // технике. Если таких разделов нет (частый случай — смета только на монтаж),
+        // они оставались пустыми на всю высоту листа и разгоняли таблицу вширь.
+        const wideCols = !!(groups.crew.length || groups.equip.length);
+        const LAST = wideCols ? 6 : 4;          // индекс последней колонки
+        const C_TOTAL = LAST;                    // «Итого»
+        const C_LABEL = LAST - 1;                // колонка подписей в блоке итогов
+        const trim = (row) => wideCols ? row : [row[0], row[1], row[2], row[3], row[6]];
+
         // ── Build AOA (array of arrays) ───────────────────────────────
         const AOA = [];
+        const mark = { meta: [], section: [], head: [], item: [], total: [], grand: -1 };
 
-        // Header block
+        // Шапка документа
         AOA.push([comp.name || "ADERVIS DIGITAL"]);
+        AOA.push([`Смета — ${proj.name || "проект"}`]);
         AOA.push([]);
-        AOA.push(["Клиент:", proj.client || ""]);
-        AOA.push(["Название проекта:", proj.name || ""]);
-        if (proj.deadline) AOA.push(["Дата сдачи:", proj.deadline]);
+        mark.meta.push(AOA.length); AOA.push(["Клиент", proj.client || "—"]);
+        mark.meta.push(AOA.length); AOA.push(["Проект", proj.name || "—"]);
+        if (proj.deadline) { mark.meta.push(AOA.length); AOA.push(["Дата сдачи", proj.deadline]); }
+        mark.meta.push(AOA.length); AOA.push(["Смета составлена", todayIso()]);
         AOA.push([]);
 
         function crewRow(id) {
@@ -10888,61 +10938,114 @@
           return [name, qty, unit, price, "", "", total];
         }
 
-        let hasHeader = false;
-        function ensureColHeader(type) {
-          if (type === "crew") {
-            AOA.push(["Наименование", "Кол-во смен", "Кол. Чел/Ед", "Ставка", "Переработка", "Час. перераб.", "Итого"]);
-          } else {
-            AOA.push(["Наименование", "Кол-во", "Значение", "Ставка", "", "", "Итого"]);
-          }
-        }
-
-        // Подготовка
-        if (groups.pre.length) {
-          ensureColHeader("post");
-          AOA.push(["Подготовка"]);
-          groups.pre.forEach(id => { const r = postRow(id); if (r) AOA.push(r); });
-          AOA.push([]);
-        }
-        if (groups.crew.length) {
-          ensureColHeader("crew");
-          AOA.push(["Команда"]);
-          groups.crew.forEach(id => { const r = crewRow(id); if (r) AOA.push(r); });
-          AOA.push([]);
-        }
-        if (groups.equip.length) {
-          ensureColHeader("crew");
-          AOA.push(["Оборудование"]);
-          groups.equip.forEach(id => { const r = crewRow(id); if (r) AOA.push(r); });
-          AOA.push([]);
-        }
-        if (groups.post.length) {
-          ensureColHeader("post");
-          AOA.push(["Пост-продакшн"]);
-          groups.post.forEach(id => { const r = postRow(id); if (r) AOA.push(r); });
-          AOA.push([]);
-        }
-        if (groups.other.length) {
-          ensureColHeader("post");
-          AOA.push(["Прочее"]);
-          groups.other.forEach(id => { const r = postRow(id); if (r) AOA.push(r); });
+        // Раздел: сначала ПОЛОСА С НАЗВАНИЕМ, потом шапка колонок, потом позиции.
+        // Раньше порядок был обратный (шапка, затем «Прочее»), и читалось это так,
+        // будто название раздела — первая строка таблицы.
+        function pushSection(title, ids, rowFn, crewCols) {
+          if (!ids.length) return;
+          mark.section.push(AOA.length);
+          AOA.push([title]);
+          mark.head.push(AOA.length);
+          AOA.push(trim(crewCols
+            ? ["Наименование", "Смен", "Чел/ед.", "Ставка", "Переработка", "Час. перераб.", "Итого"]
+            : ["Наименование", "Кол-во", "Ед.", "Цена", "", "", "Итого"]));
+          ids.forEach(id => {
+            const r = rowFn(id);
+            if (!r) return;
+            mark.item.push(AOA.length);
+            AOA.push(trim(r));
+          });
           AOA.push([]);
         }
 
-        // Totals
-        if (t.discount > 0) AOA.push(["", "", "", "", "", "Скидка:", -Math.round(t.discount)]);
-        AOA.push(["", "", "", "", "", "Итог:", Math.round(t.base)]);
+        pushSection("Подготовка",     groups.pre,   postRow, false);
+        pushSection("Команда",        groups.crew,  crewRow, true);
+        pushSection("Оборудование",   groups.equip, crewRow, true);
+        pushSection("Пост-продакшн",  groups.post,  postRow, false);
+        pushSection("Прочее",         groups.other, postRow, false);
+
+        // Итоги
+        const totalRow = (label, value) => {
+          const row = new Array(LAST + 1).fill("");
+          row[C_LABEL] = label;
+          row[C_TOTAL] = value;
+          mark.total.push(AOA.length);
+          AOA.push(row);
+        };
+        if (t.discount > 0) totalRow("Скидка", -Math.round(t.discount));
+        totalRow("Работы", Math.round(t.base));
         if (t.tax > 0) {
           const taxOption = TAX_OPTIONS.find(o => o.id === proj.taxType);
-          const taxLabel = `Налог ${taxOption ? taxOption.label : `${Math.round(taxRateByType(proj.taxType) * 100)}%`}`;
-          AOA.push(["", "", "", "", "", taxLabel.trim(), Math.round(t.tax)]);
+          totalRow(`Налог ${taxOption ? taxOption.label : `${Math.round(taxRateByType(proj.taxType) * 100)}%`}`.trim(), Math.round(t.tax));
         }
-        AOA.push(["", "", "", "", "", "ОБЩИЙ ИТОГ:", Math.round(t.total)]);
+        mark.grand = AOA.length;
+        totalRow("ИТОГО К ОПЛАТЕ", Math.round(t.total));
+        mark.total.pop();   // общий итог оформляется отдельно, полосой
 
         const ws = XLSX.utils.aoa_to_sheet(AOA);
-        ws["!cols"] = [
-          { wch: 36 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 12 }
+
+        // ── Оформление ────────────────────────────────────────────────
+        const border = _xlsBorder(XLS.line);
+        const rightNum = { alignment: { horizontal: "right", vertical: "center" } };
+
+        ws["!cols"] = (wideCols
+          ? [48, 9, 11, 13, 13, 15, 15]
+          : [52, 10, 12, 14, 16]).map(wch => ({ wch }));
+        ws["!rows"] = [{ hpt: 26 }, { hpt: 18 }];
+
+        // Название агентства и подзаголовок — во всю ширину таблицы
+        ws["!merges"] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: LAST } },
+          { s: { r: 1, c: 0 }, e: { r: 1, c: LAST } },
+          ...mark.section.map(r => ({ s: { r, c: 0 }, e: { r, c: LAST } }))
         ];
+        _xlsSet(ws, 0, 0, { font: { name: "Calibri", sz: 18, bold: true, color: { rgb: XLS.accent } }, alignment: { vertical: "center" } });
+        _xlsSet(ws, 1, 0, { font: { sz: 11, color: { rgb: XLS.muted } } });
+
+        mark.meta.forEach(r => {
+          _xlsSet(ws, r, 0, { font: { bold: true, color: { rgb: XLS.muted } } });
+          _xlsSet(ws, r, 1, { font: { color: { rgb: XLS.ink } } });
+        });
+
+        mark.section.forEach(r => _xlsRow(ws, r, 0, LAST, {
+          font: { bold: true, sz: 12, color: { rgb: XLS.accent } },
+          fill: { patternType: "solid", fgColor: { rgb: XLS.band } },
+          alignment: { vertical: "center" }
+        }));
+
+        mark.head.forEach(r => _xlsRow(ws, r, 0, LAST, {
+          font: { bold: true, color: { rgb: XLS.ink } },
+          fill: { patternType: "solid", fgColor: { rgb: XLS.head } },
+          border,
+          alignment: { vertical: "center", wrapText: true }
+        }));
+
+        mark.item.forEach(r => {
+          _xlsRow(ws, r, 0, LAST, { border, font: { color: { rgb: XLS.ink } } });
+          _xlsSet(ws, r, 0, { alignment: { wrapText: true, vertical: "center" } });
+          for (let c = 1; c <= LAST; c++) _xlsSet(ws, r, c, rightNum);
+          // Деньги — с разрядами и валютой: раньше в ячейке стояло голое 15000.
+          _xlsSet(ws, r, wideCols ? 3 : 3, rightNum, XLS.money);
+          _xlsSet(ws, r, C_TOTAL, Object.assign({ font: { bold: true, color: { rgb: XLS.ink } } }, rightNum), XLS.money);
+        });
+
+        mark.total.forEach(r => {
+          _xlsSet(ws, r, C_LABEL, { font: { bold: true, color: { rgb: XLS.muted } }, alignment: { horizontal: "right" } });
+          _xlsSet(ws, r, C_TOTAL, Object.assign({ font: { bold: true, color: { rgb: XLS.ink } } }, rightNum), XLS.money);
+        });
+        if (mark.grand >= 0) {
+          _xlsRow(ws, mark.grand, 0, LAST, { fill: { patternType: "solid", fgColor: { rgb: XLS.band } }, border });
+          _xlsSet(ws, mark.grand, C_LABEL, {
+            font: { bold: true, sz: 12, color: { rgb: XLS.accent } },
+            fill: { patternType: "solid", fgColor: { rgb: XLS.band } }, border,
+            alignment: { horizontal: "right", vertical: "center" }
+          });
+          _xlsSet(ws, mark.grand, C_TOTAL, {
+            font: { bold: true, sz: 13, color: { rgb: XLS.accent } },
+            fill: { patternType: "solid", fgColor: { rgb: XLS.band } }, border,
+            alignment: { horizontal: "right", vertical: "center" }
+          }, XLS.money);
+        }
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Смета");
@@ -22635,6 +22738,9 @@ Email: _____________________              Email: _____________________
         exportCatalogXlsx,
         importCatalogXlsx,
         exportXlsx,
+        // Нужен тесту «выгрузка сметы в Excel»: он подменяет XLSX.writeFile, чтобы
+        // забрать книгу без скачивания файла, и обязан дождаться загрузки библиотеки.
+        _ensureXLSX,
         copyProposalText,
         printProposal,
         downloadProposalPDF,
