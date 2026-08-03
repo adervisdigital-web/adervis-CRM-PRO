@@ -19866,6 +19866,31 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         toast(hide ? "Подпись убрана из новых КП" : "Подпись возвращена в новые КП");
       }
 
+      // «Состав услуг», который клиент видит на странице КП.
+      //
+      // Здесь обязателен findItem, а НЕ BASE_ITEMS.find. Раньше стоял второй, и он
+      // знает только встроенный каталог — из КП молча выпадали:
+      //   1) свои услуги агентства (state.customItems) — самое обидное, именно они
+      //      обычно и есть предмет сделки;
+      //   2) переименованные встроенные (state.catalogOverrides) — клиент видел
+      //      исходное название из кода вместо того, что написало агентство.
+      // При этом total_price считался по ПОЛНОЙ смете, то есть клиент получал сумму,
+      // которую перечисленные услуги не объясняют. Поймать это своими глазами было
+      // нельзя: печатная версия у владельца (renderProposalPrint) всегда ходила через
+      // findItem и показывала всё правильно — расходились именно свой экран и КП.
+      // Позиции-опции («сверх сметы») сюда НЕ идут: total_price считается по totals(),
+      // а там опции в сумму не входят (у них своя строка «Опции» в печатной версии).
+      // Раньше опция попадала в список наравне с остальными и ничем не отличалась —
+      // клиент читал её как включённую в названную цену, хотя не платил за неё.
+      // Сторож: tests/suites/billing.js «КП: клиент видит свои услуги агентства».
+      function proposalServicesList(snap) {
+        const selected = (snap && snap.selected) || {};
+        return Object.keys(selected)
+          .filter(id => !selected[id] || !selected[id].optional)
+          .map(id => { const it = findItem(id, true); return it ? it.name : null; })
+          .filter(Boolean);
+      }
+
       // Ищет уже существующее КП сделки. Сначала по project_id (надёжно), потом по
       // сохранённому portalId — колонка project_id появилась миграцией 20260704000002,
       // и у КП, созданных до неё, её нет. Возвращает null, если КП ещё не было.
@@ -19905,9 +19930,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           return;
         }
         if (!_supabase) { toast('Supabase не настроен'); return; }
-        const selectedItems = Object.keys(snap.selected || {})
-          .map(id => { const b = BASE_ITEMS.find(x => x.id === id); return b ? b.name : null; })
-          .filter(Boolean);
+        const selectedItems = proposalServicesList(snap);
         // Аванс 50% от суммы, округлён до 100 ₽ (стандарт в видеопродакшне)
         const advanceAmount = project.total > 0
           ? Math.max(100, Math.round(project.total * 0.5 / 100) * 100)
@@ -22424,6 +22447,9 @@ Email: _____________________              Email: _____________________
         resetAllData,
 
         createCustomItem,
+        // Выставлено ради теста «КП: клиент видит свои услуги агентства»: сам состав
+        // услуг уезжает в Supabase и локально нигде не наблюдаем.
+        _proposalServicesList: proposalServicesList,
         updateCustomItem,
         deleteCustomItem,
 

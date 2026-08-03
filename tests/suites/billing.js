@@ -389,4 +389,47 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
     await context.close();
   });
+
+  // Состав услуг в КП собирался через BASE_ITEMS.find — только встроенный каталог.
+  // Свои услуги агентства и переименованные встроенные молча выпадали из списка,
+  // который видит клиент, при том что сумма считалась по полной смете. Печатная
+  // версия у владельца при этом была правильной, так что заметить расхождение
+  // со своего экрана было невозможно.
+  await test("КП: клиент видит свои услуги агентства и их переименования", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1100, height: 800 });
+
+    const customId = await page.evaluate(() => {
+      window.app.createCustomItem();
+      const s = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const custom = (s.customItems || [])[0];
+      return custom ? custom.id : null;
+    });
+    assert(customId, "createCustomItem() не создал свою услугу");
+
+    const list = await page.evaluate((customId) => {
+      // Переименовываем встроенную позицию и кладём обе в смету.
+      const base = "edit_short";
+      window.app.updateCatalogOverride(base, "name", "Монтаж вертикалок под клиента");
+      const snap = { selected: {} };
+      snap.selected[customId] = { qty: 1 };
+      snap.selected[base] = { qty: 1 };
+      // Опция «сверх сметы»: в total_price не входит, значит и в списке ей не место.
+      snap.selected.subtitles = { qty: 1, optional: true };
+      return window.app._proposalServicesList(snap);
+    }, customId);
+
+    assertEqual(list.length, 2, "в составе услуг должны быть обе основные позиции и НИ ОДНОЙ опции, получено: " + JSON.stringify(list));
+    assert(
+      list.includes("Монтаж вертикалок под клиента"),
+      "переименованная встроенная услуга должна идти под новым названием, получено: " + JSON.stringify(list)
+    );
+    // Своя услуга — вторая; её имя задаёт createCustomItem, поэтому проверяем сам факт
+    // присутствия непустого названия, а не конкретную строку.
+    assert(
+      list.some(n => n && n !== "Монтаж вертикалок под клиента"),
+      "своя услуга агентства должна попасть в состав услуг, получено: " + JSON.stringify(list)
+    );
+
+    await context.close();
+  });
 };
