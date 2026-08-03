@@ -1232,5 +1232,45 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.setViewportSize({ width: 1280, height: 900 });
   });
 
+  // Вкладка «Договор» в сделке: выбор шаблона на месте, договор сразу привязан к
+  // сделке и клиенту. Раньше связку выставляли двумя селектами вручную, а до тех
+  // пор «Подставить из сделки» не находило данных.
+  await test("сделка: вкладка «Договор» заводит договор, привязанный к сделке", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(250);
+    const card = await page.$(".deal-card");
+    assert(card, "нет карточки сделки");
+    await card.click();
+    await page.waitForTimeout(400);
+
+    const dealId = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (s.project && s.project.id) || s.activeProjectId || "";
+    });
+    assert(dealId, "не удалось определить открытую сделку");
+
+    await page.evaluate(() => window.app.setDealView("contract"));
+    await page.waitForTimeout(350);
+    const tpls = await page.$$eval(".deal-contract-tpl", (els) => els.length);
+    assert(tpls > 0, "на вкладке «Договор» нет ни одного шаблона");
+
+    await page.click(".deal-contract-tpl");
+    await page.waitForTimeout(600);
+
+    const made = await page.evaluate((id) => {
+      const s = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (s.contracts || [])[0];
+      return c ? { dealId: c.dealId, hasBody: (c.body || "").length > 200, view: s.view, editing: !!s.contractEditId } : null;
+    }, dealId);
+    assert(made, "договор не создан");
+    assert(made.dealId === dealId, "договор не привязан к сделке: " + made.dealId + " ≠ " + dealId);
+    assert(made.hasBody, "тело договора пустое — шаблон не скопировался");
+    assert(made.view === "contracts" && made.editing, "после создания не открылся редактор договора");
+
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(200);
+  });
+
   await context.close();
 };

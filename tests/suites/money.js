@@ -356,7 +356,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(wb, "exportXlsx не собрал книгу");
     assert(wb.sheets.includes("Смета"), "нет листа «Смета»: " + JSON.stringify(wb.sheets));
 
-    assert(wb.cols.length > 0 && wb.cols[0] >= 40,
+    // Порог, а не точное значение: названия в первой колонке переносятся по словам
+    // (wrapText), поэтому экстремальная ширина не нужна — важно, что она задана и
+    // не осталась дефолтной (~8 знаков), при которой имена резались.
+    assert(wb.cols.length > 0 && wb.cols[0] >= 36,
       "первая колонка узкая — длинные названия обрежутся: " + JSON.stringify(wb.cols));
     assert(wb.merges >= 2, "заголовок документа не растянут на ширину таблицы (объединений: " + wb.merges + ")");
     assert(wb.money > 0, "суммы выгружены без денежного формата");

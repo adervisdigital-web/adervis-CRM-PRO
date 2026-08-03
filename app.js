@@ -10845,8 +10845,9 @@
         ink:    "1A2332",   // основной текст
         muted:  "64748B",   // подписи
         accent: "5B21B6",   // заголовок и итог
-        band:   "EDE9FE",   // заливка полосы раздела и общего итога
-        head:   "F1F5F9",   // заливка шапки таблицы
+        band:   "EDE9FE",   // заливка полосы раздела
+        head:   "F1F5F9",   // заливка шапки таблицы и подписей итогов
+        total:  "E7F6EC",   // заливка колонки «Итого» — как в ручной таблице владельца
         line:   "E2E8F0",   // рамки
         money:  '#,##0" ₽"',
         int:    "#,##0"
@@ -10895,10 +10896,20 @@
         // технике. Если таких разделов нет (частый случай — смета только на монтаж),
         // они оставались пустыми на всю высоту листа и разгоняли таблицу вширь.
         const wideCols = !!(groups.crew.length || groups.equip.length);
-        const LAST = wideCols ? 6 : 4;          // индекс последней колонки
-        const C_TOTAL = LAST;                    // «Итого»
-        const C_LABEL = LAST - 1;                // колонка подписей в блоке итогов
-        const trim = (row) => wideCols ? row : [row[0], row[1], row[2], row[3], row[6]];
+        // Примечания к позициям («Комментарий для клиента») выносим отдельной колонкой
+        // справа от «Итого» — как в ручной таблице владельца, где пометки вроде
+        // «Съёмка с 16:00 до 22:00» стоят сбоку и не ломают числовую часть.
+        const anyNote = ids.some(id => String((state.selected[id] || {}).clientComment || "").trim());
+        const C_TOTAL = wideCols ? 6 : 4;        // «Итого»
+        const C_NOTE = anyNote ? C_TOTAL + 1 : -1;
+        const LAST = anyNote ? C_NOTE : C_TOTAL; // индекс последней колонки листа
+        const C_LABEL = C_TOTAL - 1;             // колонка подписей в блоке итогов
+        const noteOf = (id) => String((state.selected[id] || {}).clientComment || "").trim();
+        // Позиция всегда собирается в 7 колонок, лишние отсекаем здесь же.
+        const trim = (row, note) => {
+          const base = wideCols ? row.slice(0, 7) : [row[0], row[1], row[2], row[3], row[6]];
+          return anyNote ? base.concat([note || ""]) : base;
+        };
 
         // ── Build AOA (array of arrays) ───────────────────────────────
         const AOA = [];
@@ -10947,13 +10958,13 @@
           AOA.push([title]);
           mark.head.push(AOA.length);
           AOA.push(trim(crewCols
-            ? ["Наименование", "Смен", "Чел/ед.", "Ставка", "Переработка", "Час. перераб.", "Итого"]
-            : ["Наименование", "Кол-во", "Ед.", "Цена", "", "", "Итого"]));
+            ? ["Наименование", "Кол. смен", "Кол. чел/ед.", "Ставка", "Перераб.", "Час. перераб.", "Итого"]
+            : ["Наименование", "Кол-во", "Значение", "Ставка", "", "", "Итого"], "Примечание"));
           ids.forEach(id => {
             const r = rowFn(id);
             if (!r) return;
             mark.item.push(AOA.length);
-            AOA.push(trim(r));
+            AOA.push(trim(r, noteOf(id)));
           });
           AOA.push([]);
         }
@@ -10972,6 +10983,7 @@
           mark.total.push(AOA.length);
           AOA.push(row);
         };
+        const C_TOTALS_FROM = Math.max(0, C_LABEL - 1);   // с какой колонки идёт блок итогов
         if (t.discount > 0) totalRow("Скидка", -Math.round(t.discount));
         totalRow("Работы", Math.round(t.base));
         if (t.tax > 0) {
@@ -10988,61 +11000,89 @@
         const border = _xlsBorder(XLS.line);
         const rightNum = { alignment: { horizontal: "right", vertical: "center" } };
 
-        ws["!cols"] = (wideCols
-          ? [48, 9, 11, 13, 13, 15, 15]
-          : [52, 10, 12, 14, 16]).map(wch => ({ wch }));
-        ws["!rows"] = [{ hpt: 26 }, { hpt: 18 }];
+        const center = { alignment: { horizontal: "center", vertical: "center" } };
+        const fillOf = (rgb) => ({ patternType: "solid", fgColor: { rgb } });
 
-        // Название агентства и подзаголовок — во всю ширину таблицы
+        const widths = wideCols ? [40, 11, 13, 13, 11, 14, 14] : [44, 11, 13, 13, 15];
+        if (anyNote) widths.push(34);
+        ws["!cols"] = widths.map(wch => ({ wch }));
+        ws["!rows"] = [{ hpt: 24 }, { hpt: 17 }];
+
+        // Полоса с названием агентства и подзаголовок — во всю ширину таблицы.
+        // Разделы тоже растягиваем и центрируем: в ручной таблице владельца
+        // «Команда» / «Оборудование» стоят по центру над своим блоком, и так сразу
+        // видно, где кончается один блок и начинается другой.
         ws["!merges"] = [
           { s: { r: 0, c: 0 }, e: { r: 0, c: LAST } },
           { s: { r: 1, c: 0 }, e: { r: 1, c: LAST } },
-          ...mark.section.map(r => ({ s: { r, c: 0 }, e: { r, c: LAST } }))
+          ...mark.meta.map(r => ({ s: { r, c: 1 }, e: { r, c: Math.min(3, LAST) } })),
+          ...mark.section.map(r => ({ s: { r, c: 0 }, e: { r, c: C_TOTAL } }))
         ];
-        _xlsSet(ws, 0, 0, { font: { name: "Calibri", sz: 18, bold: true, color: { rgb: XLS.accent } }, alignment: { vertical: "center" } });
-        _xlsSet(ws, 1, 0, { font: { sz: 11, color: { rgb: XLS.muted } } });
+        _xlsRow(ws, 0, 0, LAST, {
+          font: { sz: 16, bold: true, color: { rgb: "FFFFFF" } },
+          fill: fillOf(XLS.accent),
+          alignment: { horizontal: "left", vertical: "center" }
+        });
+        _xlsSet(ws, 1, 0, { font: { sz: 11, color: { rgb: XLS.muted } }, alignment: { vertical: "center" } });
 
+        // Блок «Клиент / Проект / Даты» — в рамке, как таблица, а не как подписи
         mark.meta.forEach(r => {
-          _xlsSet(ws, r, 0, { font: { bold: true, color: { rgb: XLS.muted } } });
-          _xlsSet(ws, r, 1, { font: { color: { rgb: XLS.ink } } });
+          _xlsSet(ws, r, 0, { font: { bold: true, color: { rgb: XLS.ink } }, fill: fillOf(XLS.head), border });
+          for (let c = 1; c <= Math.min(3, LAST); c++) _xlsSet(ws, r, c, { font: { color: { rgb: XLS.ink } }, border });
         });
 
-        mark.section.forEach(r => _xlsRow(ws, r, 0, LAST, {
+        mark.section.forEach(r => _xlsRow(ws, r, 0, LAST, Object.assign({
           font: { bold: true, sz: 12, color: { rgb: XLS.accent } },
-          fill: { patternType: "solid", fgColor: { rgb: XLS.band } },
-          alignment: { vertical: "center" }
-        }));
+          fill: fillOf(XLS.band),
+          border
+        }, center)));
 
         mark.head.forEach(r => _xlsRow(ws, r, 0, LAST, {
           font: { bold: true, color: { rgb: XLS.ink } },
-          fill: { patternType: "solid", fgColor: { rgb: XLS.head } },
+          fill: fillOf(XLS.head),
           border,
-          alignment: { vertical: "center", wrapText: true }
+          alignment: { horizontal: "center", vertical: "center", wrapText: true }
         }));
 
         mark.item.forEach(r => {
           _xlsRow(ws, r, 0, LAST, { border, font: { color: { rgb: XLS.ink } } });
-          _xlsSet(ws, r, 0, { alignment: { wrapText: true, vertical: "center" } });
-          for (let c = 1; c <= LAST; c++) _xlsSet(ws, r, c, rightNum);
-          // Деньги — с разрядами и валютой: раньше в ячейке стояло голое 15000.
-          _xlsSet(ws, r, wideCols ? 3 : 3, rightNum, XLS.money);
-          _xlsSet(ws, r, C_TOTAL, Object.assign({ font: { bold: true, color: { rgb: XLS.ink } } }, rightNum), XLS.money);
+          _xlsSet(ws, r, 0, { alignment: { wrapText: true, vertical: "center" }, border });
+          // Количества и единицы — по центру: так столбец читается как столбец,
+          // а не как рваный край текста (в ручной таблице владельца так же).
+          for (let c = 1; c <= C_TOTAL - 1; c++) _xlsSet(ws, r, c, Object.assign({ border }, center));
+          _xlsSet(ws, r, 3, Object.assign({ border }, rightNum), XLS.money);   // Ставка / Цена
+          // Колонка «Итого» — на своей заливке во всю высоту таблицы: главный
+          // столбец документа, глаз находит его сразу.
+          _xlsSet(ws, r, C_TOTAL, Object.assign({
+            font: { bold: true, color: { rgb: XLS.ink } }, fill: fillOf(XLS.total), border
+          }, rightNum), XLS.money);
+          if (C_NOTE >= 0) _xlsSet(ws, r, C_NOTE, {
+            font: { sz: 10, color: { rgb: XLS.muted } },
+            alignment: { wrapText: true, vertical: "center" }, border
+          });
         });
 
         mark.total.forEach(r => {
-          _xlsSet(ws, r, C_LABEL, { font: { bold: true, color: { rgb: XLS.muted } }, alignment: { horizontal: "right" } });
-          _xlsSet(ws, r, C_TOTAL, Object.assign({ font: { bold: true, color: { rgb: XLS.ink } } }, rightNum), XLS.money);
+          _xlsRow(ws, r, C_TOTALS_FROM, C_TOTAL, { border });
+          _xlsSet(ws, r, C_LABEL, {
+            font: { bold: true, color: { rgb: XLS.ink } },
+            fill: fillOf(XLS.head), border,
+            alignment: { horizontal: "right", vertical: "center" }
+          });
+          _xlsSet(ws, r, C_TOTAL, Object.assign({
+            font: { bold: true, color: { rgb: XLS.ink } }, fill: fillOf(XLS.total), border
+          }, rightNum), XLS.money);
         });
         if (mark.grand >= 0) {
-          _xlsRow(ws, mark.grand, 0, LAST, { fill: { patternType: "solid", fgColor: { rgb: XLS.band } }, border });
+          _xlsRow(ws, mark.grand, C_TOTALS_FROM, C_TOTAL, { border });
           _xlsSet(ws, mark.grand, C_LABEL, {
-            font: { bold: true, sz: 12, color: { rgb: XLS.accent } },
-            fill: { patternType: "solid", fgColor: { rgb: XLS.band } }, border,
+            font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } },
+            fill: fillOf(XLS.accent), border,
             alignment: { horizontal: "right", vertical: "center" }
           });
           _xlsSet(ws, mark.grand, C_TOTAL, {
-            font: { bold: true, sz: 13, color: { rgb: XLS.accent } },
-            fill: { patternType: "solid", fgColor: { rgb: XLS.band } }, border,
+            font: { bold: true, sz: 13, color: { rgb: "FFFFFF" } },
+            fill: fillOf(XLS.accent), border,
             alignment: { horizontal: "right", vertical: "center" }
           }, XLS.money);
         }
@@ -18218,6 +18258,7 @@
           { id: "calendar", label: "Календарь" },
           { id: "team", label: "Команда" },
           { id: "proposal", label: "КП" },
+          { id: "contract", label: `Договор${_dealContractCount() ? " (" + _dealContractCount() + ")" : ""}` },
           { id: "versions", label: "Версии сметы" },
           { id: "activity", label: "История" },
         ];
@@ -18226,6 +18267,7 @@
           estimate: renderEstimate,
           description: renderDescription,
           proposal: renderProposal,
+          contract: renderDealContract,
           tasks: renderTasks,
           finance: renderFinance,
           team: renderTeam,
@@ -22089,10 +22131,19 @@ Email: _____________________              Email: _____________________
           body = body.replace("«___» ___________ 202__ г.", `до ${deadline}`);
         }
         body = body.replace(/1\.2\. Наименование и формат Результата: _{3,}\./, `1.2. Наименование и формат Результата: ${projectName}.`);
+        // dealId/clientId обязательны: без них договор не привязан к сделке — он не
+        // виден на её вкладке «Договор», а «Подставить из сделки» в редакторе не
+        // находит данных. Раньше здесь их не выставляли, и связку приходилось
+        // проставлять руками двумя селектами.
+        const matchedClient = clientName
+          ? (state.clients || []).find(cl => cl.name === clientName || cl.company === clientName)
+          : null;
         const contract = normalizeContract({
           name: `${base.name} — ${clientName}`,
           desc: projectName,
           category: base.category || "Видео",
+          dealId: (proj && proj.id) || state.project.id || "",
+          clientId: (matchedClient && matchedClient.id) || "",
           body
         });
         if (!state.contracts) state.contracts = [];
@@ -22264,6 +22315,144 @@ Email: _____________________              Email: _____________________
         const c = (state.contracts || []).find(x => x.id === id);
         if (!c) return;
         copyToClipboard(c.body || "", "Текст договора скопирован");
+      }
+
+      // ── Вкладка «Договор» внутри сделки ────────────────────────────────────
+      // Раздел «Договора» — общий список по всему агентству; здесь то же хранилище
+      // (state.contracts), но в разрезе одной сделки: показываем только её договоры
+      // и даём завести новый сразу привязанным — к сделке и к её клиенту. Раньше
+      // связку приходилось выставлять руками в двух селектах, а до тех пор
+      // «Подставить из сделки» не находило данных и человек вбивал вручную то, что
+      // система уже знает.
+      // Счётчик в подписи вкладки — как у «Задач»: сразу видно, есть ли договор,
+      // не открывая вкладку.
+      function _dealContractCount() {
+        const dealId = state.project.id || state.activeProjectId || "";
+        if (!dealId) return 0;
+        return (state.contracts || []).filter(c => c.dealId === dealId).length;
+      }
+
+      function _dealContractCtx() {
+        const dealId = state.project.id || state.activeProjectId || "";
+        const deal = (state.savedProjects || []).find(p => p.id === dealId) || null;
+        const clientName = (deal && deal.client) || state.project.client || "";
+        const client = clientName
+          ? (state.clients || []).find(cl => cl.name === clientName || cl.company === clientName)
+          : null;
+        return { dealId, deal, clientName, client };
+      }
+
+      function createDealContract(tplId) {
+        const { dealId, deal, clientName, client } = _dealContractCtx();
+        const base = CONTRACT_TEMPLATES.find(t => t.id === tplId) || CONTRACT_TEMPLATES[0];
+        const contract = normalizeContract({
+          name: `${base.name} — ${clientName || state.company.name || "новый"}`,
+          desc: (deal && deal.name) || state.project.name || "",
+          category: base.category || "Прочее",
+          dealId,
+          clientId: (client && client.id) || "",
+          body: base.body || ""
+        });
+        if (!state.contracts) state.contracts = [];
+        state.contracts.unshift(contract);
+        // Подстановка — той же функцией, что и кнопка «Подставить из сделки» в
+        // редакторе: она знает про {{токены}} шаблонов и про реквизиты компании.
+        // Дублировать здесь регэкспы было бы вторым источником правды.
+        autofillContract(contract.id);
+        state.contractEditId = contract.id;
+        save();
+        go("contracts");
+        toast("Договор создан и привязан к сделке");
+      }
+
+      function renderDealContract() {
+        const { dealId, deal, clientName, client } = _dealContractCtx();
+        const mine = (state.contracts || []).filter(c => c.dealId && c.dealId === dealId);
+        const co = state.company || {};
+
+        // Что уедет в договор автоподстановкой — показываем ДО создания, чтобы не
+        // выяснять постфактум, что половина реквизитов пустая.
+        const facts = [
+          ["Исполнитель", co.name || "", "Настройки → Компания"],
+          ["Заказчик", (client && (client.company || client.name)) || clientName || "", "карточка клиента"],
+          ["Проект", (deal && deal.name) || state.project.name || "", "название сделки"],
+          ["Сумма", deal && deal.total ? money(deal.total) : (totals().total ? money(totals().total) : ""), "смета"],
+          ["Срок", (deal && deal.deadline) || state.project.deadline || "", "дедлайн сделки"],
+          ["Город", co.city || "", "Настройки → Компания"]
+        ];
+        const missing = facts.filter(f => !String(f[1]).trim());
+
+        return `
+          <div class="panel">
+            <div class="section-title">
+              <div>
+                <h2 style="margin:0">Договор по сделке</h2>
+                <p class="u-meta" style="margin:4px 0 0">Хранится в разделе «Договора» — здесь только договоры этой сделки.</p>
+              </div>
+              <button class="btn small no-print" onclick="app.go('contracts')">Все договоры →</button>
+            </div>
+
+            <div class="panel" style="box-shadow:none;background:var(--panel2);padding:14px 16px;margin-bottom:16px">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                <strong style="font-size:13px">Что подставится в договор</strong>
+                ${missing.length
+                  ? `<span class="badge" style="font-size:12px;color:var(--text-warning);border-color:rgba(234,88,12,.35)">${missing.length} ${plural(missing.length, "поле пустое", "поля пустые", "полей пустых")}</span>`
+                  : `<span class="badge green" style="font-size:12px">все данные на месте</span>`}
+              </div>
+              <div class="grid three">
+                ${facts.map(([label, value, where]) => `
+                  <div class="field">
+                    <label class="u-meta">${escapeHtml(label)}</label>
+                    <div style="font-size:13px;font-weight:700;${value ? "" : "color:var(--text-warning)"}">
+                      ${value ? escapeHtml(String(value)) : "— не заполнено"}
+                    </div>
+                    ${value ? "" : `<div class="u-meta" style="font-size:11px">${escapeHtml(where)}</div>`}
+                  </div>`).join("")}
+              </div>
+            </div>
+
+            ${mine.length ? `
+              <h3 style="font-size:14px;margin:0 0 10px">Договоры этой сделки (${mine.length})</h3>
+              <div class="grid two" style="margin-bottom:18px">
+                ${mine.map(c => {
+                  const vars = contractVars(c.body).length;
+                  const blanks = contractBlankCount(c.body);
+                  return `
+                  <div class="panel" style="box-shadow:none;background:var(--panel2);padding:14px 16px">
+                    <div style="font-weight:800;font-size:14px;margin-bottom:4px">${escapeHtml(c.name)}</div>
+                    <div class="u-meta" style="margin-bottom:10px">
+                      ${escapeHtml(c.category || "Прочее")}${c.updatedAt ? " · изменён " + escapeHtml(formatDate(c.updatedAt.slice(0, 10))) : ""}
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+                      ${vars ? `<span class="badge" style="font-size:12px;color:var(--text-warning)">${vars} ${plural(vars, "поле", "поля", "полей")} не заполнено</span>` : ""}
+                      ${blanks ? `<span class="badge" style="font-size:12px;opacity:.75">${blanks} ${plural(blanks, "прочерк", "прочерка", "прочерков")}</span>` : ""}
+                      ${!vars && !blanks ? `<span class="badge green" style="font-size:12px">готов</span>` : ""}
+                    </div>
+                    <div class="toolbar no-print">
+                      <button class="btn primary small" onclick="app.openContractEdit('${c.id}')">Открыть</button>
+                      <button class="btn small" onclick="app.printContract('${c.id}')">Печать / PDF</button>
+                      <button class="btn small" onclick="app.copyContractText('${c.id}')">Копировать</button>
+                    </div>
+                  </div>`;
+                }).join("")}
+              </div>
+            ` : ""}
+
+            <h3 style="font-size:14px;margin:0 0 10px">${mine.length ? "Добавить ещё договор" : "Выберите шаблон"}</h3>
+            <div class="grid three">
+              ${CONTRACT_TEMPLATES.map(t => `
+                <button class="deal-contract-tpl" onclick="app.createDealContract('${t.id}')" title="${escapeHtml(t.desc || "")}">
+                  <span class="deal-contract-tpl-cat">${escapeHtml(t.category || "Прочее")}</span>
+                  <span class="deal-contract-tpl-name">${escapeHtml(t.name)}</span>
+                  <span class="deal-contract-tpl-desc">${escapeHtml(t.desc || "")}</span>
+                </button>`).join("")}
+            </div>
+            <p class="u-meta" style="margin-top:12px">
+              Шаблон копируется целиком, реквизиты подставляются сразу. Дальше текст правится
+              как обычный документ — в разделе «Договора».
+            </p>
+          </div>
+        `;
       }
 
       function renderContracts() {
@@ -22928,6 +23117,7 @@ Email: _____________________              Email: _____________________
         contractBlankCount,
         fillContractVar,
         autofillContract,
+        createDealContract,
         contractNextBlank,
         contractBodyInput,
         copyContractText,
