@@ -190,14 +190,18 @@
       // Считается ли статус «неактивным» (сделка ушла из работы: закрыта успешно ИЛИ архив).
       const isDealInactive = (status) => status === "Завершённые" || status === CRM_ARCHIVED;
       // Цвет полоски статуса слева карточки сделки — путь по воронке от лида к оплате.
+      // Цвета этапов воронки. Намеренно НЕ используют --primary/--primary2: те
+      // следуют за цветовой схемой из Настроек, и в зелёной схеме «В работе»
+      // становился неотличим от «Сдано», а в янтарной — от «Согласование».
+      // --violet фиксирован в обеих темах ровно для этого.
       const CRM_STATUS_COLOR = {
         "Лид": "var(--muted)",
         "Бриф": "var(--cyan)",
         "КП отправлено": "var(--blue)",
         "Согласование": "var(--yellow)",
-        "Договор": "var(--primary2)",
-        "Предоплата": "var(--primary2)",
-        "В работе": "var(--primary)",
+        "Договор": "var(--violet)",
+        "Предоплата": "var(--violet)",
+        "В работе": "var(--violet)",
         "Сдано": "var(--green)",
         "Оплата": "var(--green)",
         "Завершённые": "var(--green)",
@@ -16667,7 +16671,7 @@
               </div>
             </div>
 
-            <div class="kanban" style="grid-template-columns:repeat(${CRM_STATUSES.length},minmax(220px,1fr));overflow-x:auto">
+            <div class="kanban kanban-scroll-x" style="grid-template-columns:repeat(${CRM_STATUSES.length},minmax(220px,1fr))">
               ${CRM_STATUSES.map(status => {
                 const list = projects.filter(project => (project.crmStatus || "Лид") === status);
                 // Пагинация по колонке: в DOM только первые N карточек. Счётчик в
@@ -16678,7 +16682,8 @@
                 const colHidden = list.length - shown.length;
 
                 return `
-                  <div class="kanban-col"
+                  <div class="kanban-col kanban-col-status${list.length ? "" : " is-empty"}"
+                    style="--status-color:${CRM_STATUS_COLOR[status] || "var(--muted)"}"
                     ondragover="event.preventDefault();this.classList.add('dragover')"
                     ondragleave="this.classList.remove('dragover')"
                     ondrop="app.onKanbanDrop(event,'${status}','crm');this.classList.remove('dragover')">

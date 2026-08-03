@@ -77,6 +77,10 @@
       --yellow: #f6bd3a;
       --orange: #ea580c;
       --red:    #f22822;
+      /* Фиксированный фиолетовый для этапов воронки. Отдельно от --primary: тот
+         следует за выбранной цветовой схемой, а этап «В работе» должен оставаться
+         отличимым от «Сдано» и в зелёной схеме. См. CRM_STATUS_COLOR в app.js. */
+      --violet: #8b5cf6;
 
       /* Status text — readable variant of each hue, dark-theme default.
          Цель — 5-8:1, а не «чем больше, тем лучше». Прежние значения (200-я ступень
@@ -195,6 +199,7 @@
       --yellow: #ca8a04;
       --orange: #ea580c;
       --red: #dc2626;
+      --violet: #7c3aed;
 
       /* Светлая тема: та же цель 5-6:1. Прежние значения уходили в другую крайность —
          #991b1b (7.4:1) читается кирпично-бурым, а не красным. Плюс здесь закрыт
@@ -355,8 +360,8 @@
       overflow: hidden;
       z-index: var(--z-sticky);
       scrollbar-width: none;
-      transition: width .3s cubic-bezier(0.16, 1, 0.3, 1),
-                  flex-basis .3s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: width var(--dur-3) var(--ease-out),
+                  flex-basis var(--dur-3) var(--ease-out);
     }
     .app-sidebar::-webkit-scrollbar { display: none; }
     .app-sidebar:empty { display: none; }
@@ -372,8 +377,8 @@
       max-width: 200px;
       opacity: 1;
       /* fade slightly after width starts expanding; hide before width finishes collapsing */
-      transition: max-width .3s cubic-bezier(0.16, 1, 0.3, 1),
-                  opacity .18s ease;
+      transition: max-width var(--dur-3) var(--ease-out),
+                  opacity var(--dur-2) var(--ease-out);
     }
 
     /* ── Collapsed sidebar ─────────────────────────────── */
@@ -426,7 +431,9 @@
       white-space: nowrap;
       pointer-events: none;
       opacity: 0;
-      transition: opacity .14s .06s;
+      /* Второе значение — ЗАДЕРЖКА, а не длительность: подсказка не выскакивает
+         сразу, пока курсор просто проезжает мимо. Токен сюда не подставлять. */
+      transition: opacity var(--dur-1) .06s;
       z-index: var(--z-tooltip);
       box-shadow: var(--elev-2);
     }
@@ -436,12 +443,12 @@
     .sidebar-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 16px 14px 12px; flex-shrink: 0;
-      transition: padding .3s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: padding var(--dur-3) var(--ease-out);
     }
     .sidebar-brand {
       display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0; flex: 1;
       -webkit-user-select: none; user-select: none;
-      transition: gap .3s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: gap var(--dur-3) var(--ease-out);
     }
     .sidebar-collapse-btn { display: none; }
 
@@ -476,7 +483,7 @@
       display: flex;
       flex-direction: column;
       gap: 1px;
-      transition: padding .3s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: padding var(--dur-3) var(--ease-out);
     }
 
     .sidebar-nav-config {
@@ -531,7 +538,7 @@
       background: var(--line);
       position: relative;
       cursor: pointer;
-      transition: background .15s;
+      transition: background var(--dur-1);
     }
     .sidebar-nav-switch::after {
       content: "";
@@ -540,7 +547,7 @@
       width: 16px; height: 16px;
       border-radius: 50%;
       background: #fff;
-      transition: transform .15s;
+      transition: transform var(--dur-1);
     }
     .sidebar-nav-switch.on { background: var(--primary); }
     .sidebar-nav-switch.on::after { transform: translateX(14px); }
@@ -596,12 +603,12 @@
       cursor: pointer;
       width: 100%;
       text-align: left;
-      transition: background .14s, color .14s, border-color .14s,
-                  padding .3s cubic-bezier(0.16, 1, 0.3, 1),
-                  gap .3s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1),
+                  padding var(--dur-3) var(--ease-out),
+                  gap var(--dur-3) var(--ease-out);
       white-space: nowrap;
     }
-    .sidebar-nav-item svg { flex-shrink: 0; opacity: .65; transition: opacity .14s, color .3s cubic-bezier(0.16, 1, 0.3, 1); }
+    .sidebar-nav-item svg { flex-shrink: 0; opacity: .65; transition: opacity var(--dur-1), color var(--dur-3) var(--ease-out); }
     .sidebar-nav-item:hover { background: var(--primary-bg); color: var(--text); border-color: rgb(var(--primary-rgb) / .14); }
     .sidebar-nav-item:hover svg { opacity: 1; }
     .sidebar-nav-item.active {
@@ -627,7 +634,7 @@
       border-top: 1px solid var(--line);
       padding: 12px 10px;
       flex-shrink: 0;
-      transition: padding .3s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: padding var(--dur-3) var(--ease-out);
     }
     .sidebar-user-btn {
       display: flex;
@@ -640,7 +647,7 @@
       background: transparent;
       cursor: pointer;
       text-align: left;
-      transition: background .14s;
+      transition: background var(--dur-1);
     }
     .sidebar-user-btn:hover { background: var(--primary-bg); border-color: rgb(var(--primary-rgb) / .12); }
     .sidebar-user-avatar {
@@ -661,7 +668,7 @@
       border-radius: 10px;
       color: var(--muted);
       cursor: pointer;
-      transition: background .14s, color .14s, border-color .14s;
+      transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1);
       flex-shrink: 0;
     }
     .topbar-icon-btn:hover {
@@ -681,7 +688,7 @@
       background: var(--primary);
       color: var(--on-color); font-size: 22px; font-weight: 300; line-height: 1;
       display: grid; place-items: center;
-      cursor: pointer; transition: background .15s, transform .15s, box-shadow .15s;
+      cursor: pointer; transition: background var(--dur-1), transform var(--dur-1), box-shadow var(--dur-1);
       box-shadow: 0 4px 14px rgb(var(--primary-rgb) / .35);
       flex-shrink: 0;
     }
@@ -734,7 +741,7 @@
       display: grid; place-items: center;
       border: 1px solid transparent; background: transparent;
       border-radius: 8px; color: var(--muted); cursor: pointer;
-      transition: background .14s, color .14s, border-color .14s; flex-shrink: 0;
+      transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1); flex-shrink: 0;
     }
     .sidebar-tool-btn:hover {
       background: var(--primary-bg); color: var(--text);
@@ -745,7 +752,7 @@
       display: grid; place-items: center;
       border: 1px solid var(--line); background: transparent;
       border-radius: 8px; color: var(--muted); cursor: pointer;
-      font-size: 16px; transition: .14s; flex-shrink: 0;
+      font-size: 16px; transition: var(--dur-1); flex-shrink: 0;
     }
     .sidebar-logout-btn:hover { background: rgba(220,38,38,.1); color: var(--text-danger); border-color: rgba(220,38,38,.3); }
 
@@ -848,7 +855,7 @@
       color: var(--text);
       border-radius: 12px;
       padding: 9px 13px;
-      transition: background .16s ease, border-color .16s ease, color .16s ease, transform .12s ease;
+      transition: background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -1061,7 +1068,7 @@
       background-repeat: no-repeat;
       background-position: right 10px center;
       background-size: 15px;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      transition: border-color var(--dur-1), box-shadow var(--dur-1);
     }
     [data-theme="light"] select {
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
@@ -1259,7 +1266,7 @@
       font-weight: 600;
       text-align: left;
       cursor: pointer;
-      transition: background .12s, color .12s;
+      transition: background var(--dur-1), color var(--dur-1);
       white-space: nowrap;
     }
     .catalog-cat-item:hover { background: var(--panel2); color: var(--text); }
@@ -1400,7 +1407,7 @@
     }
 
     .item {
-      transition: opacity .2s ease, transform .2s cubic-bezier(0.4,0,0.2,1), border-color .2s ease;
+      transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
     }
 
     .item.dragging {
@@ -1670,7 +1677,7 @@
       border-radius: 14px;
       background: var(--panel2);
       cursor: pointer;
-      transition: border-color .15s ease, transform .12s ease;
+      transition: border-color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
     }
 
     .home-client-card:hover {
@@ -1700,7 +1707,7 @@
       cursor: grab;
       user-select: none;
       flex: 0 0 auto;
-      transition: color .15s ease, border-color .15s ease, background .15s ease;
+      transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
     }
 
     .drag-handle:hover {
@@ -1760,7 +1767,7 @@
       opacity: 0;
       transform: translateY(8px) scale(.97);
       pointer-events: none;
-      transition: opacity .2s ease, transform .2s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out);
     }
 
     .toast.show {
@@ -1858,6 +1865,30 @@
       gap: 14px;
     }
 
+    /* Воронка CRM шире экрана (десять этапов), последняя колонка обрезается по краю
+       панели. Прокрутка тут неизбежна, задача — сделать её понятной:
+       - scroll-snap: свайп/колесо доводит колонку до края, а не бросает на полпути;
+       - постоянная полоса прокрутки на десктопе (::-webkit-scrollbar) + отступ под неё.
+       СОЗНАТЕЛЬНО без scrollbar-width/scrollbar-color: с Chrome 121 наличие
+       стандартного свойства отключает ::-webkit-scrollbar целиком.
+       ВНИМАНИЕ при проверке: в headless-Chromium полоса всегда оверлейная и не
+       занимает места (проверено на изолированной странице: offsetHeight -
+       clientHeight = 0 и со стилем, и без него) — скриншотом это не подтвердить,
+       только живым десктопным браузером. На телефоне полоса оверлейная всегда,
+       там работает только snap. */
+    .kanban-scroll-x {
+      overflow-x: auto;
+      padding-bottom: 10px;
+      scroll-snap-type: x proximity;
+    }
+    .kanban-scroll-x > .kanban-col { scroll-snap-align: start; }
+    .kanban-scroll-x::-webkit-scrollbar { height: 8px; }
+    .kanban-scroll-x::-webkit-scrollbar-track { background: transparent; }
+    .kanban-scroll-x::-webkit-scrollbar-thumb {
+      background: var(--hint); border-radius: 999px;
+    }
+    .kanban-scroll-x::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
     .kanban-col {
       background: var(--panel2);
       border: 1px solid var(--line);
@@ -1880,6 +1911,26 @@
       padding-bottom: 10px;
       margin-bottom: 0;
     }
+
+    /* Этапы воронки CRM. Раньше десять колонок были одинаково серыми: на какой
+       стадии сделка, читалось только по подписи, и глазом воронка не собиралась.
+       Цвет живёт в --status-color (ставится инлайном из CRM_STATUS_COLOR) и красит
+       подчёркивание заголовка и счётчик — сами карточки не трогаем, иначе доска
+       превращается в радугу. Это НЕ текст, порог контраста здесь 3:1. */
+    .kanban-col-status > h3 {
+      border-bottom: 2px solid var(--status-color, var(--line));
+    }
+    /* Счётчик получает рамку, а не цветной текст: внутри он лежит на фиолетовом
+       тинте --primary-bg, и перекраска текста в цвет этапа роняла бы контраст
+       (жёлтый «Согласование» на тинте — заведомо ниже AA). Рамка — не текст,
+       ей достаточно 3:1. */
+    .kanban-col-status > h3 .pill-count {
+      border: 1.5px solid var(--status-color, var(--line));
+      background: transparent;
+    }
+    /* Колонка, где сделок нет, не должна кричать цветом наравне с рабочими */
+    .kanban-col-status.is-empty > h3 { border-bottom-color: var(--line); }
+    .kanban-col-status.is-empty > h3 .pill-count { border-color: var(--line); color: var(--muted); }
 
     .task-card,
     .finance-card,
@@ -2002,7 +2053,7 @@
       font-weight: 700;
       line-height: 1;
       cursor: pointer;
-      transition: background .12s;
+      transition: background var(--dur-1);
     }
     .catalog-qty-btn:hover { background: rgb(var(--primary-rgb) / .22); }
     .catalog-qty-btn:active { background: rgb(var(--primary-rgb) / .32); }
@@ -2288,7 +2339,7 @@
     .search-result {
       display: flex; align-items: center; gap: 12px;
       padding: 10px 16px; cursor: pointer;
-      transition: background .1s;
+      transition: background var(--dur-1);
     }
     .search-result:hover { background: rgb(var(--primary-rgb) / .1); }
     .search-result-icon { width: 32px; height: 32px; border-radius: 8px; flex: 0 0 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
@@ -2324,7 +2375,7 @@
       display: flex; align-items: center; gap: 10px;
       width: 100%; padding: 9px 16px; border: none; background: none;
       color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer;
-      text-align: left; transition: background .12s, color .12s;
+      text-align: left; transition: background var(--dur-1), color var(--dur-1);
     }
     .pd-item:hover { background: rgb(var(--primary-rgb) / .08); color: var(--primary-on-tint); }
     .pd-item.danger { color: var(--text-danger); }
@@ -2346,7 +2397,7 @@
       display: flex; align-items: center; gap: 10px;
       width: 100%; padding: 8px 16px; border: none; background: none;
       color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer;
-      text-align: left; transition: .12s; text-decoration: none;
+      text-align: left; transition: var(--dur-1); text-decoration: none;
     }
     .help-dd-item:hover { background: rgb(var(--primary-rgb) / .08); color: var(--primary-on-tint); }
     .help-dd-item .hdi-sub { font-size: 12px; font-weight: 500; color: var(--muted); margin-top: 1px; }
@@ -2358,7 +2409,7 @@
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
       width: 100%; padding: 10px 14px; border: 1px solid var(--line);
       border-radius: 12px; background: var(--input); color: var(--text);
-      font-size: 14px; font-weight: 700; cursor: pointer; transition: .14s;
+      font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--dur-1);
     }
     .currency-select-btn:hover { border-color: rgb(var(--primary-rgb) / .5); }
     /* Длинное название валюты (напр. «Казахстанский тенге») переносилось на 2 строки —
@@ -2378,7 +2429,7 @@
     .currency-select-dd.open { display: block; animation: fadeIn .12s ease; }
     .currency-opt {
       display: flex; align-items: center; gap: 10px;
-      padding: 10px 14px; cursor: pointer; transition: .12s;
+      padding: 10px 14px; cursor: pointer; transition: var(--dur-1);
       font-size: 13px; border: none; background: none; color: var(--text);
       width: 100%; text-align: left;
     }
@@ -2394,18 +2445,18 @@
       width: 100%; padding: 9px 12px; border: 1px solid var(--line);
       border-radius: 10px; background: var(--input); color: var(--text);
       font-size: 13px; font-weight: 600; cursor: pointer; text-align: left;
-      transition: border-color .14s; line-height: 1.3;
+      transition: border-color var(--dur-1); line-height: 1.3;
     }
     .uu-select-btn:hover { border-color: rgb(var(--primary-rgb) / .5); }
     .uu-select-btn.uu-open { border-color: var(--primary); }
     .uu-select-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-    .uu-select-chev { flex-shrink: 0; opacity: .55; transition: transform .15s; display: grid; place-items: center; }
+    .uu-select-chev { flex-shrink: 0; opacity: .55; transition: transform var(--dur-1); display: grid; place-items: center; }
     .uu-select-btn.uu-open .uu-select-chev { transform: rotate(180deg); }
     .uu-select-dd {
       position: fixed; z-index: 3000; background: var(--panel);
       border: 1px solid var(--line); border-radius: 12px; overflow-y: auto;
       box-shadow: 0 12px 40px rgba(0,0,0,.35); padding: 4px;
-      opacity: 0; transform: translateY(-4px); transition: opacity .12s, transform .12s;
+      opacity: 0; transform: translateY(-4px); transition: opacity var(--dur-1), transform var(--dur-1);
       scrollbar-width: thin; overscroll-behavior: contain;
     }
     .uu-select-dd.open { opacity: 1; transform: translateY(0); }
@@ -2422,7 +2473,7 @@
     .uu-select-opt {
       display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
       padding: 9px 12px; border: none; background: none; color: var(--text);
-      font-size: 13px; cursor: pointer; border-radius: 8px; transition: background .1s;
+      font-size: 13px; cursor: pointer; border-radius: 8px; transition: background var(--dur-1);
       white-space: normal; overflow-wrap: break-word; line-height: 1.35;
     }
     .uu-select-opt:hover { background: rgb(var(--primary-rgb) / .1); }
@@ -2449,7 +2500,7 @@
       flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 3px; padding: 6px 2px 4px; border: none; background: none;
       color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer;
-      transition: color .15s, transform .1s; min-width: 44px; min-height: 44px; overflow: hidden; position: relative;
+      transition: color var(--dur-1), transform var(--dur-1); min-width: 44px; min-height: 44px; overflow: hidden; position: relative;
     }
     .mbn-item.active { color: var(--primary-text); }
     .mbn-item.active::after {
@@ -2466,7 +2517,7 @@
       color: var(--on-color); font-size: 26px; font-weight: 300; line-height: 1;
       box-shadow: 0 4px 20px rgb(var(--primary-rgb) / .5);
       display: flex; align-items: center; justify-content: center;
-      border: none; cursor: pointer; margin-top: -18px; transition: background .15s, box-shadow .15s;
+      border: none; cursor: pointer; margin-top: -18px; transition: background var(--dur-1), box-shadow var(--dur-1);
       flex-shrink: 0; position: relative; z-index: 1;
     }
     .mbn-add:hover { background: var(--primary2); box-shadow: 0 6px 24px rgb(var(--primary-rgb) / .65); }
@@ -2536,7 +2587,7 @@
       border: 2px solid var(--line);
       color: var(--muted);
       background: var(--panel);
-      transition: .22s; position: relative; z-index: 1;
+      transition: var(--dur-2); position: relative; z-index: 1;
     }
     .wstep.active .wstep-num {
       background: var(--primary);
@@ -2552,7 +2603,7 @@
     [data-theme="light"] .wstep.done .wstep-label { color: var(--text-success); }
     .wstep-line {
       flex: 1; height: 2px; background: var(--line);
-      margin-top: 19px; min-width: 50px; transition: background .25s;
+      margin-top: 19px; min-width: 50px; transition: background var(--dur-2);
     }
     .wstep-line.done { background: var(--green); }
     .wizard-body {
@@ -2572,7 +2623,7 @@
       border: 2px solid var(--line);
       border-radius: 14px;
       cursor: pointer;
-      transition: .15s ease;
+      transition: var(--dur-1) var(--ease-out);
       background: var(--panel2);
     }
     .wizard-pkg-card:hover {
@@ -2590,7 +2641,7 @@
     .package-card {
       position: relative; overflow: hidden; padding: 18px 18px 16px;
       display: flex; flex-direction: column;
-      border: 1px solid var(--line); transition: border-color .2s, box-shadow .2s;
+      border: 1px solid var(--line); transition: border-color var(--dur-2), box-shadow var(--dur-2);
     }
     .package-card:hover { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 12px 32px rgba(0,0,0,.22); transform: translateY(-2px); }
 
@@ -2641,7 +2692,7 @@
       font-size: 14px;
       color: var(--muted);
       cursor: pointer;
-      transition: background .15s ease, color .15s ease;
+      transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
     }
     .seg-switch button svg { opacity: .7; }
     .seg-switch button:hover { color: var(--text); }
@@ -2737,7 +2788,7 @@
     .client-select-item {
       padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
       cursor: pointer; display: flex; gap: 12px;
-      align-items: center; background: var(--panel2); transition: .15s;
+      align-items: center; background: var(--panel2); transition: var(--dur-1);
     }
     .client-select-item:hover, .client-select-item.selected {
       border-color: rgb(var(--primary-rgb) / .6); background: rgb(var(--primary-rgb) / .1);
@@ -2762,7 +2813,7 @@
     /* ── КЛИЕНТЫ СПИСКОМ ─────────────────────────── */
     .client-list-row {
       display: flex; align-items: center; gap: 12px; padding: 11px 16px;
-      border-bottom: 1px solid var(--line); cursor: pointer; transition: background .15s;
+      border-bottom: 1px solid var(--line); cursor: pointer; transition: background var(--dur-1);
     }
     .client-list-row:last-child { border-bottom: none; }
     .client-list-row:hover { background: var(--panel2); }
@@ -2821,7 +2872,7 @@
     .deal-pay-fill {
       height: 100%; border-radius: 999px;
       background: var(--green);
-      transition: width .4s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: width var(--dur-3) var(--ease-out);
     }
     .deal-tabs {
       display: flex; gap: 4px; border-top: 1px solid var(--line);
@@ -2837,7 +2888,7 @@
       color: var(--muted); font-size: 13px; font-weight: 600;
       padding: 10px 14px; cursor: pointer; white-space: nowrap;
       border-bottom: 2px solid transparent;
-      transition: .15s; border-radius: 0;
+      transition: var(--dur-1); border-radius: 0;
     }
     .deal-tab:hover { color: var(--text); }
     .deal-tab.active {
@@ -2862,7 +2913,7 @@
     .db-kpi {
       display: flex; align-items: center; gap: 12px;
       background: var(--panel2); border: 1px solid var(--line);
-      border-radius: 14px; padding: 14px; transition: .14s;
+      border-radius: 14px; padding: 14px; transition: var(--dur-1);
     }
     .db-kpi:hover { border-color: rgb(var(--primary-rgb) / .35); }
     .db-kpi-warn { border-color: rgba(234,88,12,.3) !important; }
@@ -2892,20 +2943,41 @@
 
     /* ── Dashboard stat card grid ──────────────────────────── */
     /* ── Compact stat strip (горизонтальная полоса метрик) ─── */
+    /* Сетка, а не flex-wrap: при переносе flex растягивал оставшиеся плитки на всю
+       ширину, и «Прогноз 30 дн» во втором ряду выходил вчетверо шире соседей по
+       первому. auto-fill (не auto-fit) — чтобы пустые колонки второго ряда не
+       схлопывались и плитки во всех рядах были одной ширины. */
     .db-stat-row {
-      display: flex; flex-wrap: wrap;
+      display: grid;
+      /* 150px — измеренный минимум плитки: самая длинная подпись 96px + 26px на
+         иконку с зазором + 28px внутренних отступов. Плиток девять, то есть один
+         ряд физически возможен только от ~1400px контейнера; ниже раскладка
+         переносится, и это правильнее обрезанных подписей. */
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       background: var(--panel2); border: 1px solid var(--line);
       border-radius: 14px; margin-bottom: 14px; overflow: hidden;
     }
     .db-stat {
-      flex: 1; min-width: 110px;
+      /* 150px, а не 110: самая длинная подпись («Дедлайны / 7 дн») требует 96px,
+         плюс 20px иконки, 6px зазора и 28px внутренних отступов. На 110px восемь
+         плиток вставали в один ряд и ШЕСТЬ подписей из восьми резались многоточием
+         (замер пробником на 1180px). Теперь ряд переносится, а не обрезается. */
+      flex: 1; min-width: 150px;
       padding: 10px 14px;
       border-right: 1px solid var(--line);
-      transition: background .12s;
+      transition: background var(--dur-1) var(--ease-out);
     }
     .db-stat:last-child { border-right: none; }
     .db-stat[onclick] { cursor: pointer; }
-    .db-stat[onclick]:hover { background: var(--panel); }
+    /* Плитки ведут в раздел, но выглядели как обычный текст: единственным намёком
+       был курсор, которого на телефоне нет. Подчёркивание акцентом + подпись в
+       полный цвет — сигнал «сюда можно нажать», не занимающий места. */
+    .db-stat[onclick]:hover {
+      background: var(--panel);
+      box-shadow: inset 0 -2px 0 var(--primary);
+    }
+    .db-stat[onclick]:hover .db-stat-label { color: var(--text); }
+    .db-stat[onclick]:active { background: var(--panel2); }
     .db-stat-warn { background: rgba(234,88,12,.05); }
     /* Иконка + подпись в одну строку (раньше иконка — своим рядом сверху, подпись
        КАПСОМ под ней — на 9 плитках в ряд читалось как "стена из капса"). Иконка
@@ -2953,14 +3025,14 @@
       width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line);
       background: var(--panel2); color: var(--muted); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      font-size: 14px; line-height: 1; transition: .12s;
+      font-size: 14px; line-height: 1; transition: var(--dur-1);
     }
     .db-chart-nav-btn:hover:not(:disabled) { border-color: rgb(var(--primary-rgb) / .5); color: var(--primary-text); }
     .db-chart-nav-btn:disabled { opacity: .35; cursor: default; }
 
     /* Наведение/тап по колонке месяца — hover-подсветка + курсор, клик уводит в «Финансы» */
     .db-chart-col { cursor: pointer; }
-    .db-chart-hit-bg { fill: var(--primary); opacity: 0; transition: opacity .12s; }
+    .db-chart-hit-bg { fill: var(--primary); opacity: 0; transition: opacity var(--dur-1); }
     .db-chart-col:hover .db-chart-hit-bg { opacity: .07; }
 
     /* Кастомный тултип графика — вместо нативного SVG <title> */
@@ -2984,7 +3056,7 @@
     /* ── Deal list view ──────────────────────────────────────── */
     .deal-list-row {
       display: flex; align-items: center; gap: 10px; padding: 10px 14px;
-      border-bottom: 1px solid var(--line); transition: background .1s;
+      border-bottom: 1px solid var(--line); transition: background var(--dur-1);
       cursor: pointer; min-width: 0;
     }
     .deal-list-row:last-child { border-bottom: none; }
@@ -3014,7 +3086,7 @@
       height: 36px; box-sizing: border-box; display: inline-flex; align-items: center;
       border: 1px solid var(--line); background: var(--panel2); color: var(--muted);
       font-size: 12.5px; font-weight: 600; padding: 0 14px; border-radius: 99px;
-      cursor: pointer; white-space: nowrap; transition: border-color .12s, color .12s, background .12s;
+      cursor: pointer; white-space: nowrap; transition: border-color var(--dur-1), color var(--dur-1), background var(--dur-1);
     }
     .deal-tag-chip:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--text); }
     .deal-tag-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
@@ -3044,7 +3116,7 @@
     .deal-view-btn {
       background: transparent; border: none; border-radius: 7px;
       width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
-      cursor: pointer; color: var(--muted); transition: background .12s, color .12s;
+      cursor: pointer; color: var(--muted); transition: background var(--dur-1), color var(--dur-1);
     }
     .deal-view-btn svg { display: block; }
     .deal-view-btn:hover { color: var(--text); background: rgb(var(--primary-rgb) / .1); }
@@ -3061,7 +3133,7 @@
     .gantt-row-name { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .gantt-row-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .gantt-row-track { position: relative; flex: 1; min-width: 0; height: 22px; background: var(--panel2); border-radius: 6px; }
-    .gantt-bar { position: absolute; top: 3px; height: 16px; border-radius: 5px; cursor: pointer; opacity: .88; transition: opacity .12s, transform .12s; }
+    .gantt-bar { position: absolute; top: 3px; height: 16px; border-radius: 5px; cursor: pointer; opacity: .88; transition: opacity var(--dur-1), transform var(--dur-1); }
     .gantt-bar:hover { opacity: 1; transform: translateY(-1px); }
     .gantt-header .gantt-row-track { background: none; height: 18px; }
     .gantt-months { border-bottom: 1px solid var(--line); }
@@ -3080,7 +3152,7 @@
          шеврон) — возвращаем его отдельно, иначе текст наезжает на иконку. */
       height: 36px; box-sizing: border-box;
       padding: 0 10px; padding-right: 34px; font-size: 12.5px; color: var(--text); cursor: pointer;
-      font-weight: 600; transition: border-color .12s;
+      font-weight: 600; transition: border-color var(--dur-1);
     }
     .deal-sort-select:hover { border-color: rgb(var(--primary-rgb) / .5); }
     .deal-sort-select:focus { outline: none; border-color: var(--primary); }
@@ -3110,7 +3182,7 @@
       padding: 8px 10px;
       border: 1px solid var(--line);
       border-radius: 11px; background: var(--panel2);
-      cursor: pointer; transition: .15s;
+      cursor: pointer; transition: var(--dur-1);
     }
     .funnel-stage:hover { border-color: rgb(var(--primary-rgb) / .5); transform: translateY(-1px); }
     .funnel-stage.active { border-color: var(--primary-on-tint); background: rgb(var(--primary-rgb) / .12); }
@@ -3139,7 +3211,7 @@
       min-width: 0; /* grid-элемент по умолчанию min-width:auto — без этого nowrap-текст
                        в .deal-card-name раздувал бы колонку грида шире вьюпорта */
       padding: 13px 15px 13px 18px; cursor: pointer;
-      transition: border-color .15s, transform .15s, box-shadow .15s;
+      transition: border-color var(--dur-1), transform var(--dur-1), box-shadow var(--dur-1);
       border: 1px solid var(--line);
       border-radius: 16px;
       --card-fill: var(--panel);
@@ -3284,7 +3356,7 @@
     .chip {
       padding: 6px 13px; border-radius: 99px; border: 1px solid var(--line);
       background: transparent; color: var(--muted); font-size: 13px; font-weight: 600;
-      cursor: pointer; white-space: nowrap; transition: background .14s, border-color .14s, color .14s;
+      cursor: pointer; white-space: nowrap; transition: background var(--dur-1), border-color var(--dur-1), color var(--dur-1);
     }
     .chip:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--text); }
     .chip.active { background: rgb(var(--primary-rgb) / .15); border-color: var(--primary); color: var(--primary-on-tint); }
@@ -3310,7 +3382,7 @@
       display: flex; align-items: center; gap: 12px;
       padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px;
       background: var(--panel); cursor: pointer;
-      transition: border-color .14s, transform .1s, box-shadow .14s;
+      transition: border-color var(--dur-1), transform var(--dur-1), box-shadow var(--dur-1);
     }
     .gtask-row:hover { border-color: rgb(var(--primary-rgb) / .5); box-shadow: 0 4px 16px rgb(var(--primary-rgb) / .08); }
     .gtask-row.done { opacity: .6; }
@@ -3320,7 +3392,7 @@
       width: 24px; height: 24px; flex: 0 0 auto; border-radius: 7px;
       border: 2px solid var(--line); background: transparent; cursor: pointer;
       display: grid; place-items: center; color: var(--on-color); font-size: 14px; font-weight: 800;
-      transition: background .14s, border-color .14s;
+      transition: background var(--dur-1), border-color var(--dur-1);
     }
     .gtask-check:hover { border-color: var(--text-success); }
     .gtask-check.checked { background: var(--green); border-color: var(--text-success); }
@@ -3334,7 +3406,7 @@
     .gtask-del {
       width: 30px; height: 30px; flex: 0 0 auto; border-radius: 8px;
       border: 1px solid transparent; background: transparent; color: var(--muted);
-      cursor: pointer; font-size: 16px; line-height: 1; transition: background .14s, color .14s, border-color .14s;
+      cursor: pointer; font-size: 16px; line-height: 1; transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1);
     }
     .gtask-del:hover { background: rgba(220,38,38,.1); color: var(--text-danger); border-color: rgba(220,38,38,.3); }
 
@@ -3344,7 +3416,7 @@
       display: grid; place-items: center;
       border: 1px solid var(--line); background: transparent; color: var(--muted);
       border-radius: 8px; cursor: pointer;
-      transition: background .14s, color .14s, border-color .14s;
+      transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1);
     }
     .icon-del-btn:hover { background: rgba(220,38,38,.1); color: var(--text-danger); border-color: rgba(220,38,38,.35); }
     .icon-del-btn svg { display: block; }
@@ -3354,7 +3426,7 @@
       background: none; border-radius: 6px;
       cursor: pointer; color: var(--muted);
       display: grid; place-items: center;
-      opacity: 0; transition: opacity .15s, color .15s, border-color .15s, background .15s;
+      opacity: 0; transition: opacity var(--dur-1), color var(--dur-1), border-color var(--dur-1), background var(--dur-1);
       flex-shrink: 0;
     }
     .deal-card:hover .deal-dup-btn { opacity: 1; }
@@ -3375,18 +3447,18 @@
     .deal-open-btn {
       padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line);
       background: transparent; color: var(--primary-text); font-size: 12px; font-weight: 600;
-      cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s;
+      cursor: pointer; white-space: nowrap; transition: border-color var(--dur-1), background var(--dur-1);
     }
     .deal-open-btn:hover { border-color: var(--primary); background: rgb(var(--primary-rgb) / .08); }
     .next-action-btn {
       padding: 6px 13px; border-radius: 999px; border: none;
       background: var(--primary);
       color: var(--on-color); font-size: 12px; font-weight: 600; cursor: pointer;
-      white-space: nowrap; transition: background .15s, transform .15s;
+      white-space: nowrap; transition: background var(--dur-1), transform var(--dur-1);
     }
     .next-action-btn:hover { background: var(--primary2); transform: translateY(-1px); }
     /* В карточке (не в компактной строке списка) — только на hover, меньше шума */
-    .deal-card .next-action-btn { opacity: 0; transition: opacity .15s, background .15s, transform .15s; }
+    .deal-card .next-action-btn { opacity: 0; transition: opacity var(--dur-1), background var(--dur-1), transform var(--dur-1); }
     .deal-card:hover .next-action-btn { opacity: 1; }
     .health-dot {
       width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto;
@@ -3406,7 +3478,7 @@
       /* touch area расширен через padding, визуальный размер через иконку */
       min-width: 32px; min-height: 32px;
       opacity: 0;
-      transition: opacity .15s, background .15s, border-color .15s, color .15s;
+      transition: opacity var(--dur-1), background var(--dur-1), border-color var(--dur-1), color var(--dur-1);
     }
     .deal-card:hover .deal-menu-btn { opacity: 1; }
     .deal-menu-btn:hover {
@@ -3419,7 +3491,7 @@
       border: 1px solid rgba(220,38,38,.28);
       background: rgba(220,38,38,.08); color: var(--text-danger);
       font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
-      transition: background .14s, border-color .14s;
+      transition: background var(--dur-1), border-color var(--dur-1);
     }
     .deal-del-btn:hover { background: rgba(220,38,38,.16); border-color: rgba(220,38,38,.5); }
     .deal-del-btn svg { display: block; }
@@ -3440,7 +3512,7 @@
       border: none; background: transparent;
       color: var(--text); font-size: 13px; font-weight: 600;
       border-radius: 8px; cursor: pointer; text-align: left;
-      transition: background .1s, color .1s;
+      transition: background var(--dur-1), color var(--dur-1);
     }
     .dcm-item:hover { background: rgba(255,255,255,.06); }
     [data-theme="light"] .dcm-item:hover { background: rgba(0,0,0,.05); }
@@ -3476,7 +3548,7 @@
       font-size: 14px; font-weight: 900;
       box-shadow: 0 4px 18px rgb(var(--primary-rgb) / .38);
       opacity: 0; transform: translateY(12px) scale(.9);
-      transition: opacity .22s ease, transform .22s ease;
+      transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out);
       z-index: 200;
       display: flex; align-items: center; justify-content: center;
       line-height: 1;
@@ -3558,7 +3630,7 @@
       display: flex; justify-content: space-between; align-items: center;
       padding: 12px 16px; border: 1px solid var(--line); border-radius: 14px;
       background: var(--panel); gap: 14px;
-      cursor: pointer; transition: .15s;
+      cursor: pointer; transition: var(--dur-1);
     }
     .client-project-row:hover { border-color: rgb(var(--primary-rgb) / .5); }
     .client-project-row h4 { margin: 0 0 3px; font-size: 14px; }
@@ -3618,14 +3690,14 @@
       display: inline-flex; align-items: center; gap: 7px;
       padding: 10px 18px; border-radius: 999px; border: none;
       background: var(--green); color: var(--on-color); font-weight: 700; font-size: 14px;
-      cursor: pointer; transition: .15s;
+      cursor: pointer; transition: var(--dur-1);
     }
     .btn-income:hover { background: var(--green-strong); }
     .btn-expense {
       display: inline-flex; align-items: center; gap: 7px;
       padding: 10px 18px; border-radius: 999px; border: none;
       background: var(--red); color: var(--on-color); font-weight: 700; font-size: 14px;
-      cursor: pointer; transition: .15s;
+      cursor: pointer; transition: var(--dur-1);
     }
     .btn-expense:hover { background: #b91c1c; }
 
@@ -3640,7 +3712,7 @@
       display: inline-flex; align-items: center; gap: 6px;
       padding: 7px 16px; border-radius: 999px; border: none;
       font-weight: 700; font-size: 13px; color: var(--on-color);
-      cursor: pointer; transition: opacity .15s, transform .15s;
+      cursor: pointer; transition: opacity var(--dur-1), transform var(--dur-1);
       white-space: nowrap; flex: 0 0 auto;
     }
     .fin-quick-btn:hover { opacity: .85; transform: translateY(-1px); }
@@ -3665,11 +3737,11 @@
     .estimate-section-title h2 { margin: 0; font-size: 18px; }
 
     /* ── PAGE ANIMATIONS ─────────────────────────── */
-    #appContent { animation: pageFadeIn .22s cubic-bezier(0.16, 1, 0.3, 1); }
-    @keyframes pageFadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
+    /* Появление контента. Раньше здесь жил отдельный keyframes pageFadeIn, покадрово
+       совпадавший с viewFadeIn ниже, но с другой длительностью (.22s против .18s) —
+       два имени на одну анимацию, и при смене раздела они наслаивались. Оставлен один
+       viewFadeIn: первый кадр после загрузки и смена раздела теперь идут одинаково. */
+    #appContent { animation: viewFadeIn var(--dur-2) var(--ease-out); }
 
     .deal-card, .project-card, .client-card, .item, .package-card {
       transition: transform var(--dur-2) var(--ease-out),
@@ -3704,7 +3776,7 @@
 
     /* ── LOGO ANIMATION ──────────────────────────── */
     .logo {
-      transition: transform .2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .2s ease !important;
+      transition: transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out) !important;
       cursor: pointer !important;
     }
     .logo:hover {
@@ -3751,7 +3823,7 @@
       padding: 6px 12px 6px 14px; border-radius: 10px;
       background: var(--panel2); border: 1px solid var(--line);
       color: var(--text); font-size: 14px; font-weight: 800;
-      cursor: pointer; transition: border-color .15s, background .15s;
+      cursor: pointer; transition: border-color var(--dur-1), background var(--dur-1);
       max-width: 240px; min-width: 0;
     }
     .deal-switcher-btn:hover { border-color: var(--primary-text); background: var(--panel2); }
@@ -3760,7 +3832,7 @@
     }
     .deal-switcher-chevron {
       flex: 0 0 auto; font-size: 12px; color: var(--muted);
-      transition: transform .15s;
+      transition: transform var(--dur-1);
     }
     .deal-switcher-chevron.open { transform: rotate(180deg); }
     .deal-switcher-backdrop {
@@ -3812,12 +3884,12 @@
     .deal-switcher-section-label.active-label { color: var(--text-success); }
     .deal-switcher-section-label.completed-label { color: var(--text-danger); }
     .deal-switcher-section-label.archived-label { color: var(--muted); }
-    .deal-switcher-section-chevron { transition: transform .15s; font-size: 11px; }
+    .deal-switcher-section-chevron { transition: transform var(--dur-1); font-size: 11px; }
     .deal-switcher-section-chevron.open { transform: rotate(180deg); }
     .deal-switcher-item {
       display: flex; flex-direction: column; gap: 3px;
       padding: 10px 12px; border-radius: 9px;
-      cursor: pointer; transition: background .1s;
+      cursor: pointer; transition: background var(--dur-1);
     }
     .deal-switcher-item:hover { background: var(--panel2); }
     .deal-switcher-item.active { background: rgb(var(--primary-rgb) / .13); }
@@ -3848,7 +3920,7 @@
     .date-preset-btn {
       padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
       background: transparent; color: var(--muted); font-size: 12px; font-weight: 600;
-      cursor: pointer; transition: .14s;
+      cursor: pointer; transition: var(--dur-1);
     }
     .date-preset-btn.active {
       background: var(--primary);
@@ -3895,7 +3967,7 @@
       width: 32px; height: 32px; border-radius: 8px;
       border: 1px solid var(--line); background: transparent;
       color: var(--muted); font-size: 16px; cursor: pointer;
-      transition: .13s; display: flex; align-items: center; justify-content: center;
+      transition: var(--dur-1); display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
     .cal-nav2-arrow:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--primary-on-tint); background: rgb(var(--primary-rgb) / .08); }
@@ -3907,7 +3979,7 @@
     .cal-nav2-today {
       padding: 7px 14px; border-radius: 10px; font-size: 13px; font-weight: 600;
       background: var(--primary);
-      border: none; color: var(--on-color); cursor: pointer; transition: background .13s; white-space: nowrap;
+      border: none; color: var(--on-color); cursor: pointer; transition: background var(--dur-1); white-space: nowrap;
       flex-shrink: 0;
     }
     .cal-nav2-today:hover { background: var(--primary2); }
@@ -3932,7 +4004,7 @@
     .cal-month-pill {
       padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
       background: transparent; color: var(--muted); font-size: 12px; font-weight: 600;
-      cursor: pointer; transition: .13s; white-space: nowrap; flex-shrink: 0;
+      cursor: pointer; transition: var(--dur-1); white-space: nowrap; flex-shrink: 0;
     }
     .cal-month-pill:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--text); }
     .cal-month-pill.active {
@@ -3960,7 +4032,7 @@
       min-height: 80px; padding: 7px 8px;
       border: 1px solid var(--line);
       border-radius: 10px; background: var(--panel2);
-      cursor: pointer; transition: .14s; position: relative;
+      cursor: pointer; transition: var(--dur-1); position: relative;
       overflow: hidden;
     }
     .cal-cell:hover { border-color: rgb(var(--primary-rgb) / .45); background: rgb(var(--primary-rgb) / .06); }
@@ -3982,7 +4054,7 @@
       border: 1px solid transparent; background: transparent;
       border-radius: 6px; color: var(--muted);
       cursor: pointer; opacity: 0;
-      transition: opacity .15s, background .15s, border-color .15s, color .15s;
+      transition: opacity var(--dur-1), background var(--dur-1), border-color var(--dur-1), color var(--dur-1);
     }
     .cal-cell:hover .cal-day-add { opacity: 1; }
     .cal-day-add:hover {
@@ -4065,7 +4137,7 @@
       background: var(--panel2);
       display: flex; justify-content: space-between;
       align-items: center; gap: 12px;
-      transition: .15s;
+      transition: var(--dur-1);
     }
     .gcal-event:hover { border-color: rgb(var(--primary-rgb) / .45); }
     .gcal-event-left h4 { margin: 0 0 2px; font-size: 14px; }
@@ -4107,7 +4179,7 @@
       display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
     }
     .category-bar-fill {
-      height: 8px; border-radius: 999px; min-width: 2px; transition: width .3s;
+      height: 8px; border-radius: 999px; min-width: 2px; transition: width var(--dur-3);
     }
     .category-bar-label { font-size: 13px; flex: 1; }
     .category-bar-amount { font-size: 13px; font-weight: 900; white-space: nowrap; }
@@ -4129,7 +4201,7 @@
       padding: 10px 16px; border: none; background: transparent;
       color: var(--muted); font-size: 13px; font-weight: 600;
       cursor: pointer; border-bottom: 2px solid transparent;
-      transition: .15s; white-space: nowrap;
+      transition: var(--dur-1); white-space: nowrap;
     }
     .fin-subtab.active {
       color: var(--primary-on-tint); border-bottom-color: var(--primary-on-tint);
@@ -4142,7 +4214,7 @@
     .kp-row {
       display: flex; align-items: center; gap: 10px;
       padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px;
-      background: var(--panel); transition: border-color .12s;
+      background: var(--panel); transition: border-color var(--dur-1);
     }
     .kp-row:hover { border-color: var(--primary); }
     .kp-row-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
@@ -4185,7 +4257,7 @@
     .icon-btn {
       background: none; border: 1px solid var(--line); border-radius: 8px;
       width: 32px; height: 32px; display: grid; place-items: center;
-      color: var(--muted); cursor: pointer; flex-shrink: 0; transition: .12s;
+      color: var(--muted); cursor: pointer; flex-shrink: 0; transition: var(--dur-1);
     }
     .icon-btn:hover { color: var(--primary-text); border-color: var(--primary); }
 
@@ -4201,7 +4273,7 @@
     .autosave-indicator {
       font-size: 12px; font-weight: 600;
       color: var(--text-success); opacity: 0;
-      transition: opacity .4s; white-space: nowrap;
+      transition: opacity var(--dur-3); white-space: nowrap;
       padding: 4px 8px; border-radius: 999px;
     }
     [data-theme="light"] .autosave-indicator { color: var(--text-success); }
@@ -4247,7 +4319,7 @@
     .dsp-pill {
       padding: 5px 13px; border-radius: 99px; font-size: 12px; font-weight: 700;
       border: 1.5px solid var(--line); color: var(--muted); white-space: nowrap;
-      background: transparent; transition: all .18s; -webkit-user-select: none; user-select: none;
+      background: transparent; transition: all var(--dur-2); -webkit-user-select: none; user-select: none;
     }
     .dsp-step:hover .dsp-pill { border-color: rgb(var(--primary-rgb) / .4); color: var(--text); }
     .dsp-step.done .dsp-pill {
@@ -4262,7 +4334,7 @@
     }
     .dsp-line {
       height: 2px; min-width: 14px; flex: 1 1 14px;
-      background: var(--line); transition: background .2s;
+      background: var(--line); transition: background var(--dur-2);
     }
     .dsp-line.done { background: rgba(22,163,74,.5); }
 
@@ -4276,7 +4348,7 @@
       gap: 2px; flex: 1; min-width: 28px;
     }
     .gfin-bar {
-      width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; transition: .2s;
+      width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; transition: var(--dur-2);
     }
     .gfin-bar.income { background: var(--green); }
     .gfin-bar.expense { background: var(--red); opacity: .7; }
@@ -4344,7 +4416,7 @@
     }
     .modal-type-btn {
       padding: 10px 20px; border-radius: 999px; border: 2px solid var(--line);
-      font-size: 14px; font-weight: 700; cursor: pointer; transition: .15s;
+      font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--dur-1);
       background: transparent; color: var(--muted);
     }
     .modal-type-btn.income.active {
@@ -4370,7 +4442,7 @@
     input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
     .modal-save-btn {
       padding: 12px 28px; border-radius: 999px; border: none;
-      font-size: 15px; font-weight: 900; cursor: pointer; transition: .15s;
+      font-size: 15px; font-weight: 900; cursor: pointer; transition: var(--dur-1);
       color: var(--on-color);
     }
     .modal-save-btn.income { background: var(--green); }
@@ -4404,7 +4476,7 @@
       background: var(--primary); color: var(--on-color); border: none;
       font-size: 22px; font-weight: 900; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: .15s; box-shadow: 0 4px 18px rgb(var(--primary-rgb) / .45);
+      transition: var(--dur-1); box-shadow: 0 4px 18px rgb(var(--primary-rgb) / .45);
       flex: 0 0 auto; line-height: 1;
     }
     .global-add-btn:hover { background: var(--primary2); transform: scale(1.08); }
@@ -4419,7 +4491,7 @@
     .global-add-menu-item {
       padding: 11px 14px; border-radius: 10px; border: none;
       background: transparent; color: var(--text); text-align: left;
-      font-size: 13px; font-weight: 600; cursor: pointer; transition: .12s;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--dur-1);
       display: flex; align-items: center; gap: 8px;
     }
     .global-add-menu-item:hover { background: rgb(var(--primary-rgb) / .14); }
@@ -4464,7 +4536,7 @@
       border: 1px solid rgba(22,163,74,.3);
       font-size: 13px; font-weight: 600;
       color: var(--text-success); white-space: nowrap; cursor: pointer;
-      transition: .15s;
+      transition: var(--dur-1);
     }
     [data-theme="light"] .nav-deal-indicator { color: var(--text-success); }
     .nav-deal-indicator:hover { background: rgba(22,163,74,.22); }
@@ -4533,7 +4605,7 @@
        темы и никогда не меняется вместе с темой. Без прозрачности — border-color не обязана
        быть полупрозрачной, а color-mix() не работает в Chrome < 111. */
     .fin-card.profit-card { border-color: var(--primary-text); }
-    .fin-card.u-pointer { cursor: pointer; transition: border-color .14s, transform .14s, box-shadow .14s; }
+    .fin-card.u-pointer { cursor: pointer; transition: border-color var(--dur-1), transform var(--dur-1), box-shadow var(--dur-1); }
     .fin-card.u-pointer:hover { border-color: var(--primary-text); transform: translateY(-2px); box-shadow: var(--elev-1); }
 
     /* Кнопка «Экспорт в Excel» — иконкой */
@@ -4541,7 +4613,7 @@
       width: 38px; height: 38px; flex: 0 0 auto; display: grid; place-items: center;
       border: 1px solid rgba(22,163,74,.4); border-radius: 10px;
       background: rgba(22,163,74,.12); color: var(--text-success);
-      cursor: pointer; transition: background .14s, border-color .14s, transform .12s;
+      cursor: pointer; transition: background var(--dur-1), border-color var(--dur-1), transform var(--dur-1);
     }
     .xlsx-icon-btn:hover { background: rgba(22,163,74,.2); border-color: var(--text-success); transform: translateY(-1px); }
     .xlsx-icon-btn svg { display: block; }
@@ -4605,7 +4677,7 @@
       border-radius: var(--radius);
       background: var(--panel);
       cursor: pointer;
-      transition: .15s;
+      transition: var(--dur-1);
     }
     .contract-card:hover { border-color: rgb(var(--primary-rgb) / .5); transform: translateY(-2px); box-shadow: 0 12px 36px rgba(0,0,0,.28); }
     .contract-card h3 { margin: 0 0 6px; }
@@ -4639,7 +4711,7 @@
       background: var(--panel2);
       text-align: center;
       cursor: pointer;
-      transition: .15s;
+      transition: var(--dur-1);
       color: var(--text);
     }
     .main-menu-item:hover { background: rgb(var(--primary-rgb) / .14); transform: translateY(-2px); border-color: rgb(var(--primary-rgb) / .3); }
@@ -4831,7 +4903,7 @@
     .auth-tab {
       flex: 1; border: none; border-radius: 9px; padding: 9px;
       font-size: 13px; font-weight: 600; cursor: pointer;
-      background: transparent; color: var(--muted); transition: .15s;
+      background: transparent; color: var(--muted); transition: var(--dur-1);
     }
     .auth-tab.active { background: var(--primary); color: var(--on-color); }
     @media (max-width: 768px) {
@@ -4846,7 +4918,7 @@
       display: flex; align-items: center; gap: 16px;
       padding: 16px; border-radius: 14px;
       background: var(--panel2); border: 1px solid var(--line);
-      cursor: pointer; transition: border-color .15s, transform .15s;
+      cursor: pointer; transition: border-color var(--dur-1), transform var(--dur-1);
     }
     .support-card:hover { border-color: var(--primary); transform: translateY(-1px); }
 
@@ -4879,7 +4951,7 @@
     .notif-item {
       display: flex; gap: 12px; align-items: flex-start;
       padding: 12px 18px; border-bottom: 1px solid var(--line);
-      cursor: pointer; transition: .12s;
+      cursor: pointer; transition: var(--dur-1);
     }
     .notif-item:hover { background: rgba(148,163,184,.06); }
     .notif-item.unread { background: rgb(var(--primary-rgb) / .05); }
@@ -4922,8 +4994,8 @@
       white-space: nowrap;
       opacity: 0;
       transform: translateY(-6px);
-      transition: opacity .18s cubic-bezier(0.16, 1, 0.3, 1),
-                  transform .18s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity var(--dur-2) var(--ease-out),
+                  transform var(--dur-2) var(--ease-out);
       box-shadow: 0 8px 24px rgba(0,0,0,.35), 0 0 0 1px rgb(var(--primary-rgb) / .12);
     }
     .estimate-nav-tooltip-fixed.visible {
@@ -4950,8 +5022,8 @@
       border-radius: 12px;
       box-shadow: 0 0 0 9999px rgba(8, 9, 16, .72);
       pointer-events: none;
-      transition: top .35s cubic-bezier(.4,0,.2,1), left .35s cubic-bezier(.4,0,.2,1),
-                  width .35s cubic-bezier(.4,0,.2,1), height .35s cubic-bezier(.4,0,.2,1);
+      transition: top var(--dur-3) var(--ease-out), left var(--dur-3) var(--ease-out),
+                  width var(--dur-3) var(--ease-out), height var(--dur-3) var(--ease-out);
     }
     [data-theme="light"] .tour-spotlight {
       box-shadow: 0 0 0 9999px rgba(20, 20, 24, .55);
@@ -4968,13 +5040,13 @@
       padding: 16px 18px;
       width: 270px;
       box-shadow: 0 12px 40px rgba(0,0,0,.4);
-      transition: top .35s cubic-bezier(.4,0,.2,1), left .35s cubic-bezier(.4,0,.2,1);
+      transition: top var(--dur-3) var(--ease-out), left var(--dur-3) var(--ease-out);
     }
     .tour-popover h4 { margin: 0 0 6px; font-size: 14px; }
     .tour-popover p { margin: 0 0 14px; font-size: 13px; color: var(--muted); line-height: 1.5; }
     .tour-popover-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .tour-dots { display: flex; gap: 5px; }
-    .tour-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line); transition: all .2s; }
+    .tour-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line); transition: all var(--dur-2); }
     .tour-dot.active { background: var(--primary); width: 16px; border-radius: 3px; }
     .tour-popover-actions { display: flex; gap: 8px; }
 
@@ -4985,7 +5057,7 @@
       background: none; border-radius: 10px;
       cursor: pointer; color: var(--text);
       display: grid; place-items: center;
-      transition: border-color .2s, background .2s, transform .2s;
+      transition: border-color var(--dur-2), background var(--dur-2), transform var(--dur-2);
       flex: 0 0 auto;
     }
     .theme-toggle-btn:hover {
@@ -5001,8 +5073,8 @@
     .theme-icon .icon-moon,
     .theme-icon .icon-sun {
       position: absolute; top: 0; left: 0;
-      transition: opacity .28s cubic-bezier(0.16, 1, 0.3, 1),
-                  transform .28s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity var(--dur-3) var(--ease-out),
+                  transform var(--dur-3) var(--ease-out);
     }
 
     /* dark mode (default): moon visible, sun hidden */
@@ -5019,7 +5091,7 @@
       color: var(--muted); border-radius: 50%;
       width: 30px; height: 30px; font-size: 14px; font-weight: 900;
       cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: .14s;
+      transition: var(--dur-1);
     }
     .help-btn:hover { border-color: var(--primary); color: var(--primary); }
 
@@ -5029,7 +5101,7 @@
       color: var(--on-color); font-size: 14px; font-weight: 900;
       display: flex; align-items: center; justify-content: center;
       overflow: hidden; flex: 0 0 34px;
-      transition: .15s; box-shadow: 0 4px 14px rgb(var(--primary-rgb) / .35);
+      transition: var(--dur-1); box-shadow: 0 4px 14px rgb(var(--primary-rgb) / .35);
     }
     .profile-avatar-btn:hover { box-shadow: 0 6px 20px rgb(var(--primary-rgb) / .5); transform: scale(1.06); }
     .profile-avatar-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -5041,7 +5113,7 @@
     /* ── PROFILE PAGE ─────────────────────────────── */
     .plan-card {
       border: 1px solid var(--line); border-radius: 16px;
-      padding: 20px; text-align: center; transition: .18s; cursor: default;
+      padding: 20px; text-align: center; transition: var(--dur-2); cursor: default;
     }
     .plan-card.popular {
       border-color: var(--primary); background: rgb(var(--primary-rgb) / .06);
@@ -5062,7 +5134,7 @@
        раньше kb-new-card (эта плитка + «+ Новый клиент») была толще/квадратнее. */
     .kb-new-card {
       background: var(--panel2); border: 1px dashed var(--line);
-      border-radius: var(--radius); padding: 16px; cursor: pointer; transition: .14s;
+      border-radius: var(--radius); padding: 16px; cursor: pointer; transition: var(--dur-1);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 10px; min-height: 130px; color: var(--muted);
     }
@@ -5071,13 +5143,13 @@
       width: 44px; height: 44px; border-radius: 50%;
       background: var(--primary-bg);
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px; font-weight: 400; color: var(--primary-on-tint); transition: .14s;
+      font-size: 22px; font-weight: 400; color: var(--primary-on-tint); transition: var(--dur-1);
     }
     .kb-new-card:hover .kb-new-icon { background: rgb(var(--primary-rgb) / .2); }
     .kb-new-label { font-size: 13px; font-weight: 600; }
     .kb-doc-card {
       background: var(--panel2); border: 1px solid var(--line);
-      border-radius: 14px; padding: 16px; cursor: pointer; transition: .14s;
+      border-radius: 14px; padding: 16px; cursor: pointer; transition: var(--dur-1);
     }
     .kb-doc-card:hover { border-color: rgb(var(--primary-rgb) / .4); background: rgb(var(--primary-rgb) / .04); }
     .kb-doc-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 800; }
@@ -5123,13 +5195,13 @@
       width: 18px; height: 2px;
       background: currentColor;
       border-radius: 2px;
-      transition: .2s ease;
+      transition: var(--dur-2) var(--ease-out);
     }
     /* ── ONBOARDING SLIDER ──────────────────────────── */
     .ob-slider-wrap { overflow: hidden; position: relative; }
     .ob-slides {
       display: flex;
-      transition: transform .35s cubic-bezier(.4,0,.2,1);
+      transition: transform var(--dur-3) var(--ease-out);
     }
     .ob-slide {
       min-width: 100%;
@@ -5192,7 +5264,7 @@
     }
     .ob-dot {
       width: 7px; height: 7px; border-radius: 50%;
-      background: var(--line); transition: .22s ease; cursor: pointer;
+      background: var(--line); transition: var(--dur-2) var(--ease-out); cursor: pointer;
     }
     .ob-dot.active {
       background: var(--primary);
@@ -5202,7 +5274,7 @@
       background: none; border: 1px solid var(--line);
       border-radius: 10px; padding: 7px 14px;
       color: var(--text); font-size: 16px; cursor: pointer;
-      transition: .15s;
+      transition: var(--dur-1);
     }
     .ob-arrow:disabled { opacity: .3; cursor: default; }
     .ob-arrow:not(:disabled):hover { border-color: rgb(var(--primary-rgb) / .5); background: rgb(var(--primary-rgb) / .08); }
@@ -5259,7 +5331,7 @@ body.calc-mode #appContent { padding: 0; }
   border-radius: 12px; font-size: 16px; font-weight: 800;
   background: var(--primary);
   color: var(--on-color); border: none; cursor: pointer;
-  transition: background .18s, transform .18s; letter-spacing: -.01em;
+  transition: background var(--dur-2), transform var(--dur-2); letter-spacing: -.01em;
 }
 .brief-submit:hover:not(:disabled) { background: var(--primary2); }
 .brief-submit:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
@@ -5281,7 +5353,7 @@ body.calc-mode #appContent { padding: 0; }
 }
 .brief-card-item {
   background: var(--panel2); border: 1px solid var(--line);
-  border-radius: 14px; padding: 16px; transition: .14s;
+  border-radius: 14px; padding: 16px; transition: var(--dur-1);
 }
 .brief-card-item:hover { border-color: rgb(var(--primary-rgb) / .3); }
 .brief-card-item.expanded { border-color: rgb(var(--primary-rgb) / .35); }
@@ -5292,7 +5364,7 @@ body.calc-mode #appContent { padding: 0; }
   width: 30px; height: 30px; flex: 0 0 auto; border-radius: 8px;
   border: 1px solid var(--line); background: var(--panel); color: var(--muted);
   cursor: pointer; display: grid; place-items: center;
-  transition: transform .18s ease, color .14s, border-color .14s, background .14s;
+  transition: transform var(--dur-2) var(--ease-out), color var(--dur-1), border-color var(--dur-1), background var(--dur-1);
 }
 .brief-expand-btn:hover { color: var(--primary-on-tint); border-color: var(--primary); background: rgb(var(--primary-rgb) / .08); }
 .brief-expand-btn.open { transform: rotate(180deg); color: var(--primary-text); border-color: var(--primary); }
@@ -5340,7 +5412,7 @@ body.calc-mode #appContent { padding: 0; }
   padding: 9px 14px; border-radius: 999px;
   border: 1px solid var(--line); background: var(--panel2);
   color: var(--muted); font-size: 13px; font-weight: 700;
-  cursor: pointer; transition: .14s; position: relative; white-space: nowrap;
+  cursor: pointer; transition: var(--dur-1); position: relative; white-space: nowrap;
 }
 .brief-type-chip:hover { border-color: rgb(var(--primary-rgb) / .4); color: var(--text); }
 .brief-type-chip.active {
@@ -5398,7 +5470,7 @@ body.calc-mode #appContent { padding: 0; }
 .bfe-del {
   width: 30px; height: 30px; flex-shrink: 0; display: grid; place-items: center;
   border: 1px solid var(--line); background: var(--panel); color: var(--muted);
-  border-radius: 8px; cursor: pointer; transition: .14s;
+  border-radius: 8px; cursor: pointer; transition: var(--dur-1);
 }
 .bfe-del:hover { color: var(--text-danger); border-color: rgba(220,38,38,.4); background: rgba(220,38,38,.08); }
 /* Тумблер «показывать поле» */
@@ -5406,12 +5478,12 @@ body.calc-mode #appContent { padding: 0; }
 .bfe-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
 .bfe-switch span {
   position: absolute; inset: 0; border-radius: 999px;
-  background: var(--line); transition: background .15s;
+  background: var(--line); transition: background var(--dur-1);
 }
 .bfe-switch span::after {
   content: ""; position: absolute; top: 2px; left: 2px;
   width: 16px; height: 16px; border-radius: 50%;
-  background: var(--panel); transition: transform .15s;
+  background: var(--panel); transition: transform var(--dur-1);
 }
 .bfe-switch input:checked + span { background: var(--primary); }
 .bfe-switch input:checked + span::after { transform: translateX(14px); }
@@ -5524,7 +5596,7 @@ body.portal-mode .nav { display: none !important; }
   border-color: var(--primary-on-tint) !important;
   background: rgb(var(--primary-rgb) / .1) !important;
   box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / .2) inset;
-  transition: background .12s, border-color .12s;
+  transition: background var(--dur-1), border-color var(--dur-1);
 }
 .kanban-drop-hint { opacity: .5; font-style: italic; }
 .crm-card[draggable="true"],
@@ -5539,7 +5611,7 @@ body.portal-mode .nav { display: none !important; }
   border-color: rgb(var(--primary-rgb) / .45);
   transform: translateY(-1px);
   box-shadow: 0 6px 18px rgba(0,0,0,.18);
-  transition: transform .14s, box-shadow .14s, border-color .14s;
+  transition: transform var(--dur-1), box-shadow var(--dur-1), border-color var(--dur-1);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -5588,7 +5660,7 @@ body.portal-mode .nav { display: none !important; }
   border-radius: 12px; border: 1px solid var(--line);
   background: var(--panel2); color: var(--text);
   font-size: 12px; font-weight: 700; cursor: pointer;
-  transition: .14s; white-space: nowrap; overflow: hidden;
+  transition: var(--dur-1); white-space: nowrap; overflow: hidden;
 }
 .oauth-btn:hover {
   border-color: rgb(var(--primary-rgb) / .4);
@@ -5641,7 +5713,7 @@ body.portal-mode .nav { display: none !important; }
 
 /* ── View fade on section switch ───────────────────── */
 @keyframes viewFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-#appContent.view-fade { animation: viewFadeIn .18s ease forwards; }
+#appContent.view-fade { animation: viewFadeIn var(--dur-2) var(--ease-out) forwards; }
 @media (prefers-reduced-motion: reduce) { #appContent.view-fade { animation: none; } }
 
 /* ── Offline banner ─────────────────────────────────── */
@@ -5767,7 +5839,7 @@ body.portal-mode .nav { display: none !important; }
   padding-top: 8px;
   border-top: 1px solid var(--line);
   opacity: 0;
-  transition: opacity .15s;
+  transition: opacity var(--dur-1);
 }
 .item:hover .line-action-bar { opacity: 1; }
 
@@ -5784,7 +5856,7 @@ body.portal-mode .nav { display: none !important; }
   color: var(--muted);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background .15s, color .15s, transform .2s;
+  transition: background var(--dur-1), color var(--dur-1), transform var(--dur-2);
 }
 .line-collapse-btn:hover { background: rgb(var(--primary-rgb) / .1); color: var(--primary); border-color: var(--primary); }
 .line-collapse-btn.collapsed { transform: rotate(180deg); }
@@ -5794,7 +5866,7 @@ body.portal-mode .nav { display: none !important; }
    целиком) — крутится только сама иконка, не вся кнопка, иначе текст перевернётся */
 .stage-collapse-btn svg,
 .estimate-collapse-all-btn svg {
-  transition: transform .2s;
+  transition: transform var(--dur-2);
   flex-shrink: 0;
 }
 .stage-collapse-btn.collapsed svg,
@@ -5806,7 +5878,7 @@ body.portal-mode .nav { display: none !important; }
   max-height: 2000px;
   opacity: 1;
   overflow: hidden;
-  transition: max-height .32s cubic-bezier(0.4,0,0.2,1), opacity .22s ease;
+  transition: max-height var(--dur-3) var(--ease-out), opacity var(--dur-2) var(--ease-out);
 }
 .line-details-collapsed {
   max-height: 0;
@@ -5829,7 +5901,7 @@ body.portal-mode .nav { display: none !important; }
   background: var(--panel2);
   color: var(--muted);
   cursor: pointer;
-  transition: background .15s, color .15s;
+  transition: background var(--dur-1), color var(--dur-1);
   flex-shrink: 0;
 }
 
@@ -5939,7 +6011,7 @@ body.portal-mode .nav { display: none !important; }
   background: none; border: none; color: var(--muted); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
   width: 32px; height: 32px; border-radius: 8px; flex: 0 0 auto;
-  transition: background .15s, color .15s;
+  transition: background var(--dur-1), color var(--dur-1);
 }
 .u-modal-close:hover { background: var(--panel2); color: var(--text); }
 .u-subpanel { margin-top: 18px; box-shadow: none; background: var(--panel2); }
@@ -6007,7 +6079,7 @@ body.portal-mode .nav { display: none !important; }
   min-height: 148px; padding: 18px; text-align: left; cursor: pointer;
   background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
   color: var(--text); font: inherit;
-  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
 }
 .calc-need:hover { transform: translateY(-2px); border-color: var(--primary-text); box-shadow: 0 10px 28px var(--primary-bg); }
 .calc-need:focus-visible { outline: 2px solid var(--primary2); outline-offset: 2px; }
