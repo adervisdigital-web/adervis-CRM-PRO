@@ -1428,5 +1428,61 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(kept, "В работе", "подписание договора откатило сделку назад с «В работе» — синхронизация обязана быть только вперёд");
   });
 
+  /* Договор без dealId существует, но на вкладку своей сделки не попадал, и человек
+     видел только список шаблонов — будто договора нет вовсе. Такие заводит «Пустой
+     договор» (привязку не ставит) и, до v221, кнопка «Договор» на карточке сделки. */
+  await test("сделка: договор без привязки виден на вкладке и привязывается одной кнопкой", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => {
+      window.app.go("contracts");
+      window.app.closeContractEdit();
+      window.app.createBlankContract();
+    });
+    await page.waitForTimeout(300);
+
+    const orphanId = await page.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (raw.contracts || []).find((x) => !x.dealId);
+      return c ? c.id : "";
+    });
+    assert(orphanId, "не удалось завести договор без привязки");
+
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(250);
+    const card = await page.$(".deal-card");
+    assert(card, "нет карточки сделки");
+    await card.click();
+    await page.waitForTimeout(400);
+    await page.evaluate(() => window.app.setDealView("contract"));
+    await page.waitForTimeout(400);
+
+    const did = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (s.project && s.project.id) || s.activeProjectId || "";
+    });
+    assert(did, "не удалось определить открытую сделку");
+
+    const btn = await page.$(`[onclick*="linkContractToDeal('${orphanId}')"]`);
+    assert(btn, "договор без привязки не показан на вкладке «Договор» — человек снова увидит только шаблоны");
+
+    await btn.click();
+    await page.waitForTimeout(500);
+
+    const after = await page.evaluate((args) => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (raw.contracts || []).find((x) => x.id === args.cid);
+      return { dealId: c ? c.dealId : "", clientId: c ? c.clientId : "" };
+    }, { cid: orphanId });
+    assertEqual(after.dealId, did, "кнопка не привязала договор к сделке");
+
+    // После привязки договор обязан появиться уже как «свой», а не остаться в
+    // списке ничьих — иначе кнопка выглядит сработавшей вхолостую.
+    const stillOrphan = await page.$(`[onclick*="linkContractToDeal('${orphanId}')"]`);
+    assert(!stillOrphan, "привязанный договор остался в списке «без привязки»");
+
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(200);
+  });
+
   await context.close();
 };

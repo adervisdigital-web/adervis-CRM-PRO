@@ -22527,10 +22527,53 @@ Email: _____________________              Email: _____________________
         toast("Договор создан и привязан к сделке");
       }
 
+      /* Привязывает существующий договор к открытой сейчас сделке. Заодно
+         проставляет клиента, если он не был выставлен: без clientId «Подставить из
+         сделки» не находит реквизитов заказчика. Отменяемо — привязать не к той
+         сделке легко, а искать потом, где отвязать, долго. */
+      function linkContractToDeal(id) {
+        const { dealId, deal, client } = _dealContractCtx();
+        const c = (state.contracts || []).find(x => x.id === id);
+        if (!c || !dealId) { toast("Сделка не открыта — привязывать не к чему"); return; }
+        const prevClientId = c.clientId;
+        c.dealId = dealId;
+        if (!c.clientId && client) c.clientId = client.id;
+        c.updatedAt = new Date().toISOString();
+        save();
+        render();
+        toastUndo(`Договор привязан к сделке «${(deal && deal.name) || "текущая"}»`, () => {
+          c.dealId = "";
+          c.clientId = prevClientId;
+          save(); render();
+          toast("Привязка отменена");
+        });
+      }
+
       function renderDealContract() {
         const { dealId, deal, clientName, client } = _dealContractCtx();
         const mine = (state.contracts || []).filter(c => c.dealId && c.dealId === dealId);
         const co = state.company || {};
+
+        /* «Ничьи» договоры — без dealId. Они существуют, но на вкладку своей сделки
+           не попадали, и человек видел один список шаблонов, будто договора нет
+           вовсе (на это и пожаловался владелец). Появляются двумя путями:
+           «Пустой договор» привязку не ставит вовсе, а до v221 её не ставила и
+           кнопка «Договор» на карточке сделки.
+
+           Молча присваивать их сделке нельзя — договор мог быть заведён для другой:
+           показываем со списком и привязываем по кнопке. Наверх поднимаем те, что
+           похожи на эту сделку, и подписываем ПОЧЕМУ, чтобы не гадать. */
+        const dealName = ((deal && deal.name) || state.project.name || "").trim().toLowerCase();
+        const orphans = (state.contracts || [])
+          .filter(c => !c.dealId)
+          .map(c => {
+            let why = "", rank = 3;
+            if (client && c.clientId && c.clientId === client.id) { why = "тот же клиент: " + (client.company || client.name); rank = 0; }
+            else if (dealName && String(c.desc || "").trim().toLowerCase() === dealName) { why = "описание совпадает с названием сделки"; rank = 1; }
+            else if (clientName && String(c.name || "").toLowerCase().includes(clientName.trim().toLowerCase())) { why = "в названии есть имя заказчика"; rank = 2; }
+            return Object.assign({}, c, { _why: why, _rank: rank });
+          })
+          .sort((a, b) => a._rank - b._rank || String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
 
         // Что уедет в договор автоподстановкой — показываем ДО создания, чтобы не
         // выяснять постфактум, что половина реквизитов пустая.
@@ -22602,7 +22645,29 @@ Email: _____________________              Email: _____________________
               </div>
             ` : ""}
 
-            <h3 style="font-size:14px;margin:0 0 10px">${mine.length ? "Добавить ещё договор" : "Выберите шаблон"}</h3>
+            ${orphans.length ? `
+              <h3 style="font-size:14px;margin:0 0 4px">Договоры без привязки к сделке (${orphans.length})</h3>
+              <p class="u-meta" style="margin:0 0 10px">
+                Они существуют в разделе «Договора», но не привязаны ни к одной сделке, поэтому
+                и не показывались здесь. Привязка — в один клик.
+              </p>
+              <div class="grid two" style="margin-bottom:18px">
+                ${orphans.slice(0, 6).map(c => `
+                  <div class="panel" style="box-shadow:none;background:var(--panel2);padding:14px 16px;border:1px dashed var(--line)">
+                    <div style="font-weight:800;font-size:14px;margin-bottom:4px">${escapeHtml(c.name)}</div>
+                    <div class="u-meta" style="margin-bottom:10px">
+                      ${c.number ? "№ " + escapeHtml(c.number) + " · " : ""}${escapeHtml(c.category || "Прочее")}${c.updatedAt ? " · изменён " + escapeHtml(formatDate(c.updatedAt.slice(0, 10))) : ""}
+                    </div>
+                    ${c._why ? `<div style="margin-bottom:10px"><span class="badge" style="font-size:11px">${escapeHtml(c._why)}</span></div>` : ""}
+                    <div class="toolbar no-print">
+                      <button class="btn primary small" onclick="app.linkContractToDeal('${c.id}')">Привязать к этой сделке</button>
+                      <button class="btn small" onclick="app.openContractEdit('${c.id}')">Открыть</button>
+                    </div>
+                  </div>`).join("")}
+              </div>
+            ` : ""}
+
+            <h3 style="font-size:14px;margin:0 0 10px">${mine.length ? "Добавить ещё договор" : "Создать договор по шаблону"}</h3>
             <div class="grid three">
               ${CONTRACT_TEMPLATES.map(t => `
                 <button class="deal-contract-tpl" onclick="app.createDealContract('${t.id}')" title="${escapeHtml(t.desc || "")}">
@@ -23327,6 +23392,7 @@ Email: _____________________              Email: _____________________
         fillContractVar,
         autofillContract,
         createDealContract,
+        linkContractToDeal,
         contractNextBlank,
         contractVarContext,
         startContractWizard,
