@@ -1551,5 +1551,69 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.evaluate(() => window.app.closeContractEdit());
   });
 
+  /* Список сделок слева — список ВЫБОРА: по нему переключаются между сделками.
+     Статус-пилюля на краю строки читается как кнопка (тот же разбор, что при
+     выборе клиента в мастере), а различают сделки по деньгам и сроку. */
+  await test("«Смета»: в списке сделок нет статус-пилюли, зато видна сумма", async () => {
+    await dismissStaleDialog(page);
+    await page.setViewportSize({ width: 1500, height: 950 });
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(250);
+    const card = await page.$(".deal-card");
+    assert(card, "нет карточки сделки");
+    await card.click();
+    await page.waitForTimeout(500);
+
+    const rail = await page.evaluate(() => {
+      const r = document.querySelector(".deal-rail");
+      if (!r) return null;
+      const item = r.querySelector(".deal-switcher-item");
+      return {
+        width: Math.round(r.getBoundingClientRect().width),
+        pills: r.querySelectorAll(".status-pill").length,
+        hasStageDot: !!(item && item.querySelector(".deal-switcher-item-stage i")),
+        hasSum: !!(item && item.querySelector(".deal-switcher-item-sum")),
+        items: r.querySelectorAll(".deal-switcher-item").length
+      };
+    });
+    assert(rail, "колонка со сделками не отрисовалась на широком экране");
+    assert(rail.items > 0, "в колонке нет ни одной сделки");
+    assertEqual(rail.pills, 0, "в списке сделок вернулась статус-пилюля — она читается как кнопка");
+    assert(rail.hasStageDot, "этап сделки не показан точкой цвета");
+    assert(rail.hasSum, "в строке сделки не показана сумма — по ней сделки и различают");
+    assert(rail.width >= 268, "колонка уже 268px — названия и клиент снова слипнутся: " + rail.width);
+
+    await page.setViewportSize({ width: 1000, height: 820 });
+  });
+
+  /* Вкладка «КП»: в шапке только действия с готовым документом. Выгрузка в Excel
+     отдаёт СМЕТУ, а не КП, и ей место в разделе «Смета»; «Сгенерировать с ИИ»
+     заполняет три поля ниже, а не делает документ. */
+  await test("КП: в шапке только документные действия, Excel и ИИ убраны оттуда", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => { window.app.go("deal"); window.app.setDealView("proposal"); });
+    await page.waitForTimeout(700);
+
+    const res = await page.evaluate(() => {
+      const bar = document.querySelector(".section-title .toolbar");
+      const btns = bar ? [...bar.querySelectorAll("button")] : [];
+      const ai = document.getElementById("aiProposalBtn");
+      return {
+        labels: btns.map((b) => (b.textContent || "").replace(/\s+/g, " ").trim()),
+        primary: btns.filter((b) => b.classList.contains("primary")).length,
+        xlsxInBar: bar ? bar.querySelectorAll(".xlsx-icon-btn").length : -1,
+        aiExists: !!ai,
+        aiInBar: !!(ai && bar && bar.contains(ai))
+      };
+    });
+
+    assertEqual(res.xlsxInBar, 0, "выгрузка в Excel вернулась в шапку КП — она отдаёт смету, а не КП");
+    assert(res.aiExists, "кнопка «Сгенерировать с ИИ» пропала вовсе");
+    assert(!res.aiInBar, "кнопка ИИ снова в шапке — там она читается как действие с документом");
+    assertEqual(res.primary, 1,
+      "в шапке КП должна быть ровно одна главная кнопка, иначе они спорят: " + res.labels.join(" | "));
+    assert(res.labels.length <= 3, "в шапке КП снова больше трёх кнопок: " + res.labels.join(" | "));
+  });
+
   await context.close();
 };

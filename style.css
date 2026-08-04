@@ -3901,8 +3901,8 @@
     .deal-switcher-section-chevron { transition: transform var(--dur-1); font-size: 11px; }
     .deal-switcher-section-chevron.open { transform: rotate(180deg); }
     .deal-switcher-item {
-      display: flex; flex-direction: column; gap: 3px;
-      padding: 10px 12px; border-radius: 9px;
+      display: flex; flex-direction: column; gap: 5px;
+      padding: 12px 14px; border-radius: 10px;
       cursor: pointer; transition: background var(--dur-1);
     }
     .deal-switcher-item:hover { background: var(--panel2); }
@@ -3920,6 +3920,32 @@
       display: flex; align-items: center; gap: 8px;
       font-size: 12px; color: var(--muted);
     }
+    /* Ярусы строки сделки: название → клиент → этап и сумма → срок.
+       min-width:0 обязателен на всех — иначе длинное название клиента распирает
+       колонку шире её дорожки в гриде. */
+    .deal-switcher-item-client {
+      font-size: 12px; color: var(--muted); min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .deal-switcher-item-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; font-size: 12px; min-width: 0;
+    }
+    .deal-switcher-item-stage {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--muted); min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    /* Точка этапа — тот же язык, что на карточках главной. Пилюля здесь читалась
+       как кнопка: форма на краю строки — это язык действия, а не свойства. */
+    .deal-switcher-item-stage i {
+      width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto;
+    }
+    .deal-switcher-item-sum {
+      font-weight: 800; color: var(--text); flex: 0 0 auto;
+      font-variant-numeric: tabular-nums;
+    }
+    .deal-switcher-item-date { font-size: 11px; }
 
     /* ── ANALYTICS DATE FILTER ────────────────────── */
     .analytics-date-bar {
@@ -6305,8 +6331,11 @@ body.portal-mode .nav { display: none !important; }
    поиска в колонке отдельный id — см. renderDealRailHtml). */
 .deal-layout {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 16px;
+  /* Было жёстко 260px: название сделки и имя клиента обрезались почти всегда, а
+     этап с датой стояли встык. Растим вместе с экраном, но не бесконечно —
+     выше 340px колонка начинает отъедать место у самой сметы. */
+  grid-template-columns: clamp(268px, 20vw, 340px) minmax(0, 1fr);
+  gap: 18px;
   align-items: start;
 }
 .deal-layout-main { min-width: 0; }   /* без этого грид растягивается под самую широкую строку сметы */

@@ -16408,8 +16408,10 @@
                     <h1>Финансы</h1>
                     <p>${escapeHtml(state.project.name || "Проект")} · ${escapeHtml(state.project.client || "Клиент не указан")}</p>
                   </div>
+                  ${/* Выгрузка в Excel отсюда убрана: она отдаёт СМЕТУ, а не
+                        финансы сделки. Финансовый документ этого экрана — счёт,
+                        он рядом. Сама выгрузка живёт в разделе «Смета». */""}
                   <div class="toolbar">
-                    <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать в Excel (.xlsx)" aria-label="Экспорт в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>
           <button class="btn" onclick="app.printInvoice()" title="Сформировать счёт на оплату PDF"> Счёт</button>
           ${(state.savedProjects||[]).find(p=>p.id===state.activeProjectId)?.debt > 0 ? `<button class="btn" onclick="app.sendDebtReminder()" title="Отправить напоминание о долге в Telegram"> Напомнить об оплате</button>` : ""}
                   </div>
@@ -16976,20 +16978,17 @@
                 <p>Клиентская версия сметы с итогами, этапами и условиями.</p>
               </div>
 
+              ${/* В шапке — только действия С ГОТОВЫМ ДОКУМЕНТОМ, и главное из них
+                    первым. Раньше здесь стояли впятером: две кнопки выглядели
+                    главными сразу (фиолетовый ИИ и фиолетовая «Ссылка КП») и
+                    спорили друг с другом, а ряд переносился на вторую строку.
+
+                    Убраны отсюда:
+                      • выгрузка в Excel — она отдаёт СМЕТУ, а не КП; её место в
+                        разделе «Смета», где этот файл и собирают;
+                      • «Сгенерировать с ИИ» — она не делает документ, а заполняет
+                        три поля ниже, поэтому переехала к ним. */""}
               <div class="toolbar">
-                <button class="btn" id="aiProposalBtn" onclick="app.generateProposalAI()" title="Сгенерировать текст КП через ИИ на основе состава сметы" style="background:var(--primary);border-color:transparent;color:#fff">
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1l1.1 3.4L12.5 5.5 9.1 6.6 8 10 6.9 6.6 3.5 5.5l3.4-1.1L8 1zM3 9.5l.6 1.9 1.9.6-1.9.6L3 14.5l-.6-1.9-1.9-.6 1.9-.6L3 9.5zm10 0l.55 1.7 1.7.55-1.7.55L13 14.5l-.55-1.7-1.7-.55 1.7-.55L13 9.5z"/></svg>
-                  Сгенерировать с ИИ
-                </button>
-                <button class="btn" onclick="app.copyProposalText()" title="Скопировать текст КП в буфер обмена">
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 1h6a1 1 0 011 1v1h1a1 1 0 011 1v9a1 1 0 01-1 1H6a1 1 0 01-1-1v-1H4a1 1 0 01-1-1V2a1 1 0 011-1zm0 1v9h1V4a1 1 0 011-1h4V2H5zm2 2v9h6V4H7z"/></svg>
-                  Скопировать текст
-                </button>
-                <button class="btn blue" onclick="app.downloadProposalPDF()" title="Открыть версию для печати / сохранить PDF">
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 1h8v4H4V1zM3 6h10a2 2 0 012 2v4h-3v3H4v-3H1V8a2 2 0 012-2zm2 6v3h6v-3H5zm-1-3.5a.75.75 0 100 1.5.75.75 0 000-1.5z"/></svg>
-                  Печать / PDF
-                </button>
-                <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать в Excel (.xlsx)" aria-label="Экспорт в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>
                 ${(() => {
                   const cl = getCurrentClient();
                   return cl?.email
@@ -16997,11 +16996,19 @@
                         <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2 3h12a1 1 0 011 1v8a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1zm.4 1L8 8.4 13.6 4H2.4zM1 5.2V12h14V5.2L8 9.6 1 5.2z"/></svg>
                         КП на ${escapeHtml(cl.email)}
                       </button>`
-                    : `<button class="btn" onclick="app.createClientPortal('${state.project.id}')" title="Создать ссылку на КП — добавьте email клиента, чтобы отправить письмо напрямую">
+                    : `<button class="btn primary" onclick="app.createClientPortal('${state.project.id}')" title="Создать ссылку на КП — добавьте email клиента, чтобы отправить письмо напрямую">
                         <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6.5 4h-2a3 3 0 000 6h2v-1h-2a2 2 0 010-4h2V4zm3 0h2a3 3 0 010 6h-2v-1h2a2 2 0 000-4h-2V4zM5.5 7.5h5v1h-5v-1z"/></svg>
                         Ссылка КП
                       </button>`;
                 })()}
+                <button class="btn" onclick="app.downloadProposalPDF()" title="Открыть версию для печати / сохранить PDF">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 1h8v4H4V1zM3 6h10a2 2 0 012 2v4h-3v3H4v-3H1V8a2 2 0 012-2zm2 6v3h6v-3H5zm-1-3.5a.75.75 0 100 1.5.75.75 0 000-1.5z"/></svg>
+                  Печать / PDF
+                </button>
+                <button class="btn" onclick="app.copyProposalText()" title="Скопировать текст КП в буфер обмена">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 1h6a1 1 0 011 1v1h1a1 1 0 011 1v9a1 1 0 01-1 1H6a1 1 0 01-1-1v-1H4a1 1 0 01-1-1V2a1 1 0 011-1zm0 1v9h1V4a1 1 0 011-1h4V2H5zm2 2v9h6V4H7z"/></svg>
+                  Скопировать текст
+                </button>
               </div>
             </div>
 
@@ -17031,7 +17038,20 @@
               ${field("Условия передачи", `<textarea data-autosave data-scope="project" data-key="deliveryTerms">${escapeHtml(state.project.deliveryTerms)}</textarea>`)}
             </div>
 
-            <div class="grid two no-print client-hidden" style="margin-top:14px">
+            ${/* Кнопка ИИ стоит здесь, а не в шапке: она заполняет ровно эти три
+                  поля (includedText, excludedText, proposalNote) и ничего больше.
+                  В шапке рядом с «Печать» и «Ссылка КП» она читалась как ещё одно
+                  действие с документом — непонятно было, что именно она изменит. */""}
+            <div class="no-print client-hidden" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px">
+              <strong style="font-size:13px">Что входит и что нет</strong>
+              <span class="u-meta" style="flex:1 1 auto;min-width:0">Текст для клиента — можно написать самому или сгенерировать по составу сметы</span>
+              <button class="btn small" id="aiProposalBtn" onclick="app.generateProposalAI()" title="Заполнить «Включено», «Не включено» и «Примечание» по составу сметы">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1l1.1 3.4L12.5 5.5 9.1 6.6 8 10 6.9 6.6 3.5 5.5l3.4-1.1L8 1zM3 9.5l.6 1.9 1.9.6-1.9.6L3 14.5l-.6-1.9-1.9-.6 1.9-.6L3 9.5zm10 0l.55 1.7 1.7.55-1.7.55L13 14.5l-.55-1.7-1.7-.55 1.7-.55L13 9.5z"/></svg>
+                Сгенерировать с ИИ
+              </button>
+            </div>
+
+            <div class="grid two no-print client-hidden" style="margin-top:10px">
               ${field("Включено", `<textarea data-autosave data-scope="project" data-key="includedText">${escapeHtml(state.project.includedText)}</textarea>`)}
               ${field("Не включено", `<textarea data-autosave data-scope="project" data-key="excludedText">${escapeHtml(state.project.excludedText)}</textarea>`)}
             </div>
@@ -17503,11 +17523,12 @@
                 <p>Все поступления и расходы по всем проектам.</p>
               </div>
               <div class="toolbar no-print">
+                ${/* Кнопка «Скачать всё в Excel» убрана: exportXlsx() выгружает
+                      смету ОДНОЙ открытой сделки, а не «всё» и не финансы. На
+                      экране «Все поступления и расходы по всем проектам» она
+                      обещала полную выгрузку и отдавала чужой файл. */""}
                 <button class="fin-quick-btn income" onclick="app.openFinanceModal('payment')">+ Поступление</button>
                 <button class="fin-quick-btn expense" onclick="app.openFinanceModal('expense')">− Расход</button>
-                <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать всё в Excel (.xlsx)" aria-label="Экспорт в Excel">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg>
-                </button>
               </div>
             </div>
 
@@ -18752,7 +18773,11 @@
               <div class="toolbar no-print">
                 <button class="btn primary" onclick="app.exportData()">Экспорт JSON</button>
                 <button class="btn" onclick="document.getElementById('importJsonInput').click()">Импорт JSON</button>
-                <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать все данные в Excel (.xlsx)" aria-label="Экспорт в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>
+                ${/* Подпись исправлена: «все данные» кнопка не выгружает — только
+                      смету открытой сделки. Полная выгрузка здесь одна — «Экспорт
+                      JSON» слева. Кнопку оставили: этот экран люди и открывают
+                      ради выгрузок, но обещание должно совпадать с делом. */""}
+                <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Смета открытой сделки в Excel (.xlsx)" aria-label="Смета открытой сделки в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>
                 <button class="btn" onclick="app.printProposal()">Печать / PDF</button>
                 <button class="btn" onclick="document.getElementById('importCatalogInput').click()">Импорт каталога</button>
               </div>
@@ -21033,18 +21058,32 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           ? projects.filter(p => (p.name || "").toLowerCase().includes(q) || (p.client || "").toLowerCase().includes(q))
           : projects;
       }
+      /* Строка списка сделок. Раньше клиент, статус-ПИЛЮЛЯ и дата стояли в одну
+         строку встык: пилюля на краю строки читается как кнопка (тот же разбор,
+         что и при выборе клиента в мастере), а три разнородные вещи подряд
+         сливались в кашу.
+
+         Теперь три яруса: название → клиент → этап и СУММА. Сумма здесь не
+         украшение: список нужен, чтобы ПЕРЕКЛЮЧИТЬСЯ между сделками, а различают
+         их по деньгам и сроку, а не по этапу. Этап остался точкой цвета — тем же
+         языком, что на карточках главной, но уже не похожим на кнопку. */
       function _dealSwitcherItemHtml(p, extraClass) {
         const cur = state.activeProjectId;
         const isActive = p.id === cur;
         const u = dealDeadlineUrgency(p);
+        const stage = p.crmStatus || "Лид";
+        const dateColor = u && u.level !== "ok" ? u.color : "var(--muted)";
         return `
           <div class="deal-switcher-item ${isActive ? "active" : ""} ${extraClass || ""}" onclick="app.switchDeal('${p.id.replace(/'/g, "")}')">
             <div class="deal-switcher-item-name">${escapeHtml(p.name || "Без названия")}</div>
-            <div class="deal-switcher-item-sub">
-              ${p.client ? `<span>${escapeHtml(p.client)}</span>` : ""}
-              <span class="status-pill" style="font-size:12px;padding:1px 7px">${escapeHtml(p.crmStatus || "Лид")}</span>
-              ${p.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}"> ${escapeHtml(formatDate(p.deadline))}</span>` : ""}
+            ${p.client ? `<div class="deal-switcher-item-client">${escapeHtml(p.client)}</div>` : ""}
+            <div class="deal-switcher-item-meta">
+              <span class="deal-switcher-item-stage">
+                <i style="background:${CRM_STATUS_COLOR[stage] || "var(--muted)"}"></i>${escapeHtml(stage)}
+              </span>
+              ${p.total ? `<span class="deal-switcher-item-sum">${money(p.total)}</span>` : ""}
             </div>
+            ${p.deadline ? `<div class="deal-switcher-item-date" style="color:${dateColor}">${escapeHtml(formatDate(p.deadline))}</div>` : ""}
           </div>
         `;
       }
