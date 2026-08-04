@@ -2,7 +2,7 @@
 // включая <360px и каталог-навигацию. Проверяем, что документ не расширяется
 // за вьюпорт ни на одной вьюхе ни на одном брейкпоинте.
 const path = require("path");
-const { bootLocal, assert } = require("../harness");
+const { bootLocal, assert, assertEqual } = require("../harness");
 
 const WIDTHS = [320, 360, 480, 640, 768, 900];
 // Список расширен 26.07.2026 после ручного прохода 390×844 по всем разделам: тот проход
@@ -234,6 +234,63 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     assert(shortInputs.length === 0, "поля ввода ниже 44px при касании: " + shortInputs.join("; "));
 
     await touchCtx.close();
+  });
+
+  /* KPI-полоса дашборда переносится уже с 1280px, а на 390px это ПЯТЬ рядов.
+     Горизонтальных линий не было ни одной — ряды сливались в стену цифр.
+     Разделители рисуются внешней тенью слева и сверху: `gap` с подложкой цвета
+     линии не годится, потому что auto-fill оставляет в последнем ряду пустые
+     дорожки и подложка проступила бы в них серым блоком. */
+  await test("дашборд: у KPI-плиток есть разделители, и они переживают наведение", async () => {
+    await page.setViewportSize({ width: 900, height: 900 });
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(350);
+
+    const res = await page.evaluate(() => {
+      const row = document.querySelector(".db-stat-row");
+      if (!row) return null;
+      const tiles = [...row.querySelectorAll(".db-stat")];
+      if (tiles.length < 2) return null;
+      const rect = (t) => t.getBoundingClientRect();
+      const tops = [...new Set(tiles.map((t) => Math.round(rect(t).top)))].sort((a, b) => a - b);
+      const firstRow = tiles.filter((t) => Math.round(rect(t).top) === tops[0]);
+      const secondRow = tops[1] != null ? tiles.filter((t) => Math.round(rect(t).top) === tops[1]) : [];
+      const shadowOf = (t) => getComputedStyle(t).boxShadow;
+      return {
+        rows: tops.length,
+        clips: getComputedStyle(row).overflow,
+        // Шов между рядами: низ первого ряда совпадает с верхом второго —
+        // именно туда ложится верхняя тень.
+        seam: secondRow.length
+          ? Math.round(rect(firstRow[0]).bottom) === Math.round(rect(secondRow[0]).top)
+          : null,
+        shadow: shadowOf(tiles[0]),
+        sepVar: getComputedStyle(tiles[0]).getPropertyValue("--stat-sep").trim()
+      };
+    });
+    assert(res, "KPI-полоса не отрисовалась");
+    assert(res.rows > 1, "на 900px полоса обязана переноситься — иначе проверять нечего");
+    assertEqual(res.clips, "hidden",
+      "контейнер перестал обрезать содержимое — тени вылезут рамкой по краям полосы");
+    assertEqual(res.seam, true, "ряды не примыкают друг к другу — шов, на который ложится линия, разъехался");
+    assert(/-1px/.test(res.shadow) && /0px -1px/.test(res.shadow.replace(/\s+/g, " ")),
+      "у плитки нет разделительных теней слева и сверху: " + res.shadow);
+    assert(res.sepVar.length > 0, "переменная --stat-sep пропала — правила наведения потеряют разделители");
+
+    // Наведение раньше ЗАМЕНЯЛО box-shadow целиком, и линии вокруг плитки исчезали.
+    const clickable = await page.$(".db-stat[onclick]");
+    if (clickable) {
+      await clickable.hover();
+      await page.waitForTimeout(200);
+      const hovered = await page.evaluate(() => {
+        const t = document.querySelector(".db-stat[onclick]:hover") || document.querySelector(".db-stat[onclick]");
+        return getComputedStyle(t).boxShadow;
+      });
+      assert(/-1px/.test(hovered),
+        "под курсором разделители пропали — правило наведения перебило box-shadow: " + hovered);
+    }
+
+    await page.setViewportSize({ width: 900, height: 800 });
   });
 
   // Визуальная фиксация каталога на самом узком экране (п.20 — визуальный обход)

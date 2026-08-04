@@ -2978,17 +2978,31 @@
          (замер пробником на 1180px). Теперь ряд переносится, а не обрезается. */
       flex: 1; min-width: 150px;
       padding: 10px 14px;
-      border-right: 1px solid var(--line);
       transition: background var(--dur-1) var(--ease-out);
+
+      /* Разделители — ВНЕШНЕЙ тенью слева и сверху, а не рамкой.
+         Замер (04.08): полоса переносится уже с 1280px, а на 390px это ПЯТЬ рядов
+         вплотную — горизонтальной линии не было ни одной, ряды сливались в стену
+         цифр. Прежняя `border-right` рисовала только вертикали и вдобавок оставляла
+         висячую черту на правом краю переносимого ряда.
+
+         Почему тень, а не `gap: 1px` с подложкой цвета линии: сетка auto-fill
+         оставляет в последнем ряду ПУСТЫЕ дорожки (на 1280px — семь), и подложка
+         проступила бы в них серым блоком. Тень же рисуется только у реальных
+         плиток. А `overflow:hidden` контейнера срезает её у первого ряда и первого
+         столбца — линии остаются строго между плитками, по краям их нет. */
+      --stat-sep: -1px 0 0 var(--line), 0 -1px 0 var(--line);
+      box-shadow: var(--stat-sep);
     }
-    .db-stat:last-child { border-right: none; }
     .db-stat[onclick] { cursor: pointer; }
     /* Плитки ведут в раздел, но выглядели как обычный текст: единственным намёком
        был курсор, которого на телефоне нет. Подчёркивание акцентом + подпись в
        полный цвет — сигнал «сюда можно нажать», не занимающий места. */
+    /* Наведение ДОБАВЛЯЕТ подчёркивание к разделителям, а не заменяет их: без
+       var(--stat-sep) в этих правилах линии вокруг плитки пропадали под курсором. */
     .db-stat[onclick]:hover {
       background: var(--panel);
-      box-shadow: inset 0 -2px 0 var(--primary);
+      box-shadow: var(--stat-sep), inset 0 -2px 0 var(--primary);
     }
     .db-stat[onclick]:hover .db-stat-label { color: var(--text); }
     .db-stat[onclick]:active { background: var(--panel2); }
@@ -3015,7 +3029,7 @@
     .db-stat-delta.pos { color: var(--text-success); }
     .db-stat-delta.neg { color: var(--text-danger); }
     .db-stat-delta.neu { color: var(--muted); }
-    .db-stat[onclick]:hover { box-shadow: inset 0 0 0 1px rgb(var(--primary-rgb) / .25); }
+    .db-stat[onclick]:hover { box-shadow: var(--stat-sep), inset 0 0 0 1px rgb(var(--primary-rgb) / .25); }
 
     @media (max-width: 900px) { .db-stat { min-width: 45%; padding: 9px 12px; } .db-stat-value { font-size: 15px; } }
     @media (max-width: 480px) { .db-stat { min-width: 50%; } }
