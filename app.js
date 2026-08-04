@@ -11232,11 +11232,16 @@
         window.print();
       }
 
-      function downloadProposalPDF() {
-        const name = (state.project.name || "КП").replace(/[^\wа-яёА-ЯЁ\s-]/gi, "").trim();
-        const content = renderProposalPrint();
-        if (!content || !content.trim()) { toast('Нет данных для PDF'); return; }
-        const css = `
+      /* ── Единый бланк печатных документов ──────────────────────────────────
+         КП печаталось оформленным (логотип, шапка, таблицы), а договор — голым
+         текстом в Arial без единого реквизита. Два документа одного агентства
+         выглядели как из разных контор, и это видел заказчик.
+
+         Стили и шапка теперь общие: правка бланка меняет ОБА документа сразу.
+         Классы оставлены прежние (.proposal-brand), чтобы не трогать уже
+         работающую разметку КП. */
+      function _docPrintCss() {
+        return `
           @page { margin: 15mm 18mm; }
           * { box-sizing: border-box; }
           body { font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #111; background: #fff; margin: 0; padding: 20px; }
@@ -11254,7 +11259,54 @@
           .proposal-brand img { width: 36px; height: 36px; object-fit: contain; }
           .proposal-brand p { font-size: 12px; color: #6b7280; margin: 0; }
           .empty { color: #9ca3af; font-style: italic; }
+          /* Тело договора — текст как есть, переносы автора значимы. */
+          .doc-body { white-space: pre-wrap; font-size: 13px; }
+          .doc-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+          .doc-num { font-size: 13px; color: #6b7280; font-weight: 600; }
+          .doc-req { margin-top: 18px; font-size: 12px; color: #374151; }
+          .doc-req-title { font-weight: 700; color: #000; margin-bottom: 4px; }
+          .doc-req div { margin-bottom: 2px; }
         `;
+      }
+
+      // Шапка документа: логотип и название агентства. Общая для КП и договора.
+      function _docBrandHtml() {
+        const logo = String(state.company.logoUrl || "").trim();
+        const name = state.company.name || "Adervis";
+        const desc = String(state.company.desc || "").trim();
+        return `
+          <div class="proposal-brand">
+            ${logo ? `<img src="${escapeHtml(logo)}" alt="${escapeHtml(name)}">` : ""}
+            <div>
+              <h1>${escapeHtml(name)}</h1>
+              ${desc ? `<p>${escapeHtml(desc)}</p>` : ""}
+            </div>
+          </div>`;
+      }
+
+      /* Реквизиты внизу договора. Без ИНН и адреса документ не подписывают, а
+         раньше их приходилось дописывать руками в самом тексте. Пустые поля не
+         печатаем: строка «ИНН —» хуже отсутствия строки. */
+      function _docRequisitesHtml() {
+        const c = state.company || {};
+        const rows = [
+          ["ИНН", c.inn], ["Адрес", c.address],
+          ["Телефон", c.phone], ["Email", c.email], ["Сайт", c.site]
+        ].filter(r => String(r[1] || "").trim());
+        if (!rows.length && !String(c.name || "").trim()) return "";
+        return `
+          <hr>
+          <div class="doc-req">
+            <div class="doc-req-title">${escapeHtml(c.name || "Исполнитель")}</div>
+            ${rows.map(([k, v]) => `<div>${escapeHtml(k)}: ${escapeHtml(String(v))}</div>`).join("")}
+          </div>`;
+      }
+
+      function downloadProposalPDF() {
+        const name = (state.project.name || "КП").replace(/[^\wа-яёА-ЯЁ\s-]/gi, "").trim();
+        const content = renderProposalPrint();
+        if (!content || !content.trim()) { toast('Нет данных для PDF'); return; }
+        const css = _docPrintCss();
         const baseUrl = location.origin + location.pathname.replace(/[^/]*$/, '');
         const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><base href="${baseUrl}"><title>КП — ${escapeHtml(name)}</title><style>${css}</style></head><body>${content}</body></html>`;
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
@@ -22351,10 +22403,29 @@ Email: _____________________              Email: _____________________
         if (!win) { toast("Браузер заблокировал открытие окна. Разрешите всплывающие окна для этого сайта."); return; }
         // Номер печатается рядом с названием: это реквизит документа, а не пометка
         // для внутреннего учёта — на бумаге он должен быть виден.
-        const title = escapeHtml(c.name) + (c.number ? ` № ${escapeHtml(c.number)}` : "");
-        win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(c.name)}</title><style>body{font-family:Arial,sans-serif;margin:40px;line-height:1.6;white-space:pre-wrap;font-size:13px}h1{font-size:18px;margin-bottom:16px}</style></head><body><h1>${title}</h1>${escapeHtml(c.body)}</body></html>`);
+        //
+        // base href обязателен: окно открыто как about:blank, и относительный путь
+        // логотипа («logo-icon.svg» по умолчанию) без него не разрешается — шапка
+        // печаталась бы с битой картинкой.
+        const baseUrl = location.origin + location.pathname.replace(/[^/]*$/, "");
+        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">`
+          + `<base href="${baseUrl}"><title>${escapeHtml(c.name)}</title>`
+          + `<style>${_docPrintCss()}</style></head><body>`
+          + _docBrandHtml()
+          + `<hr>`
+          + `<div class="doc-title"><h2 style="margin:0">${escapeHtml(c.name)}</h2>`
+          + (c.number ? `<span class="doc-num">№ ${escapeHtml(c.number)}</span>` : "")
+          + `</div>`
+          + `<div class="doc-body">${escapeHtml(c.body || "")}</div>`
+          + _docRequisitesHtml()
+          + `</body></html>`;
+        win.document.write(html);
         win.document.close();
-        win.print();
+        // Печать после загрузки логотипа: иначе диалог успевает открыться раньше
+        // картинки и она не попадает на страницу.
+        const go = () => { try { win.focus(); win.print(); } catch (e) {} };
+        if (win.document.readyState === "complete") setTimeout(go, 250);
+        else win.addEventListener("load", () => setTimeout(go, 150));
       }
 
       /* Обычный путь (всё заполнено) остаётся ПОЛНОСТЬЮ синхронным: window.open

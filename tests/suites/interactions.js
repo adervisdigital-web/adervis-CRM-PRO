@@ -1615,5 +1615,73 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(res.labels.length <= 3, "в шапке КП снова больше трёх кнопок: " + res.labels.join(" | "));
   });
 
+  /* Договор печатался голым текстом в Arial — без логотипа, названия агентства и
+     единого реквизита, тогда как КП уходило клиенту оформленным. Два документа
+     одной студии выглядели как из разных контор. Бланк теперь общий. */
+  await test("договор печатается на фирменном бланке: шапка, номер и реквизиты", async () => {
+    await dismissStaleDialog(page);
+
+    // Реквизиты компании — без них печатать в бланке нечего.
+    await page.evaluate(() => { window.app.go("settings"); window.app._setSettingsTab("company"); });
+    await page.waitForTimeout(600);
+    const innSet = await page.evaluate(() => {
+      const set = (key, val) => {
+        const el = document.querySelector(`[data-scope="company"][data-key="${key}"]`);
+        if (!el) return false;
+        el.value = val;
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        return true;
+      };
+      return {
+        ok: set("inn", "590000000000") && set("address", "г. Пермь, ул. Примерная, 1"),
+        scoped: document.querySelectorAll('[data-scope="company"]').length,
+        view: (JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}")).view
+      };
+    });
+    assert(innSet.ok, `не нашлись поля реквизитов компании: полей scope=company ${innSet.scoped}, вьюха «${innSet.view}»`);
+    await page.waitForTimeout(400);
+
+    // Договор со всеми заполненными полями — иначе печать переспросит.
+    const cid = await page.evaluate(() => {
+      window.app.go("contracts");
+      window.app.closeContractEdit();
+      window.app.createContractFromTemplate("tpl_release");
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (raw.contracts || [])[0];
+      window.app.contractVars(c.body).forEach((v) => window.app.fillContractVar(c.id, v, "значение"));
+      return c.id;
+    });
+    await page.waitForTimeout(500);
+
+    const [popup] = await Promise.all([
+      page.waitForEvent("popup", { timeout: 15000 }),
+      page.evaluate((id) => window.app.printContract(id), cid)
+    ]);
+    await popup.waitForLoadState("domcontentloaded").catch(() => {});
+    await popup.waitForTimeout(500);
+
+    const doc = await popup.evaluate(() => ({
+      brand: !!document.querySelector(".proposal-brand"),
+      brandName: (document.querySelector(".proposal-brand h1") || {}).textContent || "",
+      logo: !!document.querySelector(".proposal-brand img"),
+      hasBase: !!document.querySelector("base"),
+      num: (document.querySelector(".doc-num") || {}).textContent || "",
+      body: (document.querySelector(".doc-body") || {}).textContent || "",
+      req: (document.querySelector(".doc-req") || {}).textContent || ""
+    }));
+
+    assert(doc.brand, "в печатном договоре нет фирменной шапки");
+    assert(doc.brandName.trim().length > 0, "в шапке нет названия агентства");
+    assert(doc.logo, "в шапке печатного договора нет логотипа");
+    assert(doc.hasBase, "нет <base>: относительный путь логотипа не разрешится, картинка будет битой");
+    assert(/\d{4}-\d{3}/.test(doc.num), "номер договора не напечатан: «" + doc.num + "»");
+    assert(doc.body.length > 100, "тело договора не попало в печать");
+    assert(/590000000000/.test(doc.req), "в печати нет ИНН — договор с такими реквизитами не подписывают");
+    assert(/Пермь/.test(doc.req), "в печати нет адреса компании");
+
+    await popup.close();
+    await page.evaluate(() => window.app.closeContractEdit());
+  });
+
   await context.close();
 };
