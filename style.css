@@ -3216,7 +3216,9 @@
     .funnel-stage.active { border-color: var(--primary-on-tint); background: rgb(var(--primary-rgb) / .12); }
     .funnel-stage h3 { font-size: 11px; color: var(--muted); margin: 0 0 2px; }
     .funnel-stage .fs-count { font-size: 19px; font-weight: 900; line-height: 1.1; }
-    .funnel-stage .fs-amount { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+    /* 11.5px, а не 10.5: это ДЕНЬГИ по этапу, ради которых воронку и открывают.
+       Замер показал, что суммы и на 11.5px помещаются в плитку 98px без обрезки. */
+    .funnel-stage .fs-amount { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
     @media (max-width: 640px) {
       /* Горизонтальная свайп-полоса вместо ломаного grid (auto-fit давал
          неровные строки: 1/2/3 плитки на разных строках). */
@@ -6415,3 +6417,23 @@ body.portal-mode .nav { display: none !important; }
 }
 .deal-contract-tpl-name { font-size: 14px; font-weight: 800; line-height: 1.3; }
 .deal-contract-tpl-desc { font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+/* ── Табличные цифры у сумм (DESIGN.md §5) ────────────────────────────────
+   Пропорциональные цифры разной ширины: сумма «прыгает» при пересчёте, а в
+   списках колонка чисел не выравнивается по разрядам. Для CRM, где деньги —
+   главное содержимое, это заметно на каждом экране.
+
+   Замер живого DOM (04.08) нашёл семь видов сумм без табличных цифр, включая
+   .fin-amount 22px — самое крупное число в «Финансах».
+
+   Правило намеренно шире одних сумм: у .badge и .kp-row-sub рядом с деньгами
+   стоит текст, а на буквы font-variant-numeric не влияет вовсе — разделять
+   их отдельными обёртками значило бы плодить разметку ради нуля эффекта. */
+.funnel-stage .fs-amount,
+.fin-card .fin-amount,
+.kp-row-sub,
+.db-analytics-legend,
+.db-analytics-legend span,
+.badge {
+  font-variant-numeric: tabular-nums;
+}

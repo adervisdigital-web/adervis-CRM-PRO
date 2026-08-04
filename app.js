@@ -17858,7 +17858,7 @@
                   <input type="date" value="${escapeHtml(state.gFinDateTo)}" onchange="app.setGFinDateTo(this.value)" title="По">
                 </div>
               ` : ""}
-              <span style="font-size:12px;color:var(--muted);margin-left:auto">${filtered.length} ${plural(filtered.length, "операция", "операции", "операций")} · ${money(filtered.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))} получено · ${money(filtered.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))} расходов</span>
+              <span style="font-size:12px;color:var(--muted);margin-left:auto;font-variant-numeric:tabular-nums">${filtered.length} ${plural(filtered.length, "операция", "операции", "операций")} · ${money(filtered.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))} получено · ${money(filtered.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))} расходов</span>
             </div>
 
             <div class="fin-table-wrap">
@@ -18123,7 +18123,10 @@
                       onclick="${ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : ev.htmlLink ? `window.open('${escapeHtml(ev.htmlLink)}','_blank')` : `app.calSelectDay('${ev.date}')`}">
                       <div style="width:8px;height:8px;border-radius:50%;background:${typeColor[ev.type]};flex:0 0 8px"></div>
                       <div class="u-flex1-min0">
-                        <div style="font-size:13px;font-weight:750;${isPast&&!isToday?"opacity:.6":""}overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(ev.title)}</div>
+                        ${/* title — то же лечение, что у названия сделки в таблице
+                              финансов: строка режется жёстким многоточием, и какое
+                              это событие, иначе не выяснить, не открыв его. */""}
+                        <div title="${escapeHtml(ev.title)}" style="font-size:13px;font-weight:750;${isPast&&!isToday?"opacity:.6":""}overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(ev.title)}</div>
                         <div class="u-meta">${formatDate(ev.date)}${ev.project ? ` · ${escapeHtml(ev.project)}` : ""}${ev.amount ? ` · ${money(ev.amount)}` : ""}</div>
                       </div>
                       <span style="font-size:12px;color:${typeTextColor[ev.type]};font-weight:750;flex:0 0 auto;white-space:nowrap">${escapeHtml(typeLabel[ev.type]||"")}</span>

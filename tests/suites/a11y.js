@@ -237,6 +237,65 @@ module.exports = async function ({ browser, baseUrl, test }) {
   // светлых оттенков (напр. #60a5fa) выглядит нормально на тёмном и почти исчезает
   // на белом. Композитим альфу по цепочке родителей и считаем WCAG-отношение.
   // Порог 4.5:1 — это мелкий текст (12px), то есть AA для обычного текста.
+  /* DESIGN.md §5: суммы набираются табличными цифрами. Пропорциональные разной
+     ширины — сумма «прыгает» при пересчёте, а в списке колонка чисел не встаёт
+     по разрядам. Замер 04.08 нашёл семь таких мест, включая .fin-amount 22px —
+     самое крупное число в «Финансах». */
+  await test("суммы набраны табличными цифрами на всех экранах", async () => {
+    const bad = [];
+    for (const view of ["home", "crm", "proposals", "global-finances"]) {
+      await page.evaluate((v) => window.app.go(v), view);
+      await page.waitForTimeout(300);
+      const found = await page.evaluate(() => {
+        const vis = (el) => {
+          const r = el.getBoundingClientRect();
+          const cs = getComputedStyle(el);
+          return r.width > 2 && r.height > 2 && cs.visibility !== "hidden" && cs.display !== "none";
+        };
+        const MONEY = /\d[\d\s ]{2,}\s*₽/;
+        const out = [];
+        document.querySelectorAll("#appContent *").forEach((el) => {
+          if (el.children.length !== 0 || !vis(el)) return;
+          const t = (el.textContent || "").trim();
+          if (!MONEY.test(t)) return;
+          const cs = getComputedStyle(el);
+          if (/tabular-nums/.test(cs.fontVariantNumeric) || /tabular-nums/.test(cs.fontFeatureSettings)) return;
+          out.push(el.tagName.toLowerCase()
+            + (typeof el.className === "string" && el.className ? "." + el.className.trim().split(/\s+/)[0] : "")
+            + ` «${t.slice(0, 18)}»`);
+        });
+        return out;
+      });
+      found.forEach((f) => { const k = `${view}: ${f}`; if (!bad.includes(k)) bad.push(k); });
+    }
+    assert(bad.length === 0, "суммы без табличных цифр: " + bad.slice(0, 6).join("; "));
+  });
+
+  /* Текст, обрезанный жёстким многоточием, обязан иметь title: иначе какая это
+     сделка или событие — не выяснить, не открыв запись. */
+  await test("обрезанный многоточием текст подсказывает себя целиком", async () => {
+    const bad = [];
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const view of ["global-finances", "global-calendar", "proposals"]) {
+      await page.evaluate((v) => window.app.go(v), view);
+      await page.waitForTimeout(350);
+      const found = await page.evaluate(() => {
+        const out = [];
+        document.querySelectorAll("#appContent *").forEach((el) => {
+          const cs = getComputedStyle(el);
+          if (cs.textOverflow !== "ellipsis") return;
+          if (!(el.scrollWidth > el.clientWidth + 2 && el.clientWidth > 0)) return;
+          if ((el.getAttribute("title") || "").trim()) return;
+          out.push((el.textContent || "").trim().slice(0, 30));
+        });
+        return out;
+      });
+      found.forEach((f) => { const k = `${view}: «${f}»`; if (!bad.includes(k)) bad.push(k); });
+    }
+    await page.setViewportSize({ width: 1200, height: 900 });
+    assert(bad.length === 0, "обрезано без подсказки: " + bad.slice(0, 6).join("; "));
+  });
+
   await test("цветные капсулы читаемы и в тёмной, и в светлой теме (контраст ≥ 4.5:1)", async () => {
     const CASES = [
       // [класс, атрибут-модификатор] — по одному представителю каждой цветовой группы
