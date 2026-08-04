@@ -1615,6 +1615,52 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(res.labels.length <= 3, "в шапке КП снова больше трёх кнопок: " + res.labels.join(" | "));
   });
 
+  /* В строке каталога было четыре неразличимые иконки подряд, последняя — скрытие
+     позиции. На экране это два десятка деструктивных кнопок вплотную к безобидным,
+     а что делает иконка, узнавалось только наведением — которого на телефоне нет.
+     Редкие действия уехали под «⋯» с подписями. */
+  await test("каталог: в строке нет деструктивных иконок, редкое — в подписанном меню", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => window.app.go("catalog"));
+    await page.waitForTimeout(600);
+
+    const row = await page.evaluate(() => {
+      const vis = (e) => { const r = e.getBoundingClientRect(); return r.width > 2 && r.height > 2; };
+      const icons = [...document.querySelectorAll("#appContent button")]
+        .filter(vis).filter((b) => !(b.textContent || "").trim());
+      return {
+        danger: icons.filter((b) => /danger/.test((b.className || "") + "")).length,
+        perRow: document.querySelectorAll(".item .catalog-action-btn").length,
+        rows: document.querySelectorAll(".item").length
+      };
+    });
+    assertEqual(row.danger, 0,
+      "в каталоге снова деструктивные кнопки-иконки в ряду одинаковых — промах стоит скрытой позиции");
+    assert(row.rows > 0, "каталог пуст, проверять нечего");
+    const perItem = row.perRow / row.rows;
+    assert(perItem <= 3.01, `в строке каталога снова ${perItem.toFixed(1)} иконок — было четыре, стало тесно`);
+
+    // Меню: пункты обязаны быть ПОДПИСАНЫ, иначе смысла в переносе нет.
+    const btn = await page.$('[onclick*="toggleDealMenu(\'cat-"]');
+    assert(btn, "в строке каталога нет кнопки «Ещё действия»");
+    await btn.click();
+    await page.waitForTimeout(300);
+    const items = await page.evaluate(() => {
+      const m = [...document.querySelectorAll(".deal-ctx-menu")].find((x) => x.style.display === "block");
+      return m ? [...m.querySelectorAll(".dcm-item")].map((i) => (i.textContent || "").replace(/\s+/g, " ").trim()) : null;
+    });
+    assert(items && items.length >= 2, "меню позиции не открылось или пусто");
+    assert(items.every((t) => t.length > 3), "в меню есть пункт без подписи: " + JSON.stringify(items));
+    assert(items.some((t) => /Скрыть/.test(t)), "«Скрыть из каталога» не переехало в меню: " + JSON.stringify(items));
+
+    // Закрытие по клику вне — общий механизм, свой бы стал вторым таким же.
+    await page.mouse.click(5, 5);
+    await page.waitForTimeout(250);
+    const closed = await page.evaluate(() =>
+      ![...document.querySelectorAll(".deal-ctx-menu")].some((x) => x.style.display === "block"));
+    assert(closed, "меню позиции не закрывается кликом мимо");
+  });
+
   /* Выгрузку сметы в Excel владелец не нашёл после того, как её убрали с вкладки
      «КП». Причина: единственная кнопка раздела «Смета» стояла в шапке под
      `inDeal ? "" : …` — то есть показывалась, только когда смету открывают

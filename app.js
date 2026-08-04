@@ -15016,12 +15016,33 @@
                   <button class="catalog-action-btn" onclick="app.duplicateToCustom('${itemData.id}')" title="Скопировать в свои позиции">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                   </button>
-                  <button class="catalog-action-btn" onclick="app.resetCatalogPrice('${itemData.id}')" title="Сбросить цену к базовой">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 101.77-5.5"/><path d="M3 3v4h4"/></svg>
-                  </button>
-                  <button class="catalog-action-btn danger" onclick="app.hideCatalogItem('${itemData.id}')" title="Скрыть из каталога">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                  </button>
+                  ${/* Редкие действия уехали под «⋯» С ПОДПИСЯМИ. В строке было
+                        четыре неразличимые иконки подряд, и последняя — скрытие
+                        позиции: на экране каталога таких рядов два десятка, то есть
+                        24 деструктивные кнопки вплотную к безобидным. Что делает
+                        иконка, узнавалось только наведением, а на телефоне его нет.
+
+                        В строке остались два частых действия, остальные — в меню,
+                        где у каждого есть название. Меню переиспользует готовое
+                        toggleDealMenu/closeDealMenu (id с префиксом cat-): у него
+                        уже есть закрытие по клику вне, своя реализация была бы
+                        вторым таким же механизмом. */""}
+                  <div class="deal-card-menu-wrap">
+                    <button class="catalog-action-btn" onclick="app.toggleDealMenu('cat-${itemData.id}',event)" title="Ещё действия" aria-label="Ещё действия с позицией">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
+                    </button>
+                    <div class="deal-ctx-menu" id="dcm-cat-${itemData.id}" style="display:none">
+                      <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.resetCatalogPrice('${itemData.id}')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 101.77-5.5"/><path d="M3 3v4h4"/></svg>
+                        Сбросить цену к базовой
+                      </button>
+                      <div class="dcm-sep"></div>
+                      <button class="dcm-item dcm-danger" onclick="event.stopPropagation();app.closeDealMenu();app.hideCatalogItem('${itemData.id}')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        Скрыть из каталога
+                      </button>
+                    </div>
+                  </div>
                 </div>
               `}
             </div>
@@ -16962,10 +16983,9 @@
           return `
             <div class="panel">
               <div class="section-title">
+                ${/* Кнопки в шапке нет намеренно: пустая воронка предлагает оба
+                      действия крупно по центру, и дублировать их сверху незачем. */""}
                 <div><h1>CRM</h1><p>Воронка сохранённых проектов по CRM-статусам.</p></div>
-                <div class="toolbar no-print">
-                  <button class="btn primary" onclick="app.saveCurrentProject()">Сохранить текущий в CRM</button>
-                </div>
               </div>
               <div style="min-height:50vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:48px 24px;text-align:center">
                 <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgb(var(--primary-rgb) / .12),rgba(37,99,235,.12));display:grid;place-items:center;font-size:32px"></div>
@@ -16986,8 +17006,13 @@
                 <h1>CRM</h1>
                 <p>Воронка сохранённых проектов по CRM-статусам.</p>
               </div>
+              ${/* Главной здесь была «Сохранить текущий в CRM» — остаток модели, где
+                    смета жила «текущей» и её отдельно клали в воронку. Сделки давно
+                    создаются сразу, а сохранить несохранённую смету можно из панели
+                    итогов («Сохранить сделку») и из «Проектов» — путь не потерян.
+                    Главное действие доски сделок — завести сделку. */""}
               <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.saveCurrentProject()">Сохранить текущий в CRM</button>
+                <button class="btn primary" onclick="app.startWizard()">+ Сделка</button>
                 <button class="btn" onclick="app.go('projects')">Список проектов</button>
               </div>
             </div>
