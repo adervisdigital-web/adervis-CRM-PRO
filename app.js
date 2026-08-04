@@ -13560,7 +13560,13 @@
         const totalPipeline = projects.filter(p => !["Сдано", "Оплата", "Завершённые", CRM_ARCHIVED].includes(p.crmStatus || "Лид"))
           .reduce((s, p) => s + (p.total || 0), 0);
         const inWork = projects.filter(p => p.crmStatus === "В работе").length;
-        const closedCount = projects.filter(p => ["Завершённые","Оплата","Сдано"].includes(p.crmStatus || "Лид")).length;
+        // Один список закрытых сделок на счётчик И на средний чек. Раньше средний
+        // чек суммировал ТОЛЬКО «Завершённые», а делил на этот счётчик — числитель
+        // и знаменатель считались по разным множествам, и плитка занижала чек. При
+        // сделках в «Сдано»/«Оплате» без единой «Завершённой» она показывала прочерк
+        // и рядом «по 2 сделкам» — то есть закрытые сделки есть, а чек неизвестен.
+        const closedDeals = projects.filter(p => ["Завершённые","Оплата","Сдано"].includes(p.crmStatus || "Лид"));
+        const closedCount = closedDeals.length;
 
         const CRM_NEXT = {
           "Лид": "Взять в работу",
@@ -13608,7 +13614,7 @@
         const totalDebt = projects.filter(p => !isDealInactive(p.crmStatus||"Лид"))
           .reduce((s, p) => s + Math.max(0, (p.total||0) - (p.paid||0)), 0);
 
-        const avgDeal = closedCount > 0 ? Math.round(projects.filter(p=>p.crmStatus==="Завершённые").reduce((s,p)=>s+(p.total||0),0) / closedCount) : 0;
+        const avgDeal = closedCount > 0 ? Math.round(closedDeals.reduce((s,p)=>s+(p.total||0),0) / closedCount) : 0;
 
         const todayStr = todayIso();
         const in7 = new Date(); in7.setDate(in7.getDate()+7);

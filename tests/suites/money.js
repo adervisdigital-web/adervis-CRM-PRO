@@ -443,5 +443,47 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  /* Средний чек считался по разным множествам: сумма — только по «Завершённым»,
+     а деление — на счётчик «Завершённые + Оплата + Сдано». При закрытых сделках
+     без единой «Завершённой» плитка показывала прочерк и рядом «по N сделкам».
+     Найдено при сборке кадров для баннера — цифра бросилась в глаза на экране. */
+  await test("дашборд: средний чек считается по тем же сделкам, что и счётчик закрытых", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+    const p = await ctx.newPage();
+    const deals = [
+      { id: "d1", name: "Сдана", client: "А", crmStatus: "Сдано",       total: 300000, paid: 300000 },
+      { id: "d2", name: "Оплачена", client: "Б", crmStatus: "Оплата",   total: 500000, paid: 500000 },
+      { id: "d3", name: "В работе", client: "В", crmStatus: "В работе", total: 900000, paid: 0 },
+    ];
+    await p.addInitScript(([key, d]) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      localStorage.setItem(key, JSON.stringify({ savedProjects: d, view: "home" }));
+    }, [STORAGE_KEY, deals]);
+    await p.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await p.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await p.waitForTimeout(400);
+
+    const tile = await p.evaluate(() => {
+      const t = document.querySelector('.db-stat[title="Средний чек"]');
+      if (!t) return null;
+      return {
+        value: (t.querySelector(".db-stat-value") || {}).textContent.replace(/\s/g, ""),
+        sub: (t.querySelector(".db-stat-delta") || {}).textContent.trim()
+      };
+    });
+    assert(tile, "плитка «Ср. чек» не найдена");
+    assert(tile.sub.includes("2"), "счётчик закрытых сделок не 2: " + tile.sub);
+    // Ни одной «Завершённой» — но две закрытые есть: (300000 + 500000) / 2.
+    assert(/400000/.test(tile.value),
+      `средний чек ${tile.value} вместо 400 000 — сумма и счётчик считаются по разным сделкам (${tile.sub})`);
+
+    await ctx.close();
+  });
+
   await context.close();
 };
