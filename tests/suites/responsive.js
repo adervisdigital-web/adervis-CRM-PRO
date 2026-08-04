@@ -177,6 +177,65 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     await page.setViewportSize({ width: 900, height: 800 });
   });
 
+  /* Тач-таргеты. Меряем в ОТДЕЛЬНОМ контексте с hasTouch: без него Chromium
+     сообщает pointer:fine, блок @media (hover:none) and (pointer:coarse) не
+     применяется, и проверка мерила бы десктопную раскладку в узком окне —
+     то есть не то, что видит человек с телефоном.
+
+     Иконочные кнопки без подписи — самый опасный случай: попасть по ним нечем,
+     кроме как по самой иконке, а рядом бывает «удалить». Область касания
+     расширена невидимым ::after, поэтому визуальный размер кнопки тут ничего не
+     доказывает — считаем именно псевдоэлемент. */
+  await test("телефон: у иконочных кнопок область касания не меньше 44×44", async () => {
+    const { context: touchCtx, page: tp } = await bootLocal(browser, baseUrl,
+      { width: 390, height: 844, seedDemo: true, touch: true });
+
+    const coarse = await tp.evaluate(() => matchMedia("(hover: none) and (pointer: coarse)").matches);
+    assert(coarse, "эмуляция касания не включилась — проверка ничего не значит");
+
+    const ICONS = [".topbar-icon-btn", ".profile-avatar-btn", ".logo", ".xlsx-icon-btn",
+      ".catalog-action-btn", ".db-chart-nav-btn", ".deal-menu-btn"];
+    const bad = [];
+    for (const view of ["home", "catalog", "global-finances"]) {
+      await tp.evaluate((v) => window.app.go(v), view);
+      await tp.waitForTimeout(300);
+      const res = await tp.evaluate((sels) => {
+        const out = [];
+        sels.forEach((sel) => {
+          document.querySelectorAll(sel).forEach((el) => {
+            const r = el.getBoundingClientRect();
+            if (!r.width || !r.height) return;
+            const af = getComputedStyle(el, "::after");
+            const hasArea = af && af.content && af.content !== "none" && af.position === "absolute";
+            const w = Math.max(r.width, hasArea ? parseFloat(af.width) || 0 : 0);
+            const h = Math.max(r.height, hasArea ? parseFloat(af.height) || 0 : 0);
+            if (w < 44 || h < 44) out.push(`${sel} ${Math.round(w)}×${Math.round(h)}`);
+          });
+        });
+        return out;
+      }, ICONS);
+      res.forEach((r) => { if (!bad.includes(view + ": " + r)) bad.push(view + ": " + r); });
+    }
+    assert(bad.length === 0, "иконочные кнопки меньше 44×44 при касании: " + bad.join("; "));
+
+    // Поля ввода: промах по строке цены стоит неверной сметы.
+    await tp.evaluate(() => window.app.go("catalog"));
+    await tp.waitForTimeout(300);
+    const shortInputs = await tp.evaluate(() => {
+      const out = [];
+      document.querySelectorAll("input:not([type=checkbox]):not([type=radio])").forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0 && r.height < 44) {
+          out.push((el.getAttribute("aria-label") || el.className || "input") + " " + Math.round(r.height) + "px");
+        }
+      });
+      return out.slice(0, 5);
+    });
+    assert(shortInputs.length === 0, "поля ввода ниже 44px при касании: " + shortInputs.join("; "));
+
+    await touchCtx.close();
+  });
+
   // Визуальная фиксация каталога на самом узком экране (п.20 — визуальный обход)
   await test("каталог на 320px: снимок для ревью", async () => {
     await page.setViewportSize({ width: 320, height: 800 });

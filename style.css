@@ -5970,7 +5970,17 @@ body.portal-mode .nav { display: none !important; }
    для touch-устройств — на мыши точность и так достаточна.
 ═══════════════════════════════════════════════════════ */
 @media (hover: none) and (pointer: coarse) {
+  /* Список пополнен 03.08.2026 по замеру живого DOM на 390×844 С ЭМУЛЯЦИЕЙ
+     КАСАНИЯ. Без hasTouch Chromium сообщает pointer:fine, весь этот блок в
+     замер не попадает, и мерилась бы десктопная раскладка в узком окне.
+     Добавлены: .logo (42×42) и .profile-avatar-btn (34×34) — они на ВСЕХ 15
+     экранах, а из списка выпали, хотя стоят в топбаре рядом с уже учтёнными
+     .topbar-icon-btn; .xlsx-icon-btn (38×38) — экспорт/импорт каталога,
+     клиентов и финансов. */
   .topbar-icon-btn,
+  .profile-avatar-btn,
+  .logo,
+  .xlsx-icon-btn,
   .deal-menu-btn,
   .line-collapse-btn,
   .catalog-action-btn,
@@ -5979,6 +5989,9 @@ body.portal-mode .nav { display: none !important; }
     position: relative;
   }
   .topbar-icon-btn::after,
+  .profile-avatar-btn::after,
+  .logo::after,
+  .xlsx-icon-btn::after,
   .deal-menu-btn::after,
   .line-collapse-btn::after,
   .catalog-action-btn::after,
@@ -5989,6 +6002,23 @@ body.portal-mode .nav { display: none !important; }
     top: 50%; left: 50%;
     width: 44px; height: 44px;
     transform: translate(-50%, -50%);
+  }
+
+  /* Поля ввода не дотягивали до 44px ОДИН пиксель (43) — цена услуги, поиск по
+     каталогу, поля базы знаний и настроек. Дешевле поправить, чем объяснять,
+     почему палец промахивается по строке цены. Чекбоксы и переключатели сюда
+     не попадают: у них свой размер (18px) и своя область касания через label. */
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    min-height: 44px;
+  }
+
+  /* «+» в колонках задач — 30px в ширину при 36 в высоту: узкая цель, а рядом
+     заголовок колонки. Кнопки с текстом и так шире 44px, поэтому правило
+     трогает только такие узкие. */
+  .btn.small {
+    min-width: 44px;
   }
 
   /* uu-select-btn/opt рассчитаны на десктоп-мышь (~35px); на телефоне их

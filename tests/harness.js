@@ -64,8 +64,16 @@ const REPO_ROOT = path.resolve(__dirname, "..");
 // Возвращает { context, page, errors[] }. errors — консольные ошибки страницы,
 // чтобы тесты могли ассертить «рендер без исключений».
 async function bootLocal(browser, baseUrl, opts = {}) {
-  const { width = 1200, height = 800, localMode = true, seedDemo = false } = opts;
-  const context = await browser.newContext({ viewport: { width, height } });
+  const { width = 1200, height = 800, localMode = true, seedDemo = false, touch = false } = opts;
+  // touch: без hasTouch+isMobile Chromium сообщает pointer:fine, и весь блок
+  // @media (hover: none) and (pointer: coarse) в проверку НЕ ПОПАДАЕТ — а там
+  // живут расширенные области касания у иконочных кнопок. То есть без этого
+  // флага мы меряем десктопную раскладку в узком окне, а не телефон.
+  const context = await browser.newContext(
+    touch
+      ? { viewport: { width, height }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 }
+      : { viewport: { width, height } }
+  );
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e.message || e)));
