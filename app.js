@@ -15083,9 +15083,11 @@
                     <h1>Смета</h1>
                     <p>${escapeHtml(state.project.name || "Проект")}${state.project.client ? " · " + escapeHtml(state.project.client) : ""}</p>
                   </div>
+                  ${/* Выгрузка убрана отсюда: она переехала в панель самой сметы,
+                        где видна и внутри сделки. Здесь оставалась бы вторая такая
+                        же кнопка на одном экране. */""}
                   <div class="toolbar no-print">
                     <button class="btn" onclick="app.go('catalog')">+ Добавить</button>
-                    <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Скачать в Excel (.xlsx)" aria-label="Экспорт в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>
                   </div>
                 </div>
                 ${projectFields()}
@@ -15135,6 +15137,19 @@
                   <button class="btn small" onclick="app.go('catalog')">+ Услуги</button>
                   <button class="btn small" onclick="app.go('packages')">+ Пакет</button>
                   ${inDeal ? "" : `<button class="btn small" onclick="app.createVersion()">Версия</button>`}
+                  ${/* Выгрузка сметы живёт ЗДЕСЬ, в панели самой сметы. Раньше
+                        единственная кнопка в этом разделе стояла в шапке под
+                        `inDeal ? "" : …`, то есть показывалась только когда смету
+                        открывают ОТДЕЛЬНО от сделки. Внутри сделки её не было
+                        вовсе, и работала только копия на вкладке «КП» — а её
+                        убрали как не относящуюся к КП. Текстом, а не иконкой:
+                        иконку среди подписанных кнопок не находят глазами.
+                        Условие `stagesWithItems.length` выше — заодно и защита:
+                        пустую смету выгружать нечего. */""}
+                  <button class="btn small" onclick="app.exportXlsx()" title="Скачать смету таблицей Excel (.xlsx)">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg>
+                    Excel
+                  </button>
                 </div>` : ""}
               </div>
 

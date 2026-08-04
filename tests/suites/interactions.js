@@ -1615,6 +1615,45 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(res.labels.length <= 3, "в шапке КП снова больше трёх кнопок: " + res.labels.join(" | "));
   });
 
+  /* Выгрузку сметы в Excel владелец не нашёл после того, как её убрали с вкладки
+     «КП». Причина: единственная кнопка раздела «Смета» стояла в шапке под
+     `inDeal ? "" : …` — то есть показывалась, только когда смету открывают
+     ОТДЕЛЬНО от сделки. Внутри сделки, где с ней и работают, кнопки не было
+     вовсе, и живой оставалась лишь копия на «КП». Проверяем главный путь. */
+  await test("смета: выгрузка в Excel доступна внутри сделки и не задвоена", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(250);
+    const card = await page.$(".deal-card");
+    assert(card, "нет карточки сделки");
+    await card.click();
+    await page.waitForTimeout(400);
+
+    await page.evaluate(() => window.app.setDealView("estimate"));
+    await page.waitForTimeout(500);
+    const inDeal = await page.evaluate(() => {
+      const btns = [...document.querySelectorAll('[onclick*="exportXlsx"]')];
+      const vis = btns.filter((b) => {
+        const r = b.getBoundingClientRect();
+        return r.width > 2 && r.height > 2;
+      });
+      return { total: btns.length, visible: vis.length,
+        label: vis.length ? (vis[0].textContent || "").replace(/\s+/g, " ").trim() : "" };
+    });
+    assert(inDeal.visible >= 1,
+      "внутри сделки в «Смете» нет кнопки выгрузки в Excel — за ней придётся уходить в другой раздел");
+    assertEqual(inDeal.total, 1, "на экране сметы больше одной кнопки выгрузки");
+    assert(inDeal.label.length > 0,
+      "кнопка выгрузки без текстовой подписи — иконку среди подписанных кнопок не находят глазами");
+
+    // На вкладке «КП» её быть не должно: она выгружает смету, а не КП.
+    await page.evaluate(() => window.app.setDealView("proposal"));
+    await page.waitForTimeout(400);
+    const inKp = await page.evaluate(() =>
+      document.querySelectorAll('[onclick*="exportXlsx"]').length);
+    assertEqual(inKp, 0, "выгрузка сметы вернулась на вкладку КП");
+  });
+
   /* Договор печатался голым текстом в Arial — без логотипа, названия агентства и
      единого реквизита, тогда как КП уходило клиенту оформленным. Два документа
      одной студии выглядели как из разных контор. Бланк теперь общий. */
