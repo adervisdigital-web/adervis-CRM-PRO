@@ -14763,12 +14763,19 @@
                   <p>Расширенный каталог с редактируемыми ценами, поиском, избранным и своими позициями.</p>
                 </div>
 
+                ${/* Действия ШАПКИ раздела подписываем текстом. Они редкие, и найти
+                      их нужно глазами, а не наведением — на телефоне наведения нет
+                      вовсе. Ровно на этом владелец не нашёл выгрузку сметы, когда
+                      она была иконкой. Иконка без подписи оправдана только там, где
+                      действие повторяется на каждой строке и места нет. */""}
                 <div class="toolbar no-print">
-                  <button class="xlsx-icon-btn" onclick="app.exportCatalogXlsx()" title="Экспорт каталога в Excel (.xlsx)" aria-label="Экспорт каталога в Excel">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg>
+                  <button class="btn small" onclick="app.exportCatalogXlsx()" title="Скачать весь каталог таблицей Excel (.xlsx)">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg>
+                    Выгрузить
                   </button>
-                  <button class="xlsx-icon-btn import" onclick="document.getElementById('importCatalogXlsxInput').click()" title="Импорт позиций из Excel в «Свои»" aria-label="Импорт из Excel">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <button class="btn small" onclick="document.getElementById('importCatalogXlsxInput').click()" title="Загрузить позиции из Excel в раздел «Свои»">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Загрузить
                   </button>
                 </div>
               </div>
@@ -15825,7 +15832,10 @@
                   <button class="deal-view-btn ${clientsView === "grid" ? "active" : ""}" onclick="app.setClientsView('grid')" title="Плитка" aria-label="Показать клиентов плиткой">${icon("grid", 14)}</button>
                   <button class="deal-view-btn ${clientsView === "list" ? "active" : ""}" onclick="app.setClientsView('list')" title="Список" aria-label="Показать клиентов списком">${icon("tasks", 14)}</button>
                 </div>` : ""}
-                ${clients.length ? `<button class="xlsx-icon-btn no-print" onclick="app.exportClientsXlsx()" title="Скачать клиентов в Excel (.xlsx)" aria-label="Экспорт клиентов в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>` : ""}
+                ${/* Подписано текстом по тому же правилу, что и в каталоге: действие
+                      шапки ищут глазами, а подсказка при наведении на телефоне
+                      недоступна. */""}
+                ${clients.length ? `<button class="btn small no-print" onclick="app.exportClientsXlsx()" title="Скачать список клиентов таблицей Excel (.xlsx)"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg> Выгрузить</button>` : ""}
               </div>
             </div>
 
