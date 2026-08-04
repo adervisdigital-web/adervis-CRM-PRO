@@ -1615,6 +1615,62 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(res.labels.length <= 3, "в шапке КП снова больше трёх кнопок: " + res.labels.join(" | "));
   });
 
+  /* Наведение на сделку обязано давать видимый отклик. Дважды ломалось одинаково:
+     у состояния (.active / .current) и у :hover одинаковая специфичность, а
+     состояние объявлено ПОЗЖЕ — и открытая сделка переставала отзываться на
+     курсор. В колонке «Сметы» было хуже: :hover красил строку в var(--panel2),
+     а сама колонка уже этого цвета — подсветки не было ни у одной строки. */
+  await test("сделка подсвечивается под курсором — и в списке, и в колонке «Сметы»", async () => {
+    await dismissStaleDialog(page);
+    await page.setViewportSize({ width: 1500, height: 950 });
+
+    // Замер: стиль в покое против стиля под курсором. Сравниваем то, что видно
+    // глазом — фон, сдвиг и тень; изменения хотя бы в одном достаточно.
+    const snap = (sel) => page.evaluate((s) => {
+      const el = document.querySelector(s);
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return { bg: cs.backgroundColor, tr: cs.transform, sh: cs.boxShadow };
+    }, sel);
+    const changed = (a, b) => a && b && (a.bg !== b.bg || a.tr !== b.tr || a.sh !== b.sh);
+
+    /* Набор делит одну страницу: при падении посреди теста режим списка и узкий
+       вьюпорт достались бы следующему тесту, и он упал бы «нет карточки сделки»
+       уже не по своей вине. Возврат — только через finally. */
+    try {
+      // 1. Список сделок на главной (строка открытой сделки — та самая ловушка).
+      await page.evaluate(() => { window.app.go("home"); window.app.setCrmView("list"); });
+      await page.waitForTimeout(450);
+      const rowSel = ".deal-list-row";
+      const rowRest = await snap(rowSel);
+      if (rowRest) {
+        const row = await page.$(rowSel);
+        await row.hover();
+        await page.waitForTimeout(250);
+        const rowHov = await snap(rowSel);
+        assert(changed(rowRest, rowHov),
+          `строка сделки не меняется под курсором: было ${JSON.stringify(rowRest)}, стало ${JSON.stringify(rowHov)}`);
+      }
+
+      // 2. Колонка сделок в «Смете».
+      await page.evaluate(() => { window.app.go("deal"); window.app.setDealView("estimate"); });
+      await page.waitForTimeout(550);
+      const itemSel = ".deal-switcher-item";
+      const itemRest = await snap(itemSel);
+      assert(itemRest, "колонка сделок не отрисовалась — проверять нечего");
+      const item = await page.$(itemSel);
+      await item.hover();
+      await page.waitForTimeout(250);
+      const itemHov = await snap(itemSel);
+      assert(changed(itemRest, itemHov),
+        `строка в колонке «Сметы» не меняется под курсором: было ${JSON.stringify(itemRest)}, стало ${JSON.stringify(itemHov)}`);
+    } finally {
+      await page.evaluate(() => { window.app.setCrmView("grid"); window.app.go("home"); });
+      await page.setViewportSize({ width: 1000, height: 820 });
+      await page.waitForTimeout(200);
+    }
+  });
+
   /* В строке каталога было четыре неразличимые иконки подряд, последняя — скрытие
      позиции. На экране это два десятка деструктивных кнопок вплотную к безобидным,
      а что делает иконка, узнавалось только наведением — которого на телефоне нет.

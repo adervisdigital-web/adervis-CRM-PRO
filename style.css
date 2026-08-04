@@ -3090,6 +3090,10 @@
     .deal-list-row:last-child { border-bottom: none; }
     .deal-list-row:hover { background: var(--panel2); }
     .deal-list-row.current { background: rgb(var(--primary-rgb) / .06); }
+    /* Та же ловушка, что в колонке сделок: у .current и :hover одинаковая
+       специфичность, .current объявлен позже — и открытая сделка переставала
+       отзываться на курсор, хотя все соседние строки подсвечивались. */
+    .deal-list-row.current:hover { background: rgb(var(--primary-rgb) / .12); }
     .deal-list-row .status-pill { flex: 0 0 108px; text-align: center; justify-content: center; }
     .deal-list-name { font-size: 14px; font-weight: 600; flex: 1 1 160px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .deal-list-client { font-size: 12px; color: var(--muted); flex: 0 0 140px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -3921,8 +3925,20 @@
       padding: 12px 14px; border-radius: 10px;
       cursor: pointer; transition: background var(--dur-1);
     }
-    .deal-switcher-item:hover { background: var(--panel2); }
+    /* Подсветки при наведении НЕ БЫЛО ВООБЩЕ: правило красило строку в
+       var(--panel2), а сама колонка .deal-rail уже этого цвета — курсор закрашивал
+       строку тем же, что под ней. Замер: и в покое, и под курсором строка выходила
+       rgba(244,246,249,.98).
+
+       Тинт акцента, а не var(--panel): это тот же язык, что у выбранной строки
+       (.active — .13), только слабее, поэтому «навёл» и «выбрано» читаются как
+       одно семейство, а не два разных состояния. Тинт работает поверх любого фона,
+       значит переживёт и смену цветовой схемы, и обе темы. */
+    .deal-switcher-item:hover { background: rgb(var(--primary-rgb) / .07); }
     .deal-switcher-item.active { background: rgb(var(--primary-rgb) / .13); }
+    /* Специфичность .active и :hover одинакова, и .active идёт позже — без этого
+       правила наведение на выбранную строку не давало бы никакого отклика. */
+    .deal-switcher-item.active:hover { background: rgb(var(--primary-rgb) / .19); }
     .deal-switcher-item.active-deal { border-left: 2px solid var(--green); }
     .deal-switcher-item.completed-deal { border-left: 2px solid var(--red); opacity: .75; }
     .deal-switcher-item.completed-deal:hover { opacity: 1; }
