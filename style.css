@@ -183,6 +183,21 @@
       --empty-bg: rgba(30, 41, 59, .02);
       --input: #ffffff;
       --shadow: 0 2px 12px rgba(0, 0, 0, .09);
+
+      /* Высоты для СВЕТЛОЙ темы. Раньше их не было вовсе: :root задаёт тени под
+         тёмный фон (до 36% и 52% чёрного), и светлая тема брала их как есть.
+         Замер: карточка в покое имела rgba(0,0,0,.09), а под курсором получала
+         rgba(0,0,0,.36) с размытием 24px — тень темнела вчетверо и вырастала
+         вдвое, читаясь грязным пятном под каждой карточкой.
+
+         На светлом фоне тень работает иначе: её задача — приподнять край, а не
+         затемнить область. Поэтому меньше прозрачности, меньше размытие и
+         синеватый оттенок подложки (30,41,59) вместо чистого чёрного — чистый
+         чёрный на белом выглядит грязным, а не глубоким. */
+      --elev-0: 0 1px 2px rgba(30, 41, 59, .06);
+      --elev-1: 0 2px 8px rgba(30, 41, 59, .08), 0 1px 2px rgba(30, 41, 59, .05);
+      --elev-2: 0 6px 18px rgba(30, 41, 59, .10), 0 2px 6px rgba(30, 41, 59, .06);
+      --elev-3: 0 16px 40px rgba(30, 41, 59, .16), 0 4px 12px rgba(30, 41, 59, .08);
       --primary: #5b4ee8;
       --primary2: #7c6fef;
       --primary-rgb: 91 78 232;
@@ -2657,7 +2672,9 @@
       display: flex; flex-direction: column;
       border: 1px solid var(--line); transition: border-color var(--dur-2), box-shadow var(--dur-2);
     }
-    .package-card:hover { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 12px 32px rgba(0,0,0,.22); transform: translateY(-2px); }
+    /* Через токен, а не своей тенью: рукописная 0 12px 32px rgba(0,0,0,.22)
+       не знала про светлую тему и ложилась там тёмным пятном. */
+    .package-card:hover { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), var(--elev-2); transform: translateY(-2px); }
 
     /* Category identity is carried by .pkg-cat-badge — no decorative stripe needed */
     .package-card[data-cat="social"]    { border-top-color: rgb(var(--primary-rgb) / .45); }
@@ -3257,11 +3274,10 @@
       background: linear-gradient(to right, var(--status-color, var(--line)) 0 4px, transparent 4px 100%), var(--card-fill);
       display: flex; flex-direction: column; gap: 9px;
     }
-    .deal-card:hover {
-      border-color: rgb(var(--primary-rgb) / .5);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 28px rgb(var(--primary-rgb) / .1);
-    }
+    /* Правило наведения для .deal-card живёт ОДНО — ниже, вместе с остальными
+       карточками (.project-card / .client-card / .package-card). Здесь раньше
+       стояла его копия с другой тенью; тот же селектор объявлен позже, поэтому
+       эта копия не действовала вовсе, а правку в ней было не увидеть на экране. */
     /* Выделение карточки. Было: рамка + свечение box-shadow наружу. Свечение
        расплывалось ореолом и спорило с цветной полосой статуса слева, а на
        светлой теме читалось грязным пятном. Теперь кольцо INSET — оно ложится
@@ -3324,8 +3340,12 @@
       transform: rotate(1.5deg);
     }
 
-    .deal-card:hover.current { box-shadow: inset 0 0 0 1px var(--green), 0 10px 30px rgba(22,163,74,.18); }
-    .deal-card:hover.deal-card-selected { box-shadow: inset 0 0 0 1px var(--primary), 0 10px 30px rgb(var(--primary-rgb) / .2); }
+    /* Наведение приподнимает карточку, а не раздувает вокруг неё ореол.
+       Было 0 10px 30px при 18–20% — против 0 4px 18px в покое: тень росла почти
+       вдвое и расплывалась цветным пятном под соседние карточки. Теперь шаг
+       короткий (18 → 22px) и того же порядка, что у остальных карточек. */
+    .deal-card:hover.current { box-shadow: inset 0 0 0 1px var(--green), 0 6px 22px rgba(22,163,74,.16); }
+    .deal-card:hover.deal-card-selected { box-shadow: inset 0 0 0 1px var(--primary), 0 6px 22px rgb(var(--primary-rgb) / .18); }
     /* Уголок-лейбл слева, под названием — без фона-капсулы, вне потока
        (position:absolute), поэтому не спорит с заголовком и не давит на межстрочный
        интервал. Место под него зарезервировано padding-bottom на .deal-card-head
@@ -4751,7 +4771,9 @@
       cursor: pointer;
       transition: var(--dur-1);
     }
-    .contract-card:hover { border-color: rgb(var(--primary-rgb) / .5); transform: translateY(-2px); box-shadow: 0 12px 36px rgba(0,0,0,.28); }
+    /* Тоже через токен: 0 12px 36px rgba(0,0,0,.28) — самая тяжёлая рукописная
+       тень в проекте, на светлой теме читалась откровенным пятном. */
+    .contract-card:hover { border-color: rgb(var(--primary-rgb) / .5); transform: translateY(-2px); box-shadow: var(--elev-2); }
     .contract-card h3 { margin: 0 0 6px; }
     .contract-card p { margin: 0; font-size: 13px; }
     .contract-editor {
