@@ -17433,7 +17433,7 @@
               <tbody>
                 ${debtors.length ? debtors.map(p => `
                   <tr class="u-pointer" title="Открыть финансы сделки" onclick="app.openDeal('${p.id.replace(/'/g,"")}');app.setDealView('finance')">
-                    <td style="font-size:12px;font-weight:750;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name)}</td>
+                    <td title="${escapeHtml(p.name)}" style="font-size:12px;font-weight:750;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name)}</td>
                     <td style="font-size:12px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.client || "—")}</td>
                     <td style="font-size:12px;white-space:nowrap;color:${p._u && p._u.level!=="ok" ? p._u.color : "var(--muted)"}">${p.deadline ? escapeHtml(formatDate(p.deadline)) + (p._u && p._u.level!=="ok" ? ` · ${escapeHtml(p._u.label)}` : "") : "—"}</td>
                     <td class="amount-cell expense" style="text-align:right">${money(p._debt)}</td>
@@ -17748,7 +17748,7 @@
                   ${filtered.length ? filtered.map(tx => `
                     <tr class="u-pointer" title="Нажми для редактирования" onclick="app.openEditTransaction('${tx.id}','${tx._type}','${tx.projectId}')">
                       <td style="color:var(--muted);font-size:12px;white-space:nowrap">${escapeHtml(formatDate(tx.date))}</td>
-                      <td style="font-size:12px;font-weight:750;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(tx.projectName || "—")}</td>
+                      <td title="${escapeHtml(tx.projectName || "—")}" style="font-size:12px;font-weight:750;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(tx.projectName || "—")}</td>
                       <td style="max-width:200px">${escapeHtml(tx.title)}</td>
                       <td class="fs-12">
                         ${tx._type === "income"
