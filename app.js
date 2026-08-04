@@ -6556,13 +6556,34 @@
           if (itemData.calcModel === "videoEdit") {
             // Тарифы и лимиты «включено» больше не копируются в строку — они читаются
             // из каталога при расчёте. В строке только параметры заказа.
-            if (line.cameraCount === undefined) {
-              line.cameraCount = Math.max(1, numberValue(line.sourcePacks, 1));
-            }
-
+            //
+            // sourcePacks — легаси-поле «пакеты исходников» из модели, где камер не
+            // было ВОВСЕ, а надбавка бралась ОДИН раз по rates.sourcePack. Прежняя
+            // миграция раскладывала его И в cameraCount, И в sourceCount, а расчёт
+            // ниже берёт надбавку и за камеры, и за исходники — по одному и тому же
+            // тарифу. На строке с sourcePacks = 3 смета завышалась на
+            // 2 × rates.sourcePack, и заметить это можно было только сложением руками.
             if (line.sourceCount === undefined) {
               line.sourceCount = Math.max(1, numberValue(line.sourcePacks, 1));
             }
+
+            if (line.cameraCount === undefined) {
+              line.cameraCount = 1;
+            } else if (numberValue(line.sourcePacks, 1) > 1
+                    && numberValue(line.cameraCount, 1) === numberValue(line.sourcePacks, 1)
+                    && numberValue(line.sourceCount, 1) === numberValue(line.sourcePacks, 1)) {
+              // Строка уже мигрирована прежней версией — чиним задним числом.
+              // Признак однозначный: у НОВЫХ строк sourcePacks всегда 1 (см. дефолт
+              // строки), значит >1 бывает только у легаси; а совпадение всех трёх
+              // величин означает, что человек их после миграции не правил.
+              line.cameraCount = 1;
+            }
+
+            // Легаси-поле уходит из строки. Иначе починка срабатывала бы при КАЖДОЙ
+            // загрузке и не давала бы выставить камеры равными исходникам вручную.
+            // В расчёте sourcePacks дальше только фолбэк для sourceCount, который к
+            // этому моменту уже определён.
+            if (numberValue(line.sourcePacks, 1) !== 1) line.sourcePacks = 1;
 
             if (!line.videoType) line.videoType = itemData.id === "edit_short" ? "reels" : "standard";
             if (!line.complexity) line.complexity = "standard";
@@ -22261,17 +22282,44 @@ Email: _____________________              Email: _____________________
         });
       }
 
-      function printContract(id) {
-        const c = (state.contracts || []).find(x => x.id === id);
-        if (!c) return;
+      /* Печать и копирование — это МОМЕНТ ОТПРАВКИ клиенту. Редактор честно пишет
+         «9 полей не заполнено», но уйти документу это не мешало: в PDF попадало
+         буквальное «{{срок}}», и заметить это можно было уже после отправки.
+         Спрашиваем один раз и называем поля поимённо — «что-то не заполнено»
+         заставило бы искать их глазами по всему тексту. */
+      async function _contractReadyToSend(c, action) {
+        const vars = contractVars(c.body);
+        if (!vars.length) return true;
+        const list = vars.slice(0, 6).join(", ") + (vars.length > 6 ? " и ещё " + (vars.length - 6) : "");
+        return confirmDialog({
+          title: "В договоре остались незаполненные поля",
+          message: `${vars.length} ${plural(vars.length, "поле", "поля", "полей")} уйдёт клиенту как есть: ${list}. `
+            + `Заполнить их можно кнопкой «Заполнить по шагам» в редакторе.`,
+          okText: action === "print" ? "Всё равно печатать" : "Всё равно копировать",
+          cancelText: "Вернуться и заполнить",
+          danger: true
+        });
+      }
+
+      function _doPrintContract(c) {
         const win = window.open("", "_blank");
-    if (!win) { toast("Браузер заблокировал открытие окна. Разрешите всплывающие окна для этого сайта."); return; }
+        if (!win) { toast("Браузер заблокировал открытие окна. Разрешите всплывающие окна для этого сайта."); return; }
         // Номер печатается рядом с названием: это реквизит документа, а не пометка
         // для внутреннего учёта — на бумаге он должен быть виден.
         const title = escapeHtml(c.name) + (c.number ? ` № ${escapeHtml(c.number)}` : "");
         win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(c.name)}</title><style>body{font-family:Arial,sans-serif;margin:40px;line-height:1.6;white-space:pre-wrap;font-size:13px}h1{font-size:18px;margin-bottom:16px}</style></head><body><h1>${title}</h1>${escapeHtml(c.body)}</body></html>`);
         win.document.close();
         win.print();
+      }
+
+      /* Обычный путь (всё заполнено) остаётся ПОЛНОСТЬЮ синхронным: window.open
+         после await браузер считает не связанным с нажатием и блокирует как
+         всплывающее окно. Спрашиваем только когда есть о чём спросить. */
+      function printContract(id) {
+        const c = (state.contracts || []).find(x => x.id === id);
+        if (!c) return;
+        if (!contractVars(c.body).length) { _doPrintContract(c); return; }
+        _contractReadyToSend(c, "print").then(ok => { if (ok) _doPrintContract(c); });
       }
 
       /* ── Редактор договора ──────────────────────────────────────────────────
@@ -22475,7 +22523,9 @@ Email: _____________________              Email: _____________________
       function copyContractText(id) {
         const c = (state.contracts || []).find(x => x.id === id);
         if (!c) return;
-        copyToClipboard(c.body || "", "Текст договора скопирован");
+        const send = () => copyToClipboard(c.body || "", "Текст договора скопирован");
+        if (!contractVars(c.body).length) { send(); return; }
+        _contractReadyToSend(c, "copy").then(ok => { if (ok) send(); });
       }
 
       // ── Вкладка «Договор» внутри сделки ────────────────────────────────────

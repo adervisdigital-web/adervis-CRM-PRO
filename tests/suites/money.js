@@ -379,5 +379,69 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await c2.close();
   });
 
+  /* Легаси-строка монтажа: старое поле sourcePacks — это ПАКЕТЫ ИСХОДНИКОВ из
+     модели, где камер не было вовсе, а надбавка бралась один раз по
+     rates.sourcePack. Прежняя миграция раскладывала его И в cameraCount, И в
+     sourceCount, а расчёт берёт надбавку и за камеры, и за исходники — по
+     одному тарифу. На строке с sourcePacks = 3 смета выходила 4000 вместо 2000,
+     то есть ВДВОЕ больше (замерено по живому DOM, не посчитано на бумаге:
+     базовая цена сюда не входит, поэтому проверяем именно надбавку).
+
+     Значения читаем из полей «Камер»/«Исходников» — это то, что видит человек,
+     а localStorage до первого сохранения хранит ещё домиграционную строку. */
+  await test("монтаж: старое поле sourcePacks не берёт надбавку дважды", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const p = await ctx.newPage();
+    await p.addInitScript((key) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      // Строка ровно в том виде, в каком она лежала ДО разделения камер и
+      // исходников: cameraCount/sourceCount отсутствуют вовсе.
+      localStorage.setItem(key, JSON.stringify({
+        view: "estimate",
+        selected: { edit: { qty: 1, sourcePacks: 3 } }
+      }));
+    }, STORAGE_KEY);
+    await p.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await p.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await p.evaluate(() => window.app.go("estimate"));
+    await p.waitForTimeout(400);
+
+    const read = () => p.evaluate(() => ({
+      cam: (document.querySelector('[data-key="cameraCount"]') || {}).value,
+      src: (document.querySelector('[data-key="sourceCount"]') || {}).value,
+      total: Number(String((document.querySelector(".summary-total") || {}).textContent || "").replace(/[^\d]/g, ""))
+    }));
+
+    const migrated = await read();
+    assertEqual(migrated.src, "3", "исходники не перенеслись из sourcePacks");
+    assertEqual(migrated.cam, "1", "камеры проставились из sourcePacks — надбавка берётся дважды");
+    assertEqual(migrated.total, 2000, "надбавка за 2 лишних пакета исходников должна быть 2000");
+
+    // Ставим камеры руками — так выглядела строка после прежней миграции.
+    await p.fill('[data-key="cameraCount"]', "3");
+    await p.evaluate(() => document.querySelector('[data-key="cameraCount"]')
+      .dispatchEvent(new Event("change", { bubbles: true })));
+    await p.waitForTimeout(400);
+    const manual = await read();
+    assertEqual(manual.total, 4000,
+      "камеры тарифицируются по тому же rates.sourcePack — значит старая миграция удваивала надбавку");
+
+    /* Починка обязана быть ОДНОРАЗОВОЙ. Если легаси-поле sourcePacks не обнулять,
+       условие починки совпадёт снова на следующей перерисовке и молча вернёт
+       камеры к 1 — человек не сможет выставить их равными исходникам. */
+    await p.evaluate(() => { window.app.go("home"); window.app.go("estimate"); });
+    await p.waitForTimeout(400);
+    const afterRerender = await read();
+    assertEqual(afterRerender.cam, "3",
+      "перерисовка сбросила выставленные вручную камеры — починка срабатывает повторно");
+
+    await ctx.close();
+  });
+
   await context.close();
 };

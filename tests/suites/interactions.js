@@ -1484,5 +1484,72 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.waitForTimeout(200);
   });
 
+  /* Печать и копирование — это момент отправки клиенту. Редактор пишет «9 полей
+     не заполнено», но уйти документу это не мешало: в PDF попадало буквальное
+     «{{срок}}». Спрашиваем один раз и называем поля поимённо. */
+  await test("договоры: печать с незаполненными полями сначала переспрашивает", async () => {
+    await dismissStaleDialog(page);
+    const id = await page.evaluate(() => {
+      window.app.go("contracts");
+      window.app.closeContractEdit();
+      window.app.createContractFromTemplate("tpl_release");
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (raw.contracts || [])[0];
+      window.app.openContractEdit(c.id);
+      return c.id;
+    });
+    await page.waitForTimeout(350);
+
+    const left = await page.evaluate((cid) => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (raw.contracts || []).find((x) => x.id === cid);
+      return window.app.contractVars(c.body);
+    }, id);
+    assert(left.length > 0, "в договоре из шаблона не осталось незаполненных полей — проверять нечего");
+
+    // Печать не должна открыть окно, пока на вопрос не ответили.
+    let popupOpened = false;
+    const onPopup = () => { popupOpened = true; };
+    page.on("popup", onPopup);
+    await page.evaluate((cid) => window.app.printContract(cid), id);
+    await page.waitForTimeout(400);
+
+    const dialog = await page.$(".confirm-dialog-overlay");
+    assert(dialog, "печать не переспросила про незаполненные поля — договор уйдёт клиенту с {{токенами}}");
+
+    const msg = await page.$eval(".confirm-dialog-msg", (el) => el.textContent || "");
+    assert(msg.includes(left[0]),
+      `в вопросе не названы сами поля (искали «${left[0]}»): ${msg.slice(0, 90)}`);
+
+    // «Вернуться и заполнить» — печати не происходит.
+    const cancel = await page.$(".confirm-dialog-overlay button:not(.primary):not(.danger)");
+    assert(cancel, "в диалоге нет кнопки отказа");
+    await cancel.click();
+    await page.waitForTimeout(300);
+    assert(!popupOpened, "договор ушёл в печать, хотя нажали «Вернуться и заполнить»");
+    page.off("popup", onPopup);
+
+    // А когда полей не осталось — вопроса быть не должно.
+    await page.evaluate((cid) => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (raw.contracts || []).find((x) => x.id === cid);
+      window.app.contractVars(c.body).forEach((v) => window.app.fillContractVar(cid, v, "значение"));
+    }, id);
+    await page.waitForTimeout(400);
+    const stillLeft = await page.evaluate((cid) => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (raw.contracts || []).find((x) => x.id === cid);
+      return window.app.contractVars(c.body).length;
+    }, id);
+    assertEqual(stillLeft, 0, "не удалось заполнить все поля для проверки «вопроса быть не должно»");
+
+    await page.evaluate((cid) => window.app.copyContractText(cid), id);
+    await page.waitForTimeout(300);
+    const dialog2 = await page.$(".confirm-dialog-overlay");
+    assert(!dialog2, "у заполненного договора копирование всё равно переспрашивает — лишний шаг на каждом отправлении");
+
+    await page.evaluate(() => window.app.closeContractEdit());
+  });
+
   await context.close();
 };
