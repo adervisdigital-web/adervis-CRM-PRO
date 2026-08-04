@@ -530,5 +530,48 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  /* Способ оплаты был свободным полем: одно и то же писали по-разному («карта»,
+     «Карта», «на карту»), и сгруппировать поступления по способу было нельзя.
+     Теперь список — но уже введённые произвольные значения теряться не должны. */
+  await test("поступление: способ оплаты — список, и своё значение из него не пропадает", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const p = await ctx.newPage();
+    await p.addInitScript(() => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+    });
+    await p.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await p.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await p.waitForTimeout(400);
+
+    await p.evaluate(() => window.app.openFinanceModal("payment"));
+    await p.waitForTimeout(400);
+    const modal = await p.evaluate(() => {
+      const l = [...document.querySelectorAll(".modal-box label")]
+        .find((x) => /Способ оплаты/.test(x.textContent || ""));
+      if (!l) return null;
+      const sel = l.parentElement ? l.parentElement.querySelector("select") : null;
+      return sel ? [...sel.options].map((o) => o.textContent.trim()) : "не select";
+    });
+    assert(Array.isArray(modal), "«Способ оплаты» в поступлении — не список: " + JSON.stringify(modal));
+    assert(modal.length >= 4, "в списке способов оплаты слишком мало вариантов: " + JSON.stringify(modal));
+    ["Наличные", "Карта"].forEach((m) =>
+      assert(modal.some((o) => o === m), `в списке нет варианта «${m}»: ${JSON.stringify(modal)}`));
+
+    // Переход на список не должен стирать то, что уже вписали руками.
+    const kept = await p.evaluate(() => {
+      const html = window.app._paymentMethodOptions("ЮKassa через ссылку");
+      return { есть: /ЮKassa через ссылку/.test(html), выбран: /selected/.test(html) };
+    });
+    assert(kept.есть, "нестандартный способ оплаты пропал из списка — при сохранении он бы стёрся");
+    assert(kept.выбран, "нестандартный способ есть в списке, но не отмечен выбранным");
+
+    await ctx.close();
+  });
+
   await context.close();
 };

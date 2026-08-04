@@ -1615,6 +1615,61 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(res.labels.length <= 3, "в шапке КП снова больше трёх кнопок: " + res.labels.join(" | "));
   });
 
+  /* Простое ПЕРЕКЛЮЧЕНИЕ между сделками не должно считаться правкой.
+     flushActiveProjectToSaved() вызывается и при переключении (сбрасывает туда
+     предыдущую сделку) и раньше безусловно ставил новый updatedAt. Список
+     отсортирован по updatedAt внутри этапа — и только что закрытая сделка
+     прыгала наверх своей группы: карточки перетасовывались от клика, ничего не
+     изменившего. Побочно врала подпись «изменён»: она показывала дату, когда
+     сделку всего лишь открыли посмотреть. */
+  await test("список сделок не перетасовывается от простого переключения", async () => {
+    await dismissStaleDialog(page);
+    /* Нужны ДВЕ сделки: сброс предыдущей происходит только при настоящем
+       переключении. Открытие уже активной сделки уходит в раннюю ветку
+       loadSavedProject и ничего не сбрасывает — на одной сделке проверка была бы
+       зелёной и со сломанным кодом (проверено). */
+    const ids = await page.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const first = (raw.savedProjects || [])[0];
+      if (!first) return null;
+      window.app.duplicateSavedProject(first.id);
+      const after = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const other = (after.savedProjects || []).find((p) => p.id !== first.id);
+      return other ? { a: first.id, b: other.id } : null;
+    });
+    assert(ids, "не удалось получить две сделки для переключения");
+    await page.waitForTimeout(400);
+
+    // Прогрев: один круг переключений, чтобы нормализация домигрировала снимки.
+    // Первая активация меняет сделку по-настоящему, и это законно.
+    await page.evaluate((x) => window.app.openDeal(x.a), ids);
+    await page.waitForTimeout(450);
+    await page.evaluate((x) => window.app.openDeal(x.b), ids);
+    await page.waitForTimeout(450);
+    await page.evaluate((x) => window.app.openDeal(x.a), ids);
+    await page.waitForTimeout(450);
+
+    const before = await page.evaluate((x) => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const p = (raw.savedProjects || []).find((y) => y.id === x.a);
+      return p ? p.updatedAt : null;
+    }, ids);
+    assert(before, "сделка А пропала из списка");
+
+    // Уходим на другую сделку — здесь и сбрасывается предыдущая (А).
+    await page.evaluate((x) => window.app.openDeal(x.b), ids);
+    await page.waitForTimeout(600);
+
+    const after = await page.evaluate((x) => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const p = (raw.savedProjects || []).find((y) => y.id === x.a);
+      return p ? p.updatedAt : null;
+    }, ids);
+
+    assertEqual(after, before,
+      "переключение на другую сделку поменяло «изменён» у предыдущей — список пересортируется, и карточки прыгают под курсором");
+  });
+
   /* Наведение на сделку обязано давать видимый отклик. Дважды ломалось одинаково:
      у состояния (.active / .current) и у :hover одинаковая специфичность, а
      состояние объявлено ПОЗЖЕ — и открытая сделка переставала отзываться на

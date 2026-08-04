@@ -9523,7 +9523,7 @@
         if (!existing) return;
         const snap = currentProjectSnapshot();
         const f = financeTotals();
-        Object.assign(existing, {
+        const next = {
           name: state.project.name || "Проект",
           client: state.project.client || "",
           clientId: state.project.clientId || "",
@@ -9532,9 +9532,22 @@
           priority: state.project.priority || "Средний",
           deadline: state.project.deadline || "",
           ..._financeForSave(existing.total, snap.total, f),
-          updatedAt: new Date().toISOString(),
           snapshot: snap
-        });
+        };
+
+        /* updatedAt ставим ТОЛЬКО если сделка вправду изменилась.
+           Раньше он обновлялся безусловно, а функция вызывается и при простом
+           ПЕРЕКЛЮЧЕНИИ на другую сделку (_activateSavedProject сбрасывает сюда
+           предыдущую). Список сделок отсортирован по updatedAt внутри этапа —
+           и только что закрытая сделка прыгала наверх своей группы: карточки
+           перетасовывались от одного клика по списку, ничего не изменившего.
+           Побочно врала и подпись «изменён»: она показывала дату, когда сделку
+           всего лишь открыли посмотреть. */
+        const same = JSON.stringify(next) ===
+          JSON.stringify(Object.fromEntries(Object.keys(next).map(k => [k, existing[k]])));
+        Object.assign(existing, next);
+        if (!same) existing.updatedAt = new Date().toISOString();
+
         lsSet(STORAGE_KEY, JSON.stringify(state));
       }
 
@@ -9600,6 +9613,24 @@
       }
 
       const PAYMENT_ARTICLES = ["Предоплата", "Оплата", "Частичная оплата", "Доп. оплата", "Возврат"];
+
+      /* Способ оплаты — СПИСОК, а не свободное поле. Раньше каждое поступление
+         подписывали руками, и одно и то же называлось по-разному («карта»,
+         «Карта», «на карту»): сгруппировать поступления по способу или свести их
+         с выпиской было нельзя, а поле «Наличные, карта, перевод...» только
+         подсказывало формулировку, но ничего не гарантировало. */
+      const PAYMENT_METHODS = ["Наличные", "Карта", "Перевод на карту", "Счёт (безнал)", "СБП", "Другое"];
+
+      /* Текущее значение всегда попадает в список, даже если оно нестандартное:
+         у уже введённых платежей там лежит произвольный текст, и переход на
+         select без этого молча стёр бы его при первом же сохранении. */
+      function paymentMethodOptions(current) {
+        const cur = String(current || "").trim();
+        const list = PAYMENT_METHODS.slice();
+        if (cur && !list.includes(cur)) list.unshift(cur);
+        return `<option value="">— не указан —</option>`
+          + list.map(m => `<option value="${escapeHtml(m)}"${cur === m ? " selected" : ""}>${escapeHtml(m)}</option>`).join("");
+      }
 
       /* Статьи доходов и расходов настраиваются агентством. У всех своя
          бухгалтерия: кому-то нужен «Налог С/З» и «Диктор», кому-то они мешают.
@@ -10072,8 +10103,9 @@
                 ${isPayment ? `
                   <div class="field">
                     <label>Способ оплаты</label>
-                    <input value="${escapeHtml(m.method)}" oninput="app.setFinanceModalField('method',this.value)"
-                      placeholder="Наличные, карта, перевод...">
+                    <select onchange="app.setFinanceModalField('method',this.value)">
+                      ${paymentMethodOptions(m.method)}
+                    </select>
                   </div>
                 ` : ""}
               </div>
@@ -16668,10 +16700,9 @@
                         </td>
                         <td class="u-meta" onclick="event.stopPropagation()">
                           ${tx._type === "income"
-                            ? `<input style="background:transparent;border:none;font-size:12px;color:var(--muted);width:100%"
-                                value="${escapeHtml(tx.method || "")}" placeholder="Наличные, перевод..."
+                            ? `<select style="background:transparent;border:none;font-size:12px;color:var(--muted);width:100%;padding:0"
                                 data-autosave data-scope="payment" data-id="${tx.id}" data-key="method"
-                                onclick="event.stopPropagation()">`
+                                onclick="event.stopPropagation()">${paymentMethodOptions(tx.method)}</select>`
                             : tx.category ? `<span class="fin-category-badge">${escapeHtml(tx.category)}</span>` : `<span class="u-muted">—</span>`
                           }
                         </td>
@@ -16727,7 +16758,7 @@
               ${field("Название", `<input data-autosave data-scope="payment" data-id="${payment.id}" data-key="title" value="${escapeHtml(payment.title)}">`)}
               ${field("Сумма", `<input type="number" data-autosave data-scope="payment" data-id="${payment.id}" data-key="amount" value="${escapeHtml(payment.amount)}">`)}
               ${field("Дата", `<input type="date" data-autosave data-scope="payment" data-id="${payment.id}" data-key="date" value="${escapeHtml(payment.date)}">`)}
-              ${field("Метод", `<input data-autosave data-scope="payment" data-id="${payment.id}" data-key="method" value="${escapeHtml(payment.method)}">`)}
+              ${field("Способ оплаты", `<select data-autosave data-scope="payment" data-id="${payment.id}" data-key="method">${paymentMethodOptions(payment.method)}</select>`)}
             </div>
             <div class="mt-10">${field("Комментарий", `<textarea data-autosave data-scope="payment" data-id="${payment.id}" data-key="note">${escapeHtml(payment.note)}</textarea>`)}</div>
             <div class="toolbar no-print" style="margin-top:10px">
@@ -23402,6 +23433,7 @@ Email: _____________________              Email: _____________________
         // услуг уезжает в Supabase и локально нигде не наблюдаем.
         _proposalServicesList: proposalServicesList,
         _portalTextBlocks: portalTextBlocks,
+        _paymentMethodOptions: paymentMethodOptions,
         updateCustomItem,
         deleteCustomItem,
 
