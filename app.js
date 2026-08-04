@@ -7543,10 +7543,16 @@
       }
 
       function saveCurrentProject() {
-        // При создании новой сделки — требуем хотя бы название или услугу
+        /* При создании новой сделки — требуем хотя бы название или услугу.
+           `state.selected`, а НЕ `state.items`: поля items на состоянии не
+           существует вовсе (items есть только внутри описаний пакетов), поэтому
+           ветка «или услугу» не срабатывала никогда. Человек собирал смету,
+           нажимал «Сохранить» и получал совет добавить услугу, которая у него
+           уже добавлена, — сделка при этом не создавалась. Проверено замером:
+           одна позиция в смете без названия давала 0 сохранённых сделок. */
         if (!state.activeProjectId) {
           const hasName = (state.project.name || "").trim();
-          const hasServices = (state.items || []).length > 0;
+          const hasServices = Object.keys(state.selected || {}).length > 0;
           if (!hasName && !hasServices) { toast('Добавьте название или хотя бы одну услугу'); return; }
         }
         // Лимит проверяем только при создании НОВОЙ сделки (не при обновлении существующей)
@@ -16989,11 +16995,19 @@
               </div>
               <div style="min-height:50vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:48px 24px;text-align:center">
                 <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgb(var(--primary-rgb) / .12),rgba(37,99,235,.12));display:grid;place-items:center;font-size:32px"></div>
+                ${/* Текст и порядок кнопок приведены к нынешней модели. Раньше
+                      главной была «Сохранить текущую смету» — остаток времён, когда
+                      смета жила «текущей» и её отдельно клали в воронку. На пустом
+                      аккаунте эта кнопка вела в тупик: сохранять нечего, и она
+                      просто отвечала «Добавьте название или хотя бы одну услугу».
+                      Теперь главное — завести сделку, а сохранение черновика
+                      предлагается ТОЛЬКО когда он вправду есть. */""}
                 <h2 style="margin:0;font-size:22px">Воронка пуста</h2>
-                <p style="margin:0;color:var(--muted);max-width:360px;line-height:1.5">Сохраните текущую смету в CRM, чтобы видеть сделки по статусам и отслеживать воронку продаж.</p>
+                <p style="margin:0;color:var(--muted);max-width:380px;line-height:1.5">Заведите сделку — она встанет на первый этап, и воронка покажет, на чём стоят деньги.</p>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-                  <button class="btn primary" onclick="app.saveCurrentProject()">Сохранить текущую смету</button>
-                  <button class="btn" onclick="app.startWizard()">Создать новую сделку</button>
+                  <button class="btn primary" onclick="app.startWizard()">+ Сделка</button>
+                  ${(!state.activeProjectId && ((state.project.name || "").trim() || Object.keys(state.selected || {}).length))
+                    ? `<button class="btn" onclick="app.saveCurrentProject()">Сохранить текущую смету</button>` : ""}
                 </div>
               </div>
             </div>`;

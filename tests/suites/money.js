@@ -485,5 +485,50 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  /* Сохранение сметы без названия. Условие «требуем название ИЛИ услугу»
+     проверяло `state.items` — поля, которого на состоянии не существует вовсе
+     (items есть только внутри описаний пакетов). Ветка «или услугу» не
+     срабатывала никогда: человек собирал смету, жал «Сохранить» и получал совет
+     добавить услугу, которая уже добавлена, а сделка не создавалась. */
+  await test("смета с позициями сохраняется и без названия проекта", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const p = await ctx.newPage();
+    await p.addInitScript(() => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+    });
+    await p.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await p.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await p.waitForTimeout(400);
+
+    const res = await p.evaluate(() => {
+      window.app.go("catalog");
+      window.app.catalogAddOne("director");
+      const before = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const positions = Object.keys(before.selected || {}).length;
+      const name = (before.project && before.project.name || "").trim();
+      window.app.saveCurrentProject();
+      const after = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const t = document.getElementById("toast");
+      return {
+        positions,
+        nameWasEmpty: name === "",
+        saved: (after.savedProjects || []).length,
+        toast: t ? (t.textContent || "").trim() : ""
+      };
+    });
+
+    assertEqual(res.positions, 1, "позиция не добавилась в смету — проверять нечего");
+    assert(res.nameWasEmpty, "у проекта оказалось название — тогда тест проверяет не ту ветку");
+    assertEqual(res.saved, 1,
+      `смета с позицией не сохранилась без названия (тост: «${res.toast}») — ветка «или услугу» снова смотрит на несуществующее поле`);
+
+    await ctx.close();
+  });
+
   await context.close();
 };
