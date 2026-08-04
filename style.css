@@ -2385,7 +2385,6 @@
       z-index: var(--z-notif); overflow: hidden; display: none;
     }
     .profile-dd.open { display: block; animation: fadeIn .15s ease; }
-    [data-theme="light"] .profile-dd { box-shadow: 0 8px 32px rgba(0,0,0,.15); }
     .pd-head {
       display: flex; align-items: center; gap: 10px;
       padding: 14px 16px 12px; border-bottom: 1px solid var(--line);
@@ -6026,7 +6025,6 @@ body.portal-mode .nav { display: none !important; }
 [data-theme="light"] .modal-overlay,
 [data-theme="light"] .task-modal-overlay { background: rgba(0,0,0,.3); }
 
-[data-theme="light"] .deal-ctx-menu { box-shadow: 0 4px 24px rgba(0,0,0,.12); }
 
 [data-theme="light"] .dsp-step.done .dsp-pill { background: rgba(22,163,74,.1); border-color: rgba(22,163,74,.35); color: var(--text-success); }
 
@@ -6474,4 +6472,32 @@ body.portal-mode .nav { display: none !important; }
 .db-analytics-legend span,
 .badge {
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Всплывающие поверхности в СВЕТЛОЙ теме ───────────────────────────────
+   Дропдауны, меню, подсказки и модалки несли рукописные тени под тёмный фон —
+   до rgba(0,0,0,.55) при 80px размытия. Замер: универсальный дропдаун в светлой
+   теме давал rgba(0,0,0,.35) при 40px, то есть вдвое тяжелее светлого --elev-3.
+   На белом такая тень читается грязным пятном, а не приподнятой поверхностью.
+
+   Раньше это чинили точечно: отдельные правила существовали ровно для двух
+   поверхностей из одиннадцати (.profile-dd и .deal-ctx-menu), остальные
+   пропустили. Здесь один список и один токен — новую всплывающую поверхность
+   достаточно дописать сюда, а не подбирать ей тень заново.
+
+   Тёмная тема не затронута: там рукописные значения остаются как были. */
+[data-theme="light"] .uu-select-dd,
+[data-theme="light"] .profile-dd,
+[data-theme="light"] .deal-ctx-menu,
+[data-theme="light"] .help-dd,
+[data-theme="light"] .currency-select-dd,
+[data-theme="light"] .global-add-menu,
+[data-theme="light"] .sidebar-nav-config,
+[data-theme="light"] .svg-chart-tooltip,
+[data-theme="light"] .estimate-nav-tooltip-fixed,
+[data-theme="light"] .tour-popover,
+[data-theme="light"] .task-modal-box,
+[data-theme="light"] .auth-gate-box,
+[data-theme="light"] .deal-card-flying {
+  box-shadow: var(--elev-3);
 }

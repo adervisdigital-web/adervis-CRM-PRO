@@ -237,6 +237,47 @@ module.exports = async function ({ browser, baseUrl, test }) {
   // светлых оттенков (напр. #60a5fa) выглядит нормально на тёмном и почти исчезает
   // на белом. Композитим альфу по цепочке родителей и считаем WCAG-отношение.
   // Порог 4.5:1 — это мелкий текст (12px), то есть AA для обычного текста.
+  /* Тени в СВЕТЛОЙ теме. Токены --elev-* задавались только под тёмный фон, а
+     всплывающие поверхности вдобавок несли рукописные тени до rgba(0,0,0,.55)
+     при 80px размытия. На белом это читается грязным пятном, а не приподнятой
+     поверхностью — владелец так и сказал: «большая и некрасивая тень».
+
+     Правило: в светлой теме тень не должна быть чистым чёрным плотнее 20%.
+     Проверяем сам CSS, подставляя элемент с нужным классом: дропдауны и меню
+     создаются по требованию, и поймать их все в открытом виде ненадёжно. */
+  await test("светлая тема: у всплывающих поверхностей мягкие тени, а не тёмные пятна", async () => {
+    const CLASSES = ["uu-select-dd", "profile-dd", "deal-ctx-menu", "help-dd",
+      "currency-select-dd", "global-add-menu", "sidebar-nav-config",
+      "svg-chart-tooltip", "tour-popover", "task-modal-box", "auth-gate-box"];
+
+    const prevTheme = await page.evaluate(() => document.documentElement.getAttribute("data-theme"));
+    await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+    await page.waitForTimeout(200);
+
+    const heavy = await page.evaluate((cls) => {
+      const out = [];
+      cls.forEach((c) => {
+        const d = document.createElement("div");
+        d.className = c;
+        d.style.cssText = "position:fixed;left:-9999px;width:10px;height:10px";
+        document.body.appendChild(d);
+        const sh = getComputedStyle(d).boxShadow;
+        d.remove();
+        // rgba(0, 0, 0, A) с A >= 0.2 — тень из тёмной темы, попавшая на светлую
+        const m = /rgba\(0,\s*0,\s*0,\s*([\d.]+)\)/.exec(sh);
+        if (m && parseFloat(m[1]) >= 0.2) out.push(`${c}: ${sh.slice(0, 46)}`);
+      });
+      return out;
+    }, CLASSES);
+
+    await page.evaluate((t) => {
+      if (t) document.documentElement.setAttribute("data-theme", t);
+    }, prevTheme);
+
+    assert(heavy.length === 0,
+      "в светлой теме остались тени тёмной темы: " + heavy.join("; "));
+  });
+
   /* DESIGN.md §5: суммы набираются табличными цифрами. Пропорциональные разной
      ширины — сумма «прыгает» при пересчёте, а в списке колонка чисел не встаёт
      по разрядам. Замер 04.08 нашёл семь таких мест, включая .fin-amount 22px —
