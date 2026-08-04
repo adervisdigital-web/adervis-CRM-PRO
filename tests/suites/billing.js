@@ -432,4 +432,49 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
     await context.close();
   });
+
+  /* Переключатели «Что показывать в КП» применялись ТОЛЬКО в печати у владельца:
+     included_text / excluded_text / proposal_note уходили в client_portals всегда.
+     Агентство снимало галочку, видело, что блок исчез у себя на экране, — а клиент
+     его по-прежнему читал. Тот же класс расхождения, что и с составом услуг.
+
+     Проверяем через шов app._portalTextBlocks: путь записи в Supabase тестами не
+     покрыт (в local mode _supabase нет вовсе), иначе правило сторожил бы только
+     регэксп по исходнику. */
+  await test("КП: снятые галочки «Что показывать» не уходят клиенту", async () => {
+    const { context: c3, page: p3 } = await bootLocal(browser, baseUrl, { width: 1200, height: 900 });
+    const res = await p3.evaluate(() => {
+      const f = window.app._portalTextBlocks;
+      if (!f) return null;
+      const full = {
+        includedText: "Съёмка, монтаж, цветокоррекция",
+        excludedText: "Актёры и студия",
+        proposalNote: "Цены действуют 7 дней"
+      };
+      const mix = (extra) => Object.assign({}, full, extra);
+      return {
+        // Флажков нет вовсе — сделка заведена до их появления: показываем всё.
+        legacy: f(full),
+        allOn: f(mix({ proposalShowIncluded: true, proposalShowExcluded: true, proposalShowNote: true })),
+        includedOff: f(mix({ proposalShowIncluded: false })),
+        excludedOff: f(mix({ proposalShowExcluded: false })),
+        noteOff: f(mix({ proposalShowNote: false })),
+        empty: f({})
+      };
+    });
+    assert(res, "нет шва app._portalTextBlocks — правило можно проверить только регэкспом");
+
+    assertEqual(res.legacy.included, "Съёмка, монтаж, цветокоррекция",
+      "у сделки без флажков блок пропал — undefined должен значить «показывать», как и в печати");
+    assertEqual(res.allOn.excluded, "Актёры и студия", "включённая галочка убрала блок");
+
+    assertEqual(res.includedOff.included, "", "снятая галочка «Что входит» — блок всё равно уходит клиенту");
+    assertEqual(res.includedOff.excluded, "Актёры и студия",
+      "снятая галочка «Что входит» задела соседний блок");
+    assertEqual(res.excludedOff.excluded, "", "снятая галочка «Что не входит» — блок всё равно уходит клиенту");
+    assertEqual(res.noteOff.note, "", "снятое «Примечание» всё равно уходит клиенту");
+    assertEqual(res.empty.included, "", "пустая сделка отдала не пустую строку");
+
+    await c3.close();
+  });
 };

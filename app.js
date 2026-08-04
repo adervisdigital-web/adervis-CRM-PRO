@@ -20237,7 +20237,36 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         return null;
       }
 
+      /* Три текстовых блока КП с учётом переключателей «Что показывать в КП».
+         Раньше included_text / excluded_text / proposal_note уходили в
+         client_portals ВСЕГДА, а переключатели применялись только в печати у
+         владельца. То есть агентство снимало галочку «Блок „Что входит“», видело,
+         что блок исчез у себя на экране, — и клиент всё равно его читал. Ровно
+         тот класс расхождения, что и с составом услуг в v215: свой экран говорил
+         одно, экран заказчика — другое.
+
+         Отдельной функцией, потому что путь записи в Supabase тестами не покрыт
+         (в local mode _supabase нет вовсе): это шов, по которому правило можно
+         проверить без сети — как proposalServicesList() для состава услуг.
+
+         `=== false` намеренно: у сделок, заведённых до появления флажков, поля нет
+         вовсе, и undefined должен значить «показывать», как и в печати. */
+      function portalTextBlocks(proj) {
+        const p = proj || {};
+        return {
+          included: p.proposalShowIncluded === false ? '' : (p.includedText || ''),
+          excluded: p.proposalShowExcluded === false ? '' : (p.excludedText || ''),
+          note:     p.proposalShowNote     === false ? '' : (p.proposalNote  || '')
+        };
+      }
+
       async function createClientPortal(projectId) {
+        /* Сбрасываем живое состояние в снимок ДО чтения. Клиенту уходит именно
+           снимок, а автосохранение отложенное: снять галочку «Что показывать в
+           КП» и сразу нажать «Ссылка КП» — обычный порядок действий, и без этой
+           строки ушла бы предыдущая версия. Функция сама молчит, если активной
+           сделки нет, и трогает только её. */
+        flushActiveProjectToSaved();
         const project = (state.savedProjects || []).find(p => p.id === projectId);
         if (!project) { toast('Проект не найден'); return; }
         const snap = project.snapshot || {};
@@ -20262,15 +20291,16 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           ? Math.max(100, Math.round(project.total * 0.5 / 100) * 100)
           : null;
 
+        const texts = portalTextBlocks(proj);
         const row = {
           agency_id: getAgencyId(),
           project_id: projectId,
           deal_name: project.name || '',
           deal_status: project.crmStatus || 'КП отправлено',
           total_price: project.total || 0,
-          included_text: proj.includedText || '',
-          excluded_text: proj.excludedText || '',
-          proposal_note: proj.proposalNote || '',
+          included_text: texts.included,
+          excluded_text: texts.excluded,
+          proposal_note: texts.note,
           services_list: selectedItems,
           advance_amount: advanceAmount,
           // Право убрать подпись даёт оплаченный тариф — и именно на момент отправки КП.
@@ -23304,6 +23334,7 @@ Email: _____________________              Email: _____________________
         // Выставлено ради теста «КП: клиент видит свои услуги агентства»: сам состав
         // услуг уезжает в Supabase и локально нигде не наблюдаем.
         _proposalServicesList: proposalServicesList,
+        _portalTextBlocks: portalTextBlocks,
         updateCustomItem,
         deleteCustomItem,
 
