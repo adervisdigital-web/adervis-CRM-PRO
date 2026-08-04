@@ -17062,7 +17062,14 @@
               </div>
             </div>
 
-            <div class="kanban kanban-scroll-x" style="grid-template-columns:repeat(${CRM_STATUSES.length},minmax(220px,1fr))">
+            ${/* Число колонок отдаём переменной, а НЕ инлайновым
+                  grid-template-columns. Инлайн-стиль перебивает любые правила
+                  CSS, в том числе мобильные: на телефоне доска оставалась в
+                  десять колонок шириной 2326px при экране 390px — видно было
+                  полторы колонки, а до «Завершённых» приходилось листать вбок
+                  шесть экранов. Правило для одной колонки в CSS при этом было
+                  написано давно и просто никогда не применялось. */""}
+            <div class="kanban kanban-scroll-x" style="--kanban-cols:${CRM_STATUSES.length}">
               ${CRM_STATUSES.map(status => {
                 const list = projects.filter(project => (project.crmStatus || "Лид") === status);
                 // Пагинация по колонке: в DOM только первые N карточек. Счётчик в

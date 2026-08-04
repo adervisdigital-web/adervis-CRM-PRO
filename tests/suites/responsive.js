@@ -177,6 +177,51 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     await page.setViewportSize({ width: 900, height: 800 });
   });
 
+  /* Доска воронки на телефоне. Десять этапов по 220px — это 2326px, при экране
+     390px видно полторы колонки, а до «Завершённых» листать вбок шесть экранов.
+     Правило «одна колонка» в CSS было написано давно и не работало: число
+     колонок приходило ИНЛАЙНОВЫМ стилем из app.js и перебивало любые медиа-
+     запросы, а соседнее `flex-direction: column` на гриде не делает ничего.
+
+     Проверяем оба конца: на телефоне доска обязана уместиться в экран, на
+     широком — остаться многоколоночной, иначе воронку станет не видно целиком. */
+  await test("воронка CRM: на телефоне столбиком, на широком экране — колонками", async () => {
+    /* Возврат вьюпорта — через finally: набор делит одну страницу, и падение
+       посреди теста оставило бы следующему 1500px вместо 900. */
+    try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => window.app.go("crm"));
+    await page.waitForTimeout(500);
+    const phone = await page.evaluate(() => {
+      const b = document.querySelector(".kanban-scroll-x");
+      if (!b) return null;
+      const cols = document.querySelectorAll(".kanban-col").length;
+      return { cols, scrollW: Math.round(b.scrollWidth), clientW: Math.round(b.clientWidth) };
+    });
+    assert(phone, "доска воронки не отрисовалась");
+    assert(phone.cols > 1, "на доске нет колонок — проверять нечего");
+    assert(phone.scrollW <= phone.clientW + 2,
+      `на телефоне доска шире экрана: ${phone.scrollW}px против ${phone.clientW}px — придётся листать вбок`);
+
+    await page.setViewportSize({ width: 1500, height: 900 });
+    await page.evaluate(() => window.app.go("crm"));
+    await page.waitForTimeout(450);
+    const wide = await page.evaluate(() => {
+      const cols = [...document.querySelectorAll(".kanban-col")];
+      if (cols.length < 2) return null;
+      const tops = new Set(cols.slice(0, 3).map((c) => Math.round(c.getBoundingClientRect().top)));
+      return { cols: cols.length, sameRow: tops.size === 1 };
+    });
+    assert(wide, "на широком экране доска не отрисовалась");
+    assert(wide.sameRow,
+      "на широком экране колонки встали друг под друга — воронка перестала читаться одним взглядом");
+
+    } finally {
+      await page.setViewportSize({ width: 900, height: 800 });
+      await page.waitForTimeout(150);
+    }
+  });
+
   /* Тач-таргеты. Меряем в ОТДЕЛЬНОМ контексте с hasTouch: без него Chromium
      сообщает pointer:fine, блок @media (hover:none) and (pointer:coarse) не
      применяется, и проверка мерила бы десктопную раскладку в узком окне —

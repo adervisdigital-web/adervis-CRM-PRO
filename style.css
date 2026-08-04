@@ -1906,6 +1906,10 @@
        только живым десктопным браузером. На телефоне полоса оверлейная всегда,
        там работает только snap. */
     .kanban-scroll-x {
+      /* Колонок столько, сколько этапов: число приходит из app.js переменной
+         --kanban-cols. Раньше оно ставилось инлайновым grid-template-columns и
+         перебивало мобильные правила — доска не сворачивалась в столбик никогда. */
+      grid-template-columns: repeat(var(--kanban-cols, 4), minmax(220px, 1fr));
       overflow-x: auto;
       padding-bottom: 10px;
       scroll-snap-type: x proximity;
@@ -5869,7 +5873,23 @@ body.portal-mode .nav { display: none !important; }
   .deal-bar .deal-compact-row { flex-wrap: wrap; gap: 8px; }
   .deal-stats-inline { display: none; }
   .fin-summary-grid { grid-template-columns: 1fr 1fr; }
-  .kanban { flex-direction: column; }
+  /* Доска воронки на телефоне — вертикальный столбик этапов.
+     Раньше здесь стояло `flex-direction: column`, но .kanban это ГРИД, и
+     свойство не делало ничего; а колонки задавались инлайновым стилем из
+     app.js, который перебивал любые правила. Итог: на экране 390px доска
+     оставалась шириной 2326px — видно полторы колонки из десяти, а до
+     «Завершённых» приходилось листать вбок шесть экранов.
+
+     Горизонтальную прокрутку и snap здесь выключаем: со схлопнутой в один
+     столбец сеткой они лишние и мешают вертикальному скроллу страницы. */
+  .kanban,
+  .kanban-scroll-x {
+    grid-template-columns: 1fr;
+    overflow-x: visible;
+    scroll-snap-type: none;
+    padding-bottom: 0;
+  }
+  .kanban-scroll-x > .kanban-col { scroll-snap-align: none; }
   .kanban-col { min-width: unset; width: 100%; }
   .db-stat-row { grid-template-columns: repeat(2, 1fr); }
   .toolbar { flex-wrap: wrap; gap: 6px; }
