@@ -5890,7 +5890,19 @@ body.portal-mode .nav { display: none !important; }
     padding-bottom: 0;
   }
   .kanban-scroll-x > .kanban-col { scroll-snap-align: none; }
-  .kanban-col { min-width: unset; width: 100%; }
+
+  /* min-height: 220px нужен на ДЕСКТОПЕ, где колонки стоят в ряд и обязаны быть
+     одной высоты. В мобильном столбике он превращается в пустое место: замер на
+     реальных данных (3 сделки на 2 этапах из 10) — восемь пустых этапов по 220px
+     съедали 64% высоты доски, и она вытягивалась на 3.2 экрана прокрутки.
+
+     Пустой этап сворачивается в строку заголовка: название и счётчик «0» видно,
+     воронка целиком читается, но места он почти не занимает. Заглушка «Пусто»
+     там не нужна — счётчик уже сказал то же самое. */
+  .kanban-col { min-width: unset; width: 100%; min-height: 0; }
+  .kanban-col-status.is-empty { padding: 10px 14px; }
+  .kanban-col-status.is-empty > h3 { padding-bottom: 0; border-bottom: none; }
+  .kanban-col-status.is-empty .kanban-drop-hint { display: none; }
   .db-stat-row { grid-template-columns: repeat(2, 1fr); }
   .toolbar { flex-wrap: wrap; gap: 6px; }
   .admin-modal-box { width: calc(100vw - 32px); padding: 20px; }

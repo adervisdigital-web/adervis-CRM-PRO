@@ -63,6 +63,35 @@ const REPO_ROOT = path.resolve(__dirname, "..");
 // ── Поднять приложение в local mode (минует auth/subscription gate) ───────────
 // Возвращает { context, page, errors[] }. errors — консольные ошибки страницы,
 // чтобы тесты могли ассертить «рендер без исключений».
+/* Тесты не ходят в чужую сеть. Страница тянет Яндекс.Метрику и VK ID, и когда
+   mc.yandex.ru отвечает медленно, событие `load` не наступает вовсе — а его ждёт
+   каждый переход. 05.08.2026 из-за этого разом перестал запускаться ВЕСЬ набор:
+   все goto падали по таймауту, хотя код был исправен, а сервер отдавал страницу
+   за 20 мс. Диагноз был неочевиден: сначала выглядело как поломка приложения.
+
+   Режем всё, что не наш локальный сервер. Побочно прогон становится честнее:
+   тесты перестают зависеть от доступности чужих сервисов и ничего им не шлют.
+   Шрифты и SDK лежат локально (fonts/, vendor/), поэтому отрисовка не меняется. */
+/* Единственное исключение — CDN с библиотекой xlsx: она грузится по требованию
+   (`_ensureXLSX`) и без неё нечем проверить выгрузку сметы в Excel. В репозитории
+   её нет намеренно: правило проекта — без npm-зависимостей. Аналитику и API
+   ВКонтакте это исключение не пропускает. */
+const ALLOWED_HOSTS = ["cdn.jsdelivr.net"];
+
+async function blockExternalRequests(context, baseUrl) {
+  await context.route("**/*", (route) => {
+    const url = route.request().url();
+    const own = url.startsWith(baseUrl) || url.startsWith("data:")
+      || url.startsWith("blob:") || url.startsWith("about:")
+      || ALLOWED_HOSTS.some((h) => url.includes("//" + h + "/"));
+    if (own) return route.continue();
+    /* Пустой ответ, а НЕ abort(): оборванный запрос печатает в консоль
+       «Failed to load resource: net::ERR_FAILED», а набор проверяет отсутствие
+       консольных ошибок — запрет внешней сети сам ронял бы эту проверку. */
+    return route.fulfill({ status: 204, body: "", headers: { "content-type": "text/plain" } });
+  });
+}
+
 async function bootLocal(browser, baseUrl, opts = {}) {
   const { width = 1200, height = 800, localMode = true, seedDemo = false, touch = false } = opts;
   // touch: без hasTouch+isMobile Chromium сообщает pointer:fine, и весь блок
@@ -74,6 +103,8 @@ async function bootLocal(browser, baseUrl, opts = {}) {
       ? { viewport: { width, height }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 }
       : { viewport: { width, height } }
   );
+  await blockExternalRequests(context, baseUrl);
+
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e.message || e)));
@@ -150,4 +181,4 @@ function assertEqual(actual, expected, msg) {
   }
 }
 
-module.exports = { loadPlaywright, bootLocal, Suite, assert, assertEqual, REPO_ROOT };
+module.exports = { loadPlaywright, bootLocal, blockExternalRequests, Suite, assert, assertEqual, REPO_ROOT };

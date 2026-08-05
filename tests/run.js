@@ -10,7 +10,7 @@
 const path = require("path");
 const fs = require("fs");
 const { startServer } = require("./server");
-const { loadPlaywright, Suite, REPO_ROOT } = require("./harness");
+const { loadPlaywright, blockExternalRequests, Suite, REPO_ROOT } = require("./harness");
 
 const SUITES = ["smoke", "responsive", "modals", "interactions", "assets", "a11y", "money", "calc", "billing"];
 
@@ -24,6 +24,18 @@ const SUITES = ["smoke", "responsive", "modals", "interactions", "assets", "a11y
   const pw = loadPlaywright();
   const server = await startServer(REPO_ROOT, 0);
   const browser = await pw.chromium.launch();
+
+  /* Ни один контекст не ходит в чужую сеть. Четыре набора создают контексты сами,
+     мимо bootLocal, поэтому запрет вешаем на САМО создание контекста — иначе его
+     пришлось бы дублировать в каждом наборе и он отвалился бы в следующем новом.
+     Причина: страница тянет Метрику, и при её недоступности `load` не наступает,
+     а его ждёт каждый goto. */
+  const _newContext = browser.newContext.bind(browser);
+  browser.newContext = async (...args) => {
+    const ctx = await _newContext(...args);
+    await blockExternalRequests(ctx, server.url);
+    return ctx;
+  };
   const shotDir = path.join(__dirname, "screenshots");
   fs.mkdirSync(shotDir, { recursive: true });
 

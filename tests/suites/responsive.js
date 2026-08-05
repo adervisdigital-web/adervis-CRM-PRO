@@ -203,6 +203,24 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     assert(phone.scrollW <= phone.clientW + 2,
       `на телефоне доска шире экрана: ${phone.scrollW}px против ${phone.clientW}px — придётся листать вбок`);
 
+    /* Пустые этапы не должны раздувать столбик. У сделок обычно занято два-три
+       этапа из десяти: при min-height 220px восемь пустых съедали 64% высоты
+       доски и растягивали её на 3.2 экрана. На десктопе эта высота нужна —
+       колонки стоят в ряд и выравниваются, — поэтому правило только мобильное. */
+    const empties = await page.evaluate(() => {
+      const cols = [...document.querySelectorAll(".kanban-col")];
+      const empty = cols.filter((c) => !c.querySelector(".crm-card"));
+      if (!empty.length) return null;
+      return {
+        count: empty.length,
+        maxH: Math.max(...empty.map((c) => Math.round(c.getBoundingClientRect().height)))
+      };
+    });
+    if (empties) {
+      assert(empties.maxH <= 90,
+        `пустой этап на телефоне занимает ${empties.maxH}px — столбик растянется впустую (пустых этапов ${empties.count})`);
+    }
+
     await page.setViewportSize({ width: 1500, height: 900 });
     await page.evaluate(() => window.app.go("crm"));
     await page.waitForTimeout(450);
