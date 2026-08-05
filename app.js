@@ -9749,6 +9749,43 @@
         return digits;
       }
 
+      /* Остаток по выбранной сделке — для подсказки в форме поступления.
+         Повод: у завершённой сделки навсегда повис долг 60 ₽, потому что сумму
+         платежа набрали с переставленными цифрами (18933 вместо 18993). Приложение
+         это молча приняло. Теперь остаток видно прямо у поля суммы и его можно
+         внести одним нажатием — руками цифры набирать больше незачем.
+
+         У активной сделки суммы живут в live-state, у остальных — в сохранённых
+         полях: одно и то же значение в двух местах, и брать надо то, что
+         соответствует открытой сейчас сделке (иначе подсказка соврёт). */
+      function financeModalRemaining() {
+        const m = state.financeModal;
+        if (!m || m.type !== "payment" || !m.projectId) return null;
+        const proj = (state.savedProjects || []).find(p => p.id === m.projectId);
+        if (!proj) return null;
+        const isActive = proj.id === state.activeProjectId;
+        const total = isActive ? numberValue(totals().total, 0) : numberValue(proj.total, 0);
+        const paid = isActive
+          ? (state.payments || []).reduce((s, p) => s + numberValue(p.amount, 0), 0)
+          : numberValue(proj.paid, 0);
+        const debt = Math.max(0, Math.round(total - paid));
+        return { total, paid, debt };
+      }
+
+      // Смена проекта перерисовывает форму: от неё зависит подсказка про остаток.
+      function setFinanceModalProject(value) {
+        if (!state.financeModal) return;
+        state.financeModal.projectId = value;
+        renderModal();
+      }
+
+      function fillFinanceRemaining() {
+        const r = financeModalRemaining();
+        if (!state.financeModal || !r || r.debt <= 0) return;
+        state.financeModal.amount = String(r.debt);
+        renderModal();
+      }
+
       function setFinanceModalField(key, value) {
         if (!state.financeModal) return;
         state.financeModal[key] = value;
@@ -10064,12 +10101,23 @@
                   value="${escapeHtml(groupDigits(m.amount))}"
                   oninput="app.setFinanceModalField('amount',app.formatAmountField(this))"
                   id="finModalAmount">
+                ${(() => {
+                  const r = financeModalRemaining();
+                  if (!r || r.debt <= 0) return "";
+                  const alreadyFilled = numberValue(m.amount, 0) === r.debt;
+                  return `
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px">
+                  <span style="font-size:12px;color:var(--muted)">Остаток по сделке:
+                    <strong style="color:var(--text);font-variant-numeric:tabular-nums">${money(r.debt)}</strong></span>
+                  ${alreadyFilled ? "" : `<button type="button" class="btn small" onclick="app.fillFinanceRemaining()">Внести весь остаток</button>`}
+                </div>`;
+                })()}
                 ${m.amount && !isValid ? `<span style="color:var(--text-danger);font-size:12px;display:block;margin-top:3px">Должно быть больше нуля</span>` : ""}
               </div>
 
               <div class="field" style="margin-bottom:14px">
                 <label>Проект</label>
-                <select onchange="app.setFinanceModalField('projectId',this.value)">
+                <select onchange="app.setFinanceModalProject(this.value)">
                   <option value="">— Без проекта —</option>
          ${state.activeProjectId ? `<option value="${state.activeProjectId}" ${m.projectId === state.activeProjectId ? "selected" : ""}> ${escapeHtml(state.project.name || "Текущий проект")}</option>` : ""}
                   ${(state.savedProjects || []).filter(p => p.id !== state.activeProjectId).map(p =>
@@ -23610,6 +23658,9 @@ Email: _____________________              Email: _____________________
         closeFinanceModal,
         setFinanceModalType,
         setFinanceModalField,
+        setFinanceModalProject,
+        fillFinanceRemaining,
+        _financeModalRemaining: financeModalRemaining,
         addFinanceArticle,
         renameFinanceArticle,
         removeFinanceArticle,

@@ -573,5 +573,60 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  /* Остаток по сделке в форме поступления. Повод из жизни: на завершённой сделке
+     навсегда повис долг 60 ₽ — сумму платежа набрали с переставленными цифрами
+     (18933 вместо 18993), и приложение это молча приняло. Теперь остаток видно
+     у поля суммы и его можно внести одним нажатием, не набирая цифры руками. */
+  await test("поступление: показан остаток по сделке и вносится одной кнопкой", async () => {
+    const { context: c4, page: p4 } = await bootLocal(browser, baseUrl,
+      { width: 1400, height: 950, seedDemo: true });
+
+    const deal = await p4.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const d = (raw.savedProjects || [])[0];
+      return d ? { id: d.id, debt: d.debt } : null;
+    });
+    assert(deal && deal.debt > 0, "нужна сделка с ненулевым долгом");
+
+    await p4.evaluate((id) => {
+      window.app.openFinanceModal("payment");
+      window.app.setFinanceModalProject(id);
+    }, deal.id);
+    await p4.waitForTimeout(400);
+
+    const hint = await p4.evaluate(() => {
+      const box = document.querySelector(".modal-box");
+      if (!box) return null;
+      const el = [...box.querySelectorAll("span")]
+        .find((s) => /Остаток по сделке/.test(s.textContent || ""));
+      const btn = [...box.querySelectorAll("button")]
+        .find((b) => /Внести весь остаток/.test(b.textContent || ""));
+      return { text: el ? el.textContent.replace(/\s+/g, " ").trim() : "", hasBtn: !!btn };
+    });
+    assert(hint, "форма поступления не открылась");
+    assert(hint.text.includes("Остаток"), "остаток по сделке не показан у поля суммы");
+    assert(hint.hasBtn, "нет кнопки «Внести весь остаток» — сумму снова придётся набирать руками");
+
+    // Подставленная сумма обязана совпасть с долгом до рубля.
+    await p4.evaluate(() => window.app.fillFinanceRemaining());
+    await p4.waitForTimeout(350);
+    const filled = await p4.evaluate(() => {
+      const inp = document.getElementById("finModalAmount");
+      const btn = [...document.querySelectorAll(".modal-box button")]
+        .find((b) => /Внести весь остаток/.test(b.textContent || ""));
+      return { value: inp ? inp.value.replace(/\s/g, "") : "", btnStillThere: !!btn };
+    });
+    assertEqual(filled.value, String(deal.debt),
+      "подставлена не та сумма — кнопка обязана закрывать долг ровно");
+    assert(!filled.btnStillThere,
+      "кнопка осталась, хотя остаток уже внесён — предлагает сделать то же самое второй раз");
+
+    // Шов: расчёт остатка проверяем и напрямую, без разметки.
+    const calc = await p4.evaluate(() => window.app._financeModalRemaining());
+    assertEqual(calc.debt, deal.debt, "расчёт остатка расходится с долгом сделки");
+
+    await c4.close();
+  });
+
   await context.close();
 };
