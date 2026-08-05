@@ -34,8 +34,28 @@ module.exports = async function ({ test }) {
     assert(externalInHead.length === 0, "в <head> остались внешние CDN-скрипты:\n" + externalInHead.join("\n"));
   });
 
-  await test("xlsx не в статичном <head> (ленивая загрузка)", () => {
+  await test("xlsx: self-hosted в vendor/ и грузится лениво", () => {
     assert(!/<script[^>]*xlsx/i.test(head), "xlsx-скрипт найден в <head> — должен грузиться лениво");
+    // Пока библиотека тянулась с cdn.jsdelivr.net, выгрузка в Excel отваливалась на
+    // каждую икоту CDN, и это был ЕДИНСТВЕННЫЙ тест во всём наборе, ходивший в сеть
+    // (05.08 он и упал на обрыве). Теперь файл свой — и прод, и тесты не зависят от CDN.
+    assert(fs.existsSync(path.join(REPO_ROOT, "vendor/xlsx-js-style.min.js")), "нет файла vendor/xlsx-js-style.min.js");
+    const body = app.slice(app.indexOf("function _ensureXLSX()"), app.indexOf("async function exportCatalogXlsx"));
+    assert(body.length > 100, "не удалось вырезать тело _ensureXLSX");
+    assert(/s\.src\s*=\s*"\.\/vendor\/xlsx-js-style\.min\.js"/.test(body), "_ensureXLSX грузит xlsx не из vendor/");
+    // Ищем присваивание, а не упоминание: в комментарии рядом слово integrity стоит
+    // законно — там объясняется, по какому sha384 сверен положенный в vendor/ файл.
+    assert(!/s\.(integrity|crossOrigin)\s*=/.test(body), "у своего файла остался SRI/crossOrigin — они нужны только внешнему хосту");
+    assert(!/cdn\.jsdelivr\.net/.test(app.replace(/\/\/[^\n]*/g, "")), "в коде снова остался вызов к cdn.jsdelivr.net");
+  });
+
+  await test("xlsx: не в прекэше Service Worker (425 КБ ради немногих)", () => {
+    // Прекэш замедлил бы установку ВСЕМ ради тех, кто выгружает. SW и так кладёт в
+    // кэш любой успешный свой запрос, поэтому офлайн работает после первой выгрузки.
+    const sw = fs.readFileSync(path.join(REPO_ROOT, "sw.js"), "utf8");
+    const list = (sw.match(/STATIC_ASSETS\s*=\s*\[([\s\S]*?)\]/) || [])[1] || "";
+    assert(list, "не нашёлся STATIC_ASSETS в sw.js");
+    assert(!/xlsx/i.test(list), "xlsx попал в прекэш SW — установка потяжелела на 425 КБ");
   });
 
   await test("defer на статических скриптах (app.js / supabase / metrika)", () => {
@@ -47,15 +67,17 @@ module.exports = async function ({ test }) {
     }
   });
 
-  await test("CSP: font-src 'self' без Google Fonts, script-src пиннит cdn.jsdelivr", () => {
+  await test("CSP: шрифты и скрипты только свои, без внешних CDN", () => {
     const csp = (index.match(/Content-Security-Policy"\s+content="([^"]+)"/) || [])[1] || "";
     assert(csp, "нет CSP meta");
-    // generativelanguage.googleapis.com в connect-src — легитимен (Gemini), проверяем
-    // именно отсутствие Google Fonts и что font-src ограничен 'self'.
     assert(!/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(csp), "Google Fonts остался в CSP");
     const fontSrc = (csp.match(/font-src([^;]*)/) || [])[1] || "";
     assert(/'self'/.test(fontSrc) && !/https?:/.test(fontSrc), "font-src не ограничен 'self': " + fontSrc);
-    assert(/script-src[^;]*cdn\.jsdelivr\.net/.test(csp), "script-src не пиннит cdn.jsdelivr.net");
+    // Все три библиотеки (supabase, vkid, xlsx) лежат в vendor/, поэтому чужим хостам
+    // в script-src делать нечего. Метрика — единственное исключение, она внешняя по сути.
+    const scriptSrc = (csp.match(/script-src([^;]*)/) || [])[1] || "";
+    const foreign = scriptSrc.split(/\s+/).filter(t => t && !/^'/.test(t) && !/mc\.yandex\.(ru|com)/.test(t));
+    assert(foreign.length === 0, "в script-src появились чужие хосты: " + foreign.join(", "));
   });
 
   // Метрика выбирает домен по гео посетителя: из России — mc.yandex.ru, из-за рубежа —

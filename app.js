@@ -10920,11 +10920,18 @@
       function _ensureXLSX() {
         if (window.XLSX) return Promise.resolve(true);
         if (_xlsxPromise) return _xlsxPromise;
+        // Лежит в vendor/, а не на cdn.jsdelivr.net (там же, где supabase-js и vkid).
+        // Причина не в паранойе: выгрузка в Excel переставала работать всякий раз,
+        // когда у CDN была икота, — и падал единственный тест во всём наборе, который
+        // ходил в интернет. Файл сверен по тому же sha384, что был запинен в integrity,
+        // так что это ровно те байты, которым приложение доверяло раньше.
+        // Не в STATIC_ASSETS намеренно: 425 КБ, и большинство пользователей ничего
+        // не выгружают. Прекэш замедлил бы установку всем ради немногих; SW и так
+        // кладёт в кэш любой успешный свой запрос, поэтому после первой выгрузки
+        // библиотека доступна офлайн.
         _xlsxPromise = new Promise((resolve, reject) => {
           const s = document.createElement("script");
-          s.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js";
-          s.integrity = "sha384-OUW9euuUyxyHcAhTqbhI+Iyb8LMssXt/cpz0yXhs9UWG2/R/uaWdakx/4cfww7Vb";
-          s.crossOrigin = "anonymous";
+          s.src = "./vendor/xlsx-js-style.min.js";
           s.onload = () => resolve(true);
           s.onerror = () => { _xlsxPromise = null; reject(new Error("xlsx load failed")); };
           document.head.appendChild(s);
