@@ -177,6 +177,40 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     await page.setViewportSize({ width: 900, height: 800 });
   });
 
+  /* KPI-полоса дашборда не должна обрываться пустой ячейкой. Плиток девять, и
+     auto-fill на экране от ~1600px создавал ДЕСЯТЬ дорожек: справа от «Дедлайны»
+     зияла дыра в целую плитку. Меряем не число дорожек (в computed style пустая
+     всё равно перечислена), а хвост — расстояние от правого края последней
+     плитки первого ряда до края полосы. */
+  await test("дашборд: KPI-полоса заполнена до правого края, без пустой ячейки", async () => {
+    const bad = [];
+    try {
+      for (const w of [1920, 1700, 1600, 1500, 1400, 1200]) {
+        await page.setViewportSize({ width: w, height: 900 });
+        await page.evaluate(() => window.app.go("home"));
+        await page.waitForTimeout(220);
+        const r = await page.evaluate(() => {
+          const row = document.querySelector(".db-stat-row");
+          if (!row) return null;
+          const tiles = [...row.querySelectorAll(".db-stat")];
+          if (!tiles.length) return null;
+          const rr = row.getBoundingClientRect();
+          const tops = [...new Set(tiles.map((t) => Math.round(t.getBoundingClientRect().top)))];
+          const firstRow = tiles.filter((t) => Math.round(t.getBoundingClientRect().top) === tops[0]);
+          const last = firstRow[firstRow.length - 1];
+          return { tail: Math.round(rr.right - last.getBoundingClientRect().right), tiles: tiles.length };
+        });
+        if (!r) { bad.push(`${w}px: полоса не отрисовалась`); continue; }
+        // Порог 60px: меньше плитки (минимум 150px), но с запасом на отступы.
+        if (r.tail > 60) bad.push(`${w}px: пусто справа ${r.tail}px при ${r.tiles} плитках`);
+      }
+    } finally {
+      await page.setViewportSize({ width: 900, height: 800 });
+      await page.waitForTimeout(150);
+    }
+    assert(bad.length === 0, "KPI-полоса обрывается пустой ячейкой: " + bad.join("; "));
+  });
+
   /* Доска воронки на телефоне. Десять этапов по 220px — это 2326px, при экране
      390px видно полторы колонки, а до «Завершённых» листать вбок шесть экранов.
      Правило «одна колонка» в CSS было написано давно и не работало: число

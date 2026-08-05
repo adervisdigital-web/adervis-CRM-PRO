@@ -13806,6 +13806,31 @@
                 <div class="db-stat-value">${uniqueDeadlines.length}</div>
         <div class="db-stat-delta ${overdueCount>0?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${overdueCount>0?overdueCount+" просрочено":uniqueDeadlines.length>0?"ближ. "+formatDate(uniqueDeadlines[0].date):"нет ✓"}</div>
               </div>
+              ${(() => {
+                /* Десятая плитка — собираемость. Плиток было девять, и на широком
+                   экране справа оставалась пустая ячейка в целую плитку. Заполнить
+                   её цифрой правильнее, чем растягивать остальные: место занято
+                   делом, а не воздухом.
+
+                   Показатель выбран не случайно: «Долг клиентов» рядом говорит,
+                   СКОЛЬКО не получено, но не говорит, много это или мало. Доля
+                   отвечает на это одним числом — и именно её не хватало, когда
+                   на завершённой сделке повис остаток в 60 ₽.
+
+                   Считаем по всем неархивным сделкам: выставлено против
+                   полученного. */
+                const live = projects.filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED);
+                const billed = live.reduce((s, p) => s + numberValue(p.total, 0), 0);
+                const got = live.reduce((s, p) => s + numberValue(p.paid, 0), 0);
+                const pct = billed > 0 ? Math.round(got / billed * 100) : 0;
+                const cls = billed <= 0 ? "neu" : pct >= 90 ? "pos" : pct >= 60 ? "neu" : "neg";
+                return `
+              <div class="db-stat" onclick="app.go('global-finances')" title="Собираемость: какая доля выставленных сумм уже оплачена">
+                <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Собираемость</span></div>
+                <div class="db-stat-value">${billed > 0 ? pct + "%" : "—"}</div>
+                <div class="db-stat-delta ${cls}">${billed > 0 ? money(got) + " из " + money(billed) : "нет сумм"}</div>
+              </div>`;
+              })()}
             </div>
 
             ${renderUpgradeBanner(projects)}

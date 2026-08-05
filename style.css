@@ -2987,7 +2987,17 @@
          иконку с зазором + 28px внутренних отступов. Плиток девять, то есть один
          ряд физически возможен только от ~1400px контейнера; ниже раскладка
          переносится, и это правильнее обрезанных подписей. */
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      /* auto-fit, а не auto-fill. Плиток девять; auto-fill на экране от ~1600px
+         создаёт ДЕСЯТЬ дорожек и оставляет последнюю пустой — справа от
+         «Дедлайны / 7 дн» зияла дыра в целую плитку (владелец на неё и указал).
+         auto-fit схлопывает лишнюю дорожку и отдаёт место плиткам: 152 → 169px.
+
+         В v214 от auto-fit отказались, опасаясь, что одинокая плитка последнего
+         ряда растянется на всю ширину. Проверено замером на семи ширинах: этого
+         не происходит — при переносе все дорожки заняты первым рядом и схлопывать
+         нечего, одинокая плитка занимает ровно одну дорожку (1380px: 168px, как и
+         при auto-fill). На 560px auto-fit даже лучше: три колонки вместо двух. */
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       background: var(--panel2); border: 1px solid var(--line);
       border-radius: 14px; margin-bottom: 14px; overflow: hidden;
     }
@@ -3045,7 +3055,10 @@
       font-size: 16.5px; font-weight: 800; letter-spacing: -.01em;
       font-variant-numeric: tabular-nums; line-height: 1.2; margin-bottom: 2px;
     }
-    .db-stat-delta { font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* tabular-nums: в подписи плитки бывают суммы («20 750 ₽ из 41 500 ₽»), а
+       DESIGN.md §5 требует табличных цифр везде, где деньги. Сторож в a11y это
+       и поймал на новой плитке «Собираемость». */
+    .db-stat-delta { font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
     .db-stat-delta.pos { color: var(--text-success); }
     .db-stat-delta.neg { color: var(--text-danger); }
     .db-stat-delta.neu { color: var(--muted); }
