@@ -115,6 +115,21 @@ module.exports = async function ({ test }) {
       "во время загрузки каталога показываются встроенные цены — посетитель увидит чужой прайс");
   });
 
+  await test("синхронизация: снимок коллеги не стирает правки молча", () => {
+    // Снимок заменяет состояние целиком. На старте конфликт разбирается вопросом,
+    // а realtime-путь применял облако безусловно — правки, ещё не ушедшие в
+    // облако, исчезали посреди работы с тостом «Обновление от коллеги».
+    const fn = app.slice(app.indexOf("async function _applyRemoteStateSync"), app.indexOf("function broadcastState") > 0
+      ? app.indexOf("function broadcastState")
+      : app.indexOf("function _broadcastCloudUpdated"));
+    assert(fn.length > 300, "не удалось вырезать тело _applyRemoteStateSync");
+    const mark = fn.indexOf("_getCloudSyncMark()");
+    const apply = fn.indexOf("_applyCloudState(");
+    assert(mark > 0, "realtime-путь снова не проверяет несинхронизированные правки");
+    assert(apply > mark, "состояние применяется РАНЬШЕ проверки конфликта — правки уже потеряны");
+    assert(/confirmDialog\(/.test(fn.slice(mark, apply)), "конфликт разрешается без вопроса пользователю");
+  });
+
   await test("калькулятор: не отдался каталог — не показываем чужой прайс", () => {
     // Найдено пробником: на ответе `{}` (сбой сервера, обрезанный ответ, чужой
     // прокси) проверка `!data` не срабатывала, загрузка рапортовала успех — и

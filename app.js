@@ -2072,6 +2072,36 @@
         try {
           const { data, error } = await _supabase.from("agency_state").select("state_json,updated_at").eq("id", agencyId).single();
           if (error || !data || !data.state_json) return;
+
+          // Снимок коллеги заменяет состояние ЦЕЛИКОМ, поэтому если на этом
+          // устройстве есть правки, ещё не доехавшие до облака, они исчезнут — и
+          // раньше исчезали молча, посреди работы, с бодрым тостом «Обновление от
+          // коллеги». На старте такой конфликт уже разбирается вопросом
+          // (см. _loadCloudState), а этот путь его не имел вовсе.
+          //
+          // Настоящее слияние здесь невозможно без переделки хранения: удаление
+          // сделки — это splice без следа, поэтому объединение по id воскрешало бы
+          // удалённое (тот же класс, что gotcha-snapshot-resurrects-catalog-items).
+          // Пока модель прежняя, кто-то из двоих теряет правки в любом случае —
+          // но выбирать должен человек, а не таймер.
+          const mark = _getCloudSyncMark();
+          if (mark && mark.dirty && mark.agencyId === agencyId) {
+            const takeCloud = await confirmDialog({
+              title: "Коллега сохранил изменения",
+              message: "На этом устройстве есть правки, которые ещё не ушли в облако.\n\n"
+                + "«Взять версию коллеги» — ваши несохранённые изменения будут потеряны.\n\n"
+                + "«Оставить мои» — ваша версия останется и заменит облачную.",
+              okText: "Взять версию коллеги",
+              cancelText: "Оставить мои",
+              danger: true
+            });
+            if (!takeCloud) {
+              toast("Оставили правки этого устройства");
+              saveToCloud();
+              return;
+            }
+          }
+
           if (_applyCloudState(data.state_json)) {
             _setCloudSyncMark({ agencyId, cloudUpdatedAt: data.updated_at || null, dirty: false });
             render();
