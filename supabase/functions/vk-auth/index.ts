@@ -76,11 +76,29 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Ищем пользователя, создаём если не существует
-    const { data: listData, error: listErr } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    if (listErr) return json({ error: listErr.message }, 500);
+    // Ищем пользователя, создаём если не существует.
+    // perPage:1000 без пагинации молча терял всех, кто не попал на первую страницу:
+    // с 1001-го аккаунта существующий пользователь выглядел бы новым, createUser падал
+    // на занятом email — и вход переставал работать без единого понятного сообщения.
+    const users = [] as { id: string; email?: string; user_metadata?: Record<string, unknown> }[];
+    for (let page = 1; page <= 50; page++) {
+      const { data: listData, error: listErr } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+      if (listErr) return json({ error: listErr.message }, 500);
+      const batch = listData.users ?? [];
+      users.push(...batch);
+      if (batch.length < 1000) break;
+    }
 
-    const existing = listData.users?.find(u => u.email === email);
+    // Личность — это VK ID, а не email. Раньше искали только по email, и один и тот
+    // же человек получал РАЗНЫЕ аккаунты в зависимости от того, отдал VK почту или
+    // нет: первый вход без scope email заводил vk<id>@vk.adervis, а следующий, уже с
+    // почтой, не находил его и создавал пустой аккаунт — со стороны это выглядит как
+    // «пропали все сделки». Смена почты в самом VK давала тот же эффект.
+    const existing = users.find(u => u.user_metadata?.vk_id === vkUserId)
+                  ?? users.find(u => u.email === email);
+    // Найденному по VK ID магическую ссылку шлём на ЕГО адрес: он может отличаться от
+    // вычисленного выше, и generateLink по чужому email завёл бы второй аккаунт.
+    const loginEmail = existing?.email ?? email;
     if (!existing) {
       const { error: createErr } = await supabase.auth.admin.createUser({
         email,
@@ -97,12 +115,12 @@ Deno.serve(async (req) => {
     // Генерируем одноразовый токен для входа
     const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
-      email,
+      email: loginEmail,
     });
     if (linkErr) return json({ error: linkErr.message }, 500);
 
     return json({
-      email,
+      email: loginEmail,
       token: linkData.properties.hashed_token,
       name:  `${firstName} ${lastName}`.trim(),
     });

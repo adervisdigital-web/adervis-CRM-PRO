@@ -1062,7 +1062,6 @@
       let _realtimeChannel = null;
       let _adminSession = null;
       let _loggedInUserId = null; // защита от повторной полной загрузки при дублях SIGNED_IN
-      let _broadcastTimer = null;
       let _userProfile = null;   // { subscription_status, subscription_plan, subscription_expires_at, agency_id }
       let _cloudSaveTimer = null;
       let _cloudDirty = false; // последний upsert в agency_state упал — есть несинхронизированные изменения
@@ -1407,10 +1406,38 @@
         _loadGoogleCalendarStatus();
       }
 
+      // Профиль не прочитался — это НЕ «пользователь новый». Флаг разводит две
+      // ситуации, которые раньше сливались в одну: «подписки нет» и «мы вообще не
+      // знаем, кто это». Нужен и экрану-заглушке, и save().
+      let _profileLoadFailed = false;
+
       async function _loadUserProfile(userId, email) {
         if (!_supabase) return;
+        _profileLoadFailed = false;
         try {
-          const { data } = await _supabase.from("profiles").select("*").eq("id", userId).single();
+          // maybeSingle(), а не single(): single() считает ОШИБКОЙ отсутствие строки,
+          // и «новый пользователь» становится неотличим от отказа сети или RLS.
+          let { data, error } = await _supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+          // Одна повторная попытка: сразу после verifyOtp (вход через VK/Яндекс)
+          // токен может ещё не доехать до PostgREST, и первый запрос приходит
+          // отказом RLS — при живом интернете и существующем профиле.
+          if (error) {
+            await new Promise(r => setTimeout(r, 800));
+            ({ data, error } = await _supabase.from("profiles").select("*").eq("id", userId).maybeSingle());
+          }
+          // ВАЖНО: раньше ошибка отбрасывалась (`const { data } = ...`), и ЛЮБОЙ сбой
+          // чтения уводил в ветку «первый вход» ниже. А она делает upsert профиля с
+          // subscription_status:"trial" и agency_id = собственный userId. То есть один
+          // неудачный SELECT — и оплаченная подписка молча превращалась в 7-дневный
+          // триал, а член команды вылетал из агентства; дальше _onUserLoggedIn видел
+          // смену agencyId и стирал локальные данные (state = defaultState() +
+          // lsRemove). Плюс в Метрику уходили ложные registration/trial_started и
+          // повторное welcome-письмо. Теперь на ошибке выходим, ничего не записав.
+          if (error) {
+            _profileLoadFailed = true;
+            console.warn("Profile load failed:", error.message || error);
+            return;
+          }
           if (data) {
             _userProfile = data;
             // Migrate old profiles: set agency_id = own userId if missing
@@ -1480,7 +1507,7 @@
               }
             }, 1200);
           }
-        } catch(e) { console.warn("Profile load:", e); }
+        } catch(e) { _profileLoadFailed = true; console.warn("Profile load:", e); }
       }
 
       // ── Web Push ────────────────────────────────────────────────────────────
@@ -1744,6 +1771,8 @@
             // Запоминаем НАДОЛГО (не только в памяти), какую облачную версию мы
             // подтвердили: следующий запуск по этой метке поймёт, впереди ли локальное.
             _setCloudSyncMark({ agencyId, cloudUpdatedAt: updatedAt, dirty: false });
+            // Только теперь в облаке лежит то, что коллеге предстоит забрать.
+            _broadcastCloudUpdated();
             if (_cloudDirty) {
               _cloudDirty = false;
               _setCloudSaveIndicator(true);
@@ -1988,7 +2017,7 @@
         });
         _realtimeChannel
           .on("broadcast", { event: "state-sync" }, ({ payload }) => {
-            if (!payload || !payload.data) return;
+            if (!payload) return;
             if (payload.sender && payload.sender === myEmail) return;
             const active = document.activeElement;
             if (active && active.matches && active.matches("input, textarea, [data-autosave]")) {
@@ -2025,27 +2054,37 @@
           });
       }
 
-      function _applyRemoteStateSync(payload) {
-        const incoming = payload.data;
-        SYNC_SKIP_KEYS.forEach(k => { if (k in state) incoming[k] = state[k]; });
-        Object.assign(state, incoming);
-        // Как и с облачной копией: снапшот коллеги мог прийти от другой версии
-        // приложения (cache-first SW держит устройства на разных версиях), поэтому
-        // прогоняем через миграцию схемы, а не только через normalizeState.
-        state = migrateState(state);
-        _needsNormalize = true;
-        render();
-    toast("Обновление от " + (payload.sender || "коллеги"));
+      // «Пинок» от коллеги несёт только факт «облако обновилось» — сам снапшот
+      // забираем из agency_state. Это и снимает потолок канала, и убирает старую
+      // развилку: раньше данные приходили двумя разными путями (broadcast и облако)
+      // с разной обработкой — по каналу шёл голый Object.assign без normalizeState,
+      // так что снапшот от устройства на другой версии кода (cache-first SW легко
+      // держит их врозь) оставался без дефолтов новых полей до перезагрузки.
+      async function _applyRemoteStateSync(payload) {
+        if (!_supabase || !_adminSession) return;
+        const agencyId = getAgencyId();
+        try {
+          const { data, error } = await _supabase.from("agency_state").select("state_json,updated_at").eq("id", agencyId).single();
+          if (error || !data || !data.state_json) return;
+          if (_applyCloudState(data.state_json)) {
+            _setCloudSyncMark({ agencyId, cloudUpdatedAt: data.updated_at || null, dirty: false });
+            render();
+      toast("Обновление от " + (payload && payload.sender || "коллеги"));
+          }
+        } catch(e) { console.warn("Remote sync:", e); }
       }
 
-      function broadcastState() {
+      // Раньше сюда клали ВЕСЬ state. Замер на боевом проекте: у Supabase Realtime
+      // потолок сообщения ~256 КБ, при этом send() возвращает "ok" на любом размере —
+      // 250 КБ доходит, 300 КБ и больше исчезает молча, без ошибки и без события.
+      // Состояние весит ~6 КБ на сделку, то есть примерно с 40-й сделки командная
+      // синхронизация переставала работать, и заметить это было нечем.
+      // Теперь в канал уходит только «пинок» фиксированного размера: облако и так
+      // остаётся источником правды, получателю достаточно знать, что оно обновилось.
+      function _broadcastCloudUpdated() {
         if (!_realtimeChannel || !_adminSession) return;
-        clearTimeout(_broadcastTimer);
-        _broadcastTimer = setTimeout(() => {
-          const data = Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k)));
-          _realtimeChannel.send({ type: "broadcast", event: "state-sync",
-            payload: { data, sender: _adminSession.user.email } });
-        }, 1200);
+        _realtimeChannel.send({ type: "broadcast", event: "state-sync",
+          payload: { sender: _adminSession.user.email } });
       }
 
       const _PAGE_TITLES = {
@@ -3468,6 +3507,30 @@
               }
             </div>
             ${statusHtml}
+          </div>`;
+      }
+
+      // Данные аккаунта не прочитались. Отдельный экран, а не «Подписка истекла»:
+      // причина здесь техническая и лечится не оплатой, а повтором запроса. Работу
+      // при этом закрываем — под неизвестной личностью нельзя писать в облако, а
+      // молча пускать «как есть» значило бы разрешить правки, которые никуда не уедут.
+      function renderProfileErrorGate() {
+        const email = _adminSession && _adminSession.user.email || "";
+        return `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;text-align:center;padding:32px 16px">
+            <div style="margin-bottom:18px">${iconBadge("warning", "var(--muted)", 44)}</div>
+            <h1 style="font-size:26px;margin-bottom:10px">Не удалось получить данные аккаунта</h1>
+            <p style="max-width:440px;margin-bottom:8px;line-height:1.55;color:var(--muted)">
+              Аккаунт <strong style="color:var(--text)">${escapeHtml(email)}</strong> опознан, но профиль
+              не прочитался — похоже на обрыв связи.
+            </p>
+            <p style="max-width:440px;margin-bottom:28px;font-size:13px;color:var(--text-success)">
+              Данные на месте: ни подписка, ни сделки не тронуты. Проверьте соединение и обновите страницу.
+            </p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+              <button class="btn primary" onclick="location.reload()">Обновить страницу</button>
+              <button class="btn" onclick="app.adminLogout()">Выйти</button>
+            </div>
           </div>`;
       }
 
@@ -6627,6 +6690,14 @@
         // проверки. Без guard'а один случайный save() (сейчас его никто не вызывает,
         // но будущая правка может) переписал бы реальную смету игрой с калькулятором.
         if (_calcMode) return;
+        // Профиль не прочитался — агентство пользователя неизвестно. Писать в облако
+        // под неизвестной личностью нельзя (можно попасть в чужой agency_state), а
+        // isSubscriptionActive() в этом состоянии вернёт false и соврал бы про
+        // истёкшую подписку. Локальную копию при этом сохраняем: работа не пропадёт.
+        if (_profileLoadFailed && _adminSession) {
+          lsSet(STORAGE_KEY, JSON.stringify(state));
+          return;
+        }
         if (!isSubscriptionActive()) {
      toast("Подписка истекла — данные не сохранены. Продлите: adervis.digital@gmail.com");
           return;
@@ -6639,7 +6710,10 @@
         // _loadCloudState поймёт, что тянуть облако поверх нельзя.
         _setCloudSyncMark({ agencyId: _adminSession ? getAgencyId() : null, dirty: true });
         scheduleAutoSave();
-        broadcastState();
+        // «Пинок» коллегам больше не шлётся отсюда: он ушёл в saveToCloud() и
+        // отправляется ПОСЛЕ подтверждённой записи. Раньше broadcast (пауза 1200мс)
+        // обгонял облачный upsert (пауза 3000мс), и теперь, когда получатель тянет
+        // снапшот из облака, он бы каждый раз забирал предыдущую версию.
         saveToCloud();
         _checkActivationGoals();
     // Индикатор сохранения. Раньше он рисовал «✓ сохранено» даже когда
@@ -11600,6 +11674,13 @@
           return;
         }
 
+        // Порядок важен: «профиль не прочитался» проверяется ДО подписки. Иначе
+        // человек с оплаченным тарифом при обрыве связи видит «Подписка истекла»
+        // и идёт платить второй раз за то, что у него уже есть.
+        if (lsGet('adervis_local_mode') !== '1' && _adminSession && _profileLoadFailed) {
+          root.innerHTML = renderProfileErrorGate();
+          return;
+        }
         if (lsGet('adervis_local_mode') !== '1' && !isSubscriptionActive() && _adminSession) {
           root.innerHTML = renderSubscriptionGate();
           return;

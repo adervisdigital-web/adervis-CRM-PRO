@@ -228,4 +228,83 @@ module.exports = async function ({ test }) {
     assert(bad.length === 0, "«ADERVIS CRM» вне юр. документов:\n" + bad.slice(0, 8).join("\n"));
   });
 
+  // ── Вход и синхронизация ───────────────────────────────────────────────────
+  // Всё ниже — сторожа статические: путь записи в Supabase тестами не покрыт в
+  // принципе (прогон идёт в local mode, где _supabase нет вовсе), а цена ошибки
+  // здесь — чужие или потерянные данные живого пользователя.
+
+  await test("вход: сбой чтения профиля не уводит в ветку «новый пользователь»", () => {
+    // Ветка «первый вход» делает upsert профиля с subscription_status:"trial" и
+    // agency_id = собственный userId. Раньше ошибка SELECT'а отбрасывалась
+    // (`const { data } = ...`), поэтому один обрыв связи превращал оплаченную
+    // подписку в 7-дневный триал, а члена команды выкидывал из агентства —
+    // дальше _onUserLoggedIn видел смену agencyId и стирал локальные данные.
+    const fn = app.slice(app.indexOf("async function _loadUserProfile"));
+    const body = fn.slice(0, fn.indexOf("\n      // ── Web Push"));
+    assert(body.length > 200, "не удалось вырезать тело _loadUserProfile");
+    assert(
+      /maybeSingle\(\)/.test(body),
+      "_loadUserProfile снова читает профиль через single(): отсутствие строки станет неотличимо от отказа сети"
+    );
+    assert(
+      !/const\s*\{\s*data\s*\}\s*=\s*await\s+_supabase\s*\.?\s*\n?\s*\.from\("profiles"\)/.test(body.replace(/\s+/g, " ")) &&
+      !/const \{ data \} = await _supabase\.from\("profiles"\)/.test(body),
+      "_loadUserProfile снова отбрасывает error при чтении профиля"
+    );
+    const errIdx = body.indexOf("_profileLoadFailed = true");
+    const createIdx = body.indexOf('subscription_status: "trial"');
+    assert(errIdx > 0, "нет отметки о неудачном чтении профиля");
+    assert(createIdx > 0, "не нашлась ветка создания профиля — проверка потеряла смысл");
+    assert(errIdx < createIdx, "выход по ошибке стоит ПОСЛЕ создания профиля — он уже не спасает");
+  });
+
+  await test("вход: «нет связи» и «подписка истекла» — разные экраны", () => {
+    assert(/function renderProfileErrorGate/.test(app), "нет отдельного экрана для неудачного чтения профиля");
+    const gateIdx = app.indexOf("renderProfileErrorGate();");
+    const subIdx = app.indexOf("renderSubscriptionGate();");
+    assert(gateIdx > 0 && subIdx > 0, "не нашлись обе заглушки в render()");
+    assert(gateIdx < subIdx, "проверка подписки идёт раньше проверки связи — оплативший увидит «Подписка истекла»");
+  });
+
+  await test("realtime: в канал уходит «пинок», а не всё состояние", () => {
+    // Замер на боевом проекте: send() возвращает "ok" на любом размере, но
+    // сообщения больше ~256 КБ до получателя не доходят вовсе. Состояние весит
+    // ~6 КБ на сделку — примерно с 40-й сделки командная синхронизация умирала молча.
+    const m = app.match(/event: "state-sync",\s*\n?\s*payload: \{([^}]*)\}/);
+    assert(m, "не нашлась отправка state-sync в broadcast");
+    assert(
+      !/\bdata\b/.test(m[1]),
+      "в broadcast state-sync снова кладут состояние целиком: " + m[1].trim()
+    );
+    // Пинок обязан уходить ПОСЛЕ подтверждённой записи в облако, иначе получатель
+    // заберёт из agency_state предыдущую версию.
+    const cloudFn = app.slice(app.indexOf("function saveToCloud()"));
+    const upsertIdx = cloudFn.indexOf('from("agency_state").upsert');
+    const pokeIdx = cloudFn.indexOf("_broadcastCloudUpdated()");
+    assert(upsertIdx > 0 && pokeIdx > 0, "пинок не привязан к записи в agency_state");
+    assert(upsertIdx < pokeIdx, "пинок шлётся раньше записи в облако — коллега заберёт старый снапшот");
+  });
+
+  await test("соц-вход: пользователь ищется по id провайдера, а не только по email", () => {
+    // Раньше искали строго по email. Один и тот же человек получал РАЗНЫЕ аккаунты
+    // в зависимости от того, отдал ли провайдер почту: первый вход без scope email
+    // заводил vk<id>@vk.adervis, следующий (уже с почтой) не находил его и создавал
+    // пустой — со стороны это «пропали все сделки». Смена почты у провайдера — то же.
+    for (const [file, idKey] of [["vk-auth", "vk_id"], ["yandex-auth", "yandex_id"]]) {
+      const src = fs.readFileSync(path.join(REPO_ROOT, `supabase/functions/${file}/index.ts`), "utf8");
+      assert(
+        new RegExp(`user_metadata\\?\\.${idKey}`).test(src),
+        `${file}: пользователь снова ищется только по email, без ${idKey}`
+      );
+      assert(
+        /loginEmail/.test(src) && /email: loginEmail/.test(src),
+        `${file}: magiclink шлётся не на адрес найденного аккаунта — вход заведёт второй`
+      );
+      assert(
+        /for \(let page = 1/.test(src),
+        `${file}: listUsers снова без пагинации — с 1001-го аккаунта вход сломается`
+      );
+    }
+  });
+
 };

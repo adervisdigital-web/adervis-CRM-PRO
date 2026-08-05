@@ -60,10 +60,24 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const { data: listData, error: listErr } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    if (listErr) return json({ error: listErr.message }, 500);
+    // perPage:1000 без пагинации молча терял всех, кто не попал на первую страницу:
+    // с 1001-го аккаунта существующий пользователь выглядел бы новым, createUser падал
+    // на занятом email — и вход переставал работать без единого понятного сообщения.
+    const users = [] as { id: string; email?: string; user_metadata?: Record<string, unknown> }[];
+    for (let page = 1; page <= 50; page++) {
+      const { data: listData, error: listErr } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+      if (listErr) return json({ error: listErr.message }, 500);
+      const batch = listData.users ?? [];
+      users.push(...batch);
+      if (batch.length < 1000) break;
+    }
 
-    const existing = listData.users?.find(u => u.email === email);
+    // Личность — это Яндекс ID, а не email (та же причина, что в vk-auth): смена
+    // основного адреса в Яндексе не находила существующий аккаунт и заводила пустой,
+    // что со стороны выглядит как «пропали все сделки».
+    const existing = users.find(u => u.user_metadata?.yandex_id === yandexId)
+                  ?? users.find(u => u.email === email);
+    const loginEmail = existing?.email ?? email;
     if (!existing) {
       const name = info.display_name || info.real_name || `${info.first_name ?? ''} ${info.last_name ?? ''}`.trim() || 'Yandex User';
       const { error: createErr } = await supabase.auth.admin.createUser({
@@ -76,7 +90,7 @@ Deno.serve(async (req) => {
 
     const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
-      email,
+      email: loginEmail,
     });
     if (linkErr) return json({ error: linkErr.message }, 500);
 
