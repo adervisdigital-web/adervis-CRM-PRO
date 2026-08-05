@@ -6701,7 +6701,13 @@
           return;
         }
         if (!isSubscriptionActive()) {
-     toast("Подписка истекла — данные не сохранены. Продлите: adervis.digital@gmail.com");
+          // Локальную копию пишем ВСЁ РАВНО. Раньше здесь был голый return, и работа,
+          // сделанная до момента истечения, умирала при перезагрузке: облако платное —
+          // это понятно, но localStorage принадлежит самому человеку, и стирать там его
+          // же данные не за что. Теперь после оплаты load() поднимет всё как было.
+          // За платный ресурс по-прежнему не платим: saveToCloud() ниже не вызывается.
+          lsSet(STORAGE_KEY, JSON.stringify(state));
+     toast("Подписка истекла — изменения сохранены только на этом устройстве. Продлите: adervis.digital@gmail.com");
           return;
         }
         _needsNormalize = true;
@@ -12394,15 +12400,51 @@
         return base + '?brief=' + agencyId + (typeId ? '&type=' + typeId : '');
       }
 
-      function showBriefQR(typeId) {
+      // QR рисуется на месте, своей библиотекой из vendor/ (qrcode-generator 1.4.4, MIT,
+      // sha384-lQXOAyZwHXE55JFyrOMB7nY2Wv+m5ZWNtJcHrd1rceRQXAYNLak8ukN5TjBTcIwz).
+      // Раньше картинка запрашивалась у api.qrserver.com, то есть ссылка на бриф —
+      // вместе с agency_id — уходила третьей стороне при каждом показе. Для сервиса,
+      // который собирает персональные данные клиентов агентства, это лишний получатель
+      // в цепочке, и первый же вопрос про 152-ФЗ упирался бы в него.
+      // SVG, а не картинка: масштабируется без размытия и берёт цвета темы.
+      let _qrPromise = null;
+      function _ensureQRCode() {
+        if (window.qrcode) return Promise.resolve(true);
+        if (_qrPromise) return _qrPromise;
+        _qrPromise = new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "./vendor/qrcode.min.js";
+          s.onload = () => resolve(true);
+          s.onerror = () => { _qrPromise = null; reject(new Error("qrcode load failed")); };
+          document.head.appendChild(s);
+        });
+        return _qrPromise;
+      }
+
+      async function showBriefQR(typeId) {
         const container = document.getElementById("briefQrContainer");
         if (!container) return;
         if (container.style.display !== "none") { container.style.display = "none"; return; }
-        const link = encodeURIComponent(getBriefLink(typeId));
+        try { await _ensureQRCode(); } catch(e) { toast("Не удалось построить QR-код"); return; }
+        // Уровень коррекции M: ссылка с UUID длинная, а код читают с экрана телефона,
+        // где бликов и наклона хватает. typeNumber 0 — библиотека подберёт версию сама.
+        const q = window.qrcode(0, "M");
+        q.addData(getBriefLink(typeId));
+        q.make();
         container.innerHTML = `
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${link}"
-            alt="QR-код" style="border-radius:12px;border:4px solid var(--panel2);max-width:200px">
+          <div style="display:inline-block;padding:12px;background:#fff;border-radius:12px;border:1px solid var(--line)">
+            ${q.createSvgTag({ cellSize: 4, margin: 0, scalable: true })}
+          </div>
           <div style="font-size:12px;color:var(--muted);margin-top:8px">Отсканируй для открытия формы брифа</div>`;
+        const svg = container.querySelector("svg");
+        if (svg) {
+          // Белая подложка задана явно выше: в тёмной теме QR на тёмном фоне не читается
+          // сканером вовсе, а библиотека рисует только чёрные модули без фона.
+          svg.setAttribute("width", "200");
+          svg.setAttribute("height", "200");
+          svg.setAttribute("role", "img");
+          svg.setAttribute("aria-label", "QR-код со ссылкой на форму брифа");
+        }
         container.style.display = "block";
       }
 

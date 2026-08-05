@@ -67,6 +67,53 @@ module.exports = async function ({ test }) {
     }
   });
 
+  await test("QR брифа строится своей библиотекой, а не чужим сервисом", () => {
+    // Картинка запрашивалась у api.qrserver.com — ссылка на бриф вместе с agency_id
+    // уходила третьей стороне при каждом показе. Для сервиса, собирающего ПД клиентов
+    // агентства, это лишний получатель в цепочке.
+    assert(fs.existsSync(path.join(REPO_ROOT, "vendor/qrcode.min.js")), "нет файла vendor/qrcode.min.js");
+    // Без строк-комментариев: рядом с кодом объяснено, ПОЧЕМУ ушли от qrserver, и
+    // упоминание там законно — ловим обращение, а не слово.
+    const appCode = app.replace(/^\s*\/\/[^\n]*$/gm, "");
+    assert(!/api\.qrserver\.com/.test(appCode), "QR снова строится через api.qrserver.com");
+    assert(!/api\.qrserver\.com/.test(index), "api.qrserver.com остался в CSP");
+    const body = app.slice(app.indexOf("async function showBriefQR"), app.indexOf("function copyBriefLink"));
+    assert(body.length > 100, "не удалось вырезать тело showBriefQR");
+    assert(/createSvgTag/.test(body), "QR рисуется не в SVG — картинка мылится и не берёт цвета темы");
+    // Библиотека рисует только чёрные модули без фона: на тёмной теме без явной
+    // белой подложки код не читается сканером вовсе.
+    assert(/background:#fff/.test(body), "у QR нет явной белой подложки — в тёмной теме он не сканируется");
+  });
+
+  await test("CSP: убраны разрешения, которыми никто не пользуется", () => {
+    const csp = (index.match(/Content-Security-Policy"\s+content="([^"]+)"/) || [])[1] || "";
+    const connect = (csp.match(/connect-src([^;]*)/) || [])[1] || "";
+    // Gemini зовётся из Edge Functions (сервер, Deno) — браузер туда не ходит вовсе;
+    // Telegram — тоже, через свою функцию telegram-notify.
+    assert(!/generativelanguage/.test(connect), "generativelanguage вернулся в connect-src, хотя браузер туда не ходит");
+    assert(!/api\.telegram\.org/.test(connect), "api.telegram.org вернулся в connect-src — браузер зовёт telegram-notify, а не Telegram напрямую");
+    // А вот api.vk.com убирать НЕЛЬЗЯ: SDK ВКонтакте собирает хосты динамически
+    // (в минифицированном файле лежит кусок "api."), поэтому статикой это не доказать.
+    assert(/api\.vk\.com/.test(connect), "из connect-src убран api.vk.com — SDK строит хост динамически, вход сломается");
+  });
+
+  await test("истёкшая подписка не стирает несохранённую работу", () => {
+    const body = app.slice(app.indexOf("function save()"), app.indexOf("function setTheme("));
+    assert(body.length > 200, "не удалось вырезать тело save()");
+    const gate = body.indexOf("if (!isSubscriptionActive())");
+    assert(gate > 0, "не нашлась проверка подписки в save()");
+    // Ровно тело ветки: дальше начинается обычный путь сохранения, и он, конечно,
+    // пишет в облако — окно «на глазок» захватывало его и роняло проверку.
+    const normalPath = body.indexOf("_needsNormalize = true", gate);
+    assert(normalPath > gate, "не нашлось начало обычного пути сохранения");
+    // Комментарии вырезаем: внутри ветки объяснено, что saveToCloud() тут НЕ зовётся,
+    // и это упоминание само роняло проверку.
+    const branch = body.slice(gate, normalPath).replace(/^\s*\/\/[^\n]*$/gm, "");
+    assert(/lsSet\(STORAGE_KEY/.test(branch), "при истёкшей подписке снова не пишется даже локальная копия — работа умрёт при перезагрузке");
+    assert(!/saveToCloud\(\)/.test(branch), "при истёкшей подписке пошла запись в облако — это платный ресурс");
+    assert(/return;/.test(branch), "ветка не завершается return — выполнение уйдёт в обычный путь");
+  });
+
   await test("CSP: шрифты и скрипты только свои, без внешних CDN", () => {
     const csp = (index.match(/Content-Security-Policy"\s+content="([^"]+)"/) || [])[1] || "";
     assert(csp, "нет CSP meta");
