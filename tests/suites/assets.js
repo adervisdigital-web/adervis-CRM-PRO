@@ -67,6 +67,78 @@ module.exports = async function ({ test }) {
     }
   });
 
+  await test("публичный каталог: функция не отдаёт state_json целиком", () => {
+    // Утечка календарного фида выросла ровно из широкой выдачи, и случилась ДВАЖДЫ.
+    // Здесь наружу смотрит анонимный посетитель, а в state_json лежат сделки,
+    // клиенты, финансы и команда — цена ошибки максимальная.
+    const mig = fs.readFileSync(
+      path.join(REPO_ROOT, "supabase/migrations/20260805000001_public_calc_catalog.sql"), "utf8");
+    assert(/security definer/i.test(mig), "функция не SECURITY DEFINER — RLS её не пропустит");
+    assert(/set search_path = public/i.test(mig), "не запинён search_path");
+    // Ни одной выдачи state_json как единого значения: только точечные ключи.
+    const wide = mig.split(/\r?\n/).filter(l =>
+      /state_json/.test(l) && !/state_json\s*(->|->>)/.test(l) && !/^\s*--/.test(l));
+    assert(wide.length === 0, "state_json отдаётся целиком:\n" + wide.join("\n"));
+    // Ключи со сделками и деньгами не должны упоминаться вовсе.
+    for (const k of ["savedProjects", "clients", "companyTeam", "finance", "transactions", "contracts"]) {
+      assert(!new RegExp(`'${k}'`).test(mig), `публичная функция отдаёт ${k} — это данные агентства, а не прайс`);
+    }
+    assert(/publicCalcEnabled/.test(mig), "нет опт-ина: каталог любой студии стал бы читаем по её agency_id");
+    // Нужны ОБА revoke — иначе право остаётся через роль public.
+    assert(/revoke all on function public\.get_public_catalog\(text\) from public/i.test(mig), "нет revoke ... from public");
+    assert(/revoke all on function public\.get_public_catalog\(text\) from anon/i.test(mig), "нет revoke ... from anon");
+  });
+
+  await test("публичный калькулятор закрыт по умолчанию и включается владельцем", () => {
+    assert(/publicCalcEnabled:\s*false/.test(app), "в defaultState калькулятор не выключен");
+    assert(/publicCalcEnabled:\s*old\.publicCalcEnabled === true/.test(app),
+      "миграция состояния включила бы калькулятор от undefined у старых аккаунтов");
+    assert(/function renderSettingsPublicCalc/.test(app), "нет панели управления калькулятором в настройках");
+    assert(/togglePublicCalc/.test(app) && /copyPublicCalcLink/.test(app), "нет переключателя или копирования ссылки");
+    // Ссылка обязана нести агентство — без этого калькулятор снова покажет чужие цены.
+    const urlFn = app.slice(app.indexOf("function publicCalcUrl()"), app.indexOf("function togglePublicCalc"));
+    assert(/\?calc=1&a=/.test(urlFn), "ссылка на калькулятор строится без идентификатора агентства");
+    assert(/encodeURIComponent\(getAgencyId\(\)\)/.test(urlFn), "agency_id не экранируется в ссылке");
+  });
+
+  await test("калькулятор: каталог агентства грузится ДО позиций из ссылки", () => {
+    // Ссылка-шеринг содержит идентификаторы позиций, часть из них — свои позиции
+    // агентства. Применённая раньше каталога, она молча выбросит их через findItem.
+    const boot = app.slice(app.indexOf("if (_calcMode) {\n        // Намеренно НЕ load()"));
+    const block = boot.slice(0, 2000);
+    const load = block.indexOf("_loadPublicCatalog");
+    const apply = block.indexOf("_calcApplyShared(_calcInitialEncoded);\n              render();");
+    assert(load > 0, "каталог агентства не загружается на старте калькулятора");
+    assert(apply > load, "позиции из ссылки применяются раньше каталога агентства");
+    // Пока каталог едет — скелет, а не встроенные цены ADERVIS.
+    assert(/_calcCatalogLoading \? renderCalcCatalogSkeleton\(\)/.test(app),
+      "во время загрузки каталога показываются встроенные цены — посетитель увидит чужой прайс");
+  });
+
+  await test("калькулятор: не отдался каталог — не показываем чужой прайс", () => {
+    // Найдено пробником: на ответе `{}` (сбой сервера, обрезанный ответ, чужой
+    // прокси) проверка `!data` не срабатывала, загрузка рапортовала успех — и
+    // посетитель студии видел встроенный прайс ADERVIS как прайс этой студии.
+    // Признак настоящего каталога — поле company: функция строит его всегда,
+    // когда каталог вообще отдаётся.
+    const start = app.indexOf("async function _loadPublicCatalog");
+    const fn = app.slice(start, app.indexOf("function _calcEncodeLines", start));
+    assert(fn.length > 200, "не удалось вырезать тело _loadPublicCatalog");
+    assert(/if \(!data\.company/.test(fn), "успех загрузки снова определяется по «ответ непустой», а не по форме каталога");
+    // И при неудаче должен показываться честный экран, а не встроенный калькулятор.
+    assert(/function renderCalcUnavailable/.test(app), "нет экрана «калькулятор недоступен»");
+    assert(/_calcCatalogFailed \? renderCalcUnavailable\(\)/.test(app),
+      "при неудачной загрузке каталога снова рисуется обычный калькулятор со встроенными ценами");
+  });
+
+  await test("калькулятор: шапка называет агентство, а не сервис", () => {
+    // Тот же дефект уже чинили в онлайн-брифе 03.08: у владельца всё выглядит верно —
+    // он и есть ADERVIS, а чужая студия представлялась своим посетителям конкурентом.
+    const hero = app.slice(app.indexOf('<div class="calc-badge">') - 600, app.indexOf('<div class="calc-badge">') + 200);
+    assert(/_calcAgencyName \|\|/.test(hero), "шапка калькулятора снова жёстко подписана ADERVIS");
+    assert(/escapeHtml\(brand\)/.test(hero), "имя агентства подставляется в разметку без экранирования");
+  });
+
   await test("QR брифа строится своей библиотекой, а не чужим сервисом", () => {
     // Картинка запрашивалась у api.qrserver.com — ссылка на бриф вместе с agency_id
     // уходила третьей стороне при каждом показе. Для сервиса, собирающего ПД клиентов

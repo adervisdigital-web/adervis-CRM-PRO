@@ -1098,6 +1098,10 @@
       const _calcParams = new URLSearchParams(location.search);
       const _calcMode = _calcParams.has('calc');
       const _calcInitialEncoded = _calcParams.get('calc') || '';
+      // Чей каталог показывать. Без этого параметра калькулятор считал по BASE_ITEMS,
+      // то есть по ценам ADERVIS: любая студия, поставившая его себе на сайт,
+      // показывала посетителям прайс чужой компании и прямого конкурента.
+      const _calcAgencyId = (_calcParams.get('a') || '').trim();
       const CALC_DRAFT_KEY = 'adervis_calc_draft';
 
       // Реферальный код — сохраняем при первом визите, применяем после регистрации
@@ -6192,6 +6196,9 @@
           permanentlyDeleted: {},
           catalogPrices: {},
           catalogOverrides: {},
+          // Публичный калькулятор закрыт по умолчанию: пока флаг не поднят, серверная
+          // функция get_public_catalog каталог наружу не отдаёт вовсе.
+          publicCalcEnabled: false,
           priceHistory: {},
           versions: [],
           savedProjects: [],
@@ -6511,6 +6518,9 @@
           permanentlyDeleted: old.permanentlyDeleted || {},
           catalogPrices: old.catalogPrices || {},
           catalogOverrides: old.catalogOverrides || {},
+          // Строго === true: у аккаунтов, заведённых до этой правки, ключа нет вовсе,
+          // и калькулятор обязан остаться закрытым, а не «включиться» от undefined.
+          publicCalcEnabled: old.publicCalcEnabled === true,
           priceHistory: old.priceHistory || {},
           versions: Array.isArray(old.versions) ? old.versions : [],
           favorites: old.favorites || {},
@@ -11679,7 +11689,9 @@
         }
 
         if (_calcMode) {
-          root.innerHTML = renderPublicCalc();
+          root.innerHTML = _calcCatalogLoading ? renderCalcCatalogSkeleton()
+            : _calcCatalogFailed ? renderCalcUnavailable()
+            : renderPublicCalc();
           _calcPostHeight();
           return;
         }
@@ -18875,6 +18887,74 @@
         `;
       }
 
+      // Публичный калькулятор: включение и своя ссылка.
+      //
+      // Раньше этой панели не было вовсе — калькулятор существовал, но владелец не мог
+      // ни включить его, ни узнать свой адрес; ссылку приходилось собирать руками, и
+      // она всё равно вела на встроенные цены ADERVIS. Флаг publicCalcEnabled читает
+      // серверная функция get_public_catalog: пока он выключен, каталог наружу не
+      // отдаётся вовсе, поэтому по умолчанию ничего не открыто.
+      function publicCalcUrl() {
+        const base = location.origin + location.pathname.replace(/index\.html$/, "");
+        return base + "?calc=1&a=" + encodeURIComponent(getAgencyId());
+      }
+
+      function togglePublicCalc() {
+        state.publicCalcEnabled = !state.publicCalcEnabled;
+        save();
+        render();
+        toast(state.publicCalcEnabled
+          ? "Калькулятор открыт — по ссылке видны ваши услуги и цены"
+          : "Калькулятор закрыт — ссылка больше не отдаёт каталог");
+      }
+
+      function copyPublicCalcLink() {
+        copyToClipboard(publicCalcUrl(), "Ссылка на калькулятор скопирована!");
+      }
+
+      function copyPublicCalcEmbed() {
+        copyToClipboard(
+          `<iframe src="${publicCalcUrl()}" style="width:100%;border:0;min-height:900px" loading="lazy" title="Калькулятор сметы"></iframe>`,
+          "Код для вставки на сайт скопирован!"
+        );
+      }
+
+      function renderSettingsPublicCalc() {
+        const on = !!state.publicCalcEnabled;
+        const url = publicCalcUrl();
+        return `
+          <div class="panel" style="box-shadow:none;background:var(--panel2)">
+            <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("receipt", "var(--primary)")} Публичный калькулятор</h2>
+            <p class="mini-note" style="margin:0 0 14px;max-width:640px">
+              Страница расчёта сметы без регистрации — её можно дать ссылкой или встроить на свой сайт.
+              Посетитель собирает смету по вашему каталогу и оставляет заявку, которая приходит вам.
+            </p>
+
+            <label class="switch-row" style="display:flex;align-items:center;gap:12px;margin-bottom:6px;cursor:pointer">
+              <button class="sidebar-nav-switch ${on ? "on" : ""}" onclick="app.togglePublicCalc()"
+                role="switch" aria-checked="${on}" aria-label="Открыть публичный калькулятор"></button>
+              <span style="font-weight:700">${on ? "Открыт" : "Закрыт"}</span>
+            </label>
+            <p class="mini-note" style="margin:0 0 14px;max-width:640px">
+              ${on
+                ? "По ссылке видны названия и цены ваших услуг и пакетов. Сделки, клиенты и финансы не раскрываются."
+                : "Пока выключено, ссылка не отдаёт ваш каталог — посетитель увидит пустой расчёт."}
+            </p>
+
+            ${on ? `
+              <div class="brief-link-box" style="margin-bottom:10px">
+                <span style="flex-shrink:0;display:inline-flex;color:var(--muted)">${icon("link", 16)}</span>
+                <span class="brief-link-url">${escapeHtml(url)}</span>
+              </div>
+              <div class="toolbar no-print">
+                <button class="btn primary small" onclick="app.copyPublicCalcLink()">Копировать ссылку</button>
+                <button class="btn small" onclick="app.copyPublicCalcEmbed()">Код для сайта</button>
+                <a class="btn small" href="${escapeHtml(url)}" target="_blank" rel="noopener">Открыть как посетитель</a>
+              </div>
+            ` : ""}
+          </div>`;
+      }
+
       function renderSettings() {
         const tabs = [
           ["company", icon("gear"), "Компания"],
@@ -19143,6 +19223,8 @@
         `;
 
         const dataTab = `
+            ${renderSettingsPublicCalc()}
+
             <div class="panel" style="box-shadow:none;background:var(--panel2)">
               <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("download", "var(--green)")} Экспорт и импорт</h2>
 
@@ -19403,9 +19485,93 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
          1. save() в нём выключен — визитёр может быть залогинен в этом же браузере,
             и его настоящая смета не должна пострадать от игры с калькулятором;
          2. состояние стартует с чистого defaultState() по той же причине;
-         3. ничего не пишется в Supabase: анонимный посетитель не имеет агентства,
-            а ссылка-шеринг кодирует смету прямо в URL, без таблиц и RLS.
+         3. в Supabase ничего не ПИШЕТСЯ: анонимный посетитель не имеет агентства,
+            а ссылка-шеринг кодирует смету прямо в URL, без таблиц и RLS. Читается
+            ровно одно — каталог агентства из ?a=… через get_public_catalog.
       ═══════════════════════════════════════════════════════ */
+
+      // Каталог агентства для публичного калькулятора.
+      //
+      // Отдельный клиент, а не общий _supabase: в calc-режиме initSupabase() намеренно
+      // не вызывается (посетитель может быть залогинен в свой аккаунт в этом же
+      // браузере, и его сессия не должна попасть на анонимный экран). persistSession
+      // и autoRefreshToken выключены — этот клиент не трогает хранилище сессии вовсе.
+      //
+      // Серверная функция отдаёт каталог ТОЛЬКО если агентство включило публичный
+      // калькулятор у себя в настройках, и только поля из белого списка
+      // (см. migrations/20260805000001_public_calc_catalog.sql). Здесь остаётся
+      // единственная задача — аккуратно наложить полученное на чистое состояние.
+      let _calcCatalogLoading = false;
+      let _calcCatalogFailed = false;
+      let _calcAgencyName = "";
+
+      // Ссылка содержит агентство, а каталог не приехал — калькулятор выключен у
+      // студии, оборвалась сеть или agency_id в ссылке неверный. Молча откатываться
+      // на встроенный каталог НЕЛЬЗЯ: посетитель увидел бы цены ADERVIS на сайте
+      // другой студии, то есть ровно тот дефект, ради которого всё это делалось.
+      // Лучше честно ничего не показать, чем показать чужой прайс как свой.
+      function renderCalcUnavailable() {
+        return `
+          <div class="panel" style="max-width:560px;margin:0 auto;text-align:center;padding:32px 20px">
+            <div style="margin-bottom:16px">${iconBadge("warning", "var(--muted)", 44)}</div>
+            <h2 style="margin:0 0 10px;font-size:20px">Калькулятор пока недоступен</h2>
+            <p class="mini-note" style="margin:0 0 6px">
+              Расчёт по этой ссылке сейчас не открывается. Свяжитесь со студией напрямую —
+              она посчитает смету и пришлёт её вам.
+            </p>
+          </div>`;
+      }
+
+      // Скелет на время загрузки каталога. Сознательно без цифр и без названий услуг:
+      // любая заглушка со «стартовой» ценой была бы ценой ADERVIS, а показывать чужой
+      // прайс хотя бы на мгновение — ровно тот дефект, который здесь и чинится.
+      function renderCalcCatalogSkeleton() {
+        const skel = (w, h, r) => `<span class="skel" style="width:${w};height:${h}px;border-radius:${r || 8}px"></span>`;
+        return `
+          <div class="panel" style="max-width:720px;margin:0 auto">
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+              ${skel("52%", 22)} ${skel("86%", 13)}
+            </div>
+            <div class="grid three" style="gap:10px">
+              ${[0,1,2].map(() => `
+                <div class="calc-box" style="display:flex;flex-direction:column;gap:10px">
+                  ${skel("60%", 14)} ${skel("90%", 11)} ${skel("70%", 11)}
+                </div>`).join("")}
+            </div>
+            <p class="mini-note" style="margin-top:18px">Загружаем каталог и цены…</p>
+          </div>`;
+      }
+
+      async function _loadPublicCatalog(agencyId) {
+        const { url, key } = getSupabaseConfig();
+        if (!url || !key || !window.supabase) return false;
+        const sb = window.supabase.createClient(url, key, {
+          auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+        });
+        const { data, error } = await sb.rpc("get_public_catalog", { p_agency_id: agencyId });
+        if (error || !data || typeof data !== "object") return false;
+        // Проверяем не «ответ непустой», а «ответ похож на каталог». Пробник поймал
+        // ровно эту дыру: на `{}` (сбой сервера, чужой прокси, обрезанный ответ)
+        // проверка на !data не срабатывала, функция рапортовала успех — и посетитель
+        // видел встроенный прайс ADERVIS как прайс студии. Поле company функция
+        // строит всегда, когда каталог вообще отдаётся, поэтому оно и есть признак.
+        if (!data.company || typeof data.company !== "object") return false;
+
+        if (Array.isArray(data.customItems)) state.customItems = data.customItems;
+        if (Array.isArray(data.packages) && data.packages.length) state.packages = data.packages;
+        if (data.catalogOverrides && typeof data.catalogOverrides === "object") state.catalogOverrides = data.catalogOverrides;
+        if (data.catalogPrices && typeof data.catalogPrices === "object") state.catalogPrices = data.catalogPrices;
+        if (data.hiddenItems && typeof data.hiddenItems === "object") state.hiddenItems = data.hiddenItems;
+        if (data.permanentlyDeleted && typeof data.permanentlyDeleted === "object") state.permanentlyDeleted = data.permanentlyDeleted;
+        if (data.company && data.company.name) {
+          _calcAgencyName = String(data.company.name);
+          state.company = Object.assign({}, state.company, {
+            name: data.company.name,
+            logoUrl: data.company.logo || ""
+          });
+        }
+        return true;
+      }
       // Кодирование сметы в URL: «id:кол-во:смен;…». Читаемо глазами (это плюс к
       // доверию — видно, что ничего не спрятано) и не требует ни базы, ни авторизации.
       function _calcEncodeLines() {
@@ -19926,9 +20092,16 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
       function _calcRenderHero() {
         if (_calcStep !== 1) return "";
+        // Шапка обязана называть АГЕНТСТВО, а не сервис. Ровно этот дефект уже
+        // чинили в онлайн-брифе 03.08 (см. get_brief_agency): для владельца всё
+        // выглядит верно — он и есть ADERVIS, а любая другая студия, поставив
+        // калькулятор себе на сайт, представлялась своим посетителям чужой
+        // компанией и прямым конкурентом. Подпись «собран в ADERVIS» внизу
+        // остаётся — она задумана как сдержанная и там ей место.
+        const brand = _calcAgencyName || "ADERVIS · видеопродакшн";
         return `
           <header class="calc-hero">
-            <div class="calc-badge">ADERVIS · видеопродакшн</div>
+            <div class="calc-badge">${escapeHtml(brand)}</div>
             <h1>Сколько будет стоить ваше видео</h1>
             <p>Три вопроса — и вы увидите порядок цены и что входит в работу.
                Без регистрации и без звонка: считайте сколько угодно.</p>
@@ -23794,6 +23967,9 @@ Email: _____________________              Email: _____________________
         resetCrmFilters,
         exportClientsXlsx,
         showBriefQR,
+        togglePublicCalc,
+        copyPublicCalcLink,
+        copyPublicCalcEmbed,
         _addDealTag,
         _removeDealTag,
         toggleGlobalMenu,
@@ -24147,8 +24323,25 @@ Email: _____________________              Email: _____________________
         // браузере) — ни на экране, ни тем более на диске (см. save()/_flushStateOnUnload).
         // Стартуем с чистого состояния и накладываем позиции только из самой ссылки.
         state = defaultState();
-        _calcApplyShared(_calcInitialEncoded);
         document.body.classList.add('calc-mode');
+        // Порядок обязателен: сперва каталог агентства, потом позиции из ссылки.
+        // Ссылка-шеринг содержит идентификаторы позиций, и часть из них — СВОИ
+        // позиции агентства; примени мы её раньше, findItem их бы не нашёл и молча
+        // выбросил. Пока каталог едет, показываем скелет, а не встроенные цены
+        // ADERVIS: иначе посетитель успевает увидеть чужой прайс и его подмену.
+        if (_calcAgencyId) {
+          _calcCatalogLoading = true;
+          _loadPublicCatalog(_calcAgencyId)
+            .catch(() => false)
+            .then((ok) => {
+              _calcCatalogLoading = false;
+              _calcCatalogFailed = !ok;
+              if (ok) _calcApplyShared(_calcInitialEncoded);
+              render();
+            });
+        } else {
+          _calcApplyShared(_calcInitialEncoded);
+        }
         // Сообщения от страницы-хоста: живая смена темы (посетитель переключил её
         // на сайте уже ПОСЛЕ загрузки iframe — initTheme() отработала только на
         // старте по ?theme= в src) и результат отправки заявки. Адрес отправителя
