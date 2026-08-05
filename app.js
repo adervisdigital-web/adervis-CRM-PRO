@@ -14977,7 +14977,7 @@
               <div class="catalog-toolbar no-print">
                 <div class="catalog-search-wrap">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                  <input class="catalog-search-input" aria-label="Поиск по каталогу услуг" value="${escapeHtml(state.search)}" oninput="app.setSearch(this.value)" placeholder="Поиск: монтаж, оператор, свет...">
+                  <input class="catalog-search-input" aria-label="Поиск по каталогу услуг" value="${escapeHtml(state.search)}" oninput="app.setSearch(this.value)" placeholder="Поиск: монтаж, дизайн, свет...">
                 </div>
                 <select class="catalog-toolbar-select" style="width:170px" onchange="app.setFilter(this.value)" title="Фильтр" aria-label="Фильтр каталога">
                   ${optionValueHtml("all", "Без фильтра", state.filter)}
@@ -16517,7 +16517,7 @@
             <div class="section-title">
               <div>
                 <h1>Задачи проекта</h1>
-                <p>Мини-канбан для текущего проекта: подготовка, съёмка, монтаж, согласования и сдача.</p>
+                <p>Мини-канбан для текущего проекта: от подготовки до сдачи.</p>
               </div>
               <div class="toolbar no-print">
                 <button class="btn primary" onclick="app.createTask()">+ Задача</button>
@@ -17087,6 +17087,10 @@
         `;
       }
 
+      // Роль и Телефон раньше делили один ряд "grid two", и на десктопе поле выходило
+      // 147px — туда не помещалась даже прежняя подсказка «Оператор, монтажёр...» (168px),
+      // она обрезалась молча, без единого признака ошибки. Остальные поля карточки (Имя,
+      // Ставка) и так идут во всю ширину, так что этот ряд был исключением, а не правилом.
       function renderCompanyTeamCard(member) {
         const linked = state.activeProjectId ? linesForTeamMember(member.id) : [];
 
@@ -17094,8 +17098,11 @@
           <article class="team-card">
             ${field("Имя", `<input data-autosave data-scope="companyTeam" data-id="${member.id}" data-key="name" value="${escapeHtml(member.name)}">`)}
 
-            <div class="grid two" style="margin-top:10px">
-              ${field("Роль", `<input data-autosave data-scope="companyTeam" data-id="${member.id}" data-key="role" value="${escapeHtml(member.role)}" placeholder="Оператор, монтажёр...">`)}
+            <div class="mt-10">
+              ${field("Роль", `<input data-autosave data-scope="companyTeam" data-id="${member.id}" data-key="role" value="${escapeHtml(member.role)}" placeholder="Оператор, монтажёр, дизайнер...">`)}
+            </div>
+
+            <div class="mt-10">
               ${field("Телефон", `<input data-autosave data-scope="companyTeam" data-id="${member.id}" data-key="phone" onfocus="app.maskPhoneFocus(this)" oninput="app.maskPhoneInput(this)" value="${escapeHtml(member.phone)}" placeholder="+7 900 000-00-00">`)}
             </div>
 
