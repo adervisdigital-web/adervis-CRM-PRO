@@ -1512,6 +1512,39 @@
       position: relative;
     }
 
+    /* Календарь сделки на телефоне — ПЛОТНЫЙ СПИСОК, а не столбик карточек.
+       Общее мобильное правило разворачивает .line-head в колонку, и каждое
+       событие занимало 143–161px: название, под ним тип, под ним дата — три
+       этажа ради двух слов и числа. Владелец так и сказал: «показать удобным
+       списком, а не большими окнами».
+       Для календаря колонку отменяем: слева название и подпись, справа тип и
+       дата — всё в одну строку. Тексты сжимаются многоточием, поэтому длинное
+       название строку не ломает. */
+    @media (max-width: 640px) {
+      /* min-width:0 на САМОЙ карточке и на строке обязателен: элемент сетки не
+         сжимается ниже min-content, и карточка растягивалась по длинному
+         названию — замер дал 437px при окне 390px, из-за чего мобильный браузер
+         раздувал область просмотра (window.innerWidth показывал те же 437).
+         Та же грабля, что уже записана про многоточие в ячейках сетки. */
+      .calendar-card { padding: 11px 13px; min-width: 0; }
+      .calendar-card .line-head {
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      .calendar-card .line-head > div:first-child { min-width: 0; flex: 1; }
+      .calendar-card .line-head h3 {
+        font-size: 14px; margin: 0 0 1px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .calendar-card .line-head p {
+        font-size: 12px; margin: 0;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .calendar-card .line-head > div:last-child { flex: 0 0 auto; align-items: flex-end; }
+    }
+
     /* Строка ценности клиента на карточке: сделки · оплачено · долг */
     .client-card-stats {
       display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
@@ -4831,6 +4864,21 @@
       border-radius: 16px;
       background: var(--panel2);
     }
+    /* Нечётная плитка на телефоне занимает ряд целиком.
+       Замер на 390px: сетка даёт две колонки по 168px, плиток пять — последняя
+       («Прибыль» в финансах сделки, «Транзакций» на общей странице) висела одна и
+       оставляла 201px пустоты справа. Именно на это владелец и указал.
+       Условие :nth-child(odd) у :last-child = «последняя осталась без пары»;
+       при чётном числе плиток правило не срабатывает вовсе.
+       Порог 500px, а не 640: до ~520px сетка гарантированно двухколоночная
+       (третьей колонке нужно 3×150+2×12 = 474px), а выше колонок уже три, и
+       рассуждение про «нечётную» перестало бы быть верным. */
+    @media (max-width: 500px) {
+      .fin-summary-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+      /* Заодно плотнее: 16px отступов на узком экране съедали высоту зря. */
+      .fin-summary-grid .fin-card { padding: 13px 14px; }
+    }
+
     .fin-card h3 { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
     .fin-card .fin-amount { font-size: 22px; font-weight: 900; }
     .fin-card .fin-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
