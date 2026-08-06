@@ -115,6 +115,22 @@ module.exports = async function ({ test }) {
       "во время загрузки каталога показываются встроенные цены — посетитель увидит чужой прайс");
   });
 
+  await test("встроенный калькулятор сообщает высоту содержимого, а не окна", () => {
+    // documentElement.scrollHeight НИКОГДА не меньше окна iframe, а размер окна
+    // задаёт хост (в pro.css стартовые 1400px) — плюс body.calc-mode .app растянут
+    // min-height:100vh. Высота могла только расти: замер показал, что старая
+    // формула отдавала ровно 1400 при содержимом в 982, то есть на странице
+    // студии под калькулятором висело 418px пустоты (на заглушке — почти экран).
+    const fn = app.slice(app.indexOf("function _calcPostHeight"), app.indexOf("function _maybeImportCalcDraft"));
+    assert(fn.length > 200, "не удалось вырезать тело _calcPostHeight");
+    assert(/getElementById\("appContent"\)/.test(fn), "высота снова меряется не по содержимому");
+    assert(/getBoundingClientRect\(\)\.bottom/.test(fn), "высота считается не от низа содержимого");
+    // scrollHeight допустим только как запасной вариант, если контейнера нет.
+    const primary = fn.slice(0, fn.indexOf("postMessage"));
+    assert(/root\s*\n?\s*\?/.test(primary) || /root\s*$/m.test(primary) || /: document/.test(primary),
+      "scrollHeight перестал быть запасным вариантом и снова считает основным");
+  });
+
   await test("подпись калькулятора не врёт про размер каталога", () => {
     // Стояло «90+ позиций» при 105 в BASE_ITEMS: цифру вписали руками и она
     // разошлась с каталогом. Число теперь считается из самого каталога и

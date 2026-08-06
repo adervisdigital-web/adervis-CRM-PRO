@@ -19636,7 +19636,18 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       function _calcPostHeight() {
         if (window.parent === window) return;
         try {
-          const h = Math.ceil(document.documentElement.scrollHeight);
+          // documentElement.scrollHeight НИКОГДА не меньше окна самого iframe, а
+          // размер окна задаёт хост (у нас стартовые 1400px в .smeta-frame-wrap),
+          // и вдобавок body.calc-mode .app растянут min-height:100vh. Поэтому
+          // высота могла только расти и никогда не сжималась: под коротким экраном
+          // (короткий каталог, а особенно заглушка «калькулятор недоступен»)
+          // на странице студии оставалось пустое поле в пол-экрана.
+          // Меряем НИЗ реального содержимого, а не растянутый контейнер.
+          const root = document.getElementById("appContent");
+          const bottom = root
+            ? root.getBoundingClientRect().bottom + window.scrollY
+            : document.documentElement.scrollHeight;
+          const h = Math.ceil(bottom) + 24; // немного воздуха под последним блоком
           window.parent.postMessage({ type: "adervis-calc-height", height: h }, "*");
         } catch (e) { /* другой origin — не критично */ }
       }
