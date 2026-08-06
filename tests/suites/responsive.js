@@ -122,6 +122,34 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   });
   }
 
+  await test("иконки в кнопках не схлопываются при длинной подписи", async () => {
+    // Кнопка — inline-flex, и SVG в ней обычный flex-элемент: при длинной подписи
+    // в узкой кнопке он ужимался до НУЛЯ и пропадал молча. В разметке иконка при
+    // этом есть, поэтому проверка «есть ли svg» такое не ловит — нужен размер.
+    // Замер до правки: «Открыть каталог» — иконка 0×15px, «Выбрать пакет» — 11×15.
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => window.app.go("catalog"));
+      await page.waitForTimeout(600);
+      const r = await page.evaluate(() => {
+        const bad = [];
+        for (const b of document.querySelectorAll("#appContent .btn")) {
+          if (b.getBoundingClientRect().height === 0) continue;
+          for (const sv of b.querySelectorAll(":scope > svg")) {
+            const w = sv.getBoundingClientRect().width;
+            if (w < 8) bad.push(`${b.innerText.trim().slice(0, 20)} → ${Math.round(w)}px`);
+          }
+        }
+        return bad;
+      });
+      assert(r.length === 0, "иконки схлопнулись в кнопках: " + r.join(" | "));
+    } finally {
+      await context.close();
+    }
+  });
+
   await test("сделка: статус виден на ленте, переключатель читается как выбор", async () => {
     const { context, page } = await bootLocal(browser, baseUrl, {
       width: 390, height: 844, touch: true, seedDemo: true,

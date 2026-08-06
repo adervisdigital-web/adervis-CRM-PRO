@@ -5878,9 +5878,15 @@
           ? `<span class="empty__icon"><svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">${EMPTY_ICON_PATHS[o.icon]}</svg></span>`
           : "";
         const ctas = o.cta ? (Array.isArray(o.cta) ? o.cta : [o.cta]) : [];
+        // Иконка у кнопки действия: поле `ic` с именем из ICON_PATHS. Обращаемся к
+        // таблице напрямую, а не через icon() — выше в этой же функции локальная
+        // переменная `icon` затеняет глобальную функцию, и вызов молча упал бы.
+        const ctaIcon = (name) => ICON_PATHS[name]
+          ? `<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">${ICON_PATHS[name]}</svg>`
+          : "";
         const actions = ctas.length
           ? `<div class="empty__actions no-print">${ctas.map(c =>
-              `<button class="${["btn", c.variant !== undefined ? c.variant : "primary"].filter(Boolean).join(" ")}" onclick="${c.onclick}">${c.label}</button>`
+              `<button class="${["btn", c.variant !== undefined ? c.variant : "primary"].filter(Boolean).join(" ")}" onclick="${c.onclick}">${ctaIcon(c.ic)}${c.label}</button>`
             ).join("")}</div>`
           : "";
         return `<div class="${cls}"${o.style ? ` style="${o.style}"` : ""}>`
@@ -15542,7 +15548,7 @@
                       // отсюда — иначе поле «Бюджет» доступно только из модалки с доски.
                       const canSetBudget = inDeal && state.activeProjectId;
                       const budgetBtn = (label) => canSetBudget
-                        ? [{ label, onclick: `app.openDealModal('${state.activeProjectId}')`, variant: "" }]
+                        ? [{ label, ic: "wallet", onclick: `app.openDealModal('${state.activeProjectId}')`, variant: "" }]
                         : [];
                       return d.budgetOnly
                         ? emptyState({
@@ -15550,8 +15556,8 @@
                             title: `Бюджет ${money(d.total)} — без разбивки`,
                             text: "Сумма перенесена одним числом, позиций нет. Деньги на месте: они видны на карточке, в финансах и в воронке. Разбейте на позиции, если нужно КП для клиента и расчёт маржи.",
                             cta: [
-                              { label: "Открыть каталог", onclick: "app.go('catalog')" },
-                              { label: "Выбрать пакет", onclick: "app.go('packages')", variant: "" },
+                              { label: "Открыть каталог", ic: "list", onclick: "app.go('catalog')" },
+                              { label: "Выбрать пакет", ic: "gift", onclick: "app.go('packages')", variant: "" },
                               ...budgetBtn("Изменить бюджет")
                             ]
                           })
