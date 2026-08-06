@@ -41,12 +41,18 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   // на 390px — 1968px содержимого при окне 348px (5,7 экрана), из 14 пунктов
   // видно 4, и НИ ОДНОГО раздела каталога среди них: разделы искали свайпом
   // вслепую, а в ту же строку были подмешаны два действия.
-  await test("каталог на телефоне: разделы не уезжают лентой за экран", async () => {
+  // ВАЖНО: обе вкладки услуг («Каталог» и «Пакеты») рисуют ОДНУ И ТУ ЖЕ <aside>.
+  // Переделав каталог, я скрыл этот <aside> на телефоне общим CSS — и у пакетов
+  // не осталось ни навигации, ни кнопки «Свой пакет», лежавшей внутри списка:
+  // замер дал 0 видимых пунктов из 11. Классический «починил один вход, забыл
+  // соседний», поэтому проверка идёт ЦИКЛОМ по обеим вкладкам.
+  for (const [view, name] of [["catalog", "каталог"], ["packages", "пакеты"]]) {
+  await test(`${name} на телефоне: разделы не уезжают лентой за экран`, async () => {
     const { context, page } = await bootLocal(browser, baseUrl, {
       width: 390, height: 844, touch: true, seedDemo: true,
     });
     try {
-      await page.evaluate(() => window.app.go("catalog"));
+      await page.evaluate((v) => window.app.go(v), view);
       await page.waitForTimeout(600);
 
       const closed = await page.evaluate(() => {
@@ -95,14 +101,49 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
       assert(open.visible === open.total,
         `видно ${open.visible} из ${open.total} разделов — список снова не помещается`);
 
-      // Выбор раздела закрывает лист: иначе он остаётся поверх результата.
-      await page.evaluate(() => {
+      // Выбор пункта закрывает лист: иначе он остаётся поверх результата, ради
+      // которого его и открывали. «Свои» есть в обеих вкладках.
+      const picked = await page.evaluate(() => {
         const bar = document.querySelector(".catalog-cat-sidebar.is-open");
-        [...bar.querySelectorAll("button")].find(b => /Избранное/.test(b.innerText)).click();
+        const btn = [...bar.querySelectorAll("button")]
+          .filter(b => !b.closest(".catalog-nav-sheet-head"))
+          .find(b => /^Свои/.test(b.innerText.trim()));
+        if (!btn) return false;
+        btn.click();
+        return true;
       });
+      assert(picked, "в листе не нашёлся пункт «Свои» — на нём проверяется закрытие");
       await page.waitForTimeout(400);
       const afterPick = await page.evaluate(() => !!document.querySelector(".catalog-cat-sidebar.is-open"));
-      assert(!afterPick, "после выбора раздела лист остался открытым");
+      assert(!afterPick, "после выбора пункта лист остался открытым");
+    } finally {
+      await context.close();
+    }
+  });
+  }
+
+  await test("пакеты: «Свой пакет» доступен с телефона", async () => {
+    // Кнопка лежала ВНУТРИ списка категорий, а он на телефоне скрыт и открывается
+    // листом — то есть создать свой пакет с телефона было нельзя вообще.
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => window.app.go("packages"));
+      await page.waitForTimeout(600);
+      const r = await page.evaluate(() => {
+        const btn = [...document.querySelectorAll(".section-title .toolbar button")]
+          .find(b => /Свой пакет/.test(b.innerText));
+        const nav = document.querySelector(".catalog-cat-sidebar");
+        return {
+          visible: !!btn && btn.getBoundingClientRect().height > 0,
+          tall: btn ? Math.round(btn.getBoundingClientRect().height) : 0,
+          inNav: /Свой пакет/.test(nav ? nav.innerText : ""),
+        };
+      });
+      assert(r.visible, "«Свой пакет» не виден на телефоне");
+      assert(r.tall >= 36, `кнопка «Свой пакет» ${r.tall}px — мелковата для пальца`);
+      assert(!r.inNav, "«Свой пакет» снова внутри списка категорий — с телефона туда не добраться");
     } finally {
       await context.close();
     }

@@ -14920,10 +14920,26 @@
                 <h1>Пакеты услуг</h1>
                 <p>Готовые наборы по категориям. Три уровня: Старт / Профи / Премиум.</p>
               </div>
+              ${/* «Свой пакет» — главное действие раздела, поэтому в панели шапки, как
+                    «Своя позиция» в каталоге. Внутри списка категорий она на телефоне
+                    была недоступна вовсе: список там скрыт и открывается листом. */""}
+              <div class="toolbar no-print">
+                <button class="btn small primary" onclick="app.createPackage()" title="Собрать свой пакет из позиций сметы" style="display:inline-flex;align-items:center;gap:6px">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                  Свой пакет
+                </button>
+              </div>
             </div>
 
+            ${renderCatalogNavTrigger(pkgNavCurrentLabel(pkgCatFilter, allPkgs, ownCount), "Категория")}
+
             <div class="catalog-body">
-              <aside class="catalog-cat-sidebar no-print">
+              ${state.catalogNavOpen ? `<div class="catalog-nav-backdrop no-print" onclick="app.closeCatalogNav()"></div>` : ""}
+              <aside class="catalog-cat-sidebar no-print ${state.catalogNavOpen ? "is-open" : ""}">
+                <div class="catalog-nav-sheet-head no-print">
+                  <span>Категории пакетов</span>
+                  <button class="u-modal-close" onclick="app.closeCatalogNav()" aria-label="Закрыть">${icon("close", 15)}</button>
+                </div>
                 <div class="catalog-cat-group">
                   <button class="catalog-cat-item ${pkgCatFilter==="all"?"active":""}" onclick="app.setPkgCatFilter('all')">
                     <span>Все</span>
@@ -14946,10 +14962,6 @@
                   `).join("")}
                 </div>
 
-                <button class="catalog-cat-item catalog-cat-add" onclick="app.createPackage()">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                  <span>Свой пакет</span>
-                </button>
               </aside>
 
               <div class="catalog-body-main">
@@ -15074,7 +15086,7 @@
                 </div>
               </div>
 
-              ${renderCatalogNavTrigger(quickTabs)}
+              ${renderCatalogNavTrigger(catalogNavCurrentLabel(quickTabs), "Раздел")}
 
               <div class="catalog-toolbar no-print">
                 <div class="catalog-search-wrap">
@@ -15899,13 +15911,26 @@
         return "Все";
       }
 
-      function renderCatalogNavTrigger(quickTabs) {
+      // То же для пакетов: у них своя ось фильтра (pkgCatFilter), а не state.tab.
+      function pkgNavCurrentLabel(filter) {
+        if (filter === "own") return "Свои";
+        if (filter && filter !== "all" && CAT_META[filter]) return CAT_META[filter].label;
+        return "Все";
+      }
+
+      // caption/label параметрами, а не изнутри: этой же кнопкой пользуются ПАКЕТЫ.
+      // Первая версия считала подпись сама из quickTabs и годилась только каталогу —
+      // в результате у пакетов, где та же <aside>, на телефоне не осталось ни
+      // навигации (её скрыл общий CSS), ни кнопки «Свой пакет», лежавшей внутри.
+      // Замер поймал: 0 видимых пунктов из 11. Тот самый класс «починил один вход,
+      // забыл соседний» — теперь оба входа зовут одну функцию.
+      function renderCatalogNavTrigger(label, caption) {
         return `
           <button class="catalog-nav-trigger no-print" onclick="app.openCatalogNav()"
             aria-haspopup="dialog" aria-expanded="${state.catalogNavOpen ? "true" : "false"}">
             <span class="catalog-nav-trigger-label">
-              <span class="u-meta">Раздел</span>
-              <strong>${escapeHtml(catalogNavCurrentLabel(quickTabs))}</strong>
+              <span class="u-meta">${escapeHtml(caption || "Раздел")}</span>
+              <strong>${escapeHtml(label || "Все")}</strong>
             </span>
             <span class="catalog-nav-trigger-chevron" aria-hidden="true">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -24375,7 +24400,9 @@ Email: _____________________              Email: _____________________
         openSearch,
         closeSearch,
         runSearch,
-        setPkgCatFilter: (cat) => { state.pkgCatFilter = cat; render(); },
+        // Как и setTab: выбрал категорию — лист закрывается сам, иначе на телефоне
+        // он остаётся поверх результата, ради которого его и открывали.
+        setPkgCatFilter: (cat) => { state.pkgCatFilter = cat; state.catalogNavOpen = false; render(); },
         setServicesTab: (tab) => { state.servicesTab = (tab === "packages" ? "packages" : "catalog"); render(); },
         setCrmView,
         setClientsView,
