@@ -80,7 +80,12 @@
 
         <!-- ── Mobile only: brand + burger + horizontal nav ── -->
         <div class="brand">
-          <div class="logo" title="Главное меню" aria-label="Открыть главное меню" onclick="app.openMainMenu()" tabindex="0" role="button">
+          <!-- Логотип ведёт НА ГЛАВНУЮ, а не открывает меню. Раньше он и кнопка
+               «Ещё» в нижней панели делали одно и то же, причём логотип — вопреки
+               привычке: во всех приложениях он возвращает на главный экран, а не
+               разворачивает список разделов. Меню осталось за «Ещё» — там ему и
+               место по конвенции нижней панели. -->
+          <div class="logo" title="На главную" aria-label="На главную" onclick="app.go('home')" tabindex="0" role="button">
             <img src="logo-icon.svg" alt="Adervis" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
             <span>A</span>
           </div>

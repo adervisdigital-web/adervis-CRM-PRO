@@ -21392,6 +21392,22 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <div class="mm-label">Клиенты</div>
                   <div class="mm-sub">База клиентов</div>
                 </button>
+                ${/* «Все КП» и «Команда» тут ОТСУТСТВОВАЛИ: список разделов задан один
+                      раз в SIDEBAR_NAV_DEFS, а это меню написано руками — и разошлось.
+                      С телефона в эти два раздела было не попасть вовсе; владелец
+                      заметил дыру по пустой ячейке сетки, но дело было не в вёрстке.
+                      Сторож в тестах теперь сверяет меню с SIDEBAR_NAV_DEFS поимённо,
+                      чтобы следующий новый раздел не забыли снова. */""}
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('proposals')">
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h5l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.5 1.2V4.5H11L8.5 2.2zM5 7h6v1H5V7zm0 2.5h6v1H5v-1zM5 12h4v1H5v-1z"/></svg></span>
+                  <div class="mm-label">Все КП</div>
+                  <div class="mm-sub">Отправленные предложения</div>
+                </button>
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('company-team')">
+                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm5-1a2 2 0 100-4 2 2 0 000 4zM1 13.5c0-2.5 2.2-4 4.5-4s4.5 1.5 4.5 4H1zm9-3.3c1.9.4 3 1.6 3 3.3h-2c0-1.2-.4-2.3-1-3.3z"/></svg></span>
+                  <div class="mm-label">Команда</div>
+                  <div class="mm-sub">Сотрудники и фрилансеры</div>
+                </button>
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('briefs')">
                   <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h6l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 1v3h3L9 2zM5 7h6v1H5V7zm0 3h6v1H5v-1z"/></svg></span>
                   <div class="mm-label">Онлайн-брифы</div>
@@ -21416,6 +21432,20 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <span class="mm-icon">${icon("person")}</span>
                   <div class="mm-label">Профиль</div>
                   <div class="mm-sub">Аккаунт, подписка</div>
+                </button>
+                ${/* «Поддержка» и «Выйти» на телефоне были доступны только из выпадающего
+                      меню профиля в шапке — то есть спрятаны вдвойне. Здесь они и уместны:
+                      меню называется «Что хочешь сделать?». Заодно сетка сходится ровно
+                      (18 пунктов на три колонки — шесть рядов без дыр). */""}
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('support')">
+                  <span class="mm-icon">${icon("chat")}</span>
+                  <div class="mm-label">Поддержка</div>
+                  <div class="mm-sub">Связаться с нами</div>
+                </button>
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.adminLogout()">
+                  <span class="mm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
+                  <div class="mm-label">Выйти</div>
+                  <div class="mm-sub">Из аккаунта</div>
                 </button>
               </div>
             </div>
