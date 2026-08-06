@@ -10168,23 +10168,33 @@
           });
         });
 
-        /* Лента разделов каталога на телефоне прокручивается по горизонтали, и
-           выбранный раздел запросто оказывается за краем экрана — человек видит
-           отфильтрованный список и не видит, ЧЕМ отфильтровано. Подтягиваем
+        /* Горизонтальные ленты на телефоне: выбранный пункт запросто оказывается
+           за краем экрана — человек видит отфильтрованный список и не видит, ЧЕМ
+           отфильтровано, а в сделке не видит, на каком она статусе. Подтягиваем
            активный пункт в видимую часть.
-           Только если он реально вне зоны: иначе каждый render дёргал бы ленту
-           под рукой у того, кто её сейчас листает. */
-        const catBar = root.querySelector(".catalog-cat-sidebar");
-        if (catBar && catBar.scrollWidth > catBar.clientWidth + 4) {
-          const act = catBar.querySelector(".catalog-cat-item.active");
-          if (act) {
-            const br = catBar.getBoundingClientRect();
-            const ar = act.getBoundingClientRect();
-            if (ar.left < br.left + 4 || ar.right > br.right - 4) {
-              catBar.scrollLeft += (ar.left - br.left) - (br.width - ar.width) / 2;
-            }
+
+           Список лент, а не один каталог: ровно про статусы сделки владелец и
+           сказал «статус всегда должен показываться на активной пилюле» — лента
+           воронки открывается с начала, а сделка обычно в середине или в конце.
+           Ленту вкладок сделки чинит то же самое.
+
+           Прокручиваем ТОЛЬКО если пункт реально вне зоны: иначе каждый render
+           дёргал бы ленту под рукой у того, кто её сейчас листает. */
+        [
+          [".catalog-cat-sidebar", ".catalog-cat-item.active"],
+          [".deal-stage-progress", ".dsp-step.active"],
+          [".deal-tabs", ".deal-tab.active"],
+        ].forEach(([barSel, actSel]) => {
+          const bar = root.querySelector(barSel);
+          if (!bar || bar.scrollWidth <= bar.clientWidth + 4) return;
+          const act = bar.querySelector(actSel);
+          if (!act) return;
+          const br = bar.getBoundingClientRect();
+          const ar = act.getBoundingClientRect();
+          if (ar.left < br.left + 4 || ar.right > br.right - 4) {
+            bar.scrollLeft += (ar.left - br.left) - (br.width - ar.width) / 2;
           }
-        }
+        });
 
         // Кликабельные не-кнопки (карточки сделок, услуг, пакетов, этапы воронки,
         // плитки статистики, сегменты графиков) — мышью работают, с клавиатуры были
@@ -21883,9 +21893,20 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const cur = state.activeProjectId;
         const curProj = projects.find(p => p.id === cur);
         return `
+          ${/* Подпись «Сделка» над названием — та же схема, что у выбора раздела в
+                каталоге. Без неё кнопка показывала только имя проекта и читалась
+                как заголовок, а не как переключатель: владелец так и сказал —
+                «не понятно, что за кнопка». Иконка папки добавляет второй признак
+                для тех, кто не читает подписи. */""}
           <div class="deal-switcher">
-            <button class="deal-switcher-btn" onclick="app.toggleDealSwitcher(event)" title="Переключить сделку">
-              <span class="deal-switcher-btn-label">${escapeHtml((curProj && curProj.name) || state.project.name || "Без названия")}</span>
+            <button class="deal-switcher-btn" onclick="app.toggleDealSwitcher(event)"
+              aria-haspopup="listbox" aria-expanded="${state.dealSwitcherOpen ? "true" : "false"}"
+              title="Выбрать другую сделку">
+              <span class="deal-switcher-btn-icon" aria-hidden="true">${icon("clipboard", 15)}</span>
+              <span class="deal-switcher-btn-text">
+                <span class="deal-switcher-btn-caption">Сделка</span>
+                <span class="deal-switcher-btn-label">${escapeHtml((curProj && curProj.name) || state.project.name || "Без названия")}</span>
+              </span>
               <span class="deal-switcher-chevron ${state.dealSwitcherOpen ? "open" : ""}">▼</span>
             </button>
           </div>

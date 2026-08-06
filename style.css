@@ -4012,8 +4012,21 @@
       max-width: 240px; min-width: 0;
     }
     .deal-switcher-btn:hover { border-color: var(--primary-text); background: var(--panel2); }
+
+    /* Две строки внутри кнопки: подпись «Сделка» мелким и приглушённым, название —
+       крупным. Без подписи кнопка читалась как заголовок экрана, а не как выбор. */
+    .deal-switcher-btn-icon { flex: 0 0 auto; display: inline-flex; color: var(--muted); }
+    .deal-switcher-btn-text {
+      display: flex; flex-direction: column; align-items: flex-start;
+      gap: 0; min-width: 0; flex: 1;
+    }
+    .deal-switcher-btn-caption {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      line-height: 1.1; letter-spacing: .02em;
+    }
     .deal-switcher-btn-label {
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      max-width: 100%; line-height: 1.25;
     }
     .deal-switcher-chevron {
       flex: 0 0 auto; font-size: 12px; color: var(--muted);

@@ -122,6 +122,59 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   });
   }
 
+  await test("сделка: статус виден на ленте, переключатель читается как выбор", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => window.app.go("deal"));
+      await page.waitForTimeout(600);
+
+      // Переключатель сделки: раньше это была кнопка 33px с одним лишь названием —
+      // владелец так и сказал: «не понятно, что за кнопка».
+      const sw = await page.evaluate(() => {
+        const b = document.querySelector(".deal-switcher-btn");
+        if (!b) return null;
+        return {
+          h: Math.round(b.getBoundingClientRect().height),
+          caption: (b.querySelector(".deal-switcher-btn-caption") || {}).textContent || "",
+          hasIcon: !!b.querySelector("svg"),
+          popup: b.getAttribute("aria-haspopup"),
+        };
+      });
+      assert(sw, "переключатель сделки не найден");
+      assert(sw.h >= 44, `переключатель ${sw.h}px — ниже порога касания`);
+      assert(/Сделка/.test(sw.caption), "у переключателя нет подписи «Сделка» — он читается как заголовок");
+      assert(sw.popup === "listbox", "переключатель не объявлен раскрывающимся списком");
+
+      // Лента статусов открывается с начала, а сделка обычно в середине воронки:
+      // активная пилюля обязана быть подтянута в видимую часть.
+      const st = await page.evaluate(() => {
+        const bar = document.querySelector(".deal-stage-progress");
+        if (!bar) return null;
+        const steps = [...bar.querySelectorAll(".dsp-step")];
+        if (steps.length < 3) return { skip: true };
+        steps[steps.length - 2].click();
+        return { clicked: true };
+      });
+      assert(st, "лента статусов не найдена");
+      if (!st.skip) {
+        await page.waitForTimeout(600);
+        const vis = await page.evaluate(() => {
+          const bar = document.querySelector(".deal-stage-progress");
+          const act = bar.querySelector(".dsp-step.active");
+          if (!act) return null;
+          const br = bar.getBoundingClientRect(), ar = act.getBoundingClientRect();
+          return { visible: ar.left >= br.left - 1 && ar.right <= br.right + 1, text: act.innerText.trim() };
+        });
+        assert(vis, "активной пилюли нет");
+        assert(vis.visible, `активный статус «${vis.text}» за краем ленты — не видно, на каком этапе сделка`);
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
   await test("настройка меню открывается на телефоне при отрисованном сайдбаре", async () => {
     // Слепое пятно тестов: bootLocal идёт БЕЗ сессии, поэтому сайдбар пуст, а у
     // живого пользователя он отрисован и лишь скрыт CSS (max-width:0; opacity:0).
