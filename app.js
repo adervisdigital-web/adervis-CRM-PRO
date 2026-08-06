@@ -21428,29 +21428,16 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <div class="mm-label">Тема</div>
                   <div class="mm-sub">Светлая / тёмная</div>
                 </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('profile')">
-                  <span class="mm-icon">${icon("person")}</span>
-                  <div class="mm-label">Профиль</div>
-                  <div class="mm-sub">Аккаунт, подписка</div>
-                </button>
-                ${/* «Поддержка» и «Тарифы» на телефоне были доступны только из выпадающего
-                      меню профиля в шапке — то есть спрятаны вдвойне. Здесь они и уместны:
-                      меню называется «Что хочешь сделать?». Заодно сетка сходится ровно
-                      (18 пунктов на три колонки — шесть рядов без дыр).
+                ${/* «Профиль», «Поддержка» и «Выход» отсюда УБРАНЫ: всё это уже лежит в
+                      меню профиля по аватару в шапке, и держать второй вход в те же три
+                      вещи — ровно то дублирование, из-за которого пришлось разводить
+                      логотип с кнопкой «Ещё».
 
-                      «Выйти» отсюда УБРАН намеренно: выход уже лежит в меню профиля в
-                      шапке, а дублировать в списке разделов действие, которое закрывает
-                      сессию, — лишний способ нажать его случайно. */""}
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('support')">
-                  <span class="mm-icon">${icon("chat")}</span>
-                  <div class="mm-label">Поддержка</div>
-                  <div class="mm-sub">Связаться с нами</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('plans')">
-                  <span class="mm-icon">${icon("card")}</span>
-                  <div class="mm-label">Тарифы</div>
-                  <div class="mm-sub">Подписка и оплата</div>
-                </button>
+                      Это меню — про РАЗДЕЛЫ («что хочешь сделать?»), а не про аккаунт.
+                      «Настройки» и «Тема» остались: настройки — раздел приложения, а
+                      переключение темы отсюда быстрее всего и ничего не открывает.
+                      Побочно сетка сошлась ровно: 15 пунктов на три колонки — пять рядов
+                      без единой дыры. */""}
               </div>
             </div>
           </div>
