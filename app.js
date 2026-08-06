@@ -20393,7 +20393,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       function _calcRenderFoot() {
         return `
           <p class="calc-foot">
-            Вы студия или продюсер? Этот расчёт собран в ADERVIS — там 90+ позиций,
+            Вы студия или продюсер? Этот расчёт собран в ADERVIS — там ${BASE_ITEMS.length} позиций,
             свои ставки, КП с оплатой аванса, задачи и финансы.
             ${_calcStep === 3
               ? `<button type="button" class="calc-link" onclick="app.calcSaveToAccount()">Открыть этот расчёт в CRM →</button>`
