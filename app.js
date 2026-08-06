@@ -15063,10 +15063,6 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
                     Своя позиция
                   </button>
-                  <button class="btn small" onclick="app.openCatalogGroupsConfig()" title="Скрыть ненужные разделы или завести свой" style="display:inline-flex;align-items:center;gap:6px">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>
-                    Настроить разделы
-                  </button>
                   <button class="btn small" onclick="app.exportCatalogXlsx()" title="Скачать весь каталог таблицей Excel (.xlsx)">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg>
                     Выгрузить
@@ -15205,12 +15201,25 @@
                     </div>`;
                   })()}
 
-                  ${/* «Своя позиция» и «Настроить разделы» отсюда УБРАНЫ в панель
-                        шапки раздела. Это действия, а не пункты навигации, и в общей
-                        полосе они стояли последними: на телефоне лента разворачивалась
-                        на 1968px при окне 348px, то есть до них надо было пролистать
-                        почти пять экранов вслепую. Замер до правки: из 14 пунктов
-                        видно 4, и ни одного раздела каталога среди них. */""}
+                  ${/* «Своя позиция» ушла в панель шапки: это главное действие раздела,
+                        ему место рядом с «Выгрузить/Загрузить», а не среди разделов.
+
+                        А вот настройка списка живёт ВНИЗУ САМОГО СПИСКА — там же, где
+                        «Настроить меню» у главного бокового меню: она настраивает то,
+                        над чем стоит, и читается как служебная строка, а не как раздел.
+                        Поэтому и цвет приглушённый, а не акцентный.
+
+                        Раньше она была здесь же, но акцентной И в горизонтальной ленте
+                        на 1968px — до неё надо было листать почти пять экранов вслепую.
+                        Ленты больше нет, список вертикальный, поэтому низ списка снова
+                        стал правильным местом. */""}
+                  <button class="catalog-cat-item catalog-cat-config" onclick="app.openCatalogGroupsConfig()"
+                    title="Скрыть ненужные разделы или завести свой">
+                    <span style="display:flex;align-items:center;gap:7px;min-width:0">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>
+                      <span>Настроить разделы</span>
+                    </span>
+                  </button>
                 </aside>
 
                 <div class="catalog-body-main">

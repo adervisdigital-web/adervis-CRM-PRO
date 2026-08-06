@@ -1329,6 +1329,28 @@
       color: var(--primary-text);
     }
     .catalog-cat-add:hover { background: rgb(var(--primary-rgb) / .1); color: var(--primary-on-tint); }
+
+    /* Настройка списка разделов — служебная строка внизу самого списка, как
+       «Настроить меню» у главного бокового меню. Приглушённая намеренно: она не
+       выбирает раздел и не должна спорить за внимание с теми, кто выбирает. */
+    .catalog-cat-config {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+      justify-content: flex-start;
+      /* Одного var(--muted) НЕ хватает: им же покрашены и сами разделы (замер дал
+         обоим rgb(74,85,104)), поэтому служебная строка сливалась с пунктами.
+         Приглушаем сверх того — но умеренно: контраст к панели проверен замером
+         и остаётся выше порога AA (см. тест в наборе responsive). */
+      color: var(--muted);
+      /* .85, а не «на глаз потише»: замер по эффективному цвету дал 5,11:1 против
+         7,53:1 у разделов — тише, но в целевом коридоре 5–8:1. Пробовал .72 —
+         3,74:1, ниже порога AA; .8 даёт 4,52:1, то есть впритык, и любая правка
+         темы уронила бы под порог. */
+      opacity: .85;
+      font-weight: 500;
+    }
+    .catalog-cat-config:hover { background: var(--panel2); color: var(--text); opacity: 1; }
     .catalog-body-main { flex: 1; min-width: 0; }
 
     .catalog-grid {
@@ -1409,7 +1431,10 @@
            экрана вместо низа (видно на скриншоте до правки). */
         left: 0; right: 0; bottom: 0; top: auto;
         width: auto;
-        max-height: 82vh;
+        /* 88vh, а не 82: с добавлением служебной строки списку нужно 739px, и на
+           82vh (692px) последний пункт не влезал. Лист всё равно прокручивается,
+           но на обычном телефоне теперь помещается целиком. */
+        max-height: 88vh;
         overflow-y: auto;
         overflow-x: hidden;
         padding: 0 14px calc(14px + env(safe-area-inset-bottom, 0px));

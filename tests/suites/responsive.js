@@ -108,21 +108,59 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
-  await test("каталог: действия лежат в панели раздела, а не среди разделов", async () => {
-    const { context, page } = await bootLocal(browser, baseUrl, {
-      width: 390, height: 844, touch: true, seedDemo: true,
-    });
+  // Два действия — два разных места, и это НЕ произвол:
+  //   «Своя позиция» добавляет услугу → главное действие раздела, ему место в
+  //     панели шапки рядом с «Выгрузить/Загрузить»;
+  //   «Настроить разделы» настраивает САМ СПИСОК → стоит внизу этого списка, как
+  //     «Настроить меню» у главного бокового меню, и приглушена, потому что не
+  //     выбирает раздел и не должна спорить за внимание с теми, кто выбирает.
+  await test("каталог: «Своя позиция» в панели, «Настроить разделы» — внизу списка и приглушена", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1280, height: 900, seedDemo: true });
     try {
       await page.evaluate(() => window.app.go("catalog"));
       await page.waitForTimeout(600);
       const r = await page.evaluate(() => {
         const acts = [...document.querySelectorAll(".section-title .toolbar button")].map(b => b.innerText.trim());
         const nav = document.querySelector(".catalog-cat-sidebar");
-        return { acts, inNav: /Своя позиция|Настроить разделы/.test(nav ? nav.innerText : "") };
+        const cfg = nav && nav.querySelector(".catalog-cat-config");
+        const items = nav ? [...nav.querySelectorAll("button")].filter(b => b.getBoundingClientRect().height > 0) : [];
+        // Считаем ЭФФЕКТИВНЫЙ контраст к фону — с учётом opacity, иначе проверка
+        // смотрит на объявленный цвет и не видит приглушения вовсе.
+        const rgb = (c) => (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+        const lum = (c) => c.map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); })
+          .reduce((a, x, i) => a + x * [.2126, .7152, .0722][i], 0);
+        const ratio = (a, b) => { const [h, l] = lum(a) > lum(b) ? [a, b] : [b, a];
+          return (lum(h) + .05) / (lum(l) + .05); };
+        const bg = rgb(getComputedStyle(document.querySelector(".panel")).backgroundColor);
+        // Наложение цвета с opacity на фон — что глаз и видит.
+        const blend = (el) => {
+          const c = rgb(getComputedStyle(el).color);
+          const o = parseFloat(getComputedStyle(el).opacity);
+          return c.map((v, i) => v * o + bg[i] * (1 - o));
+        };
+        const plain = items.find(b => b.classList.contains("catalog-cat-item")
+          && !b.classList.contains("active") && !b.classList.contains("catalog-cat-config"));
+        return {
+          acts,
+          ownInNav: /Своя позиция/.test(nav ? nav.innerText : ""),
+          hasCfg: !!cfg,
+          cfgIsLast: !!cfg && items.length > 0 && items[items.length - 1] === cfg,
+          cfgRatio: cfg ? ratio(blend(cfg), bg) : null,
+          plainRatio: plain ? ratio(blend(plain), bg) : null,
+        };
       });
       assert(r.acts.some(t => /Своя позиция/.test(t)), "«Своя позиция» пропала из панели раздела");
-      assert(r.acts.some(t => /Настроить разделы/.test(t)), "«Настроить разделы» пропала из панели раздела");
-      assert(!r.inNav, "действия снова подмешаны в список разделов");
+      assert(!r.acts.some(t => /Настроить разделы/.test(t)), "«Настроить разделы» снова в панели, а не внизу списка");
+      assert(!r.ownInNav, "«Своя позиция» снова подмешана в список разделов");
+      assert(r.hasCfg, "внизу списка нет «Настроить разделы»");
+      assert(r.cfgIsLast, "«Настроить разделы» стоит не последней в списке");
+      assert(r.cfgRatio && r.plainRatio, "не удалось снять цвета");
+      // Тише разделов — но НЕ ниже порога читаемости. Контраст здесь порог, а не
+      // «чем меньше тем лучше»: перестараться так же плохо, как не приглушить.
+      assert(r.cfgRatio < r.plainRatio,
+        `«Настроить разделы» не приглушена: ${r.cfgRatio.toFixed(2)}:1 против ${r.plainRatio.toFixed(2)}:1 у раздела`);
+      assert(r.cfgRatio >= 4.5,
+        `приглушили за порог AA: ${r.cfgRatio.toFixed(2)}:1 при минимуме 4.5:1`);
     } finally {
       await context.close();
     }
