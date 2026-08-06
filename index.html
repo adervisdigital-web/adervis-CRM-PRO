@@ -80,13 +80,10 @@
 
         <!-- ── Mobile only: brand + burger + horizontal nav ── -->
         <div class="brand">
-          <!-- Логотип — просто фирменный знак, без действия. Он успел побывать и
-               кнопкой меню (дублировал «Ещё»), и переходом на главную (дублировал
-               «Проекты») — на телефоне вся навигация и так лежит в нижней панели,
-               и любое действие на логотипе неизбежно повторяет одну из её кнопок.
-               Поэтому ни onclick, ни role="button", ни tabindex: не кнопка —
-               значит и не обещает нажатия, и не ловит фокус впустую. -->
-          <div class="logo" aria-hidden="true">
+          <!-- Логотип открывает СПИСОК РАЗДЕЛОВ. Дубля с нижней панелью больше нет:
+               «Ещё» там переведён на настройку этого меню — какие разделы показывать
+               и в каком порядке. Две кнопки — две разные задачи. -->
+          <div class="logo" title="Меню разделов" aria-label="Открыть меню разделов" onclick="app.openMainMenu()" tabindex="0" role="button">
             <img src="logo-icon.svg" alt="Adervis" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
             <span>A</span>
           </div>
@@ -203,9 +200,14 @@
       <svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor"><path d="M2.6 2.8h9.2c.8 0 1.4.6 1.4 1.4v.8h.8c.6 0 1.2.5 1.2 1.2v5.6c0 .7-.5 1.2-1.2 1.2H2.6c-.9 0-1.6-.7-1.6-1.6V4.4c0-.9.7-1.6 1.6-1.6zm0 1.5a.1.1 0 00-.1.1v7c0 .1 0 .1.1.1h11v-5H2.6v-1.5h9.1v-.6a.1.1 0 00-.1-.1H2.6zm8.6 3.9a1 1 0 110 2 1 1 0 010-2z"/></svg>
       Финансы
     </button>
-    <button class="mbn-item" id="mbnMore" onclick="app.openMainMenu()" title="Ещё">
+    <!-- Настройка списка разделов: какие показывать и в каком порядке. Открывает
+         ТУ ЖЕ панель, что кнопка «Настроить меню» в боковом меню на десктопе —
+         разметка одна, меняется только якорь (см. renderSidebarNavPopover).
+         Подпись честная: раньше кнопка называлась «Ещё» и открывала список
+         разделов, то есть делала ровно то же, что логотип. -->
+    <button class="mbn-item" id="mbnMore" onclick="app.toggleSidebarNavPopover(event)" title="Настроить меню — какие разделы показывать">
       <svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
-      Ещё
+      Настроить
     </button>
   </nav>
 

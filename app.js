@@ -2360,12 +2360,20 @@
         const el = document.getElementById("sidebarNavPopover");
         if (!el) return;
         if (!_sidebarNavPopoverOpen) { el.innerHTML = ""; return; }
-        const btn = document.getElementById("sidebarNavEditBtn");
+        // Якорь: на десктопе — кнопка «Настроить меню» в сайдбаре, на телефоне
+        // сайдбара нет вовсе, и настройку открывает «Ещё» в нижней панели.
+        // Разметка ОДНА на оба случая — второй копии этого списка быть не должно,
+        // иначе он разъедется, как уже разъехалось мобильное меню с SIDEBAR_NAV_DEFS.
+        const btn = document.getElementById("sidebarNavEditBtn") || document.getElementById("mbnMore");
         if (!btn) { el.innerHTML = ""; return; }
         const r = btn.getBoundingClientRect();
+        // У нижней панели кнопка прижата к правому краю: раскрывать список от её
+        // левой границы значит увести его за экран. Держим в пределах окна.
+        const W = Math.min(260, window.innerWidth - 16);
+        const left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8));
         const config = getSidebarNavConfig();
         el.innerHTML = `
-          <div class="sidebar-nav-config" style="left:${r.left}px;bottom:${window.innerHeight - r.top + 6}px" onclick="event.stopPropagation()">
+          <div class="sidebar-nav-config" style="left:${left}px;bottom:${window.innerHeight - r.top + 6}px;max-width:${W}px" onclick="event.stopPropagation()">
             <div class="sidebar-nav-config-title">Пункты меню</div>
             ${config.map(item => {
               const custom = _isCustomNavId(item.id);
