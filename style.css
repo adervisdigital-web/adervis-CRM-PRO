@@ -1342,44 +1342,117 @@
     .catalog-subgroups { margin: 2px 0 6px 10px; display: flex; flex-direction: column; gap: 2px; }
     .catalog-subgroup { font-size: 12px; min-height: 36px; opacity: .85; }
 
+    /* Кнопка выбора раздела и шапка листа — только на телефоне: на десктопе
+       список и так стоит слева целиком, открывать и закрывать нечего. */
+    .catalog-nav-trigger { display: none; }
+    .catalog-nav-sheet-head { display: none; }
+    .catalog-nav-backdrop { display: none; }
+
     @media (max-width: 768px) {
       .catalog-body { flex-direction: column; }
-      .catalog-cat-sidebar {
-        flex-direction: row;
-        flex: 0 0 auto;
+
+      /* РАНЬШЕ здесь боковое меню разворачивалось в горизонтальную ленту
+         (flex-direction: row + overflow-x: auto). Замер на 390px: 1968px
+         содержимого при окне 348px — 5,7 экрана, из 14 пунктов видно 4, и ни
+         одного РАЗДЕЛА среди них. То есть свойство, ради которого меню и
+         существует (видеть все разделы сразу), на телефоне пропадало целиком,
+         а разделы приходилось искать свайпом вслепую.
+
+         Теперь список открывается листом снизу и показан ВЕРТИКАЛЬНО — в той же
+         форме, что и на десктопе. Разметка одна и та же, меняется только подача. */
+      .catalog-nav-trigger {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
         width: 100%;
-        overflow-x: auto;
-        position: static;
-        padding-bottom: 4px;
-        /* Fade-подсказка на краях — та же, что у .deal-tabs/.deal-stage-progress */
-        -webkit-mask-image: linear-gradient(to right, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
-        mask-image: linear-gradient(to right, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
+        min-height: 48px;
+        padding: 8px 14px;
+        margin-bottom: 10px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel2);
+        color: var(--text);
+        cursor: pointer;
+        text-align: left;
       }
-      .catalog-cat-group { flex-direction: row; flex: 0 0 auto; }
-      .catalog-cat-item { flex: 0 0 auto; width: auto; }
-      .catalog-cat-divider { width: 1px; height: auto; align-self: stretch; margin: 4px 6px; }
-      .catalog-cat-add { margin-top: 0; padding-top: 0; border-top: none; border-left: 1px solid var(--line); padding-left: 10px; }
+      .catalog-nav-trigger-label { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+      .catalog-nav-trigger-label strong {
+        font-size: 15px; font-weight: 700;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .catalog-nav-trigger-chevron { display: inline-flex; color: var(--muted); flex-shrink: 0; }
+
+      /* Слой модальный, а не «чуть выше страницы»: нижняя панель навигации
+         прибита на z-index 110 и перекрывала последний раздел списка
+         («Расходы» уходил под неё — замер этого не видел, поймал скриншот).
+         Лист — обычная модалка, поэтому живёт на общем --z-modal и накрывает
+         панель целиком, как остальные модалки приложения. */
+      .catalog-nav-backdrop {
+        display: block;
+        position: fixed; inset: 0;
+        z-index: calc(var(--z-modal) - 1);
+        background: rgba(0, 0, 0, .45);
+      }
+      .catalog-cat-sidebar.is-open .catalog-nav-sheet-head { display: flex; }
+
+      /* Сам список: скрыт, пока лист не открыт. */
+      .catalog-cat-sidebar { display: none; }
+
+      .catalog-cat-sidebar.is-open {
+        display: flex;
+        flex-direction: column;      /* как на десктопе — вертикальный список */
+        position: fixed;
+        z-index: var(--z-modal);
+        /* top: auto ОБЯЗАТЕЛЕН: в базовом правиле у меню position:sticky с top:16px,
+           и при fixed это значение продолжает действовать — лист прилипал к верху
+           экрана вместо низа (видно на скриншоте до правки). */
+        left: 0; right: 0; bottom: 0; top: auto;
+        width: auto;
+        max-height: 82vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 0 14px calc(14px + env(safe-area-inset-bottom, 0px));
+        background: var(--panel);
+        border-top: 1px solid var(--line);
+        border-radius: 18px 18px 0 0;
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, .28);
+        /* Маску краёв (она была подсказкой «тут скроллится вбок») убираем:
+           горизонтальной прокрутки больше нет, а вертикальную она бы обрезала. */
+        -webkit-mask-image: none;
+        mask-image: none;
+      }
+
+      /* Шапка листа липнет к верху — при длинном списке кнопка «закрыть»
+         не должна уезжать за пределы видимости. */
+      .catalog-nav-sheet-head {
+        position: sticky; top: 0; z-index: 1;
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 10px;
+        margin: 0 -14px 6px;
+        padding: 14px 14px 10px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+        font-weight: 700;
+      }
+      /* Полоска-«ручка» листа, как в системных шторках. */
+      .catalog-nav-sheet-head::before {
+        content: ""; position: absolute; top: 6px; left: 50%;
+        width: 36px; height: 4px; margin-left: -18px;
+        border-radius: 99px; background: var(--line);
+      }
+      /* Всё, что ниже, раньше выпрямляло список в ленту (flex-direction: row,
+         подгруппы через display:contents, разделитель на бок). Ленты больше нет —
+         внутри листа список идёт столбиком, как на десктопе. */
+      .catalog-cat-group { flex-direction: column; }
+      .catalog-cat-item { width: 100%; min-height: 46px; }
+      .catalog-cat-divider { width: auto; height: 1px; margin: 8px 0; }
       .catalog-toolbar-select { min-width: 0; flex: 1 1 45%; }
 
-      /* Подгруппы на телефоне. Ленты категорий горизонтальная, а подгруппы —
-         вложенный СТОЛБИК: он вклинивался посреди строки и наезжал на соседние
-         разделы (было видно на 390px: «Сайты/Айдентика/Графика» поверх ленты).
-         display:contents убирает сам контейнер из раскладки — кнопки становятся
-         прямыми элементами ленты и встают сразу после своей группы, в правильном
-         порядке и без наложений. */
-      .catalog-subgroups { display: contents; }
-      .catalog-subgroup {
-        flex: 0 0 auto;
-        margin-left: 2px;
-        font-size: 12px;
-        opacity: 1;
-        /* Отличаем от разделов: подгруппа — пилюля-«потомок», не самостоятельный
-           пункт. Пунктирная рамка читается как «часть предыдущего», а не «ещё один». */
-        border-style: dashed;
-      }
-      /* Лента прокручивается по горизонтали — вертикальный отступ у элементов
-         должен быть одинаковым, иначе строка «прыгает» при прокрутке. */
-      .catalog-cat-sidebar > .catalog-cat-group { align-items: center; }
+      /* Подгруппы — вложенный столбик со сдвигом, как на десктопе: в вертикальном
+         списке вложенность читается отступом и не мешает никому. */
+      .catalog-subgroups { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 6px 14px; }
+      .catalog-subgroup { font-size: 13px; min-height: 42px; opacity: .9; }
     }
 
     .tab {

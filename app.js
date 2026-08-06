@@ -1675,7 +1675,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
+      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
 
       // Кладёт облачное состояние в state. Отдельно от _loadCloudState, потому что
       // вызывается ещё и из разрешения конфликта.
@@ -9186,6 +9186,9 @@
 
       function setTab(tab) {
         state.tab = tab;
+        // Выбрал раздел — лист закрывается сам. Иначе на телефоне он оставался бы
+        // поверх результата, ради которого его и открывали.
+        state.catalogNavOpen = false;
         save();
         render();
       }
@@ -15054,6 +15057,16 @@
                       она была иконкой. Иконка без подписи оправдана только там, где
                       действие повторяется на каждой строке и места нет. */""}
                 <div class="toolbar no-print">
+                  ${/* Переехали сюда из полосы навигации: это действия, а не разделы.
+                        «Своя позиция» — главное из них, поэтому primary. */""}
+                  <button class="btn small primary" onclick="app.createCustomItem()" title="Добавить свою услугу в каталог" style="display:inline-flex;align-items:center;gap:6px">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                    Своя позиция
+                  </button>
+                  <button class="btn small" onclick="app.openCatalogGroupsConfig()" title="Скрыть ненужные разделы или завести свой" style="display:inline-flex;align-items:center;gap:6px">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>
+                    Настроить разделы
+                  </button>
                   <button class="btn small" onclick="app.exportCatalogXlsx()" title="Скачать весь каталог таблицей Excel (.xlsx)">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg>
                     Выгрузить
@@ -15064,6 +15077,8 @@
                   </button>
                 </div>
               </div>
+
+              ${renderCatalogNavTrigger(quickTabs)}
 
               <div class="catalog-toolbar no-print">
                 <div class="catalog-search-wrap">
@@ -15086,7 +15101,12 @@
               </div>
 
               <div class="catalog-body">
-                <aside class="catalog-cat-sidebar no-print">
+                ${state.catalogNavOpen ? `<div class="catalog-nav-backdrop no-print" onclick="app.closeCatalogNav()"></div>` : ""}
+                <aside class="catalog-cat-sidebar no-print ${state.catalogNavOpen ? "is-open" : ""}">
+                  <div class="catalog-nav-sheet-head no-print">
+                    <span>Разделы каталога</span>
+                    <button class="u-modal-close" onclick="app.closeCatalogNav()" aria-label="Закрыть">${icon("close", 15)}</button>
+                  </div>
                   <div class="catalog-cat-group">
                     ${quickTabs.map(([id, label]) => `
                       <button class="catalog-cat-item ${state.tab === id ? "active" : ""}" onclick="app.setTab('${id}')">
@@ -15185,16 +15205,12 @@
                     </div>`;
                   })()}
 
-                  <button class="catalog-cat-item catalog-cat-add" onclick="app.createCustomItem()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                    <span>Своя позиция</span>
-                  </button>
-
-                  <button class="catalog-cat-item catalog-cat-add" onclick="app.openCatalogGroupsConfig()"
-                    style="opacity:.75" title="Скрыть ненужные разделы или завести свой">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>
-                    <span>Настроить разделы</span>
-                  </button>
+                  ${/* «Своя позиция» и «Настроить разделы» отсюда УБРАНЫ в панель
+                        шапки раздела. Это действия, а не пункты навигации, и в общей
+                        полосе они стояли последними: на телефоне лента разворачивалась
+                        на 1968px при окне 348px, то есть до них надо было пролистать
+                        почти пять экранов вслепую. Замер до правки: из 14 пунктов
+                        видно 4, и ни одного раздела каталога среди них. */""}
                 </aside>
 
                 <div class="catalog-body-main">
@@ -15843,6 +15859,53 @@
         save();
         render();
       }
+
+      /* Навигация каталога на телефоне.
+
+         Боковое меню разделов работало на десктопе именно тем, что показывало все
+         разделы разом. На узком экране CSS разворачивал его в горизонтальную ленту —
+         и это свойство пропадало: замер на 390px дал 1968px содержимого при окне
+         348px (5,7 экрана), из 14 пунктов видно 4, причём НИ ОДНОГО раздела каталога
+         среди них — только «Все/Избранное/Свои/Скрытые». Разделы искали вслепую.
+
+         Лечение не в том, чтобы сделать ленту красивее, а в том, чтобы вернуть
+         утраченное свойство: на телефоне список открывается листом снизу и показан
+         вертикально — то есть ровно в той форме, в которой он и работает. Разметка
+         при этом ОДНА (тот же <aside>), просто CSS показывает его листом. Второй
+         копии нет — иначе подгруппы и счётчики разъехались бы между вариантами. */
+      function catalogNavCurrentLabel(quickTabs) {
+        const tab = state.tab || "all";
+        const quick = (quickTabs || []).find(([id]) => id === tab);
+        if (quick) return quick[1];
+        if (tab.startsWith("grp:")) {
+          const g = CATALOG_GROUPS.find(x => x.id === tab.slice(4));
+          if (g) return g.label;
+        }
+        if (tab.startsWith("sub:")) {
+          const g = CATALOG_GROUPS.find(x => x.id === tab.split(":")[1]);
+          if (g) return g.label;
+        }
+        const own = (state.customCatalogGroups || []).find(x => x.id === tab);
+        if (own) return own.label;
+        return "Все";
+      }
+
+      function renderCatalogNavTrigger(quickTabs) {
+        return `
+          <button class="catalog-nav-trigger no-print" onclick="app.openCatalogNav()"
+            aria-haspopup="dialog" aria-expanded="${state.catalogNavOpen ? "true" : "false"}">
+            <span class="catalog-nav-trigger-label">
+              <span class="u-meta">Раздел</span>
+              <strong>${escapeHtml(catalogNavCurrentLabel(quickTabs))}</strong>
+            </span>
+            <span class="catalog-nav-trigger-chevron" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </button>`;
+      }
+
+      function openCatalogNav() { state.catalogNavOpen = true; render(); }
+      function closeCatalogNav() { state.catalogNavOpen = false; render(); }
 
       function renderCatalogGroupsConfigModal() {
         if (!state.catalogGroupsConfigOpen) return "";
@@ -24008,6 +24071,8 @@ Email: _____________________              Email: _____________________
         resetCrmFilters,
         exportClientsXlsx,
         showBriefQR,
+        openCatalogNav,
+        closeCatalogNav,
         togglePublicCalc,
         copyPublicCalcLink,
         copyPublicCalcEmbed,

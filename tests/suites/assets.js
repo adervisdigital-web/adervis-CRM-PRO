@@ -4,10 +4,17 @@ const fs = require("fs");
 const path = require("path");
 const { assert, REPO_ROOT } = require("../harness");
 
+// Читаем с нормализацией переводов строк. Git хранит LF, но в рабочей копии на
+// Windows файл легко оказывается в CRLF (достаточно одного git stash/pop) — и тогда
+// КАЖДЫЙ сторож, чей якорь содержит \n, падает на ровном месте, хотя код не менялся.
+// На линуксовом раннере те же тесты при этом зелёные, то есть поломка видна только
+// у одного разработчика и выглядит мистикой. Один раз потеряли на этом полчаса.
+const readSrc = (rel) => fs.readFileSync(path.join(REPO_ROOT, rel), "utf8").split("\r\n").join("\n");
+
 module.exports = async function ({ test }) {
-  const index = fs.readFileSync(path.join(REPO_ROOT, "index.html"), "utf8");
-  const css = fs.readFileSync(path.join(REPO_ROOT, "style.css"), "utf8");
-  const app = fs.readFileSync(path.join(REPO_ROOT, "app.js"), "utf8");
+  const index = readSrc("index.html");
+  const css = readSrc("style.css");
+  const app = readSrc("app.js");
   const head = index.slice(0, index.indexOf("</head>"));
 
   await test("нет Google Fonts (шрифты self-hosted)", () => {

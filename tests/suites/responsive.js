@@ -35,6 +35,123 @@ async function overflow(page) {
 }
 
 module.exports = async function ({ browser, baseUrl, test, shotDir }) {
+
+  // ── Навигация каталога на телефоне ────────────────────────────────────────
+  // Было: боковое меню разделов CSS разворачивал в горизонтальную ленту. Замер
+  // на 390px — 1968px содержимого при окне 348px (5,7 экрана), из 14 пунктов
+  // видно 4, и НИ ОДНОГО раздела каталога среди них: разделы искали свайпом
+  // вслепую, а в ту же строку были подмешаны два действия.
+  await test("каталог на телефоне: разделы не уезжают лентой за экран", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => window.app.go("catalog"));
+      await page.waitForTimeout(600);
+
+      const closed = await page.evaluate(() => {
+        const trig = document.querySelector(".catalog-nav-trigger");
+        const bar = document.querySelector(".catalog-cat-sidebar");
+        return {
+          hasTrigger: !!trig && trig.getBoundingClientRect().height > 0,
+          listHidden: !bar || bar.getBoundingClientRect().height === 0,
+          pageWide: document.documentElement.scrollWidth,
+          clientWide: document.documentElement.clientWidth,
+        };
+      });
+      assert(closed.hasTrigger, "нет кнопки выбора раздела — на телефоне разделы недоступны");
+      assert(closed.listHidden, "список разделов снова висит на экране лентой");
+      assert(closed.pageWide <= closed.clientWide + 1,
+        `страница шире окна: ${closed.pageWide} > ${closed.clientWide}`);
+
+      // Лист показывает ВСЕ разделы разом — ради этого всё и делалось.
+      await page.evaluate(() => document.querySelector(".catalog-nav-trigger").click());
+      await page.waitForTimeout(400);
+      const open = await page.evaluate(() => {
+        const bar = document.querySelector(".catalog-cat-sidebar.is-open");
+        if (!bar) return null;
+        const box = bar.getBoundingClientRect();
+        const items = [...bar.querySelectorAll("button")].filter(b => !b.closest(".catalog-nav-sheet-head"));
+        let visible = 0, occluded = 0, small = 0;
+        for (const b of items) {
+          const r = b.getBoundingClientRect();
+          if (r.height === 0) continue;
+          if (r.height < 44) small++;
+          if (r.top < box.top - 1 || r.bottom > box.bottom + 1) continue;
+          // Перекрытие: нижняя панель навигации прибита на z-index 110 и закрывала
+          // последний раздел. Проверка по рамке этого НЕ ловит — только elementFromPoint.
+          const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          if (el && (el === b || b.contains(el))) visible++; else occluded++;
+        }
+        return {
+          total: items.length, visible, occluded, small,
+          sideScroll: Math.round(bar.scrollWidth) > Math.round(bar.clientWidth) + 1,
+        };
+      });
+      assert(open, "лист разделов не открылся");
+      assert(!open.sideScroll, "внутри листа снова появилась прокрутка вбок");
+      assert(open.occluded === 0, `${open.occluded} разделов перекрыто чем-то сверху`);
+      assert(open.small === 0, `${open.small} пунктов ниже 44px — не попасть пальцем`);
+      assert(open.visible === open.total,
+        `видно ${open.visible} из ${open.total} разделов — список снова не помещается`);
+
+      // Выбор раздела закрывает лист: иначе он остаётся поверх результата.
+      await page.evaluate(() => {
+        const bar = document.querySelector(".catalog-cat-sidebar.is-open");
+        [...bar.querySelectorAll("button")].find(b => /Избранное/.test(b.innerText)).click();
+      });
+      await page.waitForTimeout(400);
+      const afterPick = await page.evaluate(() => !!document.querySelector(".catalog-cat-sidebar.is-open"));
+      assert(!afterPick, "после выбора раздела лист остался открытым");
+    } finally {
+      await context.close();
+    }
+  });
+
+  await test("каталог: действия лежат в панели раздела, а не среди разделов", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => window.app.go("catalog"));
+      await page.waitForTimeout(600);
+      const r = await page.evaluate(() => {
+        const acts = [...document.querySelectorAll(".section-title .toolbar button")].map(b => b.innerText.trim());
+        const nav = document.querySelector(".catalog-cat-sidebar");
+        return { acts, inNav: /Своя позиция|Настроить разделы/.test(nav ? nav.innerText : "") };
+      });
+      assert(r.acts.some(t => /Своя позиция/.test(t)), "«Своя позиция» пропала из панели раздела");
+      assert(r.acts.some(t => /Настроить разделы/.test(t)), "«Настроить разделы» пропала из панели раздела");
+      assert(!r.inNav, "действия снова подмешаны в список разделов");
+    } finally {
+      await context.close();
+    }
+  });
+
+  // ── Десктоп не должен пострадать: там боковое меню работает как работало ──
+  await test("каталог на десктопе: боковое меню осталось столбиком слева", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1280, height: 900, seedDemo: true });
+    try {
+      await page.evaluate(() => window.app.go("catalog"));
+      await page.waitForTimeout(600);
+      const r = await page.evaluate(() => {
+        const bar = document.querySelector(".catalog-cat-sidebar");
+        const trig = document.querySelector(".catalog-nav-trigger");
+        const box = bar ? bar.getBoundingClientRect() : null;
+        return {
+          visible: !!box && box.height > 0,
+          column: box ? box.height > box.width : false,
+          triggerHidden: !trig || trig.getBoundingClientRect().height === 0,
+        };
+      });
+      assert(r.visible, "на десктопе пропало боковое меню каталога");
+      assert(r.column, "боковое меню на десктопе легло лентой");
+      assert(r.triggerHidden, "на десктопе показалась мобильная кнопка выбора раздела");
+    } finally {
+      await context.close();
+    }
+  });
+
   const { context, page } = await bootLocal(browser, baseUrl, { width: 900, height: 800, seedDemo: true });
 
   for (const view of VIEWS) {
