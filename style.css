@@ -2632,12 +2632,10 @@
       color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer;
       transition: color var(--dur-1), transform var(--dur-1); min-width: 44px; min-height: 44px; overflow: hidden; position: relative;
     }
+    /* Точка-индикатор под активным пунктом убрана: цвета и подсветки иконки уже
+       достаточно, чтобы понять, где находишься, а точка добавляла третий сигнал
+       об одном и том же и читалась как мусор под подписью. */
     .mbn-item.active { color: var(--primary-text); }
-    .mbn-item.active::after {
-      content: ""; position: absolute; bottom: 2px;
-      width: 4px; height: 4px; border-radius: 50%;
-      background: var(--primary2);
-    }
     .mbn-item:active { transform: scale(.9); }
     .mbn-item svg { flex: 0 0 auto; display: block; }
     .mbn-item.active svg { filter: drop-shadow(0 0 4px rgb(var(--primary-rgb) / .5)); }

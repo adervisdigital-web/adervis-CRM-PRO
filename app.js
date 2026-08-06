@@ -21433,19 +21433,23 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <div class="mm-label">Профиль</div>
                   <div class="mm-sub">Аккаунт, подписка</div>
                 </button>
-                ${/* «Поддержка» и «Выйти» на телефоне были доступны только из выпадающего
+                ${/* «Поддержка» и «Тарифы» на телефоне были доступны только из выпадающего
                       меню профиля в шапке — то есть спрятаны вдвойне. Здесь они и уместны:
                       меню называется «Что хочешь сделать?». Заодно сетка сходится ровно
-                      (18 пунктов на три колонки — шесть рядов без дыр). */""}
+                      (18 пунктов на три колонки — шесть рядов без дыр).
+
+                      «Выйти» отсюда УБРАН намеренно: выход уже лежит в меню профиля в
+                      шапке, а дублировать в списке разделов действие, которое закрывает
+                      сессию, — лишний способ нажать его случайно. */""}
                 <button class="main-menu-item" onclick="app.closeMainMenu();app.go('support')">
                   <span class="mm-icon">${icon("chat")}</span>
                   <div class="mm-label">Поддержка</div>
                   <div class="mm-sub">Связаться с нами</div>
                 </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.adminLogout()">
-                  <span class="mm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
-                  <div class="mm-label">Выйти</div>
-                  <div class="mm-sub">Из аккаунта</div>
+                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('plans')">
+                  <span class="mm-icon">${icon("card")}</span>
+                  <div class="mm-label">Тарифы</div>
+                  <div class="mm-sub">Подписка и оплата</div>
                 </button>
               </div>
             </div>
