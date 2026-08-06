@@ -122,6 +122,42 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   });
   }
 
+  await test("настройка меню открывается на телефоне при отрисованном сайдбаре", async () => {
+    // Слепое пятно тестов: bootLocal идёт БЕЗ сессии, поэтому сайдбар пуст, а у
+    // живого пользователя он отрисован и лишь скрыт CSS (max-width:0; opacity:0).
+    // Из-за этого выбор якоря «есть элемент → берём его» проходил тесты и ломался
+    // в проде: getBoundingClientRect() у скрытой кнопки даёт нули, и панель
+    // уезжала за верх экрана. Поэтому здесь мы САМИ подставляем скрытую кнопку.
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => window.app.go("home"));
+      await page.waitForTimeout(500);
+      await page.evaluate(() => {
+        const side = document.getElementById("appSidebar");
+        if (side) side.innerHTML = '<button id="sidebarNavEditBtn">Настроить меню</button>';
+      });
+      await page.evaluate(() => document.getElementById("mbnMore").click());
+      await page.waitForTimeout(400);
+      const r = await page.evaluate(() => {
+        const p = document.querySelector(".sidebar-nav-config");
+        if (!p) return null;
+        const b = p.getBoundingClientRect();
+        return {
+          rows: p.querySelectorAll(".sidebar-nav-config-row").length,
+          onScreen: b.top >= 0 && b.left >= 0 && b.right <= window.innerWidth + 1 && b.bottom <= window.innerHeight + 1,
+          box: `${Math.round(b.left)},${Math.round(b.top)}…${Math.round(b.right)},${Math.round(b.bottom)}`,
+        };
+      });
+      assert(r, "панель настройки меню не открылась — кнопка в нижней панели не работает");
+      assert(r.rows > 0, "панель открылась пустой");
+      assert(r.onScreen, `панель вне экрана: ${r.box} при окне 390×844`);
+    } finally {
+      await context.close();
+    }
+  });
+
   await test("пакеты: «Свой пакет» доступен с телефона", async () => {
     // Кнопка лежала ВНУТРИ списка категорий, а он на телефоне скрыт и открывается
     // листом — то есть создать свой пакет с телефона было нельзя вообще.

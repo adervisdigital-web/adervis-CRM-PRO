@@ -227,8 +227,15 @@ module.exports = async function ({ test }) {
     // неизбежно разъедется, как уже разъехалось мобильное меню с SIDEBAR_NAV_DEFS.
     const fn = app.slice(app.indexOf("function renderSidebarNavPopover"), app.indexOf("// Свой раздел = ссылка"));
     assert(fn.length > 300, "не удалось вырезать тело renderSidebarNavPopover");
-    assert(/getElementById\("sidebarNavEditBtn"\)\s*\|\|\s*(document\.)?getElementById\("mbnMore"\)/.test(fn),
-      "поповер настройки снова привязан только к десктопной кнопке — на телефоне он не откроется");
+    assert(/getElementById\("sidebarNavEditBtn"\)/.test(fn) && /getElementById\("mbnMore"\)/.test(fn),
+      "поповер настройки знает только про один якорь — на втором экране он не откроется");
+    // Выбор ИМЕННО по видимости. Через `||` (по наличию) панель ломалась в проде:
+    // при живой сессии сайдбар отрисован и лишь скрыт CSS, поэтому кнопка
+    // находилась, а её getBoundingClientRect() давал нули.
+    assert(/getBoundingClientRect/.test(fn) && /width > 0/.test(fn),
+      "якорь снова выбирается по наличию элемента, а не по его видимости");
+    assert(!/getElementById\("sidebarNavEditBtn"\)\s*\|\|/.test(fn),
+      "вернулся выбор якоря через ||: скрытый сайдбар снова победит кнопку панели");
   });
 
   await test("нижняя панель: активный пункт без точки-индикатора", () => {

@@ -2361,11 +2361,21 @@
         if (!el) return;
         if (!_sidebarNavPopoverOpen) { el.innerHTML = ""; return; }
         // Якорь: на десктопе — кнопка «Настроить меню» в сайдбаре, на телефоне
-        // сайдбара нет вовсе, и настройку открывает «Ещё» в нижней панели.
-        // Разметка ОДНА на оба случая — второй копии этого списка быть не должно,
-        // иначе он разъедется, как уже разъехалось мобильное меню с SIDEBAR_NAV_DEFS.
-        const btn = document.getElementById("sidebarNavEditBtn") || document.getElementById("mbnMore");
-        if (!btn) { el.innerHTML = ""; return; }
+        // сайдбара нет и настройку открывает кнопка нижней панели. Разметка ОДНА
+        // на оба случая — второй копии этого списка быть не должно, иначе он
+        // разъедется, как уже разъехалось мобильное меню с SIDEBAR_NAV_DEFS.
+        //
+        // Выбираем по ВИДИМОСТИ, а не по наличию. Первая версия брала
+        // `sidebarNavEditBtn || mbnMore` — и на телефоне у живого пользователя
+        // панель не открывалась вовсе: при активной сессии сайдбар ОТРИСОВАН, его
+        // прячет CSS (max-width:0; opacity:0), поэтому элемент есть, запасной
+        // вариант не срабатывает, а getBoundingClientRect() даёт нули — панель
+        // уезжала за верх экрана. В тестах этого не видно: bootLocal идёт без
+        // сессии, сайдбар пуст, и якорем всегда становилась кнопка панели.
+        const _visible = (n) => { if (!n) return false; const r = n.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+        const sideBtn = document.getElementById("sidebarNavEditBtn");
+        const btn = _visible(sideBtn) ? sideBtn : document.getElementById("mbnMore");
+        if (!_visible(btn)) { el.innerHTML = ""; return; }
         const r = btn.getBoundingClientRect();
         // У нижней панели кнопка прижата к правому краю: раскрывать список от её
         // левой границы значит увести его за экран. Держим в пределах окна.
