@@ -1262,55 +1262,71 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(docsAfter === docsBefore, `переименование увело документы: было ${docsBefore}, стало ${docsAfter}`);
   });
 
-  // Меню карточки раскрывалось только вниз, и у карточки в нижней части экрана
-  // последний пункт («В архив») уезжал за край окна: на экране пять пунктов из
-  // шести, причём обрыв выглядит как законченный список — пункта для человека
-  // просто нет. Замер на окне 800: меню 584…818, «В архив» 778…812.
+  // Последний пункт меню карточки («В архив») пропадал ДВУМЯ независимыми способами,
+  // и оба выглядят одинаково — список просто обрывается на «Завершить», как будто
+  // так и задумано:
+  //   1) у карточки в нижней части экрана меню, падающее вниз, не помещается в окно
+  //      (замер на окне 800: меню 584…818, пункт 778…812);
+  //   2) у карточки, под которой есть соседняя, — карточка под курсором приподнята
+  //      через transform, а transform создаёт стековый контекст, из которого меню с
+  //      z-index:200 не может выйти: следующая по DOM карточка накрывает его нижние
+  //      пункты, даже когда места в окне сколько угодно.
+  // Первый случай чинится раскрытием вверх, второй — подъёмом самой карточки, и
+  // проверять надо ОБА положения: правка одного не лечит другое.
   //
-  // Меряем результат: у карточки, прижатой к НИЖНЕМУ краю, каждый пункт лежит
-  // внутри окна и по нему можно попасть. Проверяем elementFromPoint, а не рамкой:
-  // перекрытие чужим слоем рамка не видит.
-  await test("меню карточки: все пункты видны у нижнего края экрана", async () => {
+  // Меряем результат — «можно ли попасть в пункт» — через elementFromPoint: рамка
+  // перекрытия чужим слоем не видит вовсе.
+  await test("меню карточки: все пункты доступны и у края окна, и над соседней карточкой", async () => {
     await dismissStaleDialog(page);
     await page.evaluate(() => window.app.go("home"));
     await page.waitForTimeout(250);
 
-    const id = await page.evaluate(() => {
-      const els = [...document.querySelectorAll("[data-deal-id]")];
-      const el = els[1] || els[0];
-      if (!el) return null;
-      el.scrollIntoView({ block: "end" });
-      return el.getAttribute("data-deal-id");
-    });
-    assert(id, "на главной нет карточек сделок");
-    await page.waitForTimeout(150);
+    const count = await page.evaluate(() => document.querySelectorAll("[data-deal-id]").length);
+    assert(count >= 2, "на главной меньше двух карточек — случай «сосед снизу» не проверить");
 
-    // Кнопочный путь, а не вызов app.toggleDealMenu(): позиционирование считается
-    // при открытии, и обходной вызов проверял бы не то, что делает человек.
-    await page.click(`[data-deal-id="${id}"] .deal-menu-btn`);
-    await page.waitForTimeout(200);
+    // "start" — карточка вверху, под ней остальные (перекрытие соседом);
+    // "end"   — карточка прижата к нижнему краю (нехватка места в окне).
+    for (const [where, idx] of [["start", 0], ["end", 1]]) {
+      const id = await page.evaluate(({ w, i }) => {
+        const els = [...document.querySelectorAll("[data-deal-id]")];
+        const el = els[i] || els[0];
+        el.scrollIntoView({ block: w });
+        return el.getAttribute("data-deal-id");
+      }, { w: where, i: idx });
+      await page.waitForTimeout(150);
 
-    const items = await page.evaluate((v) => {
-      const menu = document.getElementById("dcm-" + v);
-      if (!menu) return null;
-      return [...menu.querySelectorAll(".dcm-item")].map((b) => {
-        const r = b.getBoundingClientRect();
-        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-        return {
-          label: b.textContent.replace(/\s+/g, " ").trim(),
-          out: r.bottom > window.innerHeight || r.top < 0,
-          covered: !(hit && (hit === b || b.contains(hit))),
-        };
-      });
-    }, id);
+      // Кнопочный путь, а не app.toggleDealMenu(): позиционирование считается при
+      // открытии, и клик вдобавок наводит курсор — без наведения карточка не имеет
+      // transform, а значит и перекрытия, которое мы ловим, не возникает вовсе.
+      await page.click(`[data-deal-id="${id}"] .deal-menu-btn`);
+      await page.waitForTimeout(200);
 
-    assert(items && items.length >= 5, "меню карточки не открылось");
-    assert(items.some((i) => /архив/i.test(i.label)), "в меню нет пункта «В архив»: " + items.map((i) => i.label).join(", "));
-    const bad = items
-      .filter((i) => i.out || i.covered)
-      .map((i) => `«${i.label}»${i.out ? " за краем окна" : ""}${i.covered ? " перекрыт" : ""}`);
-    assertEqual(bad.length, 0, "пункты меню недоступны: " + bad.join(", "));
-    await page.evaluate(() => window.app.closeDealMenu());
+      const items = await page.evaluate((v) => {
+        const menu = document.getElementById("dcm-" + v);
+        if (!menu) return null;
+        return [...menu.querySelectorAll(".dcm-item")].map((b) => {
+          const r = b.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return {
+            label: b.textContent.replace(/\s+/g, " ").trim(),
+            out: r.bottom > window.innerHeight || r.top < 0,
+            covered: !(hit && (hit === b || b.contains(hit))),
+          };
+        });
+      }, id);
+
+      assert(items && items.length >= 5, `меню карточки не открылось (${where})`);
+      assert(
+        items.some((i) => /архив/i.test(i.label)),
+        `в меню нет пункта «В архив» (${where}): ` + items.map((i) => i.label).join(", ")
+      );
+      const bad = items
+        .filter((i) => i.out || i.covered)
+        .map((i) => `«${i.label}»${i.out ? " за краем окна" : ""}${i.covered ? " перекрыт" : ""}`);
+      assertEqual(bad.length, 0, `пункты меню недоступны (карточка у края «${where}»): ` + bad.join(", "));
+      await page.evaluate(() => window.app.closeDealMenu());
+      await page.waitForTimeout(100);
+    }
   });
 
   // Карточка сделки несла две кнопки-пилюли — «Открыть →» и следующий статус

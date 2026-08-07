@@ -10896,6 +10896,15 @@
             const r = el.getBoundingClientRect();
             const wrap = el.parentElement.getBoundingClientRect();
             if (r.bottom > window.innerHeight - 8 && wrap.top > r.height + 8) el.classList.add("dcm-up");
+
+            /* Вторая, независимая причина того же симптома: карточка под курсором
+               приподнимается на 2px через transform, а transform создаёт СТЕКОВЫЙ
+               КОНТЕКСТ — меню с z-index:200 запирается внутри карточки, и следующая
+               по DOM карточка рисуется поверх него. Замер: «В архив» перекрыт
+               .deal-card-head соседа, хотя места в окне хватало. Поэтому на время
+               открытого меню поднимаем саму карточку над соседями. */
+            const card = el.closest(".deal-card") || el.closest("[data-deal-id]");
+            if (card) card.classList.add("deal-card-menu-open");
           }
         }
       }
@@ -10903,7 +10912,14 @@
       function closeDealMenu() {
         if (_dealMenuOpen) {
           const el = document.getElementById("dcm-" + _dealMenuOpen);
-          if (el) el.style.display = "none";
+          if (el) {
+            el.style.display = "none";
+            el.classList.remove("dcm-up");
+            // Подъём карточки снимаем вместе с меню: иначе она так и останется
+            // лежать поверх соседей до следующего рендера.
+            const card = el.closest(".deal-card") || el.closest("[data-deal-id]");
+            if (card) card.classList.remove("deal-card-menu-open");
+          }
           _dealMenuOpen = null;
         }
       }
