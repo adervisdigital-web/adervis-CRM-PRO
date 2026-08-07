@@ -576,6 +576,39 @@ module.exports = async function ({ test }) {
     }
   });
 
+  // Активность аккаунта в админке ходит в SECURITY DEFINER-функцию: она обходит RLS
+  // и читает чужое состояние. Живьём это тестами не покрыть (прогон идёт в local
+  // mode, где _supabase нет вовсе), поэтому сторож статический — но проверяет ровно
+  // то, что нельзя сломать незаметно: защиту, оба revoke и приватность ответа.
+  await test("админка: активность аккаунта закрыта админом и не отдаёт чужие данные", () => {
+    const mig = readSrc("supabase/migrations/20260808000001_admin_agency_activity.sql");
+    const app = readSrc("app.js");
+
+    assert(/_is_super_admin\(\)/.test(mig), "функция активности не проверяет супер-админа — её сможет позвать любой вошедший");
+    assert(/security definer/i.test(mig), "функция не SECURITY DEFINER — она не прочитает чужое состояние из-под RLS");
+    assert(/set search_path\s*=\s*public/i.test(mig), "search_path не запинен у SECURITY DEFINER-функции");
+
+    // Нужны ОБА revoke: право приходит и от PUBLIC (PostgreSQL), и от default
+    // privileges Supabase — по отдельности ни один не снимает доступ анониму.
+    assert(/revoke execute on function public\.admin_get_agency_activity\(uuid\) from public/i.test(mig),
+      "нет revoke ... from public");
+    assert(/revoke execute on function public\.admin_get_agency_activity\(uuid\) from anon/i.test(mig),
+      "нет revoke ... from anon");
+    assert(/grant\s+execute on function public\.admin_get_agency_activity\(uuid\) to authenticated/i.test(mig),
+      "право не выдано authenticated — админ не сможет позвать функцию");
+
+    // Наружу — только числа. Имя сделки или контакт клиента в ответе означал бы,
+    // что админка читает чужую переписку, а не смотрит за использованием продукта.
+    const payload = (mig.match(/json_build_object\(([\s\S]*?)\n  \) into res/) || [])[1] || "";
+    assert(payload, "не удалось разобрать состав ответа — проверка приватности не выполнена");
+    const leaky = ["'name'", "'client'", "'phone'", "'email'", "'deal_name'", "'title'"].filter((k) => payload.includes(k));
+    assertEqual(leaky.length, 0, "в ответ попали не-числовые поля: " + leaky.join(", "));
+
+    // Имя RPC в клиенте должно совпадать с именем функции: опечатка здесь молча
+    // превращается в «Не вышло: function does not exist» уже у владельца на экране.
+    assert(/rpc\("admin_get_agency_activity"/.test(app), "app.js зовёт другую RPC — имя разошлось с миграцией");
+  });
+
   // Цена лежит в ДВУХ файлах: витрина (PLANS в app.js, цена месяца) и касса (PLANS в
   // Edge Function create-payment, где считается сумма счёта). Разъезжаются они молча
   // и в самом дорогом месте: человек видит одну цену, а ЮKassa просит другую. Именно

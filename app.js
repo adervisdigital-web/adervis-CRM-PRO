@@ -300,6 +300,7 @@
         warning:  `<path d="M8 1.3a1 1 0 01.87.5l6.2 10.7a1 1 0 01-.87 1.5H1.8a1 1 0 01-.87-1.5l6.2-10.7A1 1 0 018 1.3zm-.75 4.2v3.5h1.5V5.5h-1.5zm0 4.75v1.5h1.5v-1.5h-1.5z"/>`,
         xcircle:  `<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm2.6 4.4L9 8l1.6 1.6-1 1-1.6-1.6-1.6 1.6-1-1L6.9 8 5.3 6.4l1-1L8 7l1.6-1.6z"/>`,
         card:     `<path d="M1 3a1 1 0 011-1h12a1 1 0 011 1v10a1 1 0 01-1 1H2a1 1 0 01-1-1V3zm1 2v1h12V5H2zm0 3v3h12V8H2z"/>`,
+        chart:    `<path d="M2.2 9.2h2.3v4.9H2.2V9.2zm4.7-5.4h2.3v10.3H6.9V3.8zm4.7 3.2h2.3v7.1h-2.3V7z"/>`,
         lock:     `<path d="M5 6V4.5a3 3 0 116 0V6h.5a1 1 0 011 1v6a1 1 0 01-1 1h-8a1 1 0 01-1-1V7a1 1 0 011-1H5zm1.5 0h3V4.5a1.5 1.5 0 00-3 0V6z"/>`,
         unlock:   `<path d="M11.5 6V4.3a3.3 3.3 0 00-6.5-.8l1.4.4a1.8 1.8 0 013.6.4V6H4.5a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V7a1 1 0 00-1-1h-1z"/>`,
         gift:     `<path d="M2 6h12v2H2V6zm1 3h4.25v5H3V9zm5.75 0H13v5H8.75V9zM6 2.5a1.5 1.5 0 011.5 1.5v1H6a1.5 1.5 0 010-3zM10 2.5a1.5 1.5 0 00-1.5 1.5v1H10a1.5 1.5 0 000-3z"/>`,
@@ -3858,6 +3859,7 @@
       let _adminLoading = false;
       let _adminPromoForm = { code: "", discount: 0, expires: "", maxUses: 100, loading: false, error: "" };
       let _adminEditSub = null; // { agencyId, status, plan, expires }
+      let _adminActivity = null; // { agencyId, loading, error, data } — панель активности
       let _adminErrors = null; // сырые строки client_errors
       let _adminErrorsFilter = { q: "", kind: "" };
       let _adminErrorExpanded = null; // ключ развёрнутой группы
@@ -3902,6 +3904,34 @@
           _adminErrors = [];
         }
         _adminLoading = false; render();
+      }
+
+      /* Активность аккаунта — что человек внутри ДЕЛАЕТ.
+
+         Список пользователей отвечает только на «кто зарегистрировался и до какого
+         числа оплачено». Пока внешних пользователей не было ни одного, этого
+         хватало; с первым живым (07.08.2026) понадобился другой вопрос: завёл ли
+         сделки, посчитал ли смету, дошло ли дело до КП клиенту. Без него «работает
+         каждый день» и «зашёл один раз посмотреть» выглядят в админке одинаково.
+
+         Тянем по требованию, а не вместе со списком: состояние агентства бывает в
+         сотни килобайт, и агрегировать его сразу для всех — платить за то, что
+         смотрят по одному. Наружу приходят ТОЛЬКО ЧИСЛА (см. миграцию
+         20260808000001): ни названий сделок, ни контактов клиентов. */
+      async function adminToggleActivity(agencyId) {
+        if (!agencyId) { toast("У пользователя нет агентства — он не заходил в приложение"); return; }
+        if (_adminActivity && _adminActivity.agencyId === agencyId) { _adminActivity = null; render(); return; }
+        if (!_supabase) return;
+        _adminActivity = { agencyId, loading: true, error: "", data: null };
+        render();
+        try {
+          const { data, error } = await _supabase.rpc("admin_get_agency_activity", { p_agency_id: agencyId });
+          if (error) throw new Error(error.message);
+          _adminActivity = { agencyId, loading: false, error: "", data };
+        } catch (e) {
+          _adminActivity = { agencyId, loading: false, error: (e && e.message) || String(e), data: null };
+        }
+        render();
       }
 
       async function adminSetSubscription() {
@@ -4045,6 +4075,67 @@
           <div class="u-meta" style="font-size:12px;margin-bottom:10px">Показано ${shown} из ${all.length}</div>`;
       }
 
+      /* Панель активности под строкой пользователя.
+
+         Наверху — путь до ценности продукта одной строкой: сделка → смета → КП →
+         оплата клиентом. Именно он отвечает на вопрос «пользуется или только
+         зарегистрировался», а числа ниже уточняют масштаб. Порядок обратный
+         привычному «сначала цифры»: цифры без этапа не говорят ничего — 12 сделок
+         без единой сметы означают импорт, а не работу. */
+      function _adminActivityHtml(agencyId) {
+        const st = _adminActivity;
+        if (!st || st.agencyId !== agencyId) return "";
+        const box = (inner) => `<div style="border-top:1px solid var(--line);padding:14px 16px;background:var(--panel2)">${inner}</div>`;
+        if (st.loading) return box(`<div class="u-meta" style="font-size:12px">Считаем активность…</div>`);
+        if (st.error) return box(`<div style="font-size:12px;color:var(--text-danger)">Не вышло: ${escapeHtml(st.error)}</div>`);
+
+        const d = st.data || {};
+        if (d.exists === false) {
+          return box(`
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px">Ни одного сохранения</div>
+            <div class="u-meta" style="font-size:12px">Аккаунт есть, но в приложении человек ничего не сохранил${d.portals ? ` — при этом КП создано: ${d.portals}` : ""}. Это не «пустой аккаунт», а «не начал работу».</div>
+          `);
+        }
+
+        const steps = [
+          ["Завёл сделку", (d.deals_total || 0) > 0, `${d.deals_total || 0}`],
+          ["Посчитал смету", (d.deals_with_sum || 0) > 0, `${d.deals_with_sum || 0}`],
+          ["Отправил КП", (d.portals || 0) > 0, `${d.portals || 0}`],
+          ["Клиент оплатил", (d.portals_paid || 0) > 0, `${d.portals_paid || 0}`],
+        ];
+        const tile = (label, val, hint) => `<div class="kpi-tile"${hint ? ` title="${escapeHtml(hint)}"` : ""}><div class="kpi-val">${val}</div><div class="kpi-lbl">${escapeHtml(label)}</div></div>`;
+        const dt = (v) => (v ? new Date(v).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—");
+
+        return box(`
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+            ${steps.map(([label, done, n]) => `
+              <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;font-size:12px;font-weight:700;
+                background:${done ? "rgba(22,163,74,.15)" : "var(--panel)"};color:${done ? "var(--text-success)" : "var(--muted)"};border:1px solid ${done ? "rgba(22,163,74,.35)" : "var(--line)"}">
+                ${done ? icon("check", 12) : ""}${escapeHtml(label)}${done ? ` · ${escapeHtml(n)}` : ""}
+              </span>
+            `).join("")}
+          </div>
+          <div class="kpi-row">
+            ${tile("Сделки", d.deals_total || 0, "Всего сохранённых сделок")}
+            ${tile("В работе", d.deals_active || 0, "Сделки вне «Завершённых» и архива")}
+            ${tile("Завершено", d.deals_done || 0, "")}
+            ${tile("Выставлено", money(d.billed || 0), "Сумма всех смет аккаунта")}
+            ${tile("Оплачено", money(d.paid || 0), "Сколько из них уже получено")}
+            ${tile("Клиенты", d.clients || 0, "")}
+            ${tile("КП", `${d.portals || 0}${(d.portals_approved || 0) ? ` / ${d.portals_approved}` : ""}`, "Создано КП / из них согласовано клиентом")}
+            ${tile("Команда", d.team || 0, "Людей в команде агентства")}
+            ${tile("Свои услуги", `${d.own_items || 0}`, "Позиции, добавленные в каталог вручную — признак того, что каталог подогнали под себя")}
+          </div>
+          <div class="u-meta" style="font-size:12px;margin-top:10px;display:flex;gap:14px;flex-wrap:wrap">
+            <span>Последнее сохранение: <b>${escapeHtml(dt(d.updated_at))}</b></span>
+            ${d.last_deal_at ? `<span>Правка сделки: <b>${escapeHtml(dt(d.last_deal_at))}</b></span>` : ""}
+            ${/* 256 КБ — потолок realtime-сообщения: за ним правки перестают доезжать
+                  до второго устройства молча, поэтому размер видно заранее. */""}
+            <span title="Размер состояния. Свыше 256 КБ синхронизация между устройствами перестаёт доезжать">Состояние: <b${(d.state_kb || 0) > 256 ? ` style="color:var(--text-warning)"` : ""}>${d.state_kb || 0} КБ</b></span>
+          </div>
+        `);
+      }
+
       // Одна строка пользователя. Вынесено из шаблона renderAdminPanel, чтобы
       // поиск перерисовывал только список, а не всю страницу.
       function _adminUsersListHtml() {
@@ -4090,6 +4181,9 @@
                         <div style="display:flex;gap:6px;flex-shrink:0">
                           ${!isEditing ? `
                             ${(isExpired || ast === "") ? `<button class="btn small green" onclick="app.adminActivate('${aid}')" title="Активировать на 30 дней">${icon("check")} Активировать</button>` : ""}
+                            ${/* Активность — первым действием: чаще всего нужно понять,
+                                  пользуется человек или нет, а не править ему подписку. */""}
+                            <button class="btn small ${_adminActivity && _adminActivity.agencyId === (a.agency_id||"") ? "primary" : ""}" onclick="app.adminToggleActivity('${aid}')" title="Что человек делает внутри: сделки, сметы, КП" aria-label="Активность аккаунта">${icon("chart", 13)}</button>
                             <button class="btn small" onclick="app.adminExtendTrial('${aid}')" title="+14 дней к триалу">+14д</button>
                             <button class="btn small" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Изменить подписку" aria-label="Изменить подписку">${icon("pencil")}</button>
                             <button class="btn small ${isBlocked?"green":"danger"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}" aria-label="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?icon("unlock"):icon("lock")}</button>
@@ -4125,6 +4219,7 @@
                           </div>
                         </div>
                       ` : ""}
+                      ${_adminActivityHtml(a.agency_id || "")}
                     </div>`;
         }).join("");
       }
@@ -24507,6 +24602,7 @@ Email: _____________________              Email: _____________________
         adminActivate,
         adminExtendTrial,
         adminToggleBlock,
+        adminToggleActivity,
         _setExpenseBudget,
         _setAdminTab,
         _setSettingsTab,
