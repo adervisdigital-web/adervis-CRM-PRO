@@ -233,6 +233,54 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(cards > 0, "в открытой группе нет позиций");
   });
 
+  // Обе вкладки услуг рисуют одну <aside>, и подпись кнопки навигации у них общая
+  // (pkgNavCurrentLabel вынесена наружу 06.08). 07.08 из-за этого весь раздел падал
+  // с «ReferenceError: CAT_META is not defined»: константу оставили локальной внутри
+  // renderPackages, а читает её и вынесенная функция. Падало НЕ всегда — условие
+  // `filter !== "all" && CAT_META[filter]` замыкается на «Все», поэтому свежий вход
+  // и весь набор были зелёными, а у того, кто раз выбрал категорию, раздел не
+  // открывался вовсе: выбор лежит в state и переживает перезагрузку.
+  //
+  // Меряем результат, а не способ: по КАЖДОЙ категории раздел показывает карточки,
+  // а не экран ошибки, и кнопка навигации подписана тем же, что и пункт списка.
+  await test("пакеты: каждая категория открывает раздел, а не роняет его", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => window.app.go("packages"));
+    await page.waitForTimeout(250);
+
+    // Категории читаем из живого DOM: добавят новую — сторож проверит и её.
+    const cats = await page.$$eval("#appContent .catalog-cat-item", (bs) =>
+      bs
+        .map((b) => {
+          const m = (b.getAttribute("onclick") || "").match(/setPkgCatFilter\('([^']+)'\)/);
+          const first = b.querySelector("span");
+          return m ? { id: m[1], label: (first ? first.textContent : "").replace(/\s+/g, " ").trim() } : null;
+        })
+        .filter(Boolean)
+    );
+    assert(cats.length >= 8, "в списке категорий пакетов меньше восьми пунктов: " + cats.length);
+
+    const broken = [];
+    for (const c of cats) {
+      await page.evaluate((id) => window.app.setPkgCatFilter(id), c.id);
+      await page.waitForTimeout(120);
+      const st = await page.evaluate(() => {
+        const el = document.getElementById("appContent");
+        return {
+          crashed: /Что-то пошло не так/.test(el ? el.innerText : ""),
+          cards: document.querySelectorAll(".package-card").length,
+          label: ((document.querySelector(".catalog-nav-trigger-label strong") || {}).textContent || "").trim(),
+        };
+      });
+      // «Свои» на демо-данных пусты штатно: там пустое состояние вместо карточек.
+      if (st.crashed) broken.push(`${c.id}: экран ошибки вместо раздела`);
+      else if (st.label !== c.label) broken.push(`${c.id}: подпись «${st.label}» вместо «${c.label}»`);
+      else if (c.id !== "own" && !st.cards) broken.push(`${c.id}: ни одной карточки`);
+    }
+    await page.evaluate(() => window.app.setPkgCatFilter("all"));
+    assertEqual(broken.length, 0, "категории пакетов не открываются:\n  " + broken.join("\n  "));
+  });
+
   // Редактировать можно ЛЮБОЙ пакет, не только созданный вручную: готовые — тоже
   // заготовки агентства. Проверяем весь цикл: объём → удаление → сохранение → карточка.
   await test("пакет редактируется целиком: объём, состав, сохранение", async () => {

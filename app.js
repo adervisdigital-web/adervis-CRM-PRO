@@ -61,6 +61,29 @@
         { id: "money", label: "Расходы",      ic: "coins",     color: "var(--red)",      hint: "транспорт, питание, локация" }
       ];
 
+      /* Категории ПАКЕТОВ — своя ось, не группы каталога выше (там «что мне нужно на
+         этом шаге», здесь «про что готовый набор»).
+
+         Лежит на уровне модуля, а не внутри renderPackages, потому что читают её ДВЕ
+         функции: сам рендер и подпись кнопки навигации (pkgNavCurrentLabel), которую
+         06.08 вынесли наружу, чтобы каталог и пакеты звали одну. Константа осталась
+         локальной — и раздел «Услуги» падал с `ReferenceError: CAT_META is not
+         defined`. Не всегда: `filter !== "all" && CAT_META[filter]` замыкается на
+         «Все», поэтому тесты и свежий вход были зелёными, а у того, кто один раз
+         выбрал категорию, раздел не открывался вовсе — выбор лежит в state.
+         Иконки — из общей SVG-системы (см. ICON_PATHS), а не эмодзи: те рисуются
+         шрифтом ОС и в тёмной теме выглядят наклейками поверх интерфейса. */
+      const CAT_META = {
+        social:    { label: "Соц. сети",      ic: "mobile",   color: "var(--cyan)" },
+        interview: { label: "Интервью",       ic: "mic",      color: "var(--primary2)" },
+        business:  { label: "Бизнес-видео",   ic: "film",     color: "var(--blue)" },
+        events:    { label: "Мероприятия",    ic: "stage",    color: "var(--yellow)" },
+        ai:        { label: "ИИ / AI",        ic: "robot",    color: "var(--primary)" },
+        graphic:   { label: "Графика",        ic: "star",     color: "var(--orange)" },
+        photo:     { label: "Фото",           ic: "camera",   color: "var(--green)" },
+        corporate: { label: "Корпоративный",  ic: "building", color: "var(--muted)" },
+      };
+
       /* Подгруппы внутри группы каталога.
 
          Подкатегории в левой колонке выводятся из `category` позиций. Для трёх
@@ -14917,18 +14940,8 @@
       }
 
       function renderPackages() {
-        // Иконки — из общей SVG-системы (см. ICON_PATHS), а не эмодзи: те рисуются
-        // шрифтом ОС и в тёмной теме выглядят наклейками поверх интерфейса.
-        const CAT_META = {
-          social:    { label: "Соц. сети",      ic: "mobile",   color: "var(--cyan)" },
-          interview: { label: "Интервью",       ic: "mic",      color: "var(--primary2)" },
-          business:  { label: "Бизнес-видео",   ic: "film",     color: "var(--blue)" },
-          events:    { label: "Мероприятия",    ic: "stage",    color: "var(--yellow)" },
-          ai:        { label: "ИИ / AI",        ic: "robot",    color: "var(--primary)" },
-          graphic:   { label: "Графика",        ic: "star",     color: "var(--orange)" },
-          photo:     { label: "Фото",           ic: "camera",   color: "var(--green)" },
-          corporate: { label: "Корпоративный",  ic: "building", color: "var(--muted)" },
-        };
+        // CAT_META — на уровне модуля (см. рядом с CATALOG_GROUPS): её читает ещё и
+        // подпись кнопки навигации, вынесенная из этой функции.
         const catIcon = (meta) => meta && meta.ic
           ? `<span style="color:${meta.color};display:inline-flex;vertical-align:-2px">${icon(meta.ic, 14)}</span>`
           : "";
