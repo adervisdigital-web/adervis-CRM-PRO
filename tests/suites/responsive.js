@@ -412,6 +412,52 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  // Та же болезнь этажом выше: .layout — двухколоночная сетка, где правые 360px
+  // отведены сводке сметы. Вкладка «Финансы» в сделке кладёт внутрь одну только
+  // .panel, и колонка вместе с гэпом простаивала: замер на окне 1250px — сетка
+  // 932px, панель 554px, справа 378px пустоты. Проверяем все десять вкладок сделки
+  // и все разделы: ищем .layout, у которого содержимое не доходит до правого края.
+  await test("сетка раздела не резервирует пустую колонку под сводку", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1250, height: 900, seedDemo: true });
+    try {
+      const deadSpace = () => page.evaluate(() => {
+        const out = [];
+        for (const l of document.querySelectorAll(".layout")) {
+          const lb = l.getBoundingClientRect();
+          if (lb.height === 0) continue;
+          const kids = [...l.children].filter(c => c.getBoundingClientRect().height > 0);
+          if (!kids.length) continue;
+          const right = Math.max(...kids.map(c => c.getBoundingClientRect().right));
+          out.push({ dead: Math.round(lb.right - right), kids: kids.length });
+        }
+        return out;
+      });
+
+      const bad = [];
+      const DEAL_TABS = ["estimate", "description", "finance", "tasks", "calendar",
+        "team", "proposal", "contract", "versions", "activity"];
+      await page.evaluate(() => window.app.go("deal"));
+      await page.waitForTimeout(300);
+      for (const tab of DEAL_TABS) {
+        await page.evaluate((t) => { window.app.setDealView(t); }, tab);
+        await page.waitForTimeout(140);
+        for (const r of await deadSpace()) {
+          if (r.dead > 2) bad.push(`вкладка «${tab}» (${r.kids} колонк.): ${r.dead}px`);
+        }
+      }
+      for (const v of VIEWS) {
+        await page.evaluate((x) => { window.app.go(x); }, v);
+        await page.waitForTimeout(140);
+        for (const r of await deadSpace()) {
+          if (r.dead > 2) bad.push(`раздел «${v}» (${r.kids} колонк.): ${r.dead}px`);
+        }
+      }
+      assert(bad.length === 0, "справа от содержимого осталась пустая колонка — " + bad.join("; "));
+    } finally {
+      await context.close();
+    }
+  });
+
   const { context, page } = await bootLocal(browser, baseUrl, { width: 900, height: 800, seedDemo: true });
 
   for (const view of VIEWS) {
