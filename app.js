@@ -17920,6 +17920,8 @@
 
       function renderProposalPrint() {
         const t = totals();
+        // Та же сумма, что видит клиент в портале и что стоит на карточке сделки.
+        const shown = displayTotal(t);
         const template = state.proposalTemplates[state.project.proposalTemplate] || state.proposalTemplates.classic;
         const showDetails = state.project.proposalMode !== "short" && template.showDetails;
         const mainIds = selectedIds().filter(id => !state.selected[id]?.optional);
@@ -17951,7 +17953,7 @@
               </tbody>
             </table>
 
-            ${template.showStages ? renderProposalStages(mainIds, showDetails) : renderProposalTable(mainIds, showDetails)}
+            ${mainIds.length ? (template.showStages ? renderProposalStages(mainIds, showDetails) : renderProposalTable(mainIds, showDetails)) : ""}
 
             ${optionalIds.length && template.showOptional ? `
               <h2>Дополнительные опции</h2>
@@ -17960,17 +17962,28 @@
             ` : ""}
 
             <h2>Итоги</h2>
+            ${/* Сделка «одной суммой» (смета не разбита на позиции) печаталась как
+                  «Работы 0 ₽ · Итого 0 ₽»: renderProposalPrint считал только позиции,
+                  тогда как КЛИЕНТУ в портал уходит project.total — карточка на главной
+                  и страница клиента показывали 240 000 ₽, а PDF, который владелец
+                  отправляет тому же клиенту, — ноль. Разбивки на работы, скидку и
+                  налог у такой сделки нет вовсе, поэтому печатаем одну честную
+                  строку — цену проекта. */""}
             <table>
               <tbody>
-                <tr><td>Работы</td><td><strong>${money(t.base)}</strong></td></tr>
-                ${t.discount ? `<tr><td>Скидка</td><td><strong>− ${money(t.discount)}</strong></td></tr>` : ""}
-                ${t.tax ? `<tr><td>Налог</td><td><strong>${money(t.tax)}</strong></td></tr>` : ""}
-                <tr><td><strong>Итого</strong></td><td><strong>${money(t.total)}</strong></td></tr>
-                ${t.optional ? `
-                  <tr><td>Опции</td><td><strong>${money(t.optional)}</strong></td></tr>
-                  ${t.optionalTax ? `<tr><td>Налог на опции</td><td><strong>${money(t.optionalTax)}</strong></td></tr>` : ""}
-                  <tr><td><strong>Итого с опциями</strong></td><td><strong>${money(t.withOptional)}</strong></td></tr>
-                ` : ""}
+                ${shown.budgetOnly ? `
+                  <tr><td><strong>Стоимость проекта</strong></td><td><strong>${money(shown.total)}</strong></td></tr>
+                ` : `
+                  <tr><td>Работы</td><td><strong>${money(t.base)}</strong></td></tr>
+                  ${t.discount ? `<tr><td>Скидка</td><td><strong>− ${money(t.discount)}</strong></td></tr>` : ""}
+                  ${t.tax ? `<tr><td>Налог</td><td><strong>${money(t.tax)}</strong></td></tr>` : ""}
+                  <tr><td><strong>Итого</strong></td><td><strong>${money(t.total)}</strong></td></tr>
+                  ${t.optional ? `
+                    <tr><td>Опции</td><td><strong>${money(t.optional)}</strong></td></tr>
+                    ${t.optionalTax ? `<tr><td>Налог на опции</td><td><strong>${money(t.optionalTax)}</strong></td></tr>` : ""}
+                    <tr><td><strong>Итого с опциями</strong></td><td><strong>${money(t.withOptional)}</strong></td></tr>
+                  ` : ""}
+                `}
               </tbody>
             </table>
 

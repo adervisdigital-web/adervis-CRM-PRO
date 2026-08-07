@@ -300,6 +300,34 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(!/Закрыто/.test(finDebtSub), "неоплаченная сделка помечена «Закрыто»: " + finDebtSub);
   });
 
+  /* Та же пара «свой экран ↔ экран клиента», но в самом дорогом месте: КП, которое
+     владелец печатает и отправляет. У сделки «одной суммой» renderProposalPrint
+     считал только позиции и печатал «Работы 0 ₽ · Итого 0 ₽», тогда как КЛИЕНТУ в
+     портал уходит project.total — карточка и страница клиента показывали 240 000 ₽,
+     а PDF тому же клиенту — ноль. Проверяем связку целиком: карточка = предпросмотр
+     КП = сумма, которая уйдёт в портал. */
+  await test("КП: сделка «одной суммой» печатается с ценой проекта, а не с нулём", async () => {
+    await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "КП без позиций");
+      window.app.wizardSetField("budget", "310 000");
+      window.app.finishWizard("estimate");
+      window.app.setDealView("proposal");
+    });
+    await page.waitForTimeout(500);
+
+    const preview = await page.evaluate(() => {
+      const el = document.querySelector(".proposal-preview");
+      return el ? el.innerText.replace(/\s+/g, " ") : "";
+    });
+    assert(preview, "предпросмотр КП не отрисовался");
+
+    const shown = (preview.match(/(?:Итого|Стоимость проекта)\s*([\d\s]+)\s*₽/) || [])[1] || "";
+    assertEqual(Number(shown.replace(/\D/g, "")), 310000,
+      "в КП напечатана не цена проекта: " + preview.slice(0, 200));
+    assert(!/Итого\s*0\s*₽/.test(preview), "КП всё ещё печатает «Итого 0 ₽»: " + preview.slice(0, 200));
+  });
+
   // Этап «Оплата» между «Сдано» и «Завершёнными»: по договору 50/50 остаток приходит
   // после сдачи работы. Ключевое — деньги ещё НЕ получены, поэтому такая сделка обязана
   // остаться в долге; выпадет она оттуда только в «Завершённых»/«Архиве».
