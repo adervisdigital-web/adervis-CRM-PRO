@@ -15193,7 +15193,7 @@
                 </div>
               </div>
 
-              ${renderCatalogNavTrigger(catalogNavCurrentLabel(quickTabs), "Раздел")}
+              ${renderCatalogNavTrigger(catalogNavCurrentLabel(quickTabs, categoryTabs), "Раздел")}
 
               <div class="catalog-toolbar no-print">
                 <div class="catalog-search-wrap">
@@ -16001,7 +16001,14 @@
          вертикально — то есть ровно в той форме, в которой он и работает. Разметка
          при этом ОДНА (тот же <aside>), просто CSS показывает его листом. Второй
          копии нет — иначе подгруппы и счётчики разъехались бы между вариантами. */
-      function catalogNavCurrentLabel(quickTabs) {
+      /* categoryTabs приходит параметром, как и quickTabs: обе живут внутри
+         renderCatalog, и тянуть их сюда значило бы повторить ошибку CAT_META.
+         Подкатегории бывают ДВУХ видов, и это легко упустить: у групп с разными
+         category это сама категория («creative»), у односоставных (Оборудование,
+         ИИ, Расходы) — тег с префиксом «sub:». Первый вид здесь не разбирался, и
+         на телефоне кнопка подписывалась «Все» при выбранном «Креативе» — то есть
+         врала о том, что показано ниже. */
+      function catalogNavCurrentLabel(quickTabs, categoryTabs) {
         const tab = state.tab || "all";
         const quick = (quickTabs || []).find(([id]) => id === tab);
         if (quick) return quick[1];
@@ -16013,6 +16020,8 @@
           const g = CATALOG_GROUPS.find(x => x.id === tab.split(":")[1]);
           if (g) return g.label;
         }
+        const cat = (categoryTabs || []).find(([id]) => id === tab);
+        if (cat) return cat[1];
         const own = (state.customCatalogGroups || []).find(x => x.id === tab);
         if (own) return own.label;
         return "Все";

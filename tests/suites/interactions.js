@@ -212,6 +212,58 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.evaluate(() => { window.app.setTab("all"); });
   });
 
+  // Кнопка навигации каталога — единственный указатель раздела на телефоне (список
+  // там скрыт и открывается листом), поэтому она обязана называть то, что показано
+  // ниже. Подкатегории бывают ДВУХ видов: у групп с разными category это сама
+  // категория («creative»), у односоставных — тег с префиксом «sub:». Первый вид
+  // подпись не разбирала и молча откатывалась на «Все»: выбран «Креатив», написано
+  // «Все». Перебираем ВСЕ пункты навигации и сверяем подпись с текстом пункта —
+  // сторож переживёт появление третьего вида подгрупп.
+  await test("каталог: кнопка навигации подписана выбранным разделом", async () => {
+    await page.evaluate(() => { window.app.setSearch(""); window.app.setTab("all"); window.app.go("catalog"); });
+    await page.waitForTimeout(250);
+
+    // Подгруппы есть в разметке только у раскрытой группы — раскрываем все.
+    const groups = await page.$$eval("#appContent .catalog-cat-item[data-group]", (bs) => bs.map((b) => b.dataset.group));
+    for (const g of groups) {
+      await page.evaluate((v) => window.app.toggleCatalogGroup(v), g);
+      await page.waitForTimeout(60);
+    }
+
+    // Подпись пункта = текст кнопки без счётчика и без стрелки раскрытия.
+    const items = await page.$$eval("#appContent .catalog-cat-item", (bs) =>
+      bs
+        .map((b) => {
+          const oc = b.getAttribute("onclick") || "";
+          const tab = oc.match(/app\.setTab\('([^']+)'\)/);
+          const grp = oc.match(/app\.toggleCatalogGroup\('([^']+)'\)/);
+          if (!tab && !grp) return null;
+          const clone = b.cloneNode(true);
+          clone.querySelectorAll(".catalog-cat-count").forEach((c) => c.remove());
+          const label = clone.textContent.replace(/▶/g, "").replace(/\s+/g, " ").trim();
+          return { id: tab ? tab[1] : "grp:" + grp[1], group: !tab, label };
+        })
+        .filter(Boolean)
+    );
+    assert(items.length >= 15, "в навигации каталога меньше пятнадцати пунктов: " + items.length);
+
+    const wrong = [];
+    for (const it of items) {
+      if (it.group) await page.evaluate((v) => window.app.toggleCatalogGroup(v), it.id.slice(4));
+      else await page.evaluate((v) => window.app.setTab(v), it.id);
+      await page.waitForTimeout(90);
+      const shown = await page.evaluate(() =>
+        ((document.querySelector(".catalog-nav-trigger-label strong") || {}).textContent || "").trim()
+      );
+      // У подгрупп «sub:…» подпись показывает группу-родителя — это осознанно:
+      // «Оборудование» на кнопке, «Камеры» в раскрытом списке под ней.
+      const ok = it.id.startsWith("sub:") ? shown.length > 0 && shown !== "Все" : shown === it.label;
+      if (!ok) wrong.push(`${it.id}: «${shown}» вместо «${it.label}»`);
+    }
+    await page.evaluate(() => window.app.setTab("all"));
+    assertEqual(wrong.length, 0, "кнопка навигации каталога врёт о выбранном разделе:\n  " + wrong.join("\n  "));
+  });
+
   // Пустая смета ведёт по шагам сборки (люди → техника → пост), а не просто говорит
   // «добавьте услуги»: каждый шаг открывает каталог сразу своей группой.
   await test("пустая смета: шаги сборки открывают нужную группу каталога", async () => {
