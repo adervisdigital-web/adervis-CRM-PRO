@@ -469,7 +469,12 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await p.waitForTimeout(400);
 
     const tile = await p.evaluate(() => {
-      const t = document.querySelector('.db-stat[title="Средний чек"]');
+      // Ищем по ПОДПИСИ плитки, а не по title: подсказка — текст для человека, её
+      // переписывают (08.08 к ней добавили «— открыть завершённые»), и селектор по
+      // точному title молча перестал находить плитку, хотя на экране всё было цело.
+      const t = [...document.querySelectorAll(".db-stat")].find(
+        (el) => ((el.querySelector(".db-stat-label") || {}).textContent || "").trim() === "Ср. чек"
+      );
       if (!t) return null;
       return {
         value: (t.querySelector(".db-stat-value") || {}).textContent.replace(/\s/g, ""),

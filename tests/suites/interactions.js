@@ -1329,6 +1329,99 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  // Плитки KPI на главной выглядят одинаково — вид кликабельной даёт CSS по наличию
+  // onclick, — но четыре из десяти (воронка, в работе, средний чек, прогноз) не вели
+  // никуда: человек жал и ничего не происходило. Сторож требует, чтобы КАЖДАЯ плитка
+  // что-то делала, и проверяет это результатом: после клика либо сменился раздел,
+  // либо сменился активный фильтр сделок. Новую мёртвую плитку поймает сам.
+  await test("главная: каждая KPI-плитка ведёт к своим сделкам или в раздел", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => { window.app.setCrmFilter("all"); window.app.go("home"); });
+    await page.waitForTimeout(300);
+
+    const tiles = await page.$$eval("#appContent .db-stat", (els) =>
+      els.map((e, i) => ({
+        i,
+        label: (e.querySelector(".db-stat-label") || {}).textContent || "",
+        clickable: e.hasAttribute("onclick"),
+      }))
+    );
+    assert(tiles.length >= 8, "на главной меньше восьми KPI-плиток: " + tiles.length);
+    const dead = tiles.filter((t) => !t.clickable).map((t) => `«${t.label.trim()}»`);
+    assertEqual(dead.length, 0, "плитки выглядят кликабельными, но не ведут никуда: " + dead.join(", "));
+
+    // Что человек видит после клика: сменился раздел, сменился подсвеченный фильтр
+    // или страница уехала к списку сделок. Прокрутка — полноправный результат:
+    // «Воронка» и «Прогноз» ведут к активным сделкам, а этот фильтр и так стоит по
+    // умолчанию, поэтому единственное видимое действие у них — доводка до списка.
+    const snapshot = () => page.evaluate(() => ({
+      view: (document.querySelector("#appContent h1") || {}).textContent || "",
+      active: (document.querySelector(".crm-home-funnel .funnel-stage.active h3") || {}).textContent || "",
+      scroll: Math.round(window.scrollY),
+    }));
+
+    const stuck = [];
+    for (const t of tiles) {
+      await page.evaluate(() => { window.app.setCrmFilter("all"); window.app.go("home"); window.scrollTo(0, 0); });
+      await page.waitForTimeout(200);
+      const before = await snapshot();
+      await page.$$eval("#appContent .db-stat", (els, i) => els[i].click(), t.i);
+      // Прокрутка плавная — ждём, пока доедет.
+      await page.waitForTimeout(600);
+      const after = await snapshot();
+      const moved = before.view !== after.view || before.active !== after.active || Math.abs(after.scroll - before.scroll) > 40;
+      if (!moved) stuck.push(`«${t.label.trim()}»`);
+    }
+    assertEqual(stuck.length, 0, "клик по плитке ничего не меняет: " + stuck.join(", "));
+    await page.evaluate(() => { window.app.setCrmFilter("all"); window.app.go("home"); });
+  });
+
+  // Порядок вкладок в «Финансах» — от повседневного к редкому. «Транзакции»
+  // открываются по умолчанию, но кнопка стояла третьей: ряд читался как «выбрано
+  // не то, что показано».
+  await test("финансы: вкладки идут в порядке транзакции → задолженность → аналитика", async () => {
+    await page.evaluate(() => window.app.go("global-finances"));
+    await page.waitForTimeout(300);
+    const tabs = await page.$$eval("#appContent .fin-subtab-bar .fin-subtab", (bs) =>
+      bs.map((b) => ({ label: b.textContent.trim(), active: b.classList.contains("active") }))
+    );
+    assertEqual(
+      tabs.map((t) => t.label).join(" → "),
+      "Транзакции → Задолженность → Аналитика",
+      "порядок вкладок в «Финансах» другой"
+    );
+    assertEqual(tabs[0].active, true, "по умолчанию подсвечена не первая вкладка — ряд снова врёт о том, что показано");
+  });
+
+  // Удаление сделки необратимо, а кнопка была серой с opacity .6 — тише «Отмены»
+  // рядом. Меряем результат: цвет кнопки совпадает с опасным цветом темы.
+  await test("модалка сделки: «Удалить сделку» помечена опасным цветом", async () => {
+    const id = await dealId(page);
+    assert(id, "нет сделок для проверки");
+    await page.evaluate((v) => window.app.openDealModal(v), id);
+    await page.waitForTimeout(300);
+
+    const res = await page.evaluate(() => {
+      const btn = [...document.querySelectorAll(".modal-box button")].find((b) => /Удалить сделку/.test(b.textContent));
+      if (!btn) return null;
+      const danger = getComputedStyle(document.documentElement).getPropertyValue("--text-danger").trim();
+      const probe = document.createElement("span");
+      probe.style.color = danger;
+      document.body.appendChild(probe);
+      const dangerRgb = getComputedStyle(probe).color;
+      probe.remove();
+      return { color: getComputedStyle(btn).color, dangerRgb, opacity: getComputedStyle(btn).opacity };
+    });
+    // Модалку закрываем ДО проверок: иначе упавший тест оставит её открытой, и
+    // следующие начнут падать на перехваченных кликах — набор делит одну страницу.
+    await page.evaluate(() => window.app.closeDealModal());
+    await page.waitForTimeout(150);
+
+    assert(res, "в модалке сделки нет кнопки «Удалить сделку»");
+    assertEqual(res.color, res.dangerRgb, "кнопка удаления не опасного цвета");
+    assert(Number(res.opacity) >= 0.9, `кнопка удаления приглушена (opacity ${res.opacity}) — снова тише «Отмены»`);
+  });
+
   // Карточка сделки несла две кнопки-пилюли — «Открыть →» и следующий статус
   // («Сдать проект →» / «Завершено»). Владелец попросил убрать: карточка и так
   // кликабельна целиком. Важно проверить не только отсутствие кнопок, но и что

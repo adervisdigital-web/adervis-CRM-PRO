@@ -9408,6 +9408,22 @@
         render();
       }
 
+      /* Клик по KPI-плитке на главной = «показать сделки, из которых сложилось это
+         число». Четыре плитки из десяти (воронка, в работе, средний чек, прогноз)
+         были единственными мёртвыми в ряду: выглядели ровно как соседние живые —
+         CSS даёт вид кликабельной по наличию onclick, — и по ним жали впустую.
+
+         Прокрутка обязательна: фильтр меняет список в НИЖНЕЙ части страницы, и без
+         неё клик по верхней плитке выглядит как «ничего не произошло». Ведём к ряду
+         статусов, а не к самим карточкам, — оттуда видно и чем отфильтровано. */
+      function dashFilterDeals(status) {
+        setCrmFilter(status);
+        requestAnimationFrame(() => {
+          const el = document.querySelector(".crm-home-funnel");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+
       function setCrmView(v) {
         state.crmView = ["list", "gantt"].includes(v) ? v : "grid";
         render();
@@ -14168,17 +14184,20 @@
                 <div class="db-stat-value" style="${totalDebt>0?"color:var(--text-warning)":"color:var(--text-success)"}">${money(totalDebt)}</div>
         <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
               </div>
-              <div class="db-stat" title="Воронка">
+              <div class="db-stat" onclick="app.dashFilterDeals('all')" title="Сумма сделок в работе — открыть список">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.funnel}</svg></span><span class="db-stat-label">Воронка</span></div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>
                 <div class="db-stat-delta neu">${(() => { const n = projects.filter(p=>!["Сдано","Оплата","Завершённые",CRM_ARCHIVED].includes(p.crmStatus||"Лид")).length; return `${n} ${plural(n, "активная", "активные", "активных")}`; })()}</div>
               </div>
-              <div class="db-stat" title="В работе">
+              <div class="db-stat" onclick="app.dashFilterDeals('В работе')" title="Сделки на этапе «В работе» — открыть список">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.tasks}</svg></span><span class="db-stat-label">В работе</span></div>
                 <div class="db-stat-value">${inWork}</div>
                 <div class="db-stat-delta neu">${closedCount} закрыто</div>
               </div>
-              <div class="db-stat" title="Средний чек">
+              ${/* Чек считается по трём статусам сразу (Завершённые + Оплата + Сдано),
+                    а фильтр принимает один — ведём на «Завершённые», ближайший по
+                    смыслу список. */""}
+              <div class="db-stat" onclick="app.dashFilterDeals('Завершённые')" title="Средний чек по закрытым сделкам — открыть завершённые">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.doc}</svg></span><span class="db-stat-label">Ср. чек</span></div>
                 <div class="db-stat-value">${avgDeal>0?money(avgDeal):"—"}</div>
                 <div class="db-stat-delta neu">${closedCount>0?`по ${closedCount} ${plural(closedCount, "сделке", "сделкам", "сделкам")}`:"нет закрытых"}</div>
@@ -14186,7 +14205,7 @@
               ${(() => {
                 const weights = { "Лид":0.10, "Бриф":0.20, "КП отправлено":0.30, "Согласование":0.50, "Договор":0.70, "Предоплата":0.90, "В работе":0.95, "Сдано":1.0, "Оплата":1.0 };
                 const forecast30 = projects.filter(p => !isDealInactive(p.crmStatus||"Лид")).reduce((s,p) => s + (p.total||0)*(weights[p.crmStatus||"Лид"]||0.10), 0);
-                return `<div class="db-stat" title="Взвешенная вероятность закрытия сделок из воронки (30 дней)">
+                return `<div class="db-stat" onclick="app.dashFilterDeals('all')" title="Взвешенная вероятность закрытия сделок из воронки (30 дней) — открыть эти сделки">
                   <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.target}</svg></span><span class="db-stat-label">Прогноз 30 дн</span></div>
                   <div class="db-stat-value">${money(Math.round(forecast30))}</div>
                   <div class="db-stat-delta neu">по вероятности</div>
@@ -18237,10 +18256,15 @@
               </div>
             </div>
 
+            ${/* Порядок вкладок — от повседневного к редкому: транзакции открыты по
+                  умолчанию и нужны каждый день, задолженность смотрят раз в неделю,
+                  аналитику — раз в месяц. Раньше первой стояла «Аналитика», хотя
+                  открывалась всё равно не она: активная вкладка была третьей в ряду,
+                  и ряд читался как «выбрано не то, что показано». */""}
             <div class="fin-subtab-bar no-print">
-              <button class="fin-subtab ${state.gFinSubTab==="analytics"?"active":""}" onclick="app.setGFinSubTab('analytics')">Аналитика</button>
-              <button class="fin-subtab ${state.gFinSubTab==="receivables"?"active":""}" onclick="app.setGFinSubTab('receivables')">Задолженность</button>
               <button class="fin-subtab ${(state.gFinSubTab||"transactions")==="transactions"?"active":""}" onclick="app.setGFinSubTab('transactions')">Транзакции</button>
+              <button class="fin-subtab ${state.gFinSubTab==="receivables"?"active":""}" onclick="app.setGFinSubTab('receivables')">Задолженность</button>
+              <button class="fin-subtab ${state.gFinSubTab==="analytics"?"active":""}" onclick="app.setGFinSubTab('analytics')">Аналитика</button>
             </div>
 
             ${state.gFinSubTab === "receivables" ? renderReceivablesTab() : ""}
@@ -22258,7 +22282,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <button class="btn primary" onclick="app.saveDealModal()">Сохранить</button>
               </div>
               <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);text-align:center">
-                <button onclick="app.deleteDealFromModal('${escapeHtml(m.id)}')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;opacity:.6;padding:4px 8px" title="Удалить сделку навсегда">Удалить сделку</button>
+                ${/* Красным, а не серым: действие необратимое, а выглядело тише
+                      «Отмены» — серый текст с opacity .6 читался как подпись, и
+                      человек узнавал о том, что кнопка опасная, только нажав. */""}
+                <button onclick="app.deleteDealFromModal('${escapeHtml(m.id)}')" style="background:none;border:none;color:var(--text-danger);font-size:12px;font-weight:650;cursor:pointer;text-decoration:underline;padding:4px 8px" title="Удалить сделку навсегда">Удалить сделку</button>
               </div>
             </div>
           </div>
@@ -24278,6 +24305,7 @@ Email: _____________________              Email: _____________________
 
         setDealView,
         setCrmFilter,
+        dashFilterDeals,
         crmShowMore,
         catalogShowMore,
         kanbanColShowMore,
