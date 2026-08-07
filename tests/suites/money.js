@@ -328,6 +328,63 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(!/Итого\s*0\s*₽/.test(preview), "КП всё ещё печатает «Итого 0 ₽»: " + preview.slice(0, 200));
   });
 
+  /* Один класс дефекта во ВСЕХ местах сразу, а не по одному. Сумма сделки «одной
+     суммой» терялась везде, где считали по позициям: долг в финансах, печатное КП,
+     текст КП для мессенджера, выгрузка в Excel, счёт. Клиенту при этом в портал
+     уходил project.total — то есть правильная сумма.
+
+     Здесь проверяются два оставшихся пути, до которых не добраться через разметку
+     экрана: текст КП (уходит в буфер) и счёт (открывается отдельным окном). Оба
+     перехватываем на границе — подменяем clipboard и window.open. */
+  await test("документы клиенту: текст КП и счёт показывают сумму сделки, а не ноль", async () => {
+    await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Документы одной суммой");
+      window.app.wizardSetField("budget", "175 000");
+      window.app.finishWizard("estimate");
+    });
+    await page.waitForTimeout(400);
+
+    const captured = await page.evaluate(async () => {
+      const out = { text: "", invoice: "" };
+
+      // Текст КП. copyToClipboard ходит в navigator.clipboard, а в headless он
+      // недоступен — подменяем и забираем то, что ушло бы человеку в мессенджер.
+      const realClip = navigator.clipboard;
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText: (s) => { out.text = s; return Promise.resolve(); } },
+        configurable: true,
+      });
+      try { window.app.copyProposalText(); } catch (e) { out.text = "ОШИБКА: " + e.message; }
+      await new Promise((r) => setTimeout(r, 100));
+      Object.defineProperty(navigator, "clipboard", { value: realClip, configurable: true });
+
+      // Счёт печатается в отдельном окне — перехватываем document.write.
+      const realOpen = window.open;
+      window.open = () => ({
+        document: { write: (html) => { out.invoice += html; }, close: () => {} },
+        print: () => {},
+        close: () => {},
+      });
+      try { window.app.printInvoice(); } catch (e) { out.invoice = "ОШИБКА: " + e.message; }
+      window.open = realOpen;
+
+      return out;
+    });
+
+    const sum = (s, re) => Number(((String(s).match(re) || [])[1] || "").replace(/\D/g, ""));
+
+    assert(captured.text && !/^ОШИБКА/.test(captured.text), "текст КП не сформировался: " + captured.text);
+    assertEqual(sum(captured.text, /Итого:\s*([\d\s ]+)\s*₽/), 175000,
+      "в тексте КП для мессенджера сумма не та: " + captured.text.slice(0, 160));
+
+    assert(captured.invoice && !/^ОШИБКА/.test(captured.invoice), "счёт не сформировался: " + captured.invoice);
+    assertEqual(sum(captured.invoice, /Итого по смете<\/td><td[^>]*>([\d\s ]+)/), 175000,
+      "в счёте «Итого по смете» не сходится с суммой сделки");
+    assertEqual(sum(captured.invoice, /К ОПЛАТЕ<\/td><td>([\d\s ]+)/), 175000,
+      "в счёте «К оплате» не сходится с суммой сделки");
+  });
+
   // Этап «Оплата» между «Сдано» и «Завершёнными»: по договору 50/50 остаток приходит
   // после сдачи работы. Ключевое — деньги ещё НЕ получены, поэтому такая сделка обязана
   // остаться в долге; выпадет она оттуда только в «Завершённых»/«Архиве».

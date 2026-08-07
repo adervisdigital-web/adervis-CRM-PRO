@@ -7801,7 +7801,16 @@
       // «0 ₽», хотя на карточке стоит 241 938 ₽. Выглядело так, будто деньги пропали.
       // Возвращает { total, budgetOnly }: budgetOnly=true → сумма взята из бюджета
       // сделки, а не посчитана по позициям (показываем с пометкой).
-      // Только для ОТОБРАЖЕНИЯ — расчёты (КП, налог, маржа) по-прежнему на totals().
+      //
+      // 08.08.2026 область применения расширена: раньше здесь стояло «только для
+      // отображения, расчёты по-прежнему на totals()», и из-за этого сумма сделки
+      // «одной суммой» терялась ВЕЗДЕ, кроме карточки, — долг в финансах, печатное
+      // КП и его PDF, текст КП для мессенджера, выгрузка в Excel, счёт. Клиенту при
+      // этом в портал уходил project.total, то есть правильная сумма: свой экран и
+      // экран заказчика расходились на всю стоимость проекта.
+      // Теперь это ЕДИНЫЙ источник «сколько стоит эта сделка» для всего, что видит
+      // человек и клиент. Внутренняя арифметика сметы (налог, скидка, маржа по
+      // позициям) по-прежнему на totals() — у сделки одной суммой её просто нет.
       function displayTotal(t) {
         if (Object.keys(state.selected || {}).length > 0) return { total: t.total, budgetOnly: false };
         const saved = (state.savedProjects || []).find(p => p.id === state.activeProjectId);
@@ -11519,7 +11528,9 @@
           totalRow(`Налог ${taxOption ? taxOption.label : `${Math.round(taxRateByType(proj.taxType) * 100)}%`}`.trim(), Math.round(t.tax));
         }
         mark.grand = AOA.length;
-        totalRow("ИТОГО К ОПЛАТЕ", Math.round(t.total));
+        // Файл уходит клиенту, поэтому итог — та же сумма, что на карточке, в КП и
+        // в счёте: позиции, а если сметы по позициям нет — бюджет сделки.
+        totalRow("ИТОГО К ОПЛАТЕ", Math.round(displayTotal(t).total));
         mark.total.pop();   // общий итог оформляется отдельно, полосой
 
         const ws = XLSX.utils.aoa_to_sheet(AOA);
@@ -11706,6 +11717,9 @@
 
       function copyProposalText() {
         const t = totals();
+        // Тот же класс, что в печатном КП: текст уходит клиенту в мессенджер, и у
+        // сделки «одной суммой» строка «Итого» была нулевой.
+        const shown = displayTotal(t);
         const rows = selectedIds().map(id => {
           const itemData = findItem(id, true);
           if (!itemData) return "";
@@ -11723,7 +11737,7 @@
           "",
           rows,
           "",
-          `Итого: ${money(t.total)}`,
+          `Итого: ${money(shown.total)}`,
           t.optional ? `Итого с опциями: ${money(t.withOptional)}` : "",
           "",
           state.project.paymentTerms || "",
@@ -17137,7 +17151,9 @@
                 const stageItems = items.filter ? [] : [];
                 return [];
               }).join("") || `<tr><td colspan="5" style="text-align:center;color:#888">Услуги загружаются из текущей сметы</td></tr>`}
-              <tr><td colspan="4">Итого по смете</td><td style="font-weight:bold">${(t.total||0).toLocaleString("ru-RU")} ${state.project?.currency||"₽"}</td></tr>
+              ${/* Счёт клиенту — тот же случай: у сделки «одной суммой» позиций нет,
+                    и строка «Итого по смете» была нулевой рядом с непустым «К оплате». */""}
+              <tr><td colspan="4">Итого по смете</td><td style="font-weight:bold">${(displayTotal(t).total||0).toLocaleString("ru-RU")} ${state.project?.currency||"₽"}</td></tr>
             </tbody>
             <tfoot><tr class="total-row"><td colspan="4">К ОПЛАТЕ</td><td>${(f.debt||t.total||0).toLocaleString("ru-RU")} ${state.project?.currency||"₽"}</td></tr></tfoot>
           </table>
