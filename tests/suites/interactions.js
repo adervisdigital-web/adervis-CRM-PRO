@@ -1879,5 +1879,65 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.evaluate(() => window.app.closeContractEdit());
   });
 
+  /* История сделки должна показывать изменения СМЕТЫ. Повод: по журналу нельзя
+     было ответить, почему на завершённой сделке висит долг — платежи и смена
+     статуса там были, а правки сметы нет, хотя двигают долг именно они.
+     Записи склеиваются: смета правится очередями, и без склейки один сеанс
+     редактирования оставлял бы десятки строк подряд. */
+  await test("история сделки: правка сметы попадает в журнал и не плодит записи", async () => {
+    await dismissStaleDialog(page);
+
+    // Нужны ДВЕ сделки: сброс в сохранённую происходит при переключении между
+    // ними. Уход на главную его не вызывает — на одной сделке проверка была бы
+    // зелёной и с выключенным журналом.
+    const ids = await page.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const a = (raw.savedProjects || [])[0];
+      if (!a) return null;
+      window.app.duplicateSavedProject(a.id);
+      const r2 = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const b = (r2.savedProjects || []).find((p) => p.id !== a.id);
+      return b ? { a: a.id, b: b.id } : null;
+    });
+    assert(ids, "не удалось получить две сделки");
+    await page.waitForTimeout(500);
+
+    const logOf = (id) => page.evaluate((x) => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const d = (raw.savedProjects || []).find((p) => p.id === x);
+      return { total: d ? d.total : null,
+               estimateEntries: (d && d.activity || []).filter((a) => /^Смета:/.test(a.text || "")) };
+    }, id);
+
+    await page.evaluate((x) => window.app.openDeal(x.a), ids);
+    await page.waitForTimeout(600);
+    const before = await logOf(ids.a);
+
+    // Услуга, которой в демо-смете заведомо нет, — иначе добавление ничего не меняет.
+    await page.evaluate(() => { window.app.go("catalog"); window.app.catalogAddOne("subtitles"); });
+    await page.waitForTimeout(700);
+    await page.evaluate((x) => window.app.openDeal(x.b), ids);
+    await page.waitForTimeout(800);
+
+    const after = await logOf(ids.a);
+    assert(after.total !== before.total, "сумма сметы не изменилась — проверять нечего");
+    assertEqual(after.estimateEntries.length, before.estimateEntries.length + 1,
+      "правка сметы не попала в историю сделки");
+    const rec = after.estimateEntries[0].text;
+    assert(rec.includes("→"), "запись о смете без перехода «было → стало»: " + rec);
+
+    // Вторая правка подряд обязана обновить ту же запись, а не добавить новую.
+    await page.evaluate((x) => window.app.openDeal(x.a), ids);
+    await page.waitForTimeout(600);
+    await page.evaluate(() => { window.app.go("catalog"); window.app.catalogAddOne("light_basic"); });
+    await page.waitForTimeout(700);
+    await page.evaluate((x) => window.app.openDeal(x.b), ids);
+    await page.waitForTimeout(800);
+
+    const third = await logOf(ids.a);
+    assertEqual(third.estimateEntries.length, after.estimateEntries.length,
+      "вторая правка подряд завела отдельную строку — журнал забьётся при обычном редактировании");
+  });
+
   await context.close();
 };

@@ -9694,6 +9694,8 @@
            всего лишь открыли посмотреть. */
         const same = JSON.stringify(next) ===
           JSON.stringify(Object.fromEntries(Object.keys(next).map(k => [k, existing[k]])));
+        // До Object.assign: нужна СТАРАЯ сумма, дальше она уже перезаписана.
+        _logEstimateChange(existing, numberValue(existing.total, 0), numberValue(next.total, 0));
         Object.assign(existing, next);
         if (!same) existing.updatedAt = new Date().toISOString();
 
@@ -10694,6 +10696,45 @@
       function finishWizardWithPackage(pkgId) {
         finishWizard("estimate");
         applyPackage(pkgId);
+      }
+
+      /* Изменение суммы сметы — в журнал сделки.
+         Повод: по журналу нельзя было ответить на простой вопрос «почему на
+         завершённой сделке висит долг». Платежи и смена статуса там есть, а
+         правки сметы — нет, хотя двигают долг ровно они: сумма выросла после
+         оплаты — и появился остаток из ниоткуда.
+
+         Записи СКЛЕИВАЮТСЯ. Смета правится очередями, автосохранение срабатывает
+         на каждой паузе, и без склейки один сеанс редактирования оставил бы
+         десятки строк подряд. Если верхняя запись — тоже про смету и ей меньше
+         получаса, обновляем её конечную сумму, сохраняя исходную. Если правки
+         вернули смету к прежней сумме, запись убираем совсем: изменения не было. */
+      function _logEstimateChange(project, from, to) {
+        if (!project || from === to) return;
+        /* Первое заполнение сметы у только что созданной сделки — не «изменение»:
+           там ещё не было суммы, которую можно было бы изменить. Про появление
+           сделки журнал уже сказал строкой «Сделка создана». */
+        if (!from) return;
+        if (!project.activity) project.activity = [];
+        const PREFIX = "Смета: ";
+        const top = project.activity[0];
+        const fresh = top && typeof top.text === "string" && top.text.startsWith(PREFIX)
+          && (Date.now() - new Date(top.date).getTime()) < 30 * 60 * 1000;
+
+        if (fresh) {
+          const startedFrom = top.from != null ? top.from : from;
+          if (startedFrom === to) { project.activity.shift(); return; }
+          top.text = PREFIX + money(startedFrom) + " → " + money(to);
+          top.from = startedFrom;
+          top.date = new Date().toISOString();
+          return;
+        }
+        project.activity.unshift({
+          text: PREFIX + money(from) + " → " + money(to),
+          date: new Date().toISOString(),
+          from
+        });
+        if (project.activity.length > 100) project.activity.length = 100;
       }
 
       function _logActivity(projectId, text) {
