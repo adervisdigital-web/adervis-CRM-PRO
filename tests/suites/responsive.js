@@ -348,6 +348,70 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  // ── KPI-плитки финансов: ряд заполняется целиком ─────────────────────────────
+  // Пять плиток в сетке «сколько влезет» всегда оставляли последнюю одну. Замер до
+  // правки (финансы сделки, живой DOM): окно 1600 → сетка 766px, ряд из четырёх и
+  // 583px пустоты справа от «Прибыли»; 1400 → 499px; 860 → 601px; 640 → 305px.
+  // На телефоне это чинили отдельным правилом ещё в v264 — и тогда решили, что
+  // проблема только там. Она была на всех ширинах.
+  //
+  // Меряем не число колонок и не имя раскладки, а РЕЗУЛЬТАТ: сколько места в ряду
+  // осталось незанятым. Такая проверка переживёт смену способа (грид → флекс →
+  // что угодно) и сразу поймает шестую плитку: span'ы у 4-й и 5-й заданы явно,
+  // и лишняя плитка тут же оставит дыру.
+  //
+  // Обе страницы, а не одна: класс общий, но auto-fit вёл себя на них по-разному —
+  // на широкой общей странице пять плиток помещались в ряд и дыры не было, и её
+  // легко было сломать, починив сделку.
+  async function finRowGaps(page) {
+    return page.evaluate(() => {
+      const g = document.querySelector(".fin-summary-grid");
+      if (!g) return null;
+      const gw = g.getBoundingClientRect().width;
+      const gap = parseFloat(getComputedStyle(g).columnGap) || 0;
+      const rows = new Map();
+      for (const c of g.children) {
+        const b = c.getBoundingClientRect();
+        if (b.height === 0) continue;
+        const key = Math.round(b.top);
+        if (!rows.has(key)) rows.set(key, []);
+        rows.get(key).push(b.width);
+      }
+      return {
+        cards: g.children.length,
+        gridW: Math.round(gw),
+        // Свободное место в ряду = ширина сетки минус плитки и гэпы между ними.
+        free: [...rows.values()].map(ws =>
+          Math.round(gw - (ws.reduce((s, w) => s + w, 0) + gap * (ws.length - 1)))),
+      };
+    });
+  }
+
+  await test("финансы: плитки заполняют ряд целиком, последняя не висит одна", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1600, height: 900, seedDemo: true });
+    try {
+      const bad = [];
+      for (const [where, open] of [["сделка", "deal"], ["общая", "global-finances"]]) {
+        for (const w of [1600, 1400, 1280, 1100, 860, 760, 640, 500, 390]) {
+          await page.setViewportSize({ width: w, height: 900 });
+          await page.evaluate((v) => {
+            window.app.go(v);
+            if (v === "deal") window.app.setDealView("finance");
+          }, open);
+          await page.waitForTimeout(150);
+          const r = await finRowGaps(page);
+          if (!r) { bad.push(`${where} ${w}px: сетки нет вовсе`); continue; }
+          // 2px — округление субпиксельных долей 1fr, не дыра.
+          const hole = Math.max(...r.free);
+          if (hole > 2) bad.push(`${where} ${w}px (сетка ${r.gridW}px): пустота ${hole}px`);
+        }
+      }
+      assert(bad.length === 0, "в рядах KPI осталось пустое место — " + bad.join("; "));
+    } finally {
+      await context.close();
+    }
+  });
+
   const { context, page } = await bootLocal(browser, baseUrl, { width: 900, height: 800, seedDemo: true });
 
   for (const view of VIEWS) {
