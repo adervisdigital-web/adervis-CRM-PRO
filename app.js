@@ -2681,7 +2681,10 @@
 
             <div class="auth-stats-row">
               <div><strong>7</strong><span>дней бесплатно</span></div>
-              <div><strong>от 490₽</strong><span>в месяц</span></div>
+              ${/* «от N ₽» — самый дешёвый месяц из PLANS (сейчас это годовая оплата).
+                    Числом писать нельзя: на экране входа его увидят раньше всего, а
+                    заметят расхождение с тарифами последним. */""}
+              <div><strong>от ${Math.min(...PLANS.filter(p => p.months > 0).map(p => p.price))}₽</strong><span>в месяц</span></div>
               <div><strong>∞</strong><span>сделок</span></div>
             </div>
             <p style="margin:14px 0 0;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px"> Карта не нужна для пробного периода — платите только если решите остаться</p>
@@ -3813,12 +3816,21 @@
       // человек была обязана купить сразу 3 месяца. Месяцы подписки и люди в команде —
       // разные оси; связка блокировала покупку и ничего не давала взамен (27.07.2026).
       // Теперь любой оплаченный период даёт одинаковые PAID_MAX_USERS мест.
+      /* Цены подняты 08.08.2026 (решение владельца): 490 ₽ были ниже одного часа
+         работы видеографа и не давали бизнес-модели — при таком чеке даже полсотни
+         студий не окупают поддержку. Якорь — 890 ₽ за месяц, дальше лесенка вниз за
+         длину периода: чем длиннее оплата, тем дешевле месяц.
+
+         `price` — это ЦЕНА МЕСЯЦА для витрины, а не сумма платежа. Реальная сумма
+         считается в Edge Function create-payment (price × months) и должна быть
+         изменена ВМЕСТЕ с этим списком: витрина и касса — два разных файла, и
+         разъехаться они могут молча. */
       const PLANS = [
         { id: "trial",  label: "Пробный",    price: 0,   period: "7 дней бесплатно", save: "",             months: 0  },
-        { id: "month1", label: "Месяц",       price: 490, period: "в месяц",            save: "",             months: 1  },
-        { id: "month3", label: "3 месяца",    price: 390, period: "в месяц",            save: "Экономия 20%", months: 3, popular: true },
-        { id: "month6", label: "6 месяцев",   price: 340, period: "в месяц",            save: "Экономия 31%", months: 6  },
-        { id: "year",   label: "Год",         price: 290, period: "в месяц",            save: "Экономия 41%", months: 12 }
+        { id: "month1", label: "Месяц",       price: 890, period: "в месяц",            save: "",             months: 1  },
+        { id: "month3", label: "3 месяца",    price: 690, period: "в месяц",            save: "Экономия 22%", months: 3, popular: true },
+        { id: "month6", label: "6 месяцев",   price: 590, period: "в месяц",            save: "Экономия 34%", months: 6  },
+        { id: "year",   label: "Год",         price: 490, period: "в месяц",            save: "Экономия 45%", months: 12 }
       ];
 
       // Мест в команде на любом оплаченном тарифе. Пробный период — как и раньше, один
@@ -4465,12 +4477,16 @@
 
       function renderPlans() {
         const sub = _userProfile;
+        // Строка экономии берётся из самого тарифа (p.save), а не пишется числом:
+        // после подъёма цен 08.08 в списке преимуществ ещё висели старые «Экономия
+        // 31%» и «41%» рядом с новыми 34% и 45% — на одной и той же карточке.
+        const saveOf = (id) => ((PLANS.find(x => x.id === id) || {}).save) || "";
         const planFeatures = {
           trial:  ["Безлимитные сделки", "CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Telegram-бот уведомления", `${AI_PROPOSAL_TRIAL_LIMIT} AI-генераций КП`, "Web Push", "1 пользователь"],
           month1: ["Всё из пробного", "Безлимитная AI-генерация КП", `До ${PAID_MAX_USERS} пользователей`, "Финансы и аналитика", "Экспорт Excel", "Договоры"],
-          month3: ["Всё из «Месяца»", `До ${PAID_MAX_USERS} пользователей`, "Экономия 20%", "Один платёж на 3 месяца", "Поддержка"],
-          month6: ["Всё из «Месяца»", `До ${PAID_MAX_USERS} пользователей`, "Экономия 31%", "Один платёж на полгода", "Поддержка"],
-          year:   ["Всё из «Месяца»", `До ${PAID_MAX_USERS} пользователей`, "Экономия 41%", "Лучшая цена за месяц", "Поддержка"]
+          month3: ["Всё из «Месяца»", `До ${PAID_MAX_USERS} пользователей`, saveOf("month3"), "Один платёж на 3 месяца", "Поддержка"],
+          month6: ["Всё из «Месяца»", `До ${PAID_MAX_USERS} пользователей`, saveOf("month6"), "Один платёж на полгода", "Поддержка"],
+          year:   ["Всё из «Месяца»", `До ${PAID_MAX_USERS} пользователей`, saveOf("year"), "Лучшая цена за месяц", "Поддержка"]
         };
         const promoValid = _promoState && typeof _promoState === "object";
         const cards = PLANS.map(p => {
@@ -4517,11 +4533,15 @@
               <thead>
                 <tr style="border-bottom:2px solid var(--line)">
                   <th style="text-align:left;padding:10px 12px;font-size:13px;min-width:180px">Функция</th>
-                  ${hdr("Пробный<br><span style='font-weight:400;color:var(--muted)'>7 дней</span>","trial")}
-                  ${hdr("Месяц<br><span style='font-weight:400;color:var(--muted)'>490 ₽</span>","month1")}
-                  ${hdr("3 месяца <br><span style='font-weight:400;color:var(--muted)'>390 ₽/мес</span>","month3")}
-                  ${hdr("6 месяцев<br><span style='font-weight:400;color:var(--muted)'>340 ₽/мес</span>","month6")}
-                  ${hdr("Год<br><span style='font-weight:400;color:var(--muted)'>290 ₽/мес</span>","year")}
+                  ${/* Цены здесь и ниже берутся из PLANS, а не переписываются руками:
+                        до 08.08.2026 те же четыре суммы лежали в трёх местах (карточки,
+                        шапка таблицы, строка «Стоимость»), и при подъёме цен таблица
+                        осталась бы показывать старые — расхождение, которое видит
+                        только клиент. */""}
+                  ${PLANS.map(p => hdr(
+                    `${escapeHtml(p.label)}<br><span style='font-weight:400;color:var(--muted)'>${p.months === 0 ? "7 дней" : `${p.price} ₽${p.months > 1 ? "/мес" : ""}`}</span>`,
+                    p.id
+                  )).join("")}
                 </tr>
               </thead>
               <tbody>
@@ -4573,14 +4593,15 @@
                 ${row("PWA — работает как приложение", [yes,yes,yes,yes,yes])}
 
                 ${group("Цена")}
-                ${row("Стоимость в месяц",
-                  [`<span style='color:var(--text-success);font-weight:700'>0 ₽</span>`,
-                   "490 ₽","<b style='color:var(--tint-violet)'>390 ₽</b>","340 ₽","290 ₽"])}
-                ${row("Экономия vs месяца",
-                  [no,no,
-                   `<span style='color:var(--text-success);font-weight:700'>−20%</span>`,
-                   `<span style='color:var(--text-success);font-weight:700'>−31%</span>`,
-                   `<span style='color:var(--text-success);font-weight:700'>−41%</span>`])}
+                ${row("Стоимость в месяц", PLANS.map(p =>
+                  p.months === 0 ? `<span style='color:var(--text-success);font-weight:700'>0 ₽</span>`
+                  : p.popular ? `<b style='color:var(--tint-violet)'>${p.price} ₽</b>`
+                  : `${p.price} ₽`))}
+                ${row("Экономия vs месяца", PLANS.map(p => {
+                  const base = (PLANS.find(x => x.id === "month1") || {}).price || 0;
+                  if (p.months <= 1 || !base) return no;
+                  return `<span style='color:var(--text-success);font-weight:700'>−${Math.round((1 - p.price / base) * 100)}%</span>`;
+                }))}
               </tbody>
             </table>
           </div>`;
@@ -10863,7 +10884,19 @@
         if (!wasOpen) {
           _dealMenuOpen = id;
           const el = document.getElementById("dcm-" + id);
-          if (el) el.style.display = "block";
+          if (el) {
+            el.style.display = "block";
+            /* Меню всегда падало вниз, и у карточки в нижней части экрана последний
+               пункт уезжал за край окна: на экране оставалось пять из шести, а обрыв
+               выглядел как законченный список — «В архив» просто не существовало для
+               того, кто им пользуется. Замер на окне 800: меню 584…818, «В архив»
+               778…812. Не хватает места снизу и хватает сверху — раскрываем вверх,
+               ровно как универсальный селект (см. позиционирование uu-select). */
+            el.classList.remove("dcm-up");
+            const r = el.getBoundingClientRect();
+            const wrap = el.parentElement.getBoundingClientRect();
+            if (r.bottom > window.innerHeight - 8 && wrap.top > r.height + 8) el.classList.add("dcm-up");
+          }
         }
       }
 

@@ -2,7 +2,7 @@
 // Чистые статические проверки index.html/style.css — браузер не нужен.
 const fs = require("fs");
 const path = require("path");
-const { assert, REPO_ROOT } = require("../harness");
+const { assert, assertEqual, REPO_ROOT } = require("../harness");
 
 // Читаем с нормализацией переводов строк. Git хранит LF, но в рабочей копии на
 // Windows файл легко оказывается в CRLF (достаточно одного git stash/pop) — и тогда
@@ -574,6 +574,54 @@ module.exports = async function ({ test }) {
         `${file}: listUsers снова без пагинации — с 1001-го аккаунта вход сломается`
       );
     }
+  });
+
+  // Цена лежит в ДВУХ файлах: витрина (PLANS в app.js, цена месяца) и касса (PLANS в
+  // Edge Function create-payment, где считается сумма счёта). Разъезжаются они молча
+  // и в самом дорогом месте: человек видит одну цену, а ЮKassa просит другую. Именно
+  // это и грозило 08.08.2026, когда цены поднимали с 490 до 890 ₽ — файлов два, правка
+  // одна. Заодно сверяем подписи «Экономия N%»: их тоже пишут руками.
+  await test("цены: витрина и касса сходятся, скидки посчитаны верно", () => {
+    const app = readSrc("app.js");
+    const ef = readSrc("supabase/functions/create-payment/index.ts");
+
+    const shop = {};
+    const planRe = /\{\s*id:\s*"(month\d+|year)",[^}]*?price:\s*(\d+)[^}]*?save:\s*"([^"]*)"[^}]*?months:\s*(\d+)/g;
+    let m;
+    while ((m = planRe.exec(app))) shop[m[1]] = { price: Number(m[2]), save: m[3], months: Number(m[4]) };
+    // Если разметку PLANS изменят, тест обязан упасть здесь, а не «пройти на нуле».
+    assertEqual(Object.keys(shop).length, 4, "в PLANS (app.js) распознаны не все платные тарифы: " + JSON.stringify(shop));
+
+    const cash = {};
+    const efRe = /(month\d+|year):\s*\{\s*amount:\s*(\d+),\s*days:\s*(\d+)/g;
+    while ((m = efRe.exec(ef))) cash[m[1]] = { amount: Number(m[2]), days: Number(m[3]) };
+    assertEqual(Object.keys(cash).length, 4, "в кассе (create-payment) распознаны не все тарифы: " + JSON.stringify(cash));
+
+    const base = shop.month1 ? shop.month1.price : 0;
+    assert(base > 0, "в PLANS нет тарифа month1 — не от чего считать скидку");
+
+    const bad = [];
+    for (const id of Object.keys(shop)) {
+      const p = shop[id];
+      if (!cash[id]) { bad.push(`${id}: есть на витрине, нет в кассе`); continue; }
+
+      const want = p.price * p.months;
+      if (cash[id].amount !== want) {
+        bad.push(`${id}: витрина ${p.price} ₽ × ${p.months} мес = ${want} ₽, а счёт на ${cash[id].amount} ₽`);
+      }
+      const wantDays = p.months === 12 ? 365 : p.months * 30;
+      if (cash[id].days !== wantDays) bad.push(`${id}: касса открывает доступ на ${cash[id].days} дн. вместо ${wantDays}`);
+
+      // Длинный период не может стоить дороже месяца — иначе лесенка перевёрнута.
+      if (p.months > 1 && p.price >= base) bad.push(`${id}: ${p.price} ₽/мес не дешевле месяца (${base} ₽)`);
+
+      if (p.months > 1) {
+        const wantPct = Math.round((1 - p.price / base) * 100);
+        const shown = p.save.match(/(\d+)/);
+        if (!shown || Number(shown[1]) !== wantPct) bad.push(`${id}: подпись «${p.save}» вместо «Экономия ${wantPct}%»`);
+      }
+    }
+    assertEqual(bad.length, 0, "тарифы разошлись:\n  " + bad.join("\n  "));
   });
 
 };

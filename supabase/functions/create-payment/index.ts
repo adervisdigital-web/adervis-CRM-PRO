@@ -5,11 +5,18 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/* Суммы платежа = цена месяца из PLANS в app.js × число месяцев. Цены подняты
+   08.08.2026: 890 / 690 / 590 / 490 ₽ за месяц соответственно.
+
+   Здесь ЧИСЛА, а не расчёт: касса не должна зависеть от того, что прислал клиент.
+   Обратная сторона — два файла, которые расходятся молча, поэтому цену правим
+   всегда парой (app.js PLANS ↔ этот список), и функцию после правки НУЖНО
+   ЗАДЕПЛОИТЬ: без деплоя витрина покажет новую цену, а счёт придёт на старую. */
 const PLANS: Record<string, { amount: number; days: number; label: string }> = {
-  month1: { amount: 490,  days: 30,  label: "ADERVIS CRM — 1 месяц"   },
-  month3: { amount: 1170, days: 90,  label: "ADERVIS CRM — 3 месяца"  },
-  month6: { amount: 2040, days: 180, label: "ADERVIS CRM — 6 месяцев" },
-  year:   { amount: 3480, days: 365, label: "ADERVIS CRM — 1 год"     },
+  month1: { amount: 890,  days: 30,  label: "ADERVIS CRM — 1 месяц"   },
+  month3: { amount: 2070, days: 90,  label: "ADERVIS CRM — 3 месяца"  },
+  month6: { amount: 3540, days: 180, label: "ADERVIS CRM — 6 месяцев" },
+  year:   { amount: 5880, days: 365, label: "ADERVIS CRM — 1 год"     },
 };
 
 Deno.serve(async (req) => {
