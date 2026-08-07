@@ -19140,7 +19140,12 @@
         const t = totals();
         const f = financeTotals();
         const paid = f.paid;
-        const total = t.total || 1;
+        /* Знаменатель — сумма, которую видит человек (позиции, а если сметы по
+           позициям нет — бюджет сделки). Раньше стояло `t.total || 1`: у сделки
+           «одной суммой» знаменатель превращался в 1 ₽, и ЛЮБАЯ оплата рисовала в
+           шапке «Оплачено 100%» — при 50 000 из 240 000 тоже. Врало в самую опасную
+           сторону: «клиент рассчитался». */
+        const total = f.estimateTotal || 1;
         const payPct = Math.min(100, Math.round(paid / total * 100));
         const margin = f.revenue > 0 ? Math.round(f.profit / f.revenue * 100) : 0;
 

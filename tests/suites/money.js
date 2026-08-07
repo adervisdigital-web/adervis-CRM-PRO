@@ -328,6 +328,39 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(!/Итого\s*0\s*₽/.test(preview), "КП всё ещё печатает «Итого 0 ₽»: " + preview.slice(0, 200));
   });
 
+  /* Шапка сделки делила оплату на сумму ПОЗИЦИЙ, а при её отсутствии — на `|| 1`,
+     то есть на один рубль. У сделки «одной суммой» любая, даже первая частичная
+     оплата рисовала «Оплачено 100%»: враньё в самую опасную сторону — «клиент
+     рассчитался». Проверяем на живых числах: 60 000 из 240 000 = 25%. */
+  await test("шапка сделки: процент оплаты считается от суммы сделки, а не от рубля", async () => {
+    const id = await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Процент одной суммой");
+      window.app.wizardSetField("budget", "240 000");
+      window.app.finishWizard("estimate");
+      const saved = [...document.querySelectorAll("[data-deal-id]")];
+      return saved.length ? saved[0].getAttribute("data-deal-id") : null;
+    });
+    await page.waitForTimeout(400);
+
+    await page.evaluate((date) => {
+      window.app.openFinanceModal("payment");
+      window.app.setFinanceModalField("amount", "60000");
+      window.app.setFinanceModalField("date", date);
+      window.app.setFinanceModalField("title", "Аванс");
+      window.app.saveFinanceModal();
+    }, dayThisMonth(9));
+    await page.waitForTimeout(400);
+
+    const pct = await page.evaluate(() => {
+      const el = [...document.querySelectorAll(".deal-stat-item")]
+        .find((e) => /Оплачено/.test(e.textContent));
+      const m = el ? el.textContent.match(/Оплачено\s*(\d+)\s*%/) : null;
+      return m ? Number(m[1]) : null;
+    });
+    assertEqual(pct, 25, "процент оплаты в шапке сделки посчитан не от суммы сделки");
+  });
+
   /* Один класс дефекта во ВСЕХ местах сразу, а не по одному. Сумма сделки «одной
      суммой» терялась везде, где считали по позициям: долг в финансах, печатное КП,
      текст КП для мессенджера, выгрузка в Excel, счёт. Клиенту при этом в портал
