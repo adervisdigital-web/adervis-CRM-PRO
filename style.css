@@ -6446,6 +6446,15 @@ body.portal-mode .nav { display: none !important; }
 .mb-12 { margin-bottom: 12px; }
 .fs-12 { font-size: 12px; }
 .u-meta-13 { font-size: 13px; color: var(--muted); }
+/* Кнопка-ссылка внутри строки текста («Сметы пока нет · собрать»). Обычная .btn
+   здесь разрывала бы фразу на две строки в плитке шириной 150px, а действие тут
+   продолжение подписи, а не отдельный элемент управления. */
+.u-linkbtn {
+  background: none; border: none; padding: 0;
+  font: inherit; color: var(--primary-text); font-weight: 700;
+  text-decoration: underline; cursor: pointer;
+}
+.u-linkbtn:hover { color: var(--text); }
 .u-pointer { cursor: pointer; }
 .ta-right { text-align: right; }
 .u-title-20 { margin: 0; font-size: 20px; }

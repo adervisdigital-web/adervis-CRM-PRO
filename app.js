@@ -7621,6 +7621,16 @@
 
       function financeTotals() {
         const t = totals();
+        /* Сумма к оплате берётся так же, как её видит вся остальная система: когда
+           смета не разбита на позиции, считается «бюджет сделки» (см. displayTotal).
+
+           Раньше здесь стояло только t.total — сумма позиций. У сделки с бюджетом,
+           но без позиций вкладка «Финансы» показывала «Бюджет (смета) 0 ₽» и «Долг
+           0 ₽ · Закрыто», пока карточка ТОЙ ЖЕ сделки на главной писала долг по
+           бюджету: два экрана про одни деньги расходились, и правым был тот, где
+           денег больше. Найдено 08.08 на проверке пустых состояний. */
+        const shown = displayTotal(t);
+        const billed = shown.total;
         const paid = (state.payments || []).reduce((sum, payment) => sum + numberValue(payment.amount, 0), 0);
         const expenses = (state.expenses || []).reduce((sum, expense) => sum + numberValue(expense.amount, 0), 0);
         const expensesPaid = (state.expenses || []).filter(e => e.paid).reduce((sum, expense) => sum + numberValue(expense.amount, 0), 0);
@@ -7629,15 +7639,17 @@
         const lineCosts = Object.values(state.selected || {}).reduce((sum, line) => sum + numberValue(line.cost, 0), 0);
         const totalExpenses = expenses + teamPayouts + lineCosts;
         const totalExpensesPaid = expensesPaid + teamPayoutsPaid;
-        const debt = Math.max(0, t.total - paid);
-        // Налог уходит государству — прибыль считаем от выручки без налога
-        const revenue = t.afterDiscount;
+        const debt = Math.max(0, billed - paid);
+        // Налог уходит государству — прибыль считаем от выручки без налога.
+        // У сделки «одной суммой» разбивки на налог и скидку нет вовсе, поэтому
+        // выручка — сам бюджет; иначе прибыль уходила бы в минус на любых расходах.
+        const revenue = shown.budgetOnly ? billed : t.afterDiscount;
         const profit = revenue - totalExpenses;
         const margin = revenue > 0 ? profit / revenue * 100 : 0;
         const profitFact = revenue - totalExpensesPaid;
         const marginFact = revenue > 0 ? profitFact / revenue * 100 : 0;
 
-        return { estimateTotal: t.total, revenue, withOptional: t.withOptional, paid, debt, expenses, expensesPaid, teamPayouts, teamPayoutsPaid, lineCosts, totalExpenses, totalExpensesPaid, profit, margin, profitFact, marginFact };
+        return { estimateTotal: billed, budgetOnly: shown.budgetOnly, revenue, withOptional: t.withOptional, paid, debt, expenses, expensesPaid, teamPayouts, teamPayoutsPaid, lineCosts, totalExpenses, totalExpensesPaid, profit, margin, profitFact, marginFact };
       }
 
       function stageTotal(stageId, includeOptional = false) {
@@ -17140,8 +17152,23 @@
         const t = totals();
         const margin = f.revenue > 0 ? Math.round(f.profit / f.revenue * 100) : 0;
         const marginClass = marginBadgeClass(f.revenue, margin);
-        const payPct = t.total > 0 ? Math.min(100, Math.round(f.paid / t.total * 100)) : 0;
-        const half = Math.round(t.total / 2);
+        // Проценты и аванс считаем от суммы, которую человек видит в плитке
+        // (f.estimateTotal), а не от суммы позиций: у сделки «одной суммой» позиций
+        // нет, и раньше оба показателя молча обнулялись.
+        const payPct = f.estimateTotal > 0 ? Math.min(100, Math.round(f.paid / f.estimateTotal * 100)) : 0;
+        const half = Math.round(f.estimateTotal / 2);
+
+        /* Пустая сделка не должна отчитываться как закрытая. На только что заведённой
+           сделке экран говорил «Долг 0 ₽ · Закрыто» зелёным, «50% = 0 ₽» и «Прибыль
+           0 ₽ · 0%»: формально верно, читается как «клиент всё оплатил, маржа нулевая».
+           Ноль-потому-что-заплатили и ноль-потому-что-нечего-платить — разные вещи, и
+           на глаз они здесь не различались.
+
+           Признак считаем по смете и деньгам, а не по возрасту сделки: смету могли
+           стереть, и тогда экран обязан вернуться к тому же честному «нечего считать». */
+        const noEstimate = (f.estimateTotal || 0) <= 0;
+        const noMoney = (f.paid || 0) <= 0 && (f.totalExpenses || 0) <= 0;
+        const dash = `<span style="color:var(--muted)">—</span>`;
 
         const allTransactions = [
           ...(state.payments || []).map(p => ({ ...p, _type: "income" })),
@@ -17185,23 +17212,29 @@
               `}
 
               <div class="fin-summary-grid">
-                <div class="fin-card">
-                  <h3>Бюджет (смета)</h3>
-                  <div class="fin-amount">${money(f.estimateTotal)}</div>
-                  <div class="fin-sub">50% = ${money(half)}</div>
+                <div class="fin-card"${f.budgetOnly ? ` title="Смета не разбита на позиции — сумма задана целиком"` : ""}>
+                  <h3>${f.budgetOnly ? "Бюджет сделки" : "Бюджет (смета)"}</h3>
+                  <div class="fin-amount">${noEstimate ? dash : money(f.estimateTotal)}</div>
+                  ${noEstimate
+                    ? `<div class="fin-sub">Сметы пока нет${inDeal ? ` · <button class="u-linkbtn no-print" onclick="app.setDealView('estimate')">собрать</button>` : ""}</div>`
+                    : `<div class="fin-sub">50% = ${money(half)}</div>`}
                 </div>
-                <div class="fin-card income-card">
+                <div class="fin-card ${noEstimate && !f.paid ? "" : "income-card"}">
                   <h3>Оплачено</h3>
-                  <div class="fin-amount">${money(f.paid)}</div>
-                  <div class="fin-sub">${payPct}%</div>
+                  <div class="fin-amount">${noEstimate && !f.paid ? dash : money(f.paid)}</div>
+                  ${noEstimate && !f.paid
+                    ? `<div class="fin-sub">Платежей ещё не было</div>`
+                    : `<div class="fin-sub">${payPct}%</div>
                   <div class="deal-pay-bar" style="margin-top:8px;width:100%">
                     <div class="deal-pay-fill" style="width:${payPct}%"></div>
-                  </div>
+                  </div>`}
                 </div>
-                <div class="fin-card ${f.debt > 0 ? "expense-card" : "income-card"}">
+                ${/* Пустая полоса оплаты убрана вместе с процентом: она рисует шкалу
+                      прогресса там, где прогресса не существует. */""}
+                <div class="fin-card ${noEstimate ? "" : f.debt > 0 ? "expense-card" : "income-card"}">
                   <h3>Долг</h3>
-                  <div class="fin-amount" style="color:${f.debt > 0 ? "var(--text-warning)" : "var(--text-success)"}">${money(f.debt)}</div>
-                  <div class="fin-sub">${f.debt > 0 ? "Ожидаем" : "Закрыто"}</div>
+                  <div class="fin-amount" style="color:${noEstimate ? "var(--muted)" : f.debt > 0 ? "var(--text-warning)" : "var(--text-success)"}">${noEstimate ? dash : money(f.debt)}</div>
+                  <div class="fin-sub">${noEstimate ? "Счёт ещё не выставлен" : f.debt > 0 ? "Ожидаем" : "Закрыто"}</div>
                 </div>
                 <div class="fin-card expense-card" title="План — начислено (себестоимость строк сметы + выплаты команде + расходы), факт — реально выплачено">
                   <h3>Расход <span style="font-weight:400;font-size:11px;color:var(--muted)">план</span></h3>
@@ -17217,13 +17250,16 @@
                     })()}
                   </div>
                 </div>
-                <div class="fin-card profit-card" title="План — прибыль по начисленным затратам, факт — по реально выплаченным (пока команде/подрядчикам не всё выплачено, факт обычно выше плана)">
+                <div class="fin-card ${noEstimate && noMoney ? "" : "profit-card"}" title="План — прибыль по начисленным затратам, факт — по реально выплаченным (пока команде/подрядчикам не всё выплачено, факт обычно выше плана)">
                   <h3>Прибыль <span style="font-weight:400;font-size:11px;color:var(--muted)">план</span></h3>
-                  <div class="fin-amount">${money(f.profit)}</div>
+                  <div class="fin-amount">${noEstimate && noMoney ? dash : money(f.profit)}</div>
+                  ${/* «0 %» маржи при отсутствии и доходов, и расходов — не оценка
+                        сделки, а деление нуля на ноль, показанное как результат. */""}
+                  ${noEstimate && noMoney ? `<div class="fin-sub">Пока не из чего считать</div>` : `
                   <div class="fin-sub">
                     <span class="margin-badge ${marginClass}">${margin}%</span>
                     ${f.profitFact !== f.profit ? `<div style="margin-top:4px">факт: ${money(f.profitFact)} <span class="margin-badge ${marginBadgeClass(f.revenue, f.marginFact)}">${Math.round(f.marginFact)}%</span></div>` : ""}
-                  </div>
+                  </div>`}
                 </div>
               </div>
               ${(f.lineCosts || f.teamPayouts) ? `

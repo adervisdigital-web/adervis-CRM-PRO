@@ -210,6 +210,96 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(/37\s*985/.test(txt), "бюджет из мастера не доехал до сделки: " + txt.slice(0, 120));
   });
 
+  /* Пустая сделка отчитывалась как закрытая: «Долг 0 ₽ · Закрыто» ЗЕЛЁНЫМ, «50% =
+     0 ₽» и «Прибыль 0 ₽ · 0%». Формально верно, читается как «клиент всё оплатил,
+     маржа нулевая» — ноль-потому-что-заплатили и ноль-потому-что-нечего-платить
+     выглядели одинаково. Проверяем обе стороны: пустая сделка молчит, а как только
+     появляется сумма — плитки снова считают, иначе «починка» просто выключила экран. */
+  await test("финансы сделки: пустая сделка не отчитывается как оплаченная", async () => {
+    await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Пустые финансы");
+      window.app.finishWizard("estimate");
+      window.app.setDealView("finance");
+    });
+    await page.waitForTimeout(400);
+
+    const cards = () => page.$$eval(".fin-card", (els) => els.map((e) => e.innerText.replace(/\s+/g, " ").trim()));
+    const empty = (await cards()).join(" | ");
+    assert(!/Закрыто/.test(empty), "на сделке без сметы долг помечен «Закрыто»: " + empty);
+    assert(/Счёт ещё не выставлен/.test(empty), "нет честной подписи у пустого долга: " + empty);
+    assert(!/50% = 0/.test(empty), "показан аванс «50% = 0 ₽» от несуществующей сметы: " + empty);
+    assert(!/\b0%/.test(empty), "показан процент оплаты или маржи там, где считать нечего: " + empty);
+
+    // Появилась сумма — экран обязан вернуться к обычному расчёту.
+    await page.evaluate(() => {
+      window.app.updateProject("crmStatus", "В работе");
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Финансы с бюджетом");
+      window.app.wizardSetField("budget", "120 000");
+      window.app.finishWizard("estimate");
+      window.app.setDealView("finance");
+    });
+    await page.waitForTimeout(400);
+    const filled = (await cards()).join(" | ");
+    assert(/120\s*000/.test(filled), "бюджет не доехал до финансов: " + filled);
+    assert(/50% =/.test(filled), "с появлением сметы не вернулась подсказка про аванс: " + filled);
+    assert(/Ожидаем/.test(filled), "долг по неоплаченной сделке снова не показан: " + filled);
+  });
+
+  /* Одни деньги на двух экранах должны сходиться. Сделка «одной суммой» (смета не
+     разбита на позиции) считалась по-разному: карточка на главной брала бюджет
+     сделки и честно показывала долг, а вкладка «Финансы» смотрела только на сумму
+     ПОЗИЦИЙ — их нет, поэтому там значилось «Бюджет 0 ₽» и «Долг 0 ₽ · Закрыто».
+     Правым был экран, где денег больше. Сравниваем напрямую: расхождение = баг. */
+  await test("сделка «одной суммой»: долг в финансах совпадает с карточкой на главной", async () => {
+    await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Сумма без позиций");
+      window.app.wizardSetField("budget", "240 000");
+      window.app.finishWizard("estimate");
+    });
+    await page.waitForTimeout(400);
+
+    const num = (s) => Number(String(s).replace(/[^\d]/g, "")) || 0;
+
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(300);
+    const onCard = await page.evaluate(() => {
+      const card = [...document.querySelectorAll(".deal-card")]
+        .find((c) => /Сумма без позиций/.test(c.textContent));
+      if (!card) return null;
+      const stats = [...card.querySelectorAll(".deal-card-stat")]
+        .map((s) => s.textContent.replace(/\s+/g, " ").trim());
+      const debt = stats.find((s) => /^Долг/.test(s)) || "";
+      const budget = stats.find((s) => /^Бюджет/.test(s)) || "";
+      return { debt, budget, id: card.getAttribute("data-deal-id") };
+    });
+    assert(onCard && onCard.id, "карточка сделки «одной суммой» не найдена на главной");
+
+    await page.evaluate((id) => { window.app.openDeal(id); window.app.setDealView("finance"); }, onCard.id);
+    await page.waitForTimeout(400);
+    // Берём ЗАГОЛОВОК и САМУ СУММУ, а не весь текст плитки: под суммой стоит ещё
+    // подпись («50% = …»), и склеенные цифры давали бессмысленное число.
+    const inFinance = await page.$$eval(".fin-card", (els) =>
+      els.map((e) => ({
+        title: ((e.querySelector("h3") || {}).textContent || "").trim(),
+        amount: ((e.querySelector(".fin-amount") || {}).textContent || "").trim(),
+        sub: ((e.querySelector(".fin-sub") || {}).textContent || "").replace(/\s+/g, " ").trim(),
+      }))
+    );
+    const pick = (re) => inFinance.find((c) => re.test(c.title)) || { amount: "", sub: "" };
+    const finDebt = pick(/^Долг/).amount;
+    const finDebtSub = pick(/^Долг/).sub;
+    const finBudget = pick(/^Бюджет/).amount;
+
+    assertEqual(num(finBudget), num(onCard.budget),
+      `бюджет расходится: карточка «${onCard.budget}», финансы «${finBudget}»`);
+    assertEqual(num(finDebt), num(onCard.debt),
+      `долг расходится: карточка «${onCard.debt}», финансы «${finDebt}»`);
+    assert(!/Закрыто/.test(finDebtSub), "неоплаченная сделка помечена «Закрыто»: " + finDebtSub);
+  });
+
   // Этап «Оплата» между «Сдано» и «Завершёнными»: по договору 50/50 остаток приходит
   // после сдачи работы. Ключевое — деньги ещё НЕ получены, поэтому такая сделка обязана
   // остаться в долге; выпадет она оттуда только в «Завершённых»/«Архиве».
