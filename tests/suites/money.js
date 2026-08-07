@@ -628,5 +628,51 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await c4.close();
   });
 
+  /* Копеечный остаток после платежа почти всегда опечатка в сумме. Живой случай:
+     набрали 18933 вместо 18993 — и на завершённой сделке навсегда повис долг
+     60 ₽, найти который удалось только сверкой арифметики по базе. Теперь сразу
+     после записи показываем остаток, пока человек помнит, что вводил.
+     Проверяем ОБА конца: мелкий остаток предупреждает, честная частичная оплата
+     молчит — иначе предупреждение станет фоновым шумом и его перестанут читать. */
+  await test("поступление: мелкий остаток предупреждает, частичная оплата — нет", async () => {
+    const пробник = async (leave) => {
+      const { context: c, page: p } = await bootLocal(browser, baseUrl,
+        { width: 1300, height: 900, seedDemo: true });
+      const deal = await p.evaluate(() => {
+        const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+        const d = (raw.savedProjects || [])[0];
+        return d ? { id: d.id, debt: d.debt } : null;
+      });
+      if (!deal || deal.debt <= 0) { await c.close(); return null; }
+      await p.evaluate(([id, sum]) => {
+        window.app.openFinanceModal("payment");
+        window.app.setFinanceModalProject(id);
+        window.app.setFinanceModalField("amount", String(sum));
+        window.app.saveFinanceModal();
+      }, [deal.id, deal.debt - leave]);
+      await p.waitForTimeout(3200);
+      const toastText = await p.evaluate(() => {
+        const el = document.getElementById("toast");
+        return el ? (el.textContent || "").replace(/\s+/g, " ").trim() : "";
+      });
+      const left = await p.evaluate((id) => window.app._dealRemaining(id), deal.id);
+      await c.close();
+      return { toastText, left, debt: deal.debt };
+    };
+
+    // 60 ₽ на смете в 41 500 — та самая опечатка.
+    const мелкий = await пробник(60);
+    assert(мелкий, "нет сделки с долгом — проверять нечего");
+    assertEqual(мелкий.left.debt, 60, "остаток посчитан неверно");
+    assert(/Остался долг/.test(мелкий.toastText),
+      "мелкий остаток не предупредил — опечатка в сумме снова пройдёт молча: " + мелкий.toastText);
+
+    // Половина долга — обычная частичная оплата, предупреждать не о чем.
+    const частичный = await пробник(Math.round(мелкий.debt / 2));
+    assert(частичный, "второй прогон не получил сделку");
+    assert(!/Остался долг/.test(частичный.toastText),
+      "частичная оплата вызвала предупреждение — оно станет шумом: " + частичный.toastText);
+  });
+
   await context.close();
 };

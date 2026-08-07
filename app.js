@@ -9909,10 +9909,8 @@
          У активной сделки суммы живут в live-state, у остальных — в сохранённых
          полях: одно и то же значение в двух местах, и брать надо то, что
          соответствует открытой сейчас сделке (иначе подсказка соврёт). */
-      function financeModalRemaining() {
-        const m = state.financeModal;
-        if (!m || m.type !== "payment" || !m.projectId) return null;
-        const proj = (state.savedProjects || []).find(p => p.id === m.projectId);
+      function _dealRemaining(projectId) {
+        const proj = (state.savedProjects || []).find(p => p.id === projectId);
         if (!proj) return null;
         const isActive = proj.id === state.activeProjectId;
         const total = isActive ? numberValue(totals().total, 0) : numberValue(proj.total, 0);
@@ -9920,7 +9918,13 @@
           ? (state.payments || []).reduce((s, p) => s + numberValue(p.amount, 0), 0)
           : numberValue(proj.paid, 0);
         const debt = Math.max(0, Math.round(total - paid));
-        return { total, paid, debt };
+        return { name: proj.name || "сделка", total, paid, debt };
+      }
+
+      function financeModalRemaining() {
+        const m = state.financeModal;
+        if (!m || m.type !== "payment" || !m.projectId) return null;
+        return _dealRemaining(m.projectId);
       }
 
       // Смена проекта перерисовывает форму: от неё зависит подсказка про остаток.
@@ -10019,6 +10023,20 @@
             if (newTotal > budget) {
        setTimeout(() => toast(`Перерасход бюджета: ${money(newTotal - budget)} сверх плана (${money(budget)})`), 100);
             }
+          }
+        }
+        /* Копеечный остаток после платежа почти всегда опечатка в сумме.
+           Живой случай: набрали 18933 вместо 18993 — и на завершённой сделке
+           навсегда повис долг 60 ₽; найти причину удалось только сверкой
+           арифметики по базе. Сразу после записи показываем остаток, пока
+           человек ещё помнит, какую сумму вводил.
+
+           Порог относительный (2% от сметы), но не меньше 200 ₽: на смете в
+           37 985 ₽ это ловит 60 ₽, а честную частичную оплату половиной — нет. */
+        if (m.type === "payment" && targetId) {
+          const r = _dealRemaining(targetId);
+          if (r && r.debt > 0 && r.debt <= Math.max(200, r.total * 0.02)) {
+            setTimeout(() => toast(`Остался долг ${money(r.debt)} по сделке «${r.name}» — проверьте сумму платежа`), 2600);
           }
         }
         toast((m.type === "payment" ? "Поступление " : "Расход ") + money(amount) + " записано");
@@ -24230,6 +24248,7 @@ Email: _____________________              Email: _____________________
         setFinanceModalProject,
         fillFinanceRemaining,
         _financeModalRemaining: financeModalRemaining,
+        _dealRemaining,
         addFinanceArticle,
         renameFinanceArticle,
         removeFinanceArticle,
