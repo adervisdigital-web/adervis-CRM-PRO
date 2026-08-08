@@ -608,6 +608,15 @@ module.exports = async function ({ test }) {
     for (const t of ["--r-xs", "--r-sm", "--r-md", "--r-lg", "--r-xl", "--r-pill"]) {
       assert(new RegExp("\\" + t + ":\\s*\\d+px").test(css), "в :root нет токена " + t);
     }
+
+    /* Фокус-кольцо — одно состояние, значит и вид один. До сведения кольцо
+       рисовалось двумя цветами: глобальное правило брало --primary, семь локальных
+       (календарь, калькулятор) — --primary2, и при переходе табом по одной странице
+       подсветка меняла оттенок. */
+    const rings = css.match(/outline:\s*[^;]*solid[^;]*;/g) || [];
+    const offScale = rings.filter((r) => !/var\(--ring-w\)\s+solid\s+var\(--ring\)/.test(r));
+    assertEqual(offScale.length, 0,
+      "фокус-кольцо мимо токена --ring:\n  " + offScale.slice(0, 6).join("\n  "));
   });
 
   // Активность аккаунта в админке ходит в SECURITY DEFINER-функцию: она обходит RLS

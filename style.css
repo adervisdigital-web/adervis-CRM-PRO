@@ -155,6 +155,14 @@
          Значения 14/18/20/24 намеренно оставлены как есть в нескольких местах:
          они подобраны под вложенность (внутренний радиус = внешний − отступ), и
          сведение их к шкале дало бы видимый «нотч» на скруглении. */
+      /* Фокус-кольцо одним токеном: до этого кольцо рисовалось двумя разными
+         цветами — глобальное правило брало --primary, а семь локальных (календарь,
+         калькулятор) — --primary2. При переходе табом по одной странице подсветка
+         меняла оттенок, хотя это ОДНО состояние: «сюда сейчас попадёт нажатие».
+         Толщина и отступ тоже здесь — менять их поштучно негде. */
+      --ring: var(--primary2);
+      --ring-w: 2px;
+
       --r-xs:   4px;
       --r-sm:   8px;
       --r-md:  10px;
@@ -342,7 +350,7 @@
        :focus-visible (не :focus) — рамка появляется только при Tab, не при клике мышью.
        Работает глобально, поверх любых локальных outline:none (input/select/textarea и т.п.) */
     :focus-visible {
-      outline: 2px solid var(--primary);
+      outline: var(--ring-w) solid var(--ring);
       outline-offset: 2px;
       border-radius: var(--r-xs);
     }
@@ -3617,7 +3625,12 @@
     .deal-card-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .deal-card-stat:nth-child(odd) { padding-right: 13px; }
     .deal-card-stat:nth-child(even) { padding-left: 13px; border-left: 1px solid var(--line); }
-    .deal-card-stat .lbl { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+    /* 11px, а не 10: это КАПС вразрядку — самая тяжёлая для чтения комбинация, и
+       именно ею подписаны деньги на карточке сделки («Бюджет», «Долг», «Оплачено»).
+       Замер по живому DOM нашёл ровно четыре подписи мельче 11px во всём
+       приложении, и все четыре — здесь. Плюс полпункта веса: капс на 11px при 600
+       выглядит бледнее строчного текста рядом. */
+    .deal-card-stat .lbl { font-size: 11px; color: var(--muted); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
     .deal-card-stat .val { font-size: 15.5px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; line-height: 1.15; }
 
     .deal-card-meta { display: flex; flex-direction: column; gap: 4px; }
@@ -4395,7 +4408,7 @@
     .cal-day-add:hover {
       background: var(--primary-bg); border-color: var(--primary-on-tint); color: var(--primary-on-tint);
     }
-    .cal-day-add:focus-visible { opacity: 1; outline: 2px solid var(--primary2); outline-offset: 1px; }
+    .cal-day-add:focus-visible { opacity: 1; outline: var(--ring-w) solid var(--ring); outline-offset: 1px; }
     /* Прошлые/будущие месяцы — не предлагаем ставить туда задачу */
     .cal-cell.other-month .cal-day-add { display: none; }
     .cal-day-num {
@@ -6535,7 +6548,7 @@ body.portal-mode .nav { display: none !important; }
 }
 .calc-step > button { cursor: pointer; }
 .calc-step > button:hover { color: var(--text); border-color: var(--primary-text); }
-.calc-step > button:focus-visible { outline: 2px solid var(--primary2); outline-offset: 2px; }
+.calc-step > button:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
 .calc-step b {
   display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
   background: var(--line); color: var(--text); font-size: 11px; font-weight: 800;
@@ -6560,7 +6573,7 @@ body.portal-mode .nav { display: none !important; }
   transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
 }
 .calc-need:hover { transform: translateY(-2px); border-color: var(--primary-text); box-shadow: 0 10px 28px var(--primary-bg); }
-.calc-need:focus-visible { outline: 2px solid var(--primary2); outline-offset: 2px; }
+.calc-need:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
 .calc-need-icon { font-size: 26px; line-height: 1; margin-bottom: 4px; }
 .calc-need-title { font-size: 16px; font-weight: 700; line-height: 1.25; }
 .calc-need-sub { font-size: 13px; color: var(--muted); line-height: 1.45; }
@@ -6621,7 +6634,7 @@ body.portal-mode .nav { display: none !important; }
   color: var(--text); font: inherit; font-size: 13.5px; text-align: left;
 }
 .calc-opt:hover, .calc-extra:hover { border-color: var(--primary-text); }
-.calc-opt:focus-visible, .calc-extra:focus-visible { outline: 2px solid var(--primary2); outline-offset: 2px; }
+.calc-opt:focus-visible, .calc-extra:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
 .calc-opt.on, .calc-extra.on { border-color: var(--primary-on-tint); background: var(--primary-bg); font-weight: 700; }
 
 .calc-extras { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
@@ -6658,7 +6671,7 @@ body.portal-mode .nav { display: none !important; }
   background: var(--bg2); border: 1px solid var(--line); border-radius: var(--r-lg);
   color: var(--text); font: inherit; font-size: 14px; resize: vertical;
 }
-.calc-field input:focus-visible, .calc-field textarea:focus-visible { outline: 2px solid var(--primary2); outline-offset: 1px; }
+.calc-field input:focus-visible, .calc-field textarea:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 1px; }
 /* min-height: кликабельная цель здесь — весь label, а сам чекбокс всего 18px;
    в одну строку текст согласия давал 22px тач-таргета вместо 44. */
 .calc-agree {
@@ -6674,7 +6687,7 @@ body.portal-mode .nav { display: none !important; }
 .calc-foot { margin: 28px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.6; text-align: center; }
 .calc-foot a, .calc-link { color: var(--primary-text); font-weight: 700; }
 .calc-link { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; cursor: pointer; }
-.calc-link:focus-visible { outline: 2px solid var(--primary2); outline-offset: 2px; }
+.calc-link:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
 
 /* ── Настройки → Оформление ─────────────────────────────────────────────────
    Переключатель темы и сетка цветовых схем. Обе группы — role="radiogroup" из
