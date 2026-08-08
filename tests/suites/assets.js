@@ -581,20 +581,37 @@ module.exports = async function ({ test }) {
   // mode, где _supabase нет вовсе), поэтому сторож статический — но проверяет ровно
   // то, что нельзя сломать незаметно: защиту, оба revoke и приватность ответа.
   await test("админка: активность аккаунта закрыта админом и не отдаёт чужие данные", () => {
-    const mig = readSrc("supabase/migrations/20260808000001_admin_agency_activity.sql");
+    // Читаем ДЕЙСТВУЮЩУЮ версию функции: первая (20260808000001) падала на
+    // «operator does not exist: text = uuid» и заменена целиком.
+    const mig = readSrc("supabase/migrations/20260808000002_admin_agency_activity_text_id.sql");
     const app = readSrc("app.js");
 
     assert(/_is_super_admin\(\)/.test(mig), "функция активности не проверяет супер-админа — её сможет позвать любой вошедший");
     assert(/security definer/i.test(mig), "функция не SECURITY DEFINER — она не прочитает чужое состояние из-под RLS");
     assert(/set search_path\s*=\s*public/i.test(mig), "search_path не запинен у SECURITY DEFINER-функции");
 
+    /* agency_id живёт в проекте РАЗНЫМИ типами: agency_state.id — текст,
+       client_portals.agency_id — uuid. Первая версия функции принимала uuid и
+       сравнивала его с текстовой колонкой — PostgreSQL отказался, и панель падала
+       у владельца на первом клике. Требуем приведение обеих сторон к тексту:
+       такое сравнение переживает любой тип колонки. */
+    const bodyCmp = mig.match(/=\s*p_agency_id/g) || [];
+    const safeCmp = mig.match(/::text\s*=\s*p_agency_id/g) || [];
+    assert(bodyCmp.length > 0, "в функции нет ни одного сравнения с p_agency_id — разбор сломался");
+    assertEqual(safeCmp.length, bodyCmp.length,
+      `сравнение с p_agency_id без ::text (${bodyCmp.length - safeCmp.length} шт.) — вернётся «operator does not exist: text = uuid»`);
+    assert(/admin_get_agency_activity\(p_agency_id text\)/.test(mig),
+      "параметр функции снова не text — клиент шлёт agency_id строкой");
+    assert(/drop function if exists public\.admin_get_agency_activity\(uuid\)/i.test(mig),
+      "старая перегрузка (uuid) не удалена — PostgREST не выберет между двумя одноимёнными функциями");
+
     // Нужны ОБА revoke: право приходит и от PUBLIC (PostgreSQL), и от default
     // privileges Supabase — по отдельности ни один не снимает доступ анониму.
-    assert(/revoke execute on function public\.admin_get_agency_activity\(uuid\) from public/i.test(mig),
+    assert(/revoke execute on function public\.admin_get_agency_activity\(text\) from public/i.test(mig),
       "нет revoke ... from public");
-    assert(/revoke execute on function public\.admin_get_agency_activity\(uuid\) from anon/i.test(mig),
+    assert(/revoke execute on function public\.admin_get_agency_activity\(text\) from anon/i.test(mig),
       "нет revoke ... from anon");
-    assert(/grant\s+execute on function public\.admin_get_agency_activity\(uuid\) to authenticated/i.test(mig),
+    assert(/grant\s+execute on function public\.admin_get_agency_activity\(text\) to authenticated/i.test(mig),
       "право не выдано authenticated — админ не сможет позвать функцию");
 
     // Наружу — только числа. Имя сделки или контакт клиента в ответе означал бы,
