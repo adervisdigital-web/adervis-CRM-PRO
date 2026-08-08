@@ -10,6 +10,31 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  /* Первый день пользователя: каждый раздел должен что-то СКАЗАТЬ, даже когда
+     данных нет. «Онлайн-брифы» на чистом аккаунте показывали ровно ноль символов
+     текста — три серые полоски скелета и всё: загрузка брифов молча выходит, если
+     сессии нет, а флаг «загружено» при этом не выставляется никогда, поэтому
+     полоски крутились вечно.
+
+     Меряем результат, а не устройство экрана: сколько текста человек видит.
+     Порог низкий (60 символов) — это защита от пустоты, а не от лаконичности. */
+  await test("на пустом аккаунте ни один раздел не показывает пустой экран", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl);
+    const sections = [
+      "home", "estimate", "clients", "global-finances", "global-calendar",
+      "tasks", "contracts", "knowledge", "catalog", "packages", "proposals", "briefs", "team",
+    ];
+    const silent = [];
+    for (const s of sections) {
+      await page.evaluate((v) => window.app.go(v), s);
+      await page.waitForTimeout(200);
+      const len = await page.$eval("#appContent", (el) => el.innerText.replace(/\s+/g, " ").trim().length);
+      if (len < 60) silent.push(`${s} (${len} символов)`);
+    }
+    await context.close();
+    assert(silent.length === 0, "разделы молчат на пустом аккаунте: " + silent.join(", "));
+  });
+
   await test("local mode: рендерится топбар (кнопка добавления)", async () => {
     const { context, page } = await bootLocal(browser, baseUrl);
     const addBtn = await page.$("#globalAddBtn");
