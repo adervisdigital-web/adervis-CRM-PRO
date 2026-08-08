@@ -716,6 +716,70 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Последняя непроверенная пара «свой экран ↔ экран заказчика»: договор в
+     редакторе против того, что уходит на печать и на подпись. В коде это заявлено
+     принципом — подстановка идёт НЕОБРАТИМО в текст именно затем, чтобы правишь и
+     подписываешь одно и то же, — но проверено до сих пор не было.
+
+     Сверяем тело символ в символ, включая переносы строк (в печати они значимы:
+     .doc-body держит white-space: pre-wrap), и заодно ловим самое обидное — уход
+     клиенту незаполненного {{поля}}. */
+  await test("договор: на печать уходит ровно то, что в редакторе", async () => {
+    await dismissStaleDialog(page);
+    const made = await page.evaluate(() => {
+      window.app.go("contracts");
+      window.app.createContractFromTemplate("tpl_act");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (st.contracts || [])[0];
+      return { id: c.id };
+    });
+    await page.waitForTimeout(250);
+
+    // Заполняем ВСЕ именованные поля: незаполненные вызывают вопрос перед печатью,
+    // а нам нужен обычный путь — «всё готово, печатаем».
+    const body = await page.evaluate((id) => {
+      const st = () => JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      let guard = 0;
+      while (guard++ < 40) {
+        const c = (st().contracts || []).find((x) => x.id === id);
+        const vars = window.app.contractVars(c.body);
+        if (!vars.length) break;
+        window.app.fillContractVar(id, vars[0], "ЗНАЧЕНИЕ-" + guard);
+      }
+      const c = (st().contracts || []).find((x) => x.id === id);
+      return c.body;
+    }, made.id);
+    assert(body && !/\{\{/.test(body), "не удалось заполнить поля договора: " + String(body).slice(0, 120));
+
+    const printed = await page.evaluate((id) => {
+      let html = "";
+      const realOpen = window.open;
+      window.open = () => ({
+        document: { write: (s) => { html += s; }, close: () => {}, readyState: "complete" },
+        addEventListener: () => {}, focus: () => {}, print: () => {}, close: () => {},
+      });
+      try { window.app.printContract(id); } catch (e) { html = "ОШИБКА: " + e.message; }
+      window.open = realOpen;
+      return html;
+    }, made.id);
+    assert(printed && !/^ОШИБКА/.test(printed), "печать договора не сформировалась: " + printed);
+
+    // Достаём тело из печатной версии и снимаем экранирование — сравнивать нужно
+    // текст, а не разметку.
+    const printedBody = await page.evaluate((html) => {
+      const m = html.match(/<div class="doc-body">([\s\S]*?)<\/div>/);
+      if (!m) return null;
+      const d = document.createElement("div");
+      d.innerHTML = m[1];
+      return d.textContent;
+    }, printed);
+
+    assert(printedBody !== null, "в печатной версии нет тела договора");
+    assertEqual(printedBody, body, "текст договора на печати отличается от редактора");
+    assert(!/\{\{[^}]+\}\}/.test(printedBody), "в печать ушло незаполненное поле {{…}}");
+    assert(/ЗНАЧЕНИЕ-1/.test(printedBody), "подставленные значения не доехали до печати");
+  });
+
   await test("договоры: подстановка из сделки заполняет поля и убирает их из формы", async () => {
     // Сначала открываем сделку: привязка берётся из НЕЁ, и без открытой сделки
     // пустой dealId — правильное поведение, а не баг. Сделку заводим свою, а не
