@@ -43,7 +43,69 @@ async function walkToResult(page) {
   await page.waitForSelector(".calc-result-sum", { timeout: 5000 });
 }
 
+/* Калькулятор с каталогом конкретного агентства (?a=…). Ответ get_public_catalog
+   подменяем на маршруте: Supabase в прогоне нет, а проверять надо настоящий путь
+   наложения каталога на состояние, а не заглушку. */
+async function bootCalcWithCatalog(browser, baseUrl, catalog, agency = "11111111-2222-3333-4444-555555555555") {
+  const context = await browser.newContext({ viewport: { width: 1200, height: 900 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message || e)));
+  await context.route("**/*", (route) => {
+    const u = route.request().url();
+    if (u.includes("/rest/v1/rpc/get_public_catalog")) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(catalog) });
+    }
+    const own = u.startsWith(baseUrl) || u.startsWith("data:") || u.startsWith("about:") || u.startsWith("blob:");
+    return own ? route.continue() : route.fulfill({ status: 204, body: "", headers: { "content-type": "text/plain" } });
+  });
+  await page.goto(`${baseUrl}/index.html?calc=1&a=${agency}`, { waitUntil: "load" });
+  await page.waitForTimeout(1200);
+  return { context, page, errors };
+}
+
+const calcCatalog = (over) => Object.assign({
+  company: { name: "Studio Probe", logo: "" },
+  customItems: [], catalogOverrides: {}, packages: [],
+  catalogPrices: {}, hiddenItems: {}, permanentlyDeleted: {},
+}, over);
+
 module.exports = async function ({ browser, baseUrl, test }) {
+  /* Ради чего вся эта витрина и существует: студия ставит калькулятор себе на сайт,
+     и посетитель обязан видеть ЕЁ прайс. До 05.08 в адресе не было агентства вовсе,
+     и любая студия показывала своим посетителям цены ADERVIS — прямого конкурента.
+     Сторож меряет результат: поднимаем цену съёмочных позиций в каталоге агентства
+     и требуем, чтобы суммы на экране изменились. Заодно — что имя студии подставлено.
+
+     Проверка «числа изменились», а не «равны N»: конкретные суммы зависят от
+     каталога и сценариев мастера, а свойство «витрина следует за прайсом студии»
+     переживёт и смену каталога, и переверстку карточек. */
+  await test("калькулятор показывает цены агентства, а не встроенный прайс", async () => {
+    const sums = async (catalog) => {
+      const { context, page, errors } = await bootCalcWithCatalog(browser, baseUrl, catalog);
+      const nums = await page.evaluate(() => {
+        const t = document.body.innerText.replace(/ /g, " ");
+        return (t.match(/[\d][\d\s]{2,}\s*₽/g) || []).map((s) => s.replace(/\D/g, ""));
+      });
+      const name = await page.evaluate(() => document.body.innerText.replace(/\s+/g, " "));
+      await context.close();
+      return { nums, name, errors };
+    };
+
+    const plain = await sums(calcCatalog({}));
+    assert(plain.nums.length >= 3, "на первом экране калькулятора не нашлось сумм: " + plain.nums.join(", "));
+    assert(/Studio Probe/i.test(plain.name), "имя студии из каталога не попало на экран");
+    assertEqual(plain.errors.length, 0, "ошибки на экране калькулятора: " + plain.errors.join(" | "));
+
+    const raised = await sums(calcCatalog({
+      catalogPrices: { camera_operator: 99999, camera_pro: 99999, shoot_plan: 99999 },
+    }));
+    assert(
+      raised.nums.join() !== plain.nums.join(),
+      "цены агентства не влияют на витрину — посетитель видит встроенный прайс: " + plain.nums.join(", ")
+    );
+  });
+
   await test("?calc=1 рендерит калькулятор без auth gate и без сайдбара", async () => {
     const { context, page, errors } = await bootCalc(browser, baseUrl, "calc=1");
     const state = await page.evaluate(() => ({
