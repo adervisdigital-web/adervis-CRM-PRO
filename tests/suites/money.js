@@ -328,6 +328,36 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(!/Итого\s*0\s*₽/.test(preview), "КП всё ещё печатает «Итого 0 ₽»: " + preview.slice(0, 200));
   });
 
+  /* Подсказка «остаток по сделке» в форме поступления заведена ровно затем, чтобы
+     не набирать сумму руками (из-за этого однажды повис долг 60 ₽ — переставили
+     цифры). У сделки «одной суммой» она показывала 0: остаток считался по позициям
+     сметы, которых нет. То есть страховка не работала именно там, где сумму
+     набирают руками чаще всего. */
+  await test("поступление: остаток подсказывается и у сделки «одной суммой»", async () => {
+    const id = await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Остаток одной суммой");
+      window.app.wizardSetField("budget", "180 000");
+      window.app.finishWizard("estimate");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return st.activeProjectId || "";
+    });
+    await page.waitForTimeout(400);
+    assert(id, "сделка не создалась");
+
+    const hint = await page.evaluate((pid) => {
+      window.app.openFinanceModal("payment");
+      window.app.setFinanceModalField("projectId", pid);
+      const box = document.querySelector(".modal-box");
+      return box ? box.innerText.replace(/\s+/g, " ") : "";
+    }, id);
+    await page.evaluate(() => window.app.closeFinanceModal && window.app.closeFinanceModal());
+
+    const shown = (hint.match(/[Оо]стат[а-я]*[^\d]{0,20}([\d\s ]+)\s*₽/) || [])[1] || "";
+    assertEqual(Number(shown.replace(/\D/g, "")), 180000,
+      "остаток по сделке «одной суммой» подсказан неверно: " + hint.slice(0, 200));
+  });
+
   /* Шапка сделки делила оплату на сумму ПОЗИЦИЙ, а при её отсутствии — на `|| 1`,
      то есть на один рубль. У сделки «одной суммой» любая, даже первая частичная
      оплата рисовала «Оплачено 100%»: враньё в самую опасную сторону — «клиент

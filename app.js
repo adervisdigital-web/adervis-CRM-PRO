@@ -10090,7 +10090,11 @@
         const proj = (state.savedProjects || []).find(p => p.id === projectId);
         if (!proj) return null;
         const isActive = proj.id === state.activeProjectId;
-        const total = isActive ? numberValue(totals().total, 0) : numberValue(proj.total, 0);
+        /* У активной сделки берём displayTotal, а не totals(): у сделки «одной
+           суммой» позиций нет, totals() даёт 0, и подсказка «остаток» показывала
+           ноль — ровно на том экране, который заведён, чтобы не ошибиться в сумме.
+           Для неактивной сделки сохранённый proj.total уже содержит нужное. */
+        const total = isActive ? numberValue(displayTotal(totals()).total, 0) : numberValue(proj.total, 0);
         const paid = isActive
           ? (state.payments || []).reduce((s, p) => s + numberValue(p.amount, 0), 0)
           : numberValue(proj.paid, 0);
@@ -21554,7 +21558,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (btn) { btn.disabled = true; btn.innerHTML = '<span class="ai-spinner"></span> Генерация...'; }
 
         const clientName = state.project.client || 'Заказчик';
-        const total = totals().total;
+        // ИИ пишет КП клиенту: сумма нужна та же, что в самом КП. У сделки «одной
+        // суммой» totals() дал бы 0, и текст ушёл бы с нулевой стоимостью.
+        const total = displayTotal(totals()).total;
         const items = selectedIds()
           .map(id => findItem(id))
           .filter(Boolean);
