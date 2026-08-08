@@ -17,6 +17,37 @@ async function dealId(page) {
 module.exports = async function ({ browser, baseUrl, test }) {
   const { context, page } = await bootLocal(browser, baseUrl, { width: 1200, height: 860, seedDemo: true });
 
+  /* Отключённая кнопка обязана выглядеть отключённой. Общего правила для :disabled
+     не было вовсе: в тарифах приглушение писалось inline прямо в разметке, у пяти
+     компонентов были свои :disabled в CSS, а в остальных местах с атрибутом
+     disabled — ничего. Кнопка выглядела рабочей, человек жал и не получал отклика:
+     худший вид молчания в интерфейсе.
+
+     Меряем результат по вычисленным стилям: отключённая отличается от соседней
+     рабочей прозрачностью и курсором. Так проверка переживёт и перенос стиля из
+     inline в CSS, и обратно. */
+  await test("отключённая кнопка видна как отключённая, а не молчит", async () => {
+    await page.evaluate(() => window.app.go("plans"));
+    await page.waitForTimeout(400);
+
+    const res = await page.evaluate(() => {
+      const all = [...document.querySelectorAll("#appContent button")];
+      const off = all.find((b) => b.disabled);
+      const on = all.find((b) => !b.disabled);
+      const look = (b) => (b ? { opacity: Number(getComputedStyle(b).opacity), cursor: getComputedStyle(b).cursor,
+        text: b.textContent.replace(/\s+/g, " ").trim().slice(0, 24) } : null);
+      return { off: look(off), on: look(on) };
+    });
+
+    assert(res.off, "на экране тарифов нет ни одной отключённой кнопки — проверять нечего");
+    assert(res.on, "нет ни одной рабочей кнопки для сравнения");
+    assert(res.off.opacity < 0.9,
+      `отключённая кнопка «${res.off.text}» не приглушена (opacity ${res.off.opacity})`);
+    assertEqual(res.off.cursor, "not-allowed",
+      `у отключённой кнопки «${res.off.text}» обычный курсор — она выглядит рабочей`);
+    assertEqual(res.on.opacity, 1, "рабочая кнопка приглушена — приглушение уехало не туда");
+  });
+
   await test("канбан: доска и колонки — семантические группы с подписью", async () => {
     await page.evaluate(() => window.app.go("crm"));
     await page.waitForTimeout(150);

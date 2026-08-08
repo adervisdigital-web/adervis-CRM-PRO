@@ -2785,7 +2785,7 @@
                     <label for="auth-consent" style="font-size:12px;color:var(--muted);cursor:pointer;margin:0;user-select:none;line-height:1.5">Я принимаю <a href="https://adervis.ru/docs" target="_blank" rel="noopener" style="color:var(--primary-text)">Оферту и Политику конфиденциальности</a></label>
                   </div>`}
 
-                  <button class="btn primary full" onclick="app.authSubmit()" ${canSubmit ? "" : "disabled"} style="width:100%;padding:13px;${!canSubmit && isRegister ? "opacity:.5;cursor:not-allowed" : ""}">
+                  <button class="btn primary full" onclick="app.authSubmit()" ${canSubmit ? "" : "disabled"} style="width:100%;padding:13px">
                     ${f.loading ? "Подождите..." : !isRegister ? "Войти" : "Зарегистрироваться"}
                   </button>
 
@@ -4609,7 +4609,10 @@
             <div style="flex:1;display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
               ${feats.map(f => `<div style="font-size:12px;display:flex;align-items:flex-start;gap:5px"><span style="color:${isCurrent ? "var(--text-success)" : "var(--primary-text)"};flex-shrink:0;font-size:12px;margin-top:1px">✓</span><span>${escapeHtml(f)}</span></div>`).join("")}
             </div>
-            <button class="btn ${p.popular && !isCurrent ? "primary" : "small"}" style="width:100%;white-space:normal;line-height:1.25;text-align:center;${btnOff ? "opacity:.55;cursor:not-allowed" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
+            ${/* Приглушение и курсор задаёт общее правило для :disabled в style.css —
+                  раньше они дублировались здесь инлайном, и отключённая кнопка
+                  выглядела в тарифах не так, как в остальном приложении. */""}
+            <button class="btn ${p.popular && !isCurrent ? "primary" : "small"}" style="width:100%;white-space:normal;line-height:1.25;text-align:center" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
               ${btnLabel}
             </button>
           </div>`;
