@@ -103,7 +103,11 @@ module.exports = async function ({ test }) {
     assert(/function renderSettingsPublicCalc/.test(app), "нет панели управления калькулятором в настройках");
     assert(/togglePublicCalc/.test(app) && /copyPublicCalcLink/.test(app), "нет переключателя или копирования ссылки");
     // Ссылка обязана нести агентство — без этого калькулятор снова покажет чужие цены.
-    const urlFn = app.slice(app.indexOf("function publicCalcUrl()"), app.indexOf("function togglePublicCalc"));
+    // Срез по имени БЕЗ скобок: у функции появился параметр (publicCalcUrl(forSharing)),
+    // и поиск по «publicCalcUrl()» перестал её находить — тест молча брал кусок с
+    // начала файла и падал на регекспе, хотя код был исправен.
+    const urlFn = app.slice(app.indexOf("function publicCalcUrl("), app.indexOf("function togglePublicCalc"));
+    assert(urlFn.length > 0 && urlFn.length < 2000, "не удалось выделить publicCalcUrl — разбор сломался");
     assert(/\?calc=1&a=/.test(urlFn), "ссылка на калькулятор строится без идентификатора агентства");
     assert(/encodeURIComponent\(getAgencyId\(\)\)/.test(urlFn), "agency_id не экранируется в ссылке");
   });

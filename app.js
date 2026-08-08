@@ -19394,8 +19394,23 @@
       // она всё равно вела на встроенные цены ADERVIS. Флаг publicCalcEnabled читает
       // серверная функция get_public_catalog: пока он выключен, каталог наружу не
       // отдаётся вовсе, поэтому по умолчанию ничего не открыто.
-      function publicCalcUrl() {
-        const base = location.origin + location.pathname.replace(/index\.html$/, "");
+      /* Ссылку и код для сайта собираем от БОЕВОГО адреса, а не от того окна, из
+         которого их копируют. Владелец открывает приложение и локально (Live
+         Server, 127.0.0.1:5500), и тогда «Код для сайта» уносил на чужой сайт
+         iframe со ссылкой на его собственный компьютер — калькулятор не открылся
+         бы ни у одного посетителя, а понять это можно только по чужому экрану.
+
+         Подменяем только локальные адреса: на любом настоящем домене (в том числе
+         если приложение переедет) остаётся текущий origin. */
+      const PUBLIC_APP_ORIGIN = "https://app.adervis.ru";
+      function publicCalcUrl(forSharing = true) {
+        const isLocal = /^(localhost|127\.|0\.0\.0\.0|\[::1\]|192\.168\.|10\.)/.test(location.hostname)
+          || location.protocol === "file:";
+        // «Открыть как посетитель» ведёт по ТЕКУЩЕМУ адресу: проверять правки надо
+        // там, где они уже есть. Наружу (ссылка, iframe) уходит только боевой.
+        const base = (isLocal && forSharing)
+          ? PUBLIC_APP_ORIGIN + "/"
+          : location.origin + location.pathname.replace(/index\.html$/, "");
         return base + "?calc=1&a=" + encodeURIComponent(getAgencyId());
       }
 
@@ -19449,7 +19464,7 @@
               <div class="toolbar no-print">
                 <button class="btn primary small" onclick="app.copyPublicCalcLink()">Копировать ссылку</button>
                 <button class="btn small" onclick="app.copyPublicCalcEmbed()">Код для сайта</button>
-                <a class="btn small" href="${escapeHtml(url)}" target="_blank" rel="noopener">Открыть как посетитель</a>
+                <a class="btn small" href="${escapeHtml(publicCalcUrl(false))}" target="_blank" rel="noopener">Открыть как посетитель</a>
               </div>
             ` : ""}
           </div>`;
@@ -19606,6 +19621,12 @@
         })();
 
         const integrationsTab = `
+            ${/* Публичный калькулятор живёт здесь, а не в «Данных»: это ссылка и код
+                  для встраивания на чужой сайт — то же, чем занята вся вкладка.
+                  Во вкладке «Данные» (экспорт, импорт, очистка) его искали бы
+                  последним местом. Перенесено 08.08.2026 по просьбе владельца. */""}
+            ${renderSettingsPublicCalc()}
+
             ${(() => {
               if (!_adminSession || !_userProfile) return "";
               const { url } = getSupabaseConfig();
@@ -19723,8 +19744,6 @@
         `;
 
         const dataTab = `
-            ${renderSettingsPublicCalc()}
-
             <div class="panel" style="box-shadow:none;background:var(--panel2)">
               <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("download", "var(--green)")} Экспорт и импорт</h2>
 

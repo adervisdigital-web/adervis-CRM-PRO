@@ -106,6 +106,59 @@ module.exports = async function ({ browser, baseUrl, test }) {
     );
   });
 
+  /* Ссылка и код для встраивания собирались от адреса ТОГО окна, из которого их
+     копируют. Владелец открывает приложение и локально (Live Server), и тогда «Код
+     для сайта» уносил на чужой сайт iframe со ссылкой на его собственный
+     компьютер — калькулятор не открылся бы ни у одного посетителя, а заметить это
+     можно только с чужого экрана. Наружу теперь всегда боевой адрес; кнопка
+     «Открыть как посетитель» остаётся на текущем — правки проверяют там, где они
+     есть. Заодно проверяем, что панель живёт в «Интеграциях», а не в «Данных». */
+  await test("настройки: ссылка на калькулятор — боевая, панель в «Интеграциях»", async () => {
+    const { bootLocal } = require("../harness");
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1200, height: 900 });
+
+    await page.evaluate(() => {
+      window.app.go("settings");
+      window.app._setSettingsTab("integrations");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      if (!st.publicCalcEnabled) window.app.togglePublicCalc();
+    });
+    await page.waitForTimeout(300);
+
+    const onIntegrations = await page.evaluate(() => {
+      const el = document.getElementById("appContent");
+      const link = el.querySelector(".brief-link-url");
+      const visitor = [...el.querySelectorAll("a")].find((a) => /посетител/i.test(a.textContent));
+      return {
+        hasPanel: /Публичный калькулятор/.test(el.innerText),
+        link: link ? link.textContent.trim() : "",
+        visitorHref: visitor ? visitor.getAttribute("href") : "",
+      };
+    });
+    assert(onIntegrations.hasPanel, "панели калькулятора нет во вкладке «Интеграции»");
+    assert(onIntegrations.link, "не отрисована ссылка на калькулятор");
+    assert(
+      !/localhost|127\.0\.0\.1|0\.0\.0\.0|192\.168\./.test(onIntegrations.link),
+      "наружу уходит локальный адрес: " + onIntegrations.link
+    );
+    assert(/^https:\/\//.test(onIntegrations.link), "ссылка не по https: " + onIntegrations.link);
+    assert(
+      /127\.0\.0\.1|localhost/.test(onIntegrations.visitorHref),
+      "«Открыть как посетитель» увело с текущего адреса: " + onIntegrations.visitorHref
+    );
+
+    const onData = await page.evaluate(() => {
+      window.app._setSettingsTab("data");
+      return null;
+    });
+    await page.waitForTimeout(250);
+    const stillOnData = await page.evaluate(() =>
+      /Публичный калькулятор/.test(document.getElementById("appContent").innerText));
+    assert(!stillOnData, "панель калькулятора осталась и во вкладке «Данные» — она задвоена");
+
+    await context.close();
+  });
+
   await test("?calc=1 рендерит калькулятор без auth gate и без сайдбара", async () => {
     const { context, page, errors } = await bootCalc(browser, baseUrl, "calc=1");
     const state = await page.evaluate(() => ({
