@@ -716,6 +716,38 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Автоподстановка в договор закрывала не всё, что уже известно приложению.
+     Замер по восьми шаблонам: {{город}} не подставлялся НИ РАЗУ — карта брала его
+     из company.city, а такого поля нет вовсе (в настройках компании есть адрес),
+     при этом город лежит в самой сделке. Подсказка рядом honest-ли отправляла
+     заполнять его в «Настройки → Компания», где искать нечего.
+     {{срок оплаты}} спрашивали три шаблона из восьми, хотя условия оплаты человек
+     уже написал в смете. Итог замера: ручных вопросов было 15, стало 8. */
+  await test("договор: город и условия оплаты подставляются из сделки", async () => {
+    await dismissStaleDialog(page);
+    const left = await page.evaluate(() => {
+      const st = () => JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Договор с городом");
+      window.app.wizardSetField("budget", "150 000");
+      window.app.finishWizard("estimate");
+      window.app.updateProject("city", "Пермь");
+      window.app.updateProject("paymentTerms", "100% предоплата");
+
+      window.app.go("contracts");
+      window.app.createContractFromTemplate("tpl_act");
+      const c0 = (st().contracts || [])[0];
+      window.app.autofillContract(c0.id);
+      const c1 = (st().contracts || []).find((x) => x.id === c0.id);
+      return { vars: window.app.contractVars(c1.body), body: c1.body };
+    });
+
+    assert(!left.vars.includes("город"), "город не подставился, хотя он есть в сделке: " + left.vars.join(", "));
+    assert(!left.vars.includes("срок оплаты"), "условия оплаты из сметы не подставились: " + left.vars.join(", "));
+    assert(/Пермь/.test(left.body), "города нет в тексте договора");
+    assert(/100% предоплата/.test(left.body), "условий оплаты нет в тексте договора");
+  });
+
   /* Последняя непроверенная пара «свой экран ↔ экран заказчика»: договор в
      редакторе против того, что уходит на печать и на подпись. В коде это заявлено
      принципом — подстановка идёт НЕОБРАТИМО в текст именно затем, чтобы правишь и

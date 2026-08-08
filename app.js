@@ -23551,11 +23551,35 @@ Email: _____________________              Email: _____________________
         const today = new Date();
         const pad = n => String(n).padStart(2, "0");
         const dateStr = `${pad(today.getDate())}.${pad(today.getMonth() + 1)}.${today.getFullYear()}`;
+
+        /* Поле сделки: у ОТКРЫТОЙ берём живое состояние, у остальных — снимок.
+           Иначе в договор уезжает предыдущая версия: снимок обновляется при
+           сохранении сделки, а условия оплаты человек правит прямо перед тем, как
+           жать «Подставить». Для договора без привязки к сделке остаётся открытая
+           сделка — из неё его и создают. */
+        const dealIsOpen = !deal || deal.id === state.activeProjectId;
+        const dealSnap = (deal && deal.snapshot && deal.snapshot.project) || {};
+        const fromDeal = (key) => String(
+          (dealIsOpen ? (state.project[key] || (deal && deal[key]) || dealSnap[key])
+                      : (deal[key] || dealSnap[key])) || ""
+        ).trim();
+
         const map = {
           "исполнитель": co.name || "",
           "заказчик": (client && (client.company || client.name)) || (deal && deal.client) || "",
           "фио": (client && client.name) || "",
-          "город": co.city || "",
+          /* Город берётся из СДЕЛКИ, а не из компании: поля city у компании нет
+             вовсе (в настройках есть адрес), поэтому `co.city` был всегда пуст —
+             {{город}} не подставлялся ни разу ни в одном шаблоне, а подсказка
+             рядом отправляла заполнять его в «Настройки → Компания», где такого
+             поля не найти. Замер по восьми шаблонам: {{город}} оставался
+             незаполненным в трёх из трёх, где он есть. */
+          "город": fromDeal("city") || (client && client.city) || co.city || "",
+          /* Условия из сметы: человек уже написал их там, и в договоре они те же.
+             Замер: {{срок оплаты}} спрашивают три шаблона из восьми — больше, чем
+             любое другое поле, кроме города. */
+          "срок оплаты": fromDeal("paymentTerms"),
+          "срок передачи": fromDeal("deliveryTerms"),
           "дата": dateStr,
           "проект": (deal && deal.name) || c.desc || "",
           "сумма": deal && deal.total ? String(Math.round(Number(deal.total))) : "",
@@ -23809,7 +23833,9 @@ Email: _____________________              Email: _____________________
           ["Проект", (deal && deal.name) || state.project.name || "", "название сделки"],
           ["Сумма", deal && deal.total ? money(deal.total) : (totals().total ? money(totals().total) : ""), "смета"],
           ["Срок", (deal && deal.deadline) || state.project.deadline || "", "дедлайн сделки"],
-          ["Город", co.city || "", "Настройки → Компания"]
+          // Источник тот же, что у автоподстановки, и подпись честная: город живёт
+          // в сделке (поле «Город» в её карточке), а не в настройках компании.
+          ["Город", (deal && deal.city) || state.project.city || (client && client.city) || "", "карточка сделки"]
         ];
         const missing = facts.filter(f => !String(f[1]).trim());
 
