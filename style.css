@@ -163,6 +163,23 @@
       --ring: var(--primary2);
       --ring-w: 2px;
 
+      /* ── Высоты элементов управления ───────────────────────────────────────
+         Замер по живому DOM (08.08.2026): на четырнадцати экранах встретилось
+         ШЕСТНАДЦАТЬ разных высот кнопок, из них 27 кнопок ниже 32px — включая
+         «Создать», «Открыть» и «Создать КП» в чеклисте первых шагов (27px). Это
+         одновременно и неопрятно, и трудно попасть.
+
+         Три шага: h-sm — компактные (фильтры, чипы, кнопки в строках таблиц),
+         h-md — обычные кнопки и поля ввода, h-lg — главные действия и всё, до
+         чего дотягиваются пальцем.
+
+         Задаём МИНИМУМ, а не фиксированную высоту: кнопка с длинной подписью в
+         две строки должна вырастать, а не обрезаться. Поэтому крупные кнопки
+         (42–46px) остаются как есть — разнобой снизу опаснее. */
+      --h-sm: 32px;
+      --h-md: 36px;
+      --h-lg: 44px;
+
       --r-xs:   4px;
       --r-sm:   8px;
       --r-md:  10px;
@@ -909,6 +926,7 @@
       color: var(--text);
       border-radius: var(--r-lg);
       padding: 9px 13px;
+      min-height: var(--h-md);
       transition: background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
       display: inline-flex;
       align-items: center;
@@ -1115,6 +1133,13 @@
       color: var(--text);
       outline: none;
     }
+    /* Поля — той же высоты, что обычная кнопка: в формах они стоят в один ряд,
+       и разница в 2–3px читается как «съехало». textarea исключена намеренно —
+       её высоту задаёт содержимое. */
+    input:not([type="checkbox"]):not([type="radio"]),
+    select {
+      min-height: var(--h-md);
+    }
 
     /* Чекбоксы и радио под правило выше не подходят: width:100% растягивал их на
        всю строку. В подписи КП на клиентском портале это ломало вёрстку — квадрат
@@ -1250,6 +1275,7 @@
     .btn.small {
       padding: 7px 10px;
       font-size: 13px;
+      min-height: var(--h-sm);
     }
 
     .btn.full {
@@ -3642,6 +3668,7 @@
     /* ── РАЗДЕЛ «ЗАДАЧИ» (все задачи + свободные) ────────── */
     .chip {
       padding: 6px 13px; border-radius: var(--r-pill); border: 1px solid var(--line);
+      min-height: var(--h-sm);
       background: transparent; color: var(--muted); font-size: 13px; font-weight: 600;
       cursor: pointer; white-space: nowrap; transition: background var(--dur-1), border-color var(--dur-1), color var(--dur-1);
     }
@@ -4267,6 +4294,7 @@
     .date-preset-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .date-preset-btn {
       padding: 6px 12px; border-radius: var(--r-pill); border: 1px solid var(--line);
+      min-height: var(--h-sm);
       background: transparent; color: var(--muted); font-size: 12px; font-weight: 600;
       cursor: pointer; transition: var(--dur-1);
     }
@@ -4547,6 +4575,7 @@
     .fin-subtab-bar::-webkit-scrollbar { display: none; }
     .fin-subtab {
       padding: 10px 16px; border: none; background: transparent;
+      min-height: var(--h-sm);
       color: var(--muted); font-size: 13px; font-weight: 600;
       cursor: pointer; border-bottom: 2px solid transparent;
       transition: var(--dur-1); white-space: nowrap;
