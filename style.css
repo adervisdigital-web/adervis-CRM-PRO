@@ -204,7 +204,6 @@
       --ease-in:     cubic-bezier(.4, 0, 1, 1);
       --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
 
-      --radius: 16px;
       --input:  rgba(19, 19, 27, .95);
 
       /* Z-index scale */
@@ -555,7 +554,7 @@
       width: 208px;
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: var(--r-lg);
       padding: 10px;
       box-shadow: 0 16px 48px rgba(0,0,0,.4);
       z-index: var(--z-modal);
@@ -864,7 +863,7 @@
       height: 42px;
       display: grid;
       place-items: center;
-      border-radius: 14px;
+      border-radius: var(--r-lg);
       background: var(--primary);
       box-shadow: 0 12px 36px rgb(var(--primary-rgb) / .35);
       color: var(--on-color);
@@ -1018,7 +1017,7 @@
     .proposal-preview {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       box-shadow: var(--shadow);
     }
 
@@ -1802,7 +1801,7 @@
     .summary-total {
       margin-top: 16px;
       padding: 16px 18px;
-      border-radius: 14px;
+      border-radius: var(--r-xl);
       background: rgb(var(--primary-rgb) / .1);
       border: 1px solid rgb(var(--primary-rgb) / .2);
       display: grid;
@@ -1819,7 +1818,7 @@
     .empty {
       padding: 40px 24px;
       border: 1px dashed var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       color: var(--muted);
       text-align: center;
       display: flex;
@@ -1880,7 +1879,7 @@
       background: var(--panel2);
       box-shadow: none;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
     }
 
     .mini-note {
@@ -1945,7 +1944,7 @@
     .home-client-card {
       padding: 12px 14px;
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: var(--r-xl);
       background: var(--panel2);
       cursor: pointer;
       transition: border-color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
@@ -2112,7 +2111,7 @@
 
     .metric {
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: var(--r-xl);
       padding: 10px;
       background: rgba(255, 255, 255, .035);
     }
@@ -2167,7 +2166,7 @@
     .kanban-col {
       background: var(--panel2);
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       padding: 14px;
       min-height: 220px;
       max-height: calc(100vh - 200px);
@@ -2256,7 +2255,7 @@
       padding: 16px;
       margin-top: 16px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       background: rgba(255, 255, 255, .03);
     }
 
@@ -2294,7 +2293,7 @@
       padding: 10px 12px;
       margin-top: 10px;
       border: 1px dashed var(--line);
-      border-radius: 14px;
+      border-radius: var(--r-lg);
       color: var(--muted);
       font-size: 13px;
       background: rgba(255, 255, 255, .03);
@@ -2818,7 +2817,7 @@
     .welcome-step {
       padding: 20px 16px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       background: var(--panel2);
     }
     .welcome-step-num {
@@ -2881,7 +2880,7 @@
     .wizard-body {
       padding: 28px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       background: var(--panel);
     }
     .wizard-pkg-grid {
@@ -2893,7 +2892,7 @@
     .wizard-pkg-card {
       padding: 14px 16px;
       border: 2px solid var(--line);
-      border-radius: 14px;
+      border-radius: var(--r-xl);
       cursor: pointer;
       transition: var(--dur-1) var(--ease-out);
       background: var(--panel2);
@@ -2949,7 +2948,7 @@
       margin: 0 0 20px;
       background: var(--bg);
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: var(--r-lg);
     }
     .seg-switch button {
       display: inline-flex;
@@ -3120,7 +3119,7 @@
       padding: 16px 18px 0;
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       box-shadow: var(--shadow);
       margin-bottom: 14px;
     }
@@ -3187,7 +3186,7 @@
     .db-kpi {
       display: flex; align-items: center; gap: 12px;
       background: var(--panel2); border: 1px solid var(--line);
-      border-radius: 14px; padding: 14px; transition: var(--dur-1);
+      border-radius: var(--r-xl); padding: 14px; transition: var(--dur-1);
     }
     .db-kpi:hover { border-color: rgb(var(--primary-rgb) / .35); }
     .db-kpi-warn { border-color: rgba(234,88,12,.3) !important; }
@@ -3239,7 +3238,7 @@
          при auto-fill). На 560px auto-fit даже лучше: три колонки вместо двух. */
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       background: var(--panel2); border: 1px solid var(--line);
-      border-radius: 14px; margin-bottom: 14px; overflow: hidden;
+      border-radius: var(--r-xl); margin-bottom: 14px; overflow: hidden;
     }
     .db-stat {
       /* 150px, а не 110: самая длинная подпись («Дедлайны / 7 дн») требует 96px,
@@ -3699,7 +3698,7 @@
     .gtask-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
     .gtask-stat {
       display: flex; flex-direction: column; gap: 4px;
-      padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel2);
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel2);
     }
     .gtask-stat .lbl { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
     .gtask-stat .val { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
@@ -3715,7 +3714,7 @@
     .gtask-list { display: flex; flex-direction: column; gap: 8px; }
     .gtask-row {
       display: flex; align-items: center; gap: 12px;
-      padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px;
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-lg);
       background: var(--panel); cursor: pointer;
       transition: border-color var(--dur-1), transform var(--dur-1), box-shadow var(--dur-1);
     }
@@ -3915,7 +3914,7 @@
       padding: 0 !important;
       margin-top: 20px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       background: transparent;
       overflow: hidden;
     }
@@ -3959,7 +3958,7 @@
     .client-detail-header {
       padding: 20px;
       background: var(--panel2);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       border: 1px solid var(--line);
       margin-bottom: 16px;
     }
@@ -3973,7 +3972,7 @@
     }
     .client-project-row {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 16px; border: 1px solid var(--line); border-radius: 14px;
+      padding: 12px 16px; border: 1px solid var(--line); border-radius: var(--r-lg);
       background: var(--panel); gap: 14px;
       cursor: pointer; transition: var(--dur-1);
     }
@@ -3984,7 +3983,7 @@
     /* ── FINANCE TABLE (Otask style) ────────────── */
     .fin-table-wrap {
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: var(--r-xl);
       overflow-x: auto;
       overflow-y: hidden;
       margin-top: 10px;
@@ -4307,7 +4306,7 @@
     .analytics-date-bar {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
       margin-bottom: 18px; padding: 12px 16px;
-      background: var(--panel2); border-radius: 14px;
+      background: var(--panel2); border-radius: var(--r-lg);
       border: 1px solid var(--line);
     }
     /* Обёртка вокруг самих пилюль-пресетов (без подписи «Период:» и кастомных дат) —
@@ -4354,7 +4353,7 @@
       display: flex; align-items: center; justify-content: space-between;
       gap: 10px;
       background: var(--panel2); border: 1px solid var(--line);
-      border-radius: 14px; padding: 8px 12px;
+      border-radius: var(--r-lg); padding: 8px 12px;
       margin-bottom: 10px;
     }
     .cal-nav2-center {
@@ -4506,7 +4505,7 @@
     }
     .cal-day-panel {
       margin-top: 16px; padding: 16px;
-      border: 1px solid var(--line); border-radius: 14px; background: var(--panel);
+      border: 1px solid var(--line); border-radius: var(--r-xl); background: var(--panel);
     }
     .cal-day-panel h3 { margin: 0 0 12px; font-size: 16px; }
     .cal-day-event-row {
@@ -4962,7 +4961,7 @@
       padding: 12px 14px;
       background: var(--panel2);
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: var(--r-xl);
     }
     .quick-fin-form.income { border-color: rgba(22,163,74,.35); }
     .quick-fin-form.expense { border-color: rgba(220,38,38,.25); }
@@ -5124,7 +5123,7 @@
     .contract-card {
       padding: 18px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       background: var(--panel);
       cursor: pointer;
       transition: var(--dur-1);
@@ -5159,7 +5158,7 @@
     .main-menu-item {
       padding: 16px 10px;
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: var(--r-lg);
       background: var(--panel2);
       text-align: center;
       cursor: pointer;
@@ -5242,14 +5241,14 @@
     .admin-modal-box {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       box-shadow: var(--shadow);
       padding: 28px;
       width: min(420px, calc(100vw - 32px));
     }
     .supabase-config-box {
       border: 1px solid rgba(139,127,232,.3);
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       padding: 18px;
       margin-top: 18px;
       background: rgba(139,127,232,.04);
@@ -5279,7 +5278,7 @@
       animation: skelShimmer 1.5s infinite linear;
     }
     .skel-card {
-      border-radius: var(--radius);
+      border-radius: var(--r-xl);
       background: var(--panel2);
       border: 1px solid var(--line);
       padding: 20px;
@@ -5368,7 +5367,7 @@
     /* ── SUPPORT PAGE ──────────────────────────────── */
     .support-card {
       display: flex; align-items: center; gap: 16px;
-      padding: 16px; border-radius: 14px;
+      padding: 16px; border-radius: var(--r-xl);
       background: var(--panel2); border: 1px solid var(--line);
       cursor: pointer; transition: border-color var(--dur-1), transform var(--dur-1);
     }
@@ -5488,7 +5487,7 @@
          поверх затемнения. Тот же баг был у .deal-switcher-btn. */
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: var(--r-xl);
       padding: 16px 18px;
       width: 270px;
       box-shadow: 0 12px 40px rgba(0,0,0,.4);
@@ -5582,11 +5581,11 @@
 
     /* ── KNOWLEDGE BASE ────────────────────────────── */
     /* Приведено к общему языку пустых состояний (.empty/.empty__icon): 1px пунктир,
-       radius var(--radius), круглая иконка на --primary-bg без своей рамки —
+       radius var(--r-xl), круглая иконка на --primary-bg без своей рамки —
        раньше kb-new-card (эта плитка + «+ Новый клиент») была толще/квадратнее. */
     .kb-new-card {
       background: var(--panel2); border: 1px dashed var(--line);
-      border-radius: var(--radius); padding: 16px; cursor: pointer; transition: var(--dur-1);
+      border-radius: var(--r-xl); padding: 16px; cursor: pointer; transition: var(--dur-1);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 10px; min-height: 130px; color: var(--muted);
     }
@@ -5601,7 +5600,7 @@
     .kb-new-label { font-size: 13px; font-weight: 600; }
     .kb-doc-card {
       background: var(--panel2); border: 1px solid var(--line);
-      border-radius: 14px; padding: 16px; cursor: pointer; transition: var(--dur-1);
+      border-radius: var(--r-xl); padding: 16px; cursor: pointer; transition: var(--dur-1);
     }
     .kb-doc-card:hover { border-color: rgb(var(--primary-rgb) / .4); background: rgb(var(--primary-rgb) / .04); }
     .kb-doc-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 800; }
@@ -5666,7 +5665,7 @@
        настоящих карточках/статусах, чтобы не показывать битую картинку. */
     .ob-mock {
       width: 100%; aspect-ratio: 16 / 8; max-height: 46vh;
-      border-radius: 14px; overflow: hidden;
+      border-radius: var(--r-xl); overflow: hidden;
       background: linear-gradient(135deg, rgb(var(--primary-rgb) / .14), rgba(37,99,235,.1));
       border: 1px solid var(--line);
       margin-bottom: 18px;
@@ -5759,7 +5758,7 @@ body.calc-mode #appContent { padding: 0; }
   display: flex; align-items: center; gap: 14px; margin-bottom: 32px;
 }
 .brief-logo-box {
-  width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+  width: 48px; height: 48px; border-radius: var(--r-xl); flex-shrink: 0;
   background: var(--primary);
   display: grid; place-items: center;
 }
@@ -5805,7 +5804,7 @@ body.calc-mode #appContent { padding: 0; }
 }
 .brief-card-item {
   background: var(--panel2); border: 1px solid var(--line);
-  border-radius: 14px; padding: 16px; transition: var(--dur-1);
+  border-radius: var(--r-lg); padding: 16px; transition: var(--dur-1);
 }
 .brief-card-item:hover { border-color: rgb(var(--primary-rgb) / .3); }
 .brief-card-item.expanded { border-color: rgb(var(--primary-rgb) / .35); }
@@ -5877,7 +5876,7 @@ body.calc-mode #appContent { padding: 0; }
   background: var(--primary2); flex-shrink: 0;
 }
 .brief-type-panel {
-  margin-top: 16px; padding: 16px; border-radius: 14px;
+  margin-top: 16px; padding: 16px; border-radius: var(--r-xl);
   background: var(--panel2); border: 1px solid var(--line);
 }
 .brief-type-panel-head {
@@ -6010,7 +6009,7 @@ body.portal-mode .nav { display: none !important; }
 }
 .portal-price-block {
   background: rgb(var(--primary-rgb) / .07); border: 1px solid rgb(var(--primary-rgb) / .18);
-  border-radius: 14px; padding: 16px 20px; margin-bottom: 24px;
+  border-radius: var(--r-xl); padding: 16px 20px; margin-bottom: 24px;
   display: flex; justify-content: space-between; align-items: center;
   flex-wrap: wrap; gap: 8px;
 }
@@ -6072,14 +6071,14 @@ body.portal-mode .nav { display: none !important; }
 .swipe-wrap {
   position: relative;
   overflow: hidden;
-  border-radius: var(--radius);
+  border-radius: var(--r-xl);
 }
 .swipe-delete-bg {
   position: absolute;
   right: 0; top: 0; bottom: 0; width: 72px;
   background: var(--red);
   display: flex; align-items: center; justify-content: center;
-  font-size: 22px; border-radius: var(--radius);
+  font-size: 22px; border-radius: var(--r-xl);
   pointer-events: none;
 }
 .swipe-wrap .task-card {
@@ -6696,7 +6695,7 @@ body.portal-mode .nav { display: none !important; }
 .calc-inc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
 .calc-inc-col {
   padding: 16px; background: var(--panel2);
-  border: 1px solid var(--line); border-radius: 14px;
+  border: 1px solid var(--line); border-radius: var(--r-xl);
 }
 .calc-inc-col h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--primary-text); }
 .calc-inc-col ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; }
@@ -6821,7 +6820,7 @@ body.portal-mode .nav { display: none !important; }
   max-height: calc(100dvh - 104px);
   background: var(--panel2);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--r-xl);
   overflow: hidden;
 }
 .deal-rail-head {
@@ -6853,7 +6852,7 @@ body.portal-mode .nav { display: none !important; }
 .deal-contract-tpl {
   display: flex; flex-direction: column; gap: 6px; text-align: left;
   padding: 14px 16px; min-height: 44px;
-  border: 1px solid var(--line); border-radius: var(--radius);
+  border: 1px solid var(--line); border-radius: var(--r-xl);
   background: var(--panel2); color: var(--text);
   font: inherit; cursor: pointer;
   transition: border-color var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out),
