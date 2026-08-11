@@ -94,6 +94,30 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  // Цены, которые обязан показывать скриншот онбординга onboarding/plans.webp.
+  // Меняете PLANS — пересоздайте картинку, иначе первое, что видит новый человек,
+  // это старый прайс. Так уже было: 08.08 цены подняли до 890 ₽, а слайд онбординга
+  // до 11.08 обещал 490/390/340/290 ₽ и «до 3/5/10 пользователей», которых нет
+  // (PAID_MAX_USERS = 3 на любом оплаченном). Скриншот снимается локально:
+  // Playwright → app.go("plans"), тёмная тема, кадр по .plan-card, 1600px, webp q82.
+  const ONBOARDING_SHOT_PRICES = [0, 890, 690, 590, 490];
+
+  await test("онбординг: скриншот тарифов не разошёлся с PLANS", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl);
+    const prices = await page.evaluate(() => {
+      const src = [...document.scripts].map(s => s.src).find(s => /app\.js/.test(s));
+      return fetch(src).then(r => r.text()).then(t => {
+        const block = t.slice(t.indexOf("const PLANS = ["));
+        return [...block.slice(0, block.indexOf("];")).matchAll(/price:\s*(\d+)/g)].map(m => +m[1]);
+      });
+    });
+    await context.close();
+    assert(prices.length === ONBOARDING_SHOT_PRICES.length && prices.every((p, i) => p === ONBOARDING_SHOT_PRICES[i]),
+      "цены в PLANS изменились (" + prices.join("/") + "), а скриншот онбординга обещает " +
+      ONBOARDING_SHOT_PRICES.join("/") + ".\n" +
+      "Пересними onboarding/plans.webp и обнови ONBOARDING_SHOT_PRICES в этом тесте.");
+  });
+
   await test("тарифы: PLANS не содержит числа мест (места развязаны с периодом)", async () => {
     const { context, page } = await bootLocal(browser, baseUrl);
     await page.evaluate(() => window.app.go("plans"));
