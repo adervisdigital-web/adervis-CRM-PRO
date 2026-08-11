@@ -1,4 +1,9 @@
-const CACHE_NAME = "adervis-crm-v286";
+const CACHE_NAME = "adervis-crm-v287";
+// Только то, без чего приложение не поднимется. Скриншоты онбординга (onboarding/*.webp)
+// сюда СОЗНАТЕЛЬНО не входят: это был 1 МБ из 3,5 МБ установки, который скачивали все,
+// включая тех, кто онбординг ни разу не открывал. Обработчик fetch ниже кэширует любой
+// .webp по факту запроса, поэтому со второго показа они всё равно берутся из кэша, а
+// пока не скачаны — <img onerror> открывает CSS-мокап.
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -11,12 +16,6 @@ const STATIC_ASSETS = [
   "./icon-192.png",
   "./icon-512.png",
   "./apple-touch-icon.png",
-  "./onboarding/dashboard.png",
-  "./onboarding/kanban.png",
-  "./onboarding/finance.png",
-  "./onboarding/team.png",
-  "./onboarding/settings.png",
-  "./onboarding/plans.png",
   "./fonts/dmsans-latin.woff2",
   "./fonts/dmsans-latin-ext.woff2",
   "./fonts/spacegrotesk-latin.woff2",

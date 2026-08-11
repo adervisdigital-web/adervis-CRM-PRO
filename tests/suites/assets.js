@@ -539,6 +539,56 @@ module.exports = async function ({ test }) {
     assert(gateIdx < subIdx, "проверка подписки идёт раньше проверки связи — оплативший увидит «Подписка истекла»");
   });
 
+  await test("запись в Supabase: результат upsert/update/delete/rpc проверяется везде", () => {
+    // supabase-js v2 не бросает исключение — ошибка приходит полем `error` в
+    // результате. Поэтому `try { await _supabase...upsert(x) } catch` НИКОГДА не
+    // срабатывает, и отказ (RLS, сеть, размер строки) неотличим от успеха.
+    // 11.08 таких мест нашлось девять. Самое дорогое — кнопка «Сохранить в облако»:
+    // на отказе она рапортовала «Данные сохранены» И гасила _cloudDirty вместе с
+    // меткой синхронизации, то есть снимала единственную защиту от потери правок
+    // ровно там, где человек страхуется вручную. Рядом: профиль «создавался» без
+    // строки в базе (с целями registration/trial_started и welcome-письмом), бриф
+    // помечался сконвертированным только на экране и конвертировался повторно.
+    //
+    // Сторож статический — в браузерных прогонах местного режима _supabase нет
+    // вовсе, путь записи не исполняется ни одной строкой.
+    const lines = app.split("\n");
+    const MUTATION = /\.(upsert|insert|update|delete)\s*\(/;
+    const offenders = [];
+    lines.forEach((line, i) => {
+      const at = line.indexOf("await _supabase");
+      if (at < 0) return;
+      const stmt = lines.slice(i, i + 10).join("\n");
+      const isRpc = /await _supabase\s*\.\s*rpc\(/.test(line);
+      // Чтение (.select) правится отдельными сторожами выше — здесь только запись.
+      if (!isRpc && !MUTATION.test(stmt.slice(0, (stmt.indexOf(";") + 1) || stmt.length))) return;
+      const prefix = line.slice(0, at);
+      // Результат может не проверяться здесь, а уходить вызывающему: `return await …`
+      // или тело стрелки (`const runWrite = async () => await …`). Так сделано в
+      // createClientPortal, где обе ветки тернарника отдают результат наружу и там
+      // разбираются подробно — включая повторную запись без непринятых колонок.
+      const carrier = /(=>|\breturn\b)\s*$/;
+      const cont = prefix.trim();
+      const escapes = carrier.test(prefix.trim())
+        || ((cont === "?" || cont === ":") && lines.slice(Math.max(0, i - 3), i).some(l => carrier.test(l.trimEnd()) || /=>\s*\w/.test(l)));
+      if (escapes) return;
+      const bound = prefix.match(/\berror(?:\s*:\s*([A-Za-z_$][\w$]*))?\b/);
+      if (!bound) {
+        offenders.push(`app.js:${i + 1}: error не извлечён — ${line.trim().slice(0, 80)}`);
+        return;
+      }
+      // Извлечь мало: `const { error } = ...` без последующей проверки так же нем.
+      const name = bound[1] || "error";
+      const near = lines.slice(i, i + 12).join("\n");
+      const hits = (near.match(new RegExp(`\\b${name}\\b`, "g")) || []).length;
+      if (hits < 2) offenders.push(`app.js:${i + 1}: ${name} извлечён, но нигде не проверен`);
+    });
+    assert(
+      offenders.length === 0,
+      "результат записи в Supabase не проверяется — отказ выглядит как успех:\n" + offenders.join("\n")
+    );
+  });
+
   await test("realtime: в канал уходит «пинок», а не всё состояние", () => {
     // Замер на боевом проекте: send() возвращает "ok" на любом размере, но
     // сообщения больше ~256 КБ до получателя не доходят вовсе. Состояние весит

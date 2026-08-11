@@ -1474,7 +1474,11 @@
             // Migrate old profiles: set agency_id = own userId if missing
             if (!_userProfile.agency_id) {
               _userProfile.agency_id = userId;
-              await _supabase.from("profiles").update({ agency_id: userId }).eq("id", userId);
+              // В памяти значение то же, что и запасное в getAgencyId(), поэтому неудачная
+              // запись работу не ломает — миграция повторится при следующем входе. Но знать
+              // о ней надо: если она не проходит раз за разом, дело в RLS.
+              const { error: migErr } = await _supabase.from("profiles").update({ agency_id: userId }).eq("id", userId);
+              if (migErr) console.warn("Profile agency_id migration:", migErr.message || migErr);
             }
             // Sync avatar from cloud to local settings
             if (data.avatar_url) {
@@ -1510,7 +1514,19 @@
               subscription_plan: "pro",
               subscription_expires_at: trial_expires
             };
-            await _supabase.from("profiles").upsert(newProfile);
+            // Ошибка записи приходит в результате, а не исключением. Без проверки
+            // профиль считался созданным при любом отказе: в Метрику улетали
+            // registration/trial_started, уходило welcome-письмо и человек видел
+            // «Аккаунт создан», а строки в базе не было — следующий вход снова шёл
+            // по этой же ветке. Ставим тот же флаг, что и на неудачном ЧТЕНИИ: личность
+            // неизвестна → в облако не пишем, локальную копию сохраняем.
+            const { error: createErr } = await _supabase.from("profiles").upsert(newProfile);
+            if (createErr) {
+              _profileLoadFailed = true;
+              console.warn("Profile create failed:", createErr.message || createErr);
+              toast("Не удалось создать профиль — работаем локально, попробуйте войти ещё раз");
+              return;
+            }
             _userProfile = newProfile;
             _pendingInviteCode = "";
             if (!joinedTeam) { trackGoal("registration"); trackGoal("trial_started"); _justRegistered = true; }
@@ -1563,13 +1579,16 @@
           });
           const { endpoint, keys } = sub.toJSON();
           if (!_supabase || !keys) return;
-          await _supabase.from('push_subscriptions').upsert({
+          // Без проверки результата человек видел «включены», хотя endpoint до базы не
+          // доехал, — и уведомления не приходили никогда, без единого признака поломки.
+          const { error } = await _supabase.from('push_subscriptions').upsert({
             agency_id: getAgencyId(),
             user_id:   _adminSession.user.id,
             endpoint,
             p256dh:    keys.p256dh,
             auth_key:  keys.auth,
           }, { onConflict: 'agency_id,endpoint' });
+          if (error) throw error;
      toast('Push-уведомления включены');
           render();
         } catch(e) { console.error('Push subscribe:', e); toast('Ошибка подписки на уведомления'); }
@@ -1580,7 +1599,11 @@
           const reg = await navigator.serviceWorker.ready;
           const sub = await reg.pushManager.getSubscription();
           if (sub) {
-            await _supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+            // Сначала база, потом браузер: если строку не удалось убрать, отписку не
+            // доводим до конца. Иначе push перестал бы приходить, а сервер продолжал
+            // слать на мёртвый endpoint, и повторить отписку было бы уже нечем.
+            const { error } = await _supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+            if (error) throw error;
             await sub.unsubscribe();
           }
           toast('Push-уведомления отключены');
@@ -1680,10 +1703,14 @@
         // Не применяем если уже записан или это собственный agency_id
         if (_userProfile.referred_by_agency_id) { lsRemove('_refCode'); return; }
         if (refCode === _userProfile.agency_id) { lsRemove('_refCode'); return; }
-        await _supabase.from('profiles')
+        // Код стирался безусловно, в том числе когда запись не прошла: пригласивший
+        // молча терял бонусные дни, а повторить попытку было уже нечем. Держим код до
+        // подтверждённой записи — следующий заход применит его снова.
+        const { error } = await _supabase.from('profiles')
           .update({ referred_by_agency_id: refCode })
           .eq('id', userId)
           .is('referred_by_agency_id', null);
+        if (error) { console.warn('Referral apply:', error.message || error); return; }
         lsRemove('_refCode');
       }
 
@@ -1840,9 +1867,14 @@
       async function _checkPayKeys() {
         if (!_supabase || !_adminSession || _payKeysConnected !== null) return;
         try {
-          const { data } = await _supabase.rpc("has_payment_keys");
+          // Ошибка RPC приходит в результате: без этой проверки отказ был неотличим от
+          // честного «ключей нет», и подключивший ЮKassa видел форму ввода shopId
+          // заново. Латчим false (а не null) осознанно: строка 1924 перезапрашивает
+          // при null на КАЖДОМ рендере, и постоянный отказ дал бы поток запросов.
+          const { data, error } = await _supabase.rpc("has_payment_keys");
+          if (error) throw error;
           _payKeysConnected = !!data;
-        } catch (e) { _payKeysConnected = false; }
+        } catch (e) { _payKeysConnected = false; console.warn("has_payment_keys:", e); }
         render();
       }
 
@@ -3396,7 +3428,8 @@
       async function _syncAvatarToCloud(dataUrl) {
         if (!_supabase || !_adminSession) return;
         try {
-          await _supabase.from("profiles").update({ avatar_url: dataUrl || null }).eq("id", _adminSession.user.id);
+          const { error } = await _supabase.from("profiles").update({ avatar_url: dataUrl || null }).eq("id", _adminSession.user.id);
+          if (error) throw error;
         } catch(e) { console.warn("Avatar sync:", e); }
       }
 
@@ -5251,11 +5284,27 @@
         const data = Object.fromEntries(Object.entries(state).filter(([k]) => !SYNC_SKIP_KEYS.has(k)));
         const updatedAt = new Date().toISOString();
         try {
-          await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: updatedAt });
+          // supabase-js v2 не бросает исключение — ошибка приходит в результате.
+          // Без этой проверки кнопка рапортовала «Данные сохранены в облако» на любом
+          // отказе (RLS, сеть, размер) и — хуже — гасила _cloudDirty и метку синхронизации.
+          // То есть ровно там, где человек страхуется вручную, снималась единственная
+          // защита: следующий запуск считал локальное уехавшим и не спрашивал, чью
+          // версию оставить. Автосохранение выше делает это правильно с v251.
+          const { error } = await _supabase.from("agency_state").upsert({ id: agencyId, state_json: data, updated_at: updatedAt });
+          if (error) throw error;
           _setCloudSyncMark({ agencyId, cloudUpdatedAt: updatedAt, dirty: false });
           _cloudDirty = false;
+          _setCloudSaveIndicator(true);
+          // Ручное сохранение — тоже новая версия для коллеги, иначе его вкладка
+          // узнает о ней только при следующем автосохранении или перезапуске.
+          _broadcastCloudUpdated();
      toast("Данные сохранены в облако");
-        } catch(e) { toast("Ошибка сохранения: " + e.message); }
+        } catch(e) {
+          _cloudDirty = true;
+          _setCloudSaveIndicator(false);
+          console.warn("Force cloud save:", e);
+          toast("Ошибка сохранения: " + (e.message || e));
+        }
       }
 
       // Отзывает старую ссылку на iCal-фид и выдаёт новую. Смена идёт через RPC,
@@ -5453,7 +5502,7 @@
                   ${ONBOARD_SLIDES.map((s, i) => `
                     <div class="ob-slide">
                       <div class="ob-mock">
-                        <img src="onboarding/${s.mock}.png" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                        <img src="onboarding/${s.mock}.webp" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
                         <div class="ob-mock-fallback">${renderOnboardMock(s.mock)}</div>
                       </div>
                       <h3>${escapeHtml(s.title)}</h3>
@@ -7262,14 +7311,6 @@
         return stages.find(x => x.id === stageId) || stages[0] || { id: "pre", name: "Этап", color: "#6c00ff", desc: "" };
       }
 
-      function shouldShowMainDays(itemData) {
-        return itemData && (itemData.calcModel === "crewShift" || itemData.calcModel === "perDay");
-      }
-
-      function shouldShowMainQty(itemData) {
-        return itemData && itemData.calcModel === "fixed+qty";
-      }
-
       // Позиции-расходы (аренда, подписки, AI-кредиты) агентство не перепродаёт с наценкой —
       // по умолчанию себестоимость равна цене (маржа 0), пока не поправят вручную.
       function isPassthroughCostItem(itemData) {
@@ -7587,11 +7628,6 @@
           warnings,
           formula: rows.map(row => `${row.label}: ${money(row.value)}${row.note ? ` (${row.note})` : ""}`).join("; ")
         };
-      }
-
-      function lineBreakdownText(id) {
-        const breakdown = lineBreakdown(id);
-        return breakdown.formula || "";
       }
 
       function lineTotal(id) {
@@ -8959,25 +8995,6 @@
           save(); render();
           toast("Удаление отменено");
         });
-      }
-
-      function editClientFromDeal(projectId, clientId, clientName) {
-        // Find or create client
-        let client = clientId ? (state.clients || []).find(c => c.id === clientId) : null;
-        if (!client && clientName) client = (state.clients || []).find(c => c.name === clientName);
-        if (!client) {
-          client = normalizeClient({ name: clientName || "" });
-          state.clients = [...(state.clients || []), client];
-          save();
-        }
-        // Find project deadline
-        const project = (state.savedProjects || []).find(p => p.id === projectId);
-        state.clientModal = {
-          ...deepClone(client),
-          _projectId: projectId || "",
-          _projectDeadline: project ? (project.deadline || "") : ""
-        };
-        renderModal();
       }
 
       function selectClient(id) {
@@ -13347,13 +13364,24 @@
         };
         state.savedProjects = [newProject, ...(state.savedProjects || [])];
         save();
+        // Отметка «бриф превращён в сделку» живёт в базе, а список на экране правился
+        // ниже безусловно. Если update не прошёл (ошибка приходит в результате, не
+        // исключением), локально бриф выглядел закрытым, а после перезагрузки снова
+        // становился новым — и его конвертировали второй раз, получая дубль сделки.
+        let briefMarked = true;
         if (_supabase && _adminSession) {
           try {
-            await _supabase.from('brief_submissions').update({ status: 'converted', deal_id: newProject.id }).eq('id', briefId);
-          } catch(e) { /* ignore */ }
+            const { error } = await _supabase.from('brief_submissions').update({ status: 'converted', deal_id: newProject.id }).eq('id', briefId);
+            if (error) throw error;
+          } catch(e) {
+            briefMarked = false;
+            console.warn('Brief convert mark:', e);
+          }
         }
-        _briefs = _briefs.map(b => b.id === briefId ? { ...b, status: 'converted', deal_id: newProject.id } : b);
-        toast('Сделка создана!');
+        if (briefMarked) {
+          _briefs = _briefs.map(b => b.id === briefId ? { ...b, status: 'converted', deal_id: newProject.id } : b);
+        }
+        toast(briefMarked ? 'Сделка создана!' : 'Сделка создана, но бриф остался в списке новых — отметьте его вручную');
         state.activeProjectId = newProject.id;
         state.view = 'deal';
         render();
@@ -16035,41 +16063,6 @@
         `;
       }
 
-      function renderLineBreakdown(id) {
-        const breakdown = lineBreakdown(id);
-
-        if (!breakdown.rows.length) return "";
-
-        return `
-          <div class="calc-box">
-            <h3>Расшифровка расчёта</h3>
-
-            <div class="list">
-              ${breakdown.rows.map(row => `
-                <div class="summary-line">
-                  <span>
-                    ${escapeHtml(row.label)}
-                    ${row.note ? `<br><small class="mini-note">${escapeHtml(row.note)}</small>` : ""}
-                  </span>
-                  <strong>${money(row.value)}</strong>
-                </div>
-              `).join("")}
-            </div>
-
-            ${breakdown.warnings.length ? `
-              <p class="mini-note">
-                ${breakdown.warnings.map(escapeHtml).join("<br>")}
-              </p>
-            ` : ""}
-
-            <div class="summary-total">
-              <span>Итого по позиции</span>
-              <strong>${money(breakdown.total)}</strong>
-            </div>
-          </div>
-        `;
-      }
-
       const AI_SERVICES = [
         { label: "Higgsfield (генерация движения)", price: 2990 },
         { label: "Syntex (видео + изображения)", price: 1990 },
@@ -17452,46 +17445,6 @@
 
             </section>
           </div>
-        `;
-      }
-
-      function renderPaymentCard(payment) {
-        return `
-          <article class="finance-card">
-            <div class="grid two">
-              ${field("Название", `<input data-autosave data-scope="payment" data-id="${payment.id}" data-key="title" value="${escapeHtml(payment.title)}">`)}
-              ${field("Сумма", `<input type="number" data-autosave data-scope="payment" data-id="${payment.id}" data-key="amount" value="${escapeHtml(payment.amount)}">`)}
-              ${field("Дата", `<input type="date" data-autosave data-scope="payment" data-id="${payment.id}" data-key="date" value="${escapeHtml(payment.date)}">`)}
-              ${field("Способ оплаты", `<select data-autosave data-scope="payment" data-id="${payment.id}" data-key="method">${paymentMethodOptions(payment.method)}</select>`)}
-            </div>
-            <div class="mt-10">${field("Комментарий", `<textarea data-autosave data-scope="payment" data-id="${payment.id}" data-key="note">${escapeHtml(payment.note)}</textarea>`)}</div>
-            <div class="toolbar no-print" style="margin-top:10px">
-              <button class="btn danger small" onclick="app.deletePayment('${payment.id}')">${TRASH_SVG} Удалить</button>
-            </div>
-          </article>
-        `;
-      }
-
-      function renderExpenseCard(expense) {
-        return `
-          <article class="finance-card">
-            <div class="grid two">
-              ${field("Название", `<input data-autosave data-scope="expense" data-id="${expense.id}" data-key="title" value="${escapeHtml(expense.title)}">`)}
-              ${field("Сумма", `<input type="number" data-autosave data-scope="expense" data-id="${expense.id}" data-key="amount" value="${escapeHtml(expense.amount)}">`)}
-              ${field("Дата", `<input type="date" data-autosave data-scope="expense" data-id="${expense.id}" data-key="date" value="${escapeHtml(expense.date)}">`)}
-              ${field("Категория", `<input data-autosave data-scope="expense" data-id="${expense.id}" data-key="category" value="${escapeHtml(expense.category)}">`)}
-              ${field("Оплачено", `
-                <select data-autosave data-scope="expense" data-id="${expense.id}" data-key="paid" title="Незаполненный расход всё равно учитывается в прогнозной марже как план">
-                  ${optionValueHtml("", "Нет — план", expense.paid ? "1" : "")}
-                  ${optionValueHtml("1", "Да — факт", expense.paid ? "1" : "")}
-                </select>
-              `)}
-            </div>
-            <div class="mt-10">${field("Комментарий", `<textarea data-autosave data-scope="expense" data-id="${expense.id}" data-key="note">${escapeHtml(expense.note)}</textarea>`)}</div>
-            <div class="toolbar no-print" style="margin-top:10px">
-              <button class="btn danger small" onclick="app.deleteExpense('${expense.id}')">${TRASH_SVG} Удалить</button>
-            </div>
-          </article>
         `;
       }
 
@@ -21678,10 +21631,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         save();
         if (!_supabase || !_adminSession) return;
         try {
-          await _supabase.rpc('update_telegram_recipients', {
+          const { error } = await _supabase.rpc('update_telegram_recipients', {
             p_agency_id: getAgencyId(),
             p_recipients: state.telegramChatIds || []
           });
+          if (error) throw error;
         } catch(e) {
           console.warn('Telegram RPC save failed:', e);
           toast('Не удалось сохранить настройки Telegram');
