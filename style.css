@@ -3155,6 +3155,18 @@
       background: var(--green);
       transition: width var(--dur-3) var(--ease-out);
     }
+    /* Ряд «вкладки + кнопка действий». Кнопка ОБЯЗАНА жить вне .deal-tabs: там
+       overflow-x: auto, а он обрезает выпадающее меню — оно просто не показалось бы
+       целиком. Заодно кнопка не уезжает вместе с прокруткой вкладок и всегда под
+       рукой. Отрицательные поля переехали сюда с .deal-tabs, чтобы вкладки
+       по-прежнему уходили под края шапки, а кнопка стояла внутри её отступов. */
+    .deal-tabs-row {
+      display: flex; align-items: stretch; gap: 4px;
+      margin: 0 -18px 0 -18px; padding-right: 18px;
+      border-top: 1px solid var(--line);
+    }
+    .deal-tabs-row > .deal-tabs { flex: 1 1 auto; min-width: 0; margin: 0; border-top: none; }
+    .deal-tabs-menu { flex: 0 0 auto; display: flex; align-items: center; padding-top: 2px; }
     .deal-tabs {
       display: flex; gap: 4px; border-top: 1px solid var(--line);
       padding-top: 2px; margin: 0 -18px; padding-left: 18px;
@@ -3823,6 +3835,12 @@
       transition: opacity var(--dur-1), background var(--dur-1), border-color var(--dur-1), color var(--dur-1);
     }
     .deal-card:hover .deal-menu-btn { opacity: 1; }
+    /* На плитке кнопка проявляется по наведению — там их десятки, и постоянные
+       троеточия рябили бы в списке. В шапке открытой сделки она одна и является
+       единственным входом в действия над сделкой, поэтому видна всегда.
+       Без этого правила кнопка наследовала opacity: 0 и была КЛИКАБЕЛЬНА, НО
+       НЕВИДИМА: замер геометрии и elementFromPoint показывали её на месте. */
+    .deal-tabs-menu .deal-menu-btn { opacity: 1; }
     .deal-menu-btn:hover {
       background: var(--panel2); border-color: var(--line); color: var(--text);
     }
@@ -4255,6 +4273,14 @@
       display: flex; flex-direction: column; gap: 5px;
       padding: 12px 14px; border-radius: var(--r-md);
       cursor: pointer; transition: background var(--dur-1);
+      /* Зазор между строками. Раньше карточки шли впритык, и при трёх строках
+         текста (название, клиент, этап с суммой) список читался сплошной простынёй:
+         граница между соседними сделками была видна только по цветной полоске слева.
+         Отступ на самом элементе, а не gap у контейнера, — список рисуется в двух
+         разных обёртках (.deal-rail-list в колонке и .deal-switcher-panel-list в
+         выезжающей панели), и в обеих между строками лежат ещё и заголовки секций. */
+      margin-bottom: 6px;
+      position: relative;
     }
     /* Подсветки при наведении НЕ БЫЛО ВООБЩЕ: правило красило строку в
        var(--panel2), а сама колонка .deal-rail уже этого цвета — курсор закрашивал
@@ -4265,6 +4291,24 @@
        (.active — .13), только слабее, поэтому «навёл» и «выбрано» читаются как
        одно семейство, а не два разных состояния. Тинт работает поверх любого фона,
        значит переживёт и смену цветовой схемы, и обе темы. */
+    /* Ручка переноса. Появляется по наведению на строку, а не висит всегда: иначе
+       она читается как активный элемент и спорит за внимание с названием сделки.
+       Позиционируется поверх правого края — в поток не встаёт, поэтому ширина
+       названия и суммы не меняется от того, наведён курсор или нет. */
+    .deal-switcher-item-grip {
+      position: absolute; top: 8px; right: 6px;
+      display: flex; align-items: center; justify-content: center;
+      width: 18px; height: 20px;
+      color: var(--muted); opacity: 0;
+      transition: opacity var(--dur-1);
+      pointer-events: none;
+    }
+    .deal-switcher-item:hover .deal-switcher-item-grip { opacity: .55; }
+    /* touch-action: none обязателен — иначе браузер на телефоне забирает
+       вертикальное движение себе под прокрутку и pointermove до нас не доходит.
+       Прокрутку списка это не ломает: перенос стартует только после удержания
+       (TOUCH_HOLD_MS), а до него уход пальца отменяет жест — см. dealPointerMove. */
+    .deal-switcher-item-draggable { touch-action: none; }
     .deal-switcher-item:hover { background: rgb(var(--primary-rgb) / .07); }
     .deal-switcher-item.active { background: rgb(var(--primary-rgb) / .13); }
     /* Специфичность .active и :hover одинакова, и .active идёт позже — без этого
@@ -6844,6 +6888,19 @@ body.portal-mode .nav { display: none !important; }
   overflow-y: auto;
   padding: 0 8px 10px;
 }
+
+/* Кнопка возврата к автосортировке. Видна только когда порядок ручной — иначе
+   она обещала бы действие, которое ничего не меняет. */
+.deal-rail-order-reset {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  margin: 4px 0 6px; padding: 6px 8px;
+  font: inherit; font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted); background: none;
+  border: 1px dashed var(--line); border-radius: var(--r-sm);
+  cursor: pointer; transition: color var(--dur-1), border-color var(--dur-1);
+}
+.deal-rail-order-reset:hover { color: var(--text); border-color: var(--primary2); }
 
 /* Ниже 1100px колонка не помещается рядом со сметой — возвращаемся к кнопке. */
 @media (max-width: 1100px) {

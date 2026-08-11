@@ -2295,5 +2295,128 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "вторая правка подряд завела отдельную строку — журнал забьётся при обычном редактировании");
   });
 
+  // ── Боковая колонка сделок и меню действий в шапке ──────────────────────────
+  // Колонка показывается только от 1101px (ниже — кнопка с выезжающей панелью),
+  // а общая страница набора шириной 1000 — поэтому здесь свой контекст.
+  async function bootRail() {
+    const { context: ctx, page: p } = await bootLocal(browser, baseUrl, { width: 1400, height: 900, seedDemo: true });
+    const ids = await p.evaluate(() => {
+      const read = () => JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const first = (read().savedProjects || [])[0];
+      if (!first) return null;
+      while ((read().savedProjects || []).length < 3) window.app.duplicateSavedProject(first.id);
+      return (read().savedProjects || []).map((x) => x.id);
+    });
+    await p.evaluate((i) => window.app.openDeal(i), ids[0]);
+    await p.waitForTimeout(600);
+    return { ctx, p, ids };
+  }
+
+  await test("боковой список сделок: строки не слипаются", async () => {
+    const { ctx, p } = await bootRail();
+    const gap = await p.evaluate(() => {
+      const it = [...document.querySelectorAll(".deal-rail .deal-switcher-item")];
+      if (it.length < 2) return null;
+      return Math.round(it[1].getBoundingClientRect().top - it[0].getBoundingClientRect().bottom);
+    });
+    await ctx.close();
+    assert(gap !== null, "в колонке меньше двух сделок — мерить нечего");
+    // Мерим РЕЗУЛЬТАТ (расстояние между строками), а не способ: переживёт замену
+    // margin на gap у контейнера или на flex-раскладку.
+    assert(gap >= 4, "между строками списка сделок нет зазора (" + gap + "px) — список читается сплошной простынёй");
+  });
+
+  await test("боковой список сделок: строка переносится, порядок переживает перерисовку", async () => {
+    const { ctx, p } = await bootRail();
+    const sel = ".deal-rail .deal-switcher-item";
+    const before = await p.$$eval(sel, (els) => els.map((e) => e.getAttribute("data-deal-id")));
+    assert(before.length >= 3 && before.every(Boolean), "нужно три строки с data-deal-id: " + JSON.stringify(before));
+
+    const box = await p.evaluate((s) => {
+      const it = [...document.querySelectorAll(s)];
+      const a = it[0].getBoundingClientRect(), b = it[1].getBoundingClientRect();
+      return { fx: b.left + 40, fy: b.top + 14, tx: a.left + 40, ty: a.top + 6 };
+    }, sel);
+    await p.mouse.move(box.fx, box.fy);
+    await p.mouse.down();
+    await p.mouse.move(box.fx + 3, box.fy - 10, { steps: 3 });
+    await p.waitForTimeout(120);
+    const mid = await p.evaluate(() => ({
+      placeholder: document.querySelectorAll(".deal-card-placeholder").length,
+      flying: document.querySelectorAll(".deal-card-flying").length,
+    }));
+    assertEqual(mid.placeholder, 1, "на месте строки не появилось пятно");
+    assertEqual(mid.flying, 1, "за указателем не поехал клон строки");
+
+    await p.mouse.move(box.tx, box.ty, { steps: 10 });
+    await p.waitForTimeout(150);
+    await p.mouse.up();
+    await p.waitForTimeout(400);
+
+    const after = await p.$$eval(sel, (els) => els.map((e) => e.getAttribute("data-deal-id")));
+    assert(JSON.stringify(after) !== JSON.stringify(before), "порядок не изменился после переноса");
+    assertEqual(after.length, before.length, "перенос изменил число строк");
+
+    // Главное в ручном порядке: автосортировка не должна вернуть всё назад на
+    // следующем рендере — иначе перенос выглядит сломанным, хотя state правильный.
+    await p.evaluate(() => window.app.go("deal"));
+    await p.waitForTimeout(400);
+    const afterRender = await p.$$eval(sel, (els) => els.map((e) => e.getAttribute("data-deal-id")));
+    assertEqual(afterRender.join(","), after.join(","), "после перерисовки автосортировка вернула прежний порядок");
+    const reset = await p.evaluate(() => !!document.querySelector(".deal-rail-order-reset"));
+    const junk = await p.evaluate(() =>
+      document.querySelectorAll(".deal-card-placeholder,.deal-card-flying").length +
+      (document.body.classList.contains("is-dragging-card") ? 1 : 0));
+    await ctx.close();
+    assert(reset, "нет кнопки возврата к автосортировке — ручной порядок стал ловушкой без выхода");
+    assertEqual(junk, 0, "после отпускания остался мусор в DOM");
+  });
+
+  await test("шапка сделки: кнопка «⋮» ВИДНА и её меню не обрезано", async () => {
+    const { ctx, p } = await bootRail();
+    const res = await p.evaluate(() => {
+      const btn = document.querySelector(".deal-tabs-menu .deal-menu-btn");
+      if (!btn) return { нет: true };
+      // opacity наследуется, поэтому перемножаем по цепочке. Именно на этом
+      // кнопка один раз уже оказалась КЛИКАБЕЛЬНОЙ, НО НЕВИДИМОЙ: базовое правило
+      // .deal-menu-btn { opacity: 0 } проявляет её только внутри .deal-card, а в
+      // шапке такого предка нет. Геометрия и elementFromPoint при этом врали, что
+      // всё на месте, — проверять надо видимость.
+      let opacity = 1;
+      for (let e = btn; e && e !== document.body; e = e.parentElement) opacity *= parseFloat(getComputedStyle(e).opacity);
+      const r = btn.getBoundingClientRect();
+      btn.click();
+      const m = document.querySelector(".deal-tabs-menu .deal-ctx-menu");
+      if (!m) return { opacity, нетМеню: true };
+      const mr = m.getBoundingClientRect();
+      // Предок с overflow срезал бы выпадающее меню — ровно поэтому кнопка вынесена
+      // из .deal-tabs, где overflow-x: auto для прокрутки вкладок.
+      let clipped = null;
+      for (let e = m.parentElement; e && e !== document.body; e = e.parentElement) {
+        const cs = getComputedStyle(e);
+        if (/auto|hidden|scroll/.test(cs.overflowX + " " + cs.overflowY)) {
+          const pr = e.getBoundingClientRect();
+          if (mr.bottom > pr.bottom + 1 || mr.right > pr.right + 1 || mr.left < pr.left - 1) clipped = e.className || e.tagName;
+          break;
+        }
+      }
+      return {
+        opacity,
+        видна: r.width > 0 && r.height > 0 && r.right <= window.innerWidth + 1,
+        пунктов: m.querySelectorAll(".dcm-item").length,
+        обрезано: clipped,
+        вОкне: mr.bottom <= window.innerHeight + 1 && mr.right <= window.innerWidth + 1,
+      };
+    });
+    await ctx.close();
+    assert(!res.нет, "в шапке сделки нет кнопки действий «⋮»");
+    assert(!res.нетМеню, "кнопка «⋮» есть, но меню не открылось");
+    assertEqual(res.opacity, 1, "кнопка «⋮» прозрачна (" + res.opacity + ") — кликабельна, но невидима");
+    assert(res.видна, "кнопка «⋮» вне окна");
+    assert(res.пунктов >= 5, "в меню шапки только " + res.пунктов + " пунктов — оно разошлось с меню на плитке");
+    assert(!res.обрезано, "меню обрезано предком с overflow: " + res.обрезано);
+    assert(res.вОкне, "меню вылезло за край окна");
+  });
+
   await context.close();
 };

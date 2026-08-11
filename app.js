@@ -6413,6 +6413,9 @@
           crmView: "grid",
           clientsView: "grid",
           crmSort: "default",
+          // Боковой список сделок: false — автосортировка (этап воронки, потом дата
+          // правки), true — порядок, который человек выставил переносом строк.
+          dealRailManual: false,
           gFinFilter: "all",
           gFinTypeFilter: "all",
           gFinSubTab: "transactions",
@@ -9602,7 +9605,16 @@
       const TOUCH_HOLD_MS = 220;
       let _drag = null;
 
-      function _dragCards(grid) { return [...grid.querySelectorAll(".deal-card")]; }
+      // Ищем по data-deal-id, а не по классу: тот же механизм переноса работает и на
+      // плитках главной (.deal-card), и на строках бокового списка сделок
+      // (.deal-switcher-item). Общий признак — атрибут с id, он же нужен на выходе.
+      function _dragCards(grid) { return [...grid.querySelectorAll("[data-deal-id]")]; }
+
+      // Клик приходит ПОСЛЕ pointerup, и без этой отсечки перенос строки в боковом
+      // списке заодно переключал на неё сделку — то есть перетащил, а приложение
+      // ушло в другой проект.
+      let _dragEndedAt = 0;
+      function _clickAfterDrag() { return Date.now() - _dragEndedAt < 300; }
 
       function dealPointerDown(id, ev) {
         if (ev.button != null && ev.button !== 0) return;
@@ -9662,7 +9674,13 @@
         });
         if (!target) return;
         const tr = target.getBoundingClientRect();
-        const after = (ev.clientX - tr.left) > tr.width / 2;
+        // Плитки главной лежат сеткой в несколько колонок — там сторону определяет
+        // горизонталь. Боковой список сделок — одна колонка, и по горизонтали все
+        // строки совпадают: рубеж там только по вертикали, иначе вставка срабатывает
+        // через раз и порядок «прыгает».
+        const after = d.grid.dataset.dragAxis === "y"
+          ? (ev.clientY - tr.top) > tr.height / 2
+          : (ev.clientX - tr.left) > tr.width / 2;
         // insertBefore сам вырезает узел из старого места — отдельный remove не нужен.
         d.grid.insertBefore(d.card, after ? target.nextSibling : target);
       }
@@ -9678,7 +9696,15 @@
         if (d.clone) d.clone.remove();
         d.card.classList.remove("deal-card-placeholder");
         document.body.classList.remove("is-dragging-card");
+        _dragEndedAt = Date.now();
         if (cancelled) { render(); return; }
+
+        // Боковой список по умолчанию сортируется сам (этап воронки, потом дата
+        // правки). Стоит человеку переставить строку руками — автосортировка
+        // тут же вернула бы всё назад, и перенос выглядел бы сломанным. Поэтому
+        // первый же перенос переводит список на ручной порядок; вернуть автоматику
+        // можно кнопкой в заголовке секции.
+        if (d.grid.dataset.dragScope === "rail") state.dealRailManual = true;
 
         // Итоговый порядок берём из DOM. В state переставляем только те сделки,
         // что сейчас на экране: список отфильтрован и разбит на страницы, поэтому
@@ -11031,6 +11057,52 @@
 
         save();
         render();
+      }
+
+      // Меню действий над сделкой. Живёт в двух местах — на плитке главной и в шапке
+      // открытой сделки, — поэтому собрано одной функцией: раньше пункты пришлось бы
+      // держать синхронно в двух копиях по сорок строк, и они бы разошлись.
+      // id меню один (dcm-<id>) — обе точки на одном экране никогда не встречаются:
+      // плитки живут в разделе «Проекты», шапка — внутри сделки.
+      function _dealCtxMenuHtml(project) {
+        const projectIdSafe = (project.id || '').replace(/'/g, '');
+        return `
+          <div class="deal-ctx-menu" id="dcm-${projectIdSafe}" style="display:none">
+            <button class="dcm-item dcm-purple" onclick="event.stopPropagation();app.closeDealMenu();app.togglePinDeal('${projectIdSafe}')">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.83 1.02l5.15 5.15c.28.28.02.76-.37.69l-2.4-.44-2.9 2.9.44 2.86c.07.4-.42.66-.7.38L6.4 10.42l-4.1 4.1-.7-.7 4.1-4.1-2.13-2.13c-.28-.28-.02-.77.38-.7l2.86.44 2.9-2.9-.44-2.4c-.07-.4.41-.65.69-.37z"/></svg>
+              ${project.pinned ? "Открепить" : "Закрепить наверху"}
+            </button>
+            <div class="dcm-sep"></div>
+            <button class="dcm-item dcm-blue" onclick="event.stopPropagation();app.closeDealMenu();app.openDealModal('${projectIdSafe}')">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 011.06 2.56L5.12 11H3v-2.12l7.44-7.44A1.5 1.5 0 0111.5 1zM2 12.5V15h2.5l.1-.1-2.4-2.4-.2.1z"/></svg>
+              Редактировать
+            </button>
+            <button class="dcm-item dcm-cyan" onclick="event.stopPropagation();app.closeDealMenu();app.duplicateDeal('${projectIdSafe}')">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H3a1 1 0 00-1 1v9h1V2h8V1zm2 2H5a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V4a1 1 0 00-1-1zm0 11H5V4h8v10z"/></svg>
+              Дублировать
+            </button>
+            <button class="dcm-item" onclick="event.stopPropagation();app.selectDealFromMenu('${projectIdSafe}')">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 1v10h10V3H3zm2.3 5.4l1.8 1.8 3.6-3.6.7.7-4.3 4.3-2.5-2.5.7-.7z"/></svg>
+              Выбрать
+            </button>
+            <div class="dcm-sep"></div>
+            ${project.crmStatus === CRM_ARCHIVED ? `
+            <button class="dcm-item dcm-green" onclick="event.stopPropagation();app.unarchiveDeal('${projectIdSafe}')">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3V1L4.5 4 8 7V5a4 4 0 11-4 4H2.5A5.5 5.5 0 108 3z"/></svg>
+              Вернуть в работу
+            </button>
+            ` : `
+            <button class="dcm-item dcm-green" onclick="event.stopPropagation();app.finishDeal('${projectIdSafe}')">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 2.5l-8 8-3-3-1 1 4 4 9-9z"/></svg>
+              Завершить
+            </button>
+            <button class="dcm-item" onclick="event.stopPropagation();app.archiveDeal('${projectIdSafe}')" title="Убрать в архив — сделка уйдёт из активных и статистики, но карточка сохранится">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM4.5 4.5l7 7-1 1-7-7 1-1z"/></svg>
+              В архив
+            </button>
+            `}
+          </div>
+        `;
       }
 
       function toggleDealMenu(id, e) {
@@ -14581,41 +14653,7 @@
                           <button class="deal-menu-btn" onclick="app.toggleDealMenu('${projectIdSafe}',event)" title="Действия со сделкой" aria-label="Действия со сделкой">
                             <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
                           </button>
-                          <div class="deal-ctx-menu" id="dcm-${projectIdSafe}" style="display:none">
-                            <button class="dcm-item dcm-purple" onclick="event.stopPropagation();app.closeDealMenu();app.togglePinDeal('${projectIdSafe}')">
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.83 1.02l5.15 5.15c.28.28.02.76-.37.69l-2.4-.44-2.9 2.9.44 2.86c.07.4-.42.66-.7.38L6.4 10.42l-4.1 4.1-.7-.7 4.1-4.1-2.13-2.13c-.28-.28-.02-.77.38-.7l2.86.44 2.9-2.9-.44-2.4c-.07-.4.41-.65.69-.37z"/></svg>
-                              ${project.pinned ? "Открепить" : "Закрепить наверху"}
-                            </button>
-                            <div class="dcm-sep"></div>
-                            <button class="dcm-item dcm-blue" onclick="event.stopPropagation();app.closeDealMenu();app.openDealModal('${projectIdSafe}')">
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 011.06 2.56L5.12 11H3v-2.12l7.44-7.44A1.5 1.5 0 0111.5 1zM2 12.5V15h2.5l.1-.1-2.4-2.4-.2.1z"/></svg>
-                              Редактировать
-                            </button>
-                            <button class="dcm-item dcm-cyan" onclick="event.stopPropagation();app.closeDealMenu();app.duplicateDeal('${projectIdSafe}')">
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H3a1 1 0 00-1 1v9h1V2h8V1zm2 2H5a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V4a1 1 0 00-1-1zm0 11H5V4h8v10z"/></svg>
-                              Дублировать
-                            </button>
-                            <button class="dcm-item" onclick="event.stopPropagation();app.selectDealFromMenu('${projectIdSafe}')">
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 1v10h10V3H3zm2.3 5.4l1.8 1.8 3.6-3.6.7.7-4.3 4.3-2.5-2.5.7-.7z"/></svg>
-                              Выбрать
-                            </button>
-                            <div class="dcm-sep"></div>
-                            ${project.crmStatus === CRM_ARCHIVED ? `
-                            <button class="dcm-item dcm-green" onclick="event.stopPropagation();app.unarchiveDeal('${projectIdSafe}')">
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3V1L4.5 4 8 7V5a4 4 0 11-4 4H2.5A5.5 5.5 0 108 3z"/></svg>
-                              Вернуть в работу
-                            </button>
-                            ` : `
-                            <button class="dcm-item dcm-green" onclick="event.stopPropagation();app.finishDeal('${projectIdSafe}')">
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 2.5l-8 8-3-3-1 1 4 4 9-9z"/></svg>
-                              Завершить
-                            </button>
-                            <button class="dcm-item" onclick="event.stopPropagation();app.archiveDeal('${projectIdSafe}')" title="Убрать в архив — сделка уйдёт из активных и статистики, но карточка сохранится">
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM4.5 4.5l7 7-1 1-7-7 1-1z"/></svg>
-                              В архив
-                            </button>
-                            `}
-                          </div>
+                          ${_dealCtxMenuHtml(project)}
                         </div>
                       </div>
 
@@ -19142,6 +19180,9 @@
         };
         const nextActionLabel = DEAL_NEXT_ACTIONS[state.project.crmStatus || "Лид"];
 
+        // Сделка из сохранённых — источник pinned/crmStatus для меню действий в шапке.
+        const dealHeaderMenuProject = (state.savedProjects || []).find(p => p.id === state.activeProjectId);
+
         const dealTabs = [
           { id: "estimate", label: "Смета" },
           { id: "description", label: "Описание" },
@@ -19217,10 +19258,30 @@
               }).join("")}
             </div>
 
-            <div class="deal-tabs" style="margin-top:10px">
+            <div class="deal-tabs-row" style="margin-top:10px">
+            <div class="deal-tabs">
               ${dealTabs.map(tab => `
                 <button class="deal-tab ${state.dealView === tab.id ? "active" : ""}" onclick="app.setDealView('${tab.id}')" title="${tab.id === "estimate" ? "Смета проекта" : tab.id === "description" ? "Заметки и детали сделки" : tab.id === "proposal" ? "Коммерческое предложение" : tab.id === "tasks" ? "Задачи и канбан" : tab.id === "finance" ? "Платежи и расходы" : tab.id === "team" ? "Команда проекта" : tab.id === "calendar" ? "Даты проекта" : "Версии сметы"}">${escapeHtml(tab.label)}</button>
               `).join("")}
+            </div>
+              ${/* Действия над самой сделкой — редактировать, дублировать, закрепить,
+                    завершить, убрать в архив. Раньше они были только на плитке в
+                    разделе «Проекты»: чтобы переименовать открытую сделку или убрать
+                    её в архив, приходилось выходить из неё и искать плитку в списке
+                    из ста с лишним. Меню то же самое (_dealCtxMenuHtml), поэтому
+                    состав пунктов в двух местах не разъедется.
+                    Берём СОХРАНЁННУЮ сделку, а не state.project: pinned и crmStatus
+                    для меню читаются оттуда, и у несохранённого черновика кнопки
+                    просто нет — действовать ещё не над чем. */""}
+              ${dealHeaderMenuProject ? `
+                <div class="deal-card-menu-wrap deal-tabs-menu">
+                  <button class="deal-menu-btn" onclick="app.toggleDealMenu('${(dealHeaderMenuProject.id || "").replace(/'/g, "")}',event)"
+                    title="Действия со сделкой" aria-label="Действия со сделкой" aria-haspopup="menu">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
+                  </button>
+                  ${_dealCtxMenuHtml(dealHeaderMenuProject)}
+                </div>
+              ` : ""}
             </div>
           </div>
 
@@ -22130,9 +22191,21 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         _refreshDealLists();
       }
       function switchDeal(projectId) {
+        // Клик прилетает следом за pointerup: без отсечки перенос строки в боковом
+        // списке заодно уводил в перетащенную сделку.
+        if (_clickAfterDrag()) return;
         state.dealSwitcherOpen = false;
         renderDealBar();
         openDeal(projectId);
+      }
+
+      // Возврат к автосортировке бокового списка. Сам порядок state.savedProjects не
+      // трогаем: он общий с плитками главной, где ручная расстановка — штатный режим.
+      function resetDealRailOrder() {
+        state.dealRailManual = false;
+        save();
+        render();
+        toast("Порядок снова автоматический — по этапу воронки и дате правки");
       }
       function renderDealBar() {
         const btnEl = document.getElementById("dealBarSwitcher");
@@ -22162,8 +22235,18 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const u = dealDeadlineUrgency(p);
         const stage = p.crmStatus || "Лид";
         const dateColor = u && u.level !== "ok" ? u.color : "var(--muted)";
+        const idSafe = p.id.replace(/'/g, "");
         return `
-          <div class="deal-switcher-item ${isActive ? "active" : ""} ${extraClass || ""}" onclick="app.switchDeal('${p.id.replace(/'/g, "")}')">
+          <div class="deal-switcher-item deal-switcher-item-draggable ${isActive ? "active" : ""} ${extraClass || ""}"
+            data-deal-id="${idSafe}"
+            onpointerdown="app.dealPointerDown('${idSafe}',event)"
+            onpointermove="app.dealPointerMove(event)"
+            onpointerup="app.dealPointerUp(event)"
+            onpointercancel="app.dealPointerUp(event,true)"
+            onclick="app.switchDeal('${idSafe}')">
+            <span class="deal-switcher-item-grip" aria-hidden="true" title="Потяните, чтобы переставить">
+              <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="2.5" cy="3" r="1.2"/><circle cx="7.5" cy="3" r="1.2"/><circle cx="2.5" cy="8" r="1.2"/><circle cx="7.5" cy="8" r="1.2"/><circle cx="2.5" cy="13" r="1.2"/><circle cx="7.5" cy="13" r="1.2"/></svg>
+            </span>
             <div class="deal-switcher-item-name">${escapeHtml(p.name || "Без названия")}</div>
             ${p.client ? `<div class="deal-switcher-item-client">${escapeHtml(p.client)}</div>` : ""}
             <div class="deal-switcher-item-meta">
@@ -22182,18 +22265,25 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           return `<div class="deal-switcher-panel-empty">Ничего не найдено</div>`;
         }
         const crmOrder = idx => { const i = CRM_STATUSES.indexOf(idx); return i < 0 ? 99 : i; };
+        // Ручной порядок: строки идут так, как лежат в state.savedProjects — именно
+        // его переставляет перенос. Пока человек ничего не таскал, работает прежняя
+        // автосортировка (этап воронки, потом дата правки).
+        const manual = !!state.dealRailManual;
+        const railPos = new Map((state.savedProjects || []).map((p, i) => [p.id, i]));
+        const byManual = (a, b) => (railPos.get(a.id) ?? 1e9) - (railPos.get(b.id) ?? 1e9);
+        const byUpdated = (a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "");
         const active = projects
           .filter(p => (p.crmStatus || "Лид") !== "Завершённые" && (p.crmStatus || "Лид") !== CRM_ARCHIVED)
-          .sort((a, b) => {
+          .sort(manual ? byManual : (a, b) => {
             const d = crmOrder(a.crmStatus || "Лид") - crmOrder(b.crmStatus || "Лид");
-            return d !== 0 ? d : (b.updatedAt || "").localeCompare(a.updatedAt || "");
+            return d !== 0 ? d : byUpdated(a, b);
           });
         const completed = projects
           .filter(p => (p.crmStatus || "Лид") === "Завершённые")
-          .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+          .sort(manual ? byManual : byUpdated);
         const archived = projects
           .filter(p => (p.crmStatus || "Лид") === CRM_ARCHIVED)
-          .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+          .sort(manual ? byManual : byUpdated);
         const section = (key, label, cls, items, itemCls, extraStyle) => {
           if (!items.length) return "";
           const collapsed = !!_dealSwitcherCollapsed[key];
@@ -22202,10 +22292,25 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <span>${label} (${items.length})</span>
               <span class="deal-switcher-section-chevron ${collapsed ? "" : "open"}">▾</span>
             </button>
-            ${collapsed ? "" : items.map(p => _dealSwitcherItemHtml(p, itemCls)).join("")}
+            ${collapsed ? "" : `
+              ${/* Своя обёртка на секцию — она же граница переноса: строку можно
+                    переставить внутри «В работе», но не уронить в «Архив», где это
+                    молча сменило бы статус сделки. Для смены статуса есть шкала
+                    этапов в шапке. data-drag-axis="y" переключает рубеж вставки на
+                    вертикаль: список в одну колонку. */""}
+              <div class="deal-switcher-section-items" data-drag-axis="y" data-drag-scope="rail">
+                ${items.map(p => _dealSwitcherItemHtml(p, itemCls)).join("")}
+              </div>
+            `}
           `;
         };
         return `
+          ${manual ? `
+            <button type="button" class="deal-rail-order-reset" onclick="app.resetDealRailOrder()"
+              title="Вернуть сортировку по этапу воронки и дате правки">
+              ${icon("refresh", 12)} Свой порядок · вернуть авто
+            </button>
+          ` : ""}
           ${section("active", "В работе", "active-label", active, "active-deal")}
           ${section("completed", "Завершённые", "completed-label", completed, "completed-deal", "margin-top:8px")}
           ${section("archived", "Архив", "archived-label", archived, "archived-deal", "margin-top:8px")}
@@ -24615,6 +24720,7 @@ Email: _____________________              Email: _____________________
         filterDealSwitcher,
         toggleDealSwitcherSection,
         switchDeal,
+        resetDealRailOrder,
 
         openDealModal,
         closeDealModal,
