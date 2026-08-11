@@ -180,11 +180,17 @@
       --h-md: 36px;
       --h-lg: 44px;
 
+      /* Шкала из DESIGN.md §5: 4 бейдж/чип · 8 инпут/мелкая кнопка · 12 вторичная
+         карточка · 16 основная карточка и модалка · 24 нижний лист и крупные
+         standalone-панели (экран входа, страница брифа, портал клиента).
+         --r-md: 10px — единственное значение вне спеки, оставлено под мелкие
+         внутренние элементы, которых в DESIGN.md нет. */
       --r-xs:   4px;
       --r-sm:   8px;
       --r-md:  10px;
       --r-lg:  12px;
       --r-xl:  16px;
+      --r-2xl: 24px;
       --r-pill: 999px;
 
       /* ── Движение ──────────────────────────────────────────────────────────
@@ -1408,7 +1414,9 @@
       margin-top: 10px;
       padding-top: 10px;
       border-top: 1px solid var(--line);
-      border-radius: 0 0 9px 9px;
+      /* Верх квадратный: пункт отделён линией и визуально к ней прижат. Низ — как у
+         базового .catalog-cat-item (--r-sm), раньше стояло 9px без причины. */
+      border-radius: 0 0 var(--r-sm) var(--r-sm);
       color: var(--text-danger);
     }
     .catalog-cat-item.danger:hover { background: rgba(220,38,38,.1); color: var(--text-danger); }
@@ -1534,7 +1542,7 @@
         padding: 0 14px calc(14px + env(safe-area-inset-bottom, 0px));
         background: var(--panel);
         border-top: 1px solid var(--line);
-        border-radius: 18px 18px 0 0;
+        border-radius: var(--r-2xl) var(--r-2xl) 0 0;
         box-shadow: 0 -12px 40px rgba(0, 0, 0, .28);
         /* Маску краёв (она была подсказкой «тут скроллится вбок») убираем:
            горизонтальной прокрутки больше нет, а вертикальную она бы обрезала. */
@@ -2738,7 +2746,7 @@
     .uu-select-search {
       position: sticky; top: 0; z-index: 1; width: 100%;
       padding: 8px 10px; margin-bottom: 4px; box-sizing: border-box;
-      border: none; border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0;
+      border: none; border-bottom: 1px solid var(--line); border-radius: var(--r-sm) var(--r-sm) 0 0;
       background: var(--panel); color: var(--text); font-size: 13px; font: inherit;
     }
     .uu-select-search:focus { outline: none; background: var(--panel2); }
@@ -4071,7 +4079,7 @@
     .deal-bar .deal-tab.active {
       color: var(--primary-on-tint);
       background: rgb(var(--primary-rgb) / .12);
-      border-radius: 8px 8px 0 0;
+      border-radius: var(--r-sm) var(--r-sm) 0 0;
       border-bottom-color: var(--primary-on-tint);
     }
     .estimate-section-title {
@@ -4602,7 +4610,7 @@
     }
     .fin-subtab.active {
       color: var(--primary-on-tint); border-bottom-color: var(--primary-on-tint);
-      background: rgb(var(--primary-rgb) / .12); border-radius: 8px 8px 0 0;
+      background: rgb(var(--primary-rgb) / .12); border-radius: var(--r-sm) var(--r-sm) 0 0;
     }
     .fin-subtab:hover { color: var(--text); }
 
@@ -4745,7 +4753,7 @@
       gap: 2px; flex: 1; min-width: 28px;
     }
     .gfin-bar {
-      width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; transition: var(--dur-2);
+      width: 100%; border-radius: var(--r-xs) var(--r-xs) 0 0; min-height: 2px; transition: var(--dur-2);
     }
     .gfin-bar.income { background: var(--green); }
     .gfin-bar.expense { background: var(--red); opacity: .7; }
@@ -4770,7 +4778,7 @@
     .modal-box {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 20px;
+      border-radius: var(--r-xl);
       padding: 28px;
       width: min(480px, calc(100vw - 32px));
       max-height: calc(100dvh - 48px);
@@ -5191,7 +5199,7 @@
     .task-modal-box {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 20px;
+      border-radius: var(--r-xl);
       padding: 24px;
       width: min(520px, calc(100vw - 32px));
       box-shadow: 0 32px 80px rgba(0,0,0,.55);
@@ -5338,7 +5346,7 @@
     .auth-gate-box {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 24px;
+      border-radius: var(--r-2xl);
       box-shadow: 0 32px 80px rgba(0,0,0,.28);
       padding: 36px 32px;
       width: min(400px, calc(100vw - 32px));
@@ -5390,7 +5398,7 @@
       width: min(380px, calc(100vw - 24px));
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 18px;
+      border-radius: var(--r-xl);
       box-shadow: 0 20px 60px rgba(0,0,0,.28);
       overflow: hidden;
     }
@@ -5679,7 +5687,7 @@
     .ob-mock-kpis { display: flex; gap: 8px; }
     .ob-mock-kpi { flex: 1; height: 26px; border-radius: var(--r-sm); }
     .ob-mock-bars { display: flex; align-items: flex-end; gap: 6px; height: 56px; }
-    .ob-mock-bars span { flex: 1; background: var(--primary2); opacity: .55; border-radius: 3px 3px 0 0; }
+    .ob-mock-bars span { flex: 1; background: var(--primary2); opacity: .55; border-radius: var(--r-xs) var(--r-xs) 0 0; }
     .ob-mock-kanban { display: flex; gap: 10px; height: 100%; }
     .ob-mock-col { flex: 1; display: flex; flex-direction: column; gap: 7px; }
     .ob-mock-card { display: block; height: 24px; border-radius: var(--r-sm); background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--line); }
@@ -5764,7 +5772,7 @@ body.calc-mode #appContent { padding: 0; }
 }
 .brief-card {
   background: var(--panel); border: 1px solid var(--line);
-  border-radius: 24px; padding: 36px 32px; box-shadow: var(--shadow);
+  border-radius: var(--r-2xl); padding: 36px 32px; box-shadow: var(--shadow);
 }
 .brief-card h1 { margin: 0 0 8px; font-size: 24px; font-weight: 900; }
 .brief-card > p.brief-sub { margin: 0 0 24px; color: var(--muted); font-size: 14px; line-height: 1.55; }
@@ -5944,7 +5952,7 @@ body.calc-mode #appContent { padding: 0; }
 }
 @media (max-width: 640px) {
   .brief-row { grid-template-columns: 1fr; }
-  .brief-card { padding: 24px 18px; border-radius: 18px; }
+  .brief-card { padding: 24px 18px; border-radius: var(--r-xl); }
   .brief-wrap { padding: 24px 12px 48px; }
 }
 
@@ -5992,7 +6000,7 @@ body.portal-mode .nav { display: none !important; }
 }
 .portal-card {
   background: var(--panel); border: 1px solid var(--line);
-  border-radius: 24px; padding: 32px 28px; box-shadow: var(--shadow);
+  border-radius: var(--r-2xl); padding: 32px 28px; box-shadow: var(--shadow);
 }
 .portal-status-badge {
   display: inline-flex; align-items: center; gap: 6px;
@@ -6035,7 +6043,7 @@ body.portal-mode .nav { display: none !important; }
 }
 .portal-services-list li::before { content: "✓ "; color: var(--text-success); font-weight: 700; }
 @media (max-width: 640px) {
-  .portal-card { padding: 22px 18px; border-radius: 18px; }
+  .portal-card { padding: 22px 18px; border-radius: var(--r-xl); }
   .portal-title { font-size: 20px; }
   .portal-price-amount { font-size: 22px; }
 }
@@ -6312,7 +6320,7 @@ body.portal-mode .nav { display: none !important; }
     max-width: 100% !important;
     max-height: 92dvh;
     overflow-y: auto;
-    border-radius: 18px 18px 0 0;
+    border-radius: var(--r-2xl) var(--r-2xl) 0 0;
     padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
     animation: sheetUp .28s cubic-bezier(.32, .72, 0, 1);
   }
@@ -6660,7 +6668,7 @@ body.portal-mode .nav { display: none !important; }
 /* ── Шаг 3: результат ─────────────────────────────────────────────────── */
 .calc-result-card {
   text-align: center; padding: 26px 20px;
-  background: var(--panel); border: 1px solid var(--primary2); border-radius: 20px;
+  background: var(--panel); border: 1px solid var(--primary2); border-radius: var(--r-xl);
   box-shadow: 0 16px 44px var(--primary-bg);
 }
 .calc-result-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }

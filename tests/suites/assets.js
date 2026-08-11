@@ -17,6 +17,24 @@ module.exports = async function ({ test }) {
   const app = readSrc("app.js");
   const head = index.slice(0, index.indexOf("</head>"));
 
+  await test("скругления: только токены шкалы, без пиксельных литералов", () => {
+    // Шкала сводилась дважды и оба раза не до конца: d898f53 заявил «18 значений →
+    // 5», но в файле осталось 28 штук 14px (значения в шкале нет вовсе) и легаси
+    // --radius, дублирующий --r-xl. Значения расползаются молча — глазом 14px от
+    // 16px не отличить, а через полгода их снова два десятка.
+    // Разрешено: var(--r-*), 50% (круг) и 0. Всё остальное — обратно в DESIGN.md §5.
+    const bad = [];
+    css.split("\n").forEach((line, i) => {
+      const m = line.match(/border-radius:\s*([^;}]+)/);
+      if (!m) return;
+      const value = m[1].trim();
+      const ok = value.split(/\s+/).every(part => /^var\(--r-[a-z0-9]+\)$/.test(part) || part === "50%" || part === "0");
+      if (!ok) bad.push(`style.css:${i + 1}: ${value}`);
+    });
+    assert(bad.length === 0,
+      "border-radius мимо шкалы токенов (DESIGN.md §5):\n" + bad.join("\n"));
+  });
+
   await test("нет Google Fonts (шрифты self-hosted)", () => {
     assert(!/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(index), "остался линк Google Fonts в index.html");
     assert(!/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(css), "остался @import Google Fonts в style.css");

@@ -128,12 +128,20 @@
 ## 5. Radii (скругления)
 
 ```
-4px   — badge, tag, chip
-8px   — input, select, маленький button
-12px  — card secondary
-16px  — card primary, modal (текущий --radius: 18px → снизить до 16px)
-24px  — bottom sheet, крупные панели
+--r-xs    4px   — badge, tag, chip
+--r-sm    8px   — input, select, маленький button
+--r-md   10px   — мелкие внутренние элементы (вне спеки, исторический)
+--r-lg   12px   — card secondary, контролы и вторичные строки
+--r-xl   16px   — card primary, modal, поповер
+--r-2xl  24px   — bottom sheet, крупные standalone-панели
+                  (экран входа, страница брифа, портал клиента)
+--r-pill 999px  — таблетки и круглые кнопки
 ```
+
+**В коде только эти токены.** Пиксельных литералов в `border-radius` не осталось
+ни одного (11.08.2026); допустимы лишь `50%` для кругов и `0`. Легаси-токен
+`--radius` удалён — он дублировал `--r-xl`. Закреплено сторожем
+`скругления: только токены шкалы, без пиксельных литералов` в `tests/suites/assets.js`.
 
 ---
 
