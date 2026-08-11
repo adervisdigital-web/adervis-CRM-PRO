@@ -8175,8 +8175,15 @@
         if (idx === -1) return;
         const removed = state.savedProjects[idx];
         const wasActive = state.activeProjectId === id;
+        // Удалили ту сделку, которая сейчас открыта, — с её экрана надо уйти.
+        // Раньше оставались стоять на нём: activeProjectId обнулялся, но state.project
+        // (рабочая копия) никуда не девался, и удалённая сделка рисовалась целиком —
+        // со сметой, суммами и полями ввода. Её можно было продолжать редактировать,
+        // хотя в списке слева её уже не было. Отмена возвращает и сделку, и экран.
+        const wasOnDealView = wasActive && state.view === "deal";
         state.savedProjects.splice(idx, 1);
         if (wasActive) state.activeProjectId = "";
+        if (wasOnDealView) state.view = "home";
         save();
         render();
         // Как в deleteTask() — Google-событие удаляем только после окна отмены (5с),
@@ -8189,6 +8196,7 @@
           if (googleDeleteTimer) clearTimeout(googleDeleteTimer);
           state.savedProjects.splice(idx, 0, removed);
           if (wasActive) state.activeProjectId = id;
+          if (wasOnDealView) state.view = "deal";
           save();
           render();
           toast("Удаление отменено");
@@ -8203,8 +8211,12 @@
         const wasActive = state.activeProjectId === id;
 
         state.dealModal = null;
+        // См. deleteSavedProject(): удалённая сделка иначе остаётся нарисованной на
+        // экране целиком, потому что рабочая копия в state.project переживает удаление.
+        const wasOnDealView = wasActive && state.view === "deal";
         state.savedProjects.splice(idx, 1);
         if (wasActive) state.activeProjectId = "";
+        if (wasOnDealView) state.view = "home";
         save();
         render();
         // Как в deleteSavedProject() — Google-событие удаляем только после окна
@@ -8219,6 +8231,7 @@
           if (googleDeleteTimer) clearTimeout(googleDeleteTimer);
           state.savedProjects.splice(idx, 0, removed);
           if (wasActive) state.activeProjectId = id;
+          if (wasOnDealView) state.view = "deal";
           save();
           render();
           toast("Удаление отменено");
@@ -11059,11 +11072,58 @@
         render();
       }
 
-      // Меню действий над сделкой. Живёт в двух местах — на плитке главной и в шапке
-      // открытой сделки, — поэтому собрано одной функцией: раньше пункты пришлось бы
-      // держать синхронно в двух копиях по сорок строк, и они бы разошлись.
-      // id меню один (dcm-<id>) — обе точки на одном экране никогда не встречаются:
-      // плитки живут в разделе «Проекты», шапка — внутри сделки.
+      // Меню «⋮» в ШАПКЕ ОТКРЫТОЙ СДЕЛКИ. Состав намеренно НЕ такой, как на плитке
+      // в разделе «Проекты» (_dealCtxMenuHtml): там меню — единственный способ
+      // что-либо сделать со сделкой, не открывая её, а здесь половина пунктов
+      // дублировала бы то, что уже на экране.
+      //   • «Завершить» и «В архив» — статус меняется шкалой этапов прямо над
+      //     вкладками, вторая точка входа только путала бы;
+      //   • «Выбрать» — это режим массового выделения в списке проектов, внутри
+      //     одной открытой сделки он бессмыслен;
+      //   • «Закрепить наверху» — влияет на позицию плитки в списке, не на сделку.
+      // Взамен добавлены действия, до которых из сделки иначе не дотянуться:
+      // повтор цикла, договор, счёт и удаление (оно было спрятано ссылкой в самом
+      // низу модалки редактирования).
+      // id меню общий с плиткой (dcm-<id>) — обе точки на одном экране никогда не
+      // встречаются: плитки живут в «Проектах», шапка — внутри сделки.
+      function _dealHeaderMenuHtml(project) {
+        const idSafe = (project.id || "").replace(/'/g, "");
+        const act = fn => `event.stopPropagation();app.closeDealMenu();app.${fn}`;
+        return `
+          <div class="deal-ctx-menu" id="dcm-${idSafe}" style="display:none">
+            <button class="dcm-item dcm-blue" onclick="${act(`openDealModal('${idSafe}')`)}">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 011.06 2.56L5.12 11H3v-2.12l7.44-7.44A1.5 1.5 0 0111.5 1zM2 12.5V15h2.5l.1-.1-2.4-2.4-.2.1z"/></svg>
+              Редактировать
+            </button>
+            <button class="dcm-item dcm-cyan" onclick="${act(`duplicateDeal('${idSafe}')`)}" title="Копия сметы без платежей, расходов и команды — новая сделка в статусе «Лид»">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H3a1 1 0 00-1 1v9h1V2h8V1zm2 2H5a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V4a1 1 0 00-1-1zm0 11H5V4h8v10z"/></svg>
+              Дублировать
+            </button>
+            <button class="dcm-item dcm-purple" onclick="${act(`repeatSavedProject('${idSafe}')`)}" title="Новый цикл той же работы: дедлайн сдвигается на месяц вперёд, задачи и деньги обнуляются">
+              ${icon("refresh", 14)}
+              Повторить сделку
+            </button>
+            <div class="dcm-sep"></div>
+            <button class="dcm-item" onclick="${act(`quickContractFromDeal('${idSafe}')`)}">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h6l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5.5 1.2V4.5H12L9.5 2.2zM5 7h6v1H5V7zm0 3h6v1H5v-1z"/></svg>
+              Договор из сделки
+            </button>
+            <button class="dcm-item" onclick="${act("printInvoice()")}">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8v3H4V1zM2 5h12a1 1 0 011 1v5h-3v4H4v-4H1V6a1 1 0 011-1zm3 6h6v3H5v-3z"/></svg>
+              Печать счёта
+            </button>
+            <div class="dcm-sep"></div>
+            <button class="dcm-item dcm-danger" onclick="${act(`deleteSavedProject('${idSafe}')`)}" title="Удаление можно отменить в течение пяти секунд">
+              ${TRASH_SVG}
+              Удалить сделку
+            </button>
+          </div>
+        `;
+      }
+
+      // Меню «⋮» на ПЛИТКЕ в разделе «Проекты» — состав оставлен как был: там нет ни
+      // шкалы этапов, ни соседних кнопок, поэтому закрепление, массовое выделение и
+      // смена статуса нужны именно здесь. Отличия от шапки описаны выше.
       function _dealCtxMenuHtml(project) {
         const projectIdSafe = (project.id || '').replace(/'/g, '');
         return `
@@ -19279,7 +19339,7 @@
                     title="Действия со сделкой" aria-label="Действия со сделкой" aria-haspopup="menu">
                     <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
                   </button>
-                  ${_dealCtxMenuHtml(dealHeaderMenuProject)}
+                  ${_dealHeaderMenuHtml(dealHeaderMenuProject)}
                 </div>
               ` : ""}
             </div>

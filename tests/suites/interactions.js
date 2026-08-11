@@ -2403,7 +2403,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
       return {
         opacity,
         видна: r.width > 0 && r.height > 0 && r.right <= window.innerWidth + 1,
-        пунктов: m.querySelectorAll(".dcm-item").length,
+        пункты: [...m.querySelectorAll(".dcm-item")].map((b) => b.textContent.trim()),
         обрезано: clipped,
         вОкне: mr.bottom <= window.innerHeight + 1 && mr.right <= window.innerWidth + 1,
       };
@@ -2413,9 +2413,47 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(!res.нетМеню, "кнопка «⋮» есть, но меню не открылось");
     assertEqual(res.opacity, 1, "кнопка «⋮» прозрачна (" + res.opacity + ") — кликабельна, но невидима");
     assert(res.видна, "кнопка «⋮» вне окна");
-    assert(res.пунктов >= 5, "в меню шапки только " + res.пунктов + " пунктов — оно разошлось с меню на плитке");
     assert(!res.обрезано, "меню обрезано предком с overflow: " + res.обрезано);
     assert(res.вОкне, "меню вылезло за край окна");
+
+    // Состав меню шапки НАМЕРЕННО не такой, как на плитке в «Проектах»: там оно
+    // единственный способ что-то сделать со сделкой, не открывая её, а здесь
+    // статус меняется шкалой этапов над вкладками, и вторая точка входа путала бы.
+    const есть = (s) => res.пункты.some((x) => x.includes(s));
+    assert(есть("Редактировать"), "в меню шапки нет «Редактировать»: " + JSON.stringify(res.пункты));
+    assert(есть("Удалить"), "в меню шапки нет удаления — оно так и осталось спрятано ссылкой внизу модалки");
+    assert(!есть("Выбрать"), "«Выбрать» — режим массового выделения в списке проектов, внутри открытой сделки он бессмыслен");
+    assert(!есть("Завершить") && !есть("архив"),
+      "смена статуса вернулась в меню шапки, хотя шкала этапов стоит прямо над вкладками: " + JSON.stringify(res.пункты));
+  });
+
+  await test("удаление открытой сделки уводит с её экрана, отмена возвращает", async () => {
+    const { ctx, p, ids } = await bootRail();
+    // Без этого удалённая сделка оставалась нарисованной целиком — со сметой,
+    // суммами и полями ввода: activeProjectId обнулялся, но рабочая копия в
+    // state.project переживала удаление, и её можно было продолжать «править».
+    const read = () => p.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return { view: st.view, active: st.activeProjectId, count: (st.savedProjects || []).length };
+    });
+    const before = await read();
+    assertEqual(before.view, "deal", "тест начинается не с экрана сделки");
+
+    await p.evaluate((i) => window.app.deleteSavedProject(i), ids[0]);
+    await p.waitForTimeout(500);
+    const afterDel = await read();
+    assert(afterDel.view !== "deal", "после удаления открытой сделки остались на её экране — она всё ещё нарисована");
+    assertEqual(afterDel.count, before.count - 1, "сделка не удалилась");
+
+    // Отмена обязана вернуть и сделку, и экран: иначе «Отменить» возвращает данные,
+    // а человек остаётся неизвестно где.
+    await p.evaluate(() => window.app.undoLastDelete());
+    await p.waitForTimeout(500);
+    const afterUndo = await read();
+    await ctx.close();
+    assertEqual(afterUndo.count, before.count, "отмена не вернула сделку");
+    assertEqual(afterUndo.view, "deal", "отмена вернула сделку, но не экран");
+    assertEqual(afterUndo.active, ids[0], "отмена вернула экран, но сделка не стала активной");
   });
 
   await context.close();
