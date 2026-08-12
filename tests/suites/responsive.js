@@ -883,6 +883,47 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  await test("телефон: лист разделов и настройка меню не висят друг на друге", async () => {
+    /* Второй тап по «Разделы» открывал лист, оставляя поповер настройки поверх
+       него: обе поверхности на --z-modal, поповер идёт позже в DOM и выигрывает.
+       Причина — не z-index: поповер закрывается по клику МИМО себя, а этот клик
+       до документа не доходил, потому что обработчик кнопки сам гасил событие
+       через stopPropagation. Мерим РЕЗУЛЬТАТ: две поверхности не показаны разом. */
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.waitForTimeout(500);
+      const both = () => page.evaluate(() => {
+        const shown = (s) => {
+          const el = document.querySelector(s);
+          if (!el) return false;
+          const r = el.getBoundingClientRect();
+          return r.width > 1 && r.height > 1;
+        };
+        return { sheet: shown(".mobile-nav-sheet"), config: shown(".sidebar-nav-config") };
+      });
+
+      await page.click("#mbnMore");
+      await page.waitForTimeout(350);
+      const step1 = await both();
+      assert(step1.sheet && !step1.config, `после «Разделы» ожидался только лист: ${JSON.stringify(step1)}`);
+
+      await page.click(".mobile-nav-sheet-config");
+      await page.waitForTimeout(450);
+      const step2 = await both();
+      assert(!step2.sheet && step2.config, `после «Настроить меню» ожидалась только настройка: ${JSON.stringify(step2)}`);
+
+      await page.click("#mbnMore");
+      await page.waitForTimeout(400);
+      const step3 = await both();
+      assert(!(step3.sheet && step3.config), `лист и настройка показаны одновременно: ${JSON.stringify(step3)}`);
+      assert(step3.sheet, `после повторного «Разделы» лист не открылся: ${JSON.stringify(step3)}`);
+    } finally {
+      await context.close();
+    }
+  });
+
   // Визуальная фиксация каталога на самом узком экране (п.20 — визуальный обход)
   await test("каталог на 320px: снимок для ревью", async () => {
     await page.setViewportSize({ width: 320, height: 800 });

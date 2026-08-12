@@ -2423,6 +2423,11 @@
 
       function toggleMobileNavSheet(event) {
         event && event.stopPropagation();
+        // Настройку закрываем ЯВНО. Она закрывается по клику мимо себя, но этот
+        // клик до документа не доходит: строкой выше мы сами гасим событие. Без
+        // этого второй тап по «Разделы» открывал лист, оставляя поповер настройки
+        // висеть поверх него — оба на --z-modal, поповер идёт позже в DOM.
+        _closeSidebarNavPopover();
         _mobileNavSheetOpen = !_mobileNavSheetOpen;
         renderMobileNavSheet();
       }
