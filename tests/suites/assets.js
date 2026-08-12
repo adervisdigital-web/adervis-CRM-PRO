@@ -232,7 +232,7 @@ module.exports = async function ({ test }) {
       "разделы есть в SIDEBAR_NAV_DEFS, но их нечем нарисовать в меню: " + missing.join(", "));
 
     // И сам лист обязан брать список отсюда, а не собирать свой.
-    const sheet = app.slice(app.indexOf("function renderMobileNavSheet"), app.indexOf("function toggleSidebar"));
+    const sheet = app.slice(app.indexOf("function _mobileSheetBodyHtml"), app.indexOf("function toggleSidebar"));
     assert(/renderNavListHtml\(\)/.test(sheet), "лист разделов снова рисует свой список — он разойдётся с SIDEBAR_NAV_DEFS");
   });
 
@@ -262,8 +262,8 @@ module.exports = async function ({ test }) {
     assert(/app\.go\('home'\)/.test(logo), "логотип перестал вести на «Проекты»");
 
     // Лист обязан строиться из ОБЩЕЙ разметки, иначе он повторит судьбу меню логотипа.
-    const sheet = app.slice(app.indexOf("function renderMobileNavSheet"), app.indexOf("function toggleSidebar"));
-    assert(sheet.length > 200, "не удалось вырезать тело renderMobileNavSheet");
+    const sheet = app.slice(app.indexOf("function _mobileSheetBodyHtml"), app.indexOf("function toggleSidebar"));
+    assert(sheet.length > 200, "не удалось вырезать тело _mobileSheetBodyHtml");
     assert(/renderNavListHtml\(\)/.test(sheet), "лист разделов снова рисует свой список вместо общего");
   });
 

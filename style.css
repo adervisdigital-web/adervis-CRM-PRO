@@ -2844,6 +2844,17 @@
       width: 36px; height: 4px; margin-left: -18px;
       border-radius: var(--r-pill); background: var(--line);
     }
+    /* Кнопка «назад» в шапке листа. Заголовок между ней и «Закрыть» — растягиваем
+       его, чтобы «Закрыть» осталась прижатой к правому краю. */
+    .mobile-nav-sheet-head > span { flex: 1 1 auto; min-width: 0; }
+    .mobile-nav-sheet-back {
+      display: inline-flex; align-items: center; justify-content: center;
+      flex: 0 0 auto; width: 36px; height: 36px; margin-left: -6px;
+      color: var(--muted); background: none;
+      border: 1px solid var(--line); border-radius: var(--r-md);
+      cursor: pointer;
+    }
+    .mobile-nav-sheet-back:hover { color: var(--text); border-color: var(--primary2); }
     .mobile-nav-sheet-list { display: flex; flex-direction: column; gap: 2px; padding: 2px 0; }
     /* Разметка строк — та же, что в боковом меню (renderNavListHtml), поэтому
        здесь только размер под палец: сайдбар рассчитан на курсор.
@@ -2869,6 +2880,14 @@
       cursor: pointer;
     }
     .mobile-nav-sheet-config:hover { color: var(--text); border-color: var(--primary2); }
+    /* Настройка меню ВНУТРИ листа. Разметка строк общая с поповером десктопа
+       (navConfigRowsHtml), здесь только размер под палец. */
+    .mobile-nav-sheet-config-list { padding: 2px 0; }
+    .mobile-nav-sheet-config-list .sidebar-nav-config-row { min-height: 46px; }
+    .mobile-nav-sheet-config-list .sidebar-nav-config-label { font-size: 15px; }
+    /* У вкладок сделки иконок нет — без этого правила подпись висела бы с отступом
+       под несуществующую иконку. */
+    .mobile-nav-sheet-list .mobile-tab-row { gap: 0; }
 
     /* ── WELCOME SCREEN ─────────────────────────── */
     .welcome-screen {
@@ -3240,6 +3259,9 @@
       mask-image: linear-gradient(to right, transparent 0, black 18px, black calc(100% - 18px), transparent 100%);
     }
     .deal-tabs::-webkit-scrollbar { display: none; }
+    /* Кнопка-триггер вместо ленты вкладок. На десктопе не нужна — там лента
+       помещается целиком; включается медиазапросом ниже. */
+    .deal-tabs-trigger { display: none; }
     .deal-tab {
       border: none; background: transparent;
       color: var(--muted); font-size: 13px; font-weight: 600;
@@ -6306,6 +6328,29 @@ body.portal-mode .nav { display: none !important; }
      разделам. Слово small теперь про плотность текста, а не про площадь касания. */
   .btn.small { min-height: 44px; }
   button.deal-tab { min-height: 40px; }
+
+  /* Вкладки сделки: лента → кнопка + лист. Замер на 390px до правки: видно 3
+     вкладки из 10, 573px содержимого за краем, и единственным намёком служила
+     маска-градиент. «Договор» и «История» находились только слепым свайпом. */
+  .deal-tabs { display: none; }
+  .deal-tabs-trigger {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    flex: 1 1 auto; min-width: 0;
+    min-height: 44px; margin: 2px 0 6px; padding: 10px 14px;
+    font: inherit; font-size: 15px; font-weight: 800; text-align: left;
+    color: var(--text); background: var(--panel2);
+    border: 1px solid var(--line); border-radius: var(--r-md);
+    cursor: pointer;
+  }
+  /* min-width: 0 на самой подписи — иначе длинная («Версии сметы») распирает
+     кнопку и выталкивает «⋮» за край строки. */
+  .deal-tabs-trigger-label {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .deal-tabs-trigger svg { flex: 0 0 auto; color: var(--muted); }
+  /* Ряд теперь «кнопка + ⋮»: отрицательные поля были нужны ленте, чтобы уходить
+     под края шапки, а кнопке они ломают выравнивание с остальным содержимым. */
+  .deal-tabs-row { margin-left: 0; margin-right: 0; padding-right: 0; align-items: center; }
 
   /* Кнопки панели раздела ДЕЛЯТ ряд поровну вместо того, чтобы жаться влево.
      Замер: в «Смете» четыре кнопки вставали в два ряда и оставляли 270px пустоты

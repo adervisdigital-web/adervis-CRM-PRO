@@ -219,28 +219,33 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
         const side = document.getElementById("appSidebar");
         if (side) side.innerHTML = '<button id="sidebarNavEditBtn">Настроить меню</button>';
       });
-      // Путь до настройки стал двухшаговым: кнопка панели ведёт в РАЗДЕЛЫ (раньше
-      // она вела прямо сюда, и открыть с телефона было можно только настройку —
-      // при том, что сами разделы не открывались вовсе), а настройка — строкой в
-      // конце листа. Проверяемое свойство прежнее: панель открывается и целиком
-      // помещается на экран, даже когда сайдбар ОТРИСОВАН и скрыт стилями.
+      /* Путь до настройки: кнопка панели ведёт в РАЗДЕЛЫ, настройка — строкой в
+         конце листа и открывается ВНУТРИ него же. Отдельной всплывающей панели на
+         телефоне больше нет: она была второй поверхностью и однажды уже осталась
+         висеть поверх листа. Проверяемое свойство прежнее — настройка доступна с
+         телефона и целиком помещается на экран, даже когда сайдбар ОТРИСОВАН и
+         скрыт стилями (при живой сессии он именно такой). */
       await page.evaluate(() => document.getElementById("mbnMore").click());
       await page.waitForTimeout(300);
       await page.evaluate(() => document.querySelector(".mobile-nav-sheet-config").click());
       await page.waitForTimeout(400);
       const r = await page.evaluate(() => {
-        const p = document.querySelector(".sidebar-nav-config");
-        if (!p) return null;
-        const b = p.getBoundingClientRect();
+        const list = document.querySelector(".mobile-nav-sheet-config-list");
+        if (!list) return null;
+        const b = list.getBoundingClientRect();
         return {
-          rows: p.querySelectorAll(".sidebar-nav-config-row").length,
+          rows: list.querySelectorAll(".sidebar-nav-config-row").length,
+          switches: list.querySelectorAll(".sidebar-nav-switch").length,
           onScreen: b.top >= 0 && b.left >= 0 && b.right <= window.innerWidth + 1 && b.bottom <= window.innerHeight + 1,
           box: `${Math.round(b.left)},${Math.round(b.top)}…${Math.round(b.right)},${Math.round(b.bottom)}`,
+          floating: !!document.querySelector(".sidebar-nav-config"),
         };
       });
-      assert(r, "панель настройки меню не открылась — кнопка в нижней панели не работает");
-      assert(r.rows > 0, "панель открылась пустой");
-      assert(r.onScreen, `панель вне экрана: ${r.box} при окне 390×844`);
+      assert(r, "настройка меню не открылась — кнопка в нижней панели не работает");
+      assert(r.rows > 0, "настройка открылась пустой");
+      assert(r.switches > 0, "в настройке нет переключателей видимости");
+      assert(r.onScreen, `настройка вне экрана: ${r.box} при окне 390×844`);
+      assert(!r.floating, "на телефоне снова появилась отдельная всплывающая панель настройки");
     } finally {
       await context.close();
     }
@@ -883,42 +888,148 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
-  await test("телефон: лист разделов и настройка меню не висят друг на друге", async () => {
-    /* Второй тап по «Разделы» открывал лист, оставляя поповер настройки поверх
-       него: обе поверхности на --z-modal, поповер идёт позже в DOM и выигрывает.
-       Причина — не z-index: поповер закрывается по клику МИМО себя, а этот клик
-       до документа не доходил, потому что обработчик кнопки сам гасил событие
-       через stopPropagation. Мерим РЕЗУЛЬТАТ: две поверхности не показаны разом. */
+  await test("телефон: всплывающая поверхность на экране всегда ровно одна", async () => {
+    /* История дефекта: настройка меню жила отдельным поповером у кнопки панели, и
+       второй тап по «Разделы» открывал лист, оставляя поповер поверх него. Дело
+       было не в z-index — поповер закрывался кликом МИМО себя, а этот клик до
+       документа не доходил: обработчик кнопки сам гасил событие stopPropagation.
+
+       Чинили дважды. Сначала точечно (закрывать явно), потом причину: лист стал
+       ОДНИМ с режимами (разделы / настройка / вкладки сделки), и второй поверхности
+       просто нет. Тест держит инвариант, а не конкретную реализацию: сколько бы
+       поверхностей ни завели, показана одновременно не больше одной. */
     const { context, page } = await bootLocal(browser, baseUrl, {
       width: 390, height: 844, touch: true, seedDemo: true,
     });
     try {
       await page.waitForTimeout(500);
-      const both = () => page.evaluate(() => {
-        const shown = (s) => {
-          const el = document.querySelector(s);
-          if (!el) return false;
+      const surfaces = () => page.evaluate(() => {
+        const shown = (s) => [...document.querySelectorAll(s)].filter((el) => {
           const r = el.getBoundingClientRect();
           return r.width > 1 && r.height > 1;
+        }).length;
+        return {
+          sheets: shown(".mobile-nav-sheet"),
+          popovers: shown(".sidebar-nav-config"),
+          mode: (document.querySelector(".mobile-nav-sheet-head span") || {}).textContent || "",
         };
-        return { sheet: shown(".mobile-nav-sheet"), config: shown(".sidebar-nav-config") };
       });
 
       await page.click("#mbnMore");
       await page.waitForTimeout(350);
-      const step1 = await both();
-      assert(step1.sheet && !step1.config, `после «Разделы» ожидался только лист: ${JSON.stringify(step1)}`);
+      const step1 = await surfaces();
+      assert(step1.sheets === 1 && step1.popovers === 0, `после «Разделы» ожидался один лист: ${JSON.stringify(step1)}`);
 
       await page.click(".mobile-nav-sheet-config");
       await page.waitForTimeout(450);
-      const step2 = await both();
-      assert(!step2.sheet && step2.config, `после «Настроить меню» ожидалась только настройка: ${JSON.stringify(step2)}`);
+      const step2 = await surfaces();
+      assert(step2.sheets === 1 && step2.popovers === 0, `настройка открылась второй поверхностью: ${JSON.stringify(step2)}`);
+      assert(/Пункт/i.test(step2.mode), `лист не переключился в режим настройки: ${JSON.stringify(step2)}`);
+
+      // Возврат к разделам — тем же листом, без мигания второй панелью. Кнопка
+      // стоит в ЛИПКОЙ шапке: в конце списка она оказывалась частично за нижним
+      // краем экрана (низ 850 при окне 844), то есть по ней нельзя было попасть.
+      await page.click(".mobile-nav-sheet-back");
+      await page.waitForTimeout(400);
+      const step3 = await surfaces();
+      assert(step3.sheets === 1 && step3.popovers === 0, `возврат к разделам поднял вторую поверхность: ${JSON.stringify(step3)}`);
+      assert(/Раздел/i.test(step3.mode), `лист не вернулся к разделам: ${JSON.stringify(step3)}`);
+
+      /* Закрытие подложкой и повторное открытие. Кликать в #mbnMore при открытом
+         листе нельзя намеренно: подложка накрывает нижнюю панель — лист модальный,
+         и это его правильное поведение, а не помеха (первая версия теста об это
+         спотыкалась). */
+      // Бить надо в ВИДИМУЮ часть подложки — она inset:0, и её центр приходится на
+      // сам лист, который её и перехватывает.
+      await page.click(".mobile-nav-backdrop", { position: { x: 195, y: 20 } });
+      await page.waitForTimeout(350);
+      const closed = await surfaces();
+      assert(closed.sheets === 0 && closed.popovers === 0, `подложка не закрыла лист: ${JSON.stringify(closed)}`);
 
       await page.click("#mbnMore");
       await page.waitForTimeout(400);
-      const step3 = await both();
-      assert(!(step3.sheet && step3.config), `лист и настройка показаны одновременно: ${JSON.stringify(step3)}`);
-      assert(step3.sheet, `после повторного «Разделы» лист не открылся: ${JSON.stringify(step3)}`);
+      const step4 = await surfaces();
+      assert(step4.sheets === 1 && step4.popovers === 0, `после повторного открытия поверхностей не одна: ${JSON.stringify(step4)}`);
+      assert(/Раздел/i.test(step4.mode), `лист открылся не в режиме разделов: ${JSON.stringify(step4)}`);
+    } finally {
+      await context.close();
+    }
+  });
+
+  await test("сделка на телефоне: все её разделы открываются, а не прячутся в ленте", async () => {
+    /* Замер до правки на 390px: лента вкладок показывала 310px при 883px
+       содержимого — видно 3 раздела из 10, а 573px уезжали за край. Единственным
+       намёком служила маска-градиент, то есть «Договор» и «Историю» находили
+       слепым свайпом. Мерим РЕЗУЛЬТАТ — сколько разделов сделки реально можно
+       открыть пальцем, — а не то, каким приёмом это сделано. */
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => window.app.go("deal"));
+      await page.waitForTimeout(700);
+
+      const reach = () => page.evaluate(() => {
+        const seen = new Set();
+        document.querySelectorAll("[onclick]").forEach((el) => {
+          const m = (el.getAttribute("onclick") || "").match(/app\.setDealView\(['"]([^'"]+)['"]\)/);
+          if (!m) return;
+          const r = el.getBoundingClientRect();
+          if (r.width < 1 || r.height < 1) return;
+          // Видно глазу, а не только в разметке: полностью в пределах экрана и не
+          // перекрыто. Лента как раз «содержала» все вкладки — просто за краем.
+          if (r.right > window.innerWidth + 1 || r.left < -1) return;
+          const el2 = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          if (el2 && (el2 === el || el.contains(el2))) seen.add(m[1]);
+        });
+        return [...seen];
+      });
+
+      const closed = await reach();
+      const trigger = await page.evaluate(() => {
+        const t = document.querySelector(".deal-tabs-trigger");
+        if (!t) return null;
+        const r = t.getBoundingClientRect();
+        return { h: Math.round(r.height), text: t.textContent.trim() };
+      });
+      assert(trigger, "на телефоне нет кнопки выбора раздела сделки");
+      assert(trigger.h >= 44, `кнопка выбора раздела ${trigger.h}px — ниже 44px, палец промахнётся`);
+
+      await page.click(".deal-tabs-trigger");
+      await page.waitForTimeout(400);
+      const opened = await reach();
+      const all = new Set([...closed, ...opened]);
+      assert(all.size >= 10, `с телефона открывается ${all.size} разделов сделки из 10: ${JSON.stringify([...all])}`);
+
+      // Список должен помещаться целиком: прокручиваемый список выбора снова
+      // прячет часть пунктов от глаза.
+      const fit = await page.evaluate(() => {
+        const sh = document.querySelector(".mobile-nav-sheet");
+        if (!sh) return null;
+        const rows = [...sh.querySelectorAll(".mobile-tab-row")];
+        const last = rows[rows.length - 1];
+        return {
+          rows: rows.length,
+          needScroll: sh.scrollHeight - sh.clientHeight > 1,
+          lastVisible: last ? last.getBoundingClientRect().bottom <= window.innerHeight + 1 : false,
+        };
+      });
+      assert(fit, "лист разделов сделки не открылся");
+      assert(fit.rows === 10, `в листе ${fit.rows} разделов вместо 10`);
+      assert(fit.lastVisible, "последний раздел сделки за нижним краем экрана");
+
+      // Выбор закрывает лист и меняет подпись кнопки — иначе непонятно, где ты.
+      await page.evaluate(() => {
+        const rows = [...document.querySelectorAll(".mobile-tab-row")];
+        (rows.find((r) => /Договор/.test(r.textContent)) || rows[rows.length - 1]).click();
+      });
+      await page.waitForTimeout(500);
+      const after = await page.evaluate(() => ({
+        sheet: !!document.querySelector(".mobile-nav-sheet"),
+        label: (document.querySelector(".deal-tabs-trigger") || {}).textContent?.trim() || "",
+      }));
+      assert(!after.sheet, "после выбора раздела лист остался поверх него");
+      assert(/Договор/.test(after.label), `кнопка не показывает выбранный раздел: «${after.label}»`);
     } finally {
       await context.close();
     }

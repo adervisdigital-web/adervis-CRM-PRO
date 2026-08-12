@@ -2419,50 +2419,110 @@
          Лист берёт разметку у renderNavListHtml() — той же, что рисует боковое
          меню, поэтому разойтись им нечем. Настройка осталась, но ушла в конец
          листа: сначала «куда пойти», потом «что показывать». */
-      let _mobileNavSheetOpen = false;
+      /* ОДИН лист на три задачи вместо трёх поверхностей. Настройка меню сначала
+         жила отдельным поповером у кнопки панели, и это уже дало дефект: второй тап
+         по «Разделы» открывал лист, оставляя поповер висеть поверх него. Две
+         всплывающие поверхности на одном экране всегда рано или поздно встречаются,
+         поэтому режим один, и открытие любого закрывает предыдущий по построению.
 
-      function toggleMobileNavSheet(event) {
+           nav    — разделы приложения (кнопка «Разделы» в нижней панели);
+           config — какие разделы показывать и в каком порядке (та же разметка, что
+                    в поповере у сайдбара на десктопе);
+           tabs   — вкладки ВНУТРИ сделки: их десять, а в ленту на 390px влезало три. */
+      /* Вкладки внутри сделки — ОДИН список на ленту (десктоп) и лист снизу
+         (телефон). Подписи считаются из state, поэтому функция самодостаточна и не
+         теряет ничего при выносе наружу (gotcha-extracted-fn-loses-locals).
+         Подсказки лежат здесь же: раньше они собирались лесенкой тернарников прямо
+         в разметке ленты, и на втором месте показа их пришлось бы писать заново. */
+      function dealTabDefs() {
+        return [
+          { id: "estimate",    label: "Смета",                                                                        hint: "Смета проекта" },
+          { id: "description", label: "Описание",                                                                     hint: "Заметки и детали сделки" },
+          { id: "finance",     label: "Финансы",                                                                      hint: "Платежи и расходы" },
+          { id: "tasks",       label: `Задачи${state.tasks.length ? " (" + state.tasks.length + ")" : ""}`,            hint: "Задачи и канбан" },
+          { id: "calendar",    label: "Календарь",                                                                    hint: "Даты проекта" },
+          { id: "team",        label: "Команда",                                                                      hint: "Команда проекта" },
+          { id: "proposal",    label: "КП",                                                                           hint: "Коммерческое предложение" },
+          { id: "contract",    label: `Договор${_dealContractCount() ? " (" + _dealContractCount() + ")" : ""}`,       hint: "Договор по сделке" },
+          { id: "versions",    label: "Версии сметы",                                                                 hint: "Версии сметы" },
+          { id: "activity",    label: "История",                                                                      hint: "История изменений" },
+        ];
+      }
+
+      function dealTabListHtml() {
+        const cur = state.dealView;
+        return dealTabDefs().map(t => `
+          <button class="sidebar-nav-item mobile-tab-row ${t.id === cur ? "active" : ""}"
+            ${t.id === cur ? 'aria-current="page"' : ""}
+            onclick="app.setDealView('${t.id}')" title="${escapeHtml(t.hint)}">
+            <span class="sidebar-label">${escapeHtml(t.label)}</span>
+          </button>`).join("");
+      }
+
+      let _mobileSheet = null; // null | "nav" | "config" | "tabs"
+
+      function openMobileSheet(kind, event) {
         event && event.stopPropagation();
-        // Настройку закрываем ЯВНО. Она закрывается по клику мимо себя, но этот
-        // клик до документа не доходит: строкой выше мы сами гасим событие. Без
-        // этого второй тап по «Разделы» открывал лист, оставляя поповер настройки
-        // висеть поверх него — оба на --z-modal, поповер идёт позже в DOM.
+        // Поповер настройки живёт на десктопе и закрывается кликом мимо себя, но
+        // этот клик до документа не доходит — строкой выше мы сами гасим событие.
         _closeSidebarNavPopover();
-        _mobileNavSheetOpen = !_mobileNavSheetOpen;
-        renderMobileNavSheet();
+        _mobileSheet = _mobileSheet === kind ? null : kind;
+        renderMobileSheet();
       }
 
-      function closeMobileNavSheet() {
-        if (!_mobileNavSheetOpen) return;
-        _mobileNavSheetOpen = false;
-        renderMobileNavSheet();
+      function closeMobileSheet() {
+        if (!_mobileSheet) return;
+        _mobileSheet = null;
+        renderMobileSheet();
       }
 
-      // Настройка открывается ПОСЛЕ закрытия листа: поповер привязан к кнопке
-      // нижней панели и раскрывается вверх от неё — поверх открытого листа он бы
-      // оказался под ним.
-      function openNavConfigFromSheet(event) {
-        event && event.stopPropagation();
-        _mobileNavSheetOpen = false;
-        renderMobileNavSheet();
-        setTimeout(() => toggleSidebarNavPopover(null), 30);
+      // Совместимость с прежними именами: на них завязаны onclick в разметке.
+      function toggleMobileNavSheet(event) { openMobileSheet("nav", event); }
+      function closeMobileNavSheet() { closeMobileSheet(); }
+
+      function _mobileSheetTitle() {
+        return _mobileSheet === "config" ? "Пункты меню"
+          : _mobileSheet === "tabs" ? "Разделы сделки"
+          : "Разделы";
       }
 
-      function renderMobileNavSheet() {
+      function _mobileSheetBodyHtml() {
+        if (_mobileSheet === "config") {
+          // Возврат стоит в ШАПКЕ, а не в конце списка: список настройки длиннее
+          // экрана (12 разделов + «Свой раздел»), и кнопка внизу оказывалась
+          // частично за нижним краем — замер: низ кнопки 850 при окне 844.
+          // Шапка листа липкая, поэтому оттуда она видна всегда.
+          return `<div class="mobile-nav-sheet-config-list">${navConfigRowsHtml()}</div>`;
+        }
+        if (_mobileSheet === "tabs") {
+          return `<div class="mobile-nav-sheet-list">${dealTabListHtml()}</div>`;
+        }
+        return `
+          <div class="mobile-nav-sheet-list">${renderNavListHtml()}</div>
+          ${/* Настройка открывается ВНУТРИ этого же листа, а не отдельной панелью:
+                раньше лист исчезал, а настройка появлялась в другом месте экрана —
+                переход читался как скачок. */""}
+          <button class="mobile-nav-sheet-config" onclick="app.openMobileSheet('config', event)">
+            ${icon("gear", 15)} Настроить меню
+          </button>`;
+      }
+
+      function renderMobileSheet() {
         const el = document.getElementById("mobileNavSheet");
         if (!el) return;
-        if (!_mobileNavSheetOpen) { el.innerHTML = ""; return; }
+        if (!_mobileSheet) { el.innerHTML = ""; return; }
         el.innerHTML = `
-          <div class="mobile-nav-backdrop" onclick="app.closeMobileNavSheet()"></div>
-          <nav class="mobile-nav-sheet" aria-label="Разделы">
+          <div class="mobile-nav-backdrop" onclick="app.closeMobileSheet()"></div>
+          <nav class="mobile-nav-sheet" aria-label="${_mobileSheetTitle()}">
             <div class="mobile-nav-sheet-head">
-              <span>Разделы</span>
-              <button class="btn small" onclick="app.closeMobileNavSheet()" aria-label="Закрыть">Закрыть</button>
+              ${_mobileSheet === "config" ? `
+                <button class="mobile-nav-sheet-back" onclick="app.openMobileSheet('nav', event)" aria-label="Назад к разделам">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>` : ""}
+              <span>${_mobileSheetTitle()}</span>
+              <button class="btn small" onclick="app.closeMobileSheet()" aria-label="Закрыть">Закрыть</button>
             </div>
-            <div class="mobile-nav-sheet-list">${renderNavListHtml()}</div>
-            <button class="mobile-nav-sheet-config" onclick="app.openNavConfigFromSheet(event)">
-              ${icon("gear", 15)} Настроить меню
-            </button>
+            ${_mobileSheetBodyHtml()}
           </nav>
         `;
       }
@@ -2526,6 +2586,33 @@
         renderSidebarNavPopover();
       }
 
+      /* Строки настройки меню — ОДНА разметка на поповер у сайдбара (десктоп) и на
+         лист снизу (телефон). Выносим по той же причине, по какой вынесен сам
+         список разделов: вторая копия неизбежно разъедется. */
+      function navConfigRowsHtml() {
+        return getSidebarNavConfig().map(item => {
+          const custom = _isCustomNavId(item.id);
+          const def = custom ? null : SIDEBAR_NAV_DEFS.find(x => x.id === item.id);
+          if (!custom && !def) return "";
+          const label = custom ? (item.label || "Раздел") : def.label;
+          return `
+            <div class="sidebar-nav-config-row" draggable="true"
+              ondragstart="app.sidebarNavDragStart('${escapeHtml(item.id)}')"
+              ondragover="event.preventDefault()"
+              ondrop="app.sidebarNavDrop('${escapeHtml(item.id)}')">
+              <span class="sidebar-nav-drag-handle" title="Перетащи для сортировки">⠿</span>
+              <span class="sidebar-nav-config-label" title="${custom ? escapeHtml(item.url || "") : ""}">${escapeHtml(label)}</span>
+              ${custom ? `<button class="sidebar-nav-switch-del" onclick="app.removeCustomNavItem('${escapeHtml(item.id)}')" title="Удалить раздел" aria-label="Удалить раздел «${escapeHtml(label)}»" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 6px;min-width:32px;min-height:32px">${icon("close", 13)}</button>` : ""}
+              <button class="sidebar-nav-switch ${item.hidden ? "" : "on"}" onclick="app.toggleSidebarNavItemHidden('${escapeHtml(item.id)}')" aria-label="${item.hidden ? "Показать" : "Скрыть"} «${escapeHtml(label)}»"></button>
+            </div>
+          `;
+        }).join("")
+        + `<button onclick="app.addCustomNavItem()" class="sidebar-nav-config-add"
+             style="display:flex;align-items:center;gap:7px;width:100%;margin-top:6px;padding:9px 8px;background:none;border:1px dashed var(--line);border-radius:8px;color:var(--muted);cursor:pointer;font-size:12px;font-weight:600;min-height:38px">
+             <span style="font-size:14px;line-height:1">+</span> Свой раздел
+           </button>`;
+      }
+
       function renderSidebarNavPopover() {
         const el = document.getElementById("sidebarNavPopover");
         if (!el) return;
@@ -2551,31 +2638,10 @@
         // левой границы значит увести его за экран. Держим в пределах окна.
         const W = Math.min(260, window.innerWidth - 16);
         const left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8));
-        const config = getSidebarNavConfig();
         el.innerHTML = `
           <div class="sidebar-nav-config" style="left:${left}px;bottom:${window.innerHeight - r.top + 6}px;max-width:${W}px" onclick="event.stopPropagation()">
             <div class="sidebar-nav-config-title">Пункты меню</div>
-            ${config.map(item => {
-              const custom = _isCustomNavId(item.id);
-              const def = custom ? null : SIDEBAR_NAV_DEFS.find(x => x.id === item.id);
-              if (!custom && !def) return "";
-              const label = custom ? (item.label || "Раздел") : def.label;
-              return `
-                <div class="sidebar-nav-config-row" draggable="true"
-                  ondragstart="app.sidebarNavDragStart('${escapeHtml(item.id)}')"
-                  ondragover="event.preventDefault()"
-                  ondrop="app.sidebarNavDrop('${escapeHtml(item.id)}')">
-                  <span class="sidebar-nav-drag-handle" title="Перетащи для сортировки">⠿</span>
-                  <span class="sidebar-nav-config-label" title="${custom ? escapeHtml(item.url || "") : ""}">${escapeHtml(label)}</span>
-                  ${custom ? `<button class="sidebar-nav-switch-del" onclick="app.removeCustomNavItem('${escapeHtml(item.id)}')" title="Удалить раздел" aria-label="Удалить раздел «${escapeHtml(label)}»" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 6px;min-width:32px;min-height:32px">${icon("close", 13)}</button>` : ""}
-                  <button class="sidebar-nav-switch ${item.hidden ? "" : "on"}" onclick="app.toggleSidebarNavItemHidden('${escapeHtml(item.id)}')" aria-label="${item.hidden ? "Показать" : "Скрыть"} «${escapeHtml(label)}»"></button>
-                </div>
-              `;
-            }).join("")}
-            <button onclick="app.addCustomNavItem()" class="sidebar-nav-config-add"
-              style="display:flex;align-items:center;gap:7px;width:100%;margin-top:6px;padding:9px 8px;background:none;border:1px dashed var(--line);border-radius:8px;color:var(--muted);cursor:pointer;font-size:12px;font-weight:600;min-height:38px">
-              <span style="font-size:14px;line-height:1">+</span> Свой раздел
-            </button>
+            ${navConfigRowsHtml()}
           </div>
         `;
       }
@@ -9661,6 +9727,8 @@
 
       function setDealView(view) {
         state.dealView = view;
+        // Выбрал вкладку — лист закрывается сам, как и при выборе раздела в go().
+        closeMobileSheet();
         save();
         render();
       }
@@ -19413,18 +19481,7 @@
         // Сделка из сохранённых — источник pinned/crmStatus для меню действий в шапке.
         const dealHeaderMenuProject = (state.savedProjects || []).find(p => p.id === state.activeProjectId);
 
-        const dealTabs = [
-          { id: "estimate", label: "Смета" },
-          { id: "description", label: "Описание" },
-          { id: "finance", label: "Финансы" },
-          { id: "tasks", label: `Задачи${state.tasks.length ? " (" + state.tasks.length + ")" : ""}` },
-          { id: "calendar", label: "Календарь" },
-          { id: "team", label: "Команда" },
-          { id: "proposal", label: "КП" },
-          { id: "contract", label: `Договор${_dealContractCount() ? " (" + _dealContractCount() + ")" : ""}` },
-          { id: "versions", label: "Версии сметы" },
-          { id: "activity", label: "История" },
-        ];
+        const dealTabs = dealTabDefs();
 
         const tabContent = {
           estimate: renderEstimate,
@@ -19489,9 +19546,20 @@
             </div>
 
             <div class="deal-tabs-row" style="margin-top:10px">
+            ${/* На телефоне лента вкладок показывала ТРИ из десяти: замер на 390px —
+                  310px видно при 883px содержимого, то есть 573px за краем. Намёком
+                  служила только маска-градиент по краям, и найти «Договор» или
+                  «Историю» можно было лишь слепым свайпом. Вместо ленты — кнопка с
+                  текущей вкладкой, открывающая лист со всеми (тот же приём, что у
+                  разделов каталога). Лента остаётся на десктопе, где помещается. */""}
+            <button class="deal-tabs-trigger no-print" onclick="app.openMobileSheet('tabs', event)"
+              aria-haspopup="dialog" title="Выбрать раздел сделки">
+              <span class="deal-tabs-trigger-label">${escapeHtml((dealTabs.find(t => t.id === state.dealView) || dealTabs[0]).label)}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
             <div class="deal-tabs">
               ${dealTabs.map(tab => `
-                <button class="deal-tab ${state.dealView === tab.id ? "active" : ""}" onclick="app.setDealView('${tab.id}')" title="${tab.id === "estimate" ? "Смета проекта" : tab.id === "description" ? "Заметки и детали сделки" : tab.id === "proposal" ? "Коммерческое предложение" : tab.id === "tasks" ? "Задачи и канбан" : tab.id === "finance" ? "Платежи и расходы" : tab.id === "team" ? "Команда проекта" : tab.id === "calendar" ? "Даты проекта" : "Версии сметы"}">${escapeHtml(tab.label)}</button>
+                <button class="deal-tab ${state.dealView === tab.id ? "active" : ""}" onclick="app.setDealView('${tab.id}')" title="${escapeHtml(tab.hint)}">${escapeHtml(tab.label)}</button>
               `).join("")}
             </div>
               ${/* Действия над самой сделкой — редактировать, дублировать, закрепить,
@@ -25052,7 +25120,8 @@ Email: _____________________              Email: _____________________
         toggleSidebarNavPopover,
         toggleMobileNavSheet,
         closeMobileNavSheet,
-        openNavConfigFromSheet,
+        openMobileSheet,
+        closeMobileSheet,
         toggleSidebarNavItemHidden,
         addCustomNavItem,
         removeCustomNavItem,
