@@ -732,6 +732,49 @@ module.exports = async function ({ test }) {
     assert(/function localIso/.test(app) && /function todayIso/.test(app), "исчезли localIso/todayIso — обрезать станет нечем");
   });
 
+  await test("двойное нажатие не создаёт вторую запись", () => {
+    /* Класс: async-действие по кнопке, которое ВСТАВЛЯЕТ запись, без защиты от
+       повторного входа. Два быстрых тапа входят в функцию оба; первая вставка ещё
+       не закончилась, поэтому проверка «а нет ли уже такого?» у обоих отвечает
+       «нет» — и вставок получается две.
+
+       Самое дорогое место — «КП-ссылка» (зовётся из четырёх мест): выходили два
+       КП с РАЗНЫМИ ссылками, клиент держал первую, сделка показывала вторую, и
+       его согласование с оплатой аванса переставали быть видны. Отличить такие
+       дубли кодом нельзя, их удаляют руками.
+
+       Обход всех 28 async-действий по кнопке, которые пишут на сервер: вставок
+       среди них пять. Три уже защищены собственными флагами (submitBrief гасит
+       кнопку на время отправки, buyPlan держит _buyingPlan, adminCreatePromo —
+       свой), две не были защищены ничем.
+
+       Сторож статический: в местном режиме _supabase нет вовсе, и ни одна из этих
+       строк в браузерных прогонах не исполняется. */
+    assert(/const _actionsInFlight = new Set\(\)/.test(app), "исчез общий предохранитель от повторного нажатия");
+
+    const once = app.slice(app.indexOf("async function _once("), app.indexOf("async function createClientPortal"));
+    assert(once.length > 60, "не удалось вырезать тело _once");
+    assert(/finally\s*\{[\s\S]*?_actionsInFlight\.delete/.test(once),
+      "ключ снимается не в finally — одна ошибка запрёт кнопку до перезагрузки страницы");
+
+    // Каждое действие, создающее НОВУЮ сущность, обязано идти через предохранитель.
+    for (const [fn, key] of [
+      ["createClientPortal", "portal:"],
+      ["convertBriefToDeal", "brief2deal:"],
+      ["rotateCalendarToken", "calToken"],
+    ]) {
+      const body = app.slice(app.indexOf(`async function ${fn}(`), app.indexOf(`async function _${fn.charAt(0).toUpperCase()}${fn.slice(1)}Impl(`) + 1);
+      const head = app.slice(app.indexOf(`async function ${fn}(`)).slice(0, 600);
+      assert(new RegExp(`_once\\(\\s*["'\`]${key.replace(/[:]/g, "[:]")}`).test(head),
+        `${fn} больше не идёт через _once — двойное нажатие снова создаст дубль`);
+    }
+
+    // Кнопка «КП-ссылка» действительно зовётся из нескольких мест: защита обязана
+    // жить в самой функции, а не в разметке одной из кнопок.
+    const callSites = (app.match(/app\.createClientPortal\(/g) || []).length;
+    assert(callSites >= 3, `вызовов createClientPortal ${callSites} — проверка потеряла смысл, перепроверь класс`);
+  });
+
   await test("realtime: в канал уходит «пинок», а не всё состояние", () => {
     // Замер на боевом проекте: send() возвращает "ok" на любом размере, но
     // сообщения больше ~256 КБ до получателя не доходят вовсе. Состояние весит

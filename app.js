@@ -5488,6 +5488,11 @@
       // protect_subscription_fields, иначе пользователь мог бы выставить себе
       // токен чужого агентства и читать его фид.
       async function rotateCalendarToken() {
+        // Второй оборот обесценивает ссылку, которую человек только что скопировал.
+        return _once("calToken", () => _rotateCalendarTokenImpl());
+      }
+
+      async function _rotateCalendarTokenImpl() {
         if (!_supabase || !_adminSession) { toast("Не подключено к Supabase"); return; }
         const had = !!(_userProfile && _userProfile.calendar_token);
         if (had && !confirm("Старая ссылка перестанет работать сразу. Календарь на телефоне и у коллег придётся переподписать заново. Продолжить?")) return;
@@ -13686,6 +13691,12 @@
       }
 
       async function convertBriefToDeal(briefId) {
+        // Двойной тап иначе заводит ДВЕ сделки и двух одинаковых клиентов из
+        // одной заявки — и склеивать их потом нечем.
+        return _once("brief2deal:" + briefId, () => _convertBriefToDealImpl(briefId));
+      }
+
+      async function _convertBriefToDealImpl(briefId) {
         if (checkTrialDealLimit()) return;
         const brief = _briefs.find(b => b.id === briefId);
         if (!brief) return;
@@ -21621,7 +21632,32 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         };
       }
 
+      /* Повторное нажатие, пока первое ещё выполняется.
+
+         Кнопка «КП-ссылка» зовётся из ЧЕТЫРЁХ мест и ничем не защищена: два
+         быстрых тапа входят в функцию оба, оба спрашивают «есть ли уже КП?»,
+         оба получают «нет» — потому что первая вставка ещё не закончилась, — и
+         оба вставляют. Получаются два КП с РАЗНЫМИ ссылками: клиент держит
+         первую, а сделка показывает вторую, и его согласование с оплатой аванса
+         перестают быть видны. Ровно те дубли, которые потом приходится удалять
+         руками, отличить их кодом нельзя.
+
+         Ключ включает id сделки: две РАЗНЫЕ сделки отправлять одновременно
+         можно, это законно. Снимаем в finally — иначе одна ошибка навсегда
+         запирает кнопку до перезагрузки. */
+      const _actionsInFlight = new Set();
+      async function _once(key, fn) {
+        if (_actionsInFlight.has(key)) return;
+        _actionsInFlight.add(key);
+        try { return await fn(); }
+        finally { _actionsInFlight.delete(key); }
+      }
+
       async function createClientPortal(projectId) {
+        return _once("portal:" + projectId, () => _createClientPortalImpl(projectId));
+      }
+
+      async function _createClientPortalImpl(projectId) {
         /* Сбрасываем живое состояние в снимок ДО чтения. Клиенту уходит именно
            снимок, а автосохранение отложенное: снять галочку «Что показывать в
            КП» и сразу нажать «Ссылка КП» — обычный порядок действий, и без этой
