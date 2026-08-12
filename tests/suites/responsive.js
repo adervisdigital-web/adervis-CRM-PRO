@@ -924,6 +924,69 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  await test("смета на телефоне: подписи не вылезают за свои кнопки и карточки", async () => {
+    /* Два дефекта на одном экране, оба невидимы для проверки «страница не шире
+       окна» — ломалось ВНУТРИ элементов:
+
+       1. Заголовок этапа. Название + шестизначная сумма + кнопка «Свернуть» в одну
+          строку не влезали, и сумма с кнопкой уезжали за край карточки: кнопка
+          выходила срезанной. Корень — flex-элемент с min-width: auto, который
+          отказывается сжиматься и выталкивает соседа.
+       2. Панель кнопок. `.toolbar > .btn { min-width: 128px }` молча проигрывало
+          `.btn.small { min-width: 44px }` ниже по файлу (та же специфичность,
+          побеждает то, что позже) — кнопки сжимались до 80px, а подпись «Свернуть
+          всё» шириной 92px вылезала ЗА ГРАНИЦЫ СВОЕЙ КНОПКИ и налезала на
+          соседнюю.
+
+       Мерим результат: ничего не выходит за свой контейнер и ни у одной кнопки
+       содержимое не шире её самой. */
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => { window.app.go("deal"); window.app.setDealView("estimate"); });
+      await page.waitForTimeout(700);
+
+      const check = () => page.evaluate(() => {
+        const bad = { clipped: [], spill: [] };
+        const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 1 && r.height > 1; };
+        const name = (el) => (el.className || el.tagName).toString().split(/\s+/)[0].slice(0, 24)
+          + "«" + (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 16) + "»";
+
+        document.querySelectorAll(".stage-header, .toolbar").forEach((box) => {
+          const br = box.getBoundingClientRect();
+          box.querySelectorAll("*").forEach((el) => {
+            if (!vis(el)) return;
+            const r = el.getBoundingClientRect();
+            if (r.right > br.right + 1) bad.clipped.push(name(el) + " на " + Math.round(r.right - br.right) + "px");
+          });
+        });
+
+        // Содержимое шире самой кнопки = подпись рисуется поверх соседей.
+        document.querySelectorAll(".toolbar .btn, .stage-header .btn").forEach((b) => {
+          if (!vis(b)) return;
+          const over = b.scrollWidth - b.clientWidth;
+          if (over > 1) bad.spill.push(name(b) + " на " + over + "px");
+        });
+        return bad;
+      });
+
+      const collapsed = await check();
+      assert(collapsed.clipped.length === 0, "элементы вышли за свой контейнер: " + collapsed.clipped.join(", "));
+      assert(collapsed.spill.length === 0, "подпись шире своей кнопки: " + collapsed.spill.join(", "));
+
+      // Свёрнутые этапы — вид, в котором дефект и был снят: подпись кнопки меняется
+      // на более длинную («Развернуть всё»), и запаса как раз не хватало.
+      await page.evaluate(() => window.app.toggleAllEstimate());
+      await page.waitForTimeout(450);
+      const expanded = await check();
+      assert(expanded.clipped.length === 0, "со свёрнутыми этапами элементы вышли за контейнер: " + expanded.clipped.join(", "));
+      assert(expanded.spill.length === 0, "со свёрнутыми этапами подпись шире кнопки: " + expanded.spill.join(", "));
+    } finally {
+      await context.close();
+    }
+  });
+
   // Визуальная фиксация каталога на самом узком экране (п.20 — визуальный обход)
   await test("каталог на 320px: снимок для ревью", async () => {
     await page.setViewportSize({ width: 320, height: 800 });

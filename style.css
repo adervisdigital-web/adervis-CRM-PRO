@@ -4012,7 +4012,12 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 16px;
+      /* Перенос обязателен: на телефоне название этапа, шестизначная сумма и кнопка
+         «Свернуть» в одну строку не помещаются, и раньше сумма с кнопкой просто
+         уезжали ЗА КРАЙ карточки — кнопка оказывалась обрезанной. Замер на 390px
+         до правки: строка шире карточки на 5px, кнопка срезана на 4px. */
+      flex-wrap: wrap;
+      gap: 10px 16px;
       padding: 14px 18px;
       border-bottom: 1px solid var(--line);
       background: rgba(255,255,255,.04);
@@ -4020,8 +4025,17 @@
     [data-theme="light"] .stage-header {
       background: rgba(0,0,0,.025);
     }
+    /* min-width: 0 — то самое, без чего flex-элемент отказывается сжиматься ниже
+       ширины своего содержимого и выталкивает соседа наружу (min-width по умолчанию
+       auto, а не 0). Тот же корень, что у обрезанных названий в гридах. */
     .stage-header-left {
       display: flex; align-items: center; gap: 12px;
+      min-width: 0; flex: 1 1 200px;
+    }
+    .stage-header-text { min-width: 0; }
+    .stage-header-right {
+      display: flex; align-items: center; gap: 12px;
+      flex: 0 0 auto; margin-left: auto;
     }
     .stage-color-bar {
       width: 5px;
@@ -6298,9 +6312,19 @@ body.portal-mode .nav { display: none !important; }
      справа, в «Каталоге» — 242px. Это и есть «свободные места справа», из-за
      которых панель выглядит неубранной. flex-basis 0 заставляет ряд заполняться
      целиком, min-width держит подписи от схлопывания в столбик по буквам. */
-  .toolbar > .btn {
+  /* Селектор с .small ОБЯЗАТЕЛЕН. Раньше здесь стояло `.toolbar > .btn` с
+     min-width: 128px, и правило молча проигрывало `.btn.small { min-width: 44px }`
+     ниже по файлу: специфичность одинаковая, побеждает то, что позже. В итоге
+     flex: 1 1 0 сжимал кнопки до 80px, а подпись «Свернуть всё» требует 92 — и
+     ВЫЛЕЗАЛА ЗА ГРАНИЦЫ СВОЕЙ КНОПКИ, налезая на соседнюю («Свернуть всё+ Услуги»
+     одной строкой). Замер на 390px: перелив 14px.
+
+     min-width: max-content вместо числа: подпись не вылезет ни при какой длине,
+     а ряд по-прежнему заполняется целиком и переносится, когда не влезает. */
+  .toolbar > .btn,
+  .toolbar > .btn.small {
     flex: 1 1 0;
-    min-width: 128px;
+    min-width: max-content;
     justify-content: center;
   }
   .data-table { display: block; overflow-x: auto; }

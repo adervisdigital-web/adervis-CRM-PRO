@@ -16087,7 +16087,10 @@
                   })()}
                 </div>
                 ${stagesWithItems.length ? `
-                <div class="toolbar no-print" style="gap:5px;flex-direction:row;flex-wrap:wrap">
+                ${/* 8px, а не 5: при переносе на две строки кнопки вставали почти
+                      вплотную и читались одной длинной подписью («Свернуть всё+
+                      Услуги»). Зазор из шкалы DESIGN.md. */""}
+                <div class="toolbar no-print" style="gap:8px;flex-direction:row;flex-wrap:wrap">
                   <button class="btn small estimate-collapse-all-btn ${allStagesCollapsed ? "collapsed" : ""}" onclick="app.toggleAllEstimate()" title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
                     ${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}
@@ -16159,7 +16162,7 @@
             <div class="stage-header">
               <div class="stage-header-left">
                 <div class="stage-color-bar" style="background:${color}"></div>
-                <div>
+                <div class="stage-header-text">
                   <h2 style="color:${color}">${escapeHtml(stage.name)}</h2>
                   <div class="stage-header-meta">
                     ${escapeHtml(stage.desc || "")}
@@ -16167,7 +16170,10 @@
                   </div>
                 </div>
               </div>
-              <div style="display:flex;align-items:center;gap:12px">
+              ${/* Класс вместо инлайнового стиля: на телефоне этот блок должен уметь
+                    переноситься на свою строку — раньше он вылезал за край карточки
+                    вместе с кнопкой «Развернуть». */""}
+              <div class="stage-header-right">
                 <div class="price" style="font-size:20px">${money(stageSum)}</div>
                 <button class="btn small no-print stage-collapse-btn ${isCollapsed ? "collapsed" : ""}" onclick="app.toggleStageCollapse('${stage.id}')">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
