@@ -607,6 +607,107 @@ module.exports = async function ({ test }) {
     );
   });
 
+  await test("чтение из Supabase: результат select проверяется везде", () => {
+    // Парный сторож к проверке записи выше и та же причина: ошибка приходит полем
+    // `error`, а не исключением. Разница в последствиях. Неудачная ЗАПИСЬ врёт об
+    // успехе; неудачное ЧТЕНИЕ отдаёт null или [] — то есть выглядит как правдивый
+    // ответ «ничего нет», и код спокойно идёт в ветку «раз ничего нет, создадим».
+    // 12.08 таких мест нашлось шесть. Самое дорогое — поиск уже существующего КП
+    // сделки: при отказе чтения он возвращал null, вызывающий код делал insert и
+    // рождалось ВТОРОЕ КП с другой ссылкой, а у клиента на руках оставалась первая —
+    // ровно тот дубль, ради устранения которого поиск и написан. Рядом: разделы
+    // «Все КП» и «Онлайн-брифы» рисовали пустой список вместо отказа связи.
+    //
+    // Сторож статический: в местном режиме _supabase нет вовсе, ни одна из этих
+    // строк в браузерных прогонах не исполняется.
+    const lines = app.split("\n");
+    const MUTATION = /\.(upsert|insert|update|delete)\s*\(/;
+    const offenders = [];
+    lines.forEach((line, i) => {
+      const at = line.indexOf("await _supabase");
+      if (at < 0) return;
+      const stmt = lines.slice(i, i + 10).join("\n");
+      const head = stmt.slice(0, (stmt.indexOf(";") + 1) || stmt.length);
+      if (!/\.select\s*\(/.test(head)) return;
+      // `.insert(row).select('id')` — это запись, её разбирает сторож выше.
+      if (MUTATION.test(head)) return;
+      const bound = line.slice(0, at).match(/\berror(?:\s*:\s*([A-Za-z_$][\w$]*))?\b/);
+      if (!bound) {
+        offenders.push(`app.js:${i + 1}: error не извлечён — ${line.trim().slice(0, 78)}`);
+        return;
+      }
+      const name = bound[1] || "error";
+      const near = lines.slice(i, i + 12).join("\n");
+      const hits = (near.match(new RegExp(`\\b${name}\\b`, "g")) || []).length;
+      if (hits < 2) offenders.push(`app.js:${i + 1}: ${name} извлечён, но нигде не проверен`);
+    });
+    assert(
+      offenders.length === 0,
+      "результат чтения из Supabase не проверяется — отказ выглядит как «данных нет»:\n" + offenders.join("\n")
+    );
+  });
+
+  await test("КП: при неудачной проверке существующего КП второе не создаётся", () => {
+    // «Не нашли» и «не смогли посмотреть» обязаны остаться разными ответами: на
+    // втором insert создаёт дубль с новой ссылкой, а клиент держит старую — его
+    // согласование и оплата аванса перестают быть видны в сделке.
+    const fn = app.slice(app.indexOf("async function _findPortalForProject"));
+    const body = fn.slice(0, fn.indexOf("\n      /*"));
+    assert(body.length > 200, "не удалось вырезать тело _findPortalForProject");
+    assert(/ok:\s*false/.test(body), "_findPortalForProject больше не отличает отказ чтения от «КП нет»");
+    assert(!/^\s*return null;\s*$/m.test(body), "_findPortalForProject снова отдаёт голый null");
+
+    const caller = app.slice(app.indexOf("async function createClientPortal"));
+    const callIdx = caller.indexOf("_findPortalForProject(");
+    const insertIdx = caller.indexOf(".insert(row)");
+    assert(callIdx > 0 && insertIdx > 0, "не нашлись вызов поиска и вставка КП");
+    const between = caller.slice(callIdx, insertIdx);
+    assert(/!\s*lookup\.ok/.test(between), "между проверкой и insert нет выхода по неудачному чтению");
+    assert(/return;/.test(between.slice(between.indexOf("lookup.ok"))), "неудачное чтение не прерывает создание КП");
+  });
+
+  await test("места в команде: лимит считает база, а не клиент под RLS", () => {
+    // Клиентская проверка читала ЧУЖИЕ строки profiles, а единственная SELECT-политика
+    // на проде — `profiles: read own`. Лимит не срабатывал никогда, и серверной
+    // проверки не было ни в одной Edge Function: «до 3 пользователей» не ограничивало
+    // ничего. Тест держит три вещи разом — что счёт ушёл в RPC, что имя RPC совпадает
+    // с миграцией и что права на неё сняты у anon (код приглашения = agency_id, иначе
+    // им можно перебирать существующие агентства).
+    assert(/rpc\("agency_seat_info"/.test(app), "app.js больше не зовёт agency_seat_info — лимит мест снова на клиенте");
+    assert(
+      !/from\("profiles"\)\s*\.select\([^)]*\)\s*\.eq\("agency_id"/.test(app.replace(/\s+/g, " ")),
+      "вернулся прямой подсчёт коллег через profiles — под RLS он всегда даёт 0"
+    );
+    const mig = readSrc("supabase/migrations/20260812000001_agency_seat_info.sql");
+    assert(/create or replace function public\.agency_seat_info/.test(mig), "в миграции нет функции agency_seat_info");
+    assert(/security definer/.test(mig), "agency_seat_info без SECURITY DEFINER не увидит чужие строки и смысла не имеет");
+    assert(/revoke all on function public\.agency_seat_info\(uuid, int\) from anon/.test(mig), "нет revoke от anon");
+    assert(/revoke all on function public\.agency_seat_info\(uuid, int\) from public/.test(mig), "нет revoke от public");
+    // Наружу уходят только числа: ни email, ни id, ни имён.
+    const payload = (mig.match(/return json_build_object\(\s*'exists', true([\s\S]*?)\);/) || [])[1] || "";
+    assert(payload, "не удалось разобрать состав ответа — проверка приватности не выполнена");
+    const leaky = ["email", "'id'", "name", "state_json"].filter((k) => payload.includes(k));
+    assertEqual(leaky.length, 0, "в ответ agency_seat_info попали не-числовые поля: " + leaky.join(", "));
+  });
+
+  await test("даты-дни собираются в местном времени, а не в UTC", () => {
+    // <input type="date"> и <input type="month"> живут в часовом поясе человека,
+    // а toISOString() возвращает UTC: в МСК с 00:00 до 03:00 это ВЧЕРА, а в ночь
+    // на 1-е число — ещё и прошлый месяц. Для этого в app.js есть localIso()
+    // с подробным комментарием; сторож держит, чтобы соседний код не писал по-своему.
+    const offenders = [];
+    app.split("\n").forEach((line, i) => {
+      if (/toISOString\(\)\s*\.\s*(slice|split|substring)\s*\(/.test(line)) {
+        offenders.push(`app.js:${i + 1}: ${line.trim().slice(0, 80)}`);
+      }
+    });
+    assert(
+      offenders.length === 0,
+      "дата-день обрезана из UTC-строки вместо localIso()/todayIso():\n" + offenders.join("\n")
+    );
+    assert(/function localIso/.test(app) && /function todayIso/.test(app), "исчезли localIso/todayIso — обрезать станет нечем");
+  });
+
   await test("realtime: в канал уходит «пинок», а не всё состояние", () => {
     // Замер на боевом проекте: send() возвращает "ok" на любом размере, но
     // сообщения больше ~256 КБ до получателя не доходят вовсе. Состояние весит

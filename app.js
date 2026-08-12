@@ -237,12 +237,19 @@
       // удобно для регулярных вещей (ежемесячный отчёт клиенту, еженедельный чек-лист).
       const TASK_REPEAT_OPTIONS = ["none", "daily", "weekly", "monthly"];
       const TASK_REPEAT_LABELS = { none: "Без повтора", daily: "Каждый день", weekly: "Каждую неделю", monthly: "Каждый месяц" };
+      // Дедлайн — это ДЕНЬ из <input type="date">, а не момент времени. Поэтому и
+      // разбор, и сборка идут в местном времени: new Date("2026-08-12") читается как
+      // полночь UTC, а toISOString() возвращает UTC обратно — на паре «часовой пояс ×
+      // время суток» день уезжает. Прежний вариант ошибался на задаче БЕЗ дедлайна:
+      // ночью в МСК «повторить завтра» давало сегодняшнее число, и задача-повтор
+      // рождалась уже просроченной. См. localIso() — там та же причина расписана.
       function _shiftDateByRepeat(dateStr, repeat) {
-        const base = dateStr ? new Date(dateStr) : new Date();
+        const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr || "");
+        const base = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date();
         if (repeat === "daily") base.setDate(base.getDate() + 1);
         else if (repeat === "weekly") base.setDate(base.getDate() + 7);
         else if (repeat === "monthly") base.setMonth(base.getMonth() + 1);
-        return base.toISOString().slice(0, 10);
+        return localIso(base);
       }
       // Единая иконка корзины для всех кнопок удаления (та же, что в меню сделки/swipe).
       const TRASH_SVG = `<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg>`;
@@ -1148,10 +1155,15 @@
       let _briefEditorDraft = null;     // CRM: рабочая копия шаблона в редакторе вопросов
       let _briefs = [];
       let _briefsLoaded = false;
+      // "" — читали успешно; текст — чтение отказало. Пустой список и неудачное
+      // чтение выглядят одинаково, но означают ПРОТИВОПОЛОЖНОЕ, и молчать об
+      // отказе нельзя: см. _loadBriefs.
+      let _briefsError = "";
       let _briefExpanded = {}; // { [briefId]: true } — какие карточки заявок раскрыты
       let _briefTypeTab = 'video'; // CRM: выбранный тип на странице «Онлайн-брифы»
       let _allPortals = [];          // все КП агентства (client_portals) для раздела «Все КП»
       let _allPortalsLoaded = false;
+      let _allPortalsError = "";     // см. _briefsError — «пусто» ≠ «не прочиталось»
       let _proposalsFilter = "all";  // all | sent | approved | paid
       let _proposalsQuery = "";      // поиск по названию сделки и клиенту на «Все КП»
       let _proposalsSort = "date";   // date | sum — сортировка списка КП
@@ -1276,8 +1288,8 @@
               _loggedInUserId = null;
               _userProfile = null;
               _onlineUsers = [];
-              _briefs = []; _briefsLoaded = false;
-              _allPortals = []; _allPortalsLoaded = false;
+              _briefs = []; _briefsLoaded = false; _briefsError = "";
+              _allPortals = []; _allPortalsLoaded = false; _allPortalsError = "";
               if (_realtimeChannel) { _realtimeChannel.unsubscribe(); _realtimeChannel = null; }
               renderAdminTopbar();
               render();
@@ -1494,16 +1506,32 @@
             let agencyId = inviteCode || userId;
             let joinedTeam = inviteCode && inviteCode !== userId;
 
-            // Check user limit for the agency being joined
+            // Проверка лимита мест в агентстве, куда человек входит по коду.
+            //
+            // Раньше здесь стояли два прямых чтения profiles — профиль владельца и
+            // count коллег. Обе строки ЧУЖИЕ, а единственная SELECT-политика на
+            // проде это `profiles: read own` (auth.uid() = id): у входящего нет ни
+            // своей строки, ни права на чужие. То есть ownerProfile всегда приходил
+            // null (→ мест 1), count всегда 0, условие `0 >= 1` не выполнялось
+            // никогда, и лимит не ограничивал ничего. Серверной проверки нет ни в
+            // одной Edge Function, так что «до 3 пользователей» держалось на коде,
+            // который физически не мог сработать. Ошибки обоих чтений при этом ещё
+            // и отбрасывались.
+            //
+            // Теперь считает база — RPC agency_seat_info (SECURITY DEFINER, отдаёт
+            // только числа). Отказ RPC НЕ отклоняет приглашение: человек, тихо
+            // посаженный в отдельный личный аккаунт вместо агентства, увидит пустой
+            // рабочий стол и решит, что потерялись данные команды. Лишнее место —
+            // дешевле разорванной команды, поэтому при сбое пускаем и пишем в лог.
             if (joinedTeam) {
-              const { data: ownerProfile } = await _supabase.from("profiles").select("subscription_status,subscription_expires_at").eq("id", inviteCode).single();
-              const { count: memberCount } = await _supabase.from("profiles").select("id", { count: "exact", head: true }).eq("agency_id", inviteCode);
-              // Мест даёт факт оплаты, а не длина купленного периода — см. maxUsersForProfile.
-              const maxUsers = maxUsersForProfile(ownerProfile);
-              if ((memberCount || 0) >= maxUsers) {
-                agencyId = userId; // reject invite, create own account
+              const { data: seats, error: seatErr } = await _supabase
+                .rpc("agency_seat_info", { p_agency_id: inviteCode, p_max_paid: PAID_MAX_USERS });
+              if (seatErr) {
+                console.warn("Seat check failed, invite accepted:", seatErr.message || seatErr);
+              } else if (seats && seats.exists && (seats.used || 0) >= (seats.max || 1)) {
+                agencyId = userId; // приглашение отклонено, заводим личный аккаунт
                 joinedTeam = false;
-        setTimeout(() => toast(`Агентство достигло лимита пользователей (${maxUsers}) по тарифу. Создан личный аккаунт.`), 1200);
+        setTimeout(() => toast(`Агентство достигло лимита пользователей (${seats.max}) по тарифу. Создан личный аккаунт.`), 1200);
               }
             }
 
@@ -1754,7 +1782,19 @@
         if (!_supabase || !_adminSession) return;
         const agencyId = getAgencyId();
         try {
-          const { data } = await _supabase.from("agency_state").select("state_json,updated_at").eq("id", agencyId).single();
+          // maybeSingle(), а не single(): single() считает ОШИБКОЙ отсутствие строки,
+          // и «в облаке ещё пусто» (первый вход) становится неотличимо от отказа
+          // чтения — тот же приём, что в _loadUserProfile. Разница существенная:
+          // при отказе устройство остаётся на локальной копии, НЕ зная, что в облаке
+          // лежит свежее с другого устройства, и следующая правка уедет поверх неё.
+          // Раньше ошибка отбрасывалась целиком (`const { data } = ...`), и человек
+          // видел ровно ничего.
+          const { data, error } = await _supabase.from("agency_state").select("state_json,updated_at").eq("id", agencyId).maybeSingle();
+          if (error) {
+            console.warn("Cloud load:", error.message || error);
+            _setCloudSaveIndicator(false);
+            return;
+          }
           if (!data || !data.state_json) return;
 
           // Есть ли на ЭТОМ устройстве правки, которые не доехали до облака?
@@ -3871,13 +3911,10 @@
       // пользователь: он про «посмотреть продукт», а не про работу командой.
       const PAID_MAX_USERS = 3;
 
-      // Сколько мест даёт профиль. Считается по факту оплаты, а НЕ по длине периода.
-      function maxUsersForProfile(profile) {
-        if (!profile || profile.subscription_status !== "active") return 1;
-        const exp = profile.subscription_expires_at;
-        if (exp && new Date(exp) <= new Date()) return 1; // оплата закончилась
-        return PAID_MAX_USERS;
-      }
+      // Сколько мест даёт профиль, считается по факту оплаты, а НЕ по длине периода —
+      // эта логика уехала в RPC agency_seat_info (миграция 20260812000001). Функции
+      // здесь больше нет: считать места на клиенте было нечем — профиль владельца
+      // агентства закрыт RLS, и на вход ей всегда приходил null. См. _loadUserProfile.
 
       // Лимит AI-генераций КП на пробном тарифе. Дублируется в Edge Function
       // ai-proposal — там он и решает: клиентская проверка лишь бережёт лишний запрос.
@@ -10770,7 +10807,7 @@
             client: "Бренд «Вкус»", clientId,
             crmStatus: "КП отправлено", status: "В работе",
             priority: "Высокий", days: 2, createdAt: now,
-            deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
+            deadline: localIso(new Date(Date.now() + 14 * 86400000))
           };
           state.selected = {};
           state.estimateOrder = [];
@@ -10801,7 +10838,7 @@
           company: "",
           phone: "",
           projectName: "",
-          deadline: d30.toISOString().slice(0, 10),
+          deadline: localIso(d30),
           pkgFilter: "all",
         };
         state.view = "wizard";
@@ -11867,7 +11904,7 @@
         });
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Клиенты");
-        XLSX.writeFile(wb, `клиенты-${new Date().toISOString().slice(0,10)}.xlsx`);
+        XLSX.writeFile(wb, `клиенты-${todayIso()}.xlsx`);
         toast(`Экспортировано ${clients.length} ${plural(clients.length, "клиент", "клиента", "клиентов")}`);
       }
 
@@ -12970,29 +13007,55 @@
         // повторим на следующем render(), когда сессия появится.
         if (!_adminSession) return;
         const agencyId = getAgencyId();
+        /* Отказ чтения нельзя показывать пустым списком. Ошибка приходит в
+           результате, а не исключением (gotcha-supabase-error-not-thrown), поэтому
+           `data` тут был null и раздел уверенно писал «Заполненных брифов пока нет».
+           Для владельца это утверждение о клиентах: он решит, что бриф никто не
+           заполнил, и не станет ждать — тот же класс, что silent-fallback-shows-
+           wrong-data. Флаг разводит «пусто» и «не смогли прочитать». */
         try {
-          const { data } = await _supabase.from('brief_submissions')
+          const { data, error } = await _supabase.from('brief_submissions')
             .select('*').eq('agency_id', agencyId)
             .order('submitted_at', { ascending: false });
+          if (error) throw error;
           _briefs = data || [];
+          _briefsError = "";
           _briefsLoaded = true;
           render();
-        } catch(e) { console.warn('Briefs load:', e); _briefsLoaded = true; render(); }
+        } catch(e) {
+          console.warn('Briefs load:', e);
+          _briefs = [];
+          _briefsError = e && e.message ? e.message : 'Нет связи с сервером';
+          _briefsLoaded = true;
+          render();
+        }
       }
+
+      function reloadBriefs() { _briefsLoaded = false; _briefsError = ""; render(); _loadBriefs(); }
 
       async function _loadAllPortals() {
         if (!_supabase || !_adminSession || _allPortalsLoaded) return;
+        // То же, что и с брифами, но дороже: пустой список здесь означает «КП нет
+        // ни одного», а под ним стоит сумма «Всего на 0 ₽» и счётчики авансов.
         try {
-          const { data } = await _supabase.from('client_portals')
+          const { data, error } = await _supabase.from('client_portals')
             .select('id, project_id, deal_name, deal_status, total_price, approved_at, advance_amount, advance_paid_at, signer_name, created_at, pay_method, pay_link')
             .order('created_at', { ascending: false });
+          if (error) throw error;
           _allPortals = data || [];
+          _allPortalsError = "";
           _allPortalsLoaded = true;
           render();
-        } catch (e) { console.warn('Portals load:', e); _allPortalsLoaded = true; render(); }
+        } catch (e) {
+          console.warn('Portals load:', e);
+          _allPortals = [];
+          _allPortalsError = e && e.message ? e.message : 'Нет связи с сервером';
+          _allPortalsLoaded = true;
+          render();
+        }
       }
 
-      function refreshAllProposals() { _allPortalsLoaded = false; _loadAllPortals(); }
+      function refreshAllProposals() { _allPortalsLoaded = false; _allPortalsError = ""; _loadAllPortals(); }
       function setProposalsFilter(f) { _proposalsFilter = f; render(); }
       function setProposalsSort(s) { _proposalsSort = s; render(); }
       // Поиск перерисовывает ТОЛЬКО список, а не всю страницу: полный render()
@@ -13111,7 +13174,11 @@
 
         const filter = _proposalsFilter || 'all';
         const withPortal = new Set(_allPortals.map(p => p.project_id).filter(Boolean));
-        const drafts = (state.savedProjects || []).filter(p => !withPortal.has(p.id) && !isDealInactive(p.crmStatus || 'Лид'));
+        // «Без отправленного КП» считается вычитанием из загруженного списка. Если
+        // список не загрузился, вычитать не из чего — и в блок попали бы ВСЕ сделки,
+        // включая те, где КП уже ушло клиенту, с кнопкой «Отправить КП» под ним.
+        const drafts = _allPortalsError ? [] :
+          (state.savedProjects || []).filter(p => !withPortal.has(p.id) && !isDealInactive(p.crmStatus || 'Лид'));
 
         const counts = {
           all: _allPortals.length,
@@ -13129,7 +13196,9 @@
             <div class="section-title">
               <div>
                 <h1>Коммерческие предложения</h1>
-                <p>Все КП по сделкам агентства. Всего на ${money(totalSum)}${paidSum ? ` · авансов оплачено ${money(paidSum)}` : ''}.</p>
+                <p>${_allPortalsError
+                  ? 'Список не загрузился — суммы и счётчики показать не можем.'
+                  : `Все КП по сделкам агентства. Всего на ${money(totalSum)}${paidSum ? ` · авансов оплачено ${money(paidSum)}` : ''}.`}</p>
               </div>
               <div class="toolbar no-print">
                 <button class="btn small" onclick="app.refreshAllProposals()" title="Обновить">↻ Обновить</button>
@@ -13153,7 +13222,11 @@
                 </div>
               </div>
               <div class="kp-list" id="proposalsList">${_proposalsListHtml()}</div>
-            ` : emptyState({
+            ` : _allPortalsError ? emptyState({
+                title: "Не удалось загрузить список КП",
+                text: "Сколько их и на какую сумму — сейчас неизвестно. Это сбой связи, а не пустой список: отправленные КП на месте и клиенту открываются.",
+                cta: { label: "Повторить", onclick: "app.refreshAllProposals()" }
+              }) : emptyState({
                 icon: "doc",
                 title: "КП пока нет",
                 text: "Откройте сделку → «Коммерческое предложение» → «Ссылка КП»."
@@ -13615,7 +13688,16 @@
               </div>
             </div>
 
-            ${newBriefs.length === 0 && done.length === 0 ? `
+            ${_briefsError ? `
+              <div class="panel" style="text-align:center;padding:48px 24px">
+                <h3 style="margin:0 0 8px">Заявки не загрузились</h3>
+                <p style="color:var(--muted);font-size:14px;max-width:52ch;margin:0 auto 14px">
+                  Это сбой связи, а не пустой список: если клиент заполнял бриф, заявка на месте.
+                  Ссылки и вопросы выше работают и без сервера.
+                </p>
+                <button class="btn primary no-print" onclick="app.reloadBriefs()">Повторить</button>
+              </div>
+            ` : newBriefs.length === 0 && done.length === 0 ? `
               <div class="panel" style="text-align:center;padding:48px 24px">
                 <div style="font-size:48px;margin-bottom:16px"></div>
                 <h3 style="margin:0 0 8px">Нет новых заявок</h3>
@@ -19838,7 +19920,10 @@
               <div class="toolbar no-print" style="margin-top:8px">
                 <span style="font-size:12px;color:var(--muted);align-self:center">Ежемесячный отчёт:</span>
                 <input type="month" id="monthReportInput" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:13px"
-                  value="${new Date().toISOString().slice(0,7)}">
+                  ${/* localIso, а не toISOString: в ночь на 1-е число месяца UTC ещё
+                        показывает прошлый, и отчёт «за месяц» по умолчанию сдавался
+                        за предыдущий — ровно та же причина, что у платежей. */""}
+                  value="${todayIso().slice(0,7)}">
                 <button class="btn green" onclick="app.exportMonthlyReport(document.getElementById('monthReportInput').value)" style="display:inline-flex;align-items:center;gap:6px">${icon("download")} Отчёт за месяц</button>
               </div>
 
@@ -21323,22 +21408,35 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
       // Ищет уже существующее КП сделки. Сначала по project_id (надёжно), потом по
       // сохранённому portalId — колонка project_id появилась миграцией 20260704000002,
-      // и у КП, созданных до неё, её нет. Возвращает null, если КП ещё не было.
+      // и у КП, созданных до неё, её нет.
+      //
+      // Возвращает { ok, portal }. ok:false — «прочитать не удалось», и это НЕ то же
+      // самое, что portal:null («КП ещё нет»). Раньше обе ситуации давали null: ошибка
+      // чтения приходит в результате, а не исключением (см. gotcha-supabase-error-not-
+      // thrown), поэтому её здесь просто некому было заметить — и вызывающий код уходил
+      // в insert, то есть ровно в тот дубль КП, ради устранения которого поиск и
+      // написан. У клиента на руках оставалась старая ссылка, а согласование и оплата
+      // аванса по ней переставали быть видны в сделке.
       async function _findPortalForProject(projectId, portalId) {
-        if (!_supabase) return null;
+        if (!_supabase) return { ok: true, portal: null };
         const cols = 'id, approved_at, advance_paid_at';
         try {
-          const { data } = await _supabase.from('client_portals')
+          const { data, error } = await _supabase.from('client_portals')
             .select(cols).eq('project_id', projectId)
             .order('created_at', { ascending: false }).limit(1);
-          if (data && data.length) return data[0];
+          if (error) throw error;
+          if (data && data.length) return { ok: true, portal: data[0] };
           if (portalId) {
-            const { data: byId } = await _supabase.from('client_portals')
+            const { data: byId, error: errById } = await _supabase.from('client_portals')
               .select(cols).eq('id', portalId).maybeSingle();
-            if (byId) return byId;
+            if (errById) throw errById;
+            if (byId) return { ok: true, portal: byId };
           }
-        } catch (e) { console.warn('Portal lookup:', e); }
-        return null;
+        } catch (e) {
+          console.warn('Portal lookup:', e);
+          return { ok: false, portal: null };
+        }
+        return { ok: true, portal: null };
       }
 
       /* Три текстовых блока КП с учётом переключателей «Что показывать в КП».
@@ -21420,7 +21518,15 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         // руках, а project.portalId уже указывал на последнюю — согласование и оплата
         // аванса переставали быть видны в сделке. Теперь повторная отправка обновляет
         // существующее КП: ссылка у клиента одна и живая.
-        const existing = await _findPortalForProject(projectId, project.portalId);
+        const lookup = await _findPortalForProject(projectId, project.portalId);
+        // Не знаем, есть ли уже КП, — значит и вставлять новое нельзя: при отказе
+        // чтения insert создаёт второе КП с ДРУГОЙ ссылкой, а у клиента на руках
+        // остаётся первая. Лучше попросить повторить, чем молча раздвоить документ.
+        if (!lookup.ok) {
+          toast('Не удалось проверить, есть ли уже КП по этой сделке. Проверьте связь и попробуйте ещё раз');
+          return;
+        }
+        const existing = lookup.portal;
         if (existing && (existing.approved_at || existing.advance_paid_at)) {
           const okUpdate = await confirmDialog({
             title: 'Клиент уже ответил по этому КП',
@@ -24933,6 +25039,7 @@ Email: _____________________              Email: _____________________
         setProposalsSort,
         filterProposals,
         refreshAllProposals,
+        reloadBriefs,
         copyPortalLink,
         openPortalPreview,
         openProposalModal,
