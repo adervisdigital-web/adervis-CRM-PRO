@@ -956,6 +956,80 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  for (const W of [390, 320]) {
+  await test(`телефон ${W}px: подпись не наезжает на соседа и не лезет за край`, async () => {
+    /* Класс дефекта: содержимое кнопки шире её самой. Страница при этом в ширину
+       помещается, поэтому проверка «документ не шире окна» его НЕ видит — ломается
+       внутри элемента. Так «Свернуть всё» (92px в кнопке 80px) рисовалось поверх
+       соседней кнопки: на экране читалось «Свернуть всё+ Услуги» одной строкой.
+
+       Мерим ВРЕД, а не факт перелива: вылезшее должно наезжать на соседа по строке
+       или уходить за край родителя. Просто перелив безобиден — вокруг кнопки бывает
+       запас, и на экране ничего не сталкивается (обход 17 разделов: 199 переливов,
+       из них вредных ноль). Иначе тест ловил бы шум и его отключили бы.
+
+       Артефакт замера: абсолютный ::after, которым расширяют область касания,
+       попадает в scrollWidth кнопки, хотя невидим. Такие пропускаем.
+
+       320px в наборе потому, что все прежние обходы шли на 390: узкий экран
+       сжимает кнопки сильнее и вскрывает то, что на 390 ещё помещалось. */
+    const VIEWS_SPILL = [
+      "home", "crm", "deal", "services", "catalog", "packages", "clients",
+      "proposals", "briefs", "global-finances", "global-calendar",
+      "global-tasks", "contracts", "knowledge", "settings",
+    ];
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: W, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.waitForTimeout(500);
+      const bad = [];
+      for (const view of VIEWS_SPILL) {
+        await page.evaluate((v) => window.app.go(v), view);
+        await page.waitForTimeout(380);
+        const found = await page.evaluate(() => {
+          const out = [];
+          const name = (el) => (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 18)
+            || (el.getAttribute("aria-label") || "").slice(0, 18)
+            || (el.className || "").toString().split(/\s+/)[0].slice(0, 18);
+
+          document.querySelectorAll("#appContent button, #appContent .btn").forEach((b) => {
+            const box = b.getBoundingClientRect();
+            if (box.width < 1 || box.height < 1) return;
+            const over = b.scrollWidth - b.clientWidth;
+            if (over <= 1) return;
+            const a = getComputedStyle(b, "::after");
+            if (a && a.content !== "none" && a.position === "absolute") return;
+
+            const parent = b.parentElement;
+            const pr = parent ? parent.getBoundingClientRect() : null;
+            const bleed = over / 2; // содержимое центрировано → лезет в обе стороны
+            const left = box.left - bleed, right = box.right + bleed;
+
+            let hit = "";
+            if (pr && (right > pr.right + 1 || left < pr.left - 1)) hit = "за край родителя";
+            if (!hit && parent) {
+              for (const sib of parent.children) {
+                if (sib === b) continue;
+                const s = sib.getBoundingClientRect();
+                if (s.width < 1 || s.height < 1) continue;
+                if (Math.min(box.bottom, s.bottom) - Math.max(box.top, s.top) <= 1) continue;
+                if (right > s.left + 1 && left < s.right - 1) { hit = `наезд на «${name(sib)}»`; break; }
+              }
+            }
+            if (hit) out.push(`${name(b)} +${over}px — ${hit}`);
+          });
+          return out;
+        });
+        found.forEach((f) => { const k = `${view}: ${f}`; if (!bad.includes(k)) bad.push(k); });
+      }
+      assert(bad.length === 0, `подписи вылезают из своих кнопок: ` + bad.slice(0, 8).join("; "));
+    } finally {
+      await context.close();
+    }
+  });
+  }
+
   await test("телефон: по кнопке можно попасть пальцем во всех разделах", async () => {
     /* Обход 17 разделов на 390×844 нашёл 137 целей меньше 44px — включая
        «Добавить» в каталоге (117×32), самую нажимаемую кнопку продукта.
