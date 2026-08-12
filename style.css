@@ -2806,6 +2806,70 @@
       .container { padding-bottom: 88px; }
     }
 
+    /* ── ЛИСТ РАЗДЕЛОВ НА ТЕЛЕФОНЕ ──────────────────────────────────────────
+       Такой же лист снизу, как у разделов каталога: на телефоне это уже принятый
+       в приложении способ показать длинный список выбора. Слой модальный —
+       нижняя панель прибита на z-index 110 и накрыла бы последние пункты
+       (на разделах каталога этот же промах ловил именно скриншот, замер молчал). */
+    .mobile-nav-backdrop {
+      position: fixed; inset: 0;
+      z-index: calc(var(--z-modal) - 1);
+      background: rgba(0, 0, 0, .45);
+    }
+    .mobile-nav-sheet {
+      position: fixed;
+      /* top: auto ОБЯЗАТЕЛЕН при sticky→fixed — иначе унаследованное top прилепит
+         лист к верху экрана вместо низа. */
+      left: 0; right: 0; bottom: 0; top: auto;
+      z-index: var(--z-modal);
+      display: flex; flex-direction: column;
+      max-height: 86vh; overflow-y: auto; overflow-x: hidden;
+      padding: 0 12px calc(12px + env(safe-area-inset-bottom, 0px));
+      background: var(--panel);
+      border-top: 1px solid var(--line);
+      border-radius: var(--r-2xl) var(--r-2xl) 0 0;
+      box-shadow: 0 -12px 40px rgba(0, 0, 0, .28);
+      animation: sheetUp .28s cubic-bezier(.32, .72, 0, 1);
+    }
+    .mobile-nav-sheet-head {
+      position: sticky; top: 0; z-index: 1;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      margin: 0 -12px 6px; padding: 16px 12px 10px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      font-weight: 800;
+    }
+    .mobile-nav-sheet-head::before {
+      content: ""; position: absolute; top: 6px; left: 50%;
+      width: 36px; height: 4px; margin-left: -18px;
+      border-radius: var(--r-pill); background: var(--line);
+    }
+    .mobile-nav-sheet-list { display: flex; flex-direction: column; gap: 2px; padding: 2px 0; }
+    /* Разметка строк — та же, что в боковом меню (renderNavListHtml), поэтому
+       здесь только размер под палец: сайдбар рассчитан на курсор.
+       44px — минимум по WCAG и ровно столько, чтобы все 12 разделов и строка
+       настройки поместились на экране телефона без прокрутки: список выбора,
+       который надо прокручивать, чтобы увидеть, что в нём есть, — половина
+       той же беды, что была до листа. */
+    .mobile-nav-sheet-list .sidebar-nav-item {
+      width: 100%; min-height: 44px;
+      gap: 12px; padding: 9px 14px;
+      font-size: 15px;
+      border-radius: var(--r-md);
+    }
+    .mobile-nav-sheet-list .sidebar-nav-item svg { width: 18px; height: 18px; }
+    .mobile-nav-sheet-list .sidebar-label { font-size: 15px; }
+    .mobile-nav-sheet-list .sidebar-project-hint { font-size: 12px; }
+    .mobile-nav-sheet-config {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; min-height: 46px; margin-top: 8px; padding: 12px;
+      font: inherit; font-size: 13px; font-weight: 700;
+      color: var(--muted); background: none;
+      border: 1px dashed var(--line); border-radius: var(--r-md);
+      cursor: pointer;
+    }
+    .mobile-nav-sheet-config:hover { color: var(--text); border-color: var(--primary2); }
+
     /* ── WELCOME SCREEN ─────────────────────────── */
     .welcome-screen {
       text-align: center;
@@ -4272,7 +4336,14 @@
     .deal-switcher-item {
       display: flex; flex-direction: column; gap: 5px;
       padding: 12px 14px; border-radius: var(--r-md);
-      cursor: pointer; transition: background var(--dur-1);
+      cursor: pointer; transition: background var(--dur-1), border-color var(--dur-1);
+      /* Обводка и своя заливка. Зазора между строками оказалось мало: строки лежали
+         прозрачными на фоне колонки, и границу сделки приходилось угадывать по
+         цветной полоске слева — где сделка кончилась и началась соседняя, глаз не
+         видел. Теперь каждая строка — карточка по правилам DESIGN.md: 1px --line и
+         фон --panel, на тон отличный от --panel2 колонки, в обеих темах. */
+      background: var(--panel);
+      border: 1px solid var(--line);
       /* Зазор между строками. Раньше карточки шли впритык, и при трёх строках
          текста (название, клиент, этап с суммой) список читался сплошной простынёй:
          граница между соседними сделками была видна только по цветной полоске слева.
@@ -4309,11 +4380,22 @@
        Прокрутку списка это не ломает: перенос стартует только после удержания
        (TOUCH_HOLD_MS), а до него уход пальца отменяет жест — см. dealPointerMove. */
     .deal-switcher-item-draggable { touch-action: none; }
-    .deal-switcher-item:hover { background: rgb(var(--primary-rgb) / .07); }
-    .deal-switcher-item.active { background: rgb(var(--primary-rgb) / .13); }
+    /* Тинт лежит СЛОЕМ поверх заливки карточки (background-image), а не вместо неё:
+       иначе на наведении строка теряла бы фон --panel и переставала читаться
+       карточкой ровно в тот момент, когда человек ею занят. */
+    .deal-switcher-item:hover {
+      background-image: linear-gradient(rgb(var(--primary-rgb) / .07), rgb(var(--primary-rgb) / .07));
+      border-color: rgb(var(--primary-rgb) / .35);
+    }
+    .deal-switcher-item.active {
+      background-image: linear-gradient(rgb(var(--primary-rgb) / .13), rgb(var(--primary-rgb) / .13));
+      border-color: rgb(var(--primary-rgb) / .5);
+    }
     /* Специфичность .active и :hover одинакова, и .active идёт позже — без этого
        правила наведение на выбранную строку не давало бы никакого отклика. */
-    .deal-switcher-item.active:hover { background: rgb(var(--primary-rgb) / .19); }
+    .deal-switcher-item.active:hover {
+      background-image: linear-gradient(rgb(var(--primary-rgb) / .19), rgb(var(--primary-rgb) / .19));
+    }
     .deal-switcher-item.active-deal { border-left: 2px solid var(--green); }
     .deal-switcher-item.completed-deal { border-left: 2px solid var(--red); opacity: .75; }
     .deal-switcher-item.completed-deal:hover { opacity: 1; }
@@ -5200,35 +5282,6 @@
     }
     .contract-editor:focus { border-color: rgb(var(--primary-rgb) / .65); box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / .14); outline: none; }
 
-    /* ── MAIN MENU MODAL ─────────────────────────── */
-    .main-menu-modal {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin-top: 16px;
-    }
-    .main-menu-item {
-      padding: 16px 10px;
-      border: 1px solid var(--line);
-      border-radius: var(--r-lg);
-      background: var(--panel2);
-      text-align: center;
-      cursor: pointer;
-      transition: var(--dur-1);
-      color: var(--text);
-    }
-    .main-menu-item:hover { background: rgb(var(--primary-rgb) / .14); transform: translateY(-2px); border-color: rgb(var(--primary-rgb) / .3); }
-    .main-menu-item .mm-icon { font-size: 26px; display: block; margin-bottom: 6px; }
-    .main-menu-item .mm-icon svg { width: 1em; height: 1em; vertical-align: middle; }
-    .main-menu-item .mm-label { font-size: 12px; font-weight: 600; }
-    .main-menu-item .mm-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    @media (max-width: 768px) {
-      .main-menu-modal { grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
-      .main-menu-item { padding: 12px 8px; border-radius: var(--r-lg); }
-      .main-menu-item .mm-icon { font-size: 22px; margin-bottom: 4px; }
-      .main-menu-item .mm-label { font-size: 12px; }
-      .main-menu-item .mm-sub { display: none; }
-    }
 
     /* ── TASK MODAL ──────────────────────────────── */
     .task-modal-overlay {
@@ -6889,18 +6942,15 @@ body.portal-mode .nav { display: none !important; }
   padding: 0 8px 10px;
 }
 
-/* Кнопка возврата к автосортировке. Видна только когда порядок ручной — иначе
-   она обещала бы действие, которое ничего не меняет. */
+/* Кнопка возврата к автосортировке — в шапке колонки, на месте бывшей «Все».
+   Видна только когда порядок ручной. Базовый вид берёт у .btn small, здесь только
+   иконка в строку с подписью и уплотнение: заголовок «Сделки» рядом, и кнопка не
+   должна его перевешивать. */
 .deal-rail-order-reset {
-  display: flex; align-items: center; gap: 6px; width: 100%;
-  margin: 4px 0 6px; padding: 6px 8px;
-  font: inherit; font-size: 11px; font-weight: 700;
-  letter-spacing: .04em; text-transform: uppercase;
-  color: var(--muted); background: none;
-  border: 1px dashed var(--line); border-radius: var(--r-sm);
-  cursor: pointer; transition: color var(--dur-1), border-color var(--dur-1);
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 9px; font-size: 12px; white-space: nowrap;
 }
-.deal-rail-order-reset:hover { color: var(--text); border-color: var(--primary2); }
+.deal-rail-order-reset svg { flex: 0 0 auto; }
 
 /* Ниже 1100px колонка не помещается рядом со сметой — возвращаемся к кнопке. */
 @media (max-width: 1100px) {

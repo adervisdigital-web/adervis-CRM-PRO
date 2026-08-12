@@ -16,7 +16,7 @@ const { bootLocal, assert, assertEqual } = require("../harness");
 // gotcha-playwright-evaluate-async-deadlock). Для чистой модалки состояние очищается
 // на ближайшем микротаске, чего с запасом хватает паузе в 40мс ниже.
 const CLOSERS = [
-  "closeClientModal", "closeFinanceModal", "closeHelpModal", "closeMainMenu",
+  "closeClientModal", "closeFinanceModal", "closeHelpModal", "closeMobileNavSheet",
   "closeAdminModal", "closeDealModal", "closeCatalogEdit", "closePackageEditModal",
   "closeTaskModal", "closeEditTransactionModal", "closeDocsModal", "closeBriefEditor",
 ];
@@ -70,7 +70,6 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     { key: "client", open: () => page.evaluate(() => window.app.openClientModal()) },
     { key: "finance", open: () => page.evaluate(() => window.app.openFinanceModal("payment")) },
     { key: "help", open: () => page.evaluate(() => window.app.openHelpModal()) },
-    { key: "mainMenu", open: () => page.evaluate(() => window.app.openMainMenu()) },
     { key: "admin", open: () => page.evaluate(() => window.app.openAdminModal()) },
     { key: "docs", open: () => page.evaluate(() => window.app.openDocsModal()) },
   ];

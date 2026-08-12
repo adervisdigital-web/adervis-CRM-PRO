@@ -1755,7 +1755,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","mainMenuOpen","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
+      const SYNC_SKIP_KEYS = new Set(["view","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
 
       // Кладёт облачное состояние в state. Отдельно от _loadCloudState, потому что
       // вызывается ещё и из разрешения конфликта.
@@ -2298,58 +2298,7 @@
 
         const activeProject = state.activeProjectId && state.project?.name ? state.project.name : "";
 
-        const navItem = (view, icon, label, badge, extraId, extraClass) => `
-          <button class="sidebar-nav-item ${v === view ? "active" : ""} ${extraClass||""}" ${v === view ? 'aria-current="page"' : ""} onclick="app.go('${view}')"
-            ${extraId ? `id="${extraId}"` : ""} data-tour="${view}" title="${label}">
-            ${icon}
-            <span class="sidebar-label">${label}</span>
-            ${badge ? `<span class="sidebar-badge">${badge}</span>` : ""}
-          </button>`;
-
-        const overdueCount = (() => {
-          let cnt = 0;
-          const t = todayIso();
-          (state.savedProjects||[]).forEach(p => { if (p.id !== state.activeProjectId) (p.snapshot?.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; }); });
-          (state.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; });
-          (state.globalTasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; });
-          return cnt;
-        })();
-
-        const navRenderers = {
-          home: () => navItem("home",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>`,"Проекты"),
-          deal: () => `
-            <button class="sidebar-nav-item ${v==="deal"?"active":""} estimate-nav-btn" id="navEstimateBtn"
-              onclick="app.go('deal')" data-tour="deal" title="Смета${activeProject?" — "+activeProject:""}">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
-              <span class="sidebar-label">
-                Смета
-                ${activeProject ? `<small class="sidebar-project-hint">${escapeHtml(activeProject)}</small>` : ""}
-              </span>
-            </button>`,
-          services: () => navItem("services",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>`,"Услуги"),
-          clients: () => navItem("clients",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>`,"Клиенты"),
-          proposals: () => navItem("proposals",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h5l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.5 1.2V4.5H11L8.5 2.2zM5 7h6v1H5V7zm0 2.5h6v1H5v-1zM5 12h4v1H5v-1z"/></svg>`,"Все КП"),
-          briefs: () => navItem("briefs",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h6l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 1v3h3L9 2zM5 7h6v1H5V7zm0 3h6v1H5v-1z"/></svg>`,"Онлайн-брифы"),
-          "company-team": () => navItem("company-team",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm5-1a2 2 0 100-4 2 2 0 000 4zM1 13.5c0-2.5 2.2-4 4.5-4s4.5 1.5 4.5 4H1zm9-3.3c1.9.4 3 1.6 3 3.3h-2c0-1.2-.4-2.3-1-3.3z"/></svg>`,"Команда"),
-          "global-finances": () => navItem("global-finances", icon("wallet", 15), "Финансы"),
-          "global-calendar": () => navItem("global-calendar",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>`,"Календарь","","","", overdueCount ? `badge${overdueCount}` : ""),
-          "global-tasks": () => navItem("global-tasks",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h2v2H2V3zm4 0h8v1.5H6V3zM2 7h2v2H2V7zm4 .25h8v1.5H6v-1.5zM2 11h2v2H2v-2zm4 .25h8v1.5H6v-1.5z"/></svg>`,"Задачи","","","", overdueCount ? `badge${overdueCount}` : ""),
-          contracts: () => navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора"),
-          knowledge: () => navItem("knowledge",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"База знаний")
-        };
-
-        const navConfig = getSidebarNavConfig();
-        const navItemsHtml = navConfig
-          .filter(x => !x.hidden && (navRenderers[x.id] || _isCustomNavId(x.id)))
-          .map(x => {
-            if (navRenderers[x.id]) return navRenderers[x.id]();
-            const href = _safeNavUrl(x.url);
-            if (!href) return "";
-            return `<a class="sidebar-nav-item" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(x.label || "")} — откроется в новой вкладке">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6.5 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V9.5"/><path d="M10 2h4v4M14 2L7.5 8.5"/></svg>
-              <span class="sidebar-label">${escapeHtml(x.label || "Раздел")}</span>
-            </a>`;
-          }).join("");
+        const navItemsHtml = renderNavListHtml();
 
         el.innerHTML = `
           <div class="sidebar-header">
@@ -2391,6 +2340,125 @@
             </button>
           </div>
           <div id="estimateNavTooltip" class="estimate-nav-tooltip-fixed"></div>
+        `;
+      }
+
+      /* Список разделов — ОДНА разметка на боковое меню (десктоп) и лист снизу
+         (телефон). Второй копии быть не должно: она уже расходилась однажды —
+         мобильное меню жило своим списком и отстало от SIDEBAR_NAV_DEFS.
+
+         Всё нужное берём из state, а не из локальных переменных вызывающего:
+         вынесенная функция теряет их МОЛЧА, и раздел падает с ReferenceError уже
+         у пользователя (см. gotcha-extracted-fn-loses-locals). */
+      function renderNavListHtml() {
+        const v = state.view || "home";
+        const activeProject = state.activeProjectId && state.project?.name ? state.project.name : "";
+
+        const navItem = (view, icon, label, badge, extraId, extraClass) => `
+          <button class="sidebar-nav-item ${v === view ? "active" : ""} ${extraClass||""}" ${v === view ? 'aria-current="page"' : ""} onclick="app.go('${view}')"
+            ${extraId ? `id="${extraId}"` : ""} data-tour="${view}" title="${label}">
+            ${icon}
+            <span class="sidebar-label">${label}</span>
+            ${badge ? `<span class="sidebar-badge">${badge}</span>` : ""}
+          </button>`;
+
+        const overdueCount = (() => {
+          let cnt = 0;
+          const t = todayIso();
+          (state.savedProjects||[]).forEach(p => { if (p.id !== state.activeProjectId) (p.snapshot?.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; }); });
+          (state.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; });
+          (state.globalTasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; });
+          return cnt;
+        })();
+
+        const navRenderers = {
+          home: () => navItem("home",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>`,"Проекты"),
+          deal: () => `
+            <button class="sidebar-nav-item ${v==="deal"?"active":""} estimate-nav-btn" id="navEstimateBtn"
+              onclick="app.go('deal')" data-tour="deal" title="Смета${activeProject?" — "+activeProject:""}">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
+              <span class="sidebar-label">
+                Смета
+                ${activeProject ? `<small class="sidebar-project-hint">${escapeHtml(activeProject)}</small>` : ""}
+              </span>
+            </button>`,
+          services: () => navItem("services",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>`,"Услуги"),
+          clients: () => navItem("clients",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>`,"Клиенты"),
+          proposals: () => navItem("proposals",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h5l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.5 1.2V4.5H11L8.5 2.2zM5 7h6v1H5V7zm0 2.5h6v1H5v-1zM5 12h4v1H5v-1z"/></svg>`,"Все КП"),
+          briefs: () => navItem("briefs",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h6l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 1v3h3L9 2zM5 7h6v1H5V7zm0 3h6v1H5v-1z"/></svg>`,"Онлайн-брифы"),
+          "company-team": () => navItem("company-team",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm5-1a2 2 0 100-4 2 2 0 000 4zM1 13.5c0-2.5 2.2-4 4.5-4s4.5 1.5 4.5 4H1zm9-3.3c1.9.4 3 1.6 3 3.3h-2c0-1.2-.4-2.3-1-3.3z"/></svg>`,"Команда"),
+          "global-finances": () => navItem("global-finances", icon("wallet", 15), "Финансы"),
+          "global-calendar": () => navItem("global-calendar",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>`,"Календарь","","","", overdueCount ? `badge${overdueCount}` : ""),
+          "global-tasks": () => navItem("global-tasks",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h2v2H2V3zm4 0h8v1.5H6V3zM2 7h2v2H2V7zm4 .25h8v1.5H6v-1.5zM2 11h2v2H2v-2zm4 .25h8v1.5H6v-1.5z"/></svg>`,"Задачи","","","", overdueCount ? `badge${overdueCount}` : ""),
+          contracts: () => navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора"),
+          knowledge: () => navItem("knowledge",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"База знаний")
+        };
+
+        return getSidebarNavConfig()
+          .filter(x => !x.hidden && (navRenderers[x.id] || _isCustomNavId(x.id)))
+          .map(x => {
+            if (navRenderers[x.id]) return navRenderers[x.id]();
+            const href = _safeNavUrl(x.url);
+            if (!href) return "";
+            return `<a class="sidebar-nav-item" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(x.label || "")} — откроется в новой вкладке">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6.5 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V9.5"/><path d="M10 2h4v4M14 2L7.5 8.5"/></svg>
+              <span class="sidebar-label">${escapeHtml(x.label || "Раздел")}</span>
+            </a>`;
+          }).join("");
+      }
+
+      /* ─── МОБИЛЬНЫЙ ЛИСТ РАЗДЕЛОВ ───────────────────────────────────────────
+         Замер на 390px: из 12 разделов приложения с телефона открывались ТРИ —
+         «Проекты», «Смета» и «Финансы» из нижней панели. Всё остальное (клиенты,
+         задачи, все КП, календарь, услуги, договора, команда, брифы, база знаний)
+         не открывалось никак. Пятая кнопка панели вела в настройку меню — список
+         с виду тот же самый, но каждая строка там ПЕРЕКЛЮЧАТЕЛЬ видимости: тап по
+         «Клиенты» не делал ничего, а тап по тумблеру убирал раздел из меню.
+         Настройка того, чего нельзя открыть.
+
+         Лист берёт разметку у renderNavListHtml() — той же, что рисует боковое
+         меню, поэтому разойтись им нечем. Настройка осталась, но ушла в конец
+         листа: сначала «куда пойти», потом «что показывать». */
+      let _mobileNavSheetOpen = false;
+
+      function toggleMobileNavSheet(event) {
+        event && event.stopPropagation();
+        _mobileNavSheetOpen = !_mobileNavSheetOpen;
+        renderMobileNavSheet();
+      }
+
+      function closeMobileNavSheet() {
+        if (!_mobileNavSheetOpen) return;
+        _mobileNavSheetOpen = false;
+        renderMobileNavSheet();
+      }
+
+      // Настройка открывается ПОСЛЕ закрытия листа: поповер привязан к кнопке
+      // нижней панели и раскрывается вверх от неё — поверх открытого листа он бы
+      // оказался под ним.
+      function openNavConfigFromSheet(event) {
+        event && event.stopPropagation();
+        _mobileNavSheetOpen = false;
+        renderMobileNavSheet();
+        setTimeout(() => toggleSidebarNavPopover(null), 30);
+      }
+
+      function renderMobileNavSheet() {
+        const el = document.getElementById("mobileNavSheet");
+        if (!el) return;
+        if (!_mobileNavSheetOpen) { el.innerHTML = ""; return; }
+        el.innerHTML = `
+          <div class="mobile-nav-backdrop" onclick="app.closeMobileNavSheet()"></div>
+          <nav class="mobile-nav-sheet" aria-label="Разделы">
+            <div class="mobile-nav-sheet-head">
+              <span>Разделы</span>
+              <button class="btn small" onclick="app.closeMobileNavSheet()" aria-label="Закрыть">Закрыть</button>
+            </div>
+            <div class="mobile-nav-sheet-list">${renderNavListHtml()}</div>
+            <button class="mobile-nav-sheet-config" onclick="app.openNavConfigFromSheet(event)">
+              ${icon("gear", 15)} Настроить меню
+            </button>
+          </nav>
         `;
       }
 
@@ -6409,7 +6477,6 @@
           view: "home",
           dealView: "estimate",
           wizard: null,
-          mainMenuOpen: false,
           helpModal: false,
           helpSlide: 0,
           docsModal: false,
@@ -6830,7 +6897,6 @@
           taskDetailsOpen: {},
           lineCommentsOpen: {},
           recentlyAdded: "",
-          mainMenuOpen: false,
           clientModal: null,
           taskModal: null,
           dealModal: null,
@@ -9431,6 +9497,9 @@
         // «Каталог» и «Пакеты» объединены в раздел «Услуги» с внутренним переключателем.
         // Старые вызовы go('catalog')/go('packages') ведут в единый раздел на нужную вкладку.
         if (view === "catalog" || view === "packages") { state.servicesTab = view; view = "services"; }
+        // Выбрал раздел — лист закрывается сам, иначе он остался бы поверх того,
+        // ради чего его открывали (та же логика, что у листа разделов каталога).
+        closeMobileNavSheet();
         state.view = view;
         // Переход между разделами меняет ровно одно поле — какой вид открыт. Полный
         // save() при этом синхронно сериализует и пишет ВСЁ состояние: в CPU-профиле
@@ -10350,7 +10419,7 @@
         const el = document.getElementById("modalContainer");
         if (!el) return;
         const modalKey =
-          state.mainMenuOpen ? "mainMenu" : state.helpModal ? "help" :
+          state.helpModal ? "help" :
           state.docsModal ? "docs" :
           state.catalogGroupsConfigOpen ? "catalogGroups" :
           state.adminModal ? "admin" : state.clientModal ? "client" :
@@ -10359,8 +10428,7 @@
           state.packageEditModal ? "package" : state.catalogEditId ? "catalog" :
           state.briefEditorType ? "briefEditor" : state.proposalModal ? "proposal" :
           state.kbCatsModal ? "kbCats" : null;
-        if (state.mainMenuOpen) { el.innerHTML = renderMainMenuModal(); }
-        else if (state.helpModal) { el.innerHTML = renderHelpModal(); }
+        if (state.helpModal) { el.innerHTML = renderHelpModal(); }
         else if (state.docsModal) { el.innerHTML = renderDocsModal(); }
         else if (state.catalogGroupsConfigOpen) { el.innerHTML = renderCatalogGroupsConfigModal(); }
         else if (state.adminModal) { el.innerHTML = renderAdminModalHtml(); }
@@ -12188,7 +12256,16 @@
         // Группировка по смыслу: mbnDeal («Смета») — вью ВНУТРИ одной сделки, mbnHome —
         // общие по агентству. «crm» (доска-воронка всех сделок) была в mbnDeal — подсветка
         // висела на «Смете», хотя нажатие на неё увело бы на другой экран (go('deal')).
-        const mbnViewMap = { mbnHome: ["home","wizard","profile","plans","settings","clients","company-team","knowledge","services","catalog","packages","contracts","support","crm"], mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions"], mbnFinances: ["global-finances","global-calendar"] };
+        // Разделы, которые открываются листом «Разделы», подсвечивают ЕГО, а не
+        // «Проекты»: раньше все они висели на mbnHome, и панель показывала «вы в
+        // проектах», пока человек стоял в «Клиентах». «Задачи» не значились нигде —
+        // там не подсвечивалось вообще ничего.
+        const mbnViewMap = {
+          mbnHome: ["home","wizard","profile","plans","settings","support","crm"],
+          mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions"],
+          mbnFinances: ["global-finances","global-calendar"],
+          mbnMore: ["clients","company-team","knowledge","services","catalog","packages","contracts","proposals","briefs","global-tasks"]
+        };
         Object.entries(mbnViewMap).forEach(([id, views]) => {
           const el = document.getElementById(id);
           if (!el) return;
@@ -21905,122 +21982,6 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         } catch(e) { toast('Ошибка сети'); }
       }
 
-      function openMainMenu() {
-        state.mainMenuOpen = true;
-        renderModal();
-      }
-      function closeMainMenu() {
-        state.mainMenuOpen = false;
-        renderModal();
-      }
-      function renderMainMenuModal() {
-        return `
-          <div class="modal-overlay" onclick="event.target===this&&app.closeMainMenu()">
-            <div class="modal-box" style="width:min(640px,calc(100vw - 32px))">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                <div>
-                  <h2 style="margin:0;font-size:22px">ADERVIS</h2>
-                  <p style="margin:2px 0 0;font-size:13px;color:var(--muted)">Что хочешь сделать?</p>
-                </div>
-                <button onclick="app.closeMainMenu()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1">${icon("close", 16)}</button>
-              </div>
-              <div class="main-menu-modal">
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('home')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg></span>
-                  <div class="mm-label">Проекты</div>
-                  <div class="mm-sub">Воронка проектов</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.startWizard()">
-                  <span class="mm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
-                  <div class="mm-label">Новая сделка</div>
-                  <div class="mm-sub">Быстрый старт</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('deal')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg></span>
-                  <div class="mm-label">Смета</div>
-                  <div class="mm-sub">Текущий расчёт</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('services')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg></span>
-                  <div class="mm-label">Услуги</div>
-                  <div class="mm-sub">Каталог и пакеты</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('global-finances')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2.6 2.8h9.2c.8 0 1.4.6 1.4 1.4v.8h.8c.6 0 1.2.5 1.2 1.2v5.6c0 .7-.5 1.2-1.2 1.2H2.6c-.9 0-1.6-.7-1.6-1.6V4.4c0-.9.7-1.6 1.6-1.6zm0 1.5a.1.1 0 00-.1.1v7c0 .1 0 .1.1.1h11v-5H2.6v-1.5h9.1v-.6a.1.1 0 00-.1-.1H2.6zm8.6 3.9a1 1 0 110 2 1 1 0 010-2z"/></svg></span>
-                  <div class="mm-label">Финансы</div>
-                  <div class="mm-sub">Все транзакции</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('global-calendar')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg></span>
-                  <div class="mm-label">Календарь</div>
-                  <div class="mm-sub">Дедлайны и задачи</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('global-tasks')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h2v2H2V3zm4 0h8v1.5H6V3zM2 7h2v2H2V7zm4 .25h8v1.5H6v-1.5zM2 11h2v2H2v-2zm4 .25h8v1.5H6v-1.5z"/></svg></span>
-                  <div class="mm-label">Задачи</div>
-                  <div class="mm-sub">Все задачи и свои</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('contracts')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg></span>
-                  <div class="mm-label">Договоры</div>
-                  <div class="mm-sub">Шаблоны и база</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('clients')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg></span>
-                  <div class="mm-label">Клиенты</div>
-                  <div class="mm-sub">База клиентов</div>
-                </button>
-                ${/* «Все КП» и «Команда» тут ОТСУТСТВОВАЛИ: список разделов задан один
-                      раз в SIDEBAR_NAV_DEFS, а это меню написано руками — и разошлось.
-                      С телефона в эти два раздела было не попасть вовсе; владелец
-                      заметил дыру по пустой ячейке сетки, но дело было не в вёрстке.
-                      Сторож в тестах теперь сверяет меню с SIDEBAR_NAV_DEFS поимённо,
-                      чтобы следующий новый раздел не забыли снова. */""}
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('proposals')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h5l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.5 1.2V4.5H11L8.5 2.2zM5 7h6v1H5V7zm0 2.5h6v1H5v-1zM5 12h4v1H5v-1z"/></svg></span>
-                  <div class="mm-label">Все КП</div>
-                  <div class="mm-sub">Отправленные предложения</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('company-team')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm5-1a2 2 0 100-4 2 2 0 000 4zM1 13.5c0-2.5 2.2-4 4.5-4s4.5 1.5 4.5 4H1zm9-3.3c1.9.4 3 1.6 3 3.3h-2c0-1.2-.4-2.3-1-3.3z"/></svg></span>
-                  <div class="mm-label">Команда</div>
-                  <div class="mm-sub">Сотрудники и фрилансеры</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('briefs')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h6l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 1v3h3L9 2zM5 7h6v1H5V7zm0 3h6v1H5v-1z"/></svg></span>
-                  <div class="mm-label">Онлайн-брифы</div>
-                  <div class="mm-sub">Заявки от клиентов</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('knowledge')">
-                  <span class="mm-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg></span>
-                  <div class="mm-label">База знаний</div>
-                  <div class="mm-sub">Скрипты и шаблоны</div>
-                </button>
-                <button class="main-menu-item" onclick="app.closeMainMenu();app.go('settings')">
-                  <span class="mm-icon">${icon("gear")}</span>
-                  <div class="mm-label">Настройки</div>
-                  <div class="mm-sub">Компания, данные</div>
-                </button>
-                <button class="main-menu-item" onclick="app.toggleTheme()">
-                  <span class="mm-icon">&#9681;</span>
-                  <div class="mm-label">Тема</div>
-                  <div class="mm-sub">Светлая / тёмная</div>
-                </button>
-                ${/* «Профиль», «Поддержка» и «Выход» отсюда УБРАНЫ: всё это уже лежит в
-                      меню профиля по аватару в шапке, и держать второй вход в те же три
-                      вещи — ровно то дублирование, из-за которого пришлось разводить
-                      логотип с кнопкой «Ещё».
-
-                      Это меню — про РАЗДЕЛЫ («что хочешь сделать?»), а не про аккаунт.
-                      «Настройки» и «Тема» остались: настройки — раздел приложения, а
-                      переключение темы отсюда быстрее всего и ничего не открывает.
-                      Побочно сетка сошлась ровно: 15 пунктов на три колонки — пять рядов
-                      без единой дыры. */""}
-              </div>
-            </div>
-          </div>
-        `;
-      }
 
       /* ═══════════════════════════════════════════════════════
          РЕДАКТИРОВАНИЕ ТРАНЗАКЦИИ
@@ -22471,12 +22432,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           `;
         };
         return `
-          ${manual ? `
-            <button type="button" class="deal-rail-order-reset" onclick="app.resetDealRailOrder()"
-              title="Вернуть сортировку по этапу воронки и дате правки">
-              ${icon("refresh", 12)} Свой порядок · вернуть авто
-            </button>
-          ` : ""}
+          ${/* Кнопка возврата к автосортировке переехала в шапку колонки (см.
+                renderDealRailHtml): полосой над списком она занимала строку целиком
+                и читалась как заголовок секции, а не как действие. */""}
           ${section("active", "В работе", "active-label", active, "active-deal")}
           ${section("completed", "Завершённые", "completed-label", completed, "completed-deal", "margin-top:8px")}
           ${section("archived", "Архив", "archived-label", archived, "archived-deal", "margin-top:8px")}
@@ -22517,7 +22475,16 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           <aside class="deal-rail no-print" aria-label="Сделки">
             <div class="deal-rail-head">
               <h3>Сделки</h3>
-              <button class="btn small" onclick="app.go('home')" title="Все проекты">Все</button>
+              ${/* На месте кнопки «Все» (она вела в «Проекты» — тот же пункт есть в
+                    боковом меню слева) стоит возврат к автосортировке. Показываем
+                    только когда порядок ручной: иначе кнопка обещала бы действие,
+                    которое ничего не меняет. */""}
+              ${state.dealRailManual ? `
+                <button class="btn small deal-rail-order-reset" onclick="app.resetDealRailOrder()"
+                  title="Вернуть сортировку по этапу воронки и дате правки">
+                  ${icon("refresh", 13)} Вернуть порядок
+                </button>
+              ` : ""}
             </div>
             <div class="deal-rail-search-wrap">
               <input id="dealRailSearch" class="deal-switcher-search" type="text"
@@ -24488,7 +24455,6 @@ Email: _____________________              Email: _____________________
             else if (state.packageEditModal) closePackageEditModal();
             else if (state.helpModal) closeHelpModal();
             else if (state.docsModal) closeDocsModal();
-            else if (state.mainMenuOpen) { state.mainMenuOpen = false; renderModal(); }
             else if (state.adminModal) closeAdminModal();
             else if (state.briefEditorType) closeBriefEditor();
             else if (state.dealSwitcherOpen) closeDealSwitcher();
@@ -24534,8 +24500,11 @@ Email: _____________________              Email: _____________________
         const clientModeBtn = document.getElementById("clientModeBtn");
         if (clientModeBtn) clientModeBtn.addEventListener("click", toggleClientMode);
 
+        // Бургер в шапке на телефоне открывает тот же лист разделов, что и кнопка
+        // нижней панели: раньше он вёл во ВТОРОЕ меню — отдельное окно со своим
+        // захардкоженным списком, не знавшим про «Настроить меню».
         const burgerBtn = document.getElementById("burgerBtn");
-        if (burgerBtn) burgerBtn.addEventListener("click", openMainMenu);
+        if (burgerBtn) burgerBtn.addEventListener("click", toggleMobileNavSheet);
 
         const helpBtn = document.getElementById("helpBtn");
         if (helpBtn) helpBtn.addEventListener("click", openHelpModal);
@@ -24866,9 +24835,6 @@ Email: _____________________              Email: _____________________
         oauthSignIn,
         yandexLogin,
 
-        openMainMenu,
-        closeMainMenu,
-
         openEditTransaction,
         closeEditTransactionModal,
         saveEditTransaction,
@@ -25073,6 +25039,9 @@ Email: _____________________              Email: _____________________
         dismissPwaInstallBanner,
         toggleSidebar,
         toggleSidebarNavPopover,
+        toggleMobileNavSheet,
+        closeMobileNavSheet,
+        openNavConfigFromSheet,
         toggleSidebarNavItemHidden,
         addCustomNavItem,
         removeCustomNavItem,

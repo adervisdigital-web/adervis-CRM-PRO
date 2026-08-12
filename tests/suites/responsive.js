@@ -219,7 +219,14 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
         const side = document.getElementById("appSidebar");
         if (side) side.innerHTML = '<button id="sidebarNavEditBtn">Настроить меню</button>';
       });
+      // Путь до настройки стал двухшаговым: кнопка панели ведёт в РАЗДЕЛЫ (раньше
+      // она вела прямо сюда, и открыть с телефона было можно только настройку —
+      // при том, что сами разделы не открывались вовсе), а настройка — строкой в
+      // конце листа. Проверяемое свойство прежнее: панель открывается и целиком
+      // помещается на экран, даже когда сайдбар ОТРИСОВАН и скрыт стилями.
       await page.evaluate(() => document.getElementById("mbnMore").click());
+      await page.waitForTimeout(300);
+      await page.evaluate(() => document.querySelector(".mobile-nav-sheet-config").click());
       await page.waitForTimeout(400);
       const r = await page.evaluate(() => {
         const p = document.querySelector(".sidebar-nav-config");
@@ -811,6 +818,69 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
 
     await page.setViewportSize({ width: 900, height: 800 });
+  });
+
+  await test("телефон: из нижней панели открывается КАЖДЫЙ включённый раздел", async () => {
+    /* Замер до правки (390×844): из 12 разделов приложения с телефона открывались
+       ТРИ — «Проекты», «Смета» и «Финансы». Пятая кнопка панели вела не в разделы,
+       а в НАСТРОЙКУ меню: список с виду тот же, но каждая строка — переключатель
+       видимости. Тап по «Клиенты» не делал ничего, тап по тумблеру рядом убирал
+       раздел из меню. Настройка того, чего нельзя открыть.
+
+       Мерим РЕЗУЛЬТАТ: сколько разделов реально достижимо кликом с телефона
+       против того, сколько их включено в конфиге. Тест переживёт замену листа на
+       любой другой способ — лишь бы разделы открывались. */
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.waitForTimeout(500);
+      const reachable = () => page.evaluate(() => {
+        const seen = new Set();
+        const visible = (el) => {
+          const r = el.getBoundingClientRect();
+          if (r.width < 1 || r.height < 1) return false;
+          // opacity наследуется — считаем по всей цепочке предков: элемент уже
+          // однажды оказывался кликабельным, но НЕВИДИМЫМ.
+          let o = 1, n = el;
+          while (n && n !== document.documentElement) { o *= parseFloat(getComputedStyle(n).opacity || "1"); n = n.parentElement; }
+          return o > 0.05;
+        };
+        document.querySelectorAll("[onclick]").forEach((el) => {
+          const m = (el.getAttribute("onclick") || "").match(/app\.go\(['"]([^'"]+)['"]\)/);
+          if (m && visible(el)) seen.add(m[1]);
+        });
+        return [...seen];
+      });
+
+      const before = await reachable();
+      await page.click("#mbnMore");
+      await page.waitForTimeout(400);
+      const after = await reachable();
+
+      const wanted = await page.evaluate(() => {
+        const raw = localStorage.getItem("sidebar_nav_config");
+        let cfg = null;
+        try { cfg = JSON.parse(raw || "null"); } catch (e) { cfg = null; }
+        // Конфиг не сохранён, пока его не трогали, — тогда включены все разделы.
+        return cfg ? cfg.filter((x) => !x.hidden).length : 12;
+      });
+
+      const all = new Set([...before, ...after]);
+      assert(
+        all.size >= wanted,
+        `с телефона достижимо ${all.size} разделов из ${wanted}: ${JSON.stringify([...all])}`
+      );
+
+      // Лист должен ВЕСТИ в раздел, а не только настраивать видимость: если из
+      // него убрать переходы, счёт выше упадёт, но проверим и прямо.
+      const navRows = await page.evaluate(() =>
+        [...document.querySelectorAll(".mobile-nav-sheet [onclick]")]
+          .filter((el) => /app\.go\(/.test(el.getAttribute("onclick") || "")).length);
+      assert(navRows >= 5, "в листе разделов нет переходов — он снова только настраивает видимость");
+    } finally {
+      await context.close();
+    }
   });
 
   // Визуальная фиксация каталога на самом узком экране (п.20 — визуальный обход)

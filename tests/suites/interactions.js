@@ -2037,13 +2037,20 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
     // Замер: стиль в покое против стиля под курсором. Сравниваем то, что видно
     // глазом — фон, сдвиг и тень; изменения хотя бы в одном достаточно.
+    //
+    // Фон читается ДВУМЯ свойствами. Тинт наведения может лежать слоем
+    // background-image поверх заливки карточки (так сделано в колонке «Сметы»:
+    // строка обязана остаться карточкой и под курсором), и тогда background-color
+    // не меняется вовсе. Мерить только его — мерить способ, а не результат: замер
+    // отчитается «подсветки нет» при полностью рабочей подсветке.
     const snap = (sel) => page.evaluate((s) => {
       const el = document.querySelector(s);
       if (!el) return null;
       const cs = getComputedStyle(el);
-      return { bg: cs.backgroundColor, tr: cs.transform, sh: cs.boxShadow };
+      return { bg: cs.backgroundColor, img: cs.backgroundImage, bd: cs.borderColor, tr: cs.transform, sh: cs.boxShadow };
     }, sel);
-    const changed = (a, b) => a && b && (a.bg !== b.bg || a.tr !== b.tr || a.sh !== b.sh);
+    const changed = (a, b) => a && b &&
+      (a.bg !== b.bg || a.img !== b.img || a.bd !== b.bd || a.tr !== b.tr || a.sh !== b.sh);
 
     /* Набор делит одну страницу: при падении посреди теста режим списка и узкий
        вьюпорт достались бы следующему тесту, и он упал бы «нет карточки сделки»
@@ -2324,6 +2331,36 @@ module.exports = async function ({ browser, baseUrl, test }) {
     // Мерим РЕЗУЛЬТАТ (расстояние между строками), а не способ: переживёт замену
     // margin на gap у контейнера или на flex-раскладку.
     assert(gap >= 4, "между строками списка сделок нет зазора (" + gap + "px) — список читается сплошной простынёй");
+  });
+
+  await test("боковой список сделок: у строки видимая обводка, а не только зазор", async () => {
+    // Зазора оказалось мало: строки лежали прозрачными на фоне колонки, и границу
+    // сделки приходилось угадывать по цветной полоске слева. Мерим РЕЗУЛЬТАТ —
+    // что рамка ненулевая и её цвет отличается от того, на чём строка лежит;
+    // способ (border, outline, box-shadow) тест не диктует, но border-цвет
+    // «прозрачный» или в цвет фона поймает.
+    const { ctx, p } = await bootRail();
+    const res = await p.evaluate(() => {
+      const it = document.querySelector(".deal-rail .deal-switcher-item");
+      const rail = document.querySelector(".deal-rail");
+      if (!it || !rail) return null;
+      const cs = getComputedStyle(it);
+      return {
+        w: parseFloat(cs.borderTopWidth) || 0,
+        color: cs.borderTopColor,
+        shadow: cs.boxShadow,
+        railBg: getComputedStyle(rail).backgroundColor,
+        itemBg: cs.backgroundColor,
+      };
+    });
+    await ctx.close();
+    assert(res, "колонка сделок не отрисовалась — мерить нечего");
+    const invisible = /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)|transparent/.test(res.color);
+    assert(
+      (res.w > 0 && !invisible) || (res.shadow && res.shadow !== "none"),
+      "у строки сделки нет видимой обводки: " + JSON.stringify(res)
+    );
+    assert(res.itemBg !== res.railBg, "заливка строки совпала с фоном колонки — карточка сливается: " + JSON.stringify(res));
   });
 
   await test("боковой список сделок: строка переносится, порядок переживает перерисовку", async () => {
