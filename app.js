@@ -14412,7 +14412,7 @@
         // 36×36 — тач-таргет чуть ниже рекомендованных 44px, но это редкое разовое
         // действие («скрыть раз и навсегда»), а не то, что нажимают постоянно;
         // прежние 18×18 (только сам глиф) не проходили даже мягкий порог.
-        const hideBtn = `<button onclick="try{localStorage.setItem('_onboardingDismissed','1')}catch(e){};app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;width:36px;height:36px;flex-shrink:0;display:grid;place-items:center;line-height:1" title="Скрыть" aria-label="Скрыть чеклист первых шагов">${icon("close", 13)}</button>`;
+        const hideBtn = `<button onclick="try{localStorage.setItem('_onboardingDismissed','1')}catch(e){};app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;width:44px;height:44px;flex-shrink:0;display:grid;place-items:center;line-height:1" title="Скрыть" aria-label="Скрыть чеклист первых шагов">${icon("close", 13)}</button>`;
 
         // Пройдено всё — говорим об этом прямо, а не прячем панель молча. Скрывается
         // по крестику: следующий заход начнётся уже без неё.
@@ -19178,7 +19178,10 @@
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px">
                   <span style="font-size:12px;font-weight:750;color:var(--muted);margin-right:2px">${calAllMode ? yr + " год" : monthNames[mo-1] + " " + yr}:</span>
                   <div style="display:flex;gap:4px;flex-wrap:wrap">
-                    ${typeFilters.map(f => `<button style="padding:4px 10px;font-size:12px;font-weight:750;border-radius:99px;border:1px solid ${calTypeFilter===f.id?"var(--primary)":"var(--line)"};background:${calTypeFilter===f.id?"rgb(var(--primary-rgb) / .15)":"transparent"};color:${calTypeFilter===f.id?"var(--primary-on-tint)":"var(--muted)"};cursor:pointer" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
+                    ${/* Класс нужен, чтобы до кнопок дотягивался CSS: целиком на
+                          инлайновых стилях они оставались 27px высотой на телефоне,
+                          и ни одно правило про цели касания их не видело. */""}
+                    ${typeFilters.map(f => `<button class="cal-type-chip" style="padding:4px 10px;font-size:12px;font-weight:750;border-radius:99px;border:1px solid ${calTypeFilter===f.id?"var(--primary)":"var(--line)"};background:${calTypeFilter===f.id?"rgb(var(--primary-rgb) / .15)":"transparent"};color:${calTypeFilter===f.id?"var(--primary-on-tint)":"var(--muted)"};cursor:pointer" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
                   </div>
                   <span style="font-size:12px;color:var(--muted);margin-left:auto">${listEvents.length} событий</span>
                 </div>

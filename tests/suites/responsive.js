@@ -956,6 +956,60 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  await test("телефон: по кнопке можно попасть пальцем во всех разделах", async () => {
+    /* Обход 17 разделов на 390×844 нашёл 137 целей меньше 44px — включая
+       «Добавить» в каталоге (117×32), самую нажимаемую кнопку продукта.
+
+       Причина системная, а не поштучная: минимум 44px задан блоком в СЕРЕДИНЕ
+       style.css, и правила компонентов ниже по тексту молча его перебивали —
+       специфичность та же, побеждает то, что позже (`.btn.catalog-add-btn
+       { min-height: 32px }`). Поэтому гарантии касания перенесены в САМЫЙ КОНЕЦ
+       файла, а тест держит результат по всем разделам сразу: одиночная правка
+       компонента снова его не отменит.
+
+       ВАЖНО: контекст с hasTouch — без него Chromium сообщает pointer:fine, и
+       часть мобильных правил вообще не применяется. Область касания часто
+       расширена невидимым ::after, которого getBoundingClientRect() не видит,
+       поэтому его учитываем отдельно. */
+    const VIEWS_TOUCH = [
+      "home", "crm", "deal", "services", "catalog", "packages", "clients",
+      "proposals", "briefs", "company-team", "global-finances", "global-calendar",
+      "global-tasks", "contracts", "knowledge", "settings", "profile",
+    ];
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.waitForTimeout(500);
+      const bad = [];
+      for (const view of VIEWS_TOUCH) {
+        await page.evaluate((v) => window.app.go(v), view);
+        await page.waitForTimeout(400);
+        const found = await page.evaluate(() => {
+          const out = [];
+          document.querySelectorAll("#appContent button, #appContent .btn, .mobile-bottom-nav button").forEach((b) => {
+            const r = b.getBoundingClientRect();
+            if (r.width < 1 || r.height < 1) return;
+            const after = getComputedStyle(b, "::after");
+            const grown = after && after.content !== "none" && after.position === "absolute";
+            if (grown) return;
+            if (r.height < 44 || r.width < 32) {
+              const label = (b.textContent || "").trim().replace(/\s+/g, " ").slice(0, 20)
+                || (b.getAttribute("aria-label") || "").slice(0, 20)
+                || (b.className || "").toString().slice(0, 20);
+              out.push(`${label} ${Math.round(r.width)}×${Math.round(r.height)}`);
+            }
+          });
+          return out;
+        });
+        found.forEach((f) => { const k = `${view}: ${f}`; if (!bad.includes(k)) bad.push(k); });
+      }
+      assert(bad.length === 0, `${bad.length} целей меньше 44px: ` + bad.slice(0, 10).join("; "));
+    } finally {
+      await context.close();
+    }
+  });
+
   await test("сделка на телефоне: все её разделы открываются, а не прячутся в ленте", async () => {
     /* Замер до правки на 390px: лента вкладок показывала 310px при 883px
        содержимого — видно 3 раздела из 10, а 573px уезжали за край. Единственным
