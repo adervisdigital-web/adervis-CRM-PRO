@@ -14396,6 +14396,17 @@
         // выполненными ещё до первого действия пользователя.
         const realProjects = projects.filter(p => !p.__demo);
         const firstDealId = realProjects.length ? realProjects[0].id : null;
+        /* Шаги 2 и 3 БЕЗ сделки делать нечего, и раньше их кнопки молча подменяли
+           действие: обе вели в мастер новой сделки. То есть на экране стояли три
+           кнопки с тремя разными обещаниями — «Создать», «Открыть», «Создать КП», —
+           а нажатие у всех делало одно и то же. Живой обход разделов нашёл их как
+           три вызова app.startWizard() в одном разделе.
+
+           Подмена выглядит логично («КП без сделки не бывает»), но подпись обязана
+           называть то, что произойдёт: продукт уже переименовывал «Ещё» в
+           «Настроить» ровно по этой причине. Пока предыдущий шаг не сделан, шаг
+           ждёт очереди и кнопки не показывает — единственное осмысленное действие
+           сейчас стоит в первой строке. */
         const steps = [
           {
             label: 'Создайте первую сделку',
@@ -14408,15 +14419,17 @@
             label: 'Соберите смету из услуг',
             hint: 'Каталог с ценами — считает сумму и налоги за вас',
             done: realProjects.some(p => numberValue(p.total, 0) > 0),
-            action: firstDealId ? `app.loadSavedProject('${firstDealId}')` : "app.startWizard()",
-            btn: "Открыть"
+            action: firstDealId ? `app.loadSavedProject('${firstDealId}')` : null,
+            btn: "Открыть",
+            locked: !firstDealId
           },
           {
             label: 'Отправьте КП клиенту',
             hint: 'Ссылка, по которой клиент согласует смету и оплатит аванс',
             done: realProjects.some(p => p.portalId),
-            action: firstDealId ? `app.createClientPortal('${firstDealId}')` : "app.startWizard()",
-            btn: "Создать КП"
+            action: firstDealId ? `app.createClientPortal('${firstDealId}')` : null,
+            btn: "Создать КП",
+            locked: !firstDealId
           }
         ];
         const done = steps.filter(s => s.done).length;
@@ -14459,7 +14472,9 @@
                   <div style="font-size:13px">${s.label}</div>
                   ${s.done ? '' : `<div class="u-meta">${s.hint}</div>`}
                 </div>
-                ${!s.done ? `<button onclick="${s.action}" class="btn small primary" style="padding:4px 10px;font-size:12px;white-space:nowrap">${s.btn}</button>` : ''}
+                ${s.done ? '' : s.locked
+                  ? `<span class="u-meta" style="white-space:nowrap;flex:0 0 auto">после первого шага</span>`
+                  : `<button onclick="${s.action}" class="btn small primary" style="padding:4px 10px;font-size:12px;white-space:nowrap">${s.btn}</button>`}
               </div>
             `).join('')}
           </div>`;

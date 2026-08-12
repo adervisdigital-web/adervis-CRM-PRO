@@ -274,6 +274,26 @@ module.exports = async function ({ browser, baseUrl, test }) {
     );
     // Шага про подписку в чеклисте активации быть не должно: он невыполним и ломал счёт.
     assert(!/Оформите подписку/.test(txt), "в чеклисте остался невыполнимый шаг про подписку");
+
+    /* Кнопка обязана делать то, что обещает. Пока сделки нет, шаги «Соберите
+       смету» и «Отправьте КП» делать нечего — раньше их кнопки МОЛЧА подменяли
+       действие и обе вели в мастер новой сделки. На экране стояли три кнопки с
+       тремя разными обещаниями, а нажатие у всех давало одно и то же; живой обход
+       разделов нашёл их как три вызова app.startWizard() в одном разделе.
+       Проверяем по ДЕЙСТВИЮ, а не по подписи: подписи как раз и различались. */
+    const actions = await page.evaluate(() => {
+      const panel = [...document.querySelectorAll("#appContent .panel")]
+        .find((p) => /Начало работы/.test(p.textContent || ""));
+      if (!panel) return null;
+      return [...panel.querySelectorAll("button")]
+        .map((b) => (b.getAttribute("onclick") || "").replace(/\s+/g, ""))
+        .filter((a) => a && !/_onboardingDismissed/.test(a));
+    });
+    assert(actions, "не нашлась панель чеклиста");
+    const dupes = actions.filter((a, i) => actions.indexOf(a) !== i);
+    assertEqual(dupes.length, 0, "в чеклисте кнопки с разными подписями делают одно и то же: " + dupes.join(", "));
+    // Заблокированный шаг честно говорит, что ждёт очереди, а не рисует кнопку.
+    assert(/после первого шага/.test(txt), "шаг без выполненного предусловия снова показывает кнопку");
     await context.close();
   });
 
