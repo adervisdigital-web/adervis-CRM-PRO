@@ -3454,12 +3454,18 @@
        КАПСОМ под ней — на 9 плитках в ряд читалось как "стена из капса"). Иконка
        меньше и служит просто маркером перед подписью, не отдельным акцентом. */
     .db-stat-top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; min-width: 0; }
+    /* 26/14 — домашний размер значка-бейджа: столько по умолчанию даёт iconBadge()
+       и таким он стоит по всему приложению. Плитка KPI была единственным местом
+       мимо стандарта: кружок 20 со значком 11px, то есть символ МЕЛЬЧЕ соседней
+       подписи (12px) — на таком размере он читается уже не как знак, а как цветное
+       пятнышко. Полоса из-за этого выросла на 12px на две строки: приемлемая цена
+       за то, чтобы значок работал знаком. */
     .db-stat-icon {
-      width: 20px; height: 20px; border-radius: var(--r-sm);
+      width: 26px; height: 26px; border-radius: var(--r-sm);
       display: flex; align-items: center; justify-content: center;
       flex: 0 0 auto;
     }
-    .db-stat-icon svg { width: 11px; height: 11px; display: block; }
+    .db-stat-icon svg { width: 14px; height: 14px; display: block; }
     .db-stat-label {
       font-size: 12px; color: var(--muted); font-weight: 600;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;

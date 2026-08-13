@@ -732,6 +732,28 @@ module.exports = async function ({ test }) {
     assert(/function localIso/.test(app) && /function todayIso/.test(app), "исчезли localIso/todayIso — обрезать станет нечем");
   });
 
+  await test("значки-бейджи одного размера: iconBadge и плитки KPI", () => {
+    /* В приложении есть домашний размер значка-бейджа — iconBadge() по умолчанию
+       даёт кружок 26px со значком 14px (0.54 от кружка). Плитка KPI на главной
+       была единственным местом мимо стандарта: 20/11, то есть символ МЕЛЬЧЕ
+       соседней подписи (12px) — на таком размере он читается не как знак, а как
+       цветное пятнышко.
+
+       Проверяем не «красиво ли», а согласованность с собственным стандартом:
+       значок в бейдже не должен быть мельче подписи, рядом с которой стоит. */
+    const badge = app.slice(app.indexOf("function iconBadge"), app.indexOf("function iconBadge") + 600);
+    const def = badge.match(/const s = size \|\| (\d+)/);
+    assert(def, "не удалось прочитать размер iconBadge по умолчанию");
+    assertEqual(Number(def[1]), 26, "домашний размер бейджа изменился — сверь с ним плитки KPI");
+
+    const box = css.match(/\.db-stat-icon\s*\{[^}]*width:\s*(\d+)px/);
+    const glyph = css.match(/\.db-stat-icon svg\s*\{[^}]*width:\s*(\d+)px/);
+    assert(box && glyph, "не удалось прочитать размеры значка плитки KPI");
+    assertEqual(Number(box[1]), 26, "кружок значка в плитке KPI разошёлся с домашним размером бейджа");
+    assert(Number(glyph[1]) >= 12,
+      `значок в плитке ${glyph[1]}px — мельче подписи рядом (12px), он перестаёт читаться знаком`);
+  });
+
   await test("нет ссылок на несуществующие CSS-переменные", () => {
     /* `background: var(--card)` при отсутствующей --card — это не ошибка и не
        предупреждение: браузер молча ОТБРАСЫВАЕТ объявление целиком. В этом
