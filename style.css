@@ -7346,3 +7346,10 @@ button.is-busy::before {
 @media (max-width: 640px) {
   .crm-home-funnel .funnel-stage--empty { display: none; }
 }
+
+/* Вкладки админки: на телефоне три штуки в строку не помещались (width: fit-content
+   без переноса), и «Ошибки» обрезалось на полуслове. Переносим и даём цель касания. */
+@media (max-width: 640px) {
+  .admin-tabs { flex-wrap: wrap; max-width: 100%; }
+  .admin-tab { min-height: 44px; }
+}

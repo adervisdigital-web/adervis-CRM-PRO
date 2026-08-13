@@ -4113,7 +4113,11 @@
       const AI_PROPOSAL_TRIAL_LIMIT = 5;
 
       // ─── ADMIN PANEL ─────────────────────────────────────────────────────────
-      let _adminPanelTab = "stats";
+      /* «users», а не «stats»: вкладок в панели три — users / promos / errors, и
+         значения "stats" среди них нет. Панель открывалась вообще без выбранной
+         вкладки: ни одна кнопка не подсвечена, ни один блок не отрисован, и под
+         плитками зияла пустая половина экрана, пока не ткнёшь во вкладку руками. */
+      let _adminPanelTab = "users";
       let _settingsTab = "company";
       let _adminAgencies = null; // null = not loaded
       let _adminPromoCodes = null;
@@ -4529,12 +4533,15 @@
             </div>
 
             <!-- Tabs -->
-            <div style="display:flex;gap:4px;margin-bottom:20px;background:var(--panel2);padding:4px;border-radius:12px;width:fit-content">
+            ${/* Класс нужен, чтобы правила доставали до кнопок: ряд целиком на
+                  инлайновых стилях с width:fit-content и без переноса — на 390px
+                  три вкладки не помещались, и «Ошибки» обрезалось на полуслове. */""}
+            <div class="admin-tabs" style="display:flex;gap:4px;margin-bottom:20px;background:var(--panel2);padding:4px;border-radius:12px;width:fit-content">
               ${[["users",icon("users"),"Пользователи"],["promos",icon("gift"),"Промокоды"],["errors",icon("bug"),"Ошибки" + ((_adminErrors||[]).length ? ` (${_adminErrors.length})` : "")]].map(([k,ic,l]) => `
-                <button onclick="app._setAdminTab('${k}')"
+                <button class="admin-tab" onclick="app._setAdminTab('${k}')"
                   style="display:inline-flex;align-items:center;gap:7px;padding:8px 18px;border-radius:9px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:.15s;
                   background:${_adminPanelTab===k?"var(--primary)":"transparent"};
-                  color:${_adminPanelTab===k?"#fff":"var(--muted)"}">
+                  color:${_adminPanelTab===k?"var(--on-color)":"var(--muted)"}">
                   ${ic}${l}
                 </button>`).join("")}
             </div>
