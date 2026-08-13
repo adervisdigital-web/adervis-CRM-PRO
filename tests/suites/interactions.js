@@ -2457,6 +2457,40 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("строка сметы не повторяет капсулами то, что сказано рядом", async () => {
+    /* Капсул было четыре, две ничего не добавляли. Замер на живой смете:
+       «раздел» повторял ЗАГОЛОВОК ГРУППЫ, в которой строка лежит, 9 раз из 12
+       (а в остальных трёх давал второй словарь для того же деления: группа
+       «Съёмка» ↔ капсула «Техника»). «основная» совпадала с подписью «В итоге»
+       у суммы 12 из 12; у опции то же самое сказано ещё и пунктирной рамкой всей
+       карточки.
+
+       Тест держит принцип, а не список: капсула не должна повторять ни заголовок
+       своей группы, ни подпись у суммы. */
+    await dismissStaleDialog(page);
+    await page.evaluate(() => { window.app.go("deal"); window.app.setDealView("estimate"); });
+    await page.waitForTimeout(700);
+    const dupes = await page.evaluate(() => {
+      const bad = [];
+      document.querySelectorAll(".estimate-stage").forEach((st) => {
+        const head = ((st.querySelector(".stage-header h2") || {}).textContent || "").trim().toLowerCase();
+        st.querySelectorAll(".item").forEach((it) => {
+          const note = ((it.querySelector(".line-total-note") || {}).textContent || "").trim().toLowerCase();
+          [...it.querySelectorAll(".badges .badge, .badges .status-pill")].forEach((b) => {
+            const t = (b.textContent || "").trim().toLowerCase();
+            if (!t) return;
+            if (head && t === head) bad.push(`капсула «${t}» повторяет заголовок группы`);
+            // «основная» ↔ «в итоге», «опция» ↔ «не входит в итог»
+            const saysSame = (t === "основная" && /в итоге/.test(note)) || (t === "опция" && /не входит/.test(note));
+            if (saysSame) bad.push(`капсула «${t}» повторяет подпись «${note}» у суммы`);
+          });
+        });
+      });
+      return [...new Set(bad)];
+    });
+    assertEqual(dupes.length, 0, "в строке сметы повторы: " + dupes.join("; "));
+  });
+
   await test("карточка сделки: имя не уходит под ручку переноса", async () => {
     /* Замер до правки на колонке 262px: у названия вроде «Реклама – База отдыха
        "Раздолье – Троица"» не влезало 59px, а ручка переноса начиналась на 12px

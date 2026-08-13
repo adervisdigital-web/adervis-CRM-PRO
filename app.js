@@ -16408,7 +16408,7 @@
             ` : `
               <div class="stage-body">
                 <div class="list">
-                  ${ids.map(id => renderEstimateLine(id, color)).join("")}
+                  ${ids.map(id => renderEstimateLine(id)).join("")}
                 </div>
               </div>
             `}
@@ -16416,7 +16416,9 @@
         `;
       }
 
-      function renderEstimateLine(id, stageColor) {
+      // stageColor больше не принимается: он красил капсулу раздела, а её убрали как
+      // повтор заголовка группы. Цвет этапа и так стоит полосой слева от группы.
+      function renderEstimateLine(id) {
         const itemData = findItem(id, true);
         const line = state.selected[id];
         if (!itemData || !line) return "";
@@ -16474,10 +16476,25 @@
                   <input class="line-name-input" type="text" data-autosave data-scope="line" data-id="${id}" data-key="lineName" value="${escapeHtml(line.lineName || "")}" placeholder="${escapeHtml(itemData.name)}" title="Нажми, чтобы переименовать позицию" style="color:var(--text);font-weight:750;font-size:15px">
                   ${!collapsed ? `<textarea class="line-desc-input" data-autosave data-scope="line" data-id="${id}" data-key="editedDesc" placeholder="${escapeHtml(itemData.desc)}" title="Нажми чтобы отредактировать описание" style="color:var(--muted);font-size:12px">${escapeHtml(line.editedDesc || "")}</textarea>` : ""}
 
+                  ${/* Капсул было четыре, две из них ничего не добавляли.
+
+                        «Раздел» (Съёмка/Постпродакшн) — замер на живой смете: 9 строк
+                        из 12 повторяли ЗАГОЛОВОК ГРУППЫ, в которой строка и лежит.
+                        Остальные три не совпадали не потому, что несли новое, а
+                        потому что это ВТОРОЙ СЛОВАРЬ для того же деления: группа
+                        «Съёмка» ↔ капсула «Техника», группа «Управление» ↔ капсула
+                        «Менеджмент». Настоящий этап строки виден в поле «Этап» при
+                        раскрытии, а группа — прямо над ней.
+
+                        «основная» — совпадала с подписью «В итоге» у суммы 12 из 12.
+                        Парная «опция» — третья копия того же: у опции ещё и пунктирная
+                        янтарная рамка всей карточки, и подпись «Не входит в итог».
+                        Подпись у суммы полезнее капсулы: она объясняет саму сумму.
+
+                        Осталось то, что не сказано больше нигде: единица (за что
+                        цена) и «Расходы» — редкая и важная пометка про деньги. */""}
                   <div class="badges">
-                    <span class="badge" style="background:${stageColor}22;color:${stageColor};border-color:${stageColor}44">${escapeHtml(itemData.section)}</span>
                     <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
-                    ${line.optional ? `<span class="status-pill yellow">опция</span>` : `<span class="status-pill green">основная</span>`}
                     ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--text-danger);border-color:rgba(220,38,38,.3)" title="Расход агентства — по умолчанию не приносит прибыль, себестоимость = цене">Расходы</span>` : ""}
                   </div>
                 </div>
