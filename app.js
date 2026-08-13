@@ -327,7 +327,11 @@
         upload:   `<path d="M7.25 12.5V4.31l-2.22 2.22-1.06-1.06L8 1.44l4.03 4.03-1.06 1.06-2.22-2.22v8.19h-1.5zM2.5 14h11v1.5h-11V14z"/>`,
         mail:     `<path fill-rule="evenodd" d="M1 4.5A1.5 1.5 0 012.5 3h11A1.5 1.5 0 0115 4.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 11.5v-7zm1.5-.1L8 8.4l5.5-4v-.1h-11v.1zM14 5.6L8.4 9.8a.7.7 0 01-.8 0L2 5.6v5.9c0 .3.2.5.5.5h11a.5.5 0 00.5-.5V5.6z"/>`,
         send:     `<path d="M14.7 1.3a.7.7 0 00-.74-.16L1.34 5.86a.7.7 0 00-.02 1.3l4.9 1.98 1.98 4.9a.7.7 0 001.3-.02l4.7-12.62a.7.7 0 00-.5-.9zM6.9 8.9L3.1 7.4l8.9-3.4-5 4.9zm1.06 1.06l4.9-5.1-3.4 8.9-1.5-3.8z"/>`,
-        star:     `<path d="M8 1l2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L.8 6.2l5-.7L8 1z"/>`
+        star:     `<path d="M8 1l2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L.8 6.2l5-.7L8 1z"/>`,
+        // Коробка с крышкой — «убрано на хранение». Заведена в базу, а не нарисована
+        // по месту: иконка нужна и в меню сделки, и в заголовке секции списка, а две
+        // копии одного рисунка неизбежно разъедутся.
+        archive:  `<path d="M1.6 2.2h12.8c.5 0 .9.4.9.9v1.8c0 .5-.4.9-.9.9H1.6a.9.9 0 01-.9-.9V3.1c0-.5.4-.9.9-.9zm.9 4.9h11v5.8c0 .8-.6 1.4-1.4 1.4H3.9c-.8 0-1.4-.6-1.4-1.4V7.1zm3.6 1.9v1.4h3.8V9H6.1z"/>`
       };
       function icon(name, size) {
         const s = size || 15;
@@ -11424,7 +11428,7 @@
               </button>
             ` : `
               <button class="dcm-item" onclick="${act(`archiveDeal('${idSafe}')`)}" title="Убрать в архив — сделка уйдёт из активных и статистики, но карточка и история сохранятся">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2h13v3h-13V2zm1 4h11v8h-11V6zm3 2v1.5h5V8h-5z"/></svg>
+                ${icon("archive", 14)}
                 В архив
               </button>
             `}
@@ -22726,12 +22730,17 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const archived = projects
           .filter(p => (p.crmStatus || "Лид") === CRM_ARCHIVED)
           .sort(manual ? byManual : byUpdated);
+        /* Иконка у заголовка секции: три состояния сделки различаются с одного
+           взгляда, не вчитываясь в подпись. Значки берём из общей базы и не
+           изобретаем новых смыслов — «check» уже означает «готово» в десятке мест
+           приложения, поэтому он и стоит у «Завершённых». */
+        const SECTION_ICONS = { active: "rocket", completed: "check", archived: "archive" };
         const section = (key, label, cls, items, itemCls, extraStyle) => {
           if (!items.length) return "";
           const collapsed = !!_dealSwitcherCollapsed[key];
           return `
             <button type="button" class="deal-switcher-section-label ${cls}" style="${extraStyle||""}" onclick="app.toggleDealSwitcherSection('${key}')">
-              <span>${label} (${items.length})</span>
+              <span class="deal-switcher-section-title">${icon(SECTION_ICONS[key] || "list", 13)}${label} (${items.length})</span>
               <span class="deal-switcher-section-chevron ${collapsed ? "" : "open"}">▾</span>
             </button>
             ${collapsed ? "" : `

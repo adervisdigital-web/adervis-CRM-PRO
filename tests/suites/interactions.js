@@ -2457,6 +2457,36 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("секции списка сделок различаются иконкой, а не только подписью", async () => {
+    /* Три состояния сделки — в работе, завершена, в архиве. Иконки берутся из общей
+       базы ICON_PATHS: рисовать значок по месту нельзя, он неизбежно разъедется со
+       вторым таким же (так уже случилось с ручкой переноса — четыре разных вида
+       одного жеста). Цвет иконка наследует от секции, поэтому отдельного правила
+       на цвет нет и быть не должно. */
+    const { ctx, p, ids } = await bootRail();
+    try {
+      await p.evaluate((i) => window.app.archiveDeal(i), ids[ids.length - 1]);
+      await p.evaluate((i) => window.app.finishDeal(i), ids[ids.length - 2]);
+      await p.waitForTimeout(600);
+      const res = await p.evaluate(() =>
+        [...document.querySelectorAll(".deal-rail .deal-switcher-section-label")].map((b) => {
+          const svg = b.querySelector(".deal-switcher-section-title svg");
+          return {
+            text: (b.textContent || "").replace(/\s+/g, " ").trim().slice(0, 20),
+            hasIcon: !!svg,
+            // Рисунок должен быть непустым: пустой <svg> проходит проверку «есть ли»
+            // и при этом ничего не показывает.
+            drawn: svg ? (svg.innerHTML || "").length > 20 : false,
+          };
+        }));
+      assert(res.length >= 3, `секций на экране ${res.length}, ожидались три: ${JSON.stringify(res)}`);
+      const noIcon = res.filter((r) => !r.hasIcon || !r.drawn);
+      assertEqual(noIcon.length, 0, "у секции нет иконки: " + JSON.stringify(noIcon));
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("строка сметы не повторяет капсулами то, что сказано рядом", async () => {
     /* Капсул было четыре, две ничего не добавляли. Замер на живой смете:
        «раздел» повторял ЗАГОЛОВОК ГРУППЫ, в которой строка лежит, 9 раз из 12

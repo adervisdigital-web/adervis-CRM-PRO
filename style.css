@@ -4409,6 +4409,13 @@
     .deal-switcher-section-label.active-label { color: var(--text-success); }
     .deal-switcher-section-label.completed-label { color: var(--text-danger); }
     .deal-switcher-section-label.archived-label { color: var(--muted); }
+    /* Иконка и подпись — одна группа: значок наследует цвет секции (зелёный у
+       «В работе», красный у «Завершённых», приглушённый у «Архива»), поэтому
+       отдельного правила на цвет не нужно. */
+    .deal-switcher-section-title {
+      display: inline-flex; align-items: center; gap: 7px; min-width: 0;
+    }
+    .deal-switcher-section-title svg { flex: 0 0 auto; opacity: .85; }
     .deal-switcher-section-chevron { transition: transform var(--dur-1); font-size: 11px; }
     .deal-switcher-section-chevron.open { transform: rotate(180deg); }
     .deal-switcher-item {
