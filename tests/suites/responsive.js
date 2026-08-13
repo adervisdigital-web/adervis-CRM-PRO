@@ -802,18 +802,14 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
      линии не годится, потому что auto-fill оставляет в последнем ряду пустые
      дорожки и подложка проступила бы в них серым блоком. */
   await test("дашборд: у KPI-плиток есть разделители, и они переживают наведение", async () => {
-    /* Полоса разбита на ДВЕ группы с подписями («Деньги за …», «Сделки и прогноз»),
-       поэтому шов между рядами проверяем ВНУТРИ группы: через подпись ряды и не
-       должны примыкать. Ширину берём такую, чтобы группа денег точно перенеслась
-       на два ряда, иначе проверять нечего. */
-    await page.setViewportSize({ width: 600, height: 900 });
+    await page.setViewportSize({ width: 900, height: 900 });
     await page.evaluate(() => window.app.go("home"));
     await page.waitForTimeout(350);
 
     const res = await page.evaluate(() => {
       const row = document.querySelector(".db-stat-row");
       if (!row) return null;
-      const tiles = [...row.querySelectorAll(".db-stat--lg")];
+      const tiles = [...row.querySelectorAll(".db-stat")];
       if (tiles.length < 2) return null;
       const rect = (t) => t.getBoundingClientRect();
       const tops = [...new Set(tiles.map((t) => Math.round(rect(t).top)))].sort((a, b) => a - b);
@@ -833,7 +829,7 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
       };
     });
     assert(res, "KPI-полоса не отрисовалась");
-    assert(res.rows > 1, "на 600px группа «Деньги» обязана переноситься — иначе проверять нечего");
+    assert(res.rows > 1, "на 900px полоса обязана переноситься — иначе проверять нечего");
     assertEqual(res.clips, "hidden",
       "контейнер перестал обрезать содержимое — тени вылезут рамкой по краям полосы");
     assertEqual(res.seam, true, "ряды не примыкают друг к другу — шов, на который ложится линия, разъехался");
