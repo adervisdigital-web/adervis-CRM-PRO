@@ -2457,6 +2457,32 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("«Обновить» на «Все КП» отвечает на нажатие даже без связи", async () => {
+    /* Найдено обходом «нажми каждую кнопку и посмотри, изменилось ли хоть что-то».
+       Без связи (местный режим, не выполнен вход) загрузка списка выходит первой
+       же строкой, и кнопка не делала РОВНО НИЧЕГО: ни списка, ни скелета, ни
+       сообщения — она выглядела сломанной. Нажатие обязано давать отклик, даже
+       когда делать нечего. */
+    await dismissStaleDialog(page);
+    await page.evaluate(() => window.app.go("proposals"));
+    await page.waitForTimeout(500);
+    const res = await page.evaluate(() => {
+      const b = [...document.querySelectorAll("#appContent button")].find((x) => /Обновить/.test(x.textContent || ""));
+      if (!b) return null;
+      b.click();
+      return true;
+    });
+    assert(res, "на «Все КП» нет кнопки обновления");
+    await page.waitForTimeout(400);
+    const answer = await page.evaluate(() => ({
+      toast: document.getElementById("toast")?.classList.contains("show") || false,
+      text: (document.getElementById("toast")?.textContent || "").trim(),
+      busy: !!document.querySelector("[aria-busy='true']"),
+    }));
+    assert(answer.toast || answer.busy,
+      "нажатие «Обновить» не дало никакого отклика — ни сообщения, ни загрузки");
+  });
+
   await test("секции списка сделок различаются иконкой, а не только подписью", async () => {
     /* Три состояния сделки — в работе, завершена, в архиве. Иконки берутся из общей
        базы ICON_PATHS: рисовать значок по месту нельзя, он неизбежно разъедется со

@@ -13458,7 +13458,20 @@
         }
       }
 
-      function refreshAllProposals() { _allPortalsLoaded = false; _allPortalsError = ""; _loadAllPortals(); }
+      /* Кнопка обязана отвечать на нажатие. Без связи (местный режим, не выполнен
+         вход) _loadAllPortals выходит первой же строкой, и «Обновить» не делала
+         РОВНО НИЧЕГО: ни списка, ни скелета, ни сообщения — кнопка выглядела
+         сломанной. Найдено обходом: нажать каждую видимую кнопку и посмотреть,
+         изменилось ли хоть что-нибудь. */
+      function refreshAllProposals() {
+        if (!_supabase || !_adminSession) {
+          toast("Нет связи с сервером — список КП хранится в облаке");
+          return;
+        }
+        _allPortalsLoaded = false;
+        _allPortalsError = "";
+        _loadAllPortals();
+      }
       function setProposalsFilter(f) { _proposalsFilter = f; render(); }
       function setProposalsSort(s) { _proposalsSort = s; render(); }
       // Поиск перерисовывает ТОЛЬКО список, а не всю страницу: полный render()
