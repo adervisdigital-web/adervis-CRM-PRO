@@ -7364,3 +7364,12 @@ button.is-busy::before {
 @media (max-width: 640px) {
   .admin-promo-grid { grid-template-columns: 1fr 1fr !important; }
 }
+
+/* Состав пакета на телефоне: колонки заданы жёсткой шириной, и строка выходила
+   за край — под списком появлялась полоса прокрутки вбок. Ужимаем ровно те
+   колонки, которые от этого не теряют смысла. */
+@media (max-width: 640px) {
+  .pkg-item-row { gap: 6px !important; }
+  .pkg-item-row input[type="number"] { width: 46px !important; }
+  .pkg-item-row > span[style*="width:74px"] { width: 66px !important; }
+}

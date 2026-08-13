@@ -2457,6 +2457,42 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("описание пакета редактируется целиком, а не в одну строку", async () => {
+    /* Описания пакетов длинные («Базовый корпоративный контент: фотосессия команды
+       и короткое видео-приветствие»), а поле было однострочным: в модалке на 390px
+       помещалась треть текста — ни прочитать, ни отредактировать. В карточке
+       позиции каталога это же поле давно многострочное; расхождение видно только
+       на телефоне, где строка узкая. */
+    await dismissStaleDialog(page);
+    await page.evaluate(() => window.app.go("packages"));
+    await page.waitForTimeout(600);
+    const opened = await page.evaluate(() => {
+      const b = document.querySelector("[onclick*='openPackageEditModal']");
+      const m = b && (b.getAttribute("onclick") || "").match(/openPackageEditModal\('([^']+)'/);
+      if (!m) return false;
+      window.app.openPackageEditModal(m[1]);
+      return true;
+    });
+    assert(opened, "в разделе пакетов не нашлось ни одного пакета для правки");
+    await page.waitForTimeout(500);
+    const res = await page.evaluate(() => {
+      const box = document.querySelector(".modal-box");
+      if (!box) return null;
+      const label = [...box.querySelectorAll("label")].find((l) => /Описание/.test(l.textContent || ""));
+      const field = label && label.parentElement.querySelector("input, textarea");
+      if (!field) return { нет: true };
+      return {
+        tag: field.tagName,
+        // Многострочное поле не должно прятать текст по горизонтали.
+        clipped: field.scrollWidth > field.clientWidth + 1,
+      };
+    });
+    await page.evaluate(() => window.app.closePackageEditModal && window.app.closePackageEditModal());
+    assert(res && !res.нет, "в модалке пакета не нашлось поля «Описание»");
+    assertEqual(res.tag, "TEXTAREA", "поле описания снова однострочное — длинный текст не прочитать");
+    assert(!res.clipped, "текст описания уходит вбок за край поля");
+  });
+
   await test("«Обновить» на «Все КП» отвечает на нажатие даже без связи", async () => {
     /* Найдено обходом «нажми каждую кнопку и посмотри, изменилось ли хоть что-то».
        Без связи (местный режим, не выполнен вход) загрузка списка выходит первой

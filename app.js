@@ -15785,9 +15785,15 @@
                 <label>Название</label>
                 <input value="${escapeHtml(m.name)}" oninput="app.setPackageEditField('name',this.value)" placeholder="Название пакета">
               </div>
+              ${/* Многострочное, а не однострочное: описания пакетов длинные
+                    («Базовый корпоративный контент: фотосессия команды и короткое
+                    видео-приветствие»), и в модалке на 390px в строку помещалась
+                    треть — ни прочитать, ни отредактировать. В карточке позиции
+                    каталога это же поле давно textarea; здесь оставалось input. */""}
               <div class="field" style="margin-bottom:12px">
                 <label>Описание</label>
-                <input value="${escapeHtml(m.desc)}" oninput="app.setPackageEditField('desc',this.value)" placeholder="Краткое описание">
+                <textarea oninput="app.setPackageEditField('desc',this.value)" placeholder="Краткое описание"
+                  style="min-height:58px;resize:vertical">${escapeHtml(m.desc)}</textarea>
               </div>
               <div class="grid two" style="gap:10px;margin-bottom:12px">
                 <div class="field">
@@ -15826,7 +15832,11 @@
                   const qty = packageEntryQty(entry, itemData);
                   const qtyLabel = itemData.calcModel === "fixed+qty" ? "шт" : "дн.";
                   return `
-                    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">
+                    ${/* Класс нужен для мобильного правила: колонки заданы жёсткой
+                          шириной (поле 58 + подпись 20 + сумма 74 + кнопка), и на
+                          390px строка выходила на 6px за край — под составом
+                          появлялась полоса прокрутки вбок. */""}
+                    <div class="pkg-item-row" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">
                       <span style="flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(itemData.name)}">${escapeHtml(itemData.name)}</span>
                       ${qty !== null ? `
                         <input type="number" min="1" value="${qty}" onchange="app.setPackageItemQty(${i}, this.value)"
