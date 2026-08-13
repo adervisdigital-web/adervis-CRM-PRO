@@ -14979,6 +14979,9 @@
         })();
 
         const monthNames2 = ["январе","феврале","марте","апреле","мае","июне","июле","августе","сентябре","октябре","ноябре","декабре"];
+        // Второй падеж месяца: «В августе» и «Деньги за август» — разные формы,
+        // и одним списком тут не обойтись.
+        const MONTHS_ACC = ["январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"];
         const curMonthName = monthNames2[nowDate.getMonth()];
 
         return `
@@ -14992,27 +14995,43 @@
             </div>
 
             <!-- ── STAT STRIP ─────────────────────────────── -->
+            ${/* ДВЕ ГРУППЫ вместо десяти равнозначных плиток.
+
+                  Раньше все десять шли подряд одним весом: деньги за месяц, суммы
+                  по всем сделкам, прогноз и счётчики — вперемешку и без указания
+                  периода. Глазу не за что зацепиться, а «Выручка / мес» и «Ср. чек
+                  по 114 сделкам» стоят рядом как равные, хотя считаются за разное
+                  время. Теперь сверху деньги за месяц (четыре крупные плитки),
+                  ниже — сделки и прогноз (шесть помельче). 4 и 6 делят свои ряды
+                  нацело, поэтому дыр не появляется. */""}
             <div class="db-stat-row">
-              <div class="db-stat" onclick="app.go('global-finances')" title="Выручка / мес">
-                <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(22,163,74,.15);color:var(--text-success)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Выручка / мес</span></div>
+              ${/* Именительный падеж, а не тот, что в «В августе»: curMonthName —
+                    предложный (для подписи «В августе»), и «Деньги за августе»
+                    получалось грамматическим мусором. */""}
+              <div class="db-stat-group">Деньги за ${MONTHS_ACC[nowDate.getMonth()]}</div>
+              <div class="db-stat db-stat--lg" onclick="app.go('global-finances')" title="Выручка / мес">
+                <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(22,163,74,.15);color:var(--text-success)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Выручка</span></div>
                 <div class="db-stat-value">${money(monthRevenue)}</div>
                 <div class="db-stat-delta ${revDelta!==null?(revDelta>=0?"pos":"neg"):"neu"}">${revDelta!==null?(revDelta>=0?"↑ ":"↓ ")+Math.abs(revDelta)+"% к прошлому":"нет данных"}</div>
               </div>
-              <div class="db-stat" onclick="app.go('global-finances')" title="Расходы / мес">
-                <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(220,38,38,.13);color:var(--text-danger)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Расходы / мес</span></div>
+              <div class="db-stat db-stat--lg" onclick="app.go('global-finances')" title="Расходы / мес">
+                <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(220,38,38,.13);color:var(--text-danger)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Расходы</span></div>
                 <div class="db-stat-value" style="${monthExpenses>0?"color:var(--text-danger)":""}">${money(monthExpenses)}</div>
-                <div class="db-stat-delta neu">В ${curMonthName}</div>
+                ${/* «В августе» убрано: период теперь назван подписью группы над плитками, и
+                       третья строка повторяла её слово в слово. */""}
+                <div class="db-stat-delta neu"></div>
               </div>
-              <div class="db-stat" onclick="app.go('global-finances')" title="Прибыль / мес">
-                <div class="db-stat-top"><span class="db-stat-icon" style="background:${monthProfit>=0?"rgba(22,163,74,.15);color:var(--text-success)":"rgba(220,38,38,.13);color:var(--text-danger)"}"><svg viewBox="0 0 16 16" fill="currentColor">${monthProfit>=0?EMPTY_ICON_PATHS.trendUp:EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Прибыль / мес</span></div>
+              <div class="db-stat db-stat--lg" onclick="app.go('global-finances')" title="Прибыль / мес">
+                <div class="db-stat-top"><span class="db-stat-icon" style="background:${monthProfit>=0?"rgba(22,163,74,.15);color:var(--text-success)":"rgba(220,38,38,.13);color:var(--text-danger)"}"><svg viewBox="0 0 16 16" fill="currentColor">${monthProfit>=0?EMPTY_ICON_PATHS.trendUp:EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Прибыль</span></div>
                 <div class="db-stat-value" style="color:${monthProfit>=0?"var(--text-success)":"var(--text-danger)"}">${money(monthProfit)}</div>
                 <div class="db-stat-delta ${monthProfit>=0?"pos":"neg"}">${monthProfit>=0?"доход":"убыток"}</div>
               </div>
-              <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')" title="Долг клиентов">
+              <div class="db-stat db-stat--lg ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')" title="Долг клиентов">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${totalDebt>0?"rgba(234,88,12,.15);color:var(--text-warning)":"rgba(22,163,74,.15);color:var(--text-success)"}"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Долг клиентов</span></div>
                 <div class="db-stat-value" style="${totalDebt>0?"color:var(--text-warning)":"color:var(--text-success)"}">${money(totalDebt)}</div>
         <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
               </div>
+              <div class="db-stat-group">Сделки и прогноз</div>
               <div class="db-stat" onclick="app.dashFilterDeals('all')" title="Сумма сделок в работе — открыть список">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.funnel}</svg></span><span class="db-stat-label">Воронка</span></div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>

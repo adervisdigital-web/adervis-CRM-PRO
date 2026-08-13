@@ -3406,14 +3406,36 @@
          только для потомков. Ровно этот промах у меня и вышел с первого раза:
          правило на .db-stat-row внутри @container не срабатывало никогда, и на
          1440px оставалось два столбца вместо пяти. */
-      grid-template-columns: repeat(10, 1fr);
+      /* 12 дорожек: делятся и на 4 (деньги, по три дорожки), и на 6 (сделки, по
+         две), и на 2 для телефона. На десяти, как было, четвёрка не делилась. */
+      grid-template-columns: repeat(12, 1fr);
       background: var(--panel2); border: 1px solid var(--line);
       border-radius: var(--r-xl); margin-bottom: 14px; overflow: hidden;
     }
-    .db-stat-row > .db-stat { grid-column: span 5; }
-    @container (min-width: 790px) {
-      .db-stat-row > .db-stat { grid-column: span 2; }
+    /* Сетка на 12 дорожек: деньги — по три (четыре в ряд), сделки и прогноз — по
+       две (шесть в ряд). Оба числа делят 12 нацело, поэтому дыр в рядах не будет
+       ни при каком порядке. На узком экране обе группы идут по две плитки. */
+    .db-stat-row > .db-stat { grid-column: span 6; }
+    .db-stat-group {
+      grid-column: 1 / -1;
+      padding: 10px 14px 2px;
+      font-size: 11px; font-weight: 750; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--muted);
     }
+    /* Первая подпись прижата к верху панели, у второй — отбивка от ряда выше. */
+    .db-stat-group + .db-stat { border-top: none; }
+    .db-stat-row > .db-stat-group:not(:first-child) {
+      margin-top: 2px; padding-top: 14px; border-top: 1px solid var(--line);
+    }
+    @container (min-width: 790px) {
+      /* Общее правило ПЕРВЫМ, частное после: специфичность у них одинаковая, и
+         победит то, что ниже. В обратном порядке крупные плитки получали ширину
+         мелких — четвёрка занимала 8 дорожек из 12 и оставляла 471px дыры. */
+      .db-stat-row > .db-stat { grid-column: span 2; }
+      .db-stat-row > .db-stat--lg { grid-column: span 3; }
+    }
+    /* Деньги за месяц — главные числа экрана, поэтому крупнее остальных. */
+    .db-stat--lg .db-stat-value { font-size: 22px; }
     .db-stat {
       /* 150px, а не 110: самая длинная подпись («Дедлайны / 7 дн») требует 96px,
          плюс 20px иконки, 6px зазора и 28px внутренних отступов. На 110px восемь
