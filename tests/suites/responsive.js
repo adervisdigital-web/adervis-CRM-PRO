@@ -1112,6 +1112,68 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  await test("брифы на телефоне: все типы доступны, а не спрятаны за краем", async () => {
+    /* Замер на 390px: лента типов показывала ТРИ из шести — «ИИ», «Общий» и «Свой
+       бриф» уезжали за правый край, а намёком служила одна маска-градиент. Третий
+       случай одного и того же (разделы каталога, вкладки сделки), поэтому и решение
+       то же: кнопка с текущим типом плюс общий лист со всеми.
+
+       Мерим РЕЗУЛЬТАТ — сколько типов реально можно выбрать пальцем. */
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => window.app.go("briefs"));
+      await page.waitForTimeout(700);
+
+      const closed = await page.evaluate(() => {
+        const t = document.querySelector(".brief-type-trigger");
+        const strip = document.querySelector(".brief-type-tabs");
+        const de = document.documentElement;
+        return {
+          hasTrigger: !!t && t.getBoundingClientRect().height >= 44,
+          stripHidden: !strip || strip.getBoundingClientRect().height === 0,
+          label: t ? (t.textContent || "").trim() : "",
+          over: Math.max(de.scrollWidth, document.body.scrollWidth) - window.innerWidth,
+        };
+      });
+      assert(closed.hasTrigger, "на телефоне нет кнопки выбора типа брифа (или она ниже 44px)");
+      assert(closed.stripHidden, "лента типов снова висит на экране и прячет часть за краем");
+      assert(closed.over <= 1, `страница шире окна на ${closed.over}px`);
+
+      await page.click(".brief-type-trigger");
+      await page.waitForTimeout(400);
+      const open = await page.evaluate(() => {
+        const sh = document.querySelector(".mobile-nav-sheet");
+        if (!sh) return null;
+        const rows = [...sh.querySelectorAll(".sidebar-nav-item")];
+        const last = rows[rows.length - 1];
+        return {
+          rows: rows.length,
+          lastVisible: last ? last.getBoundingClientRect().bottom <= window.innerHeight + 1 : false,
+        };
+      });
+      assert(open, "лист типов брифа не открылся");
+      assert(open.rows >= 6, `в листе ${open.rows} типов — часть снова недоступна`);
+      assert(open.lastVisible, "последний тип за нижним краем экрана");
+
+      // Выбор закрывает лист и меняет подпись кнопки.
+      await page.evaluate(() => {
+        const rows = [...document.querySelectorAll(".mobile-nav-sheet .sidebar-nav-item")];
+        (rows.find((r) => /Общий/.test(r.textContent)) || rows[1]).click();
+      });
+      await page.waitForTimeout(600);
+      const after = await page.evaluate(() => ({
+        sheet: !!document.querySelector(".mobile-nav-sheet"),
+        label: ((document.querySelector(".brief-type-trigger") || {}).textContent || "").trim(),
+      }));
+      assert(!after.sheet, "после выбора лист остался поверх страницы");
+      assert(/Общий/.test(after.label), `кнопка не показывает выбранный тип: «${after.label}»`);
+    } finally {
+      await context.close();
+    }
+  });
+
   await test("сделка на телефоне: все её разделы открываются, а не прячутся в ленте", async () => {
     /* Замер до правки на 390px: лента вкладок показывала 310px при 883px
        содержимого — видно 3 раздела из 10, а 573px уезжали за край. Единственным

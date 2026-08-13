@@ -2510,7 +2510,30 @@
       function _mobileSheetTitle() {
         return _mobileSheet === "config" ? "Пункты меню"
           : _mobileSheet === "tabs" ? "Разделы сделки"
+          : _mobileSheet === "briefTypes" ? "Тип брифа"
           : "Разделы";
+      }
+
+      /* Типы брифа на телефоне. Замер на 390px: лента показывала ТРИ типа из шести,
+         «ИИ», «Общий» и «Свой бриф» уезжали за правый край — намёком служила только
+         маска-градиент. Третий раз один и тот же случай (разделы каталога, вкладки
+         сделки), поэтому и лечение то же: кнопка с текущим значением плюс общий
+         лист со всеми. */
+      function briefTypeListHtml() {
+        const cur = _isBriefType(_briefTypeTab) ? _briefTypeTab : "video";
+        return allBriefTypes().map(t => {
+          const isCustom = !!(state.briefTemplates && state.briefTemplates[t.id]);
+          return `
+            <button class="sidebar-nav-item ${t.id === cur ? "active" : ""}"
+              ${t.id === cur ? 'aria-current="page"' : ""}
+              onclick="app.setBriefTypeTab('${t.id}')" title="Бриф «${escapeHtml(t.label)}»">
+              ${icon(t.icon, 16)}
+              <span class="sidebar-label">${escapeHtml(t.label)}${isCustom ? " · изменён" : ""}</span>
+            </button>`;
+        }).join("") + `
+          <button class="sidebar-nav-item" onclick="app.addCustomBriefType()">
+            ${icon("plus", 16)}<span class="sidebar-label">Свой бриф</span>
+          </button>`;
       }
 
       function _mobileSheetBodyHtml() {
@@ -2523,6 +2546,9 @@
         }
         if (_mobileSheet === "tabs") {
           return `<div class="mobile-nav-sheet-list">${dealTabListHtml()}</div>`;
+        }
+        if (_mobileSheet === "briefTypes") {
+          return `<div class="mobile-nav-sheet-list">${briefTypeListHtml()}</div>`;
         }
         return `
           <div class="mobile-nav-sheet-list">${renderNavListHtml()}</div>
@@ -10799,6 +10825,9 @@
           [".catalog-cat-sidebar", ".catalog-cat-item.active"],
           [".deal-stage-progress", ".dsp-step.active"],
           [".deal-tabs", ".deal-tab.active"],
+          // Воронка на главной — тоже лента с выбранным пунктом: при фильтре по
+          // дальнему этапу он оказывался за краем, и было не видно, что выбрано.
+          [".crm-home-funnel", ".funnel-stage.active"],
         ].forEach(([barSel, actSel]) => {
           const bar = root.querySelector(barSel);
           if (!bar || bar.scrollWidth <= bar.clientWidth + 4) return;
@@ -14022,6 +14051,14 @@
                   <p>Отдельная форма-бриф под каждый тип задач — видео, фото, дизайн, ИИ и общий. Отправьте клиенту ссылку нужного типа, заявка появится ниже.</p>
                 </div>
               </div>
+              ${/* Кнопка вместо ленты на телефоне — см. briefTypeListHtml. На десктопе
+                    лента остаётся: там все шесть типов помещаются. */""}
+              <button class="brief-type-trigger no-print" onclick="app.openMobileSheet('briefTypes', event)"
+                aria-haspopup="dialog" title="Выбрать тип брифа">
+                <span class="brief-type-ic">${icon(typeMeta.icon, 15)}</span>
+                <span class="brief-type-trigger-label">${escapeHtml(typeMeta.label)}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
               <div class="brief-type-tabs no-print">${chips}</div>
               <div class="brief-type-panel">
                 <div class="brief-type-panel-head">
@@ -14199,7 +14236,8 @@
 
       /* ── CRM: типы брифов, предпросмотр, редактор вопросов ── */
 
-      function setBriefTypeTab(t) { if (_isBriefType(t)) { _briefTypeTab = t; render(); } }
+      // Выбор типа закрывает лист сам — как и остальные листы на телефоне.
+      function setBriefTypeTab(t) { closeMobileSheet(); if (_isBriefType(t)) { _briefTypeTab = t; render(); } }
 
       function previewBrief(typeId) {
         // Открыть публичную форму как клиент (новая вкладка).
@@ -15044,8 +15082,13 @@
                   <h3>Все</h3>
                   <div class="fs-count">${activeProjects.length}</div>
                 </div>
+                ${/* Пустые этапы на телефоне скрыты: воронка рисует ВСЕ одиннадцать,
+                      и замер на 390px показал 8 этапов из 11 за краем экрана — среди
+                      уехавших были те, где сделки есть, а на виду оставались нули.
+                      Этап без сделок ничего не сообщает и фильтрует в пустоту; на
+                      десктопе они помещаются целиком и остаются как есть. */""}
                 ${stageData.map(s => `
-                  <div class="funnel-stage ${filter === s.status ? "active" : ""}" onclick="app.setCrmFilter('${s.status}')">
+                  <div class="funnel-stage ${filter === s.status ? "active" : ""} ${s.items.length ? "" : "funnel-stage--empty"}" onclick="app.setCrmFilter('${s.status}')">
                     <h3>${escapeHtml(s.status)}</h3>
                     <div class="fs-count">${s.items.length}</div>
                     ${s.total ? `<div class="fs-amount">${money(s.total)}</div>` : ""}

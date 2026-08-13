@@ -7312,3 +7312,31 @@ button.is-busy::before {
   animation: btnBusySpin .7s linear infinite;
 }
 @keyframes btnBusySpin { to { transform: rotate(360deg); } }
+
+/* Триггер выбора типа брифа — на телефоне вместо ленты, которая показывала три
+   типа из шести и прятала остальные за краем (см. briefTypeListHtml). */
+.brief-type-trigger { display: none; }
+@media (max-width: 640px) {
+  .brief-type-tabs { display: none; }
+  .brief-type-trigger {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    min-height: 44px; margin-top: 16px; padding: 10px 14px;
+    font: inherit; font-size: 15px; font-weight: 800; text-align: left;
+    color: var(--text); background: var(--panel2);
+    border: 1px solid var(--line); border-radius: var(--r-md);
+    cursor: pointer;
+  }
+  /* min-width: 0 на подписи — иначе длинное название распирает кнопку и выдавливает
+     шеврон за край. */
+  .brief-type-trigger-label {
+    flex: 1 1 auto; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .brief-type-trigger svg { flex: 0 0 auto; color: var(--muted); }
+}
+
+/* Пустые этапы воронки на телефоне скрыты — см. renderCrmHome. На десктопе все
+   одиннадцать помещаются, и «ноль в Договоре» там законный сигнал. */
+@media (max-width: 640px) {
+  .crm-home-funnel .funnel-stage--empty { display: none; }
+}
