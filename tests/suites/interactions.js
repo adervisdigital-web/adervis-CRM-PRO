@@ -2333,6 +2333,67 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(gap >= 4, "между строками списка сделок нет зазора (" + gap + "px) — список читается сплошной простынёй");
   });
 
+  await test("сделку можно перетащить из «Архива» обратно в работу", async () => {
+    /* Раньше каждая секция бокового списка была замкнутой границей: уронить
+       карточку в соседнюю было нельзя, чтобы случайный сброс не менял статус
+       молча. По просьбе владельца граница открыта, но статус меняется явно —
+       теми же функциями, что и меню сделки, с записью в историю.
+
+       Мерим РЕЗУЛЬТАТ жеста: статус в состоянии, секция после перерисовки и след
+       в истории. Проверять разметку тут бессмысленно — она и до правки была
+       на месте, не работал сам перенос. */
+    const { ctx, p, ids } = await bootRail();
+    try {
+      const victim = ids[ids.length - 1];
+      await p.evaluate((i) => window.app.archiveDeal(i), victim);
+      await p.waitForTimeout(500);
+
+      const before = await p.evaluate((id) => {
+        const row = document.querySelector(`.deal-rail [data-deal-id="${id}"]`);
+        return row ? row.parentElement.dataset.section : null;
+      }, victim);
+      assertEqual(before, "archived",
+        "секция карточки не читается (нет data-section) либо сделка не ушла в архив — " +
+        "без пометки секции перенос между ними невозможен в принципе");
+
+      const box = await p.evaluate((id) => {
+        const row = document.querySelector(`.deal-rail [data-deal-id="${id}"]`);
+        const active = document.querySelector('.deal-rail [data-drag-scope="rail"][data-section="active"]');
+        if (!row || !active) return null;
+        const r = row.getBoundingClientRect(), a = active.getBoundingClientRect();
+        return { fx: r.left + 60, fy: r.top + 16, tx: a.left + 60, ty: a.top + 24 };
+      }, victim);
+      assert(box, "не нашлись карточка архива или секция «В работе»");
+
+      await p.mouse.move(box.fx, box.fy);
+      await p.mouse.down();
+      await p.mouse.move(box.fx + 4, box.fy - 12, { steps: 3 });
+      await p.waitForTimeout(140);
+      await p.mouse.move(box.tx, box.ty, { steps: 14 });
+      await p.waitForTimeout(180);
+      await p.mouse.up();
+      await p.waitForTimeout(700);
+
+      const after = await p.evaluate((id) => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+        const deal = (st.savedProjects || []).find((x) => x.id === id);
+        const row = document.querySelector(`.deal-rail [data-deal-id="${id}"]`);
+        return {
+          status: deal && deal.crmStatus,
+          section: row ? row.parentElement.dataset.section : null,
+          logged: ((deal && deal.activity) || []).some((a) => /Архив →/.test(a.text || "")),
+        };
+      }, victim);
+
+      assert(after.status && after.status !== "Архив",
+        `статус остался «${after.status}» — перенос между секциями не сработал`);
+      assertEqual(after.section, "active", "после перерисовки карточка вернулась в архив");
+      assert(after.logged, "смена статуса переносом не попала в историю сделки");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("перетаскивание выглядит одинаково везде", async () => {
     /* Было ЧЕТЫРЕ разных вида одного жеста: в смете пустой квадрат 26×26 с рамкой
        и без содержимого (читался как невыбранный чекбокс), в настройке меню

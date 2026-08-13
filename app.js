@@ -9841,6 +9841,10 @@
         if (!grid) return;
         _drag = {
           id, card, grid, pointerId: ev.pointerId,
+          // Секция, из которой потянули: сравнив её с конечной, узнаём, менялся ли
+          // статус сделки. Без этого перенос между секциями был бы просто
+          // перестановкой строк, а карточка после перерисовки прыгнула бы назад.
+          fromSection: grid.dataset.section || "",
           x0: ev.clientX, y0: ev.clientY,
           started: false, armed: ev.pointerType !== "touch",
           holdTimer: null, clone: null, dx: 0, dy: 0,
@@ -9882,6 +9886,25 @@
         d.clone.style.left = (ev.clientX - d.dx) + "px";
         d.clone.style.top = (ev.clientY - d.dy) + "px";
 
+        /* Перенос МЕЖДУ секциями. Раньше каждая секция была замкнутой границей:
+           уронить «В работе» в «Архив» было нельзя, чтобы случайный сброс не менял
+           статус сделки молча. По просьбе владельца граница открыта — но статус
+           теперь меняется явно, с записью в историю сделки и тостом.
+
+           Пока палец над другой секцией, карточка переезжает в неё, и дальше
+           обычная логика вставки работает уже внутри новой. */
+        const scope = d.grid.dataset.dragScope;
+        if (scope) {
+          const over = [...document.querySelectorAll(`[data-drag-scope="${scope}"]`)].find(c => {
+            const r = c.getBoundingClientRect();
+            return ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
+          });
+          if (over && over !== d.grid) {
+            over.appendChild(d.card);
+            d.grid = over;
+          }
+        }
+
         const target = _dragCards(d.grid).find(c => {
           if (c === d.card) return false;
           const r = c.getBoundingClientRect();
@@ -9921,6 +9944,18 @@
         // можно кнопкой в заголовке секции.
         if (d.grid.dataset.dragScope === "rail") state.dealRailManual = true;
 
+        /* Карточку уронили в другую секцию — значит человек попросил сменить статус,
+           а не просто переставить строку. Меняем статус ТЕМИ ЖЕ функциями, что и
+           меню сделки: правила «что запомнить и куда вернуть» должны жить в одном
+           месте, иначе перенос и меню разойдутся. Функции сами сохраняют, пишут в
+           историю сделки, показывают тост и перерисовывают — поэтому дальше
+           выходим, порядок пересчитается на следующем рендере. */
+        const toSection = d.grid.dataset.section || "";
+        if (toSection && d.fromSection && toSection !== d.fromSection) {
+          _moveDealToSection(d.id, toSection);
+          return;
+        }
+
         // Итоговый порядок берём из DOM. В state переставляем только те сделки,
         // что сейчас на экране: список отфильтрован и разбит на страницы, поэтому
         // трогать остальные нельзя — они просто не участвовали в переносе.
@@ -9929,7 +9964,12 @@
         // selectActiveDeal на openDeal, регэксп перестал совпадать, domIds оказывался
         // пустым, и перетаскивание молча переставало сохранять порядок. Разметка не
         // должна зависеть от того, как называется функция в onclick.
-        const domIds = _dragCards(d.grid)
+        const scope = d.grid.dataset.dragScope;
+        const grids = scope
+          ? [...document.querySelectorAll(`[data-drag-scope="${scope}"]`)]
+          : [d.grid];
+        const domIds = grids
+          .flatMap(g => _dragCards(g))
           .map(c => c.getAttribute("data-deal-id"))
           .filter(Boolean);
         const list = state.savedProjects || [];
@@ -9937,6 +9977,47 @@
         const moved = list.filter(p => pos.has(p.id)).sort((a, b) => pos.get(a.id) - pos.get(b.id));
         let k = 0;
         state.savedProjects = list.map(p => (pos.has(p.id) ? moved[k++] : p));
+        save();
+        render();
+      }
+
+      /* Смена статуса переносом карточки между секциями бокового списка.
+
+         Секций три, и каждая означает состояние сделки: «В работе» — живая,
+         «Завершённые» — закрыта, «Архив» — тупик (отказ или заморозка). Поэтому
+         бросок в секцию = просьба перевести сделку в это состояние.
+
+         Всё делаем существующими функциями меню (archiveDeal / finishDeal /
+         unarchiveDeal): они уже знают, что запомнить и куда вернуть. Второй копии
+         этих правил быть не должно — разъедутся.
+
+         Возврат в работу из «Завершённых» отдельный случай: finishDeal прежний
+         статус не запоминает (и не должен — завершение это не временное состояние),
+         поэтому берём честный рабочий статус «В работе». */
+      function _moveDealToSection(id, section) {
+        const proj = (state.savedProjects || []).find(p => p.id === id);
+        if (!proj) return;
+        const cur = proj.crmStatus || "Лид";
+
+        if (section === "archived") { archiveDeal(id); return; }
+        if (section === "completed") { finishDeal(id); return; }
+        if (section !== "active") return;
+
+        if (cur === CRM_ARCHIVED) {
+          // Прежний статус мог быть терминальным («Завершённые») — тогда возврат
+          // «туда, где была» снова унёс бы карточку из «В работе», и перенос
+          // выглядел бы не сработавшим. В этом случае честнее «В работе».
+          const back = proj.crmStatusBeforeArchive || "";
+          if (!back || back === "Завершённые" || back === CRM_ARCHIVED) {
+            proj.crmStatusBeforeArchive = "В работе";
+          }
+          unarchiveDeal(id);
+          return;
+        }
+        const prev = cur;
+        _applyCrmStatus(proj, "В работе");
+        _logActivity(id, `Статус: ${prev} → В работе (возврат из завершённых)`);
+        toast("Сделка снова в работе");
         save();
         render();
       }
@@ -22607,7 +22688,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                     молча сменило бы статус сделки. Для смены статуса есть шкала
                     этапов в шапке. data-drag-axis="y" переключает рубеж вставки на
                     вертикаль: список в одну колонку. */""}
-              <div class="deal-switcher-section-items" data-drag-axis="y" data-drag-scope="rail">
+              <div class="deal-switcher-section-items" data-drag-axis="y" data-drag-scope="rail" data-section="${key}">
                 ${items.map(p => _dealSwitcherItemHtml(p, itemCls)).join("")}
               </div>
             `}
