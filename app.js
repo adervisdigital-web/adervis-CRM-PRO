@@ -11616,6 +11616,22 @@
             const wrap = el.parentElement.getBoundingClientRect();
             if (r.bottom > window.innerHeight - 8 && wrap.top > r.height + 8) el.classList.add("dcm-up");
 
+            /* То же самое по ГОРИЗОНТАЛИ. Меню прижато к правому краю своей кнопки,
+               и если кнопка стоит недалеко от левого края окна, меню шириной 192px
+               уходит за него: замер на 390px в шапке каталога — меню −5…187, то
+               есть первые пять пикселей срезаны. Сдвигаем ровно настолько, чтобы
+               оба края поместились; пересчитываем при каждом открытии, потому что
+               кнопка переезжает вместе с переносом строк. */
+            el.style.left = "";
+            el.style.right = "";
+            const rr = el.getBoundingClientRect();
+            if (rr.left < 8) {
+              el.style.left = Math.round(8 - wrap.left) + "px";
+              el.style.right = "auto";
+            } else if (rr.right > window.innerWidth - 8) {
+              el.style.right = Math.round(wrap.right - (window.innerWidth - 8)) + "px";
+            }
+
             /* Вторая, независимая причина того же симптома: карточка под курсором
                приподнимается на 2px через transform, а transform создаёт СТЕКОВЫЙ
                КОНТЕКСТ — меню с z-index:200 запирается внутри карточки, и следующая
@@ -16118,14 +16134,32 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
                     Своя позиция
                   </button>
-                  <button class="btn small" onclick="app.exportCatalogXlsx()" title="Скачать весь каталог таблицей Excel (.xlsx)">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg>
-                    Выгрузить
-                  </button>
-                  <button class="btn small" onclick="document.getElementById('importCatalogXlsxInput').click()" title="Загрузить позиции из Excel в раздел «Свои»">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Загрузить
-                  </button>
+                  ${/* Выгрузка и загрузка убраны под «⋮». На телефоне шапка съедала
+                        весь первый экран: заголовок, описание в три строки, ТРИ кнопки,
+                        выбор раздела, поиск, два фильтра и счётчик — и только потом
+                        первая услуга. Эти два действия редкие (перенос каталога целиком),
+                        а «Своя позиция» и поиск нужны постоянно, поэтому они и остались
+                        на виду.
+
+                        Механизм меню общий — тот же toggleDealMenu, что у строк каталога
+                        и карточек сделок: в нём уже есть закрытие по клику вне, и второй
+                        такой же заводить незачем. */""}
+                  <div class="deal-card-menu-wrap">
+                    <button class="catalog-action-btn" onclick="app.toggleDealMenu('catalog-io',event)"
+                      title="Перенос каталога: выгрузить или загрузить таблицей" aria-label="Ещё действия с каталогом" aria-haspopup="menu">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
+                    </button>
+                    <div class="deal-ctx-menu" id="dcm-catalog-io" style="display:none">
+                      <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.exportCatalogXlsx()">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg>
+                        Выгрузить в Excel
+                      </button>
+                      <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();document.getElementById('importCatalogXlsxInput').click()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>
+                        Загрузить из Excel
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 

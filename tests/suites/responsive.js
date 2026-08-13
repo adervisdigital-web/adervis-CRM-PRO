@@ -1058,6 +1058,42 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   });
   }
 
+  await test("выпадающее меню не уезжает за край окна", async () => {
+    /* Меню прижато к правому краю своей кнопки. Если кнопка стоит недалеко от
+       ЛЕВОГО края (на телефоне ряд шапки переносится, и «⋮» оказывается в начале
+       строки), меню шириной 192px уходит за край: замер в шапке каталога на 390px
+       дал −5…187, то есть первые пять пикселей срезаны.
+
+       Поправка по горизонтали живёт там же, где давняя поправка по вертикали
+       (раскрытие вверх у нижнего края) — в toggleDealMenu, поэтому она работает
+       для ВСЕХ таких меню, а не только для каталога. Проверяем и её. */
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => window.app.go("catalog"));
+      await page.waitForTimeout(700);
+      const res = await page.evaluate(() => {
+        const btn = document.querySelector("[onclick*=\"toggleDealMenu('catalog-io'\"]");
+        if (!btn) return null;
+        btn.click();
+        const m = document.getElementById("dcm-catalog-io");
+        if (!m) return { нет: true };
+        const r = m.getBoundingClientRect();
+        return {
+          left: Math.round(r.left), right: Math.round(r.right), win: window.innerWidth,
+          items: [...m.querySelectorAll(".dcm-item")].map((b) => (b.textContent || "").trim()),
+        };
+      });
+      assert(res && !res.нет, "в шапке каталога нет меню переноса каталога");
+      assert(res.items.length >= 2, "в меню каталога меньше двух пунктов: " + JSON.stringify(res.items));
+      assert(res.left >= 0, `меню выходит за левый край на ${-res.left}px`);
+      assert(res.right <= res.win, `меню выходит за правый край на ${res.right - res.win}px`);
+    } finally {
+      await context.close();
+    }
+  });
+
   await test("телефон: по кнопке можно попасть пальцем во всех разделах", async () => {
     /* Обход 17 разделов на 390×844 нашёл 137 целей меньше 44px — включая
        «Добавить» в каталоге (117×32), самую нажимаемую кнопку продукта.
