@@ -334,6 +334,24 @@
         const p = ICON_PATHS[name] || EMPTY_ICON_PATHS[name] || "";
         return `<svg width="${s}" height="${s}" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">${p}</svg>`;
       }
+      /* Ручка перетаскивания — ОДНА на всё приложение.
+
+         Было четыре разных: в смете пустой квадрат с рамкой 26×26 БЕЗ единой точки
+         внутри (читался как невыбранный чекбокс, а не как «потяни меня»), в
+         настройке меню текстовый глиф ⠿ (шрифт ОС — у каждого свой рисунок, мимо
+         правила «иконки только SVG»), в боковом списке сделок свой инлайновый SVG
+         из шести кружков, а карточки канбана перетаскивались вообще без ручки.
+         Один и тот же жест выглядел в четырёх местах по-разному, и ни в одном
+         месте не выглядел собой.
+
+         Здесь одна разметка и один рисунок (ICON_PATHS.drag). Где ручка стоит —
+         решает класс-модификатор в CSS, а не своя вёрстка на месте. */
+      function dragHandleHtml(opts) {
+        const o = opts || {};
+        const cls = ["drag-handle", "no-print", o.className || ""].filter(Boolean).join(" ");
+        return `<span class="${cls}" title="${escapeHtml(o.title || "Потяните, чтобы переставить")}" aria-hidden="true"${o.attrs ? " " + o.attrs : ""}>${icon("drag", 14)}</span>`;
+      }
+
       // Цветная иконка в тонированном квадрате-бейдже — заголовки секций Профиля/Настроек.
       // colorVar — строка вида "var(--primary)". Тонировка через color-mix (тема-зависимо).
       function iconBadge(name, colorVar, size) {
@@ -2600,7 +2618,7 @@
               ondragstart="app.sidebarNavDragStart('${escapeHtml(item.id)}')"
               ondragover="event.preventDefault()"
               ondrop="app.sidebarNavDrop('${escapeHtml(item.id)}')">
-              <span class="sidebar-nav-drag-handle" title="Перетащи для сортировки">⠿</span>
+              ${dragHandleHtml({ title: "Потяните, чтобы переставить пункт" })}
               <span class="sidebar-nav-config-label" title="${custom ? escapeHtml(item.url || "") : ""}">${escapeHtml(label)}</span>
               ${custom ? `<button class="sidebar-nav-switch-del" onclick="app.removeCustomNavItem('${escapeHtml(item.id)}')" title="Удалить раздел" aria-label="Удалить раздел «${escapeHtml(label)}»" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 6px;min-width:32px;min-height:32px">${icon("close", 13)}</button>` : ""}
               <button class="sidebar-nav-switch ${item.hidden ? "" : "on"}" onclick="app.toggleSidebarNavItemHidden('${escapeHtml(item.id)}')" aria-label="${item.hidden ? "Показать" : "Скрыть"} «${escapeHtml(label)}»"></button>
@@ -16344,7 +16362,7 @@
           <article class="item ${line.optional ? "optional" : ""}" ondragstart="app.dragStart(event,'${id}')" ondragover="app.dragOver(event,'${id}')" ondragleave="app.dragLeaveLine(event)" ondrop="app.dropOn(event,'${id}')" ondragend="app.dragEndLine(event)">
             <div class="item-top">
               <div style="display:flex;gap:12px;flex:1;min-width:0">
-        <div class="drag-handle no-print" title="Перетащи для сортировки" onmousedown="this.closest('.item').draggable=true" onmouseup="this.closest('.item').draggable=false"></div>
+        ${dragHandleHtml({ title: "Потяните, чтобы переставить позицию", attrs: `onmousedown="this.closest('.item').draggable=true" onmouseup="this.closest('.item').draggable=false"` })}
                 <div class="u-flex1-min0">
                   <input class="line-name-input" type="text" data-autosave data-scope="line" data-id="${id}" data-key="lineName" value="${escapeHtml(line.lineName || "")}" placeholder="${escapeHtml(itemData.name)}" title="Нажми, чтобы переименовать позицию" style="color:var(--text);font-weight:750;font-size:15px">
                   ${!collapsed ? `<textarea class="line-desc-input" data-autosave data-scope="line" data-id="${id}" data-key="editedDesc" placeholder="${escapeHtml(itemData.desc)}" title="Нажми чтобы отредактировать описание" style="color:var(--muted);font-size:12px">${escapeHtml(line.editedDesc || "")}</textarea>` : ""}
@@ -17433,6 +17451,7 @@
             draggable="true"
             ondragstart="app.onKanbanDragStart(event,'${task.id}','task')"
             ondragend="document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('dragover'))">
+            ${dragHandleHtml({ className: "drag-handle--corner", title: "Потяните, чтобы перенести задачу" })}
             <div style="display:flex;gap:8px;align-items:flex-start">
               <input class="task-title-input"
                 data-autosave data-scope="task" data-id="${task.id}" data-key="title"
@@ -18118,6 +18137,7 @@
                           draggable="true"
                           ondragstart="app.onKanbanDragStart(event,'${project.id}','crm')"
                           ondragend="document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('dragover'))">
+                          ${dragHandleHtml({ className: "drag-handle--corner", title: "Потяните, чтобы перенести сделку" })}
                           <h3>${escapeHtml(project.name)}</h3>
                           <p${project.clientId ? "" : ` style="color:var(--yellow);font-weight:700" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно"`}>${project.clientId ? escapeHtml(project.client) : ` ${project.client ? escapeHtml(project.client) + " · не привязан" : "Клиент не привязан"}`}</p>
                           <div class="badges">
@@ -21661,11 +21681,42 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
          можно, это законно. Снимаем в finally — иначе одна ошибка навсегда
          запирает кнопку до перезагрузки. */
       const _actionsInFlight = new Set();
+
+      /* Кнопка, запустившая долгое действие, обязана это показать. Раньше отклика
+         не было вовсе: человек жмёт «КП-ссылка», уходит запрос на сервер и письмо
+         клиенту, а на экране до тоста не меняется НИЧЕГО — выглядит как «кнопка не
+         работает», и первое желание нажать ещё раз (что и давало дубли).
+
+         Кнопку берём из клика в фазе перехвата: инлайновые onclick срабатывают
+         позже, на всплытии, поэтому к моменту вызова действия она уже записана, и
+         передавать её через все места вызова не нужно. */
+      let _lastClickedBtn = null;
+      document.addEventListener("click", (e) => {
+        const t = e.target;
+        _lastClickedBtn = (t && t.closest) ? t.closest("button, .btn") : null;
+      }, true);
+
+      function _markBusy(btn) {
+        if (!btn || !btn.classList || btn.classList.contains("is-busy")) return null;
+        btn.classList.add("is-busy");
+        const wasDisabled = btn.disabled;
+        if ("disabled" in btn) btn.disabled = true;
+        return () => {
+          btn.classList.remove("is-busy");
+          // Элемент мог не пережить перерисовку — тогда снимать нечего и это норма.
+          if ("disabled" in btn) btn.disabled = wasDisabled;
+        };
+      }
+
       async function _once(key, fn) {
         if (_actionsInFlight.has(key)) return;
         _actionsInFlight.add(key);
+        const unbusy = _markBusy(_lastClickedBtn);
         try { return await fn(); }
-        finally { _actionsInFlight.delete(key); }
+        finally {
+          _actionsInFlight.delete(key);
+          if (unbusy) unbusy();
+        }
       }
 
       async function createClientPortal(projectId) {
@@ -22504,9 +22555,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             onpointerup="app.dealPointerUp(event)"
             onpointercancel="app.dealPointerUp(event,true)"
             onclick="app.switchDeal('${idSafe}')">
-            <span class="deal-switcher-item-grip" aria-hidden="true" title="Потяните, чтобы переставить">
-              <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="2.5" cy="3" r="1.2"/><circle cx="7.5" cy="3" r="1.2"/><circle cx="2.5" cy="8" r="1.2"/><circle cx="7.5" cy="8" r="1.2"/><circle cx="2.5" cy="13" r="1.2"/><circle cx="7.5" cy="13" r="1.2"/></svg>
-            </span>
+            ${dragHandleHtml({ className: "drag-handle--corner", title: "Потяните, чтобы переставить сделку" })}
             <div class="deal-switcher-item-name">${escapeHtml(p.name || "Без названия")}</div>
             ${p.client ? `<div class="deal-switcher-item-client">${escapeHtml(p.client)}</div>` : ""}
             <div class="deal-switcher-item-meta">

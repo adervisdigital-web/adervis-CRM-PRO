@@ -583,12 +583,6 @@
       cursor: grab;
     }
     .sidebar-nav-config-row:hover { background: var(--panel2); }
-    .sidebar-nav-drag-handle {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1;
-      flex: 0 0 auto;
-    }
     .sidebar-nav-config-label {
       flex: 1;
       font-size: 13px;
@@ -1973,30 +1967,61 @@
       font-size: 12px;
     }
 
+    /* ── РУЧКА ПЕРЕТАСКИВАНИЯ — ОДНА НА ВСЁ ПРИЛОЖЕНИЕ ──────────────────────
+       Было четыре разных вида одного жеста: здесь — пустой квадрат 26×26 с
+       рамкой и БЕЗ содержимого (читался как невыбранный чекбокс), в настройке
+       меню — текстовый глиф ⠿ (рисуется шрифтом ОС, у каждого свой), в боковом
+       списке сделок — свой инлайновый SVG, а карточки канбана таскались без
+       ручки вовсе. Теперь разметка одна (dragHandleHtml), рисунок один
+       (ICON_PATHS.drag), а место задаёт модификатор.
+
+       Рамки нет намеренно: коробка вокруг точек и превращала ручку в подобие
+       чекбокса. Опознаётся она точками и курсором-ладонью. */
     .drag-handle {
-      width: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
       height: 26px;
-      border-radius: var(--r-sm);
-      display: grid;
-      place-items: center;
+      flex: 0 0 auto;
       color: var(--muted);
-      border: 1px solid var(--line);
-      margin-top: 2px;
       cursor: grab;
       user-select: none;
-      flex: 0 0 auto;
-      transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+      -webkit-user-select: none;
+      /* Иначе браузер на телефоне забирает вертикальное движение себе под
+         прокрутку, и перетаскивание не начинается. */
+      touch-action: none;
+      border-radius: var(--r-sm);
+      transition: color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+    }
+    .drag-handle svg { display: block; }
+    .drag-handle:hover { color: var(--text); background: rgb(var(--primary-rgb) / .10); }
+    .drag-handle:active { cursor: grabbing; background: rgb(var(--primary-rgb) / .18); }
+
+    /* Ручка в углу карточки: не встаёт в поток, поэтому ширина названия и суммы
+       не зависит от того, наведён курсор или нет. */
+    .drag-handle--corner {
+      position: absolute;
+      top: 4px; right: 4px;
     }
 
-    .drag-handle:hover {
-      color: var(--text);
-      border-color: var(--primary-on-tint);
-      background: rgb(var(--primary-rgb) / .08);
+    /* Карточки воронки и задач таскаются целиком (HTML5 drag), ручки у них не было
+       вовсе — то, что карточку можно перенести, узнавалось случайно. Показываем ту
+       же ручку по наведению как ПОДСКАЗКУ: тянуть по-прежнему можно за всю
+       карточку, поэтому ручка не перехватывает указатель. */
+    .crm-card, .task-card { position: relative; }
+    .crm-card .drag-handle--corner,
+    .task-card .drag-handle--corner {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--dur-1);
     }
-
-    .drag-handle:active {
-      cursor: grabbing;
-      background: rgb(var(--primary-rgb) / .16);
+    .crm-card:hover .drag-handle--corner,
+    .task-card:hover .drag-handle--corner { opacity: .5; }
+    /* Наведения на телефоне нет — там подсказка видна всегда, приглушённо. */
+    @media (hover: none) {
+      .crm-card .drag-handle--corner,
+      .task-card .drag-handle--corner { opacity: .32; }
     }
 
     .proposal-preview {
@@ -4398,19 +4423,21 @@
        (.active — .13), только слабее, поэтому «навёл» и «выбрано» читаются как
        одно семейство, а не два разных состояния. Тинт работает поверх любого фона,
        значит переживёт и смену цветовой схемы, и обе темы. */
-    /* Ручка переноса. Появляется по наведению на строку, а не висит всегда: иначе
-       она читается как активный элемент и спорит за внимание с названием сделки.
-       Позиционируется поверх правого края — в поток не встаёт, поэтому ширина
-       названия и суммы не меняется от того, наведён курсор или нет. */
-    .deal-switcher-item-grip {
-      position: absolute; top: 8px; right: 6px;
-      display: flex; align-items: center; justify-content: center;
-      width: 18px; height: 20px;
-      color: var(--muted); opacity: 0;
-      transition: opacity var(--dur-1);
+    /* Ручка переноса появляется по наведению на строку, а не висит всегда: иначе
+       она спорит за внимание с названием сделки. Сам рисунок и размеры — общие
+       (.drag-handle выше), здесь только правило появления.
+
+       На тач-устройствах наведения НЕТ, и ручка была бы не видна никогда —
+       поэтому там она показана всегда, приглушённо. */
+    .deal-switcher-item .drag-handle--corner {
+      opacity: 0;
       pointer-events: none;
+      transition: opacity var(--dur-1);
     }
-    .deal-switcher-item:hover .deal-switcher-item-grip { opacity: .55; }
+    .deal-switcher-item:hover .drag-handle--corner { opacity: .55; }
+    @media (hover: none) {
+      .deal-switcher-item .drag-handle--corner { opacity: .38; }
+    }
     /* touch-action: none обязателен — иначе браузер на телефоне забирает
        вертикальное движение себе под прокрутку и pointermove до нас не доходит.
        Прокрутку списка это не ломает: перенос стартует только после удержания
@@ -7160,3 +7187,33 @@ body.portal-mode .nav { display: none !important; }
     transform: translate(-50%, -50%);
   }
 }
+
+/* ── ОТКЛИК НА ДОЛГОЕ ДЕЙСТВИЕ ──────────────────────────────────────────────
+   Кнопка, запустившая сетевое действие, показывает, что работа идёт. Раньше
+   отклика не было: «КП-ссылка» уходила на сервер и слала письмо клиенту, а на
+   экране до тоста не менялось ничего — читается как «кнопка не работает», и
+   первое желание нажать ещё раз (что и давало дубли КП).
+
+   Круг вращается, но опираться ТОЛЬКО на вращение нельзя: при
+   prefers-reduced-motion глобальное правило обнуляет длительность анимаций, и
+   спиннер замирает. Поэтому состояние несут ещё и приглушение с курсором
+   ожидания — они работают без движения. */
+.btn.is-busy,
+button.is-busy {
+  position: relative;
+  cursor: progress;
+  opacity: .72;
+}
+.btn.is-busy::before,
+button.is-busy::before {
+  content: "";
+  display: inline-block;
+  width: 13px; height: 13px;
+  margin-right: 7px;
+  vertical-align: -2px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btnBusySpin .7s linear infinite;
+}
+@keyframes btnBusySpin { to { transform: rotate(360deg); } }

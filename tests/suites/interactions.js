@@ -2333,6 +2333,48 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(gap >= 4, "между строками списка сделок нет зазора (" + gap + "px) — список читается сплошной простынёй");
   });
 
+  await test("перетаскивание выглядит одинаково везде", async () => {
+    /* Было ЧЕТЫРЕ разных вида одного жеста: в смете пустой квадрат 26×26 с рамкой
+       и без содержимого (читался как невыбранный чекбокс), в настройке меню
+       текстовый глиф ⠿ (рисуется шрифтом ОС — у каждого свой), в боковом списке
+       сделок свой инлайновый SVG, а карточки воронки и задач таскались вообще без
+       ручки: о том, что их можно перенести, узнавали случайно.
+
+       Мерим РЕЗУЛЬТАТ — что у всех ручек на экране один рисунок и один размер, —
+       а не то, какой функцией они собраны. */
+    const { ctx, p } = await bootRail();
+    try {
+      const res = await p.evaluate(() => {
+        const out = { views: {}, kinds: new Set(), noSvg: 0, glyphs: 0 };
+        return (async () => {
+          for (const v of ["deal", "crm", "global-tasks"]) {
+            window.app.go(v);
+            await new Promise((r) => setTimeout(r, 450));
+            const hs = [...document.querySelectorAll(".drag-handle")];
+            out.views[v] = hs.length;
+            hs.forEach((h) => {
+              const r = h.getBoundingClientRect();
+              const svg = h.querySelector("svg");
+              if (!svg) out.noSvg++;
+              // Глиф вместо иконки: текст внутри ручки — это ⠿ и его родня.
+              if ((h.textContent || "").trim()) out.glyphs++;
+              out.kinds.add(`${Math.round(r.width)}×${Math.round(r.height)}|${svg ? svg.innerHTML.length : 0}`);
+            });
+          }
+          out.kinds = [...out.kinds];
+          return out;
+        })();
+      });
+      assert(res.views.deal > 0, "в смете не нашлось ни одной ручки перетаскивания");
+      assertEqual(res.noSvg, 0, "ручка без иконки — пустая коробка читается как чекбокс, а не как «потяни меня»");
+      assertEqual(res.glyphs, 0, "ручка нарисована текстовым глифом: шрифтом ОС, у каждого свой рисунок");
+      assertEqual(res.kinds.length, 1,
+        "ручки перетаскивания разного вида: " + res.kinds.join(" / ") + " — жест один, значит и вид один");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("боковой список сделок: у строки видимая обводка, а не только зазор", async () => {
     // Зазора оказалось мало: строки лежали прозрачными на фоне колонки, и границу
     // сделки приходилось угадывать по цветной полоске слева. Мерим РЕЗУЛЬТАТ —
