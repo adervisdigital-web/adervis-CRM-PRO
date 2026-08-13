@@ -2457,6 +2457,41 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("карточка сделки: имя не уходит под ручку переноса", async () => {
+    /* Замер до правки на колонке 262px: у названия вроде «Реклама – База отдыха
+       "Раздолье – Троица"» не влезало 59px, а ручка переноса начиналась на 12px
+       РАНЬШЕ, чем кончалось имя — многоточие рисовалось прямо под точками.
+
+       Мерим настоящие границы ТЕКСТА через Range, а не рамку элемента: у имени
+       есть padding под ручку, поэтому коробка по-прежнему доходит до края
+       карточки, и сравнение рамок ничего бы не показало. */
+    const { ctx, p } = await bootRail();
+    try {
+      const res = await p.evaluate(() => {
+        const row = document.querySelector(".deal-rail .deal-switcher-item");
+        const name = row && row.querySelector(".deal-switcher-item-name");
+        const grip = row && row.querySelector(".drag-handle--corner");
+        if (!name || !grip) return null;
+        const rng = document.createRange();
+        rng.selectNodeContents(name);
+        const rects = [...rng.getClientRects()];
+        return {
+          textRight: rects.length ? Math.max(...rects.map((r) => r.right)) : 0,
+          gripLeft: grip.getBoundingClientRect().left,
+          lines: rects.length,
+          clipped: name.scrollHeight > name.clientHeight + 1,
+        };
+      });
+      assert(res, "не нашлись строка сделки, её имя или ручка переноса");
+      assert(res.textRight <= res.gripLeft + 0.5,
+        `имя заходит под ручку переноса на ${Math.round(res.textRight - res.gripLeft)}px`);
+      // Одна строка с многоточием резала именно то, что отличает сделку от соседней.
+      assert(res.lines >= 1 && res.lines <= 2, `имя занимает ${res.lines} строк — ожидались одна или две`);
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("боковой список сделок: у строки видимая обводка, а не только зазор", async () => {
     // Зазора оказалось мало: строки лежали прозрачными на фоне колонки, и границу
     // сделки приходилось угадывать по цветной полоске слева. Мерим РЕЗУЛЬТАТ —

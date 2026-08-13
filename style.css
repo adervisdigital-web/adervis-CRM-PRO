@@ -4464,9 +4464,24 @@
     .deal-switcher-item.completed-deal:hover { opacity: 1; }
     .deal-switcher-item.archived-deal { border-left: 2px solid var(--muted); opacity: .6; }
     .deal-switcher-item.archived-deal:hover { opacity: 1; }
+    /* Имя сделки — ДВЕ строки, а не одна с многоточием.
+       Замер на живой колонке (262px): у названия вроде «Реклама – База отдыха
+       "Раздолье – Троица"» не влезало 59px, и обрезалось ровно то, что отличает
+       сделку от соседней. В боковом списке имя — единственный способ узнать
+       карточку, поэтому лучше отдать ему вторую строку, чем ряд одинаковых
+       «Реклама – База отды…».
+
+       padding-right — под ручку переноса: она лежит абсолютом в правом верхнем
+       углу, и текст уходил ПОД неё. Замер: ручка начиналась на 12px раньше, чем
+       кончалось имя, то есть многоточие рисовалось прямо под точками. */
     .deal-switcher-item-name {
-      font-size: 13px; font-weight: 800;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-size: 13px; font-weight: 800; line-height: 1.3;
+      padding-right: 22px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      overflow-wrap: anywhere;
     }
     .deal-switcher-item-sub {
       display: flex; align-items: center; gap: 8px;
@@ -4497,7 +4512,10 @@
       font-weight: 800; color: var(--text); flex: 0 0 auto;
       font-variant-numeric: tabular-nums;
     }
-    .deal-switcher-item-date { font-size: 11px; }
+    /* Срок стоит в строке статуса, отделённый точкой: «● В работе · 27.08.2026».
+       Отдельной четвёртой строкой он висел без подписи и без связи с соседями —
+       и добавлял карточке высоты на ровном месте. */
+    .deal-switcher-item-date { font-size: 11px; font-weight: 700; flex: 0 0 auto; }
 
     /* ── ANALYTICS DATE FILTER ────────────────────── */
     .analytics-date-bar {

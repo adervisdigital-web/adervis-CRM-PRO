@@ -22663,15 +22663,24 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             onpointercancel="app.dealPointerUp(event,true)"
             onclick="app.switchDeal('${idSafe}')">
             ${dragHandleHtml({ className: "drag-handle--corner", title: "Потяните, чтобы переставить сделку" })}
-            <div class="deal-switcher-item-name">${escapeHtml(p.name || "Без названия")}</div>
-            ${p.client ? `<div class="deal-switcher-item-client">${escapeHtml(p.client)}</div>` : ""}
+            ${/* title обязателен: имя длиннее двух строк всё равно обрежется, и без
+                  подсказки «что это за сделка» не выяснить, не открыв её. */""}
+            <div class="deal-switcher-item-name" title="${escapeHtml(p.name || "Без названия")}">${escapeHtml(p.name || "Без названия")}</div>
+            ${/* Две строки-пары вместо трёх разрозненных: «кто и когда», «этап и
+                  сколько». Раньше срок занимал ЧЕТВЁРТУЮ строку один, без подписи и
+                  без связи с соседями, а попытка вписать его в строку этапа упёрлась
+                  в ширину: замер на колонке 262px — «КП отправлено · 27.08.2026»
+                  уже резалось многоточием. Строка клиента короткая, там место есть. */""}
+            <div class="deal-switcher-item-meta">
+              <span class="deal-switcher-item-client">${p.client ? escapeHtml(p.client) : ""}</span>
+              ${p.deadline ? `<span class="deal-switcher-item-date" style="color:${dateColor}" title="${u ? escapeHtml(u.label) : "Дедлайн"}">${escapeHtml(formatDate(p.deadline))}</span>` : ""}
+            </div>
             <div class="deal-switcher-item-meta">
               <span class="deal-switcher-item-stage">
                 <i style="background:${CRM_STATUS_COLOR[stage] || "var(--muted)"}"></i>${escapeHtml(stage)}
               </span>
               ${p.total ? `<span class="deal-switcher-item-sum">${money(p.total)}</span>` : ""}
             </div>
-            ${p.deadline ? `<div class="deal-switcher-item-date" style="color:${dateColor}">${escapeHtml(formatDate(p.deadline))}</div>` : ""}
           </div>
         `;
       }
