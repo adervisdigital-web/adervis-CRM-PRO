@@ -1163,6 +1163,51 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  await test("строка сметы на телефоне: действия видны, а не висят пустой полосой", async () => {
+    /* Полоса действий строки («В опции», дублировать, удалить) показывалась только
+       по наведению — а на телефоне наведения НЕТ. В итоге она занимала 53px высоты
+       в каждой строке сметы невидимой пустотой (владелец прислал скриншот именно с
+       этой дырой), а кнопки при этом оставались нажимаемыми вслепую: те же грабли,
+       что с ручками переноса — opacity: 0 прячет от глаза, но не от пальца.
+
+       Заодно проверяем, что сумма и её подпись стоят В ОДНОЙ строке: на телефоне
+       блок растягивался на всю ширину, подпись уходила влево, а сумма оставалась
+       прибитой вправо — одно значение, разорванное надвое. */
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 430, height: 900, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => { window.app.go("deal"); window.app.setDealView("estimate"); });
+      await page.waitForTimeout(800);
+      const res = await page.evaluate(() => {
+        const item = document.querySelector(".estimate-stage .item");
+        if (!item) return null;
+        const bar = item.querySelector(".line-action-bar");
+        const note = item.querySelector(".line-total-note");
+        const price = item.querySelector(".price-editor .price");
+        if (!bar || !note || !price) return { нет: true };
+        // Прозрачность наследуется — считаем по всей цепочке предков.
+        let op = 1;
+        for (let e = bar; e && e !== document.body; e = e.parentElement) op *= parseFloat(getComputedStyle(e).opacity || "1");
+        const n = note.getBoundingClientRect(), p = price.getBoundingClientRect();
+        return {
+          прозрачность: +op.toFixed(2),
+          высотаПолосы: Math.round(bar.getBoundingClientRect().height),
+          подписьИСуммаНаОднойСтроке: Math.min(n.bottom, p.bottom) - Math.max(n.top, p.top) > 1,
+          подписьЛевее: n.left < p.left,
+        };
+      });
+      assert(res && !res.нет, "не нашлась строка сметы, её полоса действий или сумма");
+      assert(res.прозрачность > 0.9,
+        `полоса действий прозрачна (${res.прозрачность}) — на телефоне она невидима, но занимает ${res.высотаПолосы}px и ловит нажатия`);
+      assert(res.подписьИСуммаНаОднойСтроке,
+        "подпись «В итоге» и сумма снова на разных строках — одно значение, разорванное надвое");
+      assert(res.подписьЛевее, "подпись оказалась правее суммы");
+    } finally {
+      await context.close();
+    }
+  });
+
   await test("смета на телефоне: подписи не вылезают за свои кнопки и карточки", async () => {
     /* Два дефекта на одном экране, оба невидимы для проверки «страница не шире
        окна» — ломалось ВНУТРИ элементов:

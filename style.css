@@ -2575,10 +2575,27 @@
         flex-direction: column;
       }
 
+      /* Сумма и её подпись — ОДНО значение, и на телефоне они разъезжались по
+         разным краям: блок растягивался на всю ширину с text-align: left, а сама
+         сумма оставалась прибитой вправо своим justify-content. Получалось «В
+         итоге» слева, «9 000 ₽» справа, и между ними пустая строка.
+         Теперь это одна строка: подпись слева, значение справа. */
       .price-editor {
         width: 100%;
+        display: flex;
+        align-items: baseline;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 4px 10px;
         text-align: left;
       }
+      .price-editor > .line-total-note {
+        order: -1;
+        margin-right: auto;
+        margin-top: 0;
+      }
+      /* Маржа — своя строка: это отдельная мысль, а не подпись к сумме. */
+      .price-editor > .line-margin-note { flex: 1 1 100%; }
 
       .price-editor input {
         text-align: left;
@@ -6563,6 +6580,14 @@ body.portal-mode .nav { display: none !important; }
   transition: opacity var(--dur-1);
 }
 .item:hover .line-action-bar { opacity: 1; }
+/* Наведения на телефоне НЕТ, и полоса действий висела там невидимой — занимая
+   53px высоты в каждой строке сметы (это и была «пустота» в полкарточки), а
+   кнопки «В опции», «Дублировать» и «Удалить позицию» оставались нажимаемыми
+   вслепую. Те же грабли, что с ручками переноса: opacity:0 прячет от глаза, но
+   не от пальца. */
+@media (hover: none) {
+  .line-action-bar { opacity: 1; }
+}
 
 /* ── Estimate line collapse chevron ─────────────────── */
 .line-collapse-btn {
