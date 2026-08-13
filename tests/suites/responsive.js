@@ -375,9 +375,9 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   // Обе страницы, а не одна: класс общий, но auto-fit вёл себя на них по-разному —
   // на широкой общей странице пять плиток помещались в ряд и дыры не было, и её
   // легко было сломать, починив сделку.
-  async function finRowGaps(page) {
-    return page.evaluate(() => {
-      const g = document.querySelector(".fin-summary-grid");
+  async function finRowGaps(page, sel) {
+    return page.evaluate((s) => {
+      const g = document.querySelector(s);
       if (!g) return null;
       const gw = g.getBoundingClientRect().width;
       const gap = parseFloat(getComputedStyle(g).columnGap) || 0;
@@ -394,9 +394,9 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
         gridW: Math.round(gw),
         // Свободное место в ряду = ширина сетки минус плитки и гэпы между ними.
         free: [...rows.values()].map(ws =>
-          Math.round(gw - (ws.reduce((s, w) => s + w, 0) + gap * (ws.length - 1)))),
+          Math.round(gw - (ws.reduce((a, w) => a + w, 0) + gap * (ws.length - 1)))),
       };
-    });
+    }, sel || ".fin-summary-grid");
   }
 
   await test("финансы: плитки заполняют ряд целиком, последняя не висит одна", async () => {
@@ -419,6 +419,34 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
         }
       }
       assert(bad.length === 0, "в рядах KPI осталось пустое место — " + bad.join("; "));
+    } finally {
+      await context.close();
+    }
+  });
+
+  await test("дашборд: плитки заполняют ряд целиком", async () => {
+    /* Та же болезнь, что и в финансах, и на неё же владелец указывал. Плиток на
+       главной стало ДЕСЯТЬ (комментарий в CSS всё ещё говорил «девять» — десятую
+       добавили позже), и «сколько влезет» снова начало оставлять дыру. Замер до
+       правки: 1440px → ряды 9+1 и 1251px пустоты во второй строке, 1280px → 8+2 и
+       935px, 1024px → 6+4 и 331px.
+
+       Десять делится нацело только на 2 и 5 — столько колонок и задано; 3 и 4 дают
+       3+3+3+1 и 4+4+2, то есть ту же дыру. Тест меряет РЕЗУЛЬТАТ (сколько места в
+       ряду осталось незанятым) и потому сразу поймает одиннадцатую плитку. */
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1600, height: 900, seedDemo: true });
+    try {
+      const bad = [];
+      for (const w of [1600, 1440, 1280, 1100, 1024, 860, 760, 640, 500, 390]) {
+        await page.setViewportSize({ width: w, height: 900 });
+        await page.evaluate(() => window.app.go("home"));
+        await page.waitForTimeout(200);
+        const r = await finRowGaps(page, ".db-stat-row");
+        if (!r) { bad.push(`${w}px: сетки плиток нет вовсе`); continue; }
+        const hole = Math.max(...r.free);
+        if (hole > 2) bad.push(`${w}px (сетка ${r.gridW}px, плиток ${r.cards}): пустота ${hole}px`);
+      }
+      assert(bad.length === 0, "в рядах дашборда осталось пустое место — " + bad.join("; "));
     } finally {
       await context.close();
     }
