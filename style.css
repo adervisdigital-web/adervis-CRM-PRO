@@ -97,6 +97,10 @@
       --green-strong:  #15803d;
       --blue-strong:   #1d4ed8;
       --yellow-strong: #e6af2e;
+      /* Красной ступени в семье НЕ БЫЛО — и ровно поэтому три места держали свой
+         #b91c1c / #d41e18 мимо токенов: затемнить красную кнопку было нечем.
+         Значение то же, что уже стояло в двух из трёх. */
+      --red-strong:    #b91c1c;
 
       /* Текст цветной «капсулы» (категории пакетов, база знаний, активные фильтры).
          Фон капсулы — полупрозрачный тинт, поэтому реальный контраст зависит от того,
@@ -609,7 +613,7 @@
       top: 2px; left: 2px;
       width: 16px; height: 16px;
       border-radius: 50%;
-      background: #fff;
+      background: var(--on-color);
       transition: transform var(--dur-1);
     }
     .sidebar-nav-switch.on { background: var(--primary); }
@@ -1269,7 +1273,7 @@
       border-color: transparent;
       color: var(--on-color);
     }
-    .btn.danger:hover { background: #d41e18; }
+    .btn.danger:hover { background: var(--red-strong); }
 
     .btn.small {
       padding: 7px 10px;
@@ -3485,9 +3489,28 @@
     .db-analytics-body {
       display: grid; grid-template-columns: 1fr 200px; gap: 16px; align-items: start;
     }
+    /* Один-два клиента в колонке сбоку оставляли под собой пустоту во всю высоту
+       графика. Короткий список кладём ПОД график строкой: место отдаётся графику,
+       а имена читаются в ряд. */
+    .db-analytics-body--wide { grid-template-columns: 1fr; }
+    .db-analytics-body--wide .db-analytics-top {
+      border-left: none; padding-left: 0;
+      border-top: 1px solid var(--line); padding-top: 10px;
+      display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: flex-end;
+    }
+    .db-analytics-body--wide .db-analytics-top > div { min-width: 180px; flex: 0 1 auto; }
     .db-analytics-top {
       padding-left: 14px; border-left: 1px solid var(--line);
     }
+
+    /* Сводка вместо графика на молодом аккаунте: шесть колонок, из которых пять
+       пустых, ничего не показывают и занимают 230px. */
+    .db-analytics-early { padding: 4px 2px 2px; }
+    .db-analytics-early-nums {
+      display: flex; flex-wrap: wrap; gap: 8px 28px;
+    }
+    .db-analytics-early-nums > div { display: flex; flex-direction: column; gap: 2px; }
+    .db-analytics-early-nums b { font-size: 18px; font-variant-numeric: tabular-nums; }
 
     /* Стрелки листания периода графика «За N месяцев» */
     .db-chart-nav { display: flex; gap: 2px; margin-left: 2px; }
@@ -3563,7 +3586,7 @@
       cursor: pointer; white-space: nowrap; transition: border-color var(--dur-1), color var(--dur-1), background var(--dur-1);
     }
     .deal-tag-chip:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--text); }
-    .deal-tag-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .deal-tag-chip.active { background: var(--primary); border-color: var(--primary); color: var(--on-color); }
     /* «+N» — попап с остальными тегами, когда их больше, чем помещается в ряд. */
     .tag-overflow-wrap { position: relative; }
     .tag-overflow-btn { color: var(--primary-text); border-style: dashed; }
@@ -4233,7 +4256,7 @@
       background: var(--red); color: var(--on-color); font-weight: 700; font-size: 14px;
       cursor: pointer; transition: var(--dur-1);
     }
-    .btn-expense:hover { background: #b91c1c; }
+    .btn-expense:hover { background: var(--red-strong); }
 
     .fin-quick-add {
       display: flex; gap: 8px; flex-wrap: wrap;
@@ -4253,7 +4276,7 @@
     /* Белый текст на #16a34a даёт 3.3:1 — берём насыщенную ступень. */
     .fin-quick-btn.income { background: var(--green-strong); }
     /* Белый текст на #f22822 — 4.1:1, берём насыщенную ступень. */
-    .fin-quick-btn.expense { background: #b91c1c; }
+    .fin-quick-btn.expense { background: var(--red-strong); }
     .fin-quick-extra { display: none; }
     .fin-quick-input, .fin-quick-amount { display: none; }
 
@@ -5924,7 +5947,7 @@
     .ob-mock-avatar {
       width: 34px; height: 34px; border-radius: 50%;
       display: grid; place-items: center; flex-shrink: 0;
-      color: #fff; font-size: 11px; font-weight: 700;
+      color: var(--on-color); font-size: 11px; font-weight: 700;
     }
     .ob-mock-avatar-add { background: var(--panel2); border: 1px dashed var(--line); color: var(--muted); font-size: 16px; }
     .ob-mock-tasks { display: flex; flex-direction: column; gap: 6px; }
@@ -6876,7 +6899,7 @@ body.portal-mode .nav { display: none !important; }
   background: var(--line); color: var(--text); font-size: 11px; font-weight: 800;
 }
 .calc-step.on > span { color: var(--text); border-color: var(--primary-on-tint); background: var(--primary-bg); }
-.calc-step.on b { background: var(--primary); color: #fff; }
+.calc-step.on b { background: var(--primary); color: var(--on-color); }
 .calc-step.done b { background: var(--green); color: #fff; }
 @media (max-width: 560px) {
   .calc-step > button, .calc-step > span { padding: 0 10px; font-size: 12px; }

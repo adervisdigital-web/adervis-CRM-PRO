@@ -14464,6 +14464,18 @@
         const maxC = topClients[0]?.total || 1;
 
         const profit = totalRev - totalExp;
+
+        /* Сколько месяцев вообще с движением денег. У молодого агентства их один-два,
+           а столбцов рисуется шесть — пять пустых колонок и одинокая полоска справа.
+           График в таком виде ничего не показывает: сравнивать не с чем, а места
+           занимает 230px. Ниже трёх месяцев рисуем короткую сводку вместо графика;
+           стрелки листания оставляем — по ним можно уйти в прошлые периоды. */
+        const monthsWithData = months.reduce((n, _, i) => n + ((revenue[i] > 0 || expenseArr[i] > 0) ? 1 : 0), 0);
+        const chartWorthDrawing = monthsWithData >= 3;
+        // Список клиентов в один-два имени не заслуживает колонки сбоку: под ним
+        // остаётся пустота во всю высоту графика. Короткий список кладём под график
+        // строкой, длинный — как раньше, колонкой справа.
+        const topAside = topClients.length >= 3;
         // Метка диапазона — ВСЕГДА (не только при смещении от текущего периода): раньше
         // она пряталась на chartOffset=0, из-за чего при возврате к текущим месяцам
         // ширина заголовка менялась и стрелки листания «скакали» по горизонтали.
@@ -14484,13 +14496,18 @@
                   <button class="db-chart-nav-btn" onclick="app.shiftDbChart(-1)" ${chartOffset ? '' : 'disabled'} title="Более поздний период" aria-label="Более поздний период">›</button>
                 </div>
               </div>
+              ${/* Легенда объясняет ЦВЕТА столбцов. Без графика объяснять нечего, а
+                    три её числа — те же доход, расход и прибыль, что и в сводке ниже:
+                    получался повтор на одной панели. */""}
+              ${chartWorthDrawing ? `
               <div class="db-analytics-legend">
                 <span style="color:var(--text-success)">▋ ${money(totalRev)}</span>
                 <span style="color:var(--text-danger)">▋ ${money(totalExp)}</span>
                 <span style="color:${profit>=0?'var(--text-success)':'var(--text-danger)'}">= ${money(profit)}</span>
-              </div>
+              </div>` : ""}
             </div>
-            <div class="db-analytics-body">
+            <div class="db-analytics-body ${topAside ? "" : "db-analytics-body--wide"}">
+              ${chartWorthDrawing ? `
               <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-height:230px">
                 <defs>
                   <linearGradient id="dbGradRev" x1="0" x2="0" y1="0" y2="1">
@@ -14506,6 +14523,20 @@
                 ${baseAxis}
                 ${barsHtml}
               </svg>
+              ` : `
+              <div class="db-analytics-early">
+                <p class="mini-note" style="margin:0 0 10px">
+                  График появится, когда наберётся три месяца с движением денег —
+                  сравнивать пока не с чем. Сейчас данные есть за
+                  ${monthsWithData} ${plural(monthsWithData, "месяц", "месяца", "месяцев")}.
+                </p>
+                <div class="db-analytics-early-nums">
+                  <div><span class="u-meta">Доход</span><b style="color:var(--text-success)">${money(totalRev)}</b></div>
+                  <div><span class="u-meta">Расход</span><b style="color:var(--text-danger)">${money(totalExp)}</b></div>
+                  <div><span class="u-meta">Прибыль</span><b style="color:${profit >= 0 ? "var(--text-success)" : "var(--text-danger)"}">${money(profit)}</b></div>
+                </div>
+              </div>
+              `}
               ${topClients.length ? `
               <div class="db-analytics-top">
                 <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Топ клиентов</div>

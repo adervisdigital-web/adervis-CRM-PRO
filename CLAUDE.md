@@ -57,7 +57,7 @@ initialize → discuss → plan → execute → verify → ship
 ### CSS
 - Все значения только из переменных `:root` (DESIGN.md §3-4)
 - Новые цвета — только через новую переменную, не хардкодить `#hex` в компонентах
-- Spacing только из шкалы `--sp-*`
+- Spacing — числом в px, шаг шкалы 2px (DESIGN.md §4). Переменных `--sp-*` НЕ существует: ссылка на несуществующий токен заставляет браузер молча отбросить всё объявление
 - Никогда не override `!important` без крайней необходимости
 
 ### Supabase / Edge Functions
@@ -92,7 +92,7 @@ initialize → discuss → plan → execute → verify → ship
 
 Все UI-изменения должны следовать `DESIGN.md`:
 - Шрифты: DM Sans (UI) + Space Grotesk (числа/заголовки)
-- Spacing: только шкала `--sp-*` (4/8/12/16/24/32/48/64px)
+- Spacing: шаг 2px, числом в px (DESIGN.md §4). `--sp-*` не существует
 - Новые компоненты: карточка → 16px radius, 1px border `--line`, hover = primary glow
 - Числа/суммы: `font-variant-numeric: tabular-nums`, font-weight: 700
 

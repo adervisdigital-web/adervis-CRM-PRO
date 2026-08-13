@@ -732,6 +732,44 @@ module.exports = async function ({ test }) {
     assert(/function localIso/.test(app) && /function todayIso/.test(app), "исчезли localIso/todayIso — обрезать станет нечем");
   });
 
+  await test("нет ссылок на несуществующие CSS-переменные", () => {
+    /* `background: var(--card)` при отсутствующей --card — это не ошибка и не
+       предупреждение: браузер молча ОТБРАСЫВАЕТ объявление целиком. В этом
+       приложении так уже случалось — всплывашка онбординг-тура рисовалась
+       ПРОЗРАЧНОЙ поверх затемнения, и то же было у кнопки переключателя сделок.
+
+       Ссылка с запасным значением — `var(--kanban-cols, 4)` — законна: такие
+       переменные ставятся инлайном из JS, и запасное значение как раз для случая
+       «ещё не поставили». Придираемся только к ссылкам БЕЗ запасного значения. */
+    const defined = new Set([...css.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)].map((m) => m[1]));
+    // Инлайновые: то, что JS кладёт прямо в style="--x: …" или setProperty.
+    const inline = new Set([
+      ...app.matchAll(/setProperty\(\s*["'`](--[a-zA-Z0-9-]+)/g),
+      ...app.matchAll(/style="[^"]*?(--[a-zA-Z0-9-]+)\s*:/g),
+      ...css.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g),
+    ].map((m) => m[1]));
+
+    const bad = [];
+    // Комментарии вырезаем, но длину сохраняем — иначе номера строк в отчёте
+    // поедут. Без этого сторож ловил САМ СЕБЯ: в style.css есть комментарий
+    // «Было var(--card) — такой переменной нет…», описывающий уже исправленный
+    // баг, и он выглядел как живая ссылка.
+    const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
+    const scan = (raw, where) => {
+      const src = stripComments(raw);
+      // var(--x) без запятой внутри — то есть без запасного значения.
+      for (const m of src.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)\s*\)/g)) {
+        const name = m[1];
+        if (defined.has(name) || inline.has(name)) continue;
+        const line = src.slice(0, m.index).split("\n").length;
+        bad.push(`${where}:${line} — var(${name}) без запасного значения, а переменная нигде не объявлена`);
+      }
+    };
+    scan(css, "style.css");
+    scan(app, "app.js");
+    assert(bad.length === 0, "объявления будут молча отброшены:\n" + bad.slice(0, 8).join("\n"));
+  });
+
   await test("двойное нажатие не создаёт вторую запись", () => {
     /* Класс: async-действие по кнопке, которое ВСТАВЛЯЕТ запись, без защиты от
        повторного входа. Два быстрых тапа входят в функцию оба; первая вставка ещё
