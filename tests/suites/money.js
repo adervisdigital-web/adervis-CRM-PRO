@@ -97,6 +97,66 @@ async function finKpi(page, label) {
 }
 
 module.exports = async function ({ browser, baseUrl, test }) {
+
+  await test("тариф сверх лимита правится вручную и не едет за ценой позиции", async () => {
+    /* Тарифы монтажа (минута, камера/исходник, доп. версия, доп. правка) лежали в
+       описании позиции и умножались на отношение «текущая цена ÷ базовая». Задать
+       ОДИН тариф было нельзя: менялись только все разом, вслед за ценой. Владелец
+       спросил, где их править, — правильный ответ был «нигде».
+
+       Ручное значение задаётся в рублях и ценой НЕ масштабируется: иначе введённое
+       число тут же поехало бы, и на экране оказалось бы не то, что вбили. Пустое
+       поле возвращает автоматику, и подсказка в поле показывает именно её. */
+    const { context, page } = await bootLocal(browser, baseUrl, { seedDemo: true, width: 1200, height: 950 });
+    try {
+      await page.evaluate(() => window.app.go("catalog"));
+      await page.waitForTimeout(500);
+      await page.evaluate(() => window.app.openCatalogEdit("edit"));
+      await page.waitForTimeout(400);
+
+      const fields = await page.evaluate(() =>
+        [...document.querySelectorAll('[data-key^="rate:"]')].map((i) => ({ key: i.dataset.key, hint: i.placeholder, val: i.value })));
+      assertEqual(fields.length, 4, "полей тарифа не четыре: " + JSON.stringify(fields));
+      assert(fields.every((f) => Number(f.hint) > 0), "в подсказке нет автоматического тарифа: " + JSON.stringify(fields));
+      assert(fields.every((f) => f.val === ""), "поля тарифа заполнены по умолчанию — автоматику не отличить от ручного значения");
+
+      const autoBefore = Number(fields.find((f) => f.key === "rate:extraRevision").hint);
+
+      await page.evaluate(() => {
+        const el = document.querySelector('[data-key="rate:extraRevision"]');
+        el.value = "5000";
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      await page.waitForTimeout(500);
+      const saved = await page.evaluate(() => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+        return ((st.catalogOverrides || {}).edit || {}).rateOverrides || null;
+      });
+      assert(saved && saved.extraRevision === 5000, "ручной тариф не сохранился: " + JSON.stringify(saved));
+
+      // Цена вдвое: автоматические тарифы обязаны удвоиться, ручной — остаться.
+      // updateCatalogPrice спрашивает причину диалогом, отвечаем на него.
+      page.evaluate(() => window.app.updateCatalogPrice("edit", "12000"));
+      await page.waitForTimeout(700);
+      await page.evaluate(() => {
+        const btn = [...document.querySelectorAll(".modal-overlay button")].find((b) => /Сохранить/.test(b.textContent));
+        if (btn) btn.click();
+      });
+      await page.waitForTimeout(900);
+      await page.evaluate(() => window.app.openCatalogEdit("edit"));
+      await page.waitForTimeout(400);
+
+      const after = await page.evaluate(() =>
+        [...document.querySelectorAll('[data-key^="rate:"]')].map((i) => ({ key: i.dataset.key, hint: Number(i.placeholder), val: i.value })));
+      const rev = after.find((f) => f.key === "rate:extraRevision");
+      const min = after.find((f) => f.key === "rate:perMinute");
+      assertEqual(rev.val, "5000", "ручной тариф уехал вслед за ценой — введённое число перестало быть тем, что вбили");
+      assertEqual(rev.hint, autoBefore * 2, `подсказка должна показывать АВТОМАТИЧЕСКИЙ тариф (${autoBefore * 2}), а показывает ${rev.hint}`);
+      assert(min.hint > 0 && min.val === "", "автоматический тариф перестал считаться от цены");
+    } finally {
+      await context.close();
+    }
+  });
   const { context, page, errors } = await bootSeeded(browser, baseUrl);
 
   await test("дашборд: долг клиентов = сумма недоплат по активным сделкам", async () => {

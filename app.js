@@ -331,6 +331,11 @@
         // Коробка с крышкой — «убрано на хранение». Заведена в базу, а не нарисована
         // по месту: иконка нужна и в меню сделки, и в заголовке секции списка, а две
         // копии одного рисунка неизбежно разъедутся.
+        // «Идёт сейчас»: точка в кольце. Выбрана за читаемость в мелком размере —
+        // ракета на 13px превращалась в косую кляксу, а здесь две простые формы,
+        // которые не сливаются. Заодно это тот же язык, что на карточках сделок:
+        // там состояние обозначено цветной точкой.
+        live:     `<path d="M8 1.3a6.7 6.7 0 100 13.4A6.7 6.7 0 008 1.3zm0 1.5a5.2 5.2 0 110 10.4 5.2 5.2 0 010-10.4z"/><circle cx="8" cy="8" r="2.7"/>`,
         archive:  `<path d="M1.6 2.2h12.8c.5 0 .9.4.9.9v1.8c0 .5-.4.9-.9.9H1.6a.9.9 0 01-.9-.9V3.1c0-.5.4-.9.9-.9zm.9 4.9h11v5.8c0 .8-.6 1.4-1.4 1.4H3.9c-.8 0-1.4-.6-1.4-1.4V7.1zm3.6 1.9v1.4h3.8V9H6.1z"/>`
       };
       function icon(name, size) {
@@ -7485,13 +7490,39 @@
           numberValue(state.catalogPrices[itemData.id], itemData.price) !== numberValue(itemData.price, 0);
       }
 
-      function getEffectiveRates(itemData) {
+      /* Тарифы сверх лимита по умолчанию СЛЕДУЮТ за ценой позиции: подняли цену
+         монтажа вдвое — минута, камера, версия и правка выросли вдвое. Это разумная
+         основа (не надо править пять чисел ради общей индексации), но задать
+         отдельный тариф так было нельзя вообще: например поднять только «правку», не
+         трогая остальное.
+
+         Поэтому ручные значения хранятся отдельно, в rateOverrides, задаются В
+         РУБЛЯХ и ценой НЕ масштабируются — иначе введённое число тут же поехало бы
+         и на экране оказалось не то, что вбили. Пустое поле = вернуться к автоматике. */
+      const RATE_KEYS = ["perMinute", "sourcePack", "extraVersion", "extraRevision"];
+
+      // Автоматический тариф — тот, что получится БЕЗ ручных значений. Нужен
+      // отдельно: в поле правки он стоит подсказкой, и если брать его из итоговых
+      // тарифов, у заполненного поля подсказка повторяла бы введённое число, а
+      // «как было бы само» узнать стало бы негде.
+      function getAutoRates(itemData) {
         const price = getCatalogPrice(itemData);
         const base = numberValue(itemData.price, 0);
         const ratio = base > 0 ? price / base : 1;
         const rates = deepClone(itemData.rates || {});
         Object.keys(rates).forEach(key => {
           rates[key] = Math.round(numberValue(rates[key], 0) * ratio);
+        });
+        return rates;
+      }
+
+      function getEffectiveRates(itemData) {
+        const rates = getAutoRates(itemData);
+        const manual = itemData.rateOverrides || {};
+        RATE_KEYS.forEach(key => {
+          if (manual[key] === undefined || manual[key] === "") return;
+          const v = numberValue(manual[key], NaN);
+          if (Number.isFinite(v) && v >= 0) rates[key] = Math.round(v);
         });
         return rates;
       }
@@ -8913,6 +8944,25 @@
 
         // Лимиты приходят из <input> строкой — без приведения к числу они не совпали бы
         // с дефолтом и оседали бы в overrides навсегда.
+        // Тариф приходит ключом вида «rate:perMinute» — это вложенное поле, а не
+        // плоское, поэтому его нельзя просто положить в override рядом с name/desc.
+        if (key.startsWith("rate:")) {
+          const rateKey = key.slice(5);
+          if (!RATE_KEYS.includes(rateKey)) return;
+          const next = { ...(current.rateOverrides || {}) };
+          const num = numberValue(value, NaN);
+          // Пусто или мусор — снимаем ручной тариф и возвращаемся к автоматике.
+          if (String(value).trim() === "" || !Number.isFinite(num) || num < 0) delete next[rateKey];
+          else next[rateKey] = Math.round(num);
+          if (Object.keys(next).length) current.rateOverrides = next;
+          else delete current.rateOverrides;
+          if (Object.keys(current).length) state.catalogOverrides[id] = current;
+          else delete state.catalogOverrides[id];
+          save();
+          render();
+          return;
+        }
+
         const isIncluded = INCLUDED_KEYS.includes(key);
         const nextValue = isIncluded ? Math.max(0, Math.round(numberValue(value, 0))) : value;
         const baseValue = isIncluded ? (base[key] ?? 1) : base[key];
@@ -9079,6 +9129,19 @@
         const custom = state.customItems.find(x => x.id === id);
         if (!custom) return;
 
+        if (key.startsWith("rate:")) {
+          const rateKey = key.slice(5);
+          if (!RATE_KEYS.includes(rateKey)) return;
+          const next = { ...(custom.rateOverrides || {}) };
+          const num = numberValue(value, NaN);
+          if (String(value).trim() === "" || !Number.isFinite(num) || num < 0) delete next[rateKey];
+          else next[rateKey] = Math.round(num);
+          if (Object.keys(next).length) custom.rateOverrides = next;
+          else delete custom.rateOverrides;
+          save();
+          render();
+          return;
+        }
         if (key === "price" || INCLUDED_KEYS.includes(key)) custom[key] = Math.max(0, Math.round(numberValue(value, 0)));
         else if (key === "tags") custom.tags = String(value || "").split(",").map(x => x.trim()).filter(Boolean);
         else if (key === "category") {
@@ -15480,6 +15543,20 @@
         // поэтому правятся здесь, а не в каждой строке сметы. Есть только у монтажа.
         const inc = editIncluded(itemData);
         const incScope = custom ? "custom" : "catalogOverride";
+        /* Тарифы сверх лимита правятся ЗДЕСЬ ЖЕ, под лимитами: это одна мысль —
+           «столько входит в цену, дальше по столько». Раньше их нельзя было задать
+           вообще: числа лежали в описании позиции и умножались на отношение
+           «текущая цена ÷ базовая», то есть менялись только все пятеро разом, вслед
+           за ценой. Поднять один тариф (скажем, правку) было невозможно.
+
+           Плейсхолдер показывает автоматическое значение — поэтому пустое поле
+           читается как «как считается сейчас», а не как ноль. */
+        const rates = getAutoRates(itemData);
+        const manualRates = itemData.rateOverrides || {};
+        const rateField = (label, key) => field(label,
+          `<input type="number" min="0" inputmode="numeric" data-autosave data-scope="${incScope}" data-id="${id}" data-key="rate:${key}"
+             placeholder="${Math.round(numberValue(rates[key], 0))}"
+             value="${manualRates[key] !== undefined ? escapeHtml(String(manualRates[key])) : ""}">`);
         const includedHtml = itemData.calcModel === "videoEdit" ? `
           <div style="margin-top:16px">
             <p class="mini-note" style="margin-bottom:8px">Входит в базовую цену. Всё сверх этого считается по тарифу.</p>
@@ -15487,6 +15564,17 @@
               ${field("Минут", `<input type="number" min="0" data-autosave data-scope="${incScope}" data-id="${id}" data-key="includedMinutes" value="${inc.minutes}">`)}
               ${field("Камер", `<input type="number" min="0" data-autosave data-scope="${incScope}" data-id="${id}" data-key="includedCameras" value="${inc.cameras}">`)}
               ${field("Исходников", `<input type="number" min="0" data-autosave data-scope="${incScope}" data-id="${id}" data-key="includedSources" value="${inc.sources}">`)}
+            </div>
+
+            <p class="mini-note" style="margin:14px 0 8px">
+              Тариф сверх лимита, ₽. Пусто — считается от цены позиции автоматически
+              (в поле показано текущее значение).
+            </p>
+            <div class="grid three">
+              ${rateField("Минута сверх", "perMinute")}
+              ${rateField("Камера / исходник", "sourcePack")}
+              ${rateField("Доп. версия", "extraVersion")}
+              ${rateField("Доп. правка", "extraRevision")}
             </div>
           </div>
         ` : "";
@@ -16981,8 +17069,18 @@
               <p class="mini-note" style="margin-top:12px">
                 Входит в базу: ${escapeHtml(`${editInc.minutes} ${plural(editInc.minutes, "минута", "минуты", "минут")}, ${editInc.cameras} ${plural(editInc.cameras, "камера", "камеры", "камер")}, ${editInc.sources} ${plural(editInc.sources, "исходник", "исходника", "исходников")}`)}.
                 Сверх лимита: минута — ${money(editRates.perMinute || 0)}, камера — ${money(editRates.sourcePack || 0)}, исходник — ${money(editRates.sourcePack || 0)}, версия — ${money(editRates.extraVersion || 0)}, правка — ${money(editRates.extraRevision || 0)}.
-                Лимиты правятся в каталоге услуг; тарифы сверх лимита следуют за ценой позиции.
+                Лимиты и тарифы правятся в карточке позиции.
               </p>
+              ${/* Кнопка, а не ссылка внутри абзаца. Подсказка обязана ВЕСТИ туда, где
+                    значение правится: прежняя фраза «тарифы следуют за ценой позиции»
+                    была верной, но тупиковой — объясняла, почему один тариф изменить
+                    нельзя, и не предлагала выхода. Ссылку в строке текста пришлось бы
+                    растягивать до 44px невидимой областью, а она накрыла бы соседние
+                    строки абзаца; отдельная кнопка честно занимает свою высоту. */""}
+              <button type="button" class="btn small no-print" style="margin-top:8px"
+                onclick="app.openCatalogEdit('${escapeHtml(itemData.id)}')">
+                ${icon("gear", 13)} Настроить лимиты и тарифы
+              </button>
             </div>
           `;
         }
@@ -22734,7 +22832,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
            взгляда, не вчитываясь в подпись. Значки берём из общей базы и не
            изобретаем новых смыслов — «check» уже означает «готово» в десятке мест
            приложения, поэтому он и стоит у «Завершённых». */
-        const SECTION_ICONS = { active: "rocket", completed: "check", archived: "archive" };
+        const SECTION_ICONS = { active: "live", completed: "check", archived: "archive" };
         const section = (key, label, cls, items, itemCls, extraStyle) => {
           if (!items.length) return "";
           const collapsed = !!_dealSwitcherCollapsed[key];
