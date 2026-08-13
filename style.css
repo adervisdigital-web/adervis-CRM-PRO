@@ -6574,7 +6574,12 @@ body.portal-mode .nav { display: none !important; }
   .kanban-col-status.is-empty { padding: 10px 14px; }
   .kanban-col-status.is-empty > h3 { padding-bottom: 0; border-bottom: none; }
   .kanban-col-status.is-empty .kanban-drop-hint { display: none; }
-  .db-stat-row { grid-template-columns: repeat(2, 1fr); }
+  /* Правило про две колонки УБРАНО: сетка базово на 10 дорожек, и дети уже
+     занимают по пять — это и есть две плитки в ряду. А переопределение сетки на
+     две дорожки ломало счёт: span 5 в сетке из двух упирался в край, и плитка
+     занимала ВСЮ ширину. Замер на 390px: 10 плиток в 10 рядов, полоса 882px —
+     выше самого экрана. Моя же недоделка из правки «5+5»: базовую сетку поменял,
+     а про мобильное переопределение не вспомнил. */
   .toolbar { flex-wrap: wrap; gap: 6px; }
   .admin-modal-box { width: calc(100vw - 32px); padding: 20px; }
   select, input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="number"], textarea {
@@ -7352,4 +7357,10 @@ button.is-busy::before {
 @media (max-width: 640px) {
   .admin-tabs { flex-wrap: wrap; max-width: 100%; }
   .admin-tab { min-height: 44px; }
+}
+
+/* Форма промокода в админке: на телефоне четыре колонки не помещаются, поле
+   «Истекает» схлопывалось до иконки календаря. */
+@media (max-width: 640px) {
+  .admin-promo-grid { grid-template-columns: 1fr 1fr !important; }
 }

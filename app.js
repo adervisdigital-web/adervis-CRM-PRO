@@ -4444,7 +4444,12 @@
                           ${!a.email_confirmed ? `<span title="Email не подтверждён" style="font-size:12px;color:var(--yellow);display:inline-flex">${icon("warning", 13)}</span>` : ""}
                         </div>
                         <!-- Actions -->
-                        <div style="display:flex;gap:6px;flex-shrink:0">
+                        ${/* flex-wrap обязателен: у истёкшего аккаунта в ряду пять
+                              кнопок («Активировать» + четыре иконки), и на узком
+                              экране последняя — «Заблокировать» — уезжала за край
+                              карточки. Запрет сжатия при этом оставляем: иконки
+                              не должны плющиться. */""}
+                        <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
                           ${!isEditing ? `
                             ${(isExpired || ast === "") ? `<button class="btn small green" onclick="app.adminActivate('${aid}')" title="Активировать на 30 дней">${icon("check")} Активировать</button>` : ""}
                             ${/* Активность — первым действием: чаще всего нужно понять,
@@ -4558,7 +4563,11 @@
               <div style="background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px">
                 <h3 style="margin:0 0 16px;font-size:15px">+ Новый промокод</h3>
                 ${_adminPromoForm.error ? `<div style="color:var(--text-danger);font-size:13px;margin-bottom:10px;padding:8px 12px;background:rgba(220,38,38,.1);border-radius:8px">${escapeHtml(_adminPromoForm.error)}</div>` : ""}
-                <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+                ${/* На телефоне четыре колонки не помещаются: поле «Истекает»
+                      схлопывалось до одной иконки календаря — вводить дату было
+                      нечем. Класс нужен, чтобы медиазапрос дотянулся до сетки,
+                      заданной инлайном. */""}
+                <div class="admin-promo-grid" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
                   ${field("Код", `<input placeholder="PROMO2026" value="${escapeHtml(_adminPromoForm.code)}" oninput="app._setPromoForm('code',this.value)" style="text-transform:uppercase">`)}
                   ${field("Скидка %", `<input type="number" min="1" max="100" placeholder="20" value="${_adminPromoForm.discount||""}" oninput="app._setPromoForm('discount',this.value)">`)}
                   ${field("Макс. исп.", `<input type="number" min="1" value="${_adminPromoForm.maxUses||100}" oninput="app._setPromoForm('maxUses',this.value)">`)}
@@ -17243,7 +17252,11 @@
               <div>
                 <h1>Клиенты ${clients.length ? `<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:4px">${clients.length}</span>` : ""}</h1>
               </div>
-              <div style="display:flex;gap:8px;align-items:center">
+              ${/* flex-wrap обязателен: поле поиска появляется от пяти клиентов, и тогда
+                    в ряду оказываются поиск, переключатель вида и «Выгрузить». На
+                    390px они не помещаются — замер показал 40px за краем, и кнопка
+                    выгрузки обрезалась на полуслове (скриншот владельца). */""}
+              <div class="clients-toolbar-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                 ${clients.length > 4 ? `<input class="clients-search-input" placeholder="Поиск клиентов..." value="${escapeHtml(state.clientsFilter || "")}" oninput="app.setClientsFilter(this.value)" style="width:180px;padding:7px 12px;font-size:13px">` : ""}
                 ${clients.length ? `<div class="deal-view-toggle no-print">
                   <button class="deal-view-btn ${clientsView === "grid" ? "active" : ""}" onclick="app.setClientsView('grid')" title="Плитка" aria-label="Показать клиентов плиткой">${icon("grid", 14)}</button>
