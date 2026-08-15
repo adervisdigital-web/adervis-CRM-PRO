@@ -1058,6 +1058,47 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   });
   }
 
+  await test("каталог на телефоне: до первой услуги не целый экран", async () => {
+    /* Замер до правок: первая услуга начиналась на 835px от верха при экране
+       844px — то есть весь первый экран занимала шапка: заголовок, описание в три
+       строки, три кнопки, выбор раздела, поиск, два фильтра и счётчик.
+
+       Убрано: перенос каталога под «⋮», описание скрыто на узком экране, фильтр с
+       сортировкой и счётчик сведены в один ряд. Мерим РЕЗУЛЬТАТ — где начинается
+       первая карточка, — а не то, какими правилами это достигнуто.
+
+       Порог 700px: это заметно меньше экрана, но с запасом на шрифты и переносы,
+       чтобы тест не падал от лишней пары пикселей. */
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => window.app.go("catalog"));
+      await page.waitForTimeout(700);
+      const res = await page.evaluate(() => {
+        const addBtn = [...document.querySelectorAll("#appContent button")].find((b) => /Добавить/.test(b.textContent || ""));
+        const card = addBtn ? addBtn.closest("article, .card, div[class]") : null;
+        const bar = document.querySelector(".catalog-toolbar");
+        const selects = [...document.querySelectorAll(".catalog-toolbar .uu-select-btn, .catalog-toolbar .catalog-toolbar-select")]
+          .filter((el) => el.getBoundingClientRect().width > 1);
+        return {
+          top: card ? Math.round(card.getBoundingClientRect().top) : null,
+          rows: bar ? new Set([...bar.children].filter((c) => c.getBoundingClientRect().height > 1)
+            .map((c) => Math.round(c.getBoundingClientRect().top))).size : null,
+          selectWidth: selects.length ? Math.round(Math.min(...selects.map((s) => s.getBoundingClientRect().width))) : null,
+        };
+      });
+      assert(res.top !== null, "в каталоге не нашлось ни одной услуги");
+      assert(res.top < 700, `до первой услуги ${res.top}px — шапка снова занимает почти весь экран`);
+      // Сжать выбор до шеврона легко, и по дороге это уже случалось: подписи
+      // «Без фильтра» и «По названию» превращались в две стрелки.
+      assert(res.selectWidth === null || res.selectWidth >= 100,
+        `выпадашка сжата до ${res.selectWidth}px — от подписи остаётся один шеврон`);
+    } finally {
+      await context.close();
+    }
+  });
+
   await test("выпадающее меню не уезжает за край окна", async () => {
     /* Меню прижато к правому краю своей кнопки. Если кнопка стоит недалеко от
        ЛЕВОГО края (на телефоне ряд шапки переносится, и «⋮» оказывается в начале
