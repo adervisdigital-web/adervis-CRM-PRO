@@ -1086,10 +1086,24 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
           rows: bar ? new Set([...bar.children].filter((c) => c.getBoundingClientRect().height > 1)
             .map((c) => Math.round(c.getBoundingClientRect().top))).size : null,
           selectWidth: selects.length ? Math.round(Math.min(...selects.map((s) => s.getBoundingClientRect().width))) : null,
+          cardHeight: (() => {
+            const c = document.querySelector("#appContent article.item--catalog");
+            return c ? Math.round(c.getBoundingClientRect().height) : null;
+          })(),
+          descTitle: (() => {
+            const p = document.querySelector("#appContent article.item--catalog .item-top p");
+            return !!(p && (p.getAttribute("title") || "").trim());
+          })(),
         };
       });
       assert(res.top !== null, "в каталоге не нашлось ни одной услуги");
       assert(res.top < 700, `до первой услуги ${res.top}px — шапка снова занимает почти весь экран`);
+      /* Высота самой карточки: цена стоит в одной строке с названием, а описание
+         ограничено двумя строками. До правки карточка была 250px — на экран
+         влезало 3,4 услуги; стало 207px и 4,1. Порог 225px с запасом на шрифты. */
+      assert(res.cardHeight && res.cardHeight < 225,
+        `карточка услуги ${res.cardHeight}px — на экран снова влезает меньше четырёх`);
+      assert(res.descTitle, "у обрезанного описания услуги нет подсказки с полным текстом");
       // Сжать выбор до шеврона легко, и по дороге это уже случалось: подписи
       // «Без фильтра» и «По названию» превращались в две стрелки.
       assert(res.selectWidth === null || res.selectWidth >= 100,

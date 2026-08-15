@@ -7395,3 +7395,27 @@ button.is-busy::before {
     min-width: 110px;
   }
 }
+
+/* Карточка каталога на телефоне: цена остаётся В ОДНОЙ СТРОКЕ с названием, а не
+   уезжает отдельным блоком под описание. Замер до правки: карточка 250px, на
+   экран влезало 3,4 услуги — половину высоты занимали поле цены во всю ширину и
+   подпись под ним. Строки сметы это правило НЕ трогает: у них свой класс. */
+@media (max-width: 640px) {
+  .item--catalog .item-top { flex-direction: row; align-items: flex-start; gap: 10px; }
+  .item--catalog .item-top > div:first-child { flex: 1 1 auto; min-width: 0; }
+  .item--catalog .price-editor {
+    width: auto !important;
+    flex: 0 0 118px;
+    text-align: right;
+  }
+  .item--catalog .catalog-price-input { width: 100%; text-align: right; }
+  /* Описание — две строки. Оно помогает выбрать услугу, но третья и четвёртая
+     строки уже не решают: полный текст виден в карточке позиции по нажатию.
+     Побочно карточки становятся одной высоты, и список читается ровнее. */
+  .item--catalog .item-top p {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}

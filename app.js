@@ -16372,11 +16372,16 @@
         if (custom) return renderCustomCatalogItem(itemData, selected, hidden);
 
         return `
-          <article class="item ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}" onclick="app._onCatalogCardClick(event,'${itemData.id}')" style="cursor:pointer">
+          ${/* item--catalog: класс .item делят карточка каталога и СТРОКА СМЕТЫ, а
+                раскладка у них на телефоне нужна разная. Без отдельного класса
+                правило для каталога чинило бы и ломало смету одновременно. */""}
+          <article class="item item--catalog ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}" onclick="app._onCatalogCardClick(event,'${itemData.id}')" style="cursor:pointer">
             <div class="item-top">
               <div>
                 <h3>${highlightText(itemData.name)}</h3>
-                <p>${highlightText(itemData.desc)}</p>
+                ${/* title обязателен: на телефоне описание обрезается двумя строками,
+                      и без подсказки полный текст взять негде. */""}
+                <p title="${escapeHtml(itemData.desc || "")}">${highlightText(itemData.desc)}</p>
 
                 ${isPassthroughCostItem(itemData) || state.favorites[itemData.id] ? `
                 <div class="badges">
@@ -16455,7 +16460,7 @@
 
       function renderCustomCatalogItem(itemData, selected, hidden) {
         return `
-          <article class="item ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}" onclick="app._onCatalogCardClick(event,'${itemData.id}')" style="cursor:pointer">
+          <article class="item item--catalog ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}" onclick="app._onCatalogCardClick(event,'${itemData.id}')" style="cursor:pointer">
             <div class="line-head">
               <div class="u-flex1">
                 <div class="grid two">
