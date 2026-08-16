@@ -3251,5 +3251,86 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "после подгрузки итог изменился — значит, он считался по показанному: " + JSON.stringify(second.foot));
   });
 
+  await test("цена пакета не зависит от того, какая сделка открыта", async () => {
+    await dismissStaleDialog(page);
+    const priceOf = (pid) => page.evaluate((id) => {
+      window.app.go("packages");
+      const card = [...document.querySelectorAll(".package-card")]
+        .find((c) => (c.getAttribute("onclick") || "").includes(id));
+      return card ? Number(((card.querySelector(".pkg-card-price") || {}).textContent || "").replace(/\D/g, "")) : null;
+    }, pid);
+
+    /* Цена считалась через defaultLineForItem, а тот берёт `days` из открытого
+       проекта: витрина пакетов молча дорожала на многодневной сделке, а в мастере
+       создания сделки считалась по дням ПРЕДЫДУЩЕГО проекта — сделки-то ещё нет. */
+    await page.evaluate(() => { window.app.newProject(); });
+    await page.waitForTimeout(250);
+    const onEmpty = await priceOf("event_report_half");
+    assert(onEmpty > 0, "цена пакета не прочиталась");
+
+    // Дни меняем ТЕМ ЖЕ путём, что поле «Дней съёмки / проекта» в смете —
+    // app.updateProject('days', …). Первая версия теста звала несуществующий
+    // app.setDays, дни оставались единицей, и тест проходил даже со сломанным
+    // кодом: проверял ровно ничего.
+    await page.evaluate(() => window.app.updateProject("days", 3));
+    await page.waitForTimeout(300);
+    const daysNow = await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return st.project && st.project.days;
+    });
+    assertEqual(Number(daysNow), 3, "тест не смог задать число дней — проверять нечего");
+
+    const onThreeDays = await priceOf("event_report_half");
+    assertEqual(onThreeDays, onEmpty,
+      `цена пакета поехала за числом дней открытой сделки: ${onEmpty} → ${onThreeDays}`);
+  });
+
+  await test("витрина пакетов не врёт: карточка сходится с итогом сметы по ВСЕМ 45", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await (async () => {
+      const b = await bootLocal(browser, baseUrl, { width: 1300, height: 950, seedDemo: true });
+      return { ctx: b.context, p: b.page };
+    })();
+    await p.waitForTimeout(400);
+
+    const ids = await p.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st.packages || []).map((x) => ({ id: x.id, name: x.name }));
+    });
+    assert(ids.length > 40, "пакетов меньше, чем ожидалось: " + ids.length);
+
+    const cards = await p.evaluate(() => {
+      window.app.go("packages");
+      const out = {};
+      document.querySelectorAll(".package-card").forEach((c) => {
+        const m = (c.getAttribute("onclick") || "").match(/'([^']+)'/);
+        if (m) out[m[1]] = Number(((c.querySelector(".pkg-card-price") || {}).textContent || "").replace(/\D/g, ""));
+      });
+      return out;
+    });
+
+    /* Пакет применяем в ЧИСТУЮ односуточную сделку — в тех же условиях, в которых
+       посчитана витрина. Расхождение здесь значит, что человеку показали одну сумму,
+       а в смету легла другая: состав ссылается на несуществующую позицию, количество
+       из состава не доехало или ставка считается иначе. */
+    const bad = [];
+    for (const { id, name } of ids) {
+      const applied = await p.evaluate(async (pid) => {
+        window.app.newProject();
+        window.app.applyPackage(pid);
+        window.app.go("deal");
+        await new Promise((r) => setTimeout(r, 100));
+        const t = document.getElementById("appContent").textContent.replace(/\s+/g, " ");
+        const m = t.match(/([\d\s ]+)\s*₽\s*\d+ позиц/);
+        return m ? Number(m[1].replace(/\D/g, "")) : null;
+      }, id);
+      if (cards[id] == null) { bad.push(`${name}: карточки нет на витрине`); continue; }
+      if (applied == null) { bad.push(`${name}: итог сметы не прочитался`); continue; }
+      if (cards[id] !== applied) bad.push(`${name}: на карточке ${cards[id]}, в смете ${applied}`);
+    }
+    await ctx.close();
+    assert(!bad.length, "витрина пакетов расходится со сметой:\n  " + bad.join("\n  "));
+  });
+
   await context.close();
 };

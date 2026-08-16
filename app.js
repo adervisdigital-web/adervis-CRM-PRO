@@ -9365,13 +9365,41 @@
       // замер показал, что у 19 пакетов из 27 вписанная цена была выше реального
       // состава, а у 8 ниже, то есть карточка обещала дешевле, чем сама насчитывала.
       // Хотите продавать пакет дороже — добавьте в него работы, а не цифру.
+      /* Цена пакета — свойство самого пакета, а не той сделки, которая сейчас открыта.
+         Считалась она через defaultLineForItem, а тот берёт `days` из state.project —
+         и один и тот же «Видеоотчёт, полсмены» стоил 21 000 ₽ на пустой сделке и
+         28 500 ₽ при открытой двухдневной (замер 17.08: разошлись 33 пакета из 45).
+         Хуже всего в мастере создания сделки: там сделки ещё нет, и витрина пакетов
+         считалась по дням ПРЕДЫДУЩЕГО, ничем не связанного проекта.
+
+         Публичный калькулятор эту ловушку уже обходил у себя (_calcPkgPricing ставит
+         days = 1 на время расчёта) — то есть про неё знали, но починили только
+         посетителю сайта. Теперь нормализация одна на всех.
+
+         Применение пакета в сделку днями сделки пользуется по-прежнему и должно:
+         тот же набор на трёхдневную съёмку и стоит дороже. Расходится с витриной
+         законно — витрина показывает цену за один съёмочный день. */
       function packagePrice(pkg) {
         if (!pkg) return 0;
-        return (pkg.items || []).reduce((sum, entry) => {
-          const l = packageLineFor(entry);
-          if (!l) return sum;
-          return sum + Math.max(0, numberValue(lineBreakdown(l.id, l.line).total, 0));
-        }, 0);
+        const proj = state.project;
+        const savedDays = proj ? proj.days : undefined;
+        if (proj) proj.days = 1;
+        try {
+          return (pkg.items || []).reduce((sum, entry) => {
+            const l = packageLineFor(entry);
+            if (!l) return sum;
+            return sum + Math.max(0, numberValue(lineBreakdown(l.id, l.line).total, 0));
+          }, 0);
+        } finally {
+          if (proj) proj.days = savedDays;
+        }
+      }
+
+      // Есть ли в пакете позиции, которые считаются за день (аренда техники, работа
+      // «за день»): только для них подпись про один съёмочный день имеет смысл.
+      function packageHasPerDayItems(pkg) {
+        return (getPackageItems(pkg) || []).some(it =>
+          it && (it.calcModel === "equipmentRental" || it.calcModel === "perDay"));
       }
 
       function applyPackage(pkgId) {
@@ -16078,6 +16106,10 @@
               <p class="pkg-card-desc">${escapeHtml(pkg.desc)}</p>
 
               <div class="pkg-card-price">${price}</div>
+              ${/* Без этой строки число выглядит обещанием итога любой сделки, а оно
+                    посчитано за один съёмочный день: на двухдневной съёмке аренда и
+                    работа «за день» удвоятся уже в смете. */""}
+              ${packageHasPerDayItems(pkg) ? `<div class="pkg-card-price-note">за 1 съёмочный день</div>` : ""}
 
               <div class="pkg-card-for">Для: ${escapeHtml(pkg.goodFor || "проектов")}</div>
 
