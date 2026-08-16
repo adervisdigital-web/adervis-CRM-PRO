@@ -3404,5 +3404,81 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(applied.jib, 5, "пересчёт затёр вручную заданные дни аренды");
   });
 
+  await test("счёт на оплату содержит позиции сметы, а не заглушку", async () => {
+    await dismissStaleDialog(page);
+    const b = await bootLocal(browser, baseUrl, { width: 1300, height: 950, seedDemo: true });
+    const p = b.page;
+    await p.waitForTimeout(300);
+
+    /* Печать счёта собирала строки из `state.items` — поля, которого на состоянии не
+       существует (это уже находили в saveCurrentProject и починили ТАМ). Обход этапов
+       был недописан и всегда возвращал пустой массив, поэтому клиент получал документ
+       на оплату из одной строки «Услуги загружаются из текущей сметы» и итога. */
+    const invoice = () => p.evaluate(() => {
+      let html = "";
+      const realOpen = window.open;
+      window.open = () => ({ document: { write: (s) => { html += s; }, close() {} }, focus() {}, print() {}, close() {} });
+      try { window.app.printInvoice(); } finally { window.open = realOpen; }
+      const grab = (label) => {
+        const m = html.match(new RegExp(label + "<\\/td>\\s*<td[^>]*>([^<]+)<"));
+        return m ? Number(m[1].replace(/\D/g, "")) : null;
+      };
+      const rows = [...html.matchAll(/<td style="color:#888">(\d+)<\/td>[\s\S]*?<td>([\d\s ]+)<\/td>\s*<\/tr>/g)]
+        .map((m) => Number(m[2].replace(/\D/g, "")));
+      return {
+        items: rows.length,
+        rowsSum: rows.reduce((a, x) => a + x, 0),
+        smeta: grab("Итого по смете"),
+        paid: grab("Уже оплачено"),
+        due: grab("К ОПЛАТЕ"),
+        stub: /Услуги загружаются из текущей сметы/.test(html),
+        names: /Оператор мероприятия/.test(html),
+      };
+    });
+
+    const lines = await p.evaluate(async () => {
+      window.app.newProject();
+      window.app.updateProject("name", "Счёт");
+      window.app.applyPackage("event_sde_day");
+      window.app.catalogAddOne("jib_rent");
+      await new Promise((r) => setTimeout(r, 250));
+      window.app.saveCurrentProject();
+      await new Promise((r) => setTimeout(r, 400));
+      return Object.keys(JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}").selected || {}).length;
+    });
+
+    const clean = await invoice();
+    assert(!clean.stub, "в счёте по-прежнему заглушка вместо позиций");
+    assert(clean.names, "в счёте нет названий услуг из сметы");
+    assertEqual(clean.items, lines, `в счёте ${clean.items} позиций, а в смете ${lines}`);
+    assertEqual(clean.rowsSum, clean.smeta, "сумма строк счёта не сходится с «Итого по смете»");
+    assertEqual(clean.due, clean.smeta, "без оплат «К ОПЛАТЕ» должно равняться смете");
+
+    // Частичная оплата: остаток, а не полная сумма заново.
+    await p.evaluate(async () => {
+      window.app.createPayment();
+      await new Promise((r) => setTimeout(r, 200));
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const pay = (st.payments || [])[0];
+      if (pay) window.app.updatePayment(pay.id, "amount", 20000);
+    });
+    await p.waitForTimeout(400);
+    const partly = await invoice();
+    assertEqual(partly.paid, 20000, "в счёте не показано, что часть уже оплачена");
+    assertEqual(partly.due, clean.smeta - 20000, "«К ОПЛАТЕ» не уменьшилось на внесённый платёж");
+
+    /* Полная оплата: стояло `f.debt || t.total` — ноль ложен, и счёт требовал ВСЮ
+       сумму заново, будто денег не платили. */
+    await p.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const pay = (st.payments || [])[0];
+      if (pay) window.app.updatePayment(pay.id, "amount", 999999);
+    });
+    await p.waitForTimeout(400);
+    const overpaid = await invoice();
+    await b.context.close();
+    assertEqual(overpaid.due, 0, "по оплаченной сделке счёт снова требует денег: " + overpaid.due);
+  });
+
   await context.close();
 };

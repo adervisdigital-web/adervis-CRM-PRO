@@ -18191,7 +18191,40 @@
         const client = state.clients?.find(cl => cl.id === state.project?.clientId) || {};
         const invNo = "INV-" + new Date().getFullYear() + "-" + String(Math.floor(Math.random()*9000)+1000);
         const today = new Date().toLocaleDateString("ru-RU", { day:"2-digit", month:"long", year:"numeric" });
-        const items = (state.items || []).filter(id => state.selected?.[id]);
+        /* Позиции счёта: те же, что в смете, и в том же порядке. Опциональные
+           исключены сознательно — они не входят в «Итого по смете» (см. totals),
+           и строка, которой нет в сумме, в счёте на оплату выглядела бы требованием
+           денег за то, что клиент не заказывал. */
+        const invoiceRows = selectedIds()
+          .filter(id => !state.selected[id]?.optional)
+          .map(id => {
+            const itemData = findItem(id, true);
+            const line = state.selected[id] || {};
+            if (!itemData) return null;
+            const model = itemData.calcModel;
+            let qty;
+            if (model === "crewShift" || model === "perDay") {
+              const days = Math.max(1, numberValue(line.days, 1));
+              const people = Math.max(1, numberValue(line.people, 1));
+              qty = people > 1 ? `${days} дн. × ${people} чел.` : `${days} ${plural(days, "день", "дня", "дней")}`;
+            } else if (model === "equipmentRental") {
+              const days = Math.max(1, numberValue(line.rentalDays, 1));
+              const kits = Math.max(1, numberValue(line.qty, 1));
+              qty = kits > 1 ? `${days} дн. × ${kits} компл.` : `${days} ${plural(days, "день", "дня", "дней")}`;
+            } else {
+              const n = Math.max(1, numberValue(line.qty, 1));
+              qty = `${n} ${itemData.unit || "шт."}`;
+            }
+            return {
+              name: itemData.name,
+              qty,
+              price: Math.round(numberValue(line.price, itemData.price)),
+              total: Math.round(lineTotal(id)),
+            };
+          })
+          .filter(Boolean);
+        const paidSoFar = numberValue(f.paid, 0);
+        const dueNow = Math.max(0, numberValue(displayTotal(t).total, 0) - paidSoFar);
         const w = window.open("", "_blank", "width=800,height=600");
         if (!w) { toast("Разрешите всплывающие окна"); return; }
         w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Счёт ${invNo}</title>
@@ -18231,15 +18264,35 @@
           <table>
             <thead><tr><th>#</th><th>Наименование</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr></thead>
             <tbody>
-              ${(state.stages||[]).flatMap((stage, si) => {
-                const stageItems = items.filter ? [] : [];
-                return [];
-              }).join("") || `<tr><td colspan="5" style="text-align:center;color:#888">Услуги загружаются из текущей сметы</td></tr>`}
+              ${/* Строки счёта собираются из сметы (selectedIds), как в выгрузке Excel.
+                    Раньше здесь стоял недописанный обход этапов, который ВСЕГДА возвращал
+                    пустой массив, и клиент получал счёт из одной заглушки «Услуги
+                    загружаются из текущей сметы» с итогом внизу — документ на оплату без
+                    единой позиции. Причина та же мёртвая ссылка `state.items`, про которую
+                    в saveCurrentProject уже написано, что такого поля не существует:
+                    починили там, а здесь она осталась жить. */""}
+              ${invoiceRows.length
+                ? invoiceRows.map((r, i) => `
+                    <tr>
+                      <td style="color:#888">${i + 1}</td>
+                      <td>${escapeHtml(r.name)}</td>
+                      <td>${escapeHtml(r.qty)}</td>
+                      <td>${r.price.toLocaleString("ru-RU")}</td>
+                      <td>${r.total.toLocaleString("ru-RU")}</td>
+                    </tr>`).join("")
+                : `<tr><td colspan="5" style="text-align:center;color:#888">Сделка без разбивки на позиции — сумма указана ниже</td></tr>`}
+              ${t.discount > 0 ? `<tr><td colspan="4">Скидка</td><td>−${Math.round(t.discount).toLocaleString("ru-RU")}</td></tr>` : ""}
+              ${t.tax > 0 ? `<tr><td colspan="4">Налог</td><td>${Math.round(t.tax).toLocaleString("ru-RU")}</td></tr>` : ""}
               ${/* Счёт клиенту — тот же случай: у сделки «одной суммой» позиций нет,
                     и строка «Итого по смете» была нулевой рядом с непустым «К оплате». */""}
               <tr><td colspan="4">Итого по смете</td><td style="font-weight:bold">${(displayTotal(t).total||0).toLocaleString("ru-RU")} ${state.project?.currency||"₽"}</td></tr>
             </tbody>
-            <tfoot><tr class="total-row"><td colspan="4">К ОПЛАТЕ</td><td>${(f.debt||t.total||0).toLocaleString("ru-RU")} ${state.project?.currency||"₽"}</td></tr></tfoot>
+            ${/* «К ОПЛАТЕ» = остаток долга. Стояло `f.debt || t.total`: у полностью
+                  оплаченной сделки долг ноль, ноль ложен — и счёт снова требовал ВСЮ
+                  сумму, будто денег не платили. Считаем явно, а «уже оплачено»
+                  показываем отдельной строкой, чтобы ноль внизу был объяснён. */""}
+            ${paidSoFar > 0 ? `<tr><td colspan="4">Уже оплачено</td><td>−${Math.round(paidSoFar).toLocaleString("ru-RU")} ${state.project?.currency||"₽"}</td></tr>` : ""}
+            <tfoot><tr class="total-row"><td colspan="4">К ОПЛАТЕ</td><td>${Math.round(dueNow).toLocaleString("ru-RU")} ${state.project?.currency||"₽"}</td></tr></tfoot>
           </table>
           ${c.requisites ? `<div style="border-top:2px solid #eee;margin-top:24px;padding-top:16px;font-size:12px;color:#555"><b>Реквизиты:</b><br>${escapeHtml(c.requisites).replace(/\n/g,"<br>")}</div>` : ""}
           <script>window.print();window.onafterprint=()=>window.close();<\/script>
