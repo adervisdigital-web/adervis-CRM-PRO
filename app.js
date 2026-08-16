@@ -19642,11 +19642,6 @@
                   `).join("") : `
                     <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Нет транзакций. Добавь поступление или расход.</td></tr>
                   `}
-                  ${finHidden > 0 ? `
-                    <tr class="no-print"><td colspan="6" style="text-align:center;padding:14px">
-                      <button class="btn" onclick="app.finShowMore()">Показать ещё ${Math.min(FIN_PAGE_SIZE, finHidden)} · осталось ${finHidden}</button>
-                    </td></tr>
-                  ` : ""}
                 </tbody>
                 ${filtered.length ? `
                   <tfoot class="fin-table-footer">
@@ -19662,6 +19657,15 @@
                 ` : ""}
               </table>
             </div>
+            ${/* Кнопка стоит ПОД таблицей, а не строкой внутри неё: .fin-table-wrap
+                  прокручивается вбок, и строка таблицы центрируется по ширине ТАБЛИЦЫ,
+                  а не экрана — на 390px кнопка оказывалась на 232..454, то есть
+                  наполовину за правым краем, и до неё приходилось листать вбок. */""}
+            ${finHidden > 0 ? `
+              <div class="show-more-row no-print">
+                <button class="btn" onclick="app.finShowMore()">Показать ещё ${Math.min(FIN_PAGE_SIZE, finHidden)} · осталось ${finHidden}</button>
+              </div>
+            ` : ""}
             ` : ""}
           </div>
         `;

@@ -1461,4 +1461,69 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   });
 
   await context.close();
+
+  await test("телефон: «Показать ещё» видна целиком, а не наполовину за краем", async () => {
+    const { context: ctx, page: p } = await bootLocal(browser, baseUrl, { width: 390, height: 780, touch: true, seedDemo: true });
+    await p.waitForTimeout(400);
+
+    // Наполняем так, чтобы кнопка появилась в каждом из проверяемых разделов.
+    await p.evaluate(() => {
+      const key = "adervis_pro_381_state";
+      const st = JSON.parse(localStorage.getItem(key) || "{}");
+      const base = (st.savedProjects || [])[0];
+      st.clients = [];
+      for (let i = 0; i < 80; i++) st.clients.push({ id: "c" + i, name: "Клиент " + i, status: "new" });
+      st.globalTasks = [];
+      for (let i = 0; i < 80; i++) st.globalTasks.push({ id: "t" + i, title: "Задача " + i, status: "Новая", priority: "Средний", comments: [] });
+      st.contracts = [];
+      for (let i = 0; i < 60; i++) st.contracts.push({ id: "k" + i, name: "Договор " + i, number: "ADV-" + i, category: "Видео", status: "draft", body: "x", updatedAt: new Date().toISOString() });
+      st.savedProjects = [];
+      for (let i = 0; i < 60; i++) {
+        const d = JSON.parse(JSON.stringify(base));
+        d.id = "p" + i; d.name = "Проект " + i; d.crmStatus = "В работе";
+        d.snapshot = Object.assign({}, d.snapshot, {
+          payments: [{ id: "pa" + i, amount: 10000, date: "2026-08-01", title: "Аванс", method: "Перевод" }],
+          expenses: [{ id: "ex" + i, amount: 5000, date: "2026-08-02", title: "Аренда", category: "Прочее" }],
+        });
+        st.savedProjects.push(d);
+      }
+      st.payments = []; st.expenses = [];
+      localStorage.setItem(key, JSON.stringify(st));
+    });
+
+    // Вторая вкладка: reload затёрся бы снимком состояния с этой страницы.
+    const p2 = await ctx.newPage();
+    await p2.setViewportSize({ width: 390, height: 780 });
+    await p2.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await p2.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await p2.waitForTimeout(500);
+
+    const bad = [];
+    for (const view of ["clients", "global-tasks", "contracts", "global-finances", "home", "catalog"]) {
+      await p2.evaluate((v) => window.app.go(v), view);
+      await p2.waitForTimeout(400);
+      const r = await p2.evaluate(() => {
+        const btn = [...document.querySelectorAll("#appContent button")]
+          .find((b) => /показать ещё/i.test(b.textContent || ""));
+        if (!btn) return null;
+        /* Крутим ТОЛЬКО по вертикали: scrollIntoView увёз бы и горизонтальную
+           прокрутку внутреннего блока и спрятал бы ровно тот дефект, который ищем —
+           кнопку, стоящую строкой внутри таблицы, что шире экрана. */
+        const y = btn.getBoundingClientRect().top + window.scrollY - 200;
+        window.scrollTo(0, Math.max(0, y));
+        const b = btn.getBoundingClientRect();
+        return { right: Math.round(b.right), left: Math.round(b.left), h: Math.round(b.height), vw: window.innerWidth };
+      });
+      if (!r) continue;
+      if (r.right > r.vw + 1) bad.push(`${view}: правый край ${r.right} при экране ${r.vw} — кнопка за краем`);
+      if (r.left < -1) bad.push(`${view}: левый край ${r.left} — кнопка уехала влево`);
+      if (r.h < 44) bad.push(`${view}: высота ${r.h}px вместо 44`);
+    }
+    await ctx.close();
+    assert(!bad.length, "«Показать ещё» на телефоне недоступна:\n  " + bad.join("\n  "));
+  });
+
 };
