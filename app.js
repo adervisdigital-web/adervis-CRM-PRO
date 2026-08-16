@@ -17685,9 +17685,24 @@
         const overdue = rows.filter(r => r.task.deadline && r.task.deadline < today && r.task.status !== "Готово").length;
         const done = rows.filter(r => r.task.status === "Готово").length;
 
-        let filtered = rows.slice();
-        if (statusFilter === "active") filtered = filtered.filter(r => r.task.status !== "Готово");
-        else if (statusFilter !== "all") filtered = filtered.filter(r => r.task.status === statusFilter);
+        const taskQuery = (state.globalTaskSearch || "").trim().toLowerCase();
+        const taskMatches = (r) => {
+          if (!taskQuery) return true;
+          const hay = [r.task.title, r.task.assignee, r.task.note, r.projectName, r.task.status]
+            .filter(Boolean).join(" ").toLowerCase();
+          return taskQuery.split(/\s+/).every(w => hay.includes(w));
+        };
+
+        let filtered = rows.filter(taskMatches);
+        // Запрос сильнее вкладки состояния: искомая задача чаще всего уже «Готово»,
+        // а вкладка по умолчанию — «Активные», и человек получил бы пустой список
+        // при живом совпадении. Настройку не трогаем, она вернётся с очисткой поиска.
+        const hitsOutsideStatus = taskQuery && !filtered.some(r =>
+          statusFilter === "active" ? r.task.status !== "Готово"
+          : statusFilter === "all" ? true : r.task.status === statusFilter);
+        const effStatus = hitsOutsideStatus ? "all" : statusFilter;
+        if (effStatus === "active") filtered = filtered.filter(r => r.task.status !== "Готово");
+        else if (effStatus !== "all") filtered = filtered.filter(r => r.task.status === effStatus);
         if (projectFilter === "personal") filtered = filtered.filter(r => r.kind === "global");
         else if (projectFilter !== "all") filtered = filtered.filter(r => r.projectId === projectFilter);
 
@@ -17718,8 +17733,12 @@
             </div>
 
             <div class="gtask-filters no-print">
+              <div class="catalog-search-wrap gtask-search">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input id="globalTaskSearch" class="catalog-search-input" type="search" aria-label="Поиск по задачам" value="${escapeHtml(state.globalTaskSearch || "")}" oninput="app.setGlobalTaskSearch(this.value)" placeholder="Поиск: монтаж, Анна, проект…">
+              </div>
               <div class="gtask-chips">
-                ${statusChips.map(c => `<button class="chip ${statusFilter === c.id ? "active" : ""}" onclick="app.setGlobalTaskFilter('status','${c.id}')">${escapeHtml(c.label)}</button>`).join("")}
+                ${statusChips.map(c => `<button class="chip ${effStatus === c.id ? "active" : ""}" onclick="app.setGlobalTaskFilter('status','${c.id}')">${escapeHtml(c.label)}</button>`).join("")}
               </div>
               <select class="gtask-project-select" title="Фильтр по проекту" aria-label="Фильтр задач по проекту" onchange="app.setGlobalTaskFilter('project',this.value)">
                 <option value="all" ${projectFilter === "all" ? "selected" : ""}>Все проекты</option>
@@ -17731,7 +17750,14 @@
 
             ${filtered.length ? `<div class="gtask-list">
               ${filtered.map(renderGlobalTaskRow).join("")}
-            </div>` : (total
+            </div>` : (taskQuery
+              ? emptyState({
+                  icon: "search",
+                  title: "Ничего не нашлось",
+                  text: `По запросу «${escapeHtml((state.globalTaskSearch || "").trim())}» задач нет — ни по названию, ни по исполнителю, ни по проекту.`,
+                  cta: { label: "Сбросить поиск", onclick: "app.setGlobalTaskSearch('')" }
+                })
+              : total
               ? emptyState({ icon: "search", title: "Нет задач по этому фильтру" })
               : emptyState({
                   icon: "tasks",
@@ -17776,6 +17802,13 @@
         if (type === "status") state.globalTaskStatusFilter = value;
         else if (type === "project") state.globalTaskProjectFilter = value;
         render();
+      }
+
+      // Как у каталога: откладываем перерисовку и запись на паузу в наборе.
+      function setGlobalTaskSearch(value) {
+        state.globalTaskSearch = value;
+        _debouncedSearchSave();
+        _debouncedSearchRender();
       }
 
       function createGlobalTask() {
@@ -18491,9 +18524,14 @@
       }
 
       function renderCrm() {
-        const projects = state.savedProjects || [];
+        const allProjects = state.savedProjects || [];
+        const boardQuery = (state.crmSearch || "").toLowerCase().trim();
+        // Совпадение ищем там же, где список сделок: название и клиент.
+        const projects = boardQuery
+          ? allProjects.filter(p => `${p.name || ""} ${p.client || ""}`.toLowerCase().includes(boardQuery))
+          : allProjects;
 
-        if (!projects.length) {
+        if (!allProjects.length) {
           return `
             <div class="panel">
               <div class="section-title">
@@ -18539,6 +18577,20 @@
               </div>
             </div>
 
+            ${/* Тот же state.crmSearch, что и у списка сделок: доска и список показывают
+                  одни и те же сделки, и отдельный запрос на каждый экран означал бы, что
+                  человек ищет дважды и получает два разных ответа. */""}
+            <div class="crm-board-toolbar no-print">
+              <div class="catalog-search-wrap crm-board-search">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input id="crmBoardSearch" class="catalog-search-input" type="search" aria-label="Поиск по сделкам на доске" value="${escapeHtml(state.crmSearch || "")}" oninput="app.setCrmSearch(this.value)" placeholder="Поиск по названию или клиенту…">
+              </div>
+              ${boardQuery ? `
+                <span class="catalog-found-count">найдено ${projects.length} из ${allProjects.length}</span>
+                <button class="btn small" onclick="app.setCrmSearch('')">Сбросить</button>
+              ` : ""}
+            </div>
+
             ${/* Число колонок отдаём переменной, а НЕ инлайновым
                   grid-template-columns. Инлайн-стиль перебивает любые правила
                   CSS, в том числе мобильные: на телефоне доска оставалась в
@@ -18546,6 +18598,12 @@
                   полторы колонки, а до «Завершённых» приходилось листать вбок
                   шесть экранов. Правило для одной колонки в CSS при этом было
                   написано давно и просто никогда не применялось. */""}
+            ${boardQuery && !projects.length ? emptyState({
+              icon: "search",
+              title: "Ничего не нашлось",
+              text: `По запросу «${escapeHtml((state.crmSearch || "").trim())}» сделок нет. Доска из пустых колонок ответом не считается.`,
+              cta: { label: "Сбросить поиск", onclick: "app.setCrmSearch('')" }
+            }) : `
             <div class="kanban kanban-scroll-x" style="--kanban-cols:${CRM_STATUSES.length}">
               ${CRM_STATUSES.map(status => {
                 const list = projects.filter(project => (project.crmStatus || "Лид") === status);
@@ -18597,6 +18655,7 @@
                 `;
               }).join("")}
             </div>
+            `}
           </div>
         `;
       }
@@ -24960,11 +25019,30 @@ Email: _____________________              Email: _____________________
 
             ${contracts.length ? (() => {
               const cats = ["Все", ...([...new Set(contracts.map(c => c.category || "Прочее"))].sort())];
-              const activeCat = state.contractCatFilter || "Все";
-              const filtered = activeCat === "Все" ? contracts : contracts.filter(c => (c.category || "Прочее") === activeCat);
+              const query = (state.contractSearch || "").trim().toLowerCase();
+              // Ищем и по ТЕКСТУ договора: чаще помнят условие («предоплата 50»,
+              // фамилию подписанта), чем как договор назван в списке.
+              const clientNameOf = (c) => ((state.clients || []).find(x => x.id === c.clientId) || {}).name || "";
+              const matches = (c) => {
+                if (!query) return true;
+                const hay = [c.name, c.number, c.category, c.desc, c.body, clientNameOf(c)]
+                  .filter(Boolean).join(" ").toLowerCase();
+                return query.split(/\s+/).every(w => hay.includes(w));
+              };
+              const found = contracts.filter(matches);
+              // Совпадение может лежать в другой категории — не даём вкладке молча
+              // победить запрос и показать пустоту.
+              const savedCat = state.contractCatFilter || "Все";
+              const activeCat = (query && savedCat !== "Все"
+                && !found.some(c => (c.category || "Прочее") === savedCat)) ? "Все" : savedCat;
+              const filtered = activeCat === "Все" ? found : found.filter(c => (c.category || "Прочее") === activeCat);
               return `
               <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-                <h2 style="font-size:16px;margin:0">Мои договоры (${contracts.length})</h2>
+                <h2 style="font-size:16px;margin:0">Мои договоры (${query ? `найдено ${found.length} из ${contracts.length}` : contracts.length})</h2>
+                <div class="catalog-search-wrap contract-search">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  <input id="contractSearchInput" class="catalog-search-input" type="search" aria-label="Поиск по договорам" value="${escapeHtml(state.contractSearch || "")}" oninput="app.setContractSearch(this.value)" placeholder="Поиск: номер, клиент, условие…">
+                </div>
                 <div style="display:flex;gap:4px;flex-wrap:wrap">
                   ${cats.map(cat => `<button class="badge${activeCat===cat?" active-filter":""}" onclick="app.setContractCatFilter('${escapeHtml(cat)}')"
                     style="cursor:pointer;padding:4px 10px;border-radius:99px;border:1px solid ${activeCat===cat?"var(--primary)":"var(--line)"};background:${activeCat===cat?"var(--primary)":"transparent"};color:${activeCat===cat?"#fff":"var(--muted)"};font-size:12px;font-weight:600">${escapeHtml(cat)}</button>`).join("")}
@@ -24993,7 +25071,12 @@ Email: _____________________              Email: _____________________
                   </article>
                 `).join("")}
               </div>
-              ${filtered.length === 0 && activeCat !== "Все" ? emptyState({
+              ${filtered.length === 0 && query ? emptyState({
+                icon: "search",
+                title: "Ничего не нашлось",
+                text: `По запросу «${escapeHtml((state.contractSearch || "").trim())}» договоров нет — ни по номеру, ни по клиенту, ни по тексту.`,
+                cta: { label: "Сбросить поиск", onclick: "app.setContractSearch('')" }
+              }) : filtered.length === 0 && activeCat !== "Все" ? emptyState({
                 icon: "search",
                 title: `Нет договоров в категории «${escapeHtml(activeCat)}»`,
                 cta: { label: "Показать все", onclick: "app.setContractCatFilter('Все')", variant: "" }
@@ -25012,6 +25095,12 @@ Email: _____________________              Email: _____________________
       function setContractCatFilter(cat) {
         state.contractCatFilter = cat;
         render();
+      }
+
+      function setContractSearch(value) {
+        state.contractSearch = value;
+        _debouncedSearchSave();
+        _debouncedSearchRender();
       }
 
       // Мастер закрывается при смене договора: указатель — позиция в списке полей
@@ -25523,11 +25612,13 @@ Email: _____________________              Email: _____________________
         toggleGlobalTaskDone,
         deleteGlobalTask,
         setGlobalTaskFilter,
+        setGlobalTaskSearch,
 
         openDealTasks,
 
         renderContracts,
         setContractCatFilter,
+        setContractSearch,
         createContractFromTemplate,
         quickContractFromDeal,
         createBlankContract,

@@ -2921,5 +2921,188 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "поиск по пакетам в мастере и в разделе дал разные ответы на один запрос");
   });
 
+  /* Подсунуть объём: писать в localStorage и перезагружать НЕЛЬЗЯ — на выгрузке
+     страница пишет свой снимок состояния поверх, и подсунутое молча пропадает.
+     Открываем вторую вкладку: она читает хранилище заново. */
+  async function bootWithState(mutate, size = { width: 1200, height: 900 }) {
+    const b = await bootLocal(browser, baseUrl, { ...size, seedDemo: true });
+    await b.page.waitForTimeout(300);
+    await b.page.evaluate((src) => {
+      const key = "adervis_pro_381_state";
+      const st = JSON.parse(localStorage.getItem(key) || "{}");
+      // eslint-disable-next-line no-new-func
+      new Function("st", src)(st);
+      localStorage.setItem(key, JSON.stringify(st));
+    }, mutate);
+    const p = await b.context.newPage();
+    await p.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await p.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 15000 });
+    await p.waitForTimeout(400);
+    return { ctx: b.context, p };
+  }
+
+  await test("«Задачи»: поиск находит и то, что спрятано вкладкой состояния", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await bootWithState(`
+      st.globalTasks = [];
+      for (let i = 0; i < 40; i++) {
+        st.globalTasks.push({
+          id: "t" + i, title: "Задача " + i + ": смонтировать ролик",
+          status: i === 7 ? "Готово" : "Новая", priority: "Средний",
+          assignee: i === 7 ? "Крылов" : "Иванов", comments: [],
+        });
+      }
+      st.globalTasks[7].title = "Задача 7: цветокоррекция для Крылова";
+    `);
+
+    await p.evaluate(() => window.app.go("global-tasks"));
+    await p.waitForTimeout(400);
+
+    const shot = () => p.evaluate(() => ({
+      rows: document.querySelectorAll(".gtask-row").length,
+      screens: document.getElementById("appContent").scrollHeight / 900,
+      empty: !!document.querySelector(".empty"),
+    }));
+
+    const all = await shot();
+    assert(all.rows > 20, "мало задач для проверки, тест не о том: " + all.rows);
+
+    const input = await p.$("#globalTaskSearch");
+    assert(input, "в «Задачах» нет поиска — сорок строк на пять экранов листаются глазами");
+
+    /* Задача 7 уже «Готово», а вкладка по умолчанию — «Активные». Если фильтр
+       состояния победит запрос, человек получит пустой список при живом совпадении
+       и решит, что задачи нет. */
+    await input.click();
+    await p.keyboard.type("Крылов", { delay: 50 });
+    await p.waitForTimeout(500);
+
+    const found = await shot();
+    const live = await p.evaluate(() => ({
+      v: (document.getElementById("globalTaskSearch") || {}).value,
+      f: document.activeElement && document.activeElement.id,
+    }));
+    assertEqual(live.v, "Крылов", "поле поиска задач потеряло набранное");
+    assertEqual(live.f, "globalTaskSearch", "после ввода фокус ушёл из поля поиска задач");
+    assert(found.rows > 0, "готовая задача не найдена: вкладка состояния победила запрос");
+    assert(found.rows < all.rows, `поиск не сузил список: было ${all.rows}, стало ${found.rows}`);
+
+    await p.evaluate(() => window.app.setGlobalTaskSearch("щщщ"));
+    await p.waitForTimeout(450);
+    const none = await shot();
+    await ctx.close();
+    assertEqual(none.rows, 0, "по бессмысленному запросу всё равно показаны задачи");
+    assert(none.empty, "пустой результат поиска задач ничем не объяснён");
+  });
+
+  await test("«Договоры»: поиск по номеру, клиенту и тексту договора", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await bootWithState(`
+      st.clients = [{ id: "cl1", name: "Пётр Крылов", company: "ООО Вектор", status: "new" }];
+      st.contracts = [];
+      for (let i = 0; i < 30; i++) {
+        st.contracts.push({
+          id: "c" + i, name: "Договор оказания услуг " + i, number: "ADV-" + (100 + i),
+          category: i % 2 ? "Видео" : "Фото", status: "draft", body: "Общие условия. Предоплата 50%.",
+          clientId: i === 5 ? "cl1" : "", updatedAt: new Date().toISOString(),
+        });
+      }
+      st.contracts[9].body = "Особые условия: съёмка с квадрокоптера на объекте.";
+    `);
+
+    await p.evaluate(() => window.app.go("contracts"));
+    await p.waitForTimeout(400);
+
+    const cards = () => p.evaluate(() => document.querySelectorAll(".contract-card").length);
+    const all = await cards();
+    assert(all >= 30, "мало договоров для проверки: " + all);
+
+    const input = await p.$("#contractSearchInput");
+    assert(input, "в «Договорах» нет поиска — тридцать карточек искать нечем");
+
+    const probe = async (q) => {
+      await p.evaluate((v) => window.app.setContractSearch(v), q);
+      await p.waitForTimeout(450);
+      return cards();
+    };
+
+    assertEqual(await probe("ADV-117"), 1, "поиск по номеру договора не нашёл ровно один");
+    assertEqual(await probe("Крылов"), 1, "договор не находится по имени привязанного клиента");
+    // Текст договора — то, что помнят лучше названия: условие, объект, оговорку.
+    assertEqual(await probe("квадрокоптера"), 1, "поиск не заглядывает в текст договора");
+    assertEqual(await probe("щщщ"), 0, "по бессмысленному запросу всё равно показаны договоры");
+    const empty = await p.evaluate(() => !!document.querySelector(".empty"));
+    await ctx.close();
+    assert(empty, "пустой результат поиска договоров ничем не объяснён");
+  });
+
+  await test("доска CRM: поиск сужает колонки, и ни одна сделка не пропадает с доски", async () => {
+    await dismissStaleDialog(page);
+    /* Каждому этапу воронки — своя сделка, плюс одна в архиве. Так сумма счётчиков
+       колонок обязана сойтись с числом неархивных сделок: если этап когда-нибудь
+       переименуют без миграции, сделки со старым статусом исчезнут с доски молча —
+       ни колонки, ни счётчика, ни следа. */
+    const { ctx, p } = await bootWithState(`
+      const base = (st.savedProjects || [])[0];
+      const stages = ["Лид","Бриф","КП отправлено","Согласование","Договор","Предоплата","В работе","Сдано","Оплата","Завершённые"];
+      st.savedProjects = [];
+      stages.forEach((s, i) => {
+        const c = JSON.parse(JSON.stringify(base));
+        c.id = "p" + i; c.name = "Проект " + i + " для «Ромашки»"; c.client = "Ромашка"; c.crmStatus = s;
+        st.savedProjects.push(c);
+      });
+      const arch = JSON.parse(JSON.stringify(base));
+      arch.id = "pArch"; arch.name = "Отменённый проект"; arch.client = "Одуванчик"; arch.crmStatus = "Архив";
+      st.savedProjects.push(arch);
+      const other = JSON.parse(JSON.stringify(base));
+      other.id = "pOther"; other.name = "Съёмка каталога"; other.client = "Василёк"; other.crmStatus = "Лид";
+      st.savedProjects.push(other);
+    `);
+
+    await p.evaluate(() => window.app.go("crm"));
+    await p.waitForTimeout(450);
+
+    const board = () => p.evaluate(() => ({
+      cards: document.querySelectorAll(".crm-card").length,
+      colSum: [...document.querySelectorAll(".kanban-col h3 .pill-count")]
+        .reduce((a, e) => a + (Number(e.textContent.trim()) || 0), 0),
+      note: (document.querySelector(".catalog-found-count") || {}).textContent || "",
+      empty: !!document.querySelector(".empty"),
+      hasBoard: !!document.querySelector(".kanban"),
+    }));
+
+    const all = await board();
+    // 10 этапов + ещё одна в «Лид»; архивная на доске не показывается.
+    assertEqual(all.colSum, 11, "сумма счётчиков колонок не сошлась с числом сделок — часть исчезла с доски: " + all.colSum);
+    assertEqual(all.cards, 11, "на доске нарисовано не столько карточек, сколько обещают счётчики: " + all.cards);
+
+    const input = await p.$("#crmBoardSearch");
+    assert(input, "на доске CRM нет поиска — сделку в воронке приходится искать глазами по колонкам");
+
+    await input.click();
+    await p.keyboard.type("Василёк", { delay: 50 });
+    await p.waitForTimeout(500);
+    const found = await board();
+    const live = await p.evaluate(() => ({
+      v: (document.getElementById("crmBoardSearch") || {}).value,
+      f: document.activeElement && document.activeElement.id,
+    }));
+    assertEqual(live.v, "Василёк", "поле поиска на доске потеряло набранное");
+    assertEqual(live.f, "crmBoardSearch", "после ввода фокус ушёл из поля поиска доски");
+    assertEqual(found.cards, 1, "поиск по клиенту на доске не оставил ровно одну сделку: " + found.cards);
+    assertEqual(found.colSum, 1, "счётчики колонок не следуют за поиском: " + found.colSum);
+    assert(/найдено/i.test(found.note), "не сказано, сколько найдено из скольких: " + found.note);
+
+    await p.evaluate(() => window.app.setCrmSearch("щщщ"));
+    await p.waitForTimeout(450);
+    const none = await board();
+    await ctx.close();
+    assert(none.empty && !none.hasBoard,
+      "по пустому результату показана доска из пустых колонок вместо ответа «не нашлось»");
+  });
+
   await context.close();
 };

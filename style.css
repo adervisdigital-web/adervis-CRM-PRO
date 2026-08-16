@@ -3922,6 +3922,21 @@
     .gtask-stat .val { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 
     .gtask-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    /* Поиск занимает свою строку целиком: делить её с лентой состояний он может
+       только за счёт пилюль, а их и так прижимает горизонтальным скроллом. */
+    .gtask-search { flex: 1 1 100%; max-width: 420px; }
+    .crm-board-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .crm-board-search { flex: 1 1 240px; max-width: 380px; }
+    .crm-board-search .catalog-search-input { min-height: 44px; }
+    .gtask-search .catalog-search-input,
+    .contract-search .catalog-search-input { min-height: 44px; }
+    .contract-search { flex: 1 1 220px; max-width: 340px; }
     .gtask-chips { display: flex; gap: 7px; flex-wrap: wrap; }
     .gtask-project-select { padding: 7px 12px; border-radius: var(--r-md); font-size: 13px; margin-left: auto; }
     /* «Своя задача» стояла залитой primary-кнопкой в шапке раздела: спорила по весу
