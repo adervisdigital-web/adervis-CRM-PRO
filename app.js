@@ -25980,15 +25980,21 @@ Email: _____________________              Email: _____________________
       setTimeout(initSwipeToDelete, 800);
       setTimeout(checkDeadlineNotifications, 1200);
 
-      window.addEventListener('offline', () => {
+      // Плашку показывало только СОБЫТИЕ offline, а оно приходит лишь на переходе из
+      // сети в её отсутствие. Тому, кто открыл приложение уже без связи, событие не
+      // приходит никогда — и это ровно случай выездной съёмки, ради которого офлайн и
+      // делался: PWA запускают в поле, работать можно, но человеку об этом не сказано.
+      // Сверяемся с navigator.onLine на старте, а не ждём перехода.
+      function _syncOfflineBanner() {
         const b = document.getElementById('offlineBanner');
-        if (b) b.style.display = 'flex';
-      });
+        if (b) b.style.display = navigator.onLine ? 'none' : 'flex';
+      }
+      window.addEventListener('offline', _syncOfflineBanner);
       window.addEventListener('online', () => {
-        const b = document.getElementById('offlineBanner');
-        if (b) b.style.display = 'none';
+        _syncOfflineBanner();
         if (_cloudDirty) saveToCloud(); // ретрай несохранённого облачного стейта после реконнекта
       });
+      _syncOfflineBanner();
 
       // Принудительное localStorage-сохранение перед закрытием вкладки
       // (pagehide надёжнее beforeunload на мобиле/iOS).

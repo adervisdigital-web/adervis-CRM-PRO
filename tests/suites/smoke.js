@@ -122,4 +122,94 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
     await context.close();
   });
+
+  await test("выездная съёмка: без сети приложение открывается, работает и говорит об этом", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { seedDemo: true, width: 1100, height: 900 });
+    await page.waitForTimeout(400);
+
+    // Без контролирующего воркера офлайн-перезагрузка упрётся в сеть, и мы измерим
+    // отсутствие SW, а не поведение приложения.
+    const controlled = await page.evaluate(async () => {
+      if (!("serviceWorker" in navigator)) return false;
+      const reg = await navigator.serviceWorker.ready.catch(() => null);
+      if (!reg) return false;
+      for (let i = 0; i < 40 && !navigator.serviceWorker.controller; i++) {
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      return !!navigator.serviceWorker.controller;
+    });
+    assert(controlled, "Service Worker не взял страницу под контроль — офлайна не будет вовсе");
+
+    const read = () => page.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}"));
+    const before = await read();
+
+    await context.setOffline(true);
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e.message || e)));
+
+    await page.reload({ waitUntil: "load", timeout: 20000 });
+    await page.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await page.waitForTimeout(500);
+
+    const after = await read();
+    assert((after.savedProjects || []).length === (before.savedProjects || []).length,
+      "после перезагрузки без сети сделки не на месте");
+
+    /* Плашку показывало только СОБЫТИЕ offline — а оно не приходит тому, кто открыл
+       приложение уже без связи. Ровно случай, ради которого офлайн и делался. */
+    const banner = await page.evaluate(() => {
+      const b = document.getElementById("offlineBanner");
+      if (!b) return "нет элемента";
+      return getComputedStyle(b).display !== "none" && b.getBoundingClientRect().height > 0
+        ? (b.textContent || "").replace(/\s+/g, " ").trim()
+        : "";
+    });
+    assert(banner, "приложение открыто без сети, но человеку об этом не сказано — плашка скрыта");
+    assert(/локальн/i.test(banner), "плашка не говорит, что правки сохраняются локально: «" + banner + "»");
+
+    // Работать можно: задача, сделка, позиция в смету — всё локально.
+    const work = await page.evaluate(async () => {
+      const res = {};
+      const st = () => JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const t0 = (st().globalTasks || []).length;
+      window.app.go("global-tasks");
+      window.app.createGlobalTask();
+      await new Promise((r) => setTimeout(r, 350));
+      res.task = (st().globalTasks || []).length - t0;
+
+      const d0 = (st().savedProjects || []).length;
+      window.app.startWizard();
+      window.app.wizardSetData("name", "Клиент с выезда");
+      window.app.wizardSetData("projectName", "Съёмка в поле");
+      window.app.finishWizard("estimate");
+      await new Promise((r) => setTimeout(r, 600));
+      res.deal = (st().savedProjects || []).length - d0;
+
+      const s0 = Object.keys(st().selected || {}).length;
+      window.app.go("catalog");
+      await new Promise((r) => setTimeout(r, 350));
+      // В смету кладёт «+»: клик по самой карточке открывает её редактор.
+      const add = document.querySelector("#appContent .item--catalog:not(.selected) .catalog-add-btn");
+      if (add) add.click();
+      await new Promise((r) => setTimeout(r, 400));
+      res.estimate = Object.keys(st().selected || {}).length - s0;
+      return res;
+    });
+    assert(work.task === 1, "без сети не создаётся задача: +" + work.task);
+    assert(work.deal === 1, "без сети не создаётся сделка: +" + work.deal);
+    assert(work.estimate === 1, "без сети позиция не кладётся в смету: +" + work.estimate);
+    assert(!errors.length, "офлайн-сессия дала ошибки страницы: " + errors.slice(0, 2).join(" | "));
+
+    await context.setOffline(false);
+    await page.waitForTimeout(900);
+    const hidden = await page.evaluate(() => {
+      const b = document.getElementById("offlineBanner");
+      return !b || getComputedStyle(b).display === "none";
+    });
+    await context.close();
+    assert(hidden, "сеть вернулась, а плашка «нет соединения» осталась висеть");
+  });
 };
