@@ -3332,5 +3332,77 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(!bad.length, "витрина пакетов расходится со сметой:\n  " + bad.join("\n  "));
   });
 
+  await test("срок съёмки двигает смету — но только те строки, что не правили руками", async () => {
+    await dismissStaleDialog(page);
+    const b = await bootLocal(browser, baseUrl, { width: 1300, height: 950, seedDemo: true });
+    const p = b.page;
+    await p.waitForTimeout(300);
+
+    const read = () => p.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const l = st.selected || {};
+      return {
+        days: st.project && st.project.days,
+        cam: l.camera_basic && Number(l.camera_basic.rentalDays),
+        jib: l.jib_rent && Number(l.jib_rent.rentalDays),
+        op: l.event_cameraman && Number(l.event_cameraman.days),
+      };
+    });
+
+    await p.evaluate(() => {
+      window.app.newProject();
+      window.app.applyPackage("event_sde_day");
+      window.app.catalogAddOne("jib_rent");
+    });
+    await p.waitForTimeout(400);
+    // Кран правим руками: пять дней аренды при любом сроке проекта.
+    await p.evaluate(() => window.app.updateLine("jib_rent", "rentalDays", 5));
+    await p.waitForTimeout(300);
+    const before = await read();
+    assertEqual(before.cam, 1, "техника легла в смету не на один день");
+    assertEqual(before.jib, 5, "ручная правка дней не применилась");
+
+    /* Поле «Дней съёмки / проекта» меняло только значение по умолчанию для будущих
+       позиций: собранная смета не двигалась вовсе, а следующая добавленная аренда
+       приходила уже на новый срок — в одной смете строки с разным числом дней. */
+    await p.evaluate(() => window.app.updateProject("days", 4));
+    await p.waitForTimeout(400);
+    const asked = await p.evaluate(() => {
+      const o = document.querySelector(".confirm-dialog-overlay");
+      return o ? o.textContent.replace(/\s+/g, " ") : "";
+    });
+    assert(/пересчитать/i.test(asked), "смена срока съёмки прошла молча, смету никто не предложил пересчитать");
+
+    // Отказ обязан оставить всё как было — иначе вопрос декоративный.
+    await p.evaluate(() => {
+      const btn = [...document.querySelectorAll(".confirm-dialog-overlay button")].find((x) => !x.classList.contains("confirm-ok"));
+      if (btn) btn.click();
+    });
+    await p.waitForTimeout(500);
+    const declined = await read();
+    assertEqual(declined.cam, 1, "после отказа техника всё равно пересчиталась");
+    assertEqual(declined.jib, 5, "после отказа поехала ручная правка");
+    assertEqual(declined.op, 1, "после отказа поехала смена оператора");
+
+    /* И повторный заход обязан снова спросить: первая версия правки считала
+       «нетронутой» строку по совпадению со старым сроком, и после одного отказа
+       строки замирали навсегда. */
+    await p.evaluate(() => window.app.updateProject("days", 6));
+    await p.waitForTimeout(400);
+    const askedAgain = await p.evaluate(() => !!document.querySelector(".confirm-dialog-overlay"));
+    assert(askedAgain, "после отказа приложение больше не предлагает пересчёт — строки замерли навсегда");
+
+    await p.evaluate(() => {
+      const btn = document.querySelector(".confirm-dialog-overlay .confirm-ok");
+      if (btn) btn.click();
+    });
+    await p.waitForTimeout(600);
+    const applied = await read();
+    await b.context.close();
+    assertEqual(applied.cam, 6, "согласились на пересчёт, а техника осталась на старом сроке");
+    assertEqual(applied.op, 6, "согласились на пересчёт, а смена оператора осталась на старом сроке");
+    assertEqual(applied.jib, 5, "пересчёт затёр вручную заданные дни аренды");
+  });
+
   await context.close();
 };

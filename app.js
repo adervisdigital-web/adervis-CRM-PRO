@@ -9004,6 +9004,12 @@
         else if (booleanKeys.includes(key)) state.selected[id][key] = Boolean(value);
         else state.selected[id][key] = value;
 
+        /* Дни у строки правили руками — метку ставим здесь, а не выводим потом из
+           совпадения со сроком проекта. Вывод по совпадению уже подводил: стоило
+           один раз отказаться от пересчёта, и «нетронутые» строки навсегда переставали
+           отличаться от правленых, а значит, замирали до конца жизни сметы. */
+        if (key === "days" || key === "rentalDays") state.selected[id].daysManual = true;
+
         if (key === "shiftType") {
           const itemData = findItem(id, true);
           if (itemData && itemData.calcModel === "crewShift") {
@@ -9146,11 +9152,58 @@
           const saved = state.savedProjects.find(p => p.id === state.activeProjectId);
           if (saved) saved.googleEventIds = nextIds;
         }
+        const prevDays = key === "days" ? numberValue(state.project.days, 1) : null;
         state.project[key] = numericKeys.includes(key) ? numberValue(value, 0) : value;
         if (key === "client") state.project.clientId = "";
         save();
         render();
+        if (key === "days") _offerRedaysOnEstimate(prevDays, numberValue(value, 1));
         if ((key === "deadline" && value) || (key === "name" && _myGoogleEventId(state.project))) _autoSyncProjectDeadlineToGoogle();
+      }
+
+      /* Поле «Дней съёмки / проекта» меняло ТОЛЬКО значение по умолчанию для позиций,
+         которые добавят потом: уже собранная смета не двигалась вовсе. Замер 17.08:
+         сделка на 60 200 ₽ при переводе с 1 дня на 3 осталась 60 200 ₽, а следующая
+         добавленная аренда пришла уже на три дня — в одной смете строки с разным
+         сроком и итог, не отвечающий съёмке.
+
+         Пересчитывать всё молча тоже нельзя: дни у строк правят руками — режиссёр на
+         два дня из трёх, техника на один. Поэтому трогаем ровно те строки, что стояли
+         на СТАРОМ значении проекта (их никто не редактировал), и спрашиваем. Строки с
+         другим числом дней остаются как есть — про них так и сказано в вопросе. */
+      async function _offerRedaysOnEstimate(oldDays, newDays) {
+        if (!oldDays || !newDays || oldDays === newDays) return;
+        const usesDays = (itemData) => itemData && ["equipmentRental", "crewShift", "perDay"].includes(itemData.calcModel);
+        const affected = selectedIds().filter(id => {
+          const line = state.selected[id];
+          const itemData = findItem(id, true);
+          if (!line || !usesDays(itemData)) return false;
+          // Правленые руками (и заданные составом пакета) не трогаем никогда.
+          if (line.daysManual) return false;
+          const cur = itemData.calcModel === "equipmentRental" ? numberValue(line.rentalDays, 1) : numberValue(line.days, 1);
+          return cur !== newDays;
+        });
+        if (!affected.length) return;
+
+        const dayWord = (n) => plural(n, "день", "дня", "дней");
+        const ok = await confirmDialog({
+          title: "Пересчитать смету на новый срок?",
+          message: `В смете ${affected.length} ${plural(affected.length, "позиция", "позиции", "позиций")} со сменами или арендой, где дни вы не задавали вручную. Перевести их на ${newDays} ${dayWord(newDays)}? Позиции с вручную заданными днями останутся как есть.`,
+          okText: `Пересчитать на ${newDays} ${dayWord(newDays)}`,
+          cancelText: "Оставить как есть",
+        });
+        if (!ok) return;
+
+        affected.forEach(id => {
+          const line = state.selected[id];
+          const itemData = findItem(id, true);
+          if (!line || !itemData) return;
+          if (itemData.calcModel === "equipmentRental") line.rentalDays = newDays;
+          else line.days = newDays;
+        });
+        save();
+        render();
+        toast(`Пересчитано: ${affected.length} ${plural(affected.length, "позиция", "позиции", "позиций")} на ${newDays} ${dayWord(newDays)}`);
       }
 
       function updateCompany(key, value) {
@@ -9347,6 +9400,9 @@
         const over = (entry && typeof entry === "object" && entry.line) || null;
         if (over) {
           Object.assign(line, over);
+          // Дни, заданные составом пакета («режиссёр на 2 дня»), — решение автора
+          // пакета, а не значение по умолчанию: смена срока проекта их не двигает.
+          if (over.days !== undefined || over.rentalDays !== undefined) line.daysManual = true;
           // Длительность смены сама по себе цену не меняет (в lineBreakdown она лишь
           // запасное значение) — поэтому, если пакет задал смену, а цену не задал,
           // подставляем ставку каталога за эту длительность. Иначе «полсмены» в пакете
