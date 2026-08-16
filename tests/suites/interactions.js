@@ -3183,5 +3183,73 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(searched.more, "", "после поиска осталась кнопка «Показать ещё», хотя показывать нечего");
   });
 
+  await test("финансы: строки режутся порциями, а итоги остаются по ВСЕМ операциям", async () => {
+    await dismissStaleDialog(page);
+    /* Суммы круглые нарочно: ожидаемый итог тогда не зависит от арифметики в уме —
+       60 сделок × (10 000 + 10 000) = 1 200 000 получено и 60 × 5 000 = 300 000 расходов. */
+    const { ctx, p } = await bootWithState(`
+      const base = (st.savedProjects || [])[0];
+      st.savedProjects = [];
+      st.payments = [];
+      st.expenses = [];
+      for (let i = 0; i < 60; i++) {
+        const d = JSON.parse(JSON.stringify(base));
+        d.id = "fp" + i;
+        d.name = "Проект " + i;
+        d.crmStatus = "В работе";
+        d.snapshot = d.snapshot || {};
+        d.snapshot.payments = [
+          { id: "pay_a" + i, amount: 10000, date: "2026-08-01", title: "Аванс", method: "Перевод" },
+          { id: "pay_b" + i, amount: 10000, date: "2026-08-02", title: "Остаток", method: "Перевод" },
+        ];
+        d.snapshot.expenses = [
+          { id: "exp_a" + i, amount: 5000, date: "2026-08-03", title: "Аренда", category: "Прочее" },
+        ];
+        st.savedProjects.push(d);
+      }
+    `);
+
+    await p.evaluate(() => window.app.go("global-finances"));
+    await p.waitForTimeout(500);
+
+    const read = () => p.evaluate(() => {
+      const root = document.getElementById("appContent");
+      const norm = (s) => (s || "").replace(/[\s ]/g, "");
+      return {
+        rows: root.querySelectorAll(".fin-table tbody tr").length,
+        moreBtn: [...root.querySelectorAll("button")].find((b) => /показать ещё/i.test(b.textContent || ""))?.textContent.trim().replace(/\s+/g, " ") || "",
+        foot: [...root.querySelectorAll(".fin-table-footer .amount-cell")].map((e) => norm(e.textContent)),
+        counter: norm((root.textContent.match(/\d[\d\s ]*операц\S+[^]{0,80}?расходов/) || [""])[0]),
+        nodes: root.querySelectorAll("*").length,
+      };
+    });
+
+    const first = await read();
+    assert(first.rows > 0, "таблица финансов пуста — посеянные операции не доехали");
+    assert(first.rows <= 45, `в таблице сразу ${first.rows} строк — список рисуется целиком`);
+    assert(/показать ещё/i.test(first.moreBtn), "часть операций скрыта, но кнопки «Показать ещё» нет");
+    assert(/осталось\s+\d+/.test(first.moreBtn), "не сказано, сколько операций осталось: «" + first.moreBtn + "»");
+
+    /* Главное. Показать первые сорок операций законно; показать сумму первых сорока
+       под подписью «Итого получено» — это соврать про деньги. */
+    assert(first.foot.some((f) => f.includes("1200000")),
+      "«Итого получено» считается не по всем операциям: " + JSON.stringify(first.foot));
+    assert(first.foot.some((f) => f.includes("300000")),
+      "«Итого расходов» считается не по всем операциям: " + JSON.stringify(first.foot));
+    assert(first.counter.includes("180операц") || /^180/.test(first.counter),
+      "счётчик над таблицей показывает не все операции: «" + first.counter + "»");
+
+    await p.evaluate(() => {
+      const b = [...document.querySelectorAll("#appContent button")].find((x) => /показать ещё/i.test(x.textContent || ""));
+      if (b) b.click();
+    });
+    await p.waitForTimeout(450);
+    const second = await read();
+    await ctx.close();
+    assert(second.rows > first.rows, `«Показать ещё» не добавила строк (${first.rows} → ${second.rows})`);
+    assert(second.foot.some((f) => f.includes("1200000")),
+      "после подгрузки итог изменился — значит, он считался по показанному: " + JSON.stringify(second.foot));
+  });
+
   await context.close();
 };

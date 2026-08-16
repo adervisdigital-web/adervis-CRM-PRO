@@ -1263,6 +1263,13 @@
       const CONTRACTS_PAGE_SIZE = 24;
       let _contractsVisibleLimit = CONTRACTS_PAGE_SIZE;
       let _contractsLimitKey = "";
+      // Финансы — самый тяжёлый список: операции лежат внутри сделок, и на 250 сделках
+      // это 1750 строк, 16 082 узла и страница в 90 экранов, пересобираемая на каждый
+      // render() (286 мс). Режем ТОЛЬКО отрисовку строк: итоги под таблицей и счётчик
+      // над ней считаются по всем отобранным операциям — иначе цифра денег соврёт.
+      const FIN_PAGE_SIZE = 40;
+      let _finVisibleLimit = FIN_PAGE_SIZE;
+      let _finLimitKey = "";
       // Вид «Сохранённые проекты» — второй, не пагинированный список тех же сделок:
       // 25 780px высоты страницы при 200 сделках и 76 285px при 600.
       const PROJECTS_PAGE_SIZE = 24;
@@ -10230,6 +10237,11 @@
 
       function contractsShowMore() {
         _contractsVisibleLimit += CONTRACTS_PAGE_SIZE;
+        render();
+      }
+
+      function finShowMore() {
+        _finVisibleLimit += FIN_PAGE_SIZE;
         render();
       }
 
@@ -19287,6 +19299,15 @@
           return true;
         });
 
+        /* Пагинация КАСАЕТСЯ ТОЛЬКО СТРОК таблицы. Всё, что считает деньги — счётчик
+           «N операций · X получено» над таблицей и «Итого» под ней — остаётся на полном
+           `filtered`: показать первые сорок операций законно, а показать сумму первых
+           сорока под подписью «Итого получено» значит соврать про деньги. */
+        const _finKey = [gFilter, typeFilter, gFinSearch, state.gFinDateFrom, state.gFinDateTo, state.gFinDatePreset].join("|");
+        if (_finKey !== _finLimitKey) { _finLimitKey = _finKey; _finVisibleLimit = FIN_PAGE_SIZE; }
+        const shownTxs = filtered.slice(0, _finVisibleLimit);
+        const finHidden = filtered.length - shownTxs.length;
+
         const totalIncome = allTxs.filter(t => t._type === "income").reduce((s, t) => s + numberValue(t.amount, 0), 0);
         const totalExpense = allTxs.filter(t => t._type === "expense").reduce((s, t) => s + numberValue(t.amount, 0), 0);
         const totalProfit = totalIncome - totalExpense;
@@ -19567,7 +19588,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  ${filtered.length ? filtered.map(tx => `
+                  ${filtered.length ? shownTxs.map(tx => `
                     <tr class="u-pointer" title="Нажми для редактирования" onclick="app.openEditTransaction('${tx.id}','${tx._type}','${tx.projectId}')">
                       <td style="color:var(--muted);font-size:12px;white-space:nowrap">${escapeHtml(formatDate(tx.date))}</td>
                       <td title="${escapeHtml(tx.projectName || "—")}" style="font-size:12px;font-weight:750;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(tx.projectName || "—")}</td>
@@ -19584,6 +19605,11 @@
                   `).join("") : `
                     <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Нет транзакций. Добавь поступление или расход.</td></tr>
                   `}
+                  ${finHidden > 0 ? `
+                    <tr class="no-print"><td colspan="6" style="text-align:center;padding:14px">
+                      <button class="btn" onclick="app.finShowMore()">Показать ещё ${Math.min(FIN_PAGE_SIZE, finHidden)} · осталось ${finHidden}</button>
+                    </td></tr>
+                  ` : ""}
                 </tbody>
                 ${filtered.length ? `
                   <tfoot class="fin-table-footer">
@@ -25572,6 +25598,7 @@ Email: _____________________              Email: _____________________
         clientsShowMore,
         tasksShowMore,
         contractsShowMore,
+        finShowMore,
         kanbanColShowMore,
         projectsShowMore,
         calEventsShowMore,
