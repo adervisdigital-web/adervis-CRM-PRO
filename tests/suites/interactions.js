@@ -2852,5 +2852,74 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(none.empty, "пустой результат поиска ничем не объяснён — экран просто опустел");
   });
 
+  await test("«Пакеты»: поиск сужает раздел и отвечает так же, как мастер сделки", async () => {
+    await dismissStaleDialog(page);
+    const b = await bootLocal(browser, baseUrl, { width: 1200, height: 900, seedDemo: true });
+    const p = b.page;
+
+    await p.evaluate(() => window.app.go("packages"));
+    await p.waitForTimeout(400);
+
+    const section = () => p.evaluate(() => ({
+      cards: document.querySelectorAll(".package-card").length,
+      cats: [...document.querySelectorAll(".catalog-cat-item")]
+        .map((c) => c.textContent.trim().replace(/\s+/g, " ")),
+      empty: !!document.querySelector(".empty"),
+      screens: document.getElementById("appContent").scrollHeight / 900,
+    }));
+
+    const all = await section();
+    assert(all.cards > 20, "в разделе мало пакетов, тест не о том: " + all.cards);
+
+    const input = await p.$("#pkgSearchInput");
+    assert(input, "в разделе «Пакеты» нет поиска — 43 карточки на десять экранов листаются глазами");
+
+    await input.click();
+    await p.keyboard.type("субтитры", { delay: 55 });
+    await p.waitForTimeout(500);
+
+    const found = await section();
+    const live = await p.evaluate(() => ({
+      v: (document.getElementById("pkgSearchInput") || {}).value,
+      f: document.activeElement && document.activeElement.id,
+    }));
+    assertEqual(live.v, "субтитры", "поле поиска потеряло набранное");
+    assertEqual(live.f, "pkgSearchInput", "после ввода фокус ушёл из поля поиска");
+    assert(found.cards > 0 && found.cards < all.cards,
+      `поиск не сузил раздел: было ${all.cards}, стало ${found.cards}`);
+    assert(found.screens < all.screens / 2,
+      `после поиска раздел всё ещё на ${found.screens.toFixed(1)} экрана — искать смысла нет`);
+
+    /* Счётчики категорий сбоку обязаны показывать НАЙДЕННОЕ. Иначе «Фото 7» ведёт
+       в категорию, где по запросу пусто, и цифра врёт. */
+    const catNums = found.cats.map((t) => Number((t.match(/(\d+)\s*$/) || [])[1]) || 0);
+    const catSum = catNums.reduce((a, x) => a + x, 0);
+    assert(catSum <= found.cards * 2 && catSum > 0,
+      "счётчики категорий не следуют за поиском: " + JSON.stringify(found.cats));
+
+    /* Совпадение может лежать в другой категории — выбранная не должна молча
+       победить запрос и показать пустоту. */
+    await p.evaluate(() => { window.app.setPkgSearch(""); window.app.setPkgCatFilter("photo"); });
+    await p.waitForTimeout(400);
+    await p.evaluate(() => window.app.setPkgSearch("субтитры"));
+    await p.waitForTimeout(500);
+    const cross = await section();
+    assert(cross.cards > 0, "найденное недостижимо: выбранная категория показала пустоту вместо совпадений");
+
+    /* Раздел и мастер ищут по одним и тем же пакетам — расхождение означало бы, что
+       на один запрос человек получает два разных ответа в зависимости от экрана. */
+    await p.evaluate(() => window.app.setPkgSearch(""));
+    await p.evaluate(() => { window.app.startWizard(); window.app.wizardSetData("step", 3); });
+    await p.waitForTimeout(400);
+    const wizardCards = await p.evaluate(() => {
+      window.app.wizardSetData("pkgSearch", "субтитры");
+      return [...document.querySelectorAll(".wizard-pkg-card")]
+        .filter((c) => !/border-style:\s*dashed/.test(c.getAttribute("style") || "")).length;
+    });
+    await b.context.close();
+    assertEqual(wizardCards, found.cards,
+      "поиск по пакетам в мастере и в разделе дал разные ответы на один запрос");
+  });
+
   await context.close();
 };

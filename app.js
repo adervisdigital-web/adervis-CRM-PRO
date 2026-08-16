@@ -7987,6 +7987,21 @@
           .filter(Boolean);
       }
 
+      // Поиск по пакету: название, описание, «кому подходит» и СОСТАВ — человек чаще
+      // помнит, ЧТО внутри («дрон», «субтитры»), чем как пакет назван. Состав
+      // разворачивается только при непустом запросе: иначе обход всего каталога
+      // повторялся бы на каждый набранный символ. Функция общая для мастера сделки и
+      // раздела «Пакеты» — два отдельных поиска по одному и тому же разошлись бы уже
+      // на второй правке, и человек получил бы разные ответы на один запрос.
+      function packageMatchesQuery(pkg, query) {
+        const q = (query || "").trim().toLowerCase();
+        if (!q) return true;
+        const parts = [pkg.name, pkg.desc, pkg.goodFor];
+        getPackageItems(pkg).forEach(it => { if (it && it.name) parts.push(it.name); });
+        const hay = parts.filter(Boolean).join(" ").toLowerCase();
+        return q.split(/\s+/).every(word => hay.includes(word));
+      }
+
       // packageApproxTotal() удалён 29.07.2026: он складывал базовые цены позиций и
       // игнорировал модели расчёта (смена, аренда по дням, монтаж по хронометражу),
       // то есть был вторым, неверным источником цены пакета. Считает packagePrice().
@@ -15900,7 +15915,13 @@
           : "";
 
         const catOrder = Object.keys(CAT_META);
-        const allPkgs = state.packages || [];
+        const totalPkgs = (state.packages || []).length;
+        const pkgQuery = (state.pkgSearch || "").trim().toLowerCase();
+        // Отсеиваем ДО группировки: тогда и счётчики категорий сбоку показывают,
+        // сколько там найдено, а не сколько лежит всего.
+        const allPkgs = pkgQuery
+          ? (state.packages || []).filter(p => packageMatchesQuery(p, pkgQuery))
+          : (state.packages || []);
 
         // Group packages by cat
         const groups = {};
@@ -15964,10 +15985,15 @@
         const ownCount = allPkgs.filter(isOwnPkg).length;
 
         const allCatsWithData = catOrder.filter(cat => groups[cat]?.length);
-        const [pkgCatFilter, setPkgCatFilter] = (() => {
-          const v = state.pkgCatFilter || "all";
-          return [v, (c) => { state.pkgCatFilter = c; render(); }];
-        })();
+        const savedCatFilter = state.pkgCatFilter || "all";
+
+        // Найденное может лежать в другой категории. Если оставить выбранную, человек
+        // увидит пустоту и решит, что пакета нет вовсе — поэтому на время запроса
+        // показываем все категории. Саму настройку не трогаем: очистил поиск — вернулась.
+        const catHasHits = savedCatFilter === "own"
+          ? allPkgs.some(isOwnPkg)
+          : !!(groups[savedCatFilter] || []).length;
+        const pkgCatFilter = (pkgQuery && savedCatFilter !== "all" && !catHasHits) ? "all" : savedCatFilter;
 
         const filteredGroups = pkgCatFilter === "all" || pkgCatFilter === "own"
           ? allCatsWithData
@@ -15992,6 +16018,16 @@
             </div>
 
             ${renderCatalogNavTrigger(pkgNavCurrentLabel(pkgCatFilter, allPkgs, ownCount), "Категория")}
+
+            <div class="catalog-toolbar no-print">
+              <div class="catalog-search-wrap">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input id="pkgSearchInput" class="catalog-search-input" type="search" aria-label="Поиск по пакетам" value="${escapeHtml(state.pkgSearch || "")}" oninput="app.setPkgSearch(this.value)" placeholder="Поиск по названию или составу: дрон, субтитры…">
+              </div>
+              <span class="catalog-found-count">${pkgQuery
+                ? `найдено ${allPkgs.length} ${plural(allPkgs.length, "пакет", "пакета", "пакетов")}`
+                : `${totalPkgs} ${plural(totalPkgs, "пакет", "пакета", "пакетов")}`}</span>
+            </div>
 
             <div class="catalog-body">
               ${state.catalogNavOpen ? `<div class="catalog-nav-backdrop no-print" onclick="app.closeCatalogNav()"></div>` : ""}
@@ -16025,7 +16061,12 @@
               </aside>
 
               <div class="catalog-body-main">
-                ${pkgCatFilter === "own" && !ownCount ? emptyState({
+                ${pkgQuery && !allPkgs.length ? emptyState({
+                  icon: "box",
+                  title: "Ничего не нашлось",
+                  text: `По запросу «${escapeHtml((state.pkgSearch || "").trim())}» нет ни одного пакета — ни по названию, ни по составу.`,
+                  cta: { label: "Сбросить поиск", onclick: "app.setPkgSearch('')" }
+                }) : pkgCatFilter === "own" && !ownCount ? emptyState({
                   icon: "box",
                   title: "Своих пакетов пока нет",
                   text: "Соберите нужные позиции в смете, затем нажмите «+ Свой пакет» в списке категорий."
@@ -19802,22 +19843,8 @@
             return "video";
           }
 
-          // Ищем не только по названию: человек чаще помнит, ЧТО внутри пакета
-          // («дрон», «субтитры»), чем как пакет назван. Состав разворачиваем в
-          // названия услуг только при непустом запросе — иначе обход всего каталога
-          // повторялся бы на каждый набранный символ.
-          function pkgMatches(pkg) {
-            if (!pkgQuery) return true;
-            const parts = [pkg.name, pkg.desc, pkg.goodFor];
-            (pkg.items || []).forEach(entry => {
-              const l = packageLineFor(entry);
-              if (l && l.itemData) parts.push(l.itemData.name);
-            });
-            const hay = parts.filter(Boolean).join(" ").toLowerCase();
-            return pkgQuery.split(/\s+/).every(word => hay.includes(word));
-          }
-
-          const matchedPkgs = (state.packages || []).filter(pkgMatches);
+          // Тот же поиск, что и в разделе «Пакеты» (см. packageMatchesQuery).
+          const matchedPkgs = (state.packages || []).filter(p => packageMatchesQuery(p, pkgQuery));
 
           const catLabels = { all: "Все пакеты", video: "Видео", photo: "Фото", event: "Мероприятия", ai: "ИИ / AI" };
           const catCounts = {};
@@ -25685,6 +25712,9 @@ Email: _____________________              Email: _____________________
         // Как и setTab: выбрал категорию — лист закрывается сам, иначе на телефоне
         // он остаётся поверх результата, ради которого его и открывали.
         setPkgCatFilter: (cat) => { state.pkgCatFilter = cat; state.catalogNavOpen = false; render(); },
+        // Как у каталога: полный render() на каждый символ — лишняя работа, тем более
+        // что поиск разворачивает состав пакетов. Текст в поле от этого не теряется.
+        setPkgSearch: (v) => { state.pkgSearch = v; _debouncedSearchSave(); _debouncedSearchRender(); },
         setServicesTab: (tab) => { state.servicesTab = (tab === "packages" ? "packages" : "catalog"); render(); },
         setCrmView,
         setClientsView,
