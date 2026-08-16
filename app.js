@@ -1213,6 +1213,19 @@
       // сделки непредсказуемо. Свой лимит у каждого статуса.
       const KANBAN_COL_PAGE_SIZE = 20;
       let _kanbanColLimits = {};
+      // Клиенты, задачи и договоры держали в DOM ВСЕ записи: замер на 400 клиентах дал
+      // 4421 узел и страницу в 25,7 экрана, на 300 задачах — 16,8 экрана, на 200
+      // договорах — 13,7. Списки плоские (у договоров группировки нет, категория —
+      // это фильтр), поэтому режем ровно так же, как каталог и список сделок.
+      const CLIENTS_PAGE_SIZE = 24;
+      let _clientsVisibleLimit = CLIENTS_PAGE_SIZE;
+      let _clientsLimitKey = "";
+      const TASKS_PAGE_SIZE = 30;
+      let _tasksVisibleLimit = TASKS_PAGE_SIZE;
+      let _tasksLimitKey = "";
+      const CONTRACTS_PAGE_SIZE = 24;
+      let _contractsVisibleLimit = CONTRACTS_PAGE_SIZE;
+      let _contractsLimitKey = "";
       // Вид «Сохранённые проекты» — второй, не пагинированный список тех же сделок:
       // 25 780px высоты страницы при 200 сделках и 76 285px при 600.
       const PROJECTS_PAGE_SIZE = 24;
@@ -10168,6 +10181,21 @@
         render();
       }
 
+      function clientsShowMore() {
+        _clientsVisibleLimit += CLIENTS_PAGE_SIZE;
+        render();
+      }
+
+      function tasksShowMore() {
+        _tasksVisibleLimit += TASKS_PAGE_SIZE;
+        render();
+      }
+
+      function contractsShowMore() {
+        _contractsVisibleLimit += CONTRACTS_PAGE_SIZE;
+        render();
+      }
+
       // То же для колонки доски CRM (лимит у каждого статуса свой) …
       function kanbanColShowMore(status) {
         _kanbanColLimits[status] = (_kanbanColLimits[status] || KANBAN_COL_PAGE_SIZE) + KANBAN_COL_PAGE_SIZE;
@@ -17325,10 +17353,21 @@
 
         const clients = state.clients || [];
         const clientQ = (state.clientsFilter || "").toLowerCase();
-        const filteredClients = clientQ
+        const allFilteredClients = clientQ
           ? clients.filter(c => (c.name + c.company + c.phone + c.email).toLowerCase().includes(clientQ))
           : clients;
         const clientsView = state.clientsView === "list" ? "list" : "grid";
+
+        // Лимит сбрасывается при смене поиска и раскладки: иначе после поиска по
+        // трём совпадениям кнопка «показать ещё» осталась бы доращённой до сотни.
+        const _clKey = clientQ + "|" + clientsView;
+        if (_clKey !== _clientsLimitKey) { _clientsLimitKey = _clKey; _clientsVisibleLimit = CLIENTS_PAGE_SIZE; }
+        const filteredClients = allFilteredClients.slice(0, _clientsVisibleLimit);
+        const clientsHidden = allFilteredClients.length - filteredClients.length;
+        const clientsMoreHtml = clientsHidden > 0 ? `
+          <div class="show-more-row no-print">
+            <button class="btn" onclick="app.clientsShowMore()">Показать ещё ${Math.min(CLIENTS_PAGE_SIZE, clientsHidden)} · осталось ${clientsHidden}</button>
+          </div>` : "";
 
         // Деньги клиента считаем один раз на карточку — обе раскладки берут одно и то же.
         // «Оплачено» — по всем сделкам (реальный факт, статус не важен). «Долг» — только
@@ -17402,6 +17441,7 @@
                   </div>`;
                 }).join("") : `<div style="padding:8px 16px">${clientsEmpty()}</div>`}
             </div>
+            ${clientsMoreHtml}
             ` : `
             <div class="grid three clients-grid">
               <div class="kb-new-card" onclick="app.openClientModal('')">
@@ -17434,7 +17474,8 @@
                     </div>` : ""}
                   </article>`;
                 }).join("") : clientsEmpty()}
-            </div>`}
+            </div>
+            ${clientsMoreHtml}`}
           </div>
         `;
       }
@@ -17716,6 +17757,11 @@
         const projectOpts = (state.savedProjects || []).map(p => ({ id: p.id, name: p.name || "Без названия" }));
         const statusChips = [{ id: "active", label: "Активные" }, { id: "all", label: "Все" }, ...TASK_STATUSES.map(s => ({ id: s, label: s }))];
 
+        const _tKey = effStatus + "|" + projectFilter + "|" + taskQuery;
+        if (_tKey !== _tasksLimitKey) { _tasksLimitKey = _tKey; _tasksVisibleLimit = TASKS_PAGE_SIZE; }
+        const shownTasks = filtered.slice(0, _tasksVisibleLimit);
+        const tasksHidden = filtered.length - shownTasks.length;
+
         return `
           <div class="panel">
             <div class="section-title">
@@ -17749,8 +17795,11 @@
             </div>
 
             ${filtered.length ? `<div class="gtask-list">
-              ${filtered.map(renderGlobalTaskRow).join("")}
-            </div>` : (taskQuery
+              ${shownTasks.map(renderGlobalTaskRow).join("")}
+            </div>
+            ${tasksHidden > 0 ? `<div class="show-more-row no-print">
+              <button class="btn" onclick="app.tasksShowMore()">Показать ещё ${Math.min(TASKS_PAGE_SIZE, tasksHidden)} · осталось ${tasksHidden}</button>
+            </div>` : ""}` : (taskQuery
               ? emptyState({
                   icon: "search",
                   title: "Ничего не нашлось",
@@ -25035,7 +25084,11 @@ Email: _____________________              Email: _____________________
               const savedCat = state.contractCatFilter || "Все";
               const activeCat = (query && savedCat !== "Все"
                 && !found.some(c => (c.category || "Прочее") === savedCat)) ? "Все" : savedCat;
-              const filtered = activeCat === "Все" ? found : found.filter(c => (c.category || "Прочее") === activeCat);
+              const allFiltered = activeCat === "Все" ? found : found.filter(c => (c.category || "Прочее") === activeCat);
+              const _ctKey = activeCat + "|" + query;
+              if (_ctKey !== _contractsLimitKey) { _contractsLimitKey = _ctKey; _contractsVisibleLimit = CONTRACTS_PAGE_SIZE; }
+              const filtered = allFiltered.slice(0, _contractsVisibleLimit);
+              const contractsHidden = allFiltered.length - filtered.length;
               return `
               <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
                 <h2 style="font-size:16px;margin:0">Мои договоры (${query ? `найдено ${found.length} из ${contracts.length}` : contracts.length})</h2>
@@ -25071,6 +25124,9 @@ Email: _____________________              Email: _____________________
                   </article>
                 `).join("")}
               </div>
+              ${contractsHidden > 0 ? `<div class="show-more-row no-print">
+                <button class="btn" onclick="app.contractsShowMore()">Показать ещё ${Math.min(CONTRACTS_PAGE_SIZE, contractsHidden)} · осталось ${contractsHidden}</button>
+              </div>` : ""}
               ${filtered.length === 0 && query ? emptyState({
                 icon: "search",
                 title: "Ничего не нашлось",
@@ -25476,6 +25532,9 @@ Email: _____________________              Email: _____________________
         dashFilterDeals,
         crmShowMore,
         catalogShowMore,
+        clientsShowMore,
+        tasksShowMore,
+        contractsShowMore,
         kanbanColShowMore,
         projectsShowMore,
         calEventsShowMore,

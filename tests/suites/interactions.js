@@ -3017,7 +3017,9 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await p.waitForTimeout(400);
 
     const cards = () => p.evaluate(() => document.querySelectorAll(".contract-card").length);
-    const all = await cards();
+    // Считаем сами договоры, а не нарисованные карточки: список режется порциями,
+    // и «сколько видно» про объём данных ничего не говорит.
+    const all = await p.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}").contracts.length);
     assert(all >= 30, "мало договоров для проверки: " + all);
 
     const input = await p.$("#contractSearchInput");
@@ -3102,6 +3104,83 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
     assert(none.empty && !none.hasBoard,
       "по пустому результату показана доска из пустых колонок вместо ответа «не нашлось»");
+  });
+
+  await test("длинные списки режутся порциями: клиенты, задачи, договоры", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await bootWithState(`
+      st.clients = [];
+      for (let i = 0; i < 200; i++) {
+        st.clients.push({ id: "cl" + i, name: "Клиент " + i, company: "ООО " + i,
+          phone: "+79001112233", email: "c" + i + "@mail.ru", status: "new" });
+      }
+      st.clients[7].name = "Одинокий Уникум";
+      st.globalTasks = [];
+      for (let i = 0; i < 150; i++) {
+        st.globalTasks.push({ id: "gt" + i, title: "Задача " + i, status: "Новая",
+          priority: "Средний", assignee: "Иванов", comments: [] });
+      }
+      st.contracts = [];
+      for (let i = 0; i < 120; i++) {
+        st.contracts.push({ id: "ct" + i, name: "Договор " + i, number: "ADV-" + i,
+          category: "Видео", status: "draft", body: "Условия", updatedAt: new Date().toISOString() });
+      }
+    `);
+
+    const measure = (sel) => p.evaluate((s) => {
+      const root = document.getElementById("appContent");
+      return {
+        rows: root.querySelectorAll(s).length,
+        nodes: root.querySelectorAll("*").length,
+        more: [...root.querySelectorAll("button")].find((b) => /показать ещё/i.test(b.textContent || ""))?.textContent.trim() || "",
+      };
+    }, sel);
+
+    /* Порог — не «сколько именно», а «не всё разом»: страница на 25 экранов с
+       четырьмя тысячами узлов пересобирается на КАЖДЫЙ render(), в том числе на
+       каждый символ в поиске. */
+    const cases = [
+      { view: "clients", sel: ".client-card", total: 200 },
+      { view: "global-tasks", sel: ".gtask-row", total: 150 },
+      { view: "contracts", sel: ".contract-card", total: 120 },
+    ];
+
+    for (const c of cases) {
+      await p.evaluate((v) => window.app.go(v), c.view);
+      await p.waitForTimeout(400);
+      const first = await measure(c.sel);
+      assert(first.rows > 0, `${c.view}: список пуст, подсунутые данные не доехали`);
+      assert(first.rows < c.total / 2,
+        `${c.view}: нарисовано ${first.rows} из ${c.total} — список рисуется целиком`);
+      assert(/показать ещё/i.test(first.more),
+        `${c.view}: часть записей скрыта, но кнопки «Показать ещё» нет — до остальных не добраться`);
+      assert(/осталось\s+\d+/.test(first.more),
+        `${c.view}: не сказано, сколько записей осталось: «${first.more}»`);
+
+      await p.evaluate(() => {
+        const b = [...document.querySelectorAll("#appContent button")].find((x) => /показать ещё/i.test(x.textContent || ""));
+        if (b) b.click();
+      });
+      await p.waitForTimeout(400);
+      const second = await measure(c.sel);
+      assert(second.rows > first.rows,
+        `${c.view}: «Показать ещё» не добавила записей (${first.rows} → ${second.rows})`);
+    }
+
+    /* Поиск обязан сбросить доращённый лимит: иначе после «показать ещё» до сотни
+       поиск по трём совпадениям оставит кнопку, обещающую несуществующий остаток. */
+    await p.evaluate(() => window.app.go("clients"));
+    await p.waitForTimeout(300);
+    await p.evaluate(() => {
+      const i = document.querySelector(".clients-search-input");
+      i.value = "Одинокий";
+      i.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await p.waitForTimeout(500);
+    const searched = await measure(".client-card");
+    await ctx.close();
+    assertEqual(searched.rows, 1, "поиск по клиентам дал не одно совпадение: " + searched.rows);
+    assertEqual(searched.more, "", "после поиска осталась кнопка «Показать ещё», хотя показывать нечего");
   });
 
   await context.close();
