@@ -1084,4 +1084,38 @@ module.exports = async function ({ test }) {
     assert(freebies.length <= 1, "позиций с нулевой ценой больше одной: " + freebies.join(", "));
   });
 
+  await test("пакеты: каждая позиция состава есть в каталоге", () => {
+    /* Опечатка в составе не падает и не видна: packageLineFor() на неизвестный id
+       возвращает null, позиция молча выпадает — пакет тихо дешевеет и обещает в
+       описании то, чего в нём нет. Ровно так «Мероприятие 1» насчитывало 26 200 ₽
+       при объявленных 38 000, пока состав не сверили с текстом. */
+    const catStart = app.indexOf("const BASE_ITEMS = [");
+    const catBlock = app.slice(catStart, app.indexOf("\n      ];", catStart));
+    const known = new Set([...catBlock.matchAll(/item\("([^"]+)"/g)].map((m) => m[1]));
+    assert(known.size > 100, "каталог разобрался подозрительно мелко: " + known.size);
+
+    const pkgStart = app.indexOf("const DEFAULT_PACKAGES = [");
+    assert(pkgStart > 0, "не нашёлся DEFAULT_PACKAGES");
+    const pkgBlock = app.slice(pkgStart, app.indexOf("\n      ];", pkgStart));
+
+    const broken = [];
+    let packages = 0;
+    // Разбираем по пакету: имя нужно, чтобы сказать, ГДЕ опечатка.
+    const chunks = pkgBlock.split(/\n\s*\{\s*\n/).slice(1);
+    for (const chunk of chunks) {
+      const name = (chunk.match(/name:\s*"([^"]+)"/) || [])[1];
+      const itemsRaw = (chunk.match(/items:\s*\[([\s\S]*?)\],\s*\n\s*notes:/) || [])[1];
+      if (!name || !itemsRaw) continue;
+      packages++;
+      // Строковая форма "id" и объектная { id: "id", line: {...} } — берём только id,
+      // не заглядывая внутрь line (там свои значения вроде shiftType: "full").
+      const ids = [...itemsRaw.replace(/line:\s*\{[^}]*\}/g, "").matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1]);
+      for (const id of ids) {
+        if (!known.has(id)) broken.push(`«${name}» ссылается на «${id}»`);
+      }
+    }
+    assert(packages > 30, "разбор пакетов дал слишком мало: " + packages);
+    assert(!broken.length, "состав пакета указывает на несуществующие позиции каталога:\n  " + broken.join("\n  "));
+  });
+
 };
