@@ -11201,6 +11201,7 @@
           projectName: "",
           deadline: localIso(d30),
           pkgFilter: "all",
+          pkgSearch: "",
         };
         state.view = "wizard";
         save();
@@ -19792,6 +19793,7 @@
 
         if (w.step === 3) {
           const pkgFilter = w.pkgFilter || "all";
+          const pkgQuery = (w.pkgSearch || "").trim().toLowerCase();
 
           function pkgCategory(pkg) {
             if (pkg.id.startsWith("ai_") || pkg.cat === "ai") return "ai";
@@ -19800,34 +19802,70 @@
             return "video";
           }
 
+          // Ищем не только по названию: человек чаще помнит, ЧТО внутри пакета
+          // («дрон», «субтитры»), чем как пакет назван. Состав разворачиваем в
+          // названия услуг только при непустом запросе — иначе обход всего каталога
+          // повторялся бы на каждый набранный символ.
+          function pkgMatches(pkg) {
+            if (!pkgQuery) return true;
+            const parts = [pkg.name, pkg.desc, pkg.goodFor];
+            (pkg.items || []).forEach(entry => {
+              const l = packageLineFor(entry);
+              if (l && l.itemData) parts.push(l.itemData.name);
+            });
+            const hay = parts.filter(Boolean).join(" ").toLowerCase();
+            return pkgQuery.split(/\s+/).every(word => hay.includes(word));
+          }
+
+          const matchedPkgs = (state.packages || []).filter(pkgMatches);
+
           const catLabels = { all: "Все пакеты", video: "Видео", photo: "Фото", event: "Мероприятия", ai: "ИИ / AI" };
           const catCounts = {};
-          (state.packages || []).forEach(p => {
+          matchedPkgs.forEach(p => {
             const c = pkgCategory(p);
             catCounts[c] = (catCounts[c] || 0) + 1;
           });
 
-          const visiblePkgs = pkgFilter === "all"
-            ? (state.packages || [])
-            : (state.packages || []).filter(p => pkgCategory(p) === pkgFilter);
+          // Совпадения могли остаться только в соседней категории — тогда выбранная
+          // вкладка показала бы пустоту, хотя пакет нашёлся. Сами настройки не трогаем:
+          // стоит очистить поиск, и выбор категории вернётся.
+          const effFilter = (pkgQuery && pkgFilter !== "all" && !catCounts[pkgFilter]) ? "all" : pkgFilter;
+
+          const visiblePkgs = effFilter === "all"
+            ? matchedPkgs
+            : matchedPkgs.filter(p => pkgCategory(p) === effFilter);
 
           body = `
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:6px">
               <h2 class="m-0">Выбери пакет услуг</h2>
               <div style="display:flex;align-items:center;gap:10px">
-                <span class="mini-note">${(state.packages || []).length} пакетов</span>
+                <span class="mini-note">${pkgQuery
+                  ? `найдено ${matchedPkgs.length} ${plural(matchedPkgs.length, "пакет", "пакета", "пакетов")}`
+                  : `${(state.packages || []).length} ${plural((state.packages || []).length, "пакет", "пакета", "пакетов")}`}</span>
                 <button class="btn small" onclick="app.finishWizard('estimate')" title="Создать сделку с пустой сметой — услуги добавите сами">Пропустить →</button>
               </div>
             </div>
             <p class="mini-note" style="margin-bottom:14px">Смета заполнится автоматически. Цены — стартовые, всё можно скорректировать. Не нашли подходящий пакет — жмите «Пропустить», смета останется пустой.</p>
 
+            <div class="catalog-search-wrap wizard-pkg-search">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input id="wizardPkgSearch" class="catalog-search-input" type="search" aria-label="Поиск по пакетам" value="${escapeHtml(w.pkgSearch || "")}" oninput="app.wizardSetData('pkgSearch', this.value)" placeholder="Поиск по названию или составу: дрон, субтитры…">
+            </div>
+
             <div class="tabs" style="margin:0 0 16px">
               ${Object.entries(catLabels).map(([k, label]) => {
-                const cnt = k === "all" ? (state.packages || []).length : (catCounts[k] || 0);
+                const cnt = k === "all" ? matchedPkgs.length : (catCounts[k] || 0);
                 if (k !== "all" && cnt === 0) return "";
-                return `<button class="tab ${pkgFilter === k ? "active" : ""}" onclick="app.wizardSetData('pkgFilter','${k}')">${label}${cnt ? ` <span class="pill-count" style="margin-left:4px">${cnt}</span>` : ""}</button>`;
+                return `<button class="tab ${effFilter === k ? "active" : ""}" onclick="app.wizardSetData('pkgFilter','${k}')">${label}${cnt ? ` <span class="pill-count" style="margin-left:4px">${cnt}</span>` : ""}</button>`;
               }).join("")}
             </div>
+
+            ${pkgQuery && !matchedPkgs.length ? `
+              <div class="wizard-pkg-empty">
+                <div>По запросу «${escapeHtml((w.pkgSearch || "").trim())}» пакетов нет. Можно начать со сметы с нуля и добрать услуги из каталога.</div>
+                <button class="btn small" onclick="app.wizardSetData('pkgSearch','')">Сбросить поиск</button>
+              </div>
+            ` : ""}
 
             <div class="wizard-pkg-grid" style="grid-template-columns:repeat(auto-fill,minmax(210px,1fr))">
               ${visiblePkgs.map(pkg => {

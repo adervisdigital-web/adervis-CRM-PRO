@@ -2788,5 +2788,69 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(afterUndo.active, ids[0], "отмена вернула экран, но сделка не стала активной");
   });
 
+  await test("мастер сделки: поиск по пакетам сужает список и не теряет набранное", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await (async () => {
+      const b = await bootLocal(browser, baseUrl, { width: 1000, height: 820, seedDemo: true });
+      return { ctx: b.context, p: b.page };
+    })();
+
+    await p.evaluate(() => { window.app.startWizard(); window.app.wizardSetData("step", 3); });
+    await p.waitForTimeout(300);
+
+    // «Пустая смета» — пунктирная карточка-действие, а не пакет: считаем только пакеты.
+    const shot = () => p.evaluate(() => {
+      const cards = [...document.querySelectorAll(".wizard-pkg-card")]
+        .filter((c) => !/border-style:\s*dashed/.test(c.getAttribute("style") || ""));
+      const note = [...document.querySelectorAll(".wizard-body .mini-note")]
+        .map((n) => n.textContent.trim()).find((t) => /пакет|найдено/.test(t)) || "";
+      return {
+        cards: cards.length,
+        note,
+        found: (note.match(/найдено\s+(\d+)/) || [])[1],
+        empty: !!document.querySelector(".wizard-pkg-empty"),
+      };
+    });
+
+    const all = await shot();
+    assert(all.cards > 10, "в мастере мало пакетов, тест не о том: " + all.cards);
+
+    const input = await p.$("#wizardPkgSearch");
+    assert(input, "в мастере нет поля поиска по пакетам — листать сорок с лишним пакетов приходится глазами");
+
+    /* Печатаем посимвольно, а не через fill(): каждый символ перерисовывает мастер,
+       и без восстановления фокуса в поле осталась бы одна буква. Проверяем именно
+       набранное целиком — это и есть та часть, которая ломается молча. */
+    await input.click();
+    await p.keyboard.type("дрон", { delay: 60 });
+    await p.waitForTimeout(300);
+
+    const q = await shot();
+    const live = await p.evaluate(() => ({
+      value: (document.getElementById("wizardPkgSearch") || {}).value,
+      focused: document.activeElement && document.activeElement.id,
+    }));
+    assertEqual(live.value, "дрон", "поле поиска не удержало набранное — перерисовка съедает символы");
+    assertEqual(live.focused, "wizardPkgSearch", "после ввода фокус ушёл из поля поиска");
+    assert(q.cards > 0 && q.cards < all.cards,
+      `поиск не сузил список пакетов: было ${all.cards}, стало ${q.cards}`);
+    assertEqual(Number(q.found), q.cards, "счётчик найденного не сходится с числом карточек: " + q.note);
+
+    /* Совпадение может лежать в другой категории. Если выбранная вкладка молча
+       победит запрос, человек увидит пустоту и решит, что пакета нет вовсе. */
+    await p.evaluate(() => window.app.wizardSetData("pkgFilter", "photo"));
+    await p.waitForTimeout(300);
+    const crossCat = await shot();
+    assert(crossCat.cards > 0,
+      "запрос нашёл пакет, но выбранная категория показала пустоту — найденное недостижимо");
+
+    await p.evaluate(() => window.app.wizardSetData("pkgSearch", "щщщ"));
+    await p.waitForTimeout(300);
+    const none = await shot();
+    await ctx.close();
+    assertEqual(none.cards, 0, "по бессмысленному запросу всё равно показаны пакеты");
+    assert(none.empty, "пустой результат поиска ничем не объяснён — экран просто опустел");
+  });
+
   await context.close();
 };
