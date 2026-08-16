@@ -1040,4 +1040,48 @@ module.exports = async function ({ test }) {
     assertEqual(bad.length, 0, "тарифы разошлись:\n  " + bad.join("\n  "));
   });
 
+  await test("каталог: ни одной позиции-двойника — ни по id, ни по названию", () => {
+    /* Каталог правится вручную и растёт годами: при добавлении легко не заметить,
+       что «нарезки для соцсетей» или «базовая ретушь» там уже есть — названия
+       разные, смысл один. Двойник в каталоге дороже опечатки: в сметах он даёт
+       две строки за одну работу, а в поиске — два одинаковых ответа. */
+    const start = app.indexOf("const BASE_ITEMS = [");
+    assert(start > 0, "не нашёлся BASE_ITEMS");
+    const block = app.slice(start, app.indexOf("\n      ];", start));
+    const items = [...block.matchAll(/item\("([^"]+)",\s*"([^"]+)",\s*"([^"]+)"/g)]
+      .map((m) => ({ id: m[1], cat: m[2], name: m[3] }));
+    assert(items.length > 100, "разбор каталога дал подозрительно мало позиций: " + items.length);
+
+    const seenId = new Map();
+    const seenName = new Map();
+    const dupes = [];
+    for (const it of items) {
+      if (seenId.has(it.id)) dupes.push(`id «${it.id}» уже занят (${seenId.get(it.id)})`);
+      else seenId.set(it.id, it.name);
+      // Сравниваем без регистра и лишних пробелов: «Монтаж  ролика» и «монтаж ролика» —
+      // для человека в списке это одна и та же строка.
+      const key = it.name.toLowerCase().replace(/\s+/g, " ").trim();
+      if (seenName.has(key)) dupes.push(`название «${it.name}» повторяется (${seenName.get(key)} и ${it.id})`);
+      else seenName.set(key, it.id);
+    }
+    assert(!dupes.length, "в каталоге завелись двойники:\n  " + dupes.join("\n  "));
+  });
+
+  await test("каталог: у каждой позиции есть цена, единица и описание", () => {
+    const start = app.indexOf("const BASE_ITEMS = [");
+    const block = app.slice(start, app.indexOf("\n      ];", start));
+    // Полная сигнатура: id, категория, название, описание, модель расчёта, цена, единица.
+    const full = [...block.matchAll(/item\("([^"]+)",\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]*)",\s*"([^"]+)",\s*(\d+),\s*"([^"]*)"/g)];
+    const ids = [...block.matchAll(/item\("([^"]+)"/g)].map((m) => m[1]);
+    assertEqual(full.length, ids.length,
+      "часть позиций записана не по общей форме (id, категория, название, описание, модель, цена, единица) — их не разобрать");
+    const broken = full
+      .filter((m) => !m[4].trim() || !m[7].trim())
+      .map((m) => m[1] + (m[4].trim() ? " без единицы" : " без описания"));
+    assert(!broken.length, "позиции без описания или единицы измерения: " + broken.join(", "));
+    // Ноль допустим ровно одному — «Прочий расход», куда вписывают сумму руками.
+    const freebies = full.filter((m) => Number(m[6]) === 0).map((m) => m[1]);
+    assert(freebies.length <= 1, "позиций с нулевой ценой больше одной: " + freebies.join(", "));
+  });
+
 };
