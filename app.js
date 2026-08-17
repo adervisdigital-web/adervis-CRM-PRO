@@ -4353,6 +4353,7 @@
          вкладки: ни одна кнопка не подсвечена, ни один блок не отрисован, и под
          плитками зияла пустая половина экрана, пока не ткнёшь во вкладку руками. */
       let _adminPanelTab = "users";
+      let _adminPayments = [];
       let _settingsTab = "company";
       let _adminAgencies = null; // null = not loaded
       let _adminPromoCodes = null;
@@ -4373,10 +4374,14 @@
         if (!_isSuperAdmin() || !_supabase) return;
         _adminLoading = true; render();
         try {
-          const [agRes, promoRes, errRes] = await Promise.all([
+          const [agRes, promoRes, errRes, payRes] = await Promise.all([
             _supabase.rpc("admin_get_all_users"),
             _supabase.rpc("admin_get_promo_codes"),
-            _supabase.from("client_errors").select("*").order("created_at", { ascending: false }).limit(300)
+            _supabase.from("client_errors").select("*").order("created_at", { ascending: false }).limit(300),
+            /* Платежи грузим МЯГКО: миграция 20260817000001 накатывается владельцем
+               вручную, и до этого функции просто нет. Падать всей админкой из-за
+               ещё не накаченной таблицы нельзя — остальные вкладки живые. */
+            _supabase.rpc("admin_get_payments", { p_limit: 300 }).then(r => r).catch(() => ({ data: [], error: null }))
           ]);
           if (agRes.error) throw new Error("admin_get_all_users: " + agRes.error.message);
           if (promoRes.error) throw new Error("admin_get_promo_codes: " + promoRes.error.message);
@@ -4385,6 +4390,7 @@
           _adminAgencies = Array.isArray(agRes.data) ? agRes.data : (agRes.data || []);
           _adminPromoCodes = Array.isArray(promoRes.data) ? promoRes.data : (promoRes.data || []);
           _adminErrors = errRes.data || [];
+          _adminPayments = (payRes && !payRes.error && Array.isArray(payRes.data)) ? payRes.data : [];
           const now = new Date();
           const month1 = new Date(now.getFullYear(), now.getMonth(), 1);
           _adminStats = {
@@ -4539,6 +4545,34 @@
         });
         if (error) { toast("Ошибка: " + error.message); return; }
         toast("Подписка закрыта. Не забудьте письмо клиенту с суммой и сроком зачисления");
+        loadAdminPanel();
+      }
+
+      /* Отметка возврата. Деньги уже вернули руками в ЮKassa — здесь фиксируем факт,
+         чтобы он не потерялся: без записи возврат виден только в кабинете платёжной
+         системы, и через месяц никто не вспомнит, кому и сколько вернули. */
+      async function adminMarkRefund(paymentId, defaultAmount) {
+        const raw = await promptDialog({
+          title: "Отметить возврат",
+          defaultValue: String(Math.round(Number(defaultAmount) || 0)),
+          placeholder: "Сумма возврата, ₽",
+          okText: "Отметить",
+        });
+        if (raw === null) return;
+        const amount = numberValue(raw, 0);
+        if (amount <= 0) { toast("Сумма возврата должна быть больше нуля"); return; }
+        const reason = await promptDialog({
+          title: "Причина возврата",
+          placeholder: "Необязательно — но через месяц пригодится",
+          okText: "Сохранить",
+        });
+        const { error } = await _supabase.rpc("admin_mark_refund", {
+          p_payment_id: paymentId,
+          p_amount: amount,
+          p_reason: reason || null,
+        });
+        if (error) { toast("Ошибка: " + error.message); return; }
+        toast("Возврат отмечен: " + money(amount));
         loadAdminPanel();
       }
 
@@ -4808,7 +4842,7 @@
                   инлайновых стилях с width:fit-content и без переноса — на 390px
                   три вкладки не помещались, и «Ошибки» обрезалось на полуслове. */""}
             <div class="admin-tabs" style="display:flex;gap:4px;margin-bottom:20px;background:var(--panel2);padding:4px;border-radius:12px;width:fit-content">
-              ${[["users",icon("users"),"Пользователи"],["promos",icon("gift"),"Промокоды"],["errors",icon("bug"),"Ошибки" + ((_adminErrors||[]).length ? ` (${_adminErrors.length})` : "")]].map(([k,ic,l]) => `
+              ${[["users",icon("users"),"Пользователи"],["promos",icon("gift"),"Промокоды"],["payments",icon("wallet"),"Платежи"],["errors",icon("bug"),"Ошибки" + ((_adminErrors||[]).length ? ` (${_adminErrors.length})` : "")]].map(([k,ic,l]) => `
                 <button class="admin-tab" onclick="app._setAdminTab('${k}')"
                   style="display:inline-flex;align-items:center;gap:7px;padding:8px 18px;border-radius:9px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:.15s;
                   background:${_adminPanelTab===k?"var(--primary)":"transparent"};
@@ -4823,6 +4857,60 @@
               <div id="adminUsersList" style="display:flex;flex-direction:column;gap:8px">${_adminUsersListHtml()}</div>
             ` : ""}
 
+
+            <!-- Payments tab -->
+            ${_adminPanelTab === "payments" ? (() => {
+              const rows = _adminPayments || [];
+              const sum = rows.filter(r => !r.refunded_at).reduce((a, r) => a + Number(r.amount || 0), 0);
+              const back = rows.reduce((a, r) => a + Number(r.refund_amount || 0), 0);
+              if (!rows.length) {
+                /* Пусто по двум разным причинам, и их важно различать: миграции ещё
+                   нет — или платежей ещё не было. Второе — правда про бизнес, первое —
+                   про незаконченную работу, и человек должен понимать, что видит. */
+                return emptyState({
+                  icon: "wallet",
+                  title: "Платежей пока нет",
+                  text: "Здесь появятся оплаты подписки: сумма, дата, тариф и промокод. Если таблица ещё не создана в базе — накатите миграцию 20260817000001_payments_history.sql, до этого раздел останется пустым.",
+                });
+              }
+              return `
+                <div class="admin-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px">
+                  <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
+                    <div style="font-size:20px;font-weight:900;font-variant-numeric:tabular-nums">${money(sum)}</div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:3px;font-weight:600">Получено всего</div>
+                  </div>
+                  <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
+                    <div style="font-size:20px;font-weight:900;font-variant-numeric:tabular-nums;color:${back ? "var(--text-warning)" : "var(--text)"}">${money(back)}</div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:3px;font-weight:600">Возвращено</div>
+                  </div>
+                  <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
+                    <div style="font-size:20px;font-weight:900;font-variant-numeric:tabular-nums">${rows.length}</div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:3px;font-weight:600">Платежей</div>
+                  </div>
+                </div>
+                <div class="fin-table-wrap">
+                  <table class="fin-table">
+                    <thead><tr><th>Дата</th><th>Кто</th><th>Тариф</th><th>Промокод</th><th class="ta-right">Сумма</th><th></th></tr></thead>
+                    <tbody>
+                      ${rows.map(r => `
+                        <tr${r.refunded_at ? ` style="opacity:.55"` : ""}>
+                          <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${escapeHtml(formatDate(r.paid_at))}</td>
+                          <td style="font-size:12px">${escapeHtml(r.email || r.user_id || "—")}</td>
+                          <td style="font-size:12px">${escapeHtml(_adminPlanLabel(r.plan))}</td>
+                          <td style="font-size:12px">${r.promo_code ? `<span class="badge">${escapeHtml(r.promo_code)}${r.discount_percent ? ` −${r.discount_percent}%` : ""}</span>` : "—"}</td>
+                          <td class="amount-cell" style="text-align:right;white-space:nowrap">${money(r.amount)}</td>
+                          <td style="text-align:right;white-space:nowrap">
+                            ${r.refunded_at
+                              ? `<span class="badge" title="${escapeHtml(r.refund_reason || "")}">возвращено ${money(r.refund_amount || 0)}</span>`
+                              : `<button class="btn small" onclick="app.adminMarkRefund('${escapeHtml(r.id)}', ${Number(r.amount || 0)})" title="Отметить возврат после того, как деньги вернули в ЮKassa">Отметить возврат</button>`}
+                          </td>
+                        </tr>`).join("")}
+                    </tbody>
+                  </table>
+                </div>
+                <p class="mini-note" style="margin-top:10px">Деньги возвращаются в кабинете ЮKassa — здесь только отметка, чтобы факт не потерялся. Порядок и расчёт суммы — в REFUNDS.md.</p>
+              `;
+            })() : ""}
 
             <!-- Promos tab -->
             ${_adminPanelTab === "promos" ? `
@@ -26257,6 +26345,7 @@ Email: _____________________              Email: _____________________
         adminExtendTrial,
         adminToggleBlock,
         adminRefund,
+        adminMarkRefund,
         adminToggleActivity,
         _setExpenseBudget,
         _setAdminTab,

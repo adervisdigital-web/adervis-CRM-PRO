@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
   // Load current profile to know if we should extend or start fresh
   const { data: profile, error: fetchErr } = await supabase
     .from("profiles")
-    .select("subscription_expires_at, subscription_status, yookassa_last_payment_id")
+    .select("subscription_expires_at, subscription_status, yookassa_last_payment_id, agency_id")
     .eq("id", userId)
     .single();
 
@@ -184,6 +184,38 @@ Deno.serve(async (req) => {
   if (updateErr) {
     console.error("Webhook: profile update error", updateErr);
     return new Response("DB error", { status: 500 });
+  }
+
+  /* История платежей. До 17.08.2026 про оплату оставалось одно поле в профиле —
+     id ПОСЛЕДНЕГО платежа: ни суммы, ни даты, ни промокода, а второй платёж стирал
+     первый. Из-за этого возврат считался вслепую (сумму искали руками в кабинете
+     ЮKassa), а MRR в админке считался по подпискам, а не по деньгам.
+
+     Пишем ПОСЛЕ успешного обновления профиля и НЕ роняем ответ при ошибке: подписка
+     уже продлена, деньги получены — отдать ЮKassa 500 значит получить переотправку
+     уведомления и разбирать её вручную. Повторную запись отсекает UNIQUE на
+     yookassa_payment_id. */
+  const amountValue = Number(
+    (payment.amount as Record<string, unknown> | undefined)?.value ?? 0,
+  );
+  const amountCurrency = String(
+    (payment.amount as Record<string, unknown> | undefined)?.currency ?? "RUB",
+  );
+  const { error: payErr } = await supabase.from("payments").insert({
+    user_id:             userId,
+    // agency_id берём из профиля: create-payment его не знает, а лишний запрос
+    // в платёжную функцию ради одного поля — вторая точка отказа на пути денег.
+    agency_id:           profile.agency_id ?? null,
+    yookassa_payment_id: paymentId,
+    amount:              amountValue,
+    currency:            amountCurrency,
+    plan:                planId,
+    promo_code:          promoCode ?? null,
+    discount_percent:    discountPercent || null,
+    paid_at:             new Date().toISOString(),
+  });
+  if (payErr && payErr.code !== "23505") {
+    console.error("Webhook: payments insert error", payErr);
   }
 
   // Count the promo use only now that the payment has actually succeeded —
