@@ -3638,12 +3638,72 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
 
     assert(res.hasSde, "пакет SDE из кода не доехал до аккаунта с сохранёнными пакетами");
+    void 0;
     assert(res.hasMarketplace, "пакет предметной съёмки не доехал");
     assert(res.keptCustom, "свой пакет пользователя пропал при слиянии");
     assert(/моя правка/.test(res.editedName),
       "слияние затёрло правку пользователя во встроенном пакете: «" + res.editedName + "»");
     assert(!res.dupes, "после слияния в списке появились пакеты-двойники");
     assert(res.count > 40, "недостающие пакеты дописались не полностью: " + res.count);
+  });
+
+  await test("этапы и база знаний тоже догоняют код — но удалённое не воскресает", async () => {
+    await dismissStaleDialog(page);
+    /* Тот же класс, что и с пакетами: коллекция лежит в состоянии целиком, и всё
+       добавленное в код после первого входа человека до него не доезжает. Разница в
+       том, что встроенный документ базы знаний УДАЛИТЬ можно — значит, слияние обязано
+       уважать удаление, иначе документ вернётся на следующей же загрузке. */
+    const { ctx, p } = await bootWithState(`
+      st.stages = [{ id: "pre", name: "Мой этап", color: "#000", desc: "правленый" }];
+      const docs = JSON.parse(JSON.stringify(st.knowledgeDocs || []));
+      // Аккаунт «из прошлого»: один документ остался, один удалён пользователем.
+      const kept = docs[0];
+      const deletedId = (docs[1] || {}).id || "kb_sales_2";
+      st.knowledgeDocs = kept ? [kept] : [];
+      st.deletedKbDocs = { [deletedId]: true };
+      st._testDeletedId = deletedId;
+    `);
+
+    const res = await p.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const deletedId = st._testDeletedId;
+      // Читаем ПАМЯТЬ приложения через отрисовку: слияние попадёт в хранилище
+      // только со следующим сохранением.
+      window.app.go("knowledge");
+      const kbTitles = [...document.querySelectorAll("#appContent .kb-card, #appContent [onclick*='kbOpen']")]
+        .map((e) => (e.textContent || "").trim().slice(0, 40));
+      window.app.go("deal");
+      return { deletedId, kbCount: kbTitles.length, kbTitles: kbTitles.slice(0, 3) };
+    });
+
+    const stages = await p.evaluate(() => {
+      // Этапы видны в смете как заголовки групп; берём их из состояния после render.
+      window.app.go("catalog");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return (st.stages || []).map((x) => x.id);
+    });
+    void stages;
+
+    const inMemory = await p.evaluate(() => {
+      // Единственный честный способ увидеть память — заставить приложение сохранить.
+      window.app.updateProject("name", "проверка слияния");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return {
+        stageIds: (st.stages || []).map((x) => x.id),
+        stageFirstName: ((st.stages || [])[0] || {}).name,
+        kbIds: (st.knowledgeDocs || []).map((d) => d.id),
+        deletedId: st._testDeletedId,
+      };
+    });
+    await ctx.close();
+
+    assert(inMemory.stageIds.length > 1,
+      "этапы не догнали код: осталось " + inMemory.stageIds.length + " из пяти");
+    assertEqual(inMemory.stageFirstName, "Мой этап", "слияние затёрло правку пользователя в этапе");
+    assert(inMemory.kbIds.length > 1, "новые статьи базы знаний не доехали: " + inMemory.kbIds.length);
+    assert(!inMemory.kbIds.includes(inMemory.deletedId),
+      "удалённый документ базы знаний вернулся после слияния: " + inMemory.deletedId);
+    void res;
   });
 
   await context.close();

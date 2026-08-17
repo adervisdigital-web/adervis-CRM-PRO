@@ -6358,9 +6358,20 @@
         if (idx < 0) return;
         const removed = state.knowledgeDocs[idx];
         state.knowledgeDocs = state.knowledgeDocs.filter(d => d.id !== id);
+        /* Метка удаления нужна только встроенным документам: без неё слияние новых
+           статей из кода вернуло бы удалённую на следующей же загрузке. Свои документы
+           в DEFAULT_KB_DOCS не входят, помечать их незачем. */
+        if (DEFAULT_KB_DOCS.some(d => d.id === id)) {
+          state.deletedKbDocs = { ...(state.deletedKbDocs || {}), [id]: true };
+        }
         state.kbView = "list"; save(); render();
         toastUndo("Документ удалён", () => {
           state.knowledgeDocs.splice(idx, 0, removed);
+          if (state.deletedKbDocs) {
+            const back = { ...state.deletedKbDocs };
+            delete back[id];
+            state.deletedKbDocs = back;
+          }
           save(); render();
           toast("Удаление отменено");
         });
@@ -6966,6 +6977,7 @@
           notifications: [],
           notifPopupOpen: false,
           knowledgeDocs: deepClone(DEFAULT_KB_DOCS),
+          deletedKbDocs: {},
           kbView: "list",
           kbEditId: "",
           kbSearch: "",
@@ -7174,8 +7186,8 @@
           team: Array.isArray(old.team) ? old.team.map(normalizeTeamMember) : [],
           activeProjectId: old.activeProjectId || old.project?.id || "",
           activeClientId: old.activeClientId || old.project?.clientId || "",
-          stages: Array.isArray(old.stages) && old.stages.length ? old.stages : base.stages,
-          packages: _withNewDefaultPackages(old.packages, base.packages),
+          packages: _withNewDefaults(old.packages, base.packages),
+          stages: _withNewDefaults(old.stages, base.stages),
           contracts: Array.isArray(old.contracts) ? old.contracts : [],
           dealView: old.dealView || "estimate",
           wizard: null,
@@ -7214,21 +7226,30 @@
         return (yr >= 2020 && yr <= 2099) ? d : "";
       }
 
-      /* Пакеты хранятся в аккаунте ЦЕЛИКОМ: было `state.packages.length ? state.packages
-         : base.packages`, то есть у кого пакеты уже сохранены, новые из кода не доезжали
-         никогда. Замер прода 17.08: у агентства владельца 39 пакетов из 45 — не хватало
-         шести, включая заказанный им же накануне SDE. Ровно тот случай, когда работа
-         сделана, оттестирована, задеплоена и невидима.
+      /* Коллекции состояния обновляются ПО-РАЗНОМУ, и это главный источник «сделано,
+         задеплоено и невидимо»:
+           • каталог услуг СКЛАДЫВАЕТСЯ — allItems() = BASE_ITEMS + свои позиции, поэтому
+             новая услуга из кода появляется у всех сама;
+           • пакеты, этапы и база знаний лежали в состоянии ЦЕЛИКОМ по принципу «есть
+             сохранённые — значения из кода не нужны», то есть всё, что добавлено после
+             первого входа человека, не доезжало до него никогда.
 
-         Дописываем недостающие по id, чужого не трогаем: правки существующих пакетов —
-         дело владельца аккаунта, перезаписывать их нельзя. Воскресить удалённое здесь
-         невозможно по построению: deletePackage работает только со СВОИМИ пакетами
-         (id начинается с `package_`), встроенный удалить нечем. */
-      function _withNewDefaultPackages(saved, defaults) {
-        if (!Array.isArray(saved) || !saved.length) return defaults;
-        const have = new Set(saved.map(p => p && p.id));
-        const missing = (defaults || []).filter(p => p && !have.has(p.id));
-        return missing.length ? saved.concat(deepClone(missing)) : saved;
+         Замер прода 17.08: у агентства владельца 39 пакетов из 45 — не хватало шести,
+         включая заказанный им же накануне SDE.
+
+         Дописываем недостающее по id (готовым `_mergeCatalogById`), правки существующих
+         не трогаем — это дело владельца аккаунта. Удалённое не воскресает: встроенные
+         пакеты и этапы удалить нечем вовсе, а для базы знаний, где удаление есть,
+         работает метка `deletedKbDocs` (тот же приём, что `permanentlyDeleted` в каталоге). */
+      function _withNewDefaults(saved, defaults) {
+        return _mergeCatalogById(saved, defaults, defaults);
+      }
+
+      function _withNewKbDocs(saved) {
+        const merged = _mergeCatalogById(saved, DEFAULT_KB_DOCS, DEFAULT_KB_DOCS);
+        const removed = state && state.deletedKbDocs;
+        if (!removed || typeof removed !== "object") return merged;
+        return merged.filter(d => !(d && removed[d.id]));
       }
 
       function normalizeState() {
@@ -7258,13 +7279,13 @@
           expenses: Array.isArray(state.expenses) ? state.expenses.map(normalizeExpense) : [],
           team: Array.isArray(state.team) ? state.team.map(normalizeTeamMember) : [],
           versions: Array.isArray(state.versions) ? state.versions : [],
-          stages: Array.isArray(state.stages) && state.stages.length ? state.stages : base.stages,
-          packages: _withNewDefaultPackages(state.packages, base.packages),
+          stages: _withNewDefaults(state.stages, base.stages),
+          packages: _withNewDefaults(state.packages, base.packages),
           contracts: Array.isArray(state.contracts) ? state.contracts : [],
           adminModal: null,
           notifPopupOpen: false,
           notifications: Array.isArray(state.notifications) ? state.notifications : [],
-          knowledgeDocs: Array.isArray(state.knowledgeDocs) && state.knowledgeDocs.length ? state.knowledgeDocs : deepClone(DEFAULT_KB_DOCS),
+          knowledgeDocs: _withNewKbDocs(state.knowledgeDocs),
           kbView: state.kbView || "list",
           kbEditId: state.kbEditId || "",
           kbSearch: state.kbSearch || "",
