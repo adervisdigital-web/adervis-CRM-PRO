@@ -34,6 +34,21 @@ async function dismissStaleDialog(page) {
 }
 
 module.exports = async function ({ browser, baseUrl, test }) {
+
+  /* Ввод в СОБСТВЕННЫЙ диалог приложения. Раньше эти тесты подменяли window.prompt —
+     системное окно заменили на свой диалог (оно чуждо в PWA, не держит фокус-ловушку и
+     стиль), и подмена перестала что-либо значить: код ждал ответа, окно висело, а
+     следующие тесты падали по таймауту клика. Теперь отвечаем как человек. */
+  async function answerPrompt(p, value) {
+    await p.waitForSelector(".confirm-dialog-overlay .confirm-dialog-input", { timeout: 8000 });
+    await p.evaluate((v) => {
+      const i = document.querySelector(".confirm-dialog-overlay .confirm-dialog-input");
+      i.value = v;
+      i.dispatchEvent(new Event("input", { bubbles: true }));
+      document.querySelector(".confirm-dialog-overlay .confirm-ok").click();
+    }, value);
+    await p.waitForTimeout(180);
+  }
   const { context, page } = await bootLocal(browser, baseUrl, { width: 1000, height: 820, seedDemo: true });
 
   await test("undo-тост: удаление проекта показывает «Отменить» и восстанавливается", async () => {
@@ -598,24 +613,22 @@ module.exports = async function ({ browser, baseUrl, test }) {
   // Свой раздел меню = внешняя ссылка. Протоколы кроме http(s) должны отсекаться:
   // иначе в меню можно вписать javascript:… и получить исполнение кода по клику.
   await test("меню: свой раздел принимает https и отвергает javascript:", async () => {
-    const before = await page.evaluate(() => {
+    await page.evaluate(() => {
       localStorage.removeItem("sidebar_nav_config");
-      let n = 0;
-      window.prompt = () => (++n === 1 ? "Наш Drive" : "drive.google.com/x");
       window.app.addCustomNavItem();
-      return JSON.parse(localStorage.getItem("sidebar_nav_config") || "[]")
-        .filter((x) => String(x.id).startsWith("custom:"));
     });
+    await answerPrompt(page, "Наш Drive");
+    await answerPrompt(page, "drive.google.com/x");
+    const before = await page.evaluate(() => JSON.parse(localStorage.getItem("sidebar_nav_config") || "[]")
+      .filter((x) => String(x.id).startsWith("custom:")));
     assertEqual(before.length, 1, "свой раздел не сохранился");
     assertEqual(before[0].url, "https://drive.google.com/x", "ссылка без схемы не нормализовалась в https");
 
-    const after = await page.evaluate(() => {
-      let n = 0;
-      window.prompt = () => (++n === 1 ? "Злой" : "javascript:alert(1)");
-      window.app.addCustomNavItem();
-      return JSON.parse(localStorage.getItem("sidebar_nav_config") || "[]")
-        .filter((x) => String(x.id).startsWith("custom:"));
-    });
+    await page.evaluate(() => { window.app.addCustomNavItem(); }); // без return: иначе evaluate ждёт ответа в диалоге
+    await answerPrompt(page, "Злой");
+    await answerPrompt(page, "javascript:alert(1)");
+    const after = await page.evaluate(() => JSON.parse(localStorage.getItem("sidebar_nav_config") || "[]")
+      .filter((x) => String(x.id).startsWith("custom:")));
     assertEqual(after.length, 1, "javascript:-ссылка попала в меню");
   });
 
@@ -659,9 +672,9 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.evaluate(() => window.app.go("catalog"));
     await page.waitForTimeout(250);
 
+    await page.evaluate(() => { window.app.addCustomCatalogGroup(); });
+    await answerPrompt(page, "Мои хиты");
     const cg = await page.evaluate(() => {
-      window.prompt = () => "Мои хиты";
-      window.app.addCustomCatalogGroup();
       const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
       return (st.customCatalogGroups || [])[0];
     });
@@ -895,9 +908,9 @@ module.exports = async function ({ browser, baseUrl, test }) {
   // режиме показывает скелетон (загрузка заявок требует сессии Supabase), поэтому
   // проверяем модель: тип заводится, попадает в общий список и удаляется.
   await test("брифы: свой тип создаётся, попадает в список типов и удаляется", async () => {
+    await page.evaluate(() => { window.app.addCustomBriefType(); });
+    await answerPrompt(page, "Свадьба");
     const created = await page.evaluate(() => {
-      window.prompt = () => "Свадьба";
-      window.app.addCustomBriefType();
       const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
       return st.customBriefTypes || [];
     });
@@ -1074,18 +1087,18 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
   // ── Статьи финансов ─────────────────────────────────────────────────────────
   await test("финансы: статьи добавляются, переименовываются и не ломают операции", async () => {
+    await page.evaluate(() => { window.app.addFinanceArticle("payment"); });
+    await answerPrompt(page, "Ретейнер");
     const added = await page.evaluate(() => {
-      window.prompt = () => "Ретейнер";
-      window.app.addFinanceArticle("payment");
       const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
       return (st.financeArticles || {}).payment || [];
     });
     assert(added.includes("Ретейнер"), "своя статья не добавилась: " + JSON.stringify(added));
     assert(added.includes("Предоплата"), "встроенные статьи пропали при добавлении своей");
 
+    await page.evaluate(() => { window.app.renameFinanceArticle("payment", 0); });
+    await answerPrompt(page, "Аванс");
     const renamed = await page.evaluate(() => {
-      window.prompt = () => "Аванс";
-      window.app.renameFinanceArticle("payment", 0);
       const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
       return (st.financeArticles || {}).payment || [];
     });
@@ -3706,5 +3719,35 @@ module.exports = async function ({ browser, baseUrl, test }) {
     void res;
   });
 
+  await test("поддержка: предложение сделать CRM под клиента ведёт в Telegram с заготовкой", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => window.app.go("support"));
+    await page.waitForTimeout(350);
+    const card = await page.evaluate(() => {
+      const c = [...document.querySelectorAll(".support-card")]
+        .find((x) => /Сделаем CRM под вас/i.test(x.textContent || ""));
+      if (!c) return null;
+      const b = c.getBoundingClientRect();
+      return {
+        href: c.getAttribute("href") || "",
+        target: c.getAttribute("target") || "",
+        rel: c.getAttribute("rel") || "",
+        h: Math.round(b.height),
+        text: (c.textContent || "").replace(/\s+/g, " ").trim(),
+      };
+    });
+
   await context.close();
+
+    assert(card, "в поддержке нет предложения сделать CRM под клиента");
+    assert(/t\.me\//.test(card.href), "карточка не ведёт в Telegram: " + card.href);
+    // Заготовка письма: первый ответ должен уже содержать суть задачи.
+    const text = decodeURIComponent((card.href.split("text=")[1] || ""));
+    assert(/Чем занимаемся/.test(text) && /автоматизировать/.test(text),
+      "письмо не заготовлено вопросами — придётся выспрашивать вручную: " + text.slice(0, 80));
+    assertEqual(card.target, "_blank", "ссылка открывается в том же окне — человек уйдёт из приложения");
+    assert(/noopener/.test(card.rel), "внешняя ссылка без rel=noopener");
+    assert(card.h >= 44, "карточка ниже 44px — на телефоне в неё трудно попасть: " + card.h);
+  });
+
 };

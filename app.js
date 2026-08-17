@@ -110,10 +110,16 @@
           { id: "make",  label: "Производство",       tags: ["генерация", "видео", "диктор", "голос", "моушн", "графика", "звук", "саунд", "цвет", "цветокоррекция", "музыка", "лицензия", "SFX", "монтаж", "VFX"] },
         ],
         web: [
-          { id: "sites",    label: "Сайты",        tags: ["сайт", "лендинг", "магазин"] },
-          { id: "identity", label: "Айдентика",    tags: ["логотип", "фирстиль", "брендбук"] },
-          { id: "graphics", label: "Графика",      tags: ["презентация", "баннер", "макет"] },
-          { id: "support",  label: "Поддержка",    tags: ["поддержка", "доработка", "хостинг"] },
+          /* Порядок важен — выигрывает первое совпадение. «Соцсети» и «Упаковка»
+             стоят ВЫШЕ «Графики»: у карточек маркетплейса и макетов упаковки есть
+             тег «макет», и без этого порядка весь новый дизайн ушёл бы в общую
+             свалку «Графика», где его никто бы не нашёл. */
+          { id: "sites",    label: "Сайты",                 tags: ["сайт", "лендинг", "магазин", "веб"] },
+          { id: "social",   label: "Соцсети и каналы",      tags: ["соцсети", "вк", "telegram", "youtube", "маркетплейс", "обложка", "шаблоны"] },
+          { id: "pack",     label: "Упаковка и полиграфия", tags: ["упаковка", "полиграфия", "печать", "мерч"] },
+          { id: "identity", label: "Айдентика",             tags: ["логотип", "фирстиль", "брендбук", "айдентика"] },
+          { id: "graphics", label: "Графика",               tags: ["презентация", "баннер", "макет", "дизайн"] },
+          { id: "support",  label: "Поддержка",             tags: ["поддержка", "доработка", "хостинг"] },
         ],
         money: [
           { id: "place", label: "Локация и студия",   tags: ["локация", "студия"] },
@@ -496,6 +502,106 @@
         item("web_presentation", "web", "Дизайн презентации", "Оформление презентации под задачу: продажа, инвестор, отчёт.", "fixed+qty", 2500, "слайд", { stage: "post", tags: ["презентация", "макет"] }),
         item("web_banners", "web", "Баннеры и креативы", "Комплект рекламных баннеров под площадки в нужных форматах.", "fixed+qty", 1500, "баннер", { stage: "marketing", tags: ["баннер", "макет", "реклама"] }),
         item("web_revision", "web", "Доработка сайта", "Правки и новые блоки на существующем сайте.", "hourly", 2500, "час", { stage: "post", tags: ["доработка", "поддержка"] }),
+        // ── Соцсети и каналы: оформление сообществ ──────────────────────────
+        item("smm_vk_pack", "web", "Оформление сообщества ВК", "Обложка, аватар, меню и виджеты в едином стиле.", "fixed", 12000, "пакет", { stage: "post", tags: ["соцсети", "вк", "оформление", "дизайн"] }),
+        item("smm_vk_cover", "web", "Обложка сообщества ВК", "Живая или статичная обложка под текущую акцию.", "fixed+qty", 2500, "обложка", { stage: "post", tags: ["соцсети", "вк", "обложка"] }),
+        item("smm_vk_menu", "web", "Меню и виджеты ВК", "Графическое меню сообщества с разделами и ссылками.", "fixed", 6000, "пакет", { stage: "post", tags: ["соцсети", "вк", "оформление"] }),
+        item("smm_tg_pack", "web", "Оформление Telegram-канала", "Аватар, обложка, шапка и оформление закреплённого поста.", "fixed", 8000, "пакет", { stage: "post", tags: ["соцсети", "telegram", "оформление"] }),
+        item("smm_yt_pack", "web", "Оформление YouTube-канала", "Шапка, аватар и шаблон превью под ролики канала.", "fixed", 10000, "пакет", { stage: "post", tags: ["соцсети", "youtube", "оформление"] }),
+        item("smm_thumb", "web", "Превью для видео", "Кликабельная обложка ролика: кадр, текст, акцент.", "fixed+qty", 900, "превью", { stage: "post", tags: ["соцсети", "обложка", "youtube"] }),
+        item("smm_stories_pack", "web", "Шаблоны сторис", "Набор редактируемых шаблонов под регулярные публикации.", "fixed", 9000, "пакет", { stage: "post", tags: ["соцсети", "шаблоны", "дизайн"] }),
+        item("smm_post_templates", "web", "Шаблоны постов", "Сетка оформления ленты: заголовки, цитаты, анонсы.", "fixed", 11000, "пакет", { stage: "post", tags: ["соцсети", "шаблоны", "дизайн"] }),
+        item("smm_avatar", "web", "Аватар сообщества", "Логотип или знак, адаптированный под круглую миниатюру.", "fixed", 3000, "шт", { stage: "post", tags: ["соцсети", "оформление"] }),
+        item("smm_mp_card", "web", "Карточка для маркетплейса", "Инфографика на фото товара: выгоды, размеры, комплект.", "fixed+qty", 1200, "карточка", { stage: "post", tags: ["соцсети", "маркетплейс", "дизайн"] }),
+        item("smm_mp_pack", "web", "Комплект карточек для маркетплейса", "Обложка и до восьми карточек в едином стиле.", "fixed", 12000, "товар", { stage: "post", tags: ["соцсети", "маркетплейс", "дизайн"] }),
+        item("smm_infographic", "web", "Инфографика", "Схема, диаграмма или процесс в фирменном стиле.", "fixed+qty", 3500, "макет", { stage: "post", tags: ["соцсети", "макет", "дизайн"] }),
+
+        // ── Упаковка и полиграфия ──────────────────────────────────────────
+        item("pack_design", "web", "Дизайн упаковки", "Развёртка, лицевая сторона, состав и штрихкод — под печать.", "fixed", 45000, "макет", { stage: "post", tags: ["упаковка", "дизайн", "печать"] }),
+        item("pack_design_line", "web", "Дизайн линейки упаковки", "Единая система для нескольких вкусов или объёмов.", "fixed", 90000, "линейка", { stage: "post", tags: ["упаковка", "дизайн", "печать"] }),
+        item("pack_label", "web", "Этикетка", "Макет этикетки с подготовкой к печати.", "fixed", 18000, "макет", { stage: "post", tags: ["упаковка", "печать"] }),
+        item("pack_sticker", "web", "Стикер-пак", "Набор наклеек для коробок, техники и мерча.", "fixed", 7000, "набор", { stage: "post", tags: ["упаковка", "печать"] }),
+        item("print_cards", "web", "Визитки", "Двусторонний макет с подготовкой к типографии.", "fixed", 5000, "макет", { stage: "post", tags: ["полиграфия", "печать"] }),
+        item("print_booklet", "web", "Буклет", "Складной буклет: сетка, текст, вёрстка под печать.", "fixed", 22000, "макет", { stage: "post", tags: ["полиграфия", "печать"] }),
+        item("print_catalog", "web", "Каталог продукции", "Многостраничная вёрстка каталога.", "fixed+qty", 2000, "полоса", { stage: "post", tags: ["полиграфия", "печать"] }),
+        item("print_poster", "web", "Плакат или афиша", "Макет под печать в большом формате.", "fixed", 9000, "макет", { stage: "post", tags: ["полиграфия", "печать"] }),
+        item("print_outdoor", "web", "Наружная реклама", "Билборд, ситиформат или вывеска: макет с учётом расстояния просмотра.", "fixed", 15000, "макет", { stage: "post", tags: ["полиграфия", "реклама", "печать"] }),
+        item("print_merch", "web", "Дизайн мерча", "Футболки, худи, кружки, тоут — макеты под нанесение.", "fixed", 14000, "пакет", { stage: "post", tags: ["полиграфия", "мерч", "печать"] }),
+        item("print_prepress", "web", "Предпечатная подготовка", "Проверка макета, цвета, вылеты, профили типографии.", "fixed", 4000, "макет", { stage: "post", tags: ["полиграфия", "печать", "поддержка"] }),
+
+        // ── Айдентика и бренд ──────────────────────────────────────────────
+        item("brand_naming", "web", "Нейминг", "Подбор названия с проверкой на занятость в поиске и доменах.", "creativeWork", 30000, "проект", { tags: ["айдентика", "фирстиль"] }),
+        item("brand_guide", "web", "Брендбук", "Правила использования знака, цвета, шрифты, носители.", "fixed", 120000, "документ", { stage: "post", tags: ["брендбук", "айдентика", "фирстиль"] }),
+        item("brand_logo_redesign", "web", "Редизайн логотипа", "Обновление знака с сохранением узнаваемости.", "fixed", 25000, "логотип", { stage: "post", tags: ["логотип", "айдентика"] }),
+        item("brand_icons", "web", "Набор иконок", "Иконки в едином стиле для сайта, приложения или презентации.", "fixed+qty", 1200, "иконка", { stage: "post", tags: ["макет", "дизайн"] }),
+        item("brand_illustration", "web", "Иллюстрация", "Авторская иллюстрация под задачу бренда.", "fixed+qty", 8000, "иллюстрация", { stage: "post", tags: ["макет", "дизайн"] }),
+        item("brand_pitchdeck", "web", "Питч-дек для инвестора", "Структура и дизайн презентации на 12–15 слайдов.", "fixed", 45000, "презентация", { stage: "post", tags: ["презентация", "макет"] }),
+        item("brand_kp_design", "web", "Дизайн коммерческого предложения", "Шаблон КП в фирменном стиле, редактируемый.", "fixed", 18000, "шаблон", { stage: "post", tags: ["презентация", "макет"] }),
+
+        // ── Сайты: дополнения ──────────────────────────────────────────────
+        item("web_event_landing", "web", "Лендинг мероприятия", "Одностраничник под событие: программа, спикеры, регистрация.", "fixed", 45000, "сайт", { stage: "post", tags: ["сайт", "лендинг", "веб"] }),
+        item("web_quiz", "web", "Квиз или форма заявки", "Пошаговая форма с логикой и отправкой в CRM.", "fixed", 20000, "форма", { stage: "post", tags: ["сайт", "веб"] }),
+        item("web_analytics_setup", "web", "Настройка аналитики", "Метрика, цели, события — чтобы видеть, что работает.", "fixed", 12000, "проект", { stage: "post", tags: ["сайт", "поддержка", "веб"] }),
+        item("web_seo_base", "web", "Базовая SEO-настройка", "Заголовки, микроразметка, скорость, карта сайта.", "fixed", 18000, "проект", { stage: "post", tags: ["сайт", "поддержка", "веб"] }),
+        item("web_hosting_setup", "web", "Домен и хостинг", "Регистрация, привязка, почта, сертификат.", "fixed", 6000, "проект", { stage: "post", tags: ["хостинг", "поддержка"] }),
+        item("web_mobile_adapt", "web", "Мобильная адаптация", "Приведение существующих страниц к телефону.", "fixed+qty", 4000, "страница", { stage: "post", tags: ["сайт", "доработка", "веб"] }),
+
+        // ── Маркетинг и продвижение ────────────────────────────────────────
+        item("smm_month", "marketing", "Ведение соцсетей", "Контент-план, публикации, ответы — месяц работы.", "fixed", 35000, "мес.", { stage: "marketing", tags: ["smm", "публикация"] }),
+        item("smm_content_plan", "marketing", "Контент-план", "Месячная сетка тем и форматов под цели бренда.", "creativeWork", 12000, "план", { stage: "marketing", tags: ["smm", "копирайтинг"] }),
+        item("ads_setup", "marketing", "Настройка рекламной кампании", "Кабинет, аудитории, креативы, цели — запуск.", "fixed", 20000, "кампания", { stage: "marketing", tags: ["реклама"] }),
+        item("ads_manage", "marketing", "Ведение рекламы", "Работа с кампанией в течение месяца и отчёт.", "fixed", 25000, "мес.", { stage: "marketing", tags: ["реклама"] }),
+        item("email_campaign", "marketing", "Email-рассылка", "Письмо, вёрстка, сегмент, отправка и отчёт.", "fixed", 9000, "рассылка", { stage: "marketing", tags: ["публикация", "копирайтинг"] }),
+        item("copy_landing", "marketing", "Текст для лендинга", "Структура и текст страницы под целевое действие.", "creativeWork", 18000, "страница", { stage: "marketing", tags: ["копирайтинг"] }),
+        item("copy_script_ads", "marketing", "Сценарий рекламной кампании", "Идея кампании и сценарии роликов под площадки.", "creativeWork", 25000, "кампания", { stage: "marketing", tags: ["копирайтинг", "реклама"] }),
+        item("smm_report", "marketing", "Отчёт по продвижению", "Цифры, выводы и что делать дальше — без воды.", "fixed", 6000, "отчёт", { stage: "marketing", tags: ["публикация"] }),
+
+        // ── Фото ───────────────────────────────────────────────────────────
+        item("photo_report", "photo", "Репортажная фотосъёмка", "Съёмка процесса или события без постановки.", "crewShift", 5500, "смена", {
+          stage: "shoot", rates: { hour: 950, half: 3800, full: 5500, long: 7500, premium: 10500, overtimeHour: 750 }, tags: ["фото", "репортаж"]
+        }),
+        item("photo_team", "photo", "Портреты команды", "Единый стиль портретов для сайта и презентаций.", "crewShift", 6000, "смена", {
+          stage: "shoot", rates: { hour: 1000, half: 4000, full: 6000, long: 8000, premium: 11000, overtimeHour: 800 }, tags: ["фото", "портрет"]
+        }),
+        item("photo_interior", "photo", "Интерьерная съёмка", "Помещения со светом и правильной геометрией.", "crewShift", 7000, "смена", {
+          stage: "shoot", rates: { hour: 1200, half: 4800, full: 7000, long: 9500, premium: 13000, overtimeHour: 950 }, tags: ["фото", "интерьер"]
+        }),
+        item("photo_aerial", "photo", "Аэрофотосъёмка", "Съёмка объекта с воздуха и обработка кадров.", "crewShift", 7000, "смена", {
+          stage: "shoot", rates: { hour: 1200, half: 4800, full: 7000, long: 9500, premium: 13000, overtimeHour: 950 }, tags: ["фото", "дрон"]
+        }),
+        item("photo_catalog", "photo", "Каталожная съёмка", "Товар на белом фоне по единому стандарту.", "fixed+qty", 350, "кадр", { stage: "shoot", tags: ["фото", "предметная"] }),
+        item("photo_color", "photo", "Цветокоррекция фото", "Единый цвет и свет по всей серии.", "fixed+qty", 250, "фото", { stage: "post", tags: ["ретушь", "обработка"] }),
+
+        // ── Постпродакшн и звук ────────────────────────────────────────────
+        item("post_stabilize", "post", "Стабилизация кадров", "Убираем тряску там, где снимали с рук.", "fixed", 3000, "ролик", { stage: "post", tags: ["монтаж"] }),
+        item("post_object_removal", "post", "Удаление объектов из кадра", "Логотипы, провода, случайные люди — чистка кадра.", "fixed+qty", 2500, "сцена", { stage: "post", tags: ["монтаж", "vfx"] }),
+        item("post_keying", "post", "Кеинг (замена фона)", "Съёмка с хромакея: вырезание и подстановка фона.", "fixed+qty", 3500, "сцена", { stage: "post", tags: ["монтаж", "vfx"] }),
+        item("post_master_export", "post", "Мастер-файлы под площадки", "Отдельные экспорты под YouTube, ВК, ТВ и презентацию.", "fixed", 2500, "комплект", { stage: "post", tags: ["монтаж", "экспорт"] }),
+        item("post_archive_backup", "post", "Резервная копия проекта", "Копия проекта и исходников на нашей стороне, хранение год.", "fixed", 4000, "проект", { stage: "post", tags: ["исходники", "архив"] }),
+        item("sound_noise", "sound", "Шумоподавление", "Чистка гула, эха и ветра в записи.", "fixed", 2500, "ролик", { stage: "post", tags: ["звук"] }),
+        item("sound_master", "sound", "Мастеринг звука", "Приведение громкости к стандарту площадки.", "fixed", 3500, "ролик", { stage: "post", tags: ["звук"] }),
+        item("sound_dub", "sound", "Озвучка на другом языке", "Запись диктора и укладка под видеоряд.", "fixed", 12000, "ролик", { stage: "post", tags: ["звук", "диктор"] }),
+
+        // ── Графика и анимация ─────────────────────────────────────────────
+        item("anim_product_3d", "animation", "3D-визуализация продукта", "Модель, материалы, ролик вращения или сборки.", "fixed", 45000, "продукт", { stage: "post", tags: ["графика", "3d"] }),
+        item("anim_character", "animation", "Персонажная анимация", "Простой персонаж с базовой анимацией под ролик.", "fixed", 60000, "персонаж", { stage: "post", tags: ["графика", "анимация"] }),
+        item("anim_marketplace", "animation", "Анимация для маркетплейса", "Короткое видео карточки товара под требования площадки.", "fixed", 12000, "ролик", { stage: "post", tags: ["графика", "маркетплейс"] }),
+        item("anim_lower_thirds", "animation", "Плашки и подписи спикеров", "Оформленные титры с именами и должностями.", "fixed", 4500, "комплект", { stage: "post", tags: ["графика", "титры"] }),
+        item("anim_countdown", "animation", "Заставка обратного отсчёта", "Отбивка для стрима или мероприятия.", "fixed", 5000, "заставка", { stage: "post", tags: ["графика", "анимация"] }),
+
+        // ── Мероприятия ────────────────────────────────────────────────────
+        item("event_photo_print", "event", "Печать фото на площадке", "Мгновенная печать снимков для гостей.", "perDay", 18000, "день", { stage: "shoot", tags: ["мероприятие", "фото"] }),
+        item("event_branding", "event", "Брендирование площадки", "Баннеры, пресс-вол, навигация — макеты и печать.", "fixed", 35000, "площадка", { stage: "pre", tags: ["мероприятие", "печать"] }),
+        item("event_moderator", "event", "Модератор дискуссии", "Ведение секции или круглого стола.", "perDay", 20000, "день", { stage: "shoot", tags: ["мероприятие", "ведущий"] }),
+        item("event_led_screen", "event", "Аренда LED-экрана", "Экран с подключением и оператором.", "perDay", 45000, "день", { stage: "shoot", tags: ["мероприятие", "аренда"] }),
+        item("event_radio_set", "event", "Комплект раций", "Связь между площадками и группами на выезде.", "perDay", 4000, "день", { stage: "shoot", tags: ["мероприятие", "аренда"] }),
+        item("event_photozone", "event", "Фотозона под ключ", "Конструкция, свет, оформление и монтаж на месте.", "fixed", 40000, "зона", { stage: "pre", tags: ["мероприятие", "печать"] }),
+
+        // ── ИИ ─────────────────────────────────────────────────────────────
+        item("ai_avatar", "ai", "AI-аватар ведущего", "Синтетический ведущий, читающий ваш текст.", "fixed", 15000, "ролик", { stage: "post", tags: ["генерация", "видео", "диктор"] }),
+        item("ai_translate_dub", "ai", "AI-дубляж на другой язык", "Перевод и озвучка с сохранением тембра.", "fixed", 9000, "ролик", { stage: "post", tags: ["генерация", "голос", "диктор"] }),
+        item("ai_upscale", "ai", "Апскейл и реставрация видео", "Повышение разрешения и чистка старого материала.", "fixed", 7000, "ролик", { stage: "post", tags: ["генерация", "видео"] }),
+        item("ai_photo_gen", "ai", "AI-генерация изображений", "Изображения под задачу: концепты, фоны, ключевые кадры.", "fixed+qty", 900, "изображение", { stage: "post", tags: ["генерация", "графика"] }),
         item("web_support", "web", "Поддержка сайта", "Ежемесячное сопровождение: обновления, бэкапы, мелкие правки.", "fixed", 15000, "мес.", { stage: "post", tags: ["поддержка", "хостинг"] }),
         item("social_template", "animation", "Шаблоны для соцсетей", "Набор анимированных шаблонов для Stories и постов.", "fixed+qty", 3000, "пакет", { stage: "marketing", tags: ["шаблоны", "соцсети"] }),
         item("kinetic_typography", "animation", "Кинетическая типографика", "Анимация текста и цитат в стиле кинетической типографики.", "fixed", 7500, "ролик", { stage: "post", tags: ["типографика", "текст"] }),
@@ -2800,10 +2906,10 @@
       // Свой раздел = ссылка на внешний ресурс. Спрашиваем через prompt: заводить
       // ради двух полей отдельную модалку избыточно, а поповер закроется по клику
       // вне себя, если начать рисовать форму внутри него.
-      function addCustomNavItem() {
-        const label = (window.prompt("Название раздела в меню:", "") || "").trim();
+      async function addCustomNavItem() {
+        const label = ((await promptDialog({ title: "Название раздела в меню", placeholder: "Например: Диск проекта" })) || "").trim();
         if (!label) return;
-        const raw = (window.prompt("Ссылка (например drive.google.com/…):", "https://") || "").trim();
+        const raw = ((await promptDialog({ title: "Ссылка на раздел", defaultValue: "https://", placeholder: "https://drive.google.com/…" })) || "").trim();
         const url = _safeNavUrl(raw);
         if (!url) { toast("Нужна ссылка вида https://… — другие протоколы не поддерживаются"); return; }
         const config = getSidebarNavConfig();
@@ -4410,6 +4516,32 @@
         loadAdminPanel();
       }
 
+      /* Возврат средств. Деньги возвращаются РУКАМИ в кабинете ЮKassa — автоматики
+         сознательно нет (см. REFUNDS.md §5: при десятке платящих ручная операция
+         дешевле, чем поддержка денежной автоматики). Здесь — вторая половина дела:
+         закрыть доступ и показать порядок действий, чтобы шаг не забылся. Порядок
+         именно такой: сперва вернуть деньги, потом закрывать подписку — человек не
+         должен потерять доступ раньше, чем получит деньги. */
+      async function adminRefund(agencyId, email) {
+        const ok = await confirmDialog({
+          title: "Оформить возврат?",
+          message: `Порядок: 1) вернуть деньги в кабинете ЮKassa (Платежи → найти по почте ${email || "клиента"} → Вернуть); 2) нажать «Подтвердить» здесь — подписка перейдёт в «истёкшую», данные аккаунта останутся. Сумма считается по неиспользованным полным дням (REFUNDS.md).`,
+          okText: "Деньги вернул, закрыть подписку",
+          cancelText: "Отмена",
+          danger: true,
+        });
+        if (!ok) return;
+        const { error } = await _supabase.rpc("admin_set_subscription", {
+          p_agency_id: agencyId,
+          p_status: "expired",
+          p_plan: "pro",
+          p_expires_at: null
+        });
+        if (error) { toast("Ошибка: " + error.message); return; }
+        toast("Подписка закрыта. Не забудьте письмо клиенту с суммой и сроком зачисления");
+        loadAdminPanel();
+      }
+
       async function adminToggleBlock(agencyId, currentStatus) {
         const newStatus = currentStatus === "blocked" ? "expired" : "blocked";
         const label = newStatus === "blocked" ? "Заблокировать" : "Разблокировать";
@@ -4590,6 +4722,7 @@
                             <button class="btn small ${_adminActivity && _adminActivity.agencyId === (a.agency_id||"") ? "primary" : ""}" onclick="app.adminToggleActivity('${aid}')" title="Что человек делает внутри: сделки, сметы, КП" aria-label="Активность аккаунта">${icon("chart", 13)}</button>
                             <button class="btn small" onclick="app.adminExtendTrial('${aid}')" title="+14 дней к триалу">+14д</button>
                             <button class="btn small" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Изменить подписку" aria-label="Изменить подписку">${icon("pencil")}</button>
+                            ${ast === "active" ? `<button class="btn small" onclick="app.adminRefund('${aid}','${escapeHtml(a.email||"")}')" title="Оформить возврат: закрыть подписку и вернуть деньги в ЮKassa">Возврат</button>` : ""}
                             <button class="btn small ${isBlocked?"green":"danger"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}" aria-label="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?icon("unlock"):icon("lock")}</button>
                           ` : `
                             <button class="btn small" onclick="app._closeEditSub()" style="opacity:.6">Отмена</button>
@@ -4941,6 +5074,20 @@
                   <div class="u-meta-mt3">Онбординг, подсказки, видео-инструкции</div>
                 </div>
               </button>
+
+              ${/* Предложение сделать систему под клиента. Стоит ПЕРЕД отзывом, но после
+                    справочных карточек: человек сюда заходит с вопросом, а не с заказом —
+                    показывать заказную разработку выше поддержки было бы навязчиво.
+                    Письмо заранее заполнено вопросами, ответы на которые всё равно
+                    придётся спрашивать: так первый ответ уже содержит суть задачи. */""}
+              <a href="https://t.me/adervis_manager?text=${encodeURIComponent('Здравствуйте! Интересует CRM под наши процессы.\n\nЧем занимаемся: \nЧто хотим автоматизировать: \nСколько человек будет работать в системе: ')}" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
+                ${iconBadge("rocket", "var(--primary2)", 44)}
+                <div>
+                  <div class="u-label-strong">Сделаем CRM под вас</div>
+                  <div class="u-meta-13">Доработаем CRM под ваши процессы или соберём отдельную систему</div>
+                  <div class="u-meta-mt3">Обсудим задачу и сроки в Telegram — расчёт бесплатный</div>
+                </div>
+              </a>
 
               <a href="https://t.me/adervis_manager?text=${encodeURIComponent('Привет! Хочу оставить отзыв о ADERVIS:\n\n[напишите пару предложений — что понравилось, что помогло в работе]\n\nМожно опубликовать его (с моим именем/компанией) на сайте? (да/нет)')}" target="_blank" rel="noopener" class="support-card" style="text-decoration:none">
                 ${iconBadge("star", "var(--yellow)", 44)}
@@ -10741,8 +10888,8 @@
         return store[kind];
       }
 
-      function addFinanceArticle(kind) {
-        const name = (window.prompt("Название статьи:", "") || "").trim();
+      async function addFinanceArticle(kind) {
+        const name = ((await promptDialog({ title: "Название статьи", placeholder: "Например: Аренда техники" })) || "").trim();
         if (!name) return;
         const list = _articlesFor(kind);
         if (list.some(x => x.toLowerCase() === name.toLowerCase())) { toast("Такая статья уже есть"); return; }
@@ -10750,11 +10897,11 @@
         save(); render();
       }
 
-      function renameFinanceArticle(kind, index) {
+      async function renameFinanceArticle(kind, index) {
         const list = _articlesFor(kind);
         const cur = list[index];
         if (cur == null) return;
-        const name = (window.prompt("Название статьи:", cur) || "").trim();
+        const name = ((await promptDialog({ title: "Название статьи", defaultValue: cur })) || "").trim();
         if (!name || name === cur) return;
         list[index] = name.slice(0, 40);
         // Переименование НЕ трогает уже проведённые операции: у них статья
@@ -13324,8 +13471,8 @@
       function allBriefTypes() { return BRIEF_TYPES.concat(customBriefTypes()); }
       function _isBriefType(id) { return allBriefTypes().some(t => t.id === id); }
 
-      function addCustomBriefType() {
-        const label = (window.prompt('Название своего брифа (например «Свадьба»):', '') || '').trim();
+      async function addCustomBriefType() {
+        const label = ((await promptDialog({ title: "Название своего брифа", placeholder: "Например: Свадьба" })) || "").trim();
         if (!label) return;
         const list = [...(state.customBriefTypes || [])];
         if (list.length >= 8) { toast('Больше восьми своих брифов — список типов станет нечитаемым'); return; }
@@ -17256,8 +17403,8 @@
         save();
         render();
       }
-      function addCustomCatalogGroup() {
-        const label = (window.prompt("Название своего раздела:", "") || "").trim();
+      async function addCustomCatalogGroup() {
+        const label = ((await promptDialog({ title: "Название своего раздела", placeholder: "Например: Постпродакшн 3D" })) || "").trim();
         if (!label) return;
         const groups = [...(state.customCatalogGroups || [])];
         groups.push({ id: "cg:" + Date.now().toString(36), label: label.slice(0, 32) });
@@ -26109,6 +26256,7 @@ Email: _____________________              Email: _____________________
         adminActivate,
         adminExtendTrial,
         adminToggleBlock,
+        adminRefund,
         adminToggleActivity,
         _setExpenseBudget,
         _setAdminTab,
