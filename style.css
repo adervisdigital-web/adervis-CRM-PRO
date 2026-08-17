@@ -3935,6 +3935,22 @@
     /* Ряд «Показать ещё» — тот же вид, что у списка сделок и каталога (там он собран
        инлайном). Новым спискам даём класс, чтобы не плодить четвёртую копию стиля. */
     .show-more-row { display: flex; justify-content: center; margin-top: 16px; }
+    /* Полоса выбора типа демо-сделки. Живёт только у новичка, поэтому оформлена
+       подсказкой, а не панелью: рамка пунктиром и приглушённый фон — чтобы её не
+       спутали с настоящими данными и не искали потом, куда она делась. */
+    .demo-kind-strip {
+      border: 1px dashed var(--line-strong, var(--line));
+      background: var(--panel2);
+      border-radius: var(--r-xl);
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .demo-kind-head { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; font-size: 13px; }
+    .demo-kind-head span { color: var(--muted); }
+    .demo-kind-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
     .crm-board-toolbar {
       display: flex;
       align-items: center;
@@ -7328,6 +7344,21 @@ body.portal-mode .nav { display: none !important; }
      сетку месяца, поэтому расширяем НЕВИДИМУЮ область вокруг: приём уже
      используется в приложении, и getBoundingClientRect() его не видит (замер
      покажет 26px, палец попадёт по 44). */
+  /* Шаг количества в строке каталога («−» и «+», 26×32). Поднимать саму кнопку
+     нельзя — она стоит внутри компактного степпера рядом с числом, и 44px разорвали
+     бы строку позиции. Расширяем невидимую область, как у «+» в календаре.
+     Всплыло 17.08, когда демо-сделка стала собираться из пакета: позиций в смете
+     стало 21 вместо пяти, и степперы появились там, где раньше их просто не было
+     видно — дефект существовал давно, а показался только на объёме. */
+  .catalog-qty-btn { position: relative; }
+  .catalog-qty-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 44px; height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
   .cal-day-add { position: relative; }
   .cal-day-add::after {
     content: "";

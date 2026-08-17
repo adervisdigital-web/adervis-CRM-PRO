@@ -3737,8 +3737,6 @@ module.exports = async function ({ browser, baseUrl, test }) {
       };
     });
 
-  await context.close();
-
     assert(card, "в поддержке нет предложения сделать CRM под клиента");
     assert(/t\.me\//.test(card.href), "карточка не ведёт в Telegram: " + card.href);
     // Заготовка письма: первый ответ должен уже содержать суть задачи.
@@ -3750,4 +3748,53 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(card.h >= 44, "карточка ниже 44px — на телефоне в неё трудно попасть: " + card.h);
   });
 
+  await test("демо-сделка пересобирается под тип съёмок и убирается начисто", async () => {
+    await dismissStaleDialog(page);
+    const b = await bootLocal(browser, baseUrl, { width: 1300, height: 950, seedDemo: true });
+    const p = b.page;
+    await p.waitForTimeout(400);
+    await p.evaluate(() => window.app.go("home"));
+    await p.waitForTimeout(350);
+
+    const read = () => p.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return {
+        name: (st.project && st.project.name) || "",
+        kind: (st.project && st.project.demoKind) || "",
+        items: Object.keys(st.selected || {}).length,
+        deals: (st.savedProjects || []).length,
+        chips: document.querySelectorAll(".demo-kind-strip .chip").length,
+      };
+    });
+
+    /* Абстрактное «демо: рекламный ролик» одинаково для всех, а смету человек
+       оценивает по тому, узнаёт ли он в ней свою работу. Полоса выбора живёт, только
+       пока настоящих сделок нет. */
+    const start = await read();
+    assert(start.chips >= 5, "на главной нет выбора типа демо: " + start.chips);
+    assert(start.items > 2, "демо-сделка собралась пустой");
+
+    await p.evaluate(() => window.app.reseedDemo("wedding"));
+    await p.waitForTimeout(500);
+    const wedding = await read();
+    assertEqual(wedding.kind, "wedding", "тип демо не переключился");
+    assert(/свадьб/i.test(wedding.name), "название демо не поменялось: " + wedding.name);
+    assert(wedding.items > 2, "после смены типа смета пустая");
+    assertEqual(wedding.deals, 1, "смена типа наплодила сделок: " + wedding.deals);
+
+    // Настоящая сделка отменяет подсказку: она нужна ровно до первого своего проекта.
+    await p.evaluate(() => {
+      window.app.newProject();
+      window.app.updateProject("name", "Моя первая сделка");
+      window.app.saveCurrentProject();
+    });
+    await p.waitForTimeout(600);
+    await p.evaluate(() => window.app.go("home"));
+    await p.waitForTimeout(400);
+    const withReal = await p.evaluate(() => document.querySelectorAll(".demo-kind-strip").length);
+    await b.context.close();
+    assertEqual(withReal, 0, "подсказка про демо осталась, хотя у человека уже есть своя сделка");
+  });
+
+  await context.close();
 };

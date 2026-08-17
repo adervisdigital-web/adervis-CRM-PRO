@@ -11703,19 +11703,43 @@
       // Демо-сделка после регистрации: готовая смета + клиент + аванс, чтобы новый
       // пользователь сразу увидел, как выглядит заполненная CRM, а не пустой экран.
       // Клеймится __demo, имя с префиксом «Демо:» — безопасно удалить.
-      function _seedDemoDeal() {
+      /* Типы съёмок для демо-сделки. Абстрактный «рекламный ролик для бренда» одинаков
+         для всех, а первое впечатление о смете человек составляет по тому, узнаёт ли он
+         в ней свою работу. Состав берётся из готового пакета — заодно видно, что пакеты
+         вообще есть, и первая настоящая смета собирается одним нажатием, а не с нуля. */
+      const DEMO_KINDS = [
+        { id: "wedding",   label: "Свадьбы",           pkg: "wedding_full",      name: "Демо: свадьба, полный день", client: "Анна и Пётр" },
+        { id: "ad",        label: "Реклама и бизнес",  pkg: "ad_video_pro",      name: "Демо: рекламный ролик",      client: "Бренд «Вкус»" },
+        { id: "event",     label: "Мероприятия",       pkg: "event_basic",       name: "Демо: съёмка конференции",   client: "Форум «Рост»" },
+        { id: "social",    label: "Контент для соцсетей", pkg: "social_pro",     name: "Демо: ролики для соцсетей",  client: "Студия «Лайк»" },
+        { id: "interview", label: "Интервью",          pkg: "interview_base",    name: "Демо: интервью с экспертом", client: "Медиа «Слово»" },
+        { id: "photo",     label: "Фото и предметка",  pkg: "photo_content_pro", name: "Демо: съёмка для каталога",  client: "Магазин «Полка»" },
+      ];
+
+      function _seedDemoDeal(kindId) {
         try {
-          if ((state.savedProjects || []).length) return; // не трогаем реальные данные
-          const ids = ["director", "dop", "camera_pro", "edit", "color"].filter(id => findItem(id, true));
+          const kind = DEMO_KINDS.find(k => k.id === kindId) || DEMO_KINDS[1];
+          const saved = state.savedProjects || [];
+          // Пересобрать демо можно, настоящие данные — нет: если в списке есть хоть одна
+          // НЕ демонстрационная сделка, не трогаем ничего.
+          const onlyDemo = saved.every(p => p && p.__demo);
+          if (saved.length && !onlyDemo) return;
+
+          const pkg = (state.packages || []).find(x => x.id === kind.pkg);
+          const ids = pkg
+            ? (pkg.items || []).map(e => (typeof e === "string" ? e : e && e.id)).filter(id => findItem(id, true))
+            : ["director", "dop", "camera_pro", "edit", "color"].filter(id => findItem(id, true));
           if (ids.length < 3) return;
 
           const now = new Date().toISOString();
           const projId = uid("proj");
           const clientId = uid("client");
 
-          state.clients = state.clients || [];
+          // Старое демо убираем целиком — иначе при смене типа их станет два.
+          state.savedProjects = saved.filter(p => !(p && p.__demo));
+          state.clients = (state.clients || []).filter(c => !c || !c.__demo);
           state.clients.unshift(normalizeClient({
-            id: clientId, name: "Бренд «Вкус»", company: "ООО «Вкус»",
+            id: clientId, name: kind.client, company: kind.client, __demo: true,
             phone: "+7 900 000-00-00", email: "demo@example.com",
             note: "Демо-клиент — можно удалить", status: "new"
           }));
@@ -11723,15 +11747,27 @@
           state.activeProjectId = projId;
           state.project = {
             ...state.project, id: projId,
-            name: "Демо: рекламный ролик для бренда",
-            client: "Бренд «Вкус»", clientId,
+            name: kind.name,
+            client: kind.client, clientId, demoKind: kind.id,
             crmStatus: "КП отправлено", status: "В работе",
             priority: "Высокий", days: 2, createdAt: now,
             deadline: localIso(new Date(Date.now() + 14 * 86400000))
           };
           state.selected = {};
           state.estimateOrder = [];
-          ids.forEach(id => { state.selected[id] = defaultLineForItem(findItem(id, true)); state.estimateOrder.push(id); });
+          /* Строки берём через packageLineFor: у состава пакета бывают свои настройки
+             (два оператора, полсмены), и без них демо показывало бы не тот пакет,
+             который человек потом применит из витрины. */
+          const entries = pkg ? (pkg.items || []) : ids;
+          entries.forEach(entry => {
+            const l = packageLineFor(entry);
+            if (!l || state.selected[l.id]) return;
+            state.selected[l.id] = l.line;
+            state.estimateOrder.push(l.id);
+          });
+          if (!Object.keys(state.selected).length) {
+            ids.forEach(id => { state.selected[id] = defaultLineForItem(findItem(id, true)); state.estimateOrder.push(id); });
+          }
 
           const t = totals();
           state.payments = [normalizePayment({ title: "Аванс 50%", amount: Math.round((t.total || 0) * 0.5), date: todayIso(), method: "Счёт", note: "Демо-платёж" })];
@@ -11745,6 +11781,55 @@
           save();
           saveToCloud();
         } catch (e) { console.warn("seedDemoDeal:", e); }
+      }
+
+      /* Полоса выбора типа демо. Показывается, только пока в списке ОДНА демо-сделка
+         и ни одной настоящей: как только человек завёл свою, полоса исчезает сама —
+         подсказка новичку не должна жить на экране вечно.
+
+         Смысл не в украшении: абстрактное «демо: рекламный ролик» одинаково для всех,
+         а смету человек оценивает по тому, узнаёт ли он в ней свою работу. Здесь же он
+         впервые узнаёт, что готовые пакеты существуют. */
+      function _demoKindStripHtml(projects) {
+        const list = projects || [];
+        if (!list.length || !list.every(p => p && p.__demo)) return "";
+        const cur = (state.project && state.project.demoKind) || "";
+        return `
+          <div class="demo-kind-strip no-print">
+            <div class="demo-kind-head">
+              <strong>Это пример сделки.</strong>
+              <span>Соберём его под ваши съёмки — состав возьмём из готового пакета</span>
+            </div>
+            <div class="demo-kind-chips">
+              ${DEMO_KINDS.map(k => `
+                <button class="chip ${cur === k.id ? "active" : ""}" onclick="app.reseedDemo('${k.id}')">${escapeHtml(k.label)}</button>
+              `).join("")}
+              <button class="btn small" onclick="app.dropDemo()" title="Удалить пример и начать с чистого листа">Убрать пример</button>
+            </div>
+          </div>`;
+      }
+
+      // Пересобрать демо под другой тип съёмок.
+      function reseedDemo(kindId) {
+        _seedDemoDeal(kindId);
+        render();
+        const k = DEMO_KINDS.find(x => x.id === kindId);
+        toast(k ? `Пример пересобран: ${k.label.toLowerCase()}` : "Пример пересобран");
+      }
+
+      // Убрать пример целиком: и сделку, и демо-клиента.
+      function dropDemo() {
+        state.savedProjects = (state.savedProjects || []).filter(p => !(p && p.__demo));
+        state.clients = (state.clients || []).filter(c => !(c && c.__demo));
+        if (state.project && state.project.demoKind) {
+          state.activeProjectId = "";
+          state.project = defaultState().project;
+          state.selected = {};
+          state.estimateOrder = [];
+        }
+        save();
+        render();
+        toast("Пример убран");
       }
 
       function startWizard() {
@@ -15682,6 +15767,7 @@
             </div>
 
             ${renderUpgradeBanner(projects)}
+            ${_demoKindStripHtml(projects)}
             ${renderOnboardingChecklist(projects)}
             ${renderAnalyticsSection(projects)}
 
@@ -26242,6 +26328,8 @@ Email: _____________________              Email: _____________________
         onKanbanDrop,
         setKanbanStatus,
         seedDemoDeal: _seedDemoDeal,
+        reseedDemo,
+        dropDemo,
 
         generateProposalAI,
 
