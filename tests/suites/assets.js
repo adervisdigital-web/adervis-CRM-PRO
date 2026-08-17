@@ -1118,4 +1118,58 @@ module.exports = async function ({ test }) {
     assert(!broken.length, "состав пакета указывает на несуществующие позиции каталога:\n  " + broken.join("\n  "));
   });
 
+  await test("нет мёртвых ссылок: поля состояния и вызовы app.*", () => {
+    /* `state.items` читался в печати счёта, хотя такого поля на состоянии нет вовсе:
+       ветка молча уходила в запасную, и клиент получал счёт без единой позиции. То же
+       самое годом раньше сломало «Сохранить сделку». Оба раза дефект не падал и не
+       логировался — чтение несуществующего поля даёт undefined, а дальше `|| []`.
+
+       Комментарии вырезаем: в них поля упоминаются как раз при разборе таких ошибок,
+       а в примерах вызовов встречается несуществующий app.setXxx. */
+    const code = app
+      .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
+      .replace(/(^|[^:\\])\/\/[^\n]*/g, (m, p1) => p1 + " ".repeat(Math.max(0, m.length - p1.length)));
+
+    const reads = new Map();
+    for (const m of code.matchAll(/\bstate\.([A-Za-z_$][\w$]*)/g)) {
+      const line = code.slice(0, m.index).split("\n").length;
+      if (!reads.has(m[1])) reads.set(m[1], []);
+      reads.get(m[1]).push(line);
+    }
+    const written = new Set();
+    for (const m of code.matchAll(/\bstate\.([A-Za-z_$][\w$]*)\s*(?:=[^=]|\+\+|--|\|\|=|\?\?=)/g)) written.add(m[1]);
+    for (const m of code.matchAll(/\bdelete\s+state\.([A-Za-z_$][\w$]*)/g)) written.add(m[1]);
+    // Поля, объявленные в литералах состояния, тоже законны.
+    const declared = new Set();
+    for (const fn of ["function defaultState", "function normalizeState", "function migrateState", "function _migrateStateData"]) {
+      const i = code.indexOf(fn);
+      if (i < 0) continue;
+      for (const m of code.slice(i, i + 9000).matchAll(/^\s*([A-Za-z_$][\w$]*)\s*:/gm)) declared.add(m[1]);
+    }
+    assert(reads.size > 50, "разбор состояния дал подозрительно мало полей: " + reads.size);
+    const deadFields = [...reads.keys()].filter((k) => !written.has(k) && !declared.has(k)).sort();
+    assert(!deadFields.length,
+      "читаются поля состояния, которых никто не создаёт:\n  " +
+      deadFields.map((k) => `state.${k} — строки ${reads.get(k).slice(0, 4).join(", ")}`).join("\n  "));
+
+    // Вторая половина: разметка зовёт app.foo(), которого нет в публичном API.
+    const apiStart = code.indexOf("window.app = {");
+    assert(apiStart > 0, "не нашёлся публичный API window.app");
+    const apiBlock = code.slice(apiStart, code.indexOf("\n      };", apiStart));
+    const api = new Set();
+    for (const m of apiBlock.matchAll(/^\s*([A-Za-z_$][\w$]*)\s*[,:]/gm)) api.add(m[1]);
+    assert(api.size > 300, "публичный API разобрался подозрительно мелко: " + api.size);
+
+    const calls = new Map();
+    for (const m of code.matchAll(/\bapp\.([A-Za-z_$][\w$]*)\s*\(/g)) {
+      const line = code.slice(0, m.index).split("\n").length;
+      if (!calls.has(m[1])) calls.set(m[1], []);
+      calls.get(m[1]).push(line);
+    }
+    const deadCalls = [...calls.keys()].filter((k) => !api.has(k)).sort();
+    assert(!deadCalls.length,
+      "разметка зовёт то, чего нет в window.app (кнопка молча ничего не сделает):\n  " +
+      deadCalls.map((k) => `app.${k} — строки ${calls.get(k).slice(0, 4).join(", ")}`).join("\n  "));
+  });
+
 };
