@@ -3429,6 +3429,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
         items: rows.length,
         rowsSum: rows.reduce((a, x) => a + x, 0),
         smeta: grab("Итого по смете"),
+        discount: grab("Скидка"),
         paid: grab("Уже оплачено"),
         due: grab("К ОПЛАТЕ"),
         stub: /Услуги загружаются из текущей сметы/.test(html),
@@ -3442,6 +3443,11 @@ module.exports = async function ({ browser, baseUrl, test }) {
       window.app.applyPackage("event_sde_day");
       window.app.catalogAddOne("jib_rent");
       await new Promise((r) => setTimeout(r, 250));
+      // Скидка — в ПРОЦЕНТАХ (поле «Скидка, %», totals клампит 0..100). Ставим её
+      // нарочно: без неё проверка «сумма строк = итог» верна случайно и ничего не
+      // говорит про то, объяснён ли клиенту разрыв между строками и суммой внизу.
+      window.app.updateProject("discount", 10);
+      await new Promise((r) => setTimeout(r, 250));
       window.app.saveCurrentProject();
       await new Promise((r) => setTimeout(r, 400));
       return Object.keys(JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}").selected || {}).length;
@@ -3451,7 +3457,9 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(!clean.stub, "в счёте по-прежнему заглушка вместо позиций");
     assert(clean.names, "в счёте нет названий услуг из сметы");
     assertEqual(clean.items, lines, `в счёте ${clean.items} позиций, а в смете ${lines}`);
-    assertEqual(clean.rowsSum, clean.smeta, "сумма строк счёта не сходится с «Итого по смете»");
+    assert(clean.discount > 0, "скидка не показана в счёте отдельной строкой — сумма строк не сойдётся с итогом");
+    assertEqual(clean.rowsSum - clean.discount, clean.smeta,
+      `строки (${clean.rowsSum}) минус скидка (${clean.discount}) не дают «Итого по смете» (${clean.smeta})`);
     assertEqual(clean.due, clean.smeta, "без оплат «К ОПЛАТЕ» должно равняться смете");
 
     // Частичная оплата: остаток, а не полная сумма заново.
