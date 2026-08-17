@@ -12,6 +12,10 @@ const VIEWS = [
   "home", "catalog", "crm", "clients", "tasks", "global-tasks",
   "services", "packages", "proposals", "knowledge", "settings",
   "global-finances", "calendar", "global-calendar",
+  // Дописаны 17.08 после обхода оставшихся страниц: раньше в наборе не было
+  // ни профиля, ни тарифов, ни поддержки, ни брифов, ни договоров, ни команды —
+  // то есть шесть экранов из полутора десятков никто не мерил.
+  "profile", "plans", "support", "briefs", "contracts", "company-team",
 ];
 
 // Возвращает {over, tag} — на сколько px документ шире вьюпорта и кто виноват.
@@ -1524,6 +1528,40 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
     await ctx.close();
     assert(!bad.length, "«Показать ещё» на телефоне недоступна:\n  " + bad.join("\n  "));
+  });
+
+  await test("телефон: внизу страницы под нижней панелью не остаётся кнопок и полей", async () => {
+    /* Нижняя панель навигации перекрывала пункт списка — находка 06.08, которую
+       поймал только скриншот: замер геометрии её не видел. Инвариант простой —
+       домотав страницу до конца, человек должен видеть ВСЁ её содержимое: у
+       контента снизу отступ не меньше высоты панели. Проверяем результат, а не
+       конкретное значение отступа: важно, что под панелью пусто. */
+    const { context: ctx, page: p } = await bootLocal(browser, baseUrl, { width: 390, height: 780, touch: true, seedDemo: true });
+    await p.waitForTimeout(400);
+
+    const bad = [];
+    for (const view of ["home", "crm", "clients", "services", "global-tasks", "global-finances", "contracts", "settings", "profile", "plans"]) {
+      await p.evaluate((v) => window.app.go(v), view);
+      await p.waitForTimeout(300);
+      // Прокрутку и замер разносим: возврат промиса из evaluate уже ронял пробники
+      // этого проекта («Execution context was destroyed»).
+      await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await p.waitForTimeout(250);
+      const covered = await p.evaluate(() => {
+        const nav = document.querySelector(".mobile-bottom-nav");
+        if (!nav) return [];
+        const navTop = nav.getBoundingClientRect().top;
+        const root = document.getElementById("appContent");
+        return [...root.querySelectorAll("button, .btn, a[href], input, select, textarea")]
+          .map((e) => ({ e, r: e.getBoundingClientRect() }))
+          .filter((x) => x.r.height > 2 && x.r.bottom > navTop + 1 && x.r.top < window.innerHeight)
+          .map((x) => ((x.e.textContent || "").trim().slice(0, 22) || x.e.tagName) + ` (${Math.round(x.r.top)}..${Math.round(x.r.bottom)})`)
+          .slice(0, 3);
+      });
+      if (covered.length) bad.push(`«${view}»: ${covered.join(", ")}`);
+    }
+    await ctx.close();
+    assert(!bad.length, "в самом низу страницы под нижней панелью остались элементы:\n  " + bad.join("\n  "));
   });
 
 };
