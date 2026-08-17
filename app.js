@@ -1307,6 +1307,10 @@
       const FIN_PAGE_SIZE = 40;
       let _finVisibleLimit = FIN_PAGE_SIZE;
       let _finLimitKey = "";
+      // Команда: карточка участника — форма с шестью полями, а не строка.
+      const TEAM_PAGE_SIZE = 12;
+      let _teamVisibleLimit = TEAM_PAGE_SIZE;
+      let _teamLimitKey = "";
       // Вид «Сохранённые проекты» — второй, не пагинированный список тех же сделок:
       // 25 780px высоты страницы при 200 сделках и 76 285px при 600.
       const PROJECTS_PAGE_SIZE = 24;
@@ -10406,6 +10410,17 @@
         render();
       }
 
+      function teamShowMore() {
+        _teamVisibleLimit += TEAM_PAGE_SIZE;
+        render();
+      }
+
+      function setCompanyTeamSearch(value) {
+        state.companyTeamSearch = value;
+        _debouncedSearchSave();
+        _debouncedSearchRender();
+      }
+
       // То же для колонки доски CRM (лимит у каждого статуса свой) …
       function kanbanColShowMore(status) {
         _kanbanColLimits[status] = (_kanbanColLimits[status] || KANBAN_COL_PAGE_SIZE) + KANBAN_COL_PAGE_SIZE;
@@ -18716,22 +18731,51 @@
       }
 
       function renderCompanyTeam() {
-        const team = state.companyTeam || [];
+        const allTeam = state.companyTeam || [];
+
+        /* Карточка участника — это форма с шестью полями, а не строка списка: на
+           телефоне сорок человек давали 27 экранов подряд (замер 17.08), на десктопе
+           7,7. Режем порциями и даём поиск — как в клиентах, договорах и задачах. */
+        const teamQuery = (state.companyTeamSearch || "").trim().toLowerCase();
+        const team = teamQuery
+          ? allTeam.filter(m => `${m.name || ""} ${m.role || ""} ${m.phone || ""} ${m.email || ""} ${m.note || ""}`.toLowerCase().includes(teamQuery))
+          : allTeam;
+
+        const _tmKey = teamQuery;
+        if (_tmKey !== _teamLimitKey) { _teamLimitKey = _tmKey; _teamVisibleLimit = TEAM_PAGE_SIZE; }
+        const shownTeam = team.slice(0, _teamVisibleLimit);
+        const teamHidden = team.length - shownTeam.length;
 
         return `
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Команда ${team.length ? `<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:4px">${team.length}</span>` : ""}</h1>
+                <h1>Команда ${allTeam.length ? `<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:4px">${teamQuery ? `${team.length} из ${allTeam.length}` : allTeam.length}</span>` : ""}</h1>
                 <p>Сотрудники и фрилансеры агентства — назначаются «Ответственным» на строках сметы.</p>
               </div>
               <div class="toolbar no-print">
-                ${team.length ? `<button class="btn primary" onclick="app.createCompanyTeamMember()">+ Участник</button>` : ""}
+                ${allTeam.length ? `<button class="btn primary" onclick="app.createCompanyTeamMember()">+ Участник</button>` : ""}
               </div>
             </div>
 
+            ${allTeam.length > 4 ? `
+              <div class="catalog-toolbar no-print">
+                <div class="catalog-search-wrap company-team-search">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  <input id="companyTeamSearch" class="catalog-search-input" type="search" aria-label="Поиск по команде" value="${escapeHtml(state.companyTeamSearch || "")}" oninput="app.setCompanyTeamSearch(this.value)" placeholder="Поиск: имя, роль, телефон…">
+                </div>
+              </div>
+            ` : ""}
+
+            ${teamQuery && !team.length ? emptyState({
+              icon: "search",
+              title: "Никого не нашлось",
+              text: `По запросу «${escapeHtml((state.companyTeamSearch || "").trim())}» в команде никого нет.`,
+              cta: { label: "Сбросить поиск", onclick: "app.setCompanyTeamSearch('')" }
+            }) : ""}
+
             <div class="grid three">
-              ${team.length ? team.map(renderCompanyTeamCard).join("") : emptyState({
+              ${allTeam.length ? shownTeam.map(renderCompanyTeamCard).join("") : emptyState({
                 icon: "users",
                 title: "Команда пока пуста",
                 text: "Добавьте сотрудников и фрилансеров — потом их можно назначать на позиции сметы как «Ответственного».",
@@ -18739,6 +18783,11 @@
                 cta: { label: "+ Участник", onclick: "app.createCompanyTeamMember()" }
               })}
             </div>
+            ${teamHidden > 0 ? `
+              <div class="show-more-row no-print">
+                <button class="btn" onclick="app.teamShowMore()">Показать ещё ${Math.min(TEAM_PAGE_SIZE, teamHidden)} · осталось ${teamHidden}</button>
+              </div>
+            ` : ""}
           </div>
         `;
       }
@@ -25821,6 +25870,8 @@ Email: _____________________              Email: _____________________
         tasksShowMore,
         contractsShowMore,
         finShowMore,
+        teamShowMore,
+        setCompanyTeamSearch,
         kanbanColShowMore,
         projectsShowMore,
         calEventsShowMore,

@@ -3539,5 +3539,62 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(jump.cards, 1, "после перехода показан не один найденный пакет, а " + jump.cards);
   });
 
+  await test("«Команда»: поиск и порции — карточка участника это форма, а не строка", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await bootWithState(`
+      st.companyTeam = [];
+      for (let i = 0; i < 40; i++) {
+        st.companyTeam.push({ id: "ct" + i, name: "Сотрудник " + i, role: i % 2 ? "Оператор" : "Монтажёр",
+          rate: 5000 + i * 100, phone: "+79001112233", email: "x" + i + "@mail.ru" });
+      }
+      st.companyTeam[3].name = "Пётр Одиночкин";
+      st.companyTeam[3].role = "Колорист";
+    `, { width: 390, height: 780 });
+
+    await p.evaluate(() => window.app.go("company-team"));
+    await p.waitForTimeout(400);
+
+    const read = () => p.evaluate(() => {
+      const root = document.getElementById("appContent");
+      return {
+        cards: root.querySelectorAll("[data-scope='companyTeam'][data-key='name']").length,
+        screens: +(root.scrollHeight / 780).toFixed(1),
+        more: [...root.querySelectorAll("button")].find((b) => /показать ещё/i.test(b.textContent || ""))?.textContent.trim().replace(/\s+/g, " ") || "",
+      };
+    });
+
+    /* Карточка участника — форма с шестью полями: сорок человек давали 27 экранов
+       подряд на телефоне. Раздел единственный, где список рисовался целиком. */
+    const first = await read();
+    assert(first.cards > 0, "раздел «Команда» пуст — подсунутые сотрудники не доехали");
+    assert(first.cards < 20, `нарисовано ${first.cards} карточек из 40 — список рисуется целиком`);
+    assert(first.screens < 12, `раздел на телефоне занимает ${first.screens} экрана`);
+    assert(/показать ещё/i.test(first.more), "часть команды скрыта, но кнопки «Показать ещё» нет");
+
+    await p.evaluate(() => {
+      const b = [...document.querySelectorAll("#appContent button")].find((x) => /показать ещё/i.test(x.textContent || ""));
+      if (b) b.click();
+    });
+    await p.waitForTimeout(400);
+    const second = await read();
+    assert(second.cards > first.cards, `«Показать ещё» не добавила карточек (${first.cards} → ${second.cards})`);
+
+    // Поиск: по имени и по роли, с очевидным пустым состоянием.
+    const search = async (q) => {
+      await p.evaluate((v) => window.app.setCompanyTeamSearch(v), q);
+      await p.waitForTimeout(400);
+      return p.evaluate(() => ({
+        cards: document.querySelectorAll("[data-scope='companyTeam'][data-key='name']").length,
+        empty: !!document.querySelector(".empty"),
+      }));
+    };
+    assertEqual((await search("Одиночкин")).cards, 1, "поиск по имени не нашёл ровно одного");
+    assertEqual((await search("Колорист")).cards, 1, "поиск по роли не сработал");
+    const none = await search("щщщ");
+    await ctx.close();
+    assertEqual(none.cards, 0, "по бессмысленному запросу всё равно показаны участники");
+    assert(none.empty, "пустой результат поиска по команде ничем не объяснён");
+  });
+
   await context.close();
 };
