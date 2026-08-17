@@ -3488,5 +3488,56 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(overpaid.due, 0, "по оплаченной сделке счёт снова требует денег: " + overpaid.due);
   });
 
+  await test("общий поиск находит услуги и пакеты и открывает раздел уже отфильтрованным", async () => {
+    await dismissStaleDialog(page);
+    const b = await bootLocal(browser, baseUrl, { width: 1300, height: 950, seedDemo: true });
+    const p = b.page;
+    await p.waitForTimeout(300);
+
+    const search = async (q) => {
+      await p.evaluate(() => window.app.openSearch());
+      await p.waitForTimeout(200);
+      await p.evaluate((query) => {
+        const i = document.getElementById("searchInput");
+        i.value = query;
+        i.dispatchEvent(new Event("input", { bubbles: true }));
+      }, q);
+      await p.waitForTimeout(350);
+      return p.evaluate(() => ({
+        sections: [...document.querySelectorAll(".search-section")].map((s) => s.textContent.trim().replace(/\s+/g, " ")),
+        names: [...document.querySelectorAll(".search-result-name")].map((n) => n.textContent.trim()),
+      }));
+    };
+
+    /* Каталог и пакеты — самое большое, что есть в приложении (127 позиций и 45
+       пакетов против горстки сделок у нового пользователя), а общий поиск их не
+       знал: на «дрон» человек получал пустоту при живой услуге и трёх пакетах. */
+    const drone = await search("дрон");
+    assert(drone.names.some((n) => /Пилот дрона|Дрон/i.test(n)),
+      "общий поиск не находит услугу каталога: " + JSON.stringify(drone.names.slice(0, 5)));
+    assert(drone.sections.some((s) => /Услуги каталога/i.test(s)), "в выдаче нет раздела услуг: " + JSON.stringify(drone.sections));
+
+    // Пакеты ищутся и по СОСТАВУ — тем же матчером, что витрина и мастер.
+    const subs = await search("субтитры");
+    assert(subs.sections.some((s) => /Пакеты/i.test(s)),
+      "пакеты не находятся по составу — а именно по нему их и помнят: " + JSON.stringify(subs.sections));
+
+    /* Переход обязан открыть раздел С УЖЕ ВПИСАННЫМ запросом: иначе поиск отвечает
+       «нашлось», а на странице снова весь список из сорока пяти. */
+    await search("SDE");
+    const jump = await p.evaluate(async () => {
+      const row = [...document.querySelectorAll(".search-result")].find((r) => /packages/.test(r.getAttribute("onclick") || ""));
+      if (!row) return null;
+      row.click();
+      await new Promise((r) => setTimeout(r, 600));
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return { view: st.view, query: st.pkgSearch || "", cards: document.querySelectorAll(".package-card").length };
+    });
+    await b.context.close();
+    assert(jump, "в выдаче не оказалось пакета, хотя SDE-пакет существует");
+    assert(/SDE/i.test(jump.query), "раздел открылся без запроса — искать придётся заново: " + JSON.stringify(jump));
+    assertEqual(jump.cards, 1, "после перехода показан не один найденный пакет, а " + jump.cards);
+  });
+
   await context.close();
 };

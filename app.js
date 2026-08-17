@@ -3781,9 +3781,9 @@
           el.innerHTML = `
             <div style="padding:20px 16px 8px">
               <div style="display:flex;flex-wrap:wrap;gap:6px">
-                ${["Сделки","Клиенты","Задачи","База знаний"].map(h=>`<span style="font-size:12px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;color:var(--muted)">${h}</span>`).join("")}
+                ${["Сделки","Клиенты","Услуги","Пакеты","Задачи","База знаний"].map(h=>`<span style="font-size:12px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;color:var(--muted)">${h}</span>`).join("")}
               </div>
-              <div style="font-size:12px;color:var(--hint);margin-top:12px;padding:0 2px">Поиск по всем сделкам, клиентам, задачам и базе знаний</div>
+              <div style="font-size:12px;color:var(--hint);margin-top:12px;padding:0 2px">Поиск по сделкам, клиентам, каталогу услуг, пакетам, задачам и базе знаний. Пакеты ищутся и по составу — «дрон», «субтитры».</div>
             </div>`;
           return;
         }
@@ -3816,6 +3816,35 @@
       results.push({ type: "kb", icon: "", color: "rgba(22,163,74,.15)", name: d.title || "Документ", sub: kbCats()[d.cat] || "Без тематики", action: `app.go('knowledge');app.kbOpen('${d.id}');app.closeSearch()` });
           }
         });
+
+        /* Услуги и пакеты искались только внутри своих разделов, хотя это самое
+           большое, что есть в приложении: 127 позиций каталога и 45 пакетов против
+           горстки сделок у нового пользователя. Человек, набравший «дрон» в общем
+           поиске, получал пустоту — при том что и услуга, и три пакета с ней есть.
+           Переход открывает раздел С УЖЕ ВПИСАННЫМ запросом: иначе поиск отвечает
+           «нашлось», а на странице снова весь список. */
+        allItems(false).forEach(itemData => {
+          const hay = `${itemData.name} ${itemData.desc || ""} ${(itemData.tags || []).join(" ")}`.toLowerCase();
+          if (!hay.includes(q)) return;
+          results.push({
+            type: "item",
+            icon: "", color: "rgba(234,88,12,.15)",
+            name: itemData.name,
+            sub: `${itemData.section || ""} · ${money(getCatalogPrice(itemData))}${itemData.unit ? " / " + itemData.unit : ""}`,
+            action: `app.go('catalog');app.setSearch('${jsAttrString(itemData.name)}');app.closeSearch()`,
+          });
+        });
+        (state.packages || []).forEach(pkg => {
+          // Тот же матчер, что у витрины и мастера: ищет и по составу пакета.
+          if (!packageMatchesQuery(pkg, q)) return;
+          results.push({
+            type: "package",
+            icon: "", color: "rgb(var(--primary-rgb) / .12)",
+            name: pkg.name,
+            sub: `${(CAT_META[pkg.cat] || {}).label || "Пакет"} · ${money(packagePrice(pkg))}`,
+            action: `app.go('packages');app.setPkgSearch('${jsAttrString(pkg.name)}');app.closeSearch()`,
+          });
+        });
         if (!results.length) {
           el.innerHTML = `
             <div style="padding:32px 20px;text-align:center">
@@ -3839,10 +3868,12 @@
         });
         // Группируем по типам
         const groups = [
-          { key: "deal",   label: "Сделки"  },
-          { key: "client", label: "Клиенты" },
-          { key: "task",   label: "Задачи"  },
-          { key: "kb",     label: "База знаний" },
+          { key: "deal",    label: "Сделки"  },
+          { key: "client",  label: "Клиенты" },
+          { key: "package", label: "Пакеты" },
+          { key: "item",    label: "Услуги каталога" },
+          { key: "task",    label: "Задачи"  },
+          { key: "kb",      label: "База знаний" },
         ];
         el.innerHTML = groups.map(g => {
           const all = results.filter(r => r.type === g.key);
@@ -6379,6 +6410,15 @@
       function numberValue(value, fallback = 0) {
         const n = Number(String(value ?? "").replace(",", "."));
         return Number.isFinite(n) ? n : fallback;
+      }
+
+      /* Значение внутрь inline-обработчика (onclick="app.foo('…')"). Экранируем
+         ДВАЖДЫ и именно в этом порядке: сперва как строку JS (обратный слэш и
+         апостроф), затем как атрибут HTML. Браузер раскодирует сущности ДО того,
+         как содержимое атрибута попадёт в парсер JS, поэтому обратный порядок
+         сломал бы вызов на первом же названии с апострофом. */
+      function jsAttrString(value) {
+        return escapeHtml(String(value ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'"));
       }
 
       function escapeHtml(value) {
