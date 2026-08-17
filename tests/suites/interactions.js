@@ -2933,6 +2933,12 @@ module.exports = async function ({ browser, baseUrl, test }) {
       // eslint-disable-next-line no-new-func
       new Function("st", src)(st);
       localStorage.setItem(key, JSON.stringify(st));
+      /* Снимаем «владение» хранилищем у этой вкладки: приложение пишет свой снимок
+         на выгрузке и по save() только если ревизия в localStorage — его собственная
+         (_ownsLsState). Без этого первая вкладка успевает затереть подсунутое своим
+         состоянием из памяти, и вторая читает не то, что мы положили: у пакетов это
+         выглядело как «слияние потеряло свой пакет пользователя». */
+      localStorage.setItem("adervis_ls_rev", "seeded_by_test_" + Date.now());
     }, mutate);
     const p = await b.context.newPage();
     await p.goto(baseUrl + "/index.html", { waitUntil: "load" });
@@ -3594,6 +3600,50 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
     assertEqual(none.cards, 0, "по бессмысленному запросу всё равно показаны участники");
     assert(none.empty, "пустой результат поиска по команде ничем не объяснён");
+  });
+
+  await test("новые пакеты из кода доезжают до аккаунта, где пакеты уже сохранены", async () => {
+    await dismissStaleDialog(page);
+    /* Пакеты хранятся в аккаунте целиком, и раньше сохранённый список полностью
+       вытеснял значения из кода: у владельца на проде оказалось 39 пакетов из 45 —
+       не хватало шести, включая заказанный им накануне SDE. Работа сделана,
+       оттестирована, задеплоена и невидима. */
+    const { ctx, p } = await bootWithState(`
+      // Аккаунт «из прошлого»: два пакета, один свой и один правленый встроенный.
+      st.packages = [
+        { id: "social_start", name: "Соц. сети 1 — Старт (моя правка)", cat: "social", tier: 1,
+          desc: "Правленое описание", goodFor: "мои клиенты", items: ["idea"], notes: [] },
+        { id: "package_custom1", name: "Мой пакет", cat: "video", desc: "свой", goodFor: "себе", items: ["idea"], notes: [] },
+      ];
+    `);
+
+    /* Читаем НАРИСОВАННОЕ, а не localStorage: слияние происходит в памяти при
+       загрузке, а в хранилище состояние попадёт только со следующим сохранением.
+       Первая версия теста читала хранилище и падала на исправном коде. */
+    await p.evaluate(() => window.app.go("packages"));
+    await p.waitForTimeout(400);
+    const res = await p.evaluate(() => {
+      const cards = [...document.querySelectorAll(".package-card")];
+      const ids = cards.map((c) => ((c.getAttribute("onclick") || "").match(/'([^']+)'/) || [])[1]).filter(Boolean);
+      const social = cards.find((c) => (c.getAttribute("onclick") || "").includes("social_start"));
+      return {
+        count: ids.length,
+        hasSde: ids.includes("event_sde_day"),
+        hasMarketplace: ids.includes("photo_marketplace"),
+        keptCustom: ids.includes("package_custom1"),
+        editedName: social ? (social.querySelector(".pkg-card-name") || {}).textContent.trim() : "",
+        dupes: ids.length !== new Set(ids).size,
+      };
+    });
+    await ctx.close();
+
+    assert(res.hasSde, "пакет SDE из кода не доехал до аккаунта с сохранёнными пакетами");
+    assert(res.hasMarketplace, "пакет предметной съёмки не доехал");
+    assert(res.keptCustom, "свой пакет пользователя пропал при слиянии");
+    assert(/моя правка/.test(res.editedName),
+      "слияние затёрло правку пользователя во встроенном пакете: «" + res.editedName + "»");
+    assert(!res.dupes, "после слияния в списке появились пакеты-двойники");
+    assert(res.count > 40, "недостающие пакеты дописались не полностью: " + res.count);
   });
 
   await context.close();

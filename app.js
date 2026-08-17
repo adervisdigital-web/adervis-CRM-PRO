@@ -7175,7 +7175,7 @@
           activeProjectId: old.activeProjectId || old.project?.id || "",
           activeClientId: old.activeClientId || old.project?.clientId || "",
           stages: Array.isArray(old.stages) && old.stages.length ? old.stages : base.stages,
-          packages: Array.isArray(old.packages) && old.packages.length ? old.packages : base.packages,
+          packages: _withNewDefaultPackages(old.packages, base.packages),
           contracts: Array.isArray(old.contracts) ? old.contracts : [],
           dealView: old.dealView || "estimate",
           wizard: null,
@@ -7214,6 +7214,23 @@
         return (yr >= 2020 && yr <= 2099) ? d : "";
       }
 
+      /* Пакеты хранятся в аккаунте ЦЕЛИКОМ: было `state.packages.length ? state.packages
+         : base.packages`, то есть у кого пакеты уже сохранены, новые из кода не доезжали
+         никогда. Замер прода 17.08: у агентства владельца 39 пакетов из 45 — не хватало
+         шести, включая заказанный им же накануне SDE. Ровно тот случай, когда работа
+         сделана, оттестирована, задеплоена и невидима.
+
+         Дописываем недостающие по id, чужого не трогаем: правки существующих пакетов —
+         дело владельца аккаунта, перезаписывать их нельзя. Воскресить удалённое здесь
+         невозможно по построению: deletePackage работает только со СВОИМИ пакетами
+         (id начинается с `package_`), встроенный удалить нечем. */
+      function _withNewDefaultPackages(saved, defaults) {
+        if (!Array.isArray(saved) || !saved.length) return defaults;
+        const have = new Set(saved.map(p => p && p.id));
+        const missing = (defaults || []).filter(p => p && !have.has(p.id));
+        return missing.length ? saved.concat(deepClone(missing)) : saved;
+      }
+
       function normalizeState() {
         const base = defaultState();
 
@@ -7242,7 +7259,7 @@
           team: Array.isArray(state.team) ? state.team.map(normalizeTeamMember) : [],
           versions: Array.isArray(state.versions) ? state.versions : [],
           stages: Array.isArray(state.stages) && state.stages.length ? state.stages : base.stages,
-          packages: Array.isArray(state.packages) && state.packages.length ? state.packages : base.packages,
+          packages: _withNewDefaultPackages(state.packages, base.packages),
           contracts: Array.isArray(state.contracts) ? state.contracts : [],
           adminModal: null,
           notifPopupOpen: false,
