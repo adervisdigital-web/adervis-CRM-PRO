@@ -825,6 +825,79 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(/ЗНАЧЕНИЕ-1/.test(printedBody), "подставленные значения не доехали до печати");
   });
 
+  /* Восстановление из файла (Настройки → Данные → «Импорт JSON») заменяло состояние
+     ЦЕЛИКОМ и без единого вопроса. Два следствия:
+
+       • настройка, которой в файле нет, молча возвращалась к дефолту. Файл, снятый
+         до появления настройки, гасил её: publicCalcEnabled по умолчанию false —
+         скорее всего, так и погас публичный калькулятор на проде (проверено SQL
+         19.08: флаг false, хотя владелец его включал);
+       • перепутать бэкап с экспортом каталога легко (кнопки стоят рядом), а такой
+         файл не содержит savedProjects — то есть один клик стирал все сделки.
+
+     Проверяем шов: слияние делает _importKeepKeys + сам путь importDataFromFile. */
+  await test("импорт: настройки, которых нет в файле, не сбрасываются", async () => {
+    const res = await page.evaluate(async () => {
+      // Готовим аккаунт: включённая витрина расчёта и заполненный профиль.
+      window.app.updateCompany("name", "Студия Пример");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      // Шов может отсутствовать (старый код) — тест обязан дойти до проверок поведения
+      // и упасть на них, а не на отсутствии функции: иначе он охраняет наличие шва.
+      const keep = window.app._importKeepKeys ? window.app._importKeepKeys() : [];
+
+      // Файл-бэкап СТАРОГО образца: сделки есть, настроек нет вовсе.
+      const backup = { savedProjects: [], clients: [{ id: "c1", name: "Из файла" }] };
+      const file = new File([JSON.stringify(backup)], "backup.json", { type: "application/json" });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      const input = document.getElementById("importJsonInput");
+      input.files = dt.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+
+      // Диалог подтверждения обязателен — иначе замена уже произошла бы.
+      await new Promise((r) => setTimeout(r, 300));
+      const dialog = document.querySelector(".confirm-dialog-overlay");
+      const asked = !!dialog;
+      const msg = dialog ? (dialog.textContent || "") : "";
+      if (dialog) dialog.querySelector(".confirm-ok").click();
+      await new Promise((r) => setTimeout(r, 400));
+
+      const after = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return {
+        asked,
+        msg,
+        keep,
+        hadName: (st.company || {}).name,
+        nameAfter: (after.company || {}).name,
+        clientsAfter: (after.clients || []).map((c) => c.name),
+      };
+    });
+
+    assert(res.asked, "импорт заменил данные без подтверждения — один клик стирает всё");
+    assert(res.msg.includes("клиентов"),
+      "в подтверждении нет цифр из файла: человек соглашается вслепую — " + res.msg.slice(0, 120));
+    assertEqual(res.nameAfter, "Студия Пример",
+      "профиль компании сброшен файлом, в котором его не было (было «" + res.hadName + "»)");
+    assert(res.clientsAfter.includes("Из файла"),
+      "данные из файла не применились вовсе: " + JSON.stringify(res.clientsAfter));
+    assert(res.keep.includes("publicCalcEnabled") && res.keep.includes("company"),
+      "из списка защищаемых ключей пропали настройки: " + res.keep.join(", "));
+  });
+
+  /* Список защищаемых ключей легко написать наугад — я и написал: в первой версии
+     пять имён из восьми (notifySettings, telegram, calendarFeedToken, accent,
+     navOrder) в состоянии не существовали, и защита была декоративной. Ключ, которого
+     нет, не падает и не логируется — ровно тот класс, что сторож «мёртвых ссылок». */
+  await test("импорт: защищаются только существующие ключи состояния", async () => {
+    const bad = await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      if (!window.app._importKeepKeys) return ["__нет шва _importKeepKeys__"];
+      return window.app._importKeepKeys().filter((k) => !(k in st));
+    });
+    assertEqual(bad.length, 0,
+      "в списке защищаемых ключей есть несуществующие: " + bad.join(", "));
+  });
+
   await test("договоры: подстановка из сделки заполняет поля и убирает их из формы", async () => {
     // Сначала открываем сделку: привязка берётся из НЕЁ, и без открытой сделки
     // пустой dealId — правильное поведение, а не баг. Сделку заводим свою, а не

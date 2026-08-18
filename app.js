@@ -12471,21 +12471,92 @@
         toast("Данные экспортированы");
       }
 
+      /* Настройки, которые живут на верхнем уровне состояния и НЕ должны исчезать
+         из-за того, что в импортируемом файле их не оказалось. Файл мог быть снят
+         до появления настройки — тогда замена целиком молча возвращает дефолт.
+         Так, скорее всего, и погас публичный калькулятор: publicCalcEnabled по
+         умолчанию false, и достаточно один раз восстановиться из старого бэкапа. */
+      const IMPORT_KEEP_IF_ABSENT = [
+        "company",             // название, логотип, реквизиты, способ оплаты аванса
+        "publicCalcEnabled",   // публичная витрина расчёта
+        "telegramChatIds",     // куда падают уведомления о заявках
+        "briefTemplates",      // свои вопросы брифа
+        "proposalTemplates",   // свои шаблоны КП
+        "stages",              // этапы сметы
+        "companyTeam",         // команда
+        "knowledgeDocs",       // база знаний
+        "customItems",         // свой каталог и цены — ниже пять ключей одного смысла
+        "catalogPrices",
+        "catalogOverrides",
+        "hiddenItems",
+        "permanentlyDeleted"
+      ];
+
+      /* Сводка по файлу — чтобы человек подтверждал не «Импортировать?», а
+         конкретные цифры. Перепутать бэкап с экспортом каталога легко: кнопки
+         стоят рядом, а замена состояния файлом каталога стирает ВСЕ сделки. */
+      function _importSummary(data) {
+        const n = (v) => (Array.isArray(v) ? v.length : 0);
+        return {
+          deals: n(data.savedProjects),
+          clients: n(data.clients),
+          tasks: n(data.tasks),
+          contracts: n(data.contracts),
+          hasSettings: !!data.company,
+          looksLikeCatalog: !data.savedProjects && !!(data.customItems || data.catalogPrices)
+        };
+      }
+
       function importDataFromFile(file) {
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = () => {
+        reader.onload = async () => {
+          let imported;
           try {
-            const imported = JSON.parse(reader.result);
+            imported = JSON.parse(reader.result);
             if (!imported || typeof imported !== "object") throw new Error("Некорректный файл");
-            state = migrateState(imported);
+          } catch (error) {
+            toast("Не удалось импортировать файл: " + error.message);
+            return;
+          }
+
+          const info = _importSummary(imported);
+          const now = _importSummary(state);
+          const lines = [
+            "В файле: сделок " + info.deals + ", клиентов " + info.clients +
+              ", задач " + info.tasks + ", договоров " + info.contracts + ".",
+            "Сейчас в аккаунте: сделок " + now.deals + ", клиентов " + now.clients + ".",
+            info.looksLikeCatalog
+              ? "ВНИМАНИЕ: похоже, это файл КАТАЛОГА, а не полный бэкап — сделки и клиенты будут стёрты."
+              : "Текущие данные будут заменены содержимым файла.",
+            "Настройки, которых в файле нет (профиль компании, способ оплаты, публичный калькулятор), останутся как сейчас."
+          ];
+          const ok = await confirmDialog({
+            title: "Заменить данные из файла?",
+            message: lines.join("\n"),
+            okText: "Заменить",
+            cancelText: "Отмена",
+            danger: true
+          });
+          if (!ok) return;
+
+          // Снимок «до» — чтобы одно нажатие можно было откатить, как удаление сделки.
+          const before = JSON.parse(JSON.stringify(state));
+          // Слияние, а не замена: ключи из списка сохраняются, если файл про них молчит.
+          const merged = Object.assign({}, imported);
+          IMPORT_KEEP_IF_ABSENT.forEach((key) => {
+            if (merged[key] === undefined && state[key] !== undefined) merged[key] = state[key];
+          });
+          state = migrateState(merged);
+          save();
+          render();
+          toastUndo("Данные импортированы", () => {
+            state = migrateState(before);
             save();
             render();
-            toast("Данные импортированы");
-          } catch (error) {
-      toast("Не удалось импортировать файл: " + error.message);
-          }
+            toast("Импорт отменён");
+          });
         };
         reader.readAsText(file);
       }
@@ -26433,6 +26504,8 @@ Email: _____________________              Email: _____________________
         printInvoice,
         sendDebtReminder,
         importData,
+        _importSummary,
+        _importKeepKeys: () => IMPORT_KEEP_IF_ABSENT.slice(),
         exportCatalog,
         importCatalog,
         exportCatalogXlsx,
