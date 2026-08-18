@@ -266,6 +266,114 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  /* Заявка из калькулятора, открытого ССЫЛКОЙ (а не в iframe на сайте студии).
+     Так и задуман главный канал плана: «в сообщении готовая ссылка на расчёт».
+     До 19.08 в этом режиме форма не отправляла ничего: расчёт копировался в буфер,
+     а на экране показывались контакты ADERVIS — Telegram сервиса, его телефон и
+     почта. Посетитель ЧУЖОЙ студии, посчитав смету, получал предложение прислать
+     её конкуренту. Это увод лида, а не косметика.
+
+     Проверяем оба конца: заявка уходит агентству (та же анонимная вставка, что у
+     публичного брифа) и на экране стоят контакты студии. */
+  await test("заявка со ссылки уходит агентству, а не в буфер обмена", async () => {
+    const agency = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const { context, page, errors } = await bootCalcWithCatalog(browser, baseUrl, calcCatalog({
+      company: { name: "Studio Probe", logo: "", phone: "+7 900 111-22-33", email: "hi@studio-probe.ru", site: "" },
+    }), agency);
+
+    // Приёмник заявок: ловим тело вставки. Общая заглушка в bootCalcWithCatalog
+    // отвечает 204 на всё внешнее, поэтому свой маршрут регистрируем ПОСЛЕ неё —
+    // Playwright примеряет маршруты в обратном порядке.
+    const inserts = [];
+    await context.route("**/rest/v1/brief_submissions*", (route) => {
+      inserts.push(route.request().postDataJSON());
+      return route.fulfill({ status: 201, contentType: "application/json", body: "[]" });
+    });
+
+    await walkToResult(page);
+    await page.evaluate(() => {
+      window.app.calcOpenLead();
+      window.app.calcSetLead("name", "Иван Заказчиков");
+      window.app.calcSetLead("contact", "+7 999 000-11-22");
+      window.app.calcSetLead("agree", true);
+      window.app.calcSubmitLead();
+    });
+    await page.waitForTimeout(900);
+
+    assertEqual(inserts.length, 1, "заявка не ушла агентству: вставок в brief_submissions " + inserts.length);
+    const row = inserts[0];
+    assertEqual(row.agency_id, agency, "заявка ушла не тому агентству: " + row.agency_id);
+    assertEqual(row.client_name, "Иван Заказчиков", "имя не доехало: " + row.client_name);
+    assert(String(row.client_phone || "").includes("999"), "телефон не доехал: " + row.client_phone);
+    assert(String(row.description || "").includes("Заявка из калькулятора"),
+      "в заявке нет самого расчёта: " + String(row.description).slice(0, 80));
+    assert(!String(row.description || "").includes("Имя: "),
+      "имя продублировано в описании, хотя для него есть колонка");
+
+    const screen = await page.evaluate(() => document.body.innerText.replace(/s+/g, " "));
+    assert(screen.includes("Заявка отправлена"),
+      "человеку показали «расчёт скопирован» вместо отправленной заявки: " + screen.slice(0, 160));
+    assertEqual(errors.length, 0, "ошибки на экране калькулятора: " + errors.join(" | "));
+    await context.close();
+  });
+
+  await test("после заявки показаны контакты студии, а не сервиса", async () => {
+    const { context, page } = await bootCalcWithCatalog(browser, baseUrl, calcCatalog({
+      company: { name: "Studio Probe", logo: "", phone: "+7 900 111-22-33", email: "hi@studio-probe.ru", site: "studio-probe.ru" },
+    }), "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    await context.route("**/rest/v1/brief_submissions*", (route) =>
+      route.fulfill({ status: 201, contentType: "application/json", body: "[]" }));
+
+    await walkToResult(page);
+    await page.evaluate(() => {
+      window.app.calcOpenLead();
+      window.app.calcSetLead("name", "Иван Заказчиков");
+      window.app.calcSetLead("contact", "hi@example.com");
+      window.app.calcSetLead("agree", true);
+      window.app.calcSubmitLead();
+    });
+    await page.waitForTimeout(900);
+
+    const links = await page.evaluate(() =>
+      [...document.querySelectorAll(".calc-lead-contacts a")].map((a) => a.getAttribute("href") || ""));
+    assert(links.length, "после заявки не показано ни одного контакта");
+    for (const bad of ["Adervis_digital", "79223018880", "adervis.digital@gmail.com"]) {
+      assert(!links.join(" ").includes(bad),
+        "на экране заявки остались контакты сервиса (" + bad + "): " + links.join(", "));
+    }
+    assert(links.some((h) => h.includes("hi@studio-probe.ru")), "нет почты студии: " + links.join(", "));
+    assert(links.some((h) => h.includes("79001112233")), "нет телефона студии: " + links.join(", "));
+    await context.close();
+  });
+
+  /* Ссылка, которой делятся, — главный канал из плана: «в сообщении готовая ссылка
+     на расчёт, а не приглашение зарегистрироваться». Собиралась она от pathname и
+     теряла ?a=<агентство>, то есть открывалась на ВСТРОЕННОМ прайсе ADERVIS. Тот же
+     адрес уходит в текст заявки, поэтому студия получала лид, где числа из её
+     каталога, а ссылка ведёт на цены конкурента. */
+  await test("ссылка на расчёт не теряет агентство", async () => {
+    const agency = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const { context, page, errors } = await bootCalcWithCatalog(browser, baseUrl, calcCatalog({
+      catalogPrices: { camera_operator: 77777 },
+    }), agency);
+    await walkToResult(page);
+
+    const shared = await page.evaluate(async () => {
+      window.__copied = null;
+      navigator.clipboard.writeText = (text) => { window.__copied = text; return Promise.resolve(); };
+      window.app.calcShare();
+      await new Promise((r) => setTimeout(r, 80));
+      // Тот же адрес уходит клиенту в тексте заявки — проверяем оба места сразу.
+      const lead = document.body.innerHTML;
+      return { url: window.__copied, lead };
+    });
+    assert(shared.url, "ссылка не скопировалась");
+    assert(shared.url.includes("a=" + agency),
+      "в ссылке на расчёт нет агентства — она откроется на встроенном прайсе: " + shared.url);
+    assertEqual(errors.length, 0, "ошибки на экране калькулятора: " + errors.join(" | "));
+    await context.close();
+  });
+
   await test("ссылка на расчёт восстанавливает выбор целиком", async () => {
     const { context, page } = await bootCalc(browser, baseUrl, "calc=1");
     await walkToResult(page);

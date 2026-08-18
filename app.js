@@ -21800,9 +21800,14 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (data.permanentlyDeleted && typeof data.permanentlyDeleted === "object") state.permanentlyDeleted = data.permanentlyDeleted;
         if (data.company && data.company.name) {
           _calcAgencyName = String(data.company.name);
+          // Контакты приезжают вместе с каталогом (миграция 20260819000001): экран
+          // «заявка отправлена» обязан звать в ЭТУ студию, а не в сервис.
           state.company = Object.assign({}, state.company, {
             name: data.company.name,
-            logoUrl: data.company.logo || ""
+            logoUrl: data.company.logo || "",
+            phone: data.company.phone || "",
+            email: data.company.email || "",
+            site: data.company.site || ""
           });
         }
         return true;
@@ -22157,15 +22162,22 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
          на результате с теми же кнопками, и её не ломает правка каталога.
          Старый формат «id:кол-во:смен;…» продолжаем понимать — ссылки, которые
          могли уйти до переделки, не должны открываться пустым экраном.        */
+      /* Адрес собирается заново, поэтому агентство надо перенести РУКАМИ: ссылка
+         студии выглядит как ?calc=1&a=<agency>, и без `a` расчёт открывается на
+         встроенном прайсе ADERVIS. То есть посетитель считал по ценам студии,
+         пересылал ссылку — и по ней открывались цены чужой компании и прямого
+         конкурента. Тот же адрес уходит в текст заявки («Расчёт: …»), так что
+         студия получала лид со ссылкой на другой расчёт, чем числа в письме. */
       function _calcShareUrl() {
         const base = location.origin + location.pathname;
+        const agency = _calcAgencyId ? "&a=" + encodeURIComponent(_calcAgencyId) : "";
         if (_calcCustom) {
           const lines = _calcEncodeLines();
-          return lines ? `${base}?calc=${lines}` : "";
+          return lines ? `${base}?calc=${lines}${agency}` : "";
         }
         if (!_calcNeed || !_calcPkgId) return "";
         const parts = [_calcNeed, _calcPkgId, _calcDays, _calcExtraIds().join(","), _calcRush ? "1" : "0"];
-        return `${base}?calc=${parts.join("~")}`;
+        return `${base}?calc=${parts.join("~")}${agency}`;
       }
 
       function _calcApplyShared(raw) {
@@ -22251,6 +22263,64 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         ].filter(Boolean).join("\n");
       }
 
+      /* Калькулятор задумывался как встраиваемый: заявка уходит postMessage'ом
+         странице-хосту, и отправляет её сайт студии своим каналом. Но главный канал
+         из плана — «дать ссылку в личку», а открытый ссылкой калькулятор хоста не
+         имеет: форма показывала «расчёт скопирован, пришлите его нам» и контакты
+         сервиса. То есть в самом рабочем сценарии заявка до студии не доходила.
+
+         Приёмник уже есть — тот же, что у публичного брифа: анонимная вставка в
+         brief_submissions плюс agency-notify по id строки (сервер сам читает данные
+         из БД и тексту из запроса не доверяет). Заявка появляется в разделе «Брифы»
+         и приходит в Telegram. Отдельной таблицы и функции не заводим. */
+      async function _calcSendLeadToAgency(text) {
+        if (!_calcAgencyId || !window.supabase) return false;
+        try {
+          const sb = window.supabase.createClient(_DEFAULT_SB_URL, _DEFAULT_SB_KEY);
+          const submissionId = crypto.randomUUID();
+          const contact = _calcLead.contact.trim();
+          // Поле контакта одно (человеку так проще), а колонки в базе две. Почту
+          // отличаем по «@»: всё остальное — телефон или ник, и звонить/писать по
+          // нему всё равно будут руками.
+          const isEmail = contact.indexOf("@") > 0;
+          const need = _calcNeedDef();
+          // Имя и контакт в описании не повторяем: для них есть свои колонки.
+          const description = text.split("\n")
+            .filter(l => l.indexOf("Имя: ") !== 0 && l.indexOf("Контакт: ") !== 0)
+            .join("\n");
+          const { error } = await sb.from("brief_submissions").insert({
+            id: submissionId,
+            agency_id: _calcAgencyId,
+            client_name: _calcLead.name.trim(),
+            client_phone: isEmail ? "" : contact,
+            client_email: isEmail ? contact : "",
+            project_type: (need ? need.title : "Своя смета") + " — расчёт с калькулятора",
+            description,
+            budget: money(_calcAmounts().total),
+            submitted_at: new Date().toISOString()
+          });
+          if (error) {
+            // Отказ вставки НЕ бросает исключение (supabase-js v2) — без этой ветки
+            // человек увидел бы «Заявка отправлена» при пустой базе у студии.
+            console.warn("заявка с калькулятора не сохранена:", error.message);
+            return false;
+          }
+          try {
+            fetch(_DEFAULT_SB_URL + "/functions/v1/agency-notify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ type: "brief_submitted", submissionId })
+            }).catch(() => {});
+          } catch (e) {
+            console.warn("agency-notify (заявка с калькулятора) не отправлено:", e);
+          }
+          return true;
+        } catch (e) {
+          console.warn("заявка с калькулятора не отправлена:", e);
+          return false;
+        }
+      }
+
       function calcSubmitLead() {
         const name = _calcLead.name.trim();
         const contact = _calcLead.contact.trim();
@@ -22259,7 +22329,25 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!_calcLead.agree) { _calcLead.error = "Нужно согласие на обработку персональных данных"; render(); return; }
         _calcLead.error = "";
         const text = _calcLeadText();
-        if (window.parent === window) { _calcLeadFallback(text); return; }
+        if (window.parent === window) {
+          // Открыт ссылкой. Знаем агентство — отправляем ему сами; не знаем (наша
+          // собственная витрина ?calc=1) — прежнее поведение с буфером обмена.
+          if (_calcAgencyId) {
+            _calcLead.sending = true;
+            render();
+            _calcSendLeadToAgency(text).then(ok => {
+              _calcLead.sending = false;
+              if (!ok) { _calcLeadFallback(text); return; }
+              _calcLead.sent = true;
+              _calcLead.fallback = false;
+              trackGoal("calc_lead_sent");
+              render();
+            });
+            return;
+          }
+          _calcLeadFallback(text);
+          return;
+        }
         _calcLead.sending = true;
         render();
         const seq = ++_calcLeadSeq;
@@ -22557,6 +22645,42 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           </section>`;
       }
 
+      /* Куда посетителю писать. Раньше здесь стояли зашитые контакты ADERVIS —
+         Telegram сервиса, его телефон и почта. Для владельца это верно, а для
+         посетителя ЧУЖОЙ студии означало: посчитал смету — отправь её конкуренту.
+         Не «чужое имя на документе», а увод заявки, как когда-то аванс уходил в
+         магазин владельца сервиса.
+
+         Контакты берутся из каталога агентства. Их может не быть (профиль не
+         заполнен, миграция не накатана) — тогда не показываем ничьих: пустое место
+         честнее чужого телефона. Собственная витрина сервиса (?calc=1 без a=) —
+         единственный случай, когда наши контакты уместны. */
+      function _calcContactsHtml() {
+        if (!_calcAgencyId) {
+          return `
+            <div class="calc-lead-contacts">
+              <a class="btn" href="https://t.me/Adervis_digital" target="_blank" rel="noopener">Telegram</a>
+              <a class="btn" href="tel:+79223018880">+7 (922) 301-88-80</a>
+              <a class="btn" href="mailto:adervis.digital@gmail.com">Почта</a>
+            </div>`;
+        }
+        const c = state.company || {};
+        const phone = String(c.phone || "").trim();
+        const email = String(c.email || "").trim();
+        const site = String(c.site || "").trim();
+        const parts = [];
+        if (phone) parts.push(`<a class="btn" href="tel:${escapeHtml(phone.replace(/[^+\d]/g, ""))}">${escapeHtml(phone)}</a>`);
+        if (email) parts.push(`<a class="btn" href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a>`);
+        if (site) {
+          const low = site.toLowerCase();
+          const hasProto = low.indexOf("http://") === 0 || low.indexOf("https://") === 0;
+          const href = hasProto ? site : "https://" + site;
+          const bare = hasProto ? site.slice(site.indexOf("//") + 2) : site;
+          parts.push(`<a class="btn" href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(bare)}</a>`);
+        }
+        return parts.length ? `<div class="calc-lead-contacts">${parts.join("")}</div>` : "";
+      }
+
       function _calcRenderLead() {
         if (_calcLead.sent) {
           return `
@@ -22565,11 +22689,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <p>${_calcLead.fallback
                 ? "Расчёт в буфере обмена — пришлите его нам любым удобным способом, ответим в течение рабочего дня."
                 : "Спасибо! Свяжемся в течение рабочего дня и пришлём точную смету."}</p>
-              <div class="calc-lead-contacts">
-                <a class="btn" href="https://t.me/Adervis_digital" target="_blank" rel="noopener">Telegram</a>
-                <a class="btn" href="tel:+79223018880">+7 (922) 301-88-80</a>
-                <a class="btn" href="mailto:adervis.digital@gmail.com">Почта</a>
-              </div>
+              ${_calcContactsHtml()}
             </div>`;
         }
         if (!_calcLeadOpen) return "";
