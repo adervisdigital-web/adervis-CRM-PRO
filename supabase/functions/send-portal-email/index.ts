@@ -25,10 +25,12 @@ Deno.serve(async (req) => {
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
   if (authErr || !user) return new Response("Unauthorized", { status: 401 });
 
-  let body: { clientEmail?: string; clientName?: string; dealName?: string; portalUrl?: string; totalPrice?: number; agencyName?: string };
+  // Имя студии в теле запроса больше не принимается: подпись письма читается из БД
+  // (ниже) — браузер мог прислать что угодно, а письмо уходит с нашего домена.
+  let body: { clientEmail?: string; clientName?: string; dealName?: string; portalUrl?: string; totalPrice?: number };
   try { body = await req.json(); } catch { return new Response("Bad JSON", { status: 400 }); }
 
-  const { clientEmail, clientName, portalUrl, agencyName } = body;
+  const { clientEmail, clientName, portalUrl } = body;
   if (!clientEmail || !portalUrl) {
     return new Response(JSON.stringify({ error: "clientEmail and portalUrl required" }), {
       status: 400, headers: { "Content-Type": "application/json", ...cors },
@@ -48,7 +50,7 @@ Deno.serve(async (req) => {
   }
   const { data: portal, error: portalErr } = await supabase
     .from("client_portals")
-    .select("deal_name, total_price")
+    .select("deal_name, total_price, agency_id, hide_branding")
     .eq("id", portalId)
     .single();
   if (portalErr || !portal) {
@@ -59,8 +61,34 @@ Deno.serve(async (req) => {
   const dealName = portal.deal_name || "";
   const totalPrice = portal.total_price || 0;
 
-  const agency = agencyName || "Adervis";
-  const subject = `КП от ${agency}${dealName ? ` — ${dealName}` : ""}`;
+  /* Кто подписывает письмо. Раньше имя приходило из браузера, а при пустом профиле
+     подставлялось «Adervis» — заказчик чужой студии получал КП «от Adervis», то есть
+     от прямого конкурента, с нашего домена. С 18.08 профиль у новых аккаунтов пуст,
+     так что запасной вариант срабатывал бы всё чаще.
+
+     Теперь имя и почта читаются из agency_state сервисным ключом: владение порталом
+     уже доказано выше запросом под токеном пользователя (RLS), а данные о самой
+     студии тексту из запроса доверять незачем. Нет имени — письмо называет документ,
+     а не компанию: лучше без имени, чем с чужим. */
+  let agency = "";
+  let agencyEmail = "";
+  if (portal.agency_id) {
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: st } = await admin
+      .from("agency_state")
+      .select("state_json")
+      .eq("id", String(portal.agency_id))
+      .maybeSingle();
+    const co = (st && st.state_json && st.state_json.company) || {};
+    agency = String(co.name || "").trim();
+    agencyEmail = String(co.email || "").trim();
+  }
+  const subject = agency
+    ? `КП от ${agency}${dealName ? ` — ${dealName}` : ""}`
+    : `Коммерческое предложение${dealName ? ` — ${dealName}` : ""}`;
 
   const priceStr = totalPrice
     ? new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 }).format(totalPrice)
@@ -82,7 +110,7 @@ Deno.serve(async (req) => {
 
         <!-- Header -->
         <tr><td style="background:#0f172a;padding:32px 40px;text-align:center">
-          <div style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px">${agency}</div>
+          ${agency ? `<div style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px">${agency}</div>` : ""}
           <div style="font-size:13px;color:#94a3b8;margin-top:4px">Коммерческое предложение</div>
         </td></tr>
 
@@ -116,8 +144,7 @@ Deno.serve(async (req) => {
         <!-- Footer -->
         <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center">
           <p style="margin:0;font-size:12px;color:#94a3b8">
-            Письмо отправлено через платформу <strong>ADERVIS CRM</strong>.
-            Если вы получили его по ошибке — просто проигнорируйте.
+            ${portal.hide_branding ? "" : "Письмо отправлено через платформу <strong>ADERVIS CRM</strong>. "}Если вы получили его по ошибке — просто проигнорируйте.
           </p>
         </td></tr>
 
@@ -133,7 +160,11 @@ Deno.serve(async (req) => {
       "Authorization": `Bearer ${resendKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from: RESEND_FROM, to: clientEmail, subject, html }),
+    body: JSON.stringify(
+      agencyEmail
+        ? { from: RESEND_FROM, to: clientEmail, subject, html, reply_to: agencyEmail }
+        : { from: RESEND_FROM, to: clientEmail, subject, html }
+    ),
   });
 
   if (!sendResp.ok) {

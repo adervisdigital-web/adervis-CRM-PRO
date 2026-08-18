@@ -13913,6 +13913,10 @@
           return `
             <div class="brief-wrap">
               <div class="brief-inner">
+                ${/* Шапка с именем студии остаётся и после отправки: до этого экран
+                      «Заявка отправлена!» терял всякий признак того, КОМУ человек
+                      только что отправил свои данные. */""}
+                ${_briefAgencyHeaderHtml()}
                 <div class="brief-card">
                   <div class="brief-success-wrap">
           <div class="brief-success-icon"></div>
@@ -23376,7 +23380,6 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   dealName: project.name || '',
                   portalUrl: url,
                   totalPrice: project.total || 0,
-                  agencyName: state.company?.name || 'Adervis',
                 }),
               });
               emailSent = r.ok;
