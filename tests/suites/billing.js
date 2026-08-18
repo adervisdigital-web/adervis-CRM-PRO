@@ -229,6 +229,137 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  /* Корень той же истории: до 18.08 данные сервиса лежали в defaultState как
+     значения по умолчанию профиля компании, и «чужое имя в документе» появлялось
+     само, без единой ошибки в коде рендера. Поэтому сторож стоит на самих дефолтах,
+     а не только на документах. */
+  await test("профиль нового аккаунта не содержит имени и логотипа сервиса", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { seedDemo: true });
+    const co = await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return st.company || null;
+    });
+    // Без этой проверки сторож проходил бы и на несохранённом состоянии: company
+    // тогда undefined, а «пустое поле» читается как выполненное требование. terms
+    // остаётся дефолтом сознательно — он и служит признаком живого объекта.
+    assert(co && String(co.terms || "").trim(), "состояние ещё не записано — сторож проверял бы пустоту, а не дефолты");
+    for (const key of ["name", "logoUrl", "desc", "details"]) {
+      assertEqual(String(co[key] || ""), "",
+        "поле company." + key + " приходит заполненным данными сервиса: «" + co[key] + "»");
+    }
+    await context.close();
+  });
+
+  /* Аккаунты, созданные ДО правки, уже носят дефолты сервиса в облачном состоянии.
+     Чистка живёт в _stripServiceIdentity и вызывается из _migrateStateData (тот путь
+     тестами не покрыт: нужна живая сессия Supabase). Поэтому сторож статический —
+     он ловит ровно то, что здесь можно потерять: обрыв вызова. */
+  await test("чистка дефолтов сервиса вызывается при миграции состояния", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl);
+    const src = await page.evaluate(() => {
+      const url = [...document.scripts].map((x) => x.src).find((x) => x.includes("app.js"));
+      return fetch(url).then((r) => r.text());
+    });
+    await context.close();
+    assert(src.includes("function _stripServiceIdentity()"),
+      "функции _stripServiceIdentity больше нет — аккаунты со старыми дефолтами останутся с чужим именем");
+    const body = src.slice(src.indexOf("function _migrateStateData()"), src.indexOf("function _migrateStateData()") + 700);
+    assert(body.includes("_stripServiceIdentity()"),
+      "_migrateStateData больше не зовёт _stripServiceIdentity: у существующих аккаунтов имя сервиса останется в документах");
+    for (const val of ["Adervis", "logo-icon.svg"]) {
+      assert(src.includes("SERVICE_IDENTITY_DEFAULTS") && src.includes(val),
+        "в списке дефолтов сервиса не осталось значения «" + val + "» — чистить будет нечего");
+    }
+  });
+
+  /* Документы, которые студия отправляет заказчику файлом и текстом. 18.08 нашлось,
+     что имя и логотип СЕРВИСА доставались каждому агентству как значения по
+     умолчанию (company.name = "Adervis", logoUrl = "logo-icon.svg"), а печать вдобавок
+     подставляла их запасным вариантом. То есть студия, не заполнившая профиль,
+     рассылала КП, счета и договоры от имени чужой компании и прямого конкурента —
+     и узнать об этом ей было неоткуда.
+
+     Проверяется вся тройка путей наружу: предпросмотр/печать КП, текст для
+     мессенджера и напоминание в интерфейсе. */
+  await test("документы: пустой профиль не подписывается именем сервиса", async () => {
+    const { context, page, errors } = await bootLocal(browser, baseUrl, { seedDemo: true });
+    const id = await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return ((st.savedProjects || [])[0] || {}).id || null;
+    });
+    assert(id, "демо-сделка не завелась");
+    await page.evaluate((i) => window.app.openDeal(i), id);
+    await page.waitForTimeout(300);
+    await page.evaluate(() => window.app.setDealView("proposal"));
+    await page.waitForTimeout(400);
+
+    const res = await page.evaluate(async () => {
+      const prev = document.querySelector(".proposal-preview");
+      const out = { html: prev ? prev.innerHTML : "", txt: "", banner: (document.getElementById("appContent").textContent || "") };
+      const real = navigator.clipboard;
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText: (t) => { out.txt = t; return Promise.resolve(); } },
+        configurable: true,
+      });
+      try { window.app.copyProposalText(); } catch (e) { out.txt = "ОШИБКА: " + e.message; }
+      await new Promise((r) => setTimeout(r, 100));
+      Object.defineProperty(navigator, "clipboard", { value: real, configurable: true });
+      return out;
+    });
+
+    assert(res.html, "предпросмотр КП не отрисовался");
+    // Единственное допустимое упоминание сервиса в документе — мелкая подпись внизу
+    // (.proposal-service-note), она же снимается на платном тарифе. Всё остальное
+    // «adervis» в бланке означает, что документ подписан не той компанией.
+    const noteAt = res.html.indexOf("proposal-service-note");
+    const withoutNote = noteAt === -1 ? res.html : res.html.slice(0, noteAt);
+    assert(!withoutNote.toLowerCase().includes("adervis"),
+      "в КП без заполненного профиля напечатано имя сервиса");
+    assert(!res.html.includes("КП сформировано в ADERVIS"),
+      "в документе клиенту остался номер версии приложения (внутренний учёт в чужом документе)");
+    assert(!res.html.includes("logo-icon.svg"),
+      "в КП без своего логотипа напечатан логотип сервиса");
+    assert(!res.txt.toLowerCase().startsWith("adervis"),
+      "текст КП для мессенджера начинается именем сервиса: " + res.txt.slice(0, 60));
+    assert(res.banner.includes("Не указано название компании"),
+      "нет напоминания заполнить профиль — человек узнает о безымянном КП после отправки");
+    assert(errors.length === 0, "ошибки страницы: " + errors.join(" | "));
+    await context.close();
+  });
+
+  await test("документы: заполненное название печатается, напоминание уходит", async () => {
+    const { context, page, errors } = await bootLocal(browser, baseUrl, { seedDemo: true });
+    const id = await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return ((st.savedProjects || [])[0] || {}).id || null;
+    });
+    await page.evaluate((i) => window.app.openDeal(i), id);
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      window.app.updateCompany("name", "Студия Пример");
+      window.app.setDealView("proposal");
+    });
+    await page.waitForTimeout(400);
+
+    const res = await page.evaluate(() => ({
+      html: (document.querySelector(".proposal-preview") || {}).innerHTML || "",
+      banner: document.getElementById("appContent").textContent || "",
+    }));
+    assert(res.html.includes("Студия Пример"), "название студии не попало в КП");
+    assert(!res.banner.includes("Не указано название компании"),
+      "напоминание осталось при заполненном названии");
+
+    // И обратно: стёрли название — напоминание вернулось. Проверка именно связки,
+    // а не разового состояния: иначе плашка могла бы показываться один раз и гаснуть.
+    await page.evaluate(() => window.app.updateCompany("name", ""));
+    await page.waitForTimeout(300);
+    const back = await page.evaluate(() => document.getElementById("appContent").textContent || "");
+    assert(back.includes("Не указано название компании"),
+      "название стёрли, а напоминание не вернулось");
+    assert(errors.length === 0, "ошибки страницы: " + errors.join(" | "));
+    await context.close();
+  });
+
   /* Деньги клиента не должны проходить через магазин сервиса: у чужой студии
      аванс уходил бы владельцу сервиса (и падал в его лимит по НПД). Способ
      оплаты выбирает само агентство, и КП обязано показывать именно его. */

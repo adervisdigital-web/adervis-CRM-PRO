@@ -1977,7 +1977,31 @@
         return (_userProfile && _userProfile.agency_id) || (_adminSession && _adminSession.user.id) || "local";
       }
 
+      /* Данные сервиса, которые до 18.08.2026 доставались каждому новому агентству
+         как значения по умолчанию. Совпадение с ними символ в символ означает, что
+         человек профиль не трогал: он не выбирал себе имя ADERVIS, он его получил.
+         Тогда чистим — документ без имени честнее документа с чужим.
+         Владельца сервиса это не касается: у него ADERVIS — настоящее имя. */
+      const SERVICE_IDENTITY_DEFAULTS = {
+        name: "Adervis",
+        logoUrl: "logo-icon.svg",
+        desc: "Видеопроизводство и digital-упаковка для бизнеса.",
+        details: "Видеопроизводство и digital-упаковка для бизнеса."
+      };
+      function _stripServiceIdentity() {
+        // Пока не знаем, кто вошёл, не трогаем ничего: локальная загрузка идёт до
+        // авторизации, и без сессии супер-админа не отличить от чужой студии.
+        if (!_adminSession || _isSuperAdmin()) return false;
+        const c = state.company || {};
+        let changed = false;
+        Object.keys(SERVICE_IDENTITY_DEFAULTS).forEach(k => {
+          if (String(c[k] || "").trim() === SERVICE_IDENTITY_DEFAULTS[k]) { c[k] = ""; changed = true; }
+        });
+        return changed;
+      }
+
       function _migrateStateData() {
+        _stripServiceIdentity();
         // Migrate old CRM statuses: "Закрыто" → "Завершённые", "Отказ" → "Архив"
         (state.savedProjects || []).forEach(p => {
           if (p.crmStatus === "Закрыто") p.crmStatus = "Завершённые";
@@ -7169,16 +7193,23 @@
             proposalShowNote: true,
             proposalShowCompanyInfo: true
           },
+          /* Имя, логотип и описание — ПУСТЫЕ. Раньше здесь стояли данные самого
+             сервиса («Adervis», logo-icon.svg, «Видеопроизводство и digital-упаковка
+             для бизнеса»), и любая студия, не заполнившая профиль, рассылала КП,
+             счета и договоры от имени ADERVIS — чужой компании и прямого конкурента.
+             Пустое значение документы переживают (шапка печатается без имени), а
+             интерфейс просит заполнить — см. _companyNameMissingHtml. Условия
+             (terms) остаются: текст общий, ничьей подписи в нём нет. */
           company: {
-            name: "Adervis",
+            name: "",
             phone: "",
             email: "",
             site: "",
             inn: "",
             address: "",
-            logoUrl: "logo-icon.svg",
-            desc: "Видеопроизводство и digital-упаковка для бизнеса.",
-            details: "Видеопроизводство и digital-упаковка для бизнеса.",
+            logoUrl: "",
+            desc: "",
+            details: "",
             terms: "Срок действия предложения — 7 календарных дней. Финальные сроки и состав работ уточняются после брифа.",
             requisites: "",
             /* Способ оплаты аванса в клиентском КП. Форма у агентств разная
@@ -12977,7 +13008,8 @@
         }).filter(Boolean).join("\n");
 
         const text = [
-          state.company.name || "Adervis",
+          // Без запасного «Adervis»: текст уходит клиенту студии в мессенджер.
+          String(state.company.name || "").trim(),
           "",
           `Коммерческое предложение: ${state.project.name || "Проект"}`,
           `Клиент: ${proposalClientDisplay()}`,
@@ -13027,6 +13059,10 @@
           .proposal-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
           .proposal-brand img { width: 36px; height: 36px; object-fit: contain; }
           .proposal-brand p { font-size: 12px; color: #6b7280; margin: 0; }
+          .proposal-total td { font-size: 16px; font-weight: 700; color: #000; padding-top: 10px; border-top: 2px solid #d1d5db; }
+          .proposal-total td:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
+          .proposal-date { margin-top: 28px; font-size: 12px; color: #6b7280; }
+          .proposal-service-note { font-size: 11px; color: #9ca3af; margin: 2px 0 0; }
           .empty { color: #9ca3af; font-style: italic; }
           /* Тело договора — текст как есть, переносы автора значимы. */
           .doc-body { white-space: pre-wrap; font-size: 13px; }
@@ -13041,13 +13077,16 @@
       // Шапка документа: логотип и название агентства. Общая для КП и договора.
       function _docBrandHtml() {
         const logo = String(state.company.logoUrl || "").trim();
-        const name = state.company.name || "Adervis";
+        // Имя сервиса вместо имени студии — то же, что зашитая подпись в портале КП
+        // (чинили 18.08). Нет имени — печатаем то, что есть, и не подставляем чужое.
+        const name = String(state.company.name || "").trim();
         const desc = String(state.company.desc || "").trim();
+        if (!logo && !name && !desc) return "";
         return `
           <div class="proposal-brand">
-            ${logo ? `<img src="${escapeHtml(logo)}" alt="${escapeHtml(name)}">` : ""}
+            ${logo ? `<img src="${escapeHtml(logo)}" alt="${escapeHtml(name || 'Логотип')}">` : ""}
             <div>
-              <h1>${escapeHtml(name)}</h1>
+              ${name ? `<h1>${escapeHtml(name)}</h1>` : ""}
               ${desc ? `<p>${escapeHtml(desc)}</p>` : ""}
             </div>
           </div>`;
@@ -19445,6 +19484,8 @@
               </div>
             </div>
 
+            ${_companyNameMissingHtml()}
+
             ${state.project.portalId ? `
             <div id="portalAdvanceStatus" class="no-print client-hidden" style="margin-bottom:14px">
               <div style="padding:8px 0" aria-busy="true"><div class="skeleton" style="height:14px;width:200px"></div></div>
@@ -19524,6 +19565,22 @@
         `;
       }
 
+      /* Профиль компании не заполнен — документ уйдёт безымянным. До 18.08.2026
+         вместо предупреждения подставлялось имя сервиса, и заказчик студии получал
+         КП от «Adervis». Молчать тоже нельзя: человек узнает о пустой шапке уже
+         после отправки. Плашка стоит там, где документ отправляют. */
+      function _companyNameMissingHtml() {
+        if (String(state.company.name || "").trim()) return "";
+        return `
+          <div class="no-print client-hidden" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:14px 16px;background:rgba(202,138,4,.1);border:1px solid rgba(202,138,4,.3);border-radius:var(--r-xl)">
+            <div style="flex:1 1 240px;min-width:0">
+              <div style="font-weight:700;font-size:13px">Не указано название компании</div>
+              <div class="u-meta">КП, счёт и договор уйдут клиенту без вашего названия и логотипа.</div>
+            </div>
+            <button class="btn small" onclick="app.go('settings');app._setSettingsTab('company')">Заполнить профиль</button>
+          </div>`;
+      }
+
       function renderProposalPrint() {
         const t = totals();
         // Та же сумма, что видит клиент в портале и что стоит на карточке сделки.
@@ -19532,17 +19589,21 @@
         const showDetails = state.project.proposalMode !== "short" && template.showDetails;
         const mainIds = selectedIds().filter(id => !state.selected[id]?.optional);
         const optionalIds = selectedIds().filter(id => state.selected[id]?.optional);
-        const companyLogo = String(state.company.logoUrl || "logo-icon.svg").trim();
+        // Запасного logo-icon.svg здесь больше нет: это логотип СЕРВИСА, и он
+        // печатался в документе студии, у которой своего логотипа нет.
+        const companyLogo = String(state.company.logoUrl || "").trim();
+        const companyName = String(state.company.name || "").trim();
 
         return `
           <div class="proposal">
+            ${companyLogo || companyName ? `
             <div class="proposal-brand">
-              ${companyLogo ? `<img src="${escapeHtml(companyLogo)}" alt="${escapeHtml(state.company.name || "Adervis")}">` : ""}
+              ${companyLogo ? `<img src="${escapeHtml(companyLogo)}" alt="${escapeHtml(companyName || "Логотип")}">` : ""}
               <div>
-                <h1>${escapeHtml(state.company.name || "Adervis")}</h1>
+                ${companyName ? `<h1>${escapeHtml(companyName)}</h1>` : ""}
                 <p>${escapeHtml(state.company.desc || "")}</p>
               </div>
-            </div>
+            </div>` : ""}
 
             <hr>
 
@@ -19578,16 +19639,20 @@
             <table>
               <tbody>
                 ${shown.budgetOnly ? `
-                  <tr><td><strong>Стоимость проекта</strong></td><td><strong>${money(shown.total)}</strong></td></tr>
+                  <tr class="proposal-total"><td>Стоимость проекта</td><td>${money(shown.total)}</td></tr>
                 ` : `
-                  <tr><td>Работы</td><td><strong>${money(t.base)}</strong></td></tr>
+                  ${/* Строка «Работы» нужна, только когда итог из неё чем-то
+                        получается: скидкой, налогом, опциями. Без них документ
+                        печатал одно и то же число дважды подряд — читается как
+                        ошибка расчёта, а не как раскладка. */""}
+                  ${t.discount || t.tax || t.optional ? `<tr><td>Работы</td><td><strong>${money(t.base)}</strong></td></tr>` : ""}
                   ${t.discount ? `<tr><td>Скидка</td><td><strong>− ${money(t.discount)}</strong></td></tr>` : ""}
                   ${t.tax ? `<tr><td>Налог</td><td><strong>${money(t.tax)}</strong></td></tr>` : ""}
-                  <tr><td><strong>Итого</strong></td><td><strong>${money(t.total)}</strong></td></tr>
+                  <tr class="proposal-total"><td>Итого</td><td>${money(t.total)}</td></tr>
                   ${t.optional ? `
                     <tr><td>Опции</td><td><strong>${money(t.optional)}</strong></td></tr>
                     ${t.optionalTax ? `<tr><td>Налог на опции</td><td><strong>${money(t.optionalTax)}</strong></td></tr>` : ""}
-                    <tr><td><strong>Итого с опциями</strong></td><td><strong>${money(t.withOptional)}</strong></td></tr>
+                    <tr class="proposal-total"><td>Итого с опциями</td><td>${money(t.withOptional)}</td></tr>
                   ` : ""}
                 `}
               </tbody>
@@ -19624,9 +19689,19 @@
               ${state.company.requisites ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(state.company.requisites)}</pre>` : ""}
             ` : ""}
 
-            <p style="margin-top:32px;color:#6b7280">
-              КП сформировано в ADERVIS ${escapeHtml(APP_VERSION)} · ${escapeHtml(formatDate(new Date().toISOString()))}
-            </p>
+            ${/* Дата документа нужна всегда: КП без даты нельзя сослаться и нельзя
+                  проверить срок действия. А вот номер версии приложения (ADERVIS 4.3)
+                  заказчику не говорит ничего — это внутренний учёт, попавший в документ,
+                  который читает чужой человек. Подпись сервиса живёт по тому же правилу,
+                  что и «Сделано в ADERVIS» в клиентском портале: на платном тарифе
+                  снимается флагом в настройках. */""}
+            ${/* Реквизиты и контакты — те же, что внизу договора: один бланк, одна
+                  правка. В КП их не было вовсе, хотя это документ, на который отвечают. */""}
+            ${_docRequisitesHtml()}
+
+            <p class="proposal-date">${escapeHtml(formatDate(new Date().toISOString()))}</p>
+            ${isPaidPlan() && state.company.hideProposalBranding ? "" : `
+              <p class="proposal-service-note">Сформировано в ADERVIS — сметы и КП для видеопродакшна</p>`}
           </div>
         `;
       }
@@ -21125,7 +21200,7 @@
 
         const companyTab = `
             <div class="grid three">
-              ${field("Название", `<input data-autosave data-scope="company" data-key="name" value="${escapeHtml(state.company.name)}">`)}
+              ${field("Название", `<input data-autosave data-scope="company" data-key="name" value="${escapeHtml(state.company.name)}" placeholder="Название вашей студии">`)}
               ${field("ИНН", `<input data-autosave data-scope="company" data-key="inn" value="${escapeHtml(state.company.inn || "")}" placeholder="590000000000">`)}
               ${field("Юридический адрес", `<input data-autosave data-scope="company" data-key="address" value="${escapeHtml(state.company.address || "")}" placeholder="г. Пермь, ул. Примерная, 1">`)}
               ${field("Телефон", `<input data-autosave data-scope="company" data-key="phone" value="${escapeHtml(state.company.phone)}">`)}

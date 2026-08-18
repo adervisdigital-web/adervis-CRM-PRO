@@ -843,6 +843,9 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.waitForTimeout(300);
 
     const res = await page.evaluate(() => {
+      // Профиль компании у нового аккаунта пуст (имя сервиса больше не выдаётся за
+      // имя студии — правка 18.08), а {{исполнитель}} подставляется именно из него.
+      window.app.updateCompany("name", "Студия Пример");
       window.app.go("contracts");
       window.app.createContractFromTemplate("tpl_act");
       const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
@@ -2226,12 +2229,19 @@ module.exports = async function ({ browser, baseUrl, test }) {
         return true;
       };
       return {
-        ok: set("inn", "590000000000") && set("address", "г. Пермь, ул. Примерная, 1"),
+        ok: set("name", "Студия Пример") && set("inn", "590000000000") && set("address", "г. Пермь, ул. Примерная, 1"),
         scoped: document.querySelectorAll('[data-scope="company"]').length,
         view: (JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}")).view
       };
     });
     assert(innSet.ok, `не нашлись поля реквизитов компании: полей scope=company ${innSet.scoped}, вьюха «${innSet.view}»`);
+
+    // Логотип студии. Раньше он подставлялся сам — но подставлялся логотип СЕРВИСА
+    // (logo-icon.svg стоял значением по умолчанию), и тест на самом деле проверял,
+    // что в договоре студии печатается чужая эмблема. Теперь логотип свой, как у
+    // живого агентства: прозрачный PNG вместо картинки — нам важен факт вставки.
+    await page.evaluate(() => window.app.updateCompany("logoUrl",
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="));
     await page.waitForTimeout(400);
 
     // Договор со всеми заполненными полями — иначе печать переспросит.
