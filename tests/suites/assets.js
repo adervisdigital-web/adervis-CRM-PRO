@@ -17,6 +17,86 @@ module.exports = async function ({ test }) {
   const app = readSrc("app.js");
   const head = index.slice(0, index.indexOf("</head>"));
 
+  /* DESIGN.md — это спецификация, по которой правят код (CLAUDE.md прямо велит ей
+     следовать). 19.08.2026 выяснилось, что в его таблице цветов не совпадало с
+     кодом НИ ОДНО значение: документ обещал фон #070b14 и hsl(265,82%,58%), а
+     приложение рисовало #0c0c12 и #6c00ff. Такой документ хуже отсутствующего —
+     правки по нему приезжают «почти в цвет», и никто этого не замечает.
+
+     Сторож сверяет каждую строку «--имя: значение;» из блоков :root и
+     [data-theme="light"] в §3 DESIGN.md с тем, что реально объявлено в style.css.
+     Формат сравнения нестрогий по пробелам, строгий по значению. */
+  await test("палитра DESIGN.md совпадает со style.css", () => {
+    const design = readSrc("DESIGN.md");
+    const stripComments = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "");
+
+    const cssBlock = (source, selector) => {
+      const clean = stripComments(source);
+      const at = clean.indexOf(selector);
+      assert(at !== -1, "в style.css не найден блок " + selector);
+      const open = clean.indexOf("{", at);
+      // Закрывающую скобку ищем счётчиком, а не по отступу: в style.css блок
+      // закрыт переводом строки с отступом, а в markdown — скобкой с начала строки.
+      // Первая версия сторожа считала по отступу: конца блока в документе не
+      // находила и сверяла тёмную тему со светлой — падала на всём подряд, хотя
+      // расхождения не было.
+      let depth = 0, close = -1;
+      for (let i = open; i < clean.length; i++) {
+        if (clean[i] === "{") depth++;
+        else if (clean[i] === "}") { depth--; if (depth === 0) { close = i; break; } }
+      }
+      assert(close !== -1, "не найден конец блока " + selector);
+      const out = {};
+      for (const m of clean.slice(open, close).matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
+        out[m[1]] = m[2].trim().replace(/\s+/g, " ");
+      }
+      return out;
+    };
+
+    const cssDark = cssBlock(css, ":root {");
+    const cssLight = cssBlock(css, '[data-theme="light"] {');
+
+    // Из документа берём только блок §3 — дальше по файлу примеры компонентов,
+    // где переменные упоминаются в другом смысле.
+    const sec3 = design.slice(design.indexOf("## 3. Цвет"), design.indexOf("## 4."));
+    const docDark = cssBlock(sec3, ":root {");
+    const docLight = cssBlock(sec3, '[data-theme="light"] {');
+
+    const mismatched = [];
+    const compare = (doc, real, label) => {
+      for (const name of Object.keys(doc)) {
+        const expected = doc[name];
+        const actual = real[name];
+        if (actual === undefined) { mismatched.push(label + " " + name + ": в style.css нет вовсе"); continue; }
+        if (actual !== expected) mismatched.push(label + " " + name + ": документ «" + expected + "», код «" + actual + "»");
+      }
+    };
+    compare(docDark, cssDark, "тёмная");
+    compare(docLight, cssLight, "светлая");
+
+    assert(Object.keys(docDark).length > 15,
+      "в §3 DESIGN.md почти нет токенов — сверять нечего, документ выхолостили");
+    assert(mismatched.length === 0,
+      "DESIGN.md разошёлся со style.css:\n  " + mismatched.join("\n  "));
+  });
+
+  /* Витрина (tests/styleguide.html) существует затем, чтобы систему было ВИДНО.
+     Она обязана подключать настоящий style.css и не заводить своих цветов: витрина
+     с собственной палитрой показывает не ту систему, которую документирует. */
+  await test("витрина компонентов подключает настоящие стили и не красит сама", () => {
+    const sg = readSrc("tests/styleguide.html");
+    assert(sg.includes('href="../style.css"'),
+      "витрина больше не подключает style.css — она показывает неизвестно что");
+    assert(sg.includes("cssRules"),
+      "витрина перестала читать токены из CSSOM: значения снова можно потерять из виду");
+    const own = sg.slice(sg.indexOf("<style>"), sg.indexOf("</style>"));
+    const literals = (own.match(/#[0-9a-f]{3,8}\b/gi) || []);
+    assert(literals.length === 0,
+      "в собственных стилях витрины появились цветовые литералы: " + literals.join(", "));
+    assert(!readSrc("sw.js").includes("styleguide"),
+      "витрина попала в кэш Service Worker — это инструмент разработки, его не нужно ставить пользователю");
+  });
+
   await test("скругления: только токены шкалы, без пиксельных литералов", () => {
     // Шкала сводилась дважды и оба раза не до конца: d898f53 заявил «18 значений →
     // 5», но в файле осталось 28 штук 14px (значения в шкале нет вовсе) и легаси

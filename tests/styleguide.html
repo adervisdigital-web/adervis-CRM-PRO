@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Витрина компонентов — ADERVIS CRM</title>
+
+<!-- Настоящие стили приложения, не копия. Витрина со своей копией стилей врала бы
+     ровно так же, как врал DESIGN.md: к 19.08.2026 в его таблице цветов не совпало
+     с кодом НИ ОДНО значение, и увидеть это было неоткуда. -->
+<link rel="stylesheet" href="../style.css">
+<style>
+  /* Только раскладка самой витрины. Ни одного цвета руками: всё из токенов —
+     иначе страница начнёт показывать не ту систему, которую документирует. */
+  body { padding: 0 0 80px; }
+  .sg-top {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .sg-title { font-family: var(--font-display); font-weight: 700; font-size: 18px; margin-right: auto; }
+  .sg-wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  .sg-section { margin-top: 40px; }
+  .sg-section > h2 {
+    font-family: var(--font-display); font-size: 20px; font-weight: 700;
+    margin: 0 0 6px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+  }
+  .sg-note { color: var(--muted); font-size: 13px; margin: 0 0 18px; line-height: 1.6; }
+  .sg-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+  .sg-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .sg-swatch {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel);
+  }
+  .sg-chip {
+    width: 34px; height: 34px; border-radius: var(--r-sm); border: 1px solid var(--line); flex: 0 0 auto;
+    /* Шахматка под цветом: полупрозрачный токен иначе неотличим от пустого места. */
+    background-image:
+      linear-gradient(45deg, rgba(128,128,128,.35) 25%, transparent 25%, transparent 75%, rgba(128,128,128,.35) 75%),
+      linear-gradient(45deg, rgba(128,128,128,.35) 25%, transparent 25%, transparent 75%, rgba(128,128,128,.35) 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
+  }
+  .sg-chip > i { display: block; width: 100%; height: 100%; border-radius: inherit; }
+  .sg-name { font-family: var(--font-mono); font-size: 11px; }
+  .sg-val { font-family: var(--font-mono); font-size: 11px; color: var(--muted); word-break: break-all; }
+  .sg-space { background: var(--primary); height: 12px; border-radius: var(--r-xs); }
+  .sg-label { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+  .sg-case { padding: 16px; border: 1px solid var(--line); border-radius: var(--r-xl); background: var(--panel); }
+  .sg-case + .sg-case { margin-top: 12px; }
+  .sg-case > h3 { font-size: 13px; font-weight: 700; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .sg-fields { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+</style>
+</head>
+<body>
+
+<div class="sg-top">
+  <span class="sg-title">Витрина компонентов ADERVIS CRM</span>
+  <div class="seg-switch" id="sgTheme"></div>
+  <div class="seg-switch" id="sgAccent"></div>
+</div>
+
+<div class="sg-wrap">
+
+  <div class="sg-section">
+    <h2>Токены</h2>
+    <p class="sg-note">
+      Собраны из <code>style.css</code> прямо в браузере (CSSOM), а не переписаны сюда руками:
+      добавили переменную в код — она появилась здесь сама, удалили — исчезла. Значение под
+      именем вычисленное, то есть ровно то, что видит пользователь в текущей теме.
+    </p>
+    <h3 class="sg-label">Цвета</h3>
+    <div class="sg-grid" id="sgColors"></div>
+    <h3 class="sg-label" style="margin-top:24px">Скругления</h3>
+    <div class="sg-grid" id="sgRadii"></div>
+    <h3 class="sg-label" style="margin-top:24px">Тени и слои</h3>
+    <div class="sg-grid" id="sgShadows"></div>
+    <h3 class="sg-label" style="margin-top:24px">Шрифты</h3>
+    <div class="sg-grid" id="sgFonts"></div>
+  </div>
+
+  <div class="sg-section">
+    <h2>Отступы</h2>
+    <p class="sg-note">
+      Шкала с шагом 2px (DESIGN.md §4). Переменных <code>--sp-*</code> не существует
+      намеренно: ссылка на несуществующий токен заставляет браузер молча отбросить всё
+      объявление, и отступ становится нулевым. Отступы задаются числом.
+    </p>
+    <div id="sgSpace"></div>
+  </div>
+
+  <div class="sg-section">
+    <h2>Типографика</h2>
+    <div class="sg-case">
+      <div style="font-family:var(--font-display);font-size:32px;font-weight:700">32 · Заголовок и сумма</div>
+      <div style="font-size:24px;font-weight:700;margin-top:8px">24 · Заголовок страницы</div>
+      <div style="font-size:20px;font-weight:600;margin-top:8px">20 · Секция</div>
+      <div style="font-size:16px;margin-top:8px">16 · Крупный текст карточки</div>
+      <div style="font-size:14px;margin-top:8px">14 · Основной текст, поля, кнопки</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px">12 · Метка, подпись, время</div>
+      <div style="font-family:var(--font-display);font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:14px">
+        1 234 567 ₽ · 890 ₽ · 45 пакетов
+      </div>
+      <p class="sg-note" style="margin:6px 0 0">Числа — <code>tabular-nums</code>: в столбце сумм цифры обязаны стоять друг под другом.</p>
+    </div>
+  </div>
+
+  <div class="sg-section">
+    <h2>Кнопки</h2>
+    <div class="sg-case">
+      <h3>Варианты</h3>
+      <div class="sg-row">
+        <button class="btn primary">Основное действие</button>
+        <button class="btn">Обычная</button>
+        <button class="btn blue">Синяя</button>
+        <button class="btn green">Зелёная</button>
+        <button class="btn yellow">Жёлтая</button>
+        <button class="btn danger">Опасная</button>
+      </div>
+    </div>
+    <div class="sg-case">
+      <h3>Размеры и состояния</h3>
+      <div class="sg-row">
+        <button class="btn small">Мелкая</button>
+        <button class="btn">Обычная</button>
+        <button class="btn primary" disabled>Недоступна</button>
+      </div>
+      <div style="margin-top:12px"><button class="btn primary full">Во всю ширину</button></div>
+      <p class="sg-note" style="margin:10px 0 0">Цель касания — не меньше 44×44px (DESIGN.md §9).</p>
+    </div>
+  </div>
+
+  <div class="sg-section">
+    <h2>Поля</h2>
+    <div class="sg-case">
+      <div class="sg-fields">
+        <div class="field"><label>Название проекта</label><input class="input" value="Свадебный фильм"></div>
+        <div class="field"><label>Клиент</label><input class="input" placeholder="Название клиента"></div>
+        <div class="field"><label>Тип съёмки</label>
+          <select class="input"><option>Свадьба</option><option>Реклама</option></select>
+        </div>
+        <div class="field"><label>Комментарий</label><textarea class="input" rows="2">Пара слов о задаче</textarea></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sg-section">
+    <h2>Поверхности и статусы</h2>
+    <div class="sg-case">
+      <h3>Панель</h3>
+      <div class="panel" style="padding:16px">
+        <div style="font-weight:700">Панель — основная поверхность</div>
+        <div class="u-meta">Мелкая подпись под заголовком</div>
+      </div>
+    </div>
+    <div class="sg-case">
+      <h3>Бейджи</h3>
+      <div class="sg-row">
+        <span class="badge">Обычный</span>
+        <span class="badge" style="background:var(--tint-green-bg);color:var(--text-success)">Оплачено</span>
+        <span class="badge" style="background:var(--tint-amber-bg);color:var(--yellow)">Ждёт оплаты</span>
+        <span class="badge" style="background:var(--tint-red-bg);color:var(--text-danger)">Просрочено</span>
+      </div>
+    </div>
+    <div class="sg-case">
+      <h3>Заметка и пустое состояние</h3>
+      <p class="mini-note">Мелкая пояснительная заметка под блоком.</p>
+      <div style="text-align:center;padding:24px;color:var(--muted)">Здесь пока пусто</div>
+    </div>
+  </div>
+
+  <div class="sg-section">
+    <h2>Таблица сумм</h2>
+    <div class="sg-case">
+      <table class="fin-table">
+        <thead><tr><th>Позиция</th><th>Кол-во</th><th>Сумма</th></tr></thead>
+        <tbody>
+          <tr><td>Съёмочный день</td><td>1</td><td>45 000 ₽</td></tr>
+          <tr><td>Монтаж</td><td>1</td><td>28 000 ₽</td></tr>
+          <tr><td><b>Итого</b></td><td></td><td><b>73 000 ₽</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* Витрина читает переменные из ЗАГРУЖЕННОГО style.css: перебираем правила и берём
+   имена, начинающиеся с «--». Список имён здесь не хранится специально — иначе он
+   зажил бы своей жизнью, как таблица цветов в DESIGN.md. */
+(function () {
+  function rootVarNames() {
+    var names = new Set();
+    for (var i = 0; i < document.styleSheets.length; i++) {
+      var rules;
+      try { rules = document.styleSheets[i].cssRules; } catch (e) { continue; }
+      if (!rules) continue;
+      for (var j = 0; j < rules.length; j++) {
+        var rule = rules[j];
+        if (!rule.selectorText || rule.selectorText.indexOf(":root") === -1) continue;
+        for (var k = 0; k < rule.style.length; k++) {
+          var prop = rule.style[k];
+          if (prop.indexOf("--") === 0) names.add(prop);
+        }
+      }
+    }
+    return Array.from(names).sort();
+  }
+
+  function val(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  function swatch(name, preview) {
+    var box = document.createElement("div");
+    box.className = "sg-swatch";
+    var chip = document.createElement("div");
+    chip.className = "sg-chip";
+    var inner = document.createElement("i");
+    inner.setAttribute("style", preview);
+    chip.appendChild(inner);
+    var text = document.createElement("div");
+    text.style.minWidth = "0";
+    var n = document.createElement("div");
+    n.className = "sg-name";
+    n.textContent = name;
+    var v = document.createElement("div");
+    v.className = "sg-val";
+    v.textContent = val(name) || "—";
+    text.appendChild(n);
+    text.appendChild(v);
+    box.appendChild(chip);
+    box.appendChild(text);
+    return box;
+  }
+
+  function fill(id, names, previewFor) {
+    var host = document.getElementById(id);
+    host.textContent = "";
+    names.forEach(function (n) { host.appendChild(swatch(n, previewFor(n))); });
+  }
+
+  function isColor(name) {
+    return /^(#|rgb|hsl|oklch)/i.test(val(name));
+  }
+
+  function render() {
+    var names = rootVarNames();
+    fill("sgColors", names.filter(isColor), function (n) { return "background:var(" + n + ")"; });
+    fill("sgRadii", names.filter(function (n) { return n.indexOf("--r-") === 0; }),
+      function (n) { return "background:var(--primary);border-radius:var(" + n + ")"; });
+    fill("sgShadows", names.filter(function (n) { return n.indexOf("--elev") === 0 || n === "--shadow"; }),
+      function (n) { return "background:var(--panel2);box-shadow:var(" + n + ")"; });
+    fill("sgFonts", names.filter(function (n) { return n.indexOf("--font") === 0; }),
+      function (n) { return "background:var(--panel2);font-family:var(" + n + ")"; });
+
+    var space = document.getElementById("sgSpace");
+    space.textContent = "";
+    [2, 4, 6, 8, 10, 12, 14, 16, 18, 24, 32].forEach(function (px) {
+      var row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:8px";
+      var label = document.createElement("span");
+      label.className = "sg-label";
+      label.style.width = "52px";
+      label.textContent = px + "px";
+      var bar = document.createElement("div");
+      bar.className = "sg-space";
+      bar.style.width = (px * 6) + "px";
+      row.appendChild(label);
+      row.appendChild(bar);
+      space.appendChild(row);
+    });
+  }
+
+  function switcher(host, items, apply, current) {
+    host.textContent = "";
+    items.forEach(function (item) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = item[1];
+      b.className = current() === item[0] ? "active" : "";
+      b.onclick = function () { apply(item[0]); switchers(); render(); };
+      host.appendChild(b);
+    });
+  }
+
+  function switchers() {
+    var html = document.documentElement;
+    switcher(document.getElementById("sgTheme"),
+      [["dark", "Тёмная"], ["light", "Светлая"]],
+      function (id) { html.setAttribute("data-theme", id); },
+      function () { return html.getAttribute("data-theme") || "dark"; });
+    switcher(document.getElementById("sgAccent"),
+      [["", "Базовый"], ["indigo", "Indigo"], ["emerald", "Emerald"], ["amber", "Amber"], ["teal", "Teal"], ["graphite", "Graphite"]],
+      function (id) { if (id) { html.setAttribute("data-accent", id); } else { html.removeAttribute("data-accent"); } },
+      function () { return html.getAttribute("data-accent") || ""; });
+  }
+
+  switchers();
+  render();
+  new MutationObserver(function () { switchers(); render(); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-accent"] });
+  // Шрифты приезжают позже — вычисленные значения к этому моменту уже другие.
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+})();
+</script>
+</body>
+</html>
