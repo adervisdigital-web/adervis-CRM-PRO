@@ -165,6 +165,70 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  /* Кто прислал КП. Портал — единственный артефакт продукта, который открывает
+     ЗАКАЗЧИК студии, и до 18.08 он был подписан сервисом: логотип logo-icon.svg,
+     имя «Adervis» в шапке и adervis.digital@gmail.com в подвале. Владелец сервиса
+     этого не видит — он и есть ADERVIS. Любая другая студия рассылала КП, на
+     котором стоит имя чужой компании и прямого конкурента, а отвечать заказчику
+     предлагалось не ей. Тот же дефект уже чинили в брифе и в калькуляторе.
+
+     Проверяем оба конца: с данными агентства — они и стоят; без данных (миграция
+     20260818000001 не накатана) — сервис НЕ подписывается за студию. */
+  const AGENCY_ROW = {
+    ...PORTAL_ROW,
+    agency_name: "Студия Пример",
+    agency_logo: "",
+    agency_desc: "Видеопродакшн в Перми",
+    agency_email: "hello@studia-primer.ru",
+    agency_phone: "+7 900 111-22-33",
+    agency_site: "studia-primer.ru",
+  };
+
+  await test("портал КП: шапка и подвал называют агентство, а не сервис", async () => {
+    const { context, page, errors } = await bootPortal(browser, baseUrl, AGENCY_ROW);
+    const res = await page.evaluate(() => {
+      const root = document.getElementById("appContent");
+      const head = root.querySelector(".portal-header");
+      return {
+        head: head ? (head.textContent || "").trim() : null,
+        txt: root.textContent || "",
+        mailtos: [...root.querySelectorAll("a[href^='mailto:']")].map((a) => a.getAttribute("href")),
+        tels: [...root.querySelectorAll("a[href^='tel:']")].map((a) => a.getAttribute("href")),
+      };
+    });
+    assert(res.head, "у портала нет шапки .portal-header");
+    assert(/Студия Пример/.test(res.head), "в шапке КП нет имени агентства: " + res.head);
+    assert(/Видеопродакшн в Перми/.test(res.head), "в шапке нет описания агентства: " + res.head);
+    assert(!res.txt.toLowerCase().includes("adervis.digital@gmail.com"),
+      "в КП чужой студии осталась почта сервиса — заказчик ответит не студии");
+    assert(res.mailtos.some((h) => h.includes("hello@studia-primer.ru")),
+      "нет почты агентства для ответа: " + JSON.stringify(res.mailtos));
+    assert(res.tels.some((h) => h === "tel:+79001112233"),
+      "телефон агентства не стал ссылкой или не очищен от разделителей: " + JSON.stringify(res.tels));
+    assert(errors.length === 0, "ошибки на портале: " + errors.join(" | "));
+    await context.close();
+  });
+
+  await test("портал КП: без данных агентства сервис не подписывается за студию", async () => {
+    const { context, page, errors } = await bootPortal(browser, baseUrl, PORTAL_ROW);
+    const res = await page.evaluate(() => {
+      const root = document.getElementById("appContent");
+      const head = root.querySelector(".portal-header");
+      return {
+        head: head ? (head.textContent || "").trim() : null,
+        mailtos: [...root.querySelectorAll("a[href^='mailto:']")].map((a) => a.getAttribute("href")),
+        logos: [...root.querySelectorAll(".portal-header img")].map((i) => i.getAttribute("src")),
+      };
+    });
+    assert(res.head !== null, "шапка исчезла вовсе — документ должен хотя бы называться");
+    assert(!res.head.toLowerCase().includes("adervis"), "шапка КП подписана сервисом: " + res.head);
+    assert(res.logos.length === 0, "в шапке КП чужой студии остался логотип: " + JSON.stringify(res.logos));
+    assert(res.mailtos.length === 0,
+      "в подвале осталась почта сервиса: " + JSON.stringify(res.mailtos));
+    assert(errors.length === 0, "ошибки на портале: " + errors.join(" | "));
+    await context.close();
+  });
+
   /* Деньги клиента не должны проходить через магазин сервиса: у чужой студии
      аванс уходил бы владельцу сервиса (и падал в его лимит по НПД). Способ
      оплаты выбирает само агентство, и КП обязано показывать именно его. */

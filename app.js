@@ -22545,6 +22545,64 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       /* ═══════════════════════════════════════════════════════
          КЛИЕНТСКИЙ ПОРТАЛ (Task 12)
       ═══════════════════════════════════════════════════════ */
+      /* ── Кто прислал это КП ────────────────────────────────────────────────
+         Шапка и подвал портала были подписаны сервисом: логотип logo-icon.svg,
+         имя «Adervis» и почта adervis.digital@gmail.com. Владелец сервиса этого
+         не видит — он и есть ADERVIS. Заказчик любой другой студии открывал КП
+         чужой компании (прямого конкурента) и отвечал бы не студии, а нам.
+         Тот же дефект уже чинили в брифе (get_brief_agency) и в публичном
+         калькуляторе (get_public_catalog) — это третий случай одной причины.
+
+         Данные приходят из get_client_portal (миграция 20260818000001). Пока она
+         не накатана, полей нет — тогда шапка называет документ, а не компанию:
+         лучше без имени, чем с чужим. Подпись «Сделано в ADERVIS» живёт отдельно
+         в подвале и снимается флагом hide_branding на платном тарифе. */
+      function _portalBrandHtml(d) {
+        const name = String(d.agency_name || '').trim();
+        const logo = String(d.agency_logo || '').trim();
+        const desc = String(d.agency_desc || '').trim();
+        if (!name && !logo) {
+          return `<div class="portal-header"><div><div style="font-weight:900;font-size:17px;letter-spacing:-.2px">Коммерческое предложение</div></div></div>`;
+        }
+        // Без логотипа — первая буква названия: пустой квадрат цвета сервиса
+        // выглядел бы как чужой бренд, а буква принадлежит самой студии.
+        const box = logo
+          ? `<div class="portal-brand-logo"><img src="${escapeHtml(logo)}" alt="${escapeHtml(name || 'Логотип')}" onerror="this.closest('.portal-brand-logo').style.display='none'"></div>`
+          : `<div class="portal-brand-logo letter">${escapeHtml(name.slice(0, 1).toUpperCase())}</div>`;
+        return `
+          <div class="portal-header">
+            ${box}
+            <div>
+              <div style="font-weight:900;font-size:17px;letter-spacing:-.2px">${escapeHtml(name || 'Коммерческое предложение')}</div>
+              <div class="u-meta">${escapeHtml(desc || 'Коммерческое предложение')}</div>
+            </div>
+          </div>`;
+      }
+
+      // Подвал: контакты студии, чтобы заказчику было куда ответить. Пустые поля
+      // не печатаем — строка «Телефон: —» хуже отсутствия строки.
+      function _portalContactsHtml(d) {
+        const name = String(d.agency_name || '').trim();
+        const email = String(d.agency_email || '').trim();
+        const phone = String(d.agency_phone || '').trim();
+        const site = String(d.agency_site || '').trim();
+        const parts = [];
+        if (name) parts.push(escapeHtml(name));
+        if (email) parts.push(`<a href="mailto:${escapeHtml(email)}" class="u-muted">${escapeHtml(email)}</a>`);
+        if (phone) parts.push(`<a href="tel:${escapeHtml(phone.replace(/[^+\d]/g, ''))}" class="u-muted">${escapeHtml(phone)}</a>`);
+        if (site) {
+          // Без регулярного выражения: адрес приходит из настроек как есть, с
+          // протоколом и без. В ссылку кладём полный, показываем — без протокола.
+          const low = site.toLowerCase();
+          const hasProto = low.indexOf('http://') === 0 || low.indexOf('https://') === 0;
+          const href = hasProto ? site : 'https://' + site;
+          const bare = hasProto ? site.slice(site.indexOf('//') + 2) : site;
+          parts.push(`<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="u-muted">${escapeHtml(bare)}</a>`);
+        }
+        if (!parts.length) return '';
+        return `<div style="text-align:center;padding:24px 0 8px;font-size:12px;color:var(--muted);line-height:1.9">${parts.join(' · ')}</div>`;
+      }
+
       function renderClientPortal() {
         if (!_portalLoaded) {
           return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">
@@ -22565,15 +22623,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         return `
           <div class="portal-wrap">
             <div class="portal-inner">
-              <div class="portal-header">
-                <div style="width:46px;height:46px;border-radius:14px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">
-                  <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:30px;height:30px;object-fit:contain">
-                </div>
-                <div>
-                  <div style="font-weight:900;font-size:17px;letter-spacing:-.2px">Adervis</div>
-                  <div class="u-meta">Коммерческое предложение</div>
-                </div>
-              </div>
+              ${_portalBrandHtml(d)}
 
               <div class="portal-card">
                 <div class="portal-status-badge ${isApproved ? 'approved' : ''}">
@@ -22677,10 +22727,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 })()}
               </div>
 
-              <div style="text-align:center;padding:24px 0 8px;font-size:12px;color:var(--muted)">
-                Adervis · Digital Creative Agency ·
-                <a href="mailto:adervis.digital@gmail.com" class="u-muted">adervis.digital@gmail.com</a>
-              </div>
+              ${_portalContactsHtml(d)}
               ${d.hide_branding ? '' : `
               <a href="https://app.adervis.ru/${d.agency_id ? `?ref=${encodeURIComponent(d.agency_id)}` : ''}" target="_blank" rel="noopener"
                  onclick="app.trackGoal('portal_branding_click')"
@@ -22688,7 +22735,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <span style="width:16px;height:16px;border-radius:5px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">
                   <img src="logo-icon.svg" alt="" style="width:11px;height:11px;object-fit:contain" onerror="this.style.display='none'">
                 </span>
-                Сделано в <strong style="color:var(--muted);font-weight:700">ADERVIS</strong> — сметы и КП для видеопродакшна
+                <span>Сделано в <strong style="color:var(--muted);font-weight:700">ADERVIS</strong> — сметы и КП для видеопродакшна</span>
               </a>`}
             </div>
           </div>
