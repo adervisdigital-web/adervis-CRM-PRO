@@ -51,7 +51,12 @@ Deno.serve(async (req) => {
   // См. миграцию 20260730000001_calendar_feed_token.sql.
   let agencyId: string;
   let onlyProjectId: string | null = null;
-  let calName = "ADERVIS CRM — Задачи";
+  // Имя календаря собирается ПОСЛЕ чтения состояния агентства: клиент студии
+  // подписывается на эту ссылку из своего КП, и календарь навсегда поселяется у
+  // него в телефоне. Называться он обязан студией, а не сервисом — до 19.08.2026
+  // там стояло «ADERVIS CRM — <сделка>», то есть имя чужой компании и прямого
+  // конкурента в календаре заказчика.
+  let dealNameForCal = "";
 
   if (portalId) {
     if (!/^[0-9a-f-]{36}$/i.test(portalId)) return new Response("Bad token", { status: 400 });
@@ -63,7 +68,7 @@ Deno.serve(async (req) => {
     if (portalError || !portal || !portal.agency_id) return new Response("Not found", { status: 404 });
     agencyId = portal.agency_id as string;
     onlyProjectId = (portal.project_id as string) || null;
-    calName = `ADERVIS CRM — ${(portal.deal_name as string) || "Проект"}`;
+    dealNameForCal = (portal.deal_name as string) || "Проект";
   } else if (token && /^[0-9a-f-]{36}$/i.test(token)) {
     // Резолвим агентство по токену. Для участника команды agency_id берётся из
     // его профиля, поэтому фид у владельца и у сотрудника одинаково агентский.
@@ -92,6 +97,14 @@ Deno.serve(async (req) => {
   }
 
   const state = data.state_json as Record<string, unknown>;
+  const agencyName = String(
+    ((state.company as Record<string, unknown> | undefined)?.name as string) || ""
+  ).trim();
+  // Нет имени студии — называем документом, а не сервисом: лучше без имени, чем с
+  // чужим (то же правило, что в портале КП и в письме со ссылкой на него).
+  const calName = portalId
+    ? (agencyName ? `${agencyName} — ${dealNameForCal}` : dealNameForCal)
+    : (agencyName ? `${agencyName} — задачи` : "ADERVIS CRM — Задачи");
   const savedProjects = (state.savedProjects as Array<Record<string, unknown>>) || [];
   // SECURITY: для клиентского портала (portalId) показываем СТРОГО одну сделку.
   // Раньше при отсутствующем project_id (все существующие порталы созданы ДО

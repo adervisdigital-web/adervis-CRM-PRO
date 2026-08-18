@@ -489,6 +489,20 @@ module.exports = async function ({ test }) {
     assert(/calToken|calendar_token/.test(m[1]), "ссылка на фид не использует calendar_token: " + m[1]);
   });
 
+  /* Календарь, на который подписывается ЗАКАЗЧИК студии из своего КП, называется
+     тем именем, что видно у него в телефоне навсегда. До 19.08.2026 там стояло
+     «ADERVIS CRM — <сделка>»: имя чужой компании и прямого конкурента в календаре
+     клиента. Пятый артефакт того же разбора — после портала, печатного КП,
+     калькулятора и письма. */
+  await test("calendar-feed: календарь клиента назван студией, а не сервисом", () => {
+    assert(!feed.includes("ADERVIS CRM — " + String.fromCharCode(36) + "{"),
+      "имя календаря снова собирается из имени сервиса");
+    assert(feed.includes("agencyName"),
+      "calendar-feed не читает имя студии — календарю у клиента взяться неоткуда");
+    assert(feed.includes("dealNameForCal"),
+      "название сделки больше не попадает в имя календаря: у клиента будет безымянная подписка");
+  });
+
   await test("calendar-feed: token резолвится через profiles, а не берётся как agency_id", () => {
     assert(
       !/agencyId\s*=\s*token\s*;/.test(feed),
