@@ -5,6 +5,26 @@ client_secret_*.json
 .env
 .env.*
 
+# Стратегия и продвижение — НЕ в публичный репозиторий.
+# Репозиторий публичный (иначе GitHub Pages на бесплатном тарифе не отдаёт
+# app.adervis.ru), а в этих файлах лежит то, что копируется дешевле кода:
+# юнит-экономика, цены и причины их изменения, план запуска по каналам,
+# число реальных пользователей и ЖИВЫЕ ПРОМОКОДЫ (MARKETING-THREADS.md —
+# DRUG и SMETA2026 бессрочные и без лимита использований).
+# Файлы остаются на диске, просто не уезжают в мир.
+#
+# Инженерная документация (CLAUDE.md, DESIGN.md, SECURITY.md, tests/README.md)
+# намеренно ОСТАЁТСЯ в репозитории: по DESIGN.md сверяется палитра в CI
+# (tests/suites/assets.js), а CLAUDE.md — рабочая инструкция сессии.
+PLAN.md
+PLAN-2026-08.md
+ROADMAP.md
+ROADMAP-30-DAYS.md
+MARKETING-THREADS.md
+REFUNDS.md
+NEXT.md
+PRODUCT.md
+
 # OS / редакторы
 .DS_Store
 Thumbs.db
