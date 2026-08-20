@@ -8,7 +8,7 @@
 //   • ссылка-шеринг должна кодировать выбор в URL и восстанавливаться из него;
 //   • заявка обязана либо уйти хосту, либо честно показать контакты — молчаливой
 //     формы «отправили в никуда» на этом экране быть не может.
-const { assert, assertEqual } = require("../harness");
+const { assert, assertEqual, bootLocal } = require("../harness");
 
 async function bootCalc(browser, baseUrl, query = "calc=1") {
   const context = await browser.newContext({ viewport: { width: 1200, height: 900 } });
@@ -264,6 +264,76 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }));
     assert(rush.note.includes("срочный"), "надбавка за срочность не показана отдельно: " + rush.note);
     await context.close();
+  });
+
+  /* Ссылка на конкретный пакет (?calc=pkg~<id>) — то, что кладут в личное сообщение:
+     не общий калькулятор, а расчёт под задачу собеседника. Главное её свойство —
+     сумма обязана совпадать с ценой пакета в CRM. Кодировать пакет строками
+     «id:кол-во:смен» было нельзя ровно поэтому: у состава бывают свои настройки
+     (два оператора, полсмены, своя цена), формат их не выражает, и в сообщение
+     уехала бы одна цена, а на витрине у студии стояла другая. */
+  await test("ссылка на пакет показывает ту же сумму, что карточка пакета", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl);
+    // Цену берём С КАРТОЧКИ, а не из внутренней функции: тест обязан мерить то, что
+    // видит человек, — иначе он переживёт подмену источника цены и ничего не поймает.
+    await page.evaluate(() => window.app.go("packages"));
+    await page.waitForSelector(".package-card", { timeout: 8000 });
+    const expected = await page.evaluate(() => {
+      const out = {};
+      document.querySelectorAll(".package-card").forEach((card) => {
+        const id = card.dataset.pkgId;
+        const priceEl = card.querySelector(".pkg-card-price");
+        if (!id || !priceEl) return;
+        const digits = (priceEl.textContent || "").replace(/[^0-9]/g, "");
+        if (digits) out[id] = Number(digits);
+      });
+      return out;
+    });
+    await context.close();
+
+    const ids = Object.keys(expected).slice(0, 4);
+    assert(ids.length >= 3,
+      "на экране пакетов не нашлось карточек с ценой: " + JSON.stringify(expected).slice(0, 200));
+
+    for (const id of ids) {
+      const { context: c2, page: p2 } = await bootCalc(browser, baseUrl, "calc=pkg~" + id);
+      await p2.waitForSelector(".calc-result-sum", { timeout: 8000 });
+      const shown = await resultSum(p2);
+      await c2.close();
+      assertEqual(shown, expected[id],
+        "пакет " + id + ": в CRM " + expected[id] + " ₽, по ссылке " + shown + " ₽ — в сообщение уйдёт не та цена");
+    }
+  });
+
+  /* Публичный калькулятор брал состав пакета ТОЛЬКО из встроенного набора, хотя
+     каталог агентства приезжает в state.packages. Студия, поправившая состав
+     (убрала позицию, добавила свою), показывала посетителю нашу версию пакета — при
+     том что цены позиций брались её. Смешанная правда хуже обеих. */
+  await test("калькулятор берёт состав пакета агентства, а не встроенный", async () => {
+    const trimmed = {
+      id: "social_start",
+      name: "Соцсети: старт",
+      cat: "social",
+      desc: "Урезанный студией пакет",
+      items: ["director"],
+      notes: [],
+    };
+    const { context, page } = await bootCalcWithCatalog(browser, baseUrl, calcCatalog({ packages: [trimmed] }));
+    const base = page.url().split("?")[0];
+    await page.goto(base + "?calc=pkg~social_start&a=11111111-2222-3333-4444-555555555555", { waitUntil: "load" });
+    await page.waitForTimeout(1800);
+    const res = await page.evaluate(() => ({
+      sum: (document.querySelector(".calc-result-sum") || {}).textContent || "",
+      lines: [...document.querySelectorAll(".calc-inc-list li, .calc-included li")].map((li) => li.textContent.trim()),
+      text: document.body.innerText,
+    }));
+    await context.close();
+    assert(res.sum, "расчёт по ссылке на пакет не отрисовался");
+    assert(Number(res.sum.replace(/[^0-9]/g, "")) > 0, "сумма нулевая: " + res.sum);
+    // Во встроенном social_start есть субтитры и обложка; студия оставила режиссёра.
+    assert(!res.text.includes("Субтитры") && !res.text.includes("Обложка"),
+      "в составе остались позиции ВСТРОЕННОГО пакета, хотя студия оставила одну: " +
+        (res.lines.join(", ") || res.text.slice(0, 200)));
   });
 
   /* Заявка из калькулятора, открытого ССЫЛКОЙ (а не в iframe на сайте студии).

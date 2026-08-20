@@ -16695,7 +16695,7 @@
           const price = escapeHtml(money(packagePrice(pkg)));
           const borderStyle = tier ? `border-color:${tc.border}` : "";
           return `
-            <article class="package-card pkg-tier-${tier}" style="${borderStyle};cursor:pointer" onclick="app.openPackageEditModal('${pkg.id}')">
+            <article class="package-card pkg-tier-${tier}" data-pkg-id="${escapeHtml(pkg.id)}" style="${borderStyle};cursor:pointer" onclick="app.openPackageEditModal('${pkg.id}')">
               <div class="pkg-card-top">
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                   ${cat ? `<span class="pkg-cat-badge" data-cat="${escapeHtml(cat)}" style="display:inline-flex;align-items:center;gap:5px">${catIcon(catMeta)} ${escapeHtml(catMeta.label || cat)}</span>` : ""}
@@ -16724,6 +16724,8 @@
 
               <div class="pkg-card-actions">
                 <button class="btn primary" style="flex:1" onclick="event.stopPropagation();app.applyPackage('${pkg.id}')">В смету →</button>
+                <button class="btn" onclick="event.stopPropagation();app.copyPackageCalcLink('${pkg.id}')"
+                        title="Скопировать ссылку на публичный расчёт по этому пакету — её можно отправить клиенту">Ссылка клиенту</button>
               </div>
             </article>
           `;
@@ -21211,6 +21213,27 @@
           : "Калькулятор закрыт — ссылка больше не отдаёт каталог");
       }
 
+      /* «Ссылка клиенту» на карточке пакета: адрес публичного калькулятора, сразу
+         открытый на этом пакете. Главный канал плана — «в сообщении готовая ссылка
+         на расчёт, а не приглашение зарегистрироваться», и собирать такую ссылку
+         руками через мастер каждый раз никто не станет. */
+      function copyPackageCalcLink(pkgId) {
+        const pkg = (state.packages || []).find(p => p && p.id === pkgId)
+          || DEFAULT_PACKAGES.find(p => p.id === pkgId);
+        if (!pkg) { toast("Пакет не найден"); return; }
+        const agencyId = getAgencyId();
+        const base = location.origin + location.pathname;
+        const url = base + "?calc=pkg~" + encodeURIComponent(pkgId) +
+          (agencyId && agencyId !== "local" ? "&a=" + encodeURIComponent(agencyId) : "");
+        copyToClipboard(url, "Ссылка на расчёт скопирована");
+        // Молчать здесь нельзя: ссылка выглядит рабочей, а посетитель увидит заглушку.
+        if (!state.publicCalcEnabled) {
+          setTimeout(() => toast("Публичный калькулятор выключен — по ссылке будет заглушка. Включите: Настройки → Данные"), 2200);
+        } else if (!agencyId || agencyId === "local") {
+          setTimeout(() => toast("Вы не вошли в аккаунт — в ссылке нет агентства, она покажет встроенные цены"), 2200);
+        }
+      }
+
       function copyPublicCalcLink() {
         copyToClipboard(publicCalcUrl(), "Ссылка на калькулятор скопирована!");
       }
@@ -22055,7 +22078,8 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         return CALC_NEEDS.find(n => n.id === (id || _calcNeed)) || null;
       }
       function _calcPkgById(id) {
-        return DEFAULT_PACKAGES.find(p => p.id === id) || null;
+        const own = (state.packages || []).find(p => p && p.id === id);
+        return own || DEFAULT_PACKAGES.find(p => p.id === id) || null;
       }
       function _calcTierIndex() {
         const need = _calcNeedDef();
@@ -22264,6 +22288,30 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           return true;
         }
         const parts = String(raw).split("~");
+
+        /* Ссылка на готовый пакет. Состав собирается packageLineFor — тем же путём,
+           что цена пакета в CRM (_calcPkgPricing). Кодировать пакет строками
+           «id:кол-во:смен» нельзя: у состава бывают свои настройки (два оператора,
+           полсмены, своя цена), а этот формат их не выражает — и посетитель увидел
+           бы сумму, отличную от той, что стоит на карточке пакета у студии. */
+        if (parts[0] === "pkg") {
+          const pkg = _calcPkgById(parts[1]);
+          if (!pkg) return false;
+          state.selected = {};
+          state.estimateOrder = [];
+          state.project.days = 1;
+          (pkg.items || []).forEach(entry => {
+            const l = packageLineFor(entry);
+            if (!l || state.selected[l.id]) return;
+            state.selected[l.id] = l.line;
+            state.estimateOrder.push(l.id);
+          });
+          if (!state.estimateOrder.length) return false;
+          _calcCustom = true;
+          _calcStep = 3;
+          return true;
+        }
+
         const need = _calcNeedDef(parts[0]);
         if (!need || need.tiers.indexOf(parts[1]) === -1) return false;
         _calcNeed = parts[0];
@@ -26593,6 +26641,7 @@ Email: _____________________              Email: _____________________
         closeCatalogNav,
         togglePublicCalc,
         copyPublicCalcLink,
+        copyPackageCalcLink,
         copyPublicCalcEmbed,
         _addDealTag,
         _removeDealTag,
