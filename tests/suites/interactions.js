@@ -3879,5 +3879,43 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(withReal, 0, "подсказка про демо осталась, хотя у человека уже есть своя сделка");
   });
 
+  /* Тур подсвечивает пункты БОКОВОГО меню, которого на телефоне нет: разделы
+     живут в листе снизу. Функция это знала и просто выходила — а пункт «Тур по
+     интерфейсу» в меню помощи рисуется без всякой проверки ширины. С телефона
+     нажатие закрывало меню и не делало ничего: молчаливая кнопка читается как
+     «приложение сломалось», а не как «эта возможность не для телефона».
+
+     Проверяем ОБА направления, потому что легко перестараться: непрошеный тур
+     после регистрации (silent) обязан молчать — иначе новичок на телефоне
+     получит тост-объяснение про возможность, которую не звал. */
+  await test("тур на телефоне объясняет себя, а не молчит — но только когда его позвали", async () => {
+    await dismissStaleDialog(page);
+    const b = await bootLocal(browser, baseUrl, { width: 390, height: 844, touch: true });
+    const p = b.page;
+    await p.waitForTimeout(300);
+
+    const toastAfter = async (fn) => {
+      await p.evaluate(() => { const el = document.getElementById("toast"); if (el) { el.classList.remove("show"); el.textContent = ""; } });
+      await p.evaluate(fn);
+      await p.waitForTimeout(250);
+      return p.evaluate(() => {
+        const el = document.getElementById("toast");
+        return { shown: !!el && el.classList.contains("show"), text: el ? el.textContent.trim() : "" };
+      });
+    };
+
+    const asked = await toastAfter(() => window.app.startTour());
+    assert(asked.shown, "с телефона тур позвали руками — и не сказали ни слова");
+    assert(
+      /компьютер/i.test(asked.text),
+      "объяснение не говорит, где тур доступен: «" + asked.text.slice(0, 80) + "»"
+    );
+
+    const auto = await toastAfter(() => window.app.startTour({ silent: true }));
+    assert(!auto.shown, "непрошеный тур после регистрации поздоровался тостом: «" + auto.text.slice(0, 80) + "»");
+
+    await b.context.close();
+  });
+
   await context.close();
 };
