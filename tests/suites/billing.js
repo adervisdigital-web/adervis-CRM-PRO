@@ -492,6 +492,124 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  /* Путь новичка меряется НА ТЕЛЕФОНЕ и по результату: видно ли действие без
+     прокрутки. Замер 22.08.2026 на 390×844: кнопка «Создать» из чеклиста стояла
+     на y=1001 — под девятью денежными плитками, посчитанными по ВЫДУМАННОЙ
+     демо-сделке. Человек в первую минуту видел чужую выручку вместо того, что
+     ему делать.
+
+     Проверяем координату кнопки, а не порядок блоков в разметке: порядок —
+     способ, а обещание продукта — «первое действие видно сразу». Новая плитка
+     или другая раскладка эту проверку не обманут. */
+  await test("путь новичка: первое действие видно без прокрутки на 390×844", async () => {
+    const { context, page: p } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    await p.evaluate(() => window.app.go("home"));
+    await p.waitForTimeout(300);
+    const pos = await p.evaluate(() => {
+      const btn = [...document.querySelectorAll("#appContent button")]
+        .find((b) => /app\.startWizard\(\)/.test(b.getAttribute("onclick") || ""));
+      if (!btn) return null;
+      const r = btn.getBoundingClientRect();
+      const firstMoney = document.querySelector("#appContent .db-stat");
+      return {
+        top: Math.round(r.top),
+        fold: window.innerHeight,
+        moneyTop: firstMoney ? Math.round(firstMoney.getBoundingClientRect().top) : null,
+      };
+    });
+    assert(pos, "на главной новичка нет кнопки «Создать первую сделку»");
+    assert(
+      pos.top < pos.fold,
+      `единственное действие новичка ушло за первый экран: y=${pos.top} при высоте ${pos.fold}`
+    );
+    assert(
+      pos.moneyTop === null || pos.top < pos.moneyTop,
+      `денежные плитки примера (y=${pos.moneyTop}) стоят выше первого действия (y=${pos.top})`
+    );
+    await context.close();
+  });
+
+  /* Демо-сделка приходит с платежом «Аванс 50%» датой сегодня. Считать её деньги
+     продукт вправе (это настоящая запись в состоянии человека, он может её
+     открыть и править), а вот выдавать за его заработок — нет: до 22.08.2026
+     новичок в первый день читал «Выручка / мес 76 750 ₽» и «Всего получено
+     76 750 ₽» про деньги, которых не получал. Расхождение жило ВНУТРИ одного
+     экрана: чеклист прямо под плитками специально не считал демо прогрессом. */
+  await test("деньги примера названы примером — и на главной, и в «Финансах»", async () => {
+    const { context, page: p } = await bootLocal(browser, baseUrl, { seedDemo: true });
+    await p.evaluate(() => window.app.go("home"));
+    await p.waitForTimeout(250);
+    const home = await p.evaluate(() => {
+      const strip = document.querySelector("#appContent .demo-kind-strip");
+      return { text: strip ? (strip.textContent || "").replace(/\s+/g, " ") : null };
+    });
+    assert(home.text, "полоса примера пропала с главной");
+    assert(
+      /цифр/i.test(home.text),
+      "полоса примера не говорит, что цифры вокруг — из примера: " + home.text.slice(0, 90)
+    );
+
+    await p.evaluate(() => window.app.go("global-finances"));
+    await p.waitForTimeout(300);
+    const fin = await p.evaluate(() => {
+      const note = document.querySelector("#appContent .demo-money-note");
+      const card = document.querySelector("#appContent .fin-card");
+      return {
+        has: !!note,
+        aboveCards: note && card ? note.getBoundingClientRect().top < card.getBoundingClientRect().top : false,
+      };
+    });
+    assert(fin.has, "«Финансы» показывают суммы примера без единой оговорки");
+    assert(fin.aboveCards, "оговорка про пример стоит НИЖЕ сумм, которых она касается");
+    await context.close();
+  });
+
+  /* Обратная сторона: как только сделка своя, цифры — правда, и продукт обязан
+     вернуться к обычному виду. Иначе подсказка новичка становится вечной
+     плашкой, а такие живут в продукте годами. Сделку заводим тем же путём, что
+     человек: мастер, а не подсунутое состояние. */
+  await test("своя сделка появилась — оговорки про пример уходят, цифры идут первыми", async () => {
+    const { context, page: p } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    await p.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("name", "ООО Ромашка");
+      window.app.wizardNext();
+      window.app.wizardSetField("projectName", "Ролик для сайта");
+      window.app.wizardNext();
+      window.app.finishWizard("estimate");
+    });
+    await p.waitForTimeout(400);
+    await p.evaluate(() => window.app.go("home"));
+    await p.waitForTimeout(300);
+    const home = await p.evaluate(() => {
+      const money = document.querySelector("#appContent .db-stat");
+      const list = document.querySelector("#appContent .demo-kind-strip");
+      const check = [...document.querySelectorAll("#appContent .panel")]
+        .find((x) => /Начало работы/.test(x.textContent || ""));
+      return {
+        strip: !!list,
+        moneyTop: money ? Math.round(money.getBoundingClientRect().top) : null,
+        checkTop: check ? Math.round(check.getBoundingClientRect().top) : null,
+      };
+    });
+    assert(!home.strip, "полоса примера осталась на главной после появления своей сделки");
+    assert(home.moneyTop !== null, "денежные плитки пропали с главной");
+    assert(
+      home.checkTop === null || home.moneyTop < home.checkTop,
+      `у аккаунта со своей сделкой чеклист (y=${home.checkTop}) всё ещё выше цифр (y=${home.moneyTop})`
+    );
+
+    await p.evaluate(() => window.app.go("global-finances"));
+    await p.waitForTimeout(300);
+    const note = await p.evaluate(() => !!document.querySelector("#appContent .demo-money-note"));
+    assert(!note, "оговорка про пример осталась в «Финансах» при своей сделке");
+    await context.close();
+  });
+
   await test("чеклист: совсем пустой аккаунт видит welcome-экран, а не чеклист", async () => {
     const { context, page } = await bootLocal(browser, baseUrl);
     // Якорь — разметка экрана, а не его текст: раньше тест искал «Добро пожаловать»
