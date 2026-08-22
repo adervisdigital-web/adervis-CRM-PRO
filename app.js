@@ -11383,9 +11383,34 @@
       // (пустая сделка, нет ни позиций, ни поступлений) давала margin=0 → "bad",
       // то есть КРАСНОЕ предупреждение там, где просто нет данных. Первое, что
       // видел человек в своей первой сделке, — красная плашка «0% маржа».
-      function marginBadgeClass(revenue, margin) {
+      /* 22.08.2026 — ЗЕРКАЛЬНЫЙ случай той же причины, оставленный тогда без
+         внимания. Себестоимость в каталоге равна нулю у всех позиций, кроме
+         перевыставляемых (см. isPassthroughCostItem), поэтому смета, собранная
+         из пакета, даёт totalExpenses = 0 → margin = 100 → класс "good", то есть
+         ЗЕЛЁНУЮ ПОХВАЛУ там, где так же просто нет данных. Замер пути новичка:
+         первая собственная сделка встречает человека двумя зелёными капсулами
+         «100% маржа» — продукт утверждает бизнес-факт, которого не знает, и по
+         нему человек назначает цену, не заложив ни аренду, ни людей.
+
+         Число не трогаем: при незаполненной себестоимости прибыль ДЕЙСТВИТЕЛЬНО
+         равна всей сумме сметы, и у соло-видеографа так и есть. Убираем ПОХВАЛУ
+         и объясняем словами — так же, как в прошлый раз убрали ложную тревогу. */
+      function marginBadgeClass(revenue, margin, costsKnown = true) {
         if (!(revenue > 0)) return "none";
+        if (!costsKnown) return "none";
         return margin >= 40 ? "good" : margin >= 20 ? "ok" : "bad";
+      }
+
+      // Подсказка к капсуле маржи. Одна на все три места, где капсула рисуется:
+      // раньше подпись «Высокая маржа» считалась на шапке сделки и НИКУДА не
+      // выводилась — переменная была мёртвой, а капсула висела вовсе без title.
+      const MARGIN_NO_COSTS_HINT =
+        "Себестоимость не заполнена, поэтому прибыль равна всей сумме сметы. " +
+        "Проставьте себестоимость в позициях или расходы во вкладке «Финансы» — тогда маржа станет настоящей.";
+      function marginBadgeTitle(revenue, margin, costsKnown) {
+        if (!(revenue > 0)) return "Пока нет ни позиций, ни поступлений — маржу считать не из чего";
+        if (!costsKnown) return MARGIN_NO_COSTS_HINT;
+        return margin >= 40 ? "Высокая маржа" : margin >= 20 ? "Средняя маржа" : "Низкая маржа";
       }
 
       // Теги, которые фокусируются и активируются с клавиатуры сами по себе —
@@ -16204,7 +16229,11 @@
           profitFact: d.total - f.totalExpensesPaid
         } : f;
         const margin = fin.revenue > 0 ? Math.round(fin.profit / fin.revenue * 100) : 0;
-        const marginClass = marginBadgeClass(fin.revenue, margin);
+        // «Себестоимость известна» = её хоть где-то ввели: в позициях сметы,
+        // расходах или выплатах команде. Все три складываются в totalExpenses.
+        const costsKnown = numberValue(fin.totalExpenses, 0) > 0;
+        const marginClass = marginBadgeClass(fin.revenue, margin, costsKnown);
+        const marginTitle = marginBadgeTitle(fin.revenue, margin, costsKnown);
         const payPct = d.total > 0 ? Math.min(100, Math.round(fin.paid / d.total * 100)) : 0;
 
         const stagesWithItems = state.stages
@@ -16251,7 +16280,8 @@
               </div>
               ${fin.totalExpensesPaid !== fin.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>Прибыль (факт)</span><strong>${money(fin.profitFact)}</strong></div>` : ""}
               <div class="mt-8">
-                <span class="margin-badge ${marginClass}">${margin}% маржа</span>
+                <span class="margin-badge ${marginClass}" title="${escapeHtml(marginTitle)}">${margin}% маржа</span>
+                ${!costsKnown && fin.revenue > 0 ? `<div class="u-meta" style="margin-top:6px">Себестоимость не заполнена — прибыль показана как вся сумма сметы</div>` : ""}
               </div>
               ${fin.profit < 0 ? `<div class="no-print" style="margin-top:10px;padding:9px 12px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;font-size:12px;font-weight:700;color:var(--text-danger)"> Смета в минусе: себестоимость и расходы превышают цену для клиента</div>` : ""}
             </div>
@@ -18880,7 +18910,9 @@
         const f = financeTotals();
         const t = totals();
         const margin = f.revenue > 0 ? Math.round(f.profit / f.revenue * 100) : 0;
-        const marginClass = marginBadgeClass(f.revenue, margin);
+        const costsKnown = numberValue(f.totalExpenses, 0) > 0;
+        const marginClass = marginBadgeClass(f.revenue, margin, costsKnown);
+        const marginTitle = marginBadgeTitle(f.revenue, margin, costsKnown);
         // Проценты и аванс считаем от суммы, которую человек видит в плитке
         // (f.estimateTotal), а не от суммы позиций: у сделки «одной суммой» позиций
         // нет, и раньше оба показателя молча обнулялись.
@@ -18986,8 +19018,9 @@
                         сделки, а деление нуля на ноль, показанное как результат. */""}
                   ${noEstimate && noMoney ? `<div class="fin-sub">Пока не из чего считать</div>` : `
                   <div class="fin-sub">
-                    <span class="margin-badge ${marginClass}">${margin}%</span>
-                    ${f.profitFact !== f.profit ? `<div style="margin-top:4px">факт: ${money(f.profitFact)} <span class="margin-badge ${marginBadgeClass(f.revenue, f.marginFact)}">${Math.round(f.marginFact)}%</span></div>` : ""}
+                    <span class="margin-badge ${marginClass}" title="${escapeHtml(marginTitle)}">${margin}%</span>
+                    ${f.profitFact !== f.profit ? `<div style="margin-top:4px">факт: ${money(f.profitFact)} <span class="margin-badge ${marginBadgeClass(f.revenue, f.marginFact, costsKnown)}" title="${escapeHtml(marginBadgeTitle(f.revenue, f.marginFact, costsKnown))}">${Math.round(f.marginFact)}%</span></div>` : ""}
+                    ${!costsKnown && f.revenue > 0 ? `<div style="margin-top:4px;font-size:11px">себестоимость не заполнена</div>` : ""}
                   </div>`}
                 </div>
               </div>
@@ -20975,8 +21008,12 @@
         const payPct = Math.min(100, Math.round(paid / total * 100));
         const margin = f.revenue > 0 ? Math.round(f.profit / f.revenue * 100) : 0;
 
-        const marginClass = marginBadgeClass(f.revenue, margin);
-        const marginLabel = margin >= 40 ? "Высокая маржа" : margin >= 20 ? "Средняя маржа" : "Низкая маржа";
+        const costsKnown = numberValue(f.totalExpenses, 0) > 0;
+        const marginClass = marginBadgeClass(f.revenue, margin, costsKnown);
+        // Раньше подпись считалась здесь и НИКУДА не выводилась — мёртвая
+        // переменная при капсуле вовсе без title. Теперь это единственный способ
+        // узнать, почему в шапке первой сделки написано «100% маржа».
+        const marginLabel = marginBadgeTitle(f.revenue, margin, costsKnown);
 
         const crmIdx = CRM_STATUSES.indexOf(state.project.crmStatus || "Лид");
         const nextCrm = crmIdx < CRM_STATUSES.length - 1 ? CRM_STATUSES[crmIdx + 1] : null;
@@ -21023,7 +21060,7 @@
                 <button class="btn small" onclick="app.go('home')">← Проекты</button>
                 <div id="dealBarSwitcher">${renderDealSwitcherButtonHtml()}</div>
                 ${state.project.client ? `<span class="badge" style="font-size:12px">${escapeHtml(state.project.client)}</span>` : ""}
-                <span class="margin-badge ${marginClass}" style="font-size:12px">${margin}% маржа</span>
+                <span class="margin-badge ${marginClass}" style="font-size:12px" title="${escapeHtml(marginLabel)}">${margin}% маржа</span>
                 ${(() => { const u = dealDeadlineUrgency(state.project); if (!u || u.level === "ok") return ""; return `<span style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px"> ${escapeHtml(u.label)}</span>`; })()}
               </div>
 

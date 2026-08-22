@@ -307,6 +307,71 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(/Ожидаем/.test(filled), "долг по неоплаченной сделке снова не показан: " + filled);
   });
 
+  /* Зеркало проверки выше. Нулевая ВЫРУЧКА когда-то давала «0% маржа» красным —
+     тревогу там, где просто нет данных; это починили. Нулевая СЕБЕСТОИМОСТЬ
+     осталась: у всех позиций каталога, кроме перевыставляемых, cost = 0, поэтому
+     смета из пакета даёт «100% маржа» ЗЕЛЁНЫМ — похвалу там, где данных так же
+     нет. Первая собственная сделка новичка встречала его именно ей (замер пути
+     новичка 22.08.2026), и по этой цифре человек назначает цену, не заложив ни
+     аренду, ни людей.
+
+     Проверяем не число (оно верное: без себестоимости прибыль правда равна всей
+     сумме), а ОЦЕНКУ: цвет капсулы и наличие объяснения. */
+  await test("маржа: незаполненная себестоимость не выдаётся за отличный результат", async () => {
+    await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Смета без себестоимости");
+      window.app.wizardSetField("budget", "300 000");
+      window.app.finishWizard("estimate");
+      window.app.setDealView("finance");
+    });
+    await page.waitForTimeout(400);
+
+    const badge = () => page.evaluate(() => {
+      const b = document.querySelector("#appContent .margin-badge");
+      if (!b) return null;
+      return {
+        text: (b.textContent || "").trim(),
+        cls: b.className,
+        title: b.getAttribute("title") || "",
+        near: (b.closest(".fin-card") || b.parentElement || {}).innerText || "",
+      };
+    });
+
+    const blind = await badge();
+    assert(blind, "капсула маржи пропала со вкладки «Финансы»");
+    assert(
+      !/\bgood\b/.test(blind.cls),
+      `маржа без себестоимости покрашена как отличный результат: ${blind.cls} «${blind.text}»`
+    );
+    assert(
+      /себестоимость/i.test(blind.title + " " + blind.near),
+      "продукт не объясняет, почему маржа такая: " + JSON.stringify(blind.title || blind.near).slice(0, 120)
+    );
+
+    // Себестоимость появилась — оценка обязана вернуться: это не вечная плашка.
+    await page.evaluate(() => {
+      window.app.openFinanceModal("expense");
+      window.app.setFinanceModalField("amount", "100000");
+      window.app.setFinanceModalField("title", "Аренда камеры");
+      window.app.saveFinanceModal();
+    });
+    await page.waitForTimeout(450);
+    await page.evaluate(() => window.app.setDealView("finance"));
+    await page.waitForTimeout(350);
+
+    const known = await badge();
+    assert(known, "капсула маржи пропала после внесения расхода");
+    assert(
+      !/себестоимость не заполнена/i.test(known.title + " " + known.near),
+      "объяснение про пустую себестоимость осталось, хотя расход внесён"
+    );
+    assert(
+      /\b(good|ok|bad)\b/.test(known.cls),
+      "с появлением расхода маржа так и не получила оценку: " + known.cls
+    );
+  });
+
   /* Одни деньги на двух экранах должны сходиться. Сделка «одной суммой» (смета не
      разбита на позиции) считалась по-разному: карточка на главной брала бюджет
      сделки и честно показывала долг, а вкладка «Финансы» смотрела только на сумму
