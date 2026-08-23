@@ -22979,6 +22979,41 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
          не накатана, полей нет — тогда шапка называет документ, а не компанию:
          лучше без имени, чем с чужим. Подпись «Сделано в ADERVIS» живёт отдельно
          в подвале и снимается флагом hide_branding на платном тарифе. */
+      /* Пилюля состояния на КП — глазами ЗАКАЗЧИКА, а не продавца.
+         До 22.08.2026 наружу уезжал сырой этап воронки: `deal_status` — снимок
+         `crmStatus` в момент отправки, а создание КП этап НЕ двигает. То есть
+         самый частый случай (новичок отправляет первое КП, шкалу этапов ещё не
+         трогал) показывал заказчику жёлтую пилюлю **«Лид»** — жаргон продавца,
+         буквально «зацепка», на документе, который человеку прислали как
+         предложение. Замером подтверждены и «Архив» (сделка отложена, а клиент
+         вернулся по своей ссылке), и «Завершённые».
+
+         Правильный ответ в коде уже лежал — дефолт «На рассмотрении», — но
+         применялся только к ПУСТОМУ статусу. Теперь переводим все: заказчику
+         видно его собственное состояние, а внутренняя воронка остаётся внутри.
+         Про оплату аванса пилюля молчит СПЕЦИАЛЬНО: об этом говорит блок оплаты
+         рядом, и дублировать деньги в статусе незачем. */
+      const PORTAL_CLIENT_STATUS = {
+        "Лид": "На рассмотрении",
+        "Бриф": "На рассмотрении",
+        "КП отправлено": "На рассмотрении",
+        "Согласование": "На рассмотрении",
+        "Договор": "Согласовано",
+        "Предоплата": "Согласовано",
+        "В работе": "В работе",
+        "Сдано": "Сдано",
+        "Оплата": "Сдано",
+        "Завершённые": "Завершено",
+      };
+      function _portalClientStatus(d) {
+        if (!d) return "На рассмотрении";
+        if (d.deal_status === "Согласовано" || d.approved_at) return "Согласовано";
+        const raw = String(d.deal_status || "").trim();
+        // Неизвестный статус (в том числе «Архив» и всё, что появится в воронке
+        // завтра) — нейтральное «На рассмотрении», а не сырое значение наружу.
+        return PORTAL_CLIENT_STATUS[raw] || "На рассмотрении";
+      }
+
       function _portalBrandHtml(d) {
         const name = String(d.agency_name || '').trim();
         const logo = String(d.agency_logo || '').trim();
@@ -23042,6 +23077,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const d = _portalData;
         const isApproved = d.deal_status === 'Согласовано' || !!d.approved_at;
         const servicesList = Array.isArray(d.services_list) ? d.services_list : [];
+        const clientStatus = _portalClientStatus(d);
         return `
           <div class="portal-wrap">
             <div class="portal-inner">
@@ -23049,7 +23085,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
               <div class="portal-card">
                 <div class="portal-status-badge ${isApproved ? 'approved' : ''}">
-         ${isApproved ? 'Согласовано' : ' ' + escapeHtml(d.deal_status || 'На рассмотрении')}
+         ${escapeHtml(clientStatus)}
                 </div>
 
                 <h1 class="portal-title">${escapeHtml(d.deal_name || 'Коммерческое предложение')}</h1>

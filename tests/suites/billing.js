@@ -448,6 +448,41 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  /* Пилюля на КП — глазами заказчика. Наружу уезжал сырой этап воронки:
+     `deal_status` это снимок `crmStatus` в момент отправки, а создание КП этап НЕ
+     двигает — то есть самый частый случай (новичок отправляет первое КП, шкалу
+     этапов ещё не трогал) показывал клиенту жёлтое **«Лид»**. Замерено 22.08.2026
+     вместе с «Архив» (сделка отложена, клиент вернулся по своей ссылке) и
+     «Завершённые».
+
+     Проверяем ДВА направления: внутреннего жаргона на документе нет, и при этом
+     состояние не схлопнулось в одно слово — «В работе» и «Согласовано» обязаны
+     доезжать, иначе клиент перестанет понимать, что происходит. */
+  await test("портал КП: заказчик видит своё состояние, а не этап воронки студии", async () => {
+    const cases = [
+      ["Лид", "На рассмотрении"],
+      ["Бриф", "На рассмотрении"],
+      ["КП отправлено", "На рассмотрении"],
+      ["Архив", "На рассмотрении"],
+      ["Договор", "Согласовано"],
+      ["В работе", "В работе"],
+      ["Оплата", "Сдано"],
+      ["Завершённые", "Завершено"],
+    ];
+    const ctx = await browser.newContext({ viewport: { width: 900, height: 1000 } });
+    for (const [internal, forClient] of cases) {
+      const { page } = await bootPortal(browser, baseUrl, { ...PORTAL_ROW, deal_status: internal }, ctx);
+      const badge = await page.$eval(".portal-status-badge", (el) => (el.textContent || "").trim());
+      assertEqual(badge, forClient, `этап «${internal}» показан заказчику как «${badge}»`);
+      await page.close();
+    }
+    // Подписанное КП остаётся подписанным независимо от того, что в воронке.
+    const { page } = await bootPortal(browser, baseUrl, { ...PORTAL_ROW, deal_status: "Лид", approved_at: "2026-08-22T10:00:00Z" }, ctx);
+    const approved = await page.$eval(".portal-status-badge", (el) => (el.textContent || "").trim());
+    assertEqual(approved, "Согласовано", "согласованное КП перестало называться согласованным");
+    await ctx.close();
+  });
+
   await test("портал КП: неоплаченный аванс цель не шлёт", async () => {
     const { context, page } = await bootPortal(browser, baseUrl, PORTAL_ROW);
     const goals = await page.evaluate(() => window.__goals);
