@@ -19650,6 +19650,7 @@
             </div>
 
             ${_companyNameMissingHtml()}
+            ${_payMethodMissingHtml()}
 
             ${state.project.portalId ? `
             <div id="portalAdvanceStatus" class="no-print client-hidden" style="margin-bottom:14px">
@@ -19743,6 +19744,31 @@
               <div class="u-meta">КП, счёт и договор уйдут клиенту без вашего названия и логотипа.</div>
             </div>
             <button class="btn small" onclick="app.go('settings');app._setSettingsTab('company')">Заполнить профиль</button>
+          </div>`;
+      }
+
+      /* Способ оплаты по умолчанию — «none», и тогда в КП у заказчика НЕТ ни кнопки
+         оплаты, ни суммы аванса, ни слова о том, как платить. При этом продукт с
+         первого экрана обещает «клиент согласится и оплатит аванс онлайн», а
+         чеклист первых шагов называет КП «ссылкой, по которой клиент согласует
+         смету и оплатит аванс». Обещание не выполнялось молча: узнать об этом
+         студия могла, только открыв собственное КП глазами клиента — ровно то,
+         чего никто не делает (вся история 18–19.08 про это).
+
+         Тон СПЕЦИАЛЬНО не тревожный, в отличие от плашки про имя компании:
+         работать по счёту и реквизитам — нормальный выбор, а не ошибка. И условия
+         за студию мы не выдумываем: не подставляем клиенту «аванс 50%», которого
+         она, может быть, не берёт, — просто говорим ей, что клиент увидит. */
+      function _payMethodMissingHtml() {
+        const method = String((state.company || {}).payMethod || "none");
+        if (method !== "none") return "";
+        return `
+          <div class="no-print client-hidden" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;background:var(--panel2);border:1px dashed var(--line-strong, var(--line));border-radius:var(--r-xl)">
+            <div style="flex:1 1 240px;min-width:0">
+              <div style="font-weight:700;font-size:13px">Оплата аванса в КП не настроена</div>
+              <div class="u-meta">Клиент увидит только сумму — ни кнопки оплаты, ни реквизитов в КП не будет. Если берёте аванс, выберите способ; если работаете по счёту, ничего делать не нужно.</div>
+            </div>
+            <button class="btn small" onclick="app.go('settings');app._setSettingsTab('company')">Выбрать способ</button>
           </div>`;
       }
 

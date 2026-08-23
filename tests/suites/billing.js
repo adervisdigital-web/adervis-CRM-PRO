@@ -374,6 +374,32 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(/Рекламный ролик для бренда/.test(res.txt), "само КП не отрисовалось");
     assert(errors.length === 0, "ошибки на портале: " + errors.join(" | "));
     await context.close();
+
+    /* Вторая сторона той же настройки. У клиента кнопки нет законно — но продукт
+       с первого экрана обещает «клиент согласится и оплатит аванс онлайн», а
+       способ по умолчанию «none». Значит студия обязана узнать об этом ТАМ, где
+       отправляет КП, а не открыв собственную ссылку глазами клиента. */
+    const own = await bootLocal(browser, baseUrl, { seedDemo: true });
+    await own.page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "КП без оплаты");
+      window.app.wizardSetField("budget", "200 000");
+      window.app.finishWizard("estimate");
+      window.app.setDealView("proposal");
+    });
+    await own.page.waitForTimeout(450);
+    const hint = await own.page.evaluate(() => {
+      const t = document.getElementById("appContent").textContent || "";
+      const btn = [...document.querySelectorAll("#appContent button")]
+        .find((b) => /Выбрать способ/.test(b.textContent || ""));
+      return { warned: /Оплата аванса в КП не настроена/.test(t), toSettings: btn ? btn.getAttribute("onclick") : null };
+    });
+    assert(hint.warned, "студии не сказано, что клиент не увидит в КП ни оплаты, ни реквизитов");
+    assert(
+      /_setSettingsTab\('company'\)/.test(hint.toSettings || ""),
+      "подсказка не ведёт туда, где способ выбирается: " + hint.toSettings
+    );
+    await own.context.close();
   });
 
   await test("портал КП: способ «ссылка» ведёт на сайт агентства, а не в ЮKassa", async () => {
