@@ -551,18 +551,35 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "полоса примера не говорит, что цифры вокруг — из примера: " + home.text.slice(0, 90)
     );
 
-    await p.evaluate(() => window.app.go("global-finances"));
-    await p.waitForTimeout(300);
-    const fin = await p.evaluate(() => {
-      const note = document.querySelector("#appContent .demo-money-note");
-      const card = document.querySelector("#appContent .fin-card");
-      return {
-        has: !!note,
-        aboveCards: note && card ? note.getBoundingClientRect().top < card.getBoundingClientRect().top : false,
-      };
-    });
-    assert(fin.has, "«Финансы» показывают суммы примера без единой оговорки");
-    assert(fin.aboveCards, "оговорка про пример стоит НИЖЕ сумм, которых она касается");
+    /* Список денежных экранов, а не один: оговорка на главной и в «Финансах»
+       при молчащих «Клиентах» — ровно то точечное исключение, из-за которого
+       демо и считалась настоящими деньгами. Появится четвёртый экран с суммами
+       примера — его место здесь. */
+    /* Селектор — по разметке САМОГО списка (.client-card / .client-list-row), а не
+       по «чему-нибудь, что открывает клиента»: первая версия ловила `[onclick*=
+       'openClient']` и находила скрытый пункт меню «+» с y=0, из-за чего проверка
+       падала на исправном экране. Дефект замера, а не кода. */
+    for (const [view, moneySel] of [["global-finances", ".fin-card"], ["clients", ".client-card, .client-list-row"]]) {
+      await p.evaluate((v) => window.app.go(v), view);
+      await p.waitForTimeout(300);
+      const r = await p.evaluate((sel) => {
+        const note = document.querySelector("#appContent .demo-money-note");
+        const money = document.querySelector("#appContent " + sel);
+        const y = (el) => (el ? Math.round(el.getBoundingClientRect().top + window.scrollY) : null);
+        return {
+          has: !!note,
+          noteY: y(note),
+          moneyY: y(money),
+          moneyCls: money ? money.className : null,
+          aboveMoney: note && money ? y(note) < y(money) : null,
+        };
+      }, moneySel);
+      assert(r.has, `раздел «${view}» показывает суммы примера без единой оговорки`);
+      assert(
+        r.aboveMoney !== false,
+        `в «${view}» оговорка (y=${r.noteY}) стоит НИЖЕ сумм (y=${r.moneyY}, ${r.moneyCls})`
+      );
+    }
     await context.close();
   });
 
@@ -603,10 +620,12 @@ module.exports = async function ({ browser, baseUrl, test }) {
       `у аккаунта со своей сделкой чеклист (y=${home.checkTop}) всё ещё выше цифр (y=${home.moneyTop})`
     );
 
-    await p.evaluate(() => window.app.go("global-finances"));
-    await p.waitForTimeout(300);
-    const note = await p.evaluate(() => !!document.querySelector("#appContent .demo-money-note"));
-    assert(!note, "оговорка про пример осталась в «Финансах» при своей сделке");
+    for (const view of ["global-finances", "clients"]) {
+      await p.evaluate((v) => window.app.go(v), view);
+      await p.waitForTimeout(300);
+      const note = await p.evaluate(() => !!document.querySelector("#appContent .demo-money-note"));
+      assert(!note, `оговорка про пример осталась в «${view}» при своей сделке`);
+    }
     await context.close();
   });
 
