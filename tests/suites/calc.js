@@ -70,7 +70,44 @@ const calcCatalog = (over) => Object.assign({
   catalogPrices: {}, hiddenItems: {}, permanentlyDeleted: {},
 }, over);
 
-module.exports = async function ({ browser, baseUrl, test }) {
+/* Публичный бриф (?brief=…) — вторая незалогиненная поверхность рядом с
+   калькулятором и ПЕРВАЯ точка контакта: студия шлёт ссылку до КП, заполняет её
+   человек, который студию ещё не выбрал. Своего шаблона у большинства студий нет,
+   поэтому смотрим именно дефолтный набор вопросов — то, что видит заказчик, если
+   студия ничего не настраивала. */
+async function bootBrief(browser, baseUrl, opts = {}) {
+  const { agency = { name: "Студия «Полёт»", logo: "" }, type = "video", width = 390, height = 844 } = opts;
+  const context = await browser.newContext(
+    width < 700
+      ? { viewport: { width, height }, hasTouch: true, isMobile: true }
+      : { viewport: { width, height } }
+  );
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message || e)));
+  page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+
+  // Общая заглушка ПЕРВОЙ: Playwright примеряет маршруты в обратном порядке.
+  await context.route("**/*", (route) => {
+    const u = route.request().url();
+    if (u.startsWith(baseUrl) || u.startsWith("data:") || u.includes("supabase.co")) return route.continue();
+    return route.fulfill({ status: 204, body: "", headers: { "content-type": "text/plain" } });
+  });
+  await context.route("**/*.supabase.co/**", (r) =>
+    r.fulfill({ status: 200, contentType: "application/json", body: "{}" }));
+  // null — «своего шаблона нет»: форма обязана открыться на дефолтных вопросах.
+  await context.route("**/rest/v1/rpc/get_brief_template*", (r) =>
+    r.fulfill({ status: 200, contentType: "application/json", body: "null" }));
+  await context.route("**/rest/v1/rpc/get_brief_agency*", (r) =>
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(agency) }));
+
+  await page.goto(`${baseUrl}/index.html?brief=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee&type=${type}`, { waitUntil: "load" });
+  await page.waitForFunction(() => (document.getElementById("appContent")?.innerText || "").length > 40, { timeout: 12000 });
+  await page.waitForTimeout(700);
+  return { context, page, errors };
+}
+
+module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   /* Ради чего вся эта витрина и существует: студия ставит калькулятор себе на сайт,
      и посетитель обязан видеть ЕЁ прайс. До 05.08 в адресе не было агентства вовсе,
      и любая студия показывала своим посетителям цены ADERVIS — прямого конкурента.
@@ -708,6 +745,119 @@ module.exports = async function ({ browser, baseUrl, test }) {
         .map(x => Math.round(x.r.height) + "px: " + x.html)
     );
     assertEqual(small.length, 0, "слишком низкие интерактивные элементы: " + small.join(" | "));
+    await context.close();
+  });
+
+  /* Бриф — публичная поверхность ровно того же класса, что калькулятор, и раньше
+     него по времени: его ссылку студия шлёт первой. Проверяем то же, что там:
+     контур незалогинен (никакой навигации CRM), помещается в телефон, подписан
+     студией и форму видно. Скриншот — чтобы поверхность можно было осмотреть
+     глазами, а не только замером. */
+  await test("публичный бриф: контур заказчика, а не окно CRM", async () => {
+    const { context, page, errors } = await bootBrief(browser, baseUrl);
+    const r = await page.evaluate(() => {
+      const doc = document.documentElement;
+      const sidebar = document.getElementById("appSidebar");
+      return {
+        fields: document.querySelectorAll("#appContent input,#appContent textarea,#appContent select").length,
+        submit: [...document.querySelectorAll("#appContent button")]
+          .filter((b) => b.offsetParent !== null && /Отправить|Оставить заявку/i.test(b.textContent || "")).length,
+        /* Наличие узла в разметке ничего не доказывает: оболочка приложения лежит
+           в index.html всегда, а brief-режим её гасит. Меряем ВИДИМОСТЬ — иначе
+           проверка падает на исправном экране (уже наступали на это сегодня с
+           «клиентом примера»). */
+        crmNav: [sidebar, document.querySelector(".mobile-bottom-nav"), document.querySelector(".mobile-nav-fab")]
+          .filter(Boolean)
+          .filter((el) => {
+            const b = el.getBoundingClientRect();
+            return b.width > 2 && b.height > 2 && getComputedStyle(el).visibility !== "hidden";
+          })
+          .map((el) => el.id || el.className)
+          .join(", "),
+        spill: doc.scrollWidth > window.innerWidth ? doc.scrollWidth : 0,
+        text: (document.getElementById("appContent").innerText || "").replace(/\s+/g, " "),
+      };
+    });
+    if (shotDir) {
+      await page.screenshot({ path: require("path").join(shotDir, "brief-public-fold.png") });
+      // Низ формы: согласие на обработку ПД и кнопка отправки — то, чем заказчик
+      // заканчивает. Осматривать поверхность глазами дешевле всего здесь же.
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await page.waitForTimeout(250);
+      await page.screenshot({ path: require("path").join(shotDir, "brief-public-bottom.png") });
+      await page.evaluate(() => window.scrollTo(0, 0));
+    }
+
+    assert(r.fields >= 5, "публичная форма брифа открылась почти пустой: полей " + r.fields);
+    assert(r.submit >= 1, "на форме брифа нет видимой кнопки отправки");
+    assert(!r.crmNav, "на публичной странице брифа видна навигация CRM: " + r.crmNav);
+    assertEqual(r.spill, 0, "бриф на 390px уезжает вбок: " + r.spill + "px");
+    assert(/Полёт/.test(r.text), "бриф не подписан студией, которая его прислала");
+    assert(errors.length === 0, "ошибки на публичном брифе: " + errors.join(" | "));
+    await context.close();
+  });
+
+  /* Бриф собирает имя, телефон, почту и компанию у ЧУЖОГО человека — заказчика
+     студии. Из трёх публичных форм продукта согласие на обработку ПД спрашивали
+     две: калькулятор (calcSetLead('agree')) и портал КП вместе с подписью. Бриф,
+     самая старая и самая массовая из них, просто отправлял; внизу стояло лишь
+     «Данные используются только для связи с вами» — обещание, а не согласие, и
+     без ссылки на политику.
+
+     Проверяем не наличие галочки, а ПОВЕДЕНИЕ: без согласия заявка не уходит.
+     Галочку можно нарисовать и не проверить — тогда сторож охранял бы декорацию. */
+  await test("публичный бриф не отправляет чужие данные без согласия на обработку", async () => {
+    const { context, page } = await bootBrief(browser, baseUrl);
+
+    const posts = [];
+    await context.route("**/rest/v1/brief_submissions*", (route) => {
+      posts.push(route.request().postDataJSON());
+      return route.fulfill({ status: 201, contentType: "application/json", body: "[]" });
+    });
+
+    /* Заполняем ВСЕ поля со звёздочкой, а не угаданную пару: набор обязательных
+       полей задаётся шаблоном брифа и меняется вместе с ним — тест, знающий про
+       «имя и почту», сломался бы на первом же новом обязательном вопросе (так и
+       вышло: «Опишите проект подробно»). */
+    const filled = await page.evaluate(() => {
+      const out = [];
+      [...document.querySelectorAll("#appContent .field")].forEach((f) => {
+        const label = (f.querySelector("label")?.textContent || "").trim();
+        if (!/\*\s*$/.test(label)) return;
+        const el = f.querySelector("input, textarea, select");
+        if (!el) return;
+        if (el.tagName === "SELECT") {
+          const opt = [...el.options].find((o) => o.value);
+          if (opt) el.value = opt.value;
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        } else {
+          el.value = /email/i.test(label) ? "petr@example.com"
+            : /имя/i.test(label) ? "Пётр Заказчиков"
+            : "Нужен ролик для сайта: съёмка, монтаж, музыка.";
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        out.push(label);
+      });
+      return out;
+    });
+    assert(filled.length >= 2, "на публичном брифе не нашлось обязательных полей: " + JSON.stringify(filled));
+
+    await page.evaluate(() => window.app.submitBrief());
+    await page.waitForTimeout(400);
+    const refused = await page.evaluate(() => (document.getElementById("appContent").innerText || ""));
+    assertEqual(posts.length, 0, "заявка с персональными данными ушла без согласия на обработку");
+    assert(/соглас/i.test(refused), "форма промолчала о том, почему не отправила: нет объяснения про согласие");
+
+    // Согласились — заявка уходит: барьер не должен превратиться в тупик.
+    await page.evaluate(() => {
+      const box = document.querySelector(".brief-agree input");
+      box.checked = true;
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+      window.app.submitBrief();
+    });
+    await page.waitForTimeout(600);
+    const why = await page.evaluate(() => (document.querySelector("#appContent .brief-error")?.textContent || "").trim());
+    assertEqual(posts.length, 1, `после согласия заявка так и не ушла студии (форма говорит: «${why || "ничего"}»)`);
     await context.close();
   });
 };

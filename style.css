@@ -6113,6 +6113,17 @@ body.calc-mode #appContent { padding: 0; }
 .brief-section-title:first-of-type { margin-top: 0; border-top: none; }
 .brief-fields { display: flex; flex-direction: column; gap: 12px; margin-bottom: 4px; }
 .brief-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* Согласие на обработку ПД. Вид и размеры — те же, что у такой же галочки в
+   публичном калькуляторе (.calc-agree): одна и та же просьба к человеку в двух
+   формах продукта не должна выглядеть по-разному. min-height держит цель
+   касания: сам чекбокс 18px, но нажимают по всей строке с текстом. */
+.brief-agree {
+  display: flex; align-items: flex-start; gap: 9px; min-height: 44px;
+  margin-top: 16px; padding: 6px 0;
+  font-size: 12.5px; line-height: 1.5; color: var(--muted); cursor: pointer;
+}
+.brief-agree input { width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; accent-color: var(--primary); }
+.brief-agree a { color: var(--primary-text); }
 .brief-submit {
   width: 100%; padding: 15px; margin-top: 20px;
   border-radius: var(--r-lg); font-size: 16px; font-weight: 800;

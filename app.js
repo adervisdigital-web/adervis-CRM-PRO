@@ -1353,7 +1353,7 @@
       let _portalData = null;
       let _portalLoaded = false;
       // Форма брифа теперь template-driven: значения полей лежат в values[fieldId].
-      let _briefForm = { values:{}, sending:false, sent:false, error:'' };
+      let _briefForm = { values:{}, sending:false, sent:false, error:'', agree:false };
       let _briefTemplateLoaded = false; // публичная форма: пробовали ли уже подтянуть кастом-шаблон
       let _briefCustomTemplate = null;  // публичная форма: кастом-шаблон агентства (или null → дефолт)
       // Кто спрашивает: название и логотип агентства для шапки публичной формы.
@@ -14064,6 +14064,19 @@
                 <h1>${escapeHtml(tpl.title)}</h1>
                 ${tpl.sub ? `<p class="brief-sub">${escapeHtml(tpl.sub)}</p>` : ''}
                 ${_briefFieldsHtml(tpl.fields, f.values)}
+                ${/* Согласие на обработку ПД. Форма собирает имя, телефон, почту и
+                      компанию у ЧУЖОГО человека — заказчика студии, — и до
+                      23.08.2026 была единственной публичной формой продукта без
+                      согласия: калькулятор его требует (calcSetLead('agree')), КП
+                      берёт вместе с подписью, а бриф — старейшая из трёх — просто
+                      отправлял. Внизу стояла лишь строка «Данные используются
+                      только для связи с вами»: это обещание, а не согласие, и
+                      ссылки на политику в нём нет. */""}
+                <label class="brief-agree">
+                  <input type="checkbox" ${f.agree ? 'checked' : ''} onchange="app.updateBriefAgree(this.checked)">
+                  <span>Согласен на обработку персональных данных согласно
+                    <a href="https://adervis.ru/docs#docs-privacy" target="_blank" rel="noopener">Политике конфиденциальности</a></span>
+                </label>
                 <button class="brief-submit" onclick="app.submitBrief()" ${f.sending ? 'disabled' : ''}>
                   ${f.sending ? 'Отправляем...' : 'Отправить заявку →'}
                 </button>
@@ -14080,6 +14093,14 @@
         _briefForm.values[fieldId] = value;
       }
 
+      /* Галочка согласия перерисовывает форму только когда гасит уже показанную
+         ошибку: без этого условия render() на каждый чих терял бы фокус в полях
+         (та же причина, по которой updateBriefField выше молча пишет в состояние). */
+      function updateBriefAgree(checked) {
+        _briefForm.agree = !!checked;
+        if (_briefForm.agree && _briefForm.error) { _briefForm.error = ''; render(); }
+      }
+
       async function submitBrief() {
         const f = _briefForm;
         const typeId = _isBriefType(_briefType) ? _briefType : 'video';
@@ -14092,6 +14113,9 @@
         const phone = (sysField('phone') ? val(sysField('phone').id) : '');
         if (!name) { f.error = 'Укажите ваше имя'; render(); return; }
         if (!email || !email.includes('@')) { f.error = 'Укажите корректный email'; render(); return; }
+        // Согласие проверяется ЗДЕСЬ, а не только галочкой в разметке: отправку
+        // зовёт onclick, и без серверной части единственный барьер — этот.
+        if (!f.agree) { f.error = 'Нужно согласие на обработку персональных данных'; render(); return; }
         const missing = tpl.fields.find(x => x.required && x.enabled !== false && x.type !== 'section' && !val(x.id));
         if (missing) { f.error = `Заполните поле «${missing.label}»`; render(); return; }
 
@@ -27033,6 +27057,7 @@ Email: _____________________              Email: _____________________
         kbDelete,
 
         updateBriefField,
+        updateBriefAgree,
         submitBrief,
         toggleBriefExpand,
         copyBriefLink,
