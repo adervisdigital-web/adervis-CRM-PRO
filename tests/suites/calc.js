@@ -753,6 +753,32 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
      контур незалогинен (никакой навигации CRM), помещается в телефон, подписан
      студией и форму видно. Скриншот — чтобы поверхность можно было осмотреть
      глазами, а не только замером. */
+  /* Типы перебираем ЦИКЛОМ, а не проверяем один: у брифа их пять, ссылку студия
+     шлёт с любым, и однажды уже было, что лента типов показывала 3 из 6 — то есть
+     «работает video» ничего не говорит про остальные четыре. */
+  for (const type of ["video", "photo", "design", "ai", "general"]) {
+    await test(`публичный бриф «${type}»: форма открывается и подписана студией`, async () => {
+      const { context, page, errors } = await bootBrief(browser, baseUrl, { type });
+      const r = await page.evaluate(() => ({
+        fields: document.querySelectorAll("#appContent input,#appContent textarea,#appContent select").length,
+        agree: !!document.querySelector(".brief-agree input"),
+        submit: [...document.querySelectorAll("#appContent button")]
+          .some((b) => b.offsetParent !== null && /Отправить заявку/i.test(b.textContent || "")),
+        title: (document.querySelector("#appContent h1")?.textContent || "").trim(),
+        signed: /Полёт/.test(document.getElementById("appContent").innerText || ""),
+        spill: document.documentElement.scrollWidth > window.innerWidth,
+      }));
+      assert(r.fields >= 5, `бриф «${type}» открылся почти пустым: полей ${r.fields}`);
+      assert(r.title.length > 3, `у брифа «${type}» нет заголовка: «${r.title}»`);
+      assert(r.agree, `у брифа «${type}» нет согласия на обработку персональных данных`);
+      assert(r.submit, `у брифа «${type}» не видно кнопки отправки`);
+      assert(r.signed, `бриф «${type}» не подписан студией, которая его прислала`);
+      assert(!r.spill, `бриф «${type}» уезжает вбок на 390px`);
+      assert(errors.length === 0, `ошибки на брифе «${type}»: ` + errors.join(" | "));
+      await context.close();
+    });
+  }
+
   await test("публичный бриф: контур заказчика, а не окно CRM", async () => {
     const { context, page, errors } = await bootBrief(browser, baseUrl);
     const r = await page.evaluate(() => {
@@ -858,6 +884,19 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     await page.waitForTimeout(600);
     const why = await page.evaluate(() => (document.querySelector("#appContent .brief-error")?.textContent || "").trim());
     assertEqual(posts.length, 1, `после согласия заявка так и не ушла студии (форма говорит: «${why || "ничего"}»)`);
+
+    /* Последний экран, который заказчик вообще видит от этой студии. Он обязан
+       сказать, что заявка принята, и остаться подписанным студией: до 18.08 такие
+       экраны подставляли имя сервиса, и человек уходил с мыслью, что писал в
+       ADERVIS, а не в студию. */
+    const done = await page.evaluate(() => ({
+      text: (document.getElementById("appContent").innerText || "").replace(/\s+/g, " "),
+      stillForm: !!document.querySelector(".brief-submit"),
+    }));
+    assert(!done.stillForm, "после отправки на экране осталась та же форма — человек не понял, ушла ли заявка");
+    assert(/отправлен|принят|спасибо/i.test(done.text), "экран после отправки не говорит, что заявка принята: " + done.text.slice(0, 120));
+    assert(/Полёт/.test(done.text), "экран «заявка отправлена» потерял имя студии");
+    if (shotDir) await page.screenshot({ path: require("path").join(shotDir, "brief-public-sent.png") });
     await context.close();
   });
 };
