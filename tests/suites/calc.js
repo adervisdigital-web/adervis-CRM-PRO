@@ -779,6 +779,35 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     });
   }
 
+  /* Подпись сервиса на брифе — то же, что «Сделано в ADERVIS» на портале КП:
+     бесплатный канал, который оплаченный тариф вправе снять. До 23.08.2026 флаг
+     туда не доезжал вовсе (get_brief_agency отдавал только name и logo), и
+     студия, купившая снятие подписи, видела её на своей публичной форме.
+
+     Флаг считает СЕРВЕР: форма анонимна и о тарифе студии знать не может, а
+     снимка, как у КП, тут нет — ссылка одна и живая. Проверяем обе стороны и
+     отдельно то, что строка про обработку данных НЕ уехала вместе с подписью:
+     она адресована человеку, который эти данные вводит. */
+  await test("бриф: подпись сервиса снимается флагом, а строка про данные остаётся", async () => {
+    const shown = await bootBrief(browser, baseUrl, {
+      agency: { name: "Студия «Полёт»", logo: "", hide_branding: false },
+    });
+    const withSign = await shown.page.evaluate(() => (document.getElementById("appContent").innerText || "").replace(/\s+/g, " "));
+    assert(/Powered by ADERVIS/i.test(withSign), "на бесплатном тарифе пропала подпись сервиса — бесплатный канал распространения");
+    await shown.context.close();
+
+    const hidden = await bootBrief(browser, baseUrl, {
+      agency: { name: "Студия «Полёт»", logo: "", hide_branding: true },
+    });
+    const noSign = await hidden.page.evaluate(() => (document.getElementById("appContent").innerText || "").replace(/\s+/g, " "));
+    assert(!/Powered by ADERVIS/i.test(noSign), "оплаченный тариф снял подпись в КП, но на брифе она осталась");
+    assert(
+      /Данные используются только для связи с вами/.test(noSign),
+      "вместе с подписью пропала строка про обработку данных — она не про брендирование"
+    );
+    await hidden.context.close();
+  });
+
   await test("публичный бриф: контур заказчика, а не окно CRM", async () => {
     const { context, page, errors } = await bootBrief(browser, baseUrl);
     const r = await page.evaluate(() => {

@@ -13963,7 +13963,15 @@
           const data = tplRes.status === 'fulfilled' ? tplRes.value.data : null;
           if (data && Array.isArray(data.fields) && data.fields.length) _briefCustomTemplate = data;
           const ag = agRes.status === 'fulfilled' ? agRes.value.data : null;
-          if (ag && (ag.name || ag.logo)) _briefAgency = { name: String(ag.name || ''), logo: String(ag.logo || '') };
+          /* hide_branding приезжает миграцией 20260823000001. Пока она не накатана,
+             поля в ответе нет → undefined → подпись показывается, как и раньше.
+             Условие входа осталось прежним (name || logo): агентство без имени и
+             логотипа не должно вдруг начать «сниматься с подписи» из-за флага. */
+          if (ag && (ag.name || ag.logo)) _briefAgency = {
+            name: String(ag.name || ''),
+            logo: String(ag.logo || ''),
+            hideBranding: ag.hide_branding === true,
+          };
           render();
         } catch (e) { /* нет RPC / нет кастома → остаётся дефолт */ }
       }
@@ -14082,8 +14090,14 @@
                 </button>
                 ${f.error ? `<p class="brief-error">${escapeHtml(f.error)}</p>` : ''}
               </div>
+              ${/* Подпись сервиса снимается на ОПЛАЧЕННОМ тарифе — так же, как на
+                    портале КП. Флаг считает сервер (get_brief_agency), потому что
+                    публичная форма анонимна и о тарифе студии знать не может.
+                    Строка про данные остаётся всегда: она адресована человеку,
+                    который эти данные вводит, и к брендированию отношения не
+                    имеет — снимать её вместе с подписью было бы подменой. */""}
               <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:20px">
-                Powered by <strong>ADERVIS</strong> · Данные используются только для связи с вами
+                ${_briefAgency && _briefAgency.hideBranding ? '' : 'Powered by <strong>ADERVIS</strong> · '}Данные используются только для связи с вами
               </p>
             </div>
           </div>`;
