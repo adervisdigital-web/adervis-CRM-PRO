@@ -11168,6 +11168,34 @@
         return _dealRemaining(m.projectId);
       }
 
+      /* Себестоимость, уже заложенная В СТРОКАХ СМЕТЫ сделки.
+         Нужна подсказке при вводе расхода: продукт считает себестоимость сделки
+         как «позиции сметы + выплаты команде + расходы», и одни и те же деньги
+         легко попадают в неё дважды. Живой случай (23.08.2026): в смете стояла
+         позиция-перевыставление «Syntex» с себестоимостью 21 890 ₽, владелец
+         добавил те же 21 890 ₽ ещё и расходами — план расходов стал 43 780 ₽
+         при реальных 21 890, маржа сделки упала с 69% до 38%.
+
+         Задваивание не случайно: два места считаются ПО-РАЗНОМУ. Себестоимость
+         строки видна только внутри сделки, а в «Расходы / мес» на дашборде и в
+         месячный P&L попадают ТОЛЬКО транзакции (getAllTransactions читает
+         payments/expenses и ничего не знает про state.selected). Человек,
+         которому нужна правда в отчётах, заводит расход — и ломает сделку. */
+      function _lineCostsForProject(projectId) {
+        if (!projectId) return 0;
+        const sum = (selected) => Object.values(selected || {})
+          .reduce((s, line) => s + numberValue(line && line.cost, 0), 0);
+        if (projectId === state.activeProjectId) return sum(state.selected);
+        const proj = (state.savedProjects || []).find(p => p.id === projectId);
+        return proj ? sum((proj.snapshot || {}).selected) : 0;
+      }
+
+      function financeModalLineCosts() {
+        const m = state.financeModal;
+        if (!m || m.type !== "expense" || !m.projectId) return 0;
+        return _lineCostsForProject(m.projectId);
+      }
+
       // Смена проекта перерисовывает форму: от неё зависит подсказка про остаток.
       function setFinanceModalProject(value) {
         if (!state.financeModal) return;
@@ -11560,6 +11588,25 @@
                 </div>`;
                 })()}
                 ${m.amount && !isValid ? `<span style="color:var(--text-danger);font-size:12px;display:block;margin-top:3px">Должно быть больше нуля</span>` : ""}
+                ${(() => {
+                  const lc = financeModalLineCosts();
+                  if (lc <= 0) return "";
+                  /* Не запрет и не ошибка: расход сверх сметной себестоимости —
+                     обычное дело (аренда, транспорт, подрядчик). Предупреждаем
+                     ровно о том, чего не видно на этом экране, и подсказываем,
+                     где обнулить, если деньги те же.
+
+                     Сравнивать с введённой суммой СПЕЦИАЛЬНО не стали: поле
+                     суммы намеренно не перерисовывает форму (иначе теряется
+                     курсор — см. setFinanceModalField), поэтому текст вида
+                     «ровно эта сумма» почти никогда бы и не появился. */
+                  return `
+                <div class="fin-linecost-note">
+                  <span>В смете этой сделки уже заложена себестоимость
+                    <strong>${money(lc)}</strong>. Расход добавится сверх неё.</span>
+                  <span class="u-meta">Если это одни и те же деньги, обнулите «Себестоимость» в строке сметы — иначе они посчитаются дважды.</span>
+                </div>`;
+                })()}
               </div>
 
               <div class="field" style="margin-bottom:14px">

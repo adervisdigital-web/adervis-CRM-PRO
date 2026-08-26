@@ -372,6 +372,79 @@ module.exports = async function ({ browser, baseUrl, test }) {
     );
   });
 
+  /* Себестоимость сделки складывается из трёх слагаемых — позиции сметы, выплаты
+     команде и расходы — и одни и те же деньги легко попадают в неё дважды. Живой
+     случай владельца (23.08.2026): в смете позиция-перевыставление с
+     себестоимостью 21 890 ₽, те же 21 890 ₽ заведены ещё и расходом → план
+     расходов 43 780 ₽ при реальных 21 890, маржа сделки 69% → 38%.
+
+     Задваивание не случайность: два места считаются ПО-РАЗНОМУ. Себестоимость
+     строки видна только внутри сделки, а в «Расходы / мес» и месячный P&L
+     попадают ТОЛЬКО транзакции. Кому нужна правда в отчётах — заводит расход и
+     ломает сделку. Продукт не может выбрать за человека, но обязан сказать, что
+     деньги сложатся. */
+  await test("расход к сделке предупреждает о себестоимости, уже заложенной в смете", async () => {
+    await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Сделка с себестоимостью в смете");
+      window.app.finishWizard("estimate");
+    });
+    await page.waitForTimeout(400);
+
+    // Позиция с себестоимостью прямо в строке сметы. Состояние читаем из
+    // localStorage — публичного геттера у него нет (см. соседние тесты набора).
+    await page.evaluate(() => window.app.catalogAddOne("director"));
+    await page.waitForTimeout(300);
+    const seeded = await page.evaluate((KEY) => {
+      const st = JSON.parse(localStorage.getItem(KEY) || "{}");
+      const id = Object.keys(st.selected || {})[0];
+      if (!id) return null;
+      window.app.updateLine(id, "price", 30000);
+      window.app.updateLine(id, "cost", 21890);
+      return id;
+    }, STORAGE_KEY);
+    await page.waitForTimeout(250);
+
+    const noteFor = async () => page.evaluate(() => {
+      const el = document.querySelector("#modalContainer .fin-linecost-note");
+      return el ? (el.textContent || "").replace(/\s+/g, " ").trim() : "";
+    });
+
+    await page.evaluate((KEY) => {
+      const st = JSON.parse(localStorage.getItem(KEY) || "{}");
+      window.app.openFinanceModal("expense");
+      window.app.setFinanceModalProject(st.activeProjectId || "");
+    }, STORAGE_KEY);
+    await page.waitForTimeout(300);
+    const expenseNote = await noteFor();
+    assert(seeded, "в смете не оказалось ни одной позиции — нечего оценивать");
+    assert(
+      /21\s*890/.test(expenseNote),
+      "расход не предупреждает про себестоимость, уже заложенную в смете: «" + expenseNote.slice(0, 90) + "»"
+    );
+    assert(/дважды/.test(expenseNote), "подсказка не объясняет последствие — что деньги посчитаются дважды");
+
+    // У ПОСТУПЛЕНИЯ этой подсказки быть не должно: там своя, про остаток долга.
+    await page.evaluate(() => window.app.setFinanceModalType("payment"));
+    await page.waitForTimeout(250);
+    assertEqual(await noteFor(), "", "подсказка про себестоимость показана у поступления, где она не к месту");
+
+    /* Закрываем как человек: модалка «грязная» (проект и тип меняли), поэтому
+       closeFinanceModal спрашивает «Закрыть окно?». Без ответа диалог висит, и
+       ВЕСЬ набор встаёт по таймауту — тесты делят одну страницу. */
+    await page.evaluate(() => { window.app.closeFinanceModal(); });
+    await page.waitForTimeout(250);
+    /* Жмём программно, а не page.click(): диалог лежит ПОД модалкой финансов по
+       стековому контексту, и Playwright ждёт «элемент принимает клики» до
+       таймаута — 30 секунд на ровном месте. Нам нужен сам обработчик. */
+    await page.evaluate(() => {
+      const b = [...document.querySelectorAll(".confirm-dialog-overlay button")]
+        .find((x) => /Закрыть/i.test(x.textContent || ""));
+      if (b) b.click();
+    });
+    await page.waitForTimeout(300);
+  });
+
   /* Одни деньги на двух экранах должны сходиться. Сделка «одной суммой» (смета не
      разбита на позиции) считалась по-разному: карточка на главной брала бюджет
      сделки и честно показывала долг, а вкладка «Финансы» смотрела только на сумму

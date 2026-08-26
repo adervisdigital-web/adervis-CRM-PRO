@@ -5385,6 +5385,19 @@
       .fin-summary-grid > :nth-child(4),
       .fin-summary-grid > :nth-child(5) { grid-column: span 6; }
     }
+    /* Подсказка в модалке расхода: в смете сделки уже заложена себестоимость.
+       Тон нейтральный (панель, не жёлтая тревога): расход сверх сметы — обычное
+       дело, а не ошибка. Место — сразу под полем суммы, рядом с парной
+       подсказкой «Остаток по сделке» у поступления. */
+    .fin-linecost-note {
+      display: flex; flex-direction: column; gap: 3px;
+      margin-top: 8px; padding: 9px 11px;
+      background: var(--panel2);
+      border: 1px dashed var(--line-strong, var(--line));
+      border-radius: var(--r-lg);
+      font-size: 12px; line-height: 1.5; color: var(--text);
+    }
+    .fin-linecost-note strong { font-variant-numeric: tabular-nums; }
     .fin-card {
       padding: 16px;
       border: 1px solid var(--line);
