@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
   if (authErr || !user)         return json({ error: "Unauthorized" }, 401);
 
-  const { agencyId, title = "Adervis CRM", body = "Новое уведомление", url = "/" } = await req.json();
+  const { agencyId, title = "ADERVIS", body = "Новое уведомление", url = "/" } = await req.json();
   if (!agencyId)                return json({ error: "agencyId required" }, 400);
 
   const VAPID_PUB  = Deno.env.get("VAPID_PUBLIC_KEY")!;

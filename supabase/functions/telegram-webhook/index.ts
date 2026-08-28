@@ -378,9 +378,9 @@ Deno.serve(async (req) => {
     await setMyCommands();
     await send(
       `👋 Привет${firstName ? `, ${esc(firstName)}` : ""}!\n\n` +
-      `Это AI-помощник <b>Adervis CRM</b>.\n\n` +
+      `Это AI-помощник <b>ADERVIS</b>.\n\n` +
       `Ваш Chat ID:\n<code>${chatId}</code>\n\n` +
-      `Скопируйте его в профиль Adervis CRM → «Уведомления».\n` +
+      `Скопируйте его в профиль ADERVIS → «Уведомления».\n` +
       `После этого я буду знать ваши сделки, финансы и дедлайны.`,
       mainKeyboard,
     );
@@ -614,7 +614,7 @@ Deno.serve(async (req) => {
 
   if (command === "help" || command === "помощь") {
     await send(
-      `<b>Adervis CRM — AI-помощник</b>\n\n` +
+      `<b>ADERVIS — AI-помощник</b>\n\n` +
       `<b>Кнопки меню:</b>\n` +
       `📅 Дедлайны — горящие на 7 дней\n` +
       `🗂 Сделки — активные по статусам\n` +

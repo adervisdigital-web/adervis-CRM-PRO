@@ -646,7 +646,19 @@ module.exports = async function ({ test }) {
      Отдельно проверяем text/plain: письмо только с html — заметный сигнал для
      спам-фильтров, а письма и так единственный наш канал наружу с домена. */
   await test("письма: имя продукта и текстовая версия", () => {
-    const MAILERS = ["send-portal-email", "welcome-email", "welcome-sequence", "subscription-reminder"];
+    /* Список — не только почта: имя продукта человек видит и в боте, и в
+       push-уведомлении. Замер 23.08.2026 нашёл «Adervis CRM» в приветствии
+       бота, в его справке, в ежедневной сводке и в заголовке пуша по
+       умолчанию — четыре текста мимо сторожа витрины, который читает лишь
+       index.html, manifest и app.js.
+
+       Не в списке СПЕЦИАЛЬНО: create-payment (label уходит в фискальный чек
+       ЮKassa — это наименование услуги, а не витрина) и calendar-feed
+       (PRODID — технический идентификатор формата iCalendar). */
+    const MAILERS = [
+      "send-portal-email", "welcome-email", "welcome-sequence", "subscription-reminder",
+      "telegram-webhook", "deadline-push-notify", "web-push-send", "agency-notify",
+    ];
     const named = [];
     const noText = [];
     for (const fn of MAILERS) {
@@ -657,8 +669,9 @@ module.exports = async function ({ test }) {
          многострочного /* … *\/ не начинается ни с «//», ни с «*», и построчный
          фильтр его пропускал (первая версия этой проверки на том и упала). */
       const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-      code.split(/\r?\n/).forEach((line, i) => {
-        if (/ADERVIS CRM/.test(line)) named.push(`${fn}: ${line.trim().slice(0, 70)}`);
+      code.split(/\r?\n/).forEach((line) => {
+        // Обе формы: «ADERVIS CRM» в письмах и «Adervis CRM» в текстах бота.
+        if (/ADERVIS CRM|Adervis CRM/.test(line)) named.push(`${fn}: ${line.trim().slice(0, 70)}`);
       });
       // Каждая отправка через Resend обязана нести текстовую часть.
       const sends = (src.match(/api\.resend\.com\/emails/g) || []).length;

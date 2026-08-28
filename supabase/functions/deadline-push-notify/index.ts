@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
     });
     if (debt > 0) lines.push(`\n💰 Долг клиентов: <b>${money(debt)}</b>`);
 
-    const text = `⏰ <b>Ежедневная сводка Adervis CRM</b>\n\n${lines.join("\n")}`;
+    const text = `⏰ <b>Ежедневная сводка ADERVIS</b>\n\n${lines.join("\n")}`;
     for (const r of recipients) {
       await sendTelegram(r.chatId, text);
       telegramSent++;
