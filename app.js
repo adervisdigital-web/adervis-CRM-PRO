@@ -1935,13 +1935,26 @@
           const amount = data.advance_amount.toLocaleString('ru-RU');
           if (data.advance_paid_at) {
             const date = new Date(data.advance_paid_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+            /* Деньги пришли на счёт студии, но в финансах сделки их не было:
+               оплата аванса ставит advance_paid_at в client_portals и шлёт
+               уведомление, а поступление в state.payments не создаёт никто. Из-за
+               этого «Оплачено» по сделке оставалось нулём, долг — полной суммой,
+               выручка месяца не росла, а собираемость занижалась: касса и учёт
+               расходились ровно на аванс.
+
+               Вносим НЕ автоматически: студия могла завести платёж руками, и
+               тихая вторая запись задвоила бы деньги (ровно этим сегодня
+               обернулась себестоимость в смете). Показываем кнопку, а
+               идемпотентность держим на portalAdvanceId. */
+            const already = (state.payments || []).some(p => p && p.portalAdvanceId === portalId);
             el.innerHTML = `
-              <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.25);border-radius:12px">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.25);border-radius:12px">
         <span class="fs-20"></span>
-                <div>
+                <div class="u-flex1" style="min-width:150px">
                   <div style="font-size:12px;font-weight:800;color:var(--text-success)">Аванс оплачен клиентом</div>
-                  <div class="u-meta">${date} · ${amount} ₽</div>
+                  <div class="u-meta">${date} · ${amount} ₽${already ? " · внесён в финансы сделки" : ""}</div>
                 </div>
+                ${already ? "" : `<button class="btn small" onclick="app.addAdvancePaymentFromPortal('${portalId}')" title="Создать поступление на сумму аванса: иначе он не попадёт ни в «Оплачено», ни в выручку">Внести в финансы</button>`}
               </div>`;
           } else {
             el.innerHTML = `
@@ -7348,6 +7361,11 @@
           date: payment?.date || todayIso(),
           method: payment?.method || "",
           note: payment?.note || "",
+          /* Id КП, аванс по которому этим платежом внесён. Нужен ровно для
+             идемпотентности: по одному КП аванс вносится один раз, сколько бы
+             раз человек ни открыл вкладку. Пустая строка у всех остальных
+             платежей — поле служебное и в интерфейсе не показывается. */
+          portalAdvanceId: payment?.portalAdvanceId || "",
           createdAt: payment?.createdAt || new Date().toISOString()
         };
       }
@@ -14383,6 +14401,53 @@
       }
 
       function reloadBriefs() { _briefsLoaded = false; _briefsError = ""; render(); _loadBriefs(); }
+
+      /* Внести оплаченный клиентом аванс в финансы сделки. Ровно один платёж на
+         КП: повторное нажатие (или открытие вкладки на другом устройстве)
+         ничего не добавит — стережёт portalAdvanceId.
+
+         Заодно двигаем этап на «Предоплату» по тем же правилам, что и подпись
+         клиента: только вперёд и через _applyCrmStatus. */
+      async function addAdvancePaymentFromPortal(portalId) {
+        if (!_supabase || !portalId) { toast("Нет связи с сервером"); return; }
+        if ((state.payments || []).some(p => p && p.portalAdvanceId === portalId)) {
+          toast("Этот аванс уже внесён в финансы сделки");
+          return;
+        }
+        const { data, error } = await _supabase
+          .from('client_portals')
+          .select('advance_amount, advance_paid_at')
+          .eq('id', portalId)
+          .maybeSingle();
+        // Отказ чтения — не повод создавать платёж наугад: сумму берём из БД,
+        // а не из того, что нарисовано на экране.
+        if (error || !data || !data.advance_paid_at || !(data.advance_amount > 0)) {
+          toast("Не удалось прочитать оплату аванса — попробуйте ещё раз");
+          return;
+        }
+        saveHistory();
+        state.payments = state.payments || [];
+        state.payments.unshift(normalizePayment({
+          title: "Аванс (оплачен онлайн)",
+          amount: data.advance_amount,
+          date: localIso(new Date(data.advance_paid_at)),
+          method: "Онлайн-оплата",
+          note: "Оплачен клиентом по ссылке КП",
+          portalAdvanceId: portalId,
+        }));
+        const proj = (state.savedProjects || []).find(p => p.id === state.activeProjectId);
+        if (proj) {
+          const target = CRM_STATUSES.indexOf("Предоплата");
+          const now = CRM_STATUSES.indexOf(proj.crmStatus || "Лид");
+          if (now >= 0 && now < target) _applyCrmStatus(proj, "Предоплата");
+        }
+        flushActiveProjectToSaved();
+        _logActivity(state.activeProjectId, `Аванс ${money(data.advance_amount)} внесён из оплаты по ссылке КП`);
+        save();
+        saveToCloud();
+        render();
+        toast(`Аванс ${money(data.advance_amount)} внесён в финансы сделки`);
+      }
 
       /* Клиент согласовал КП — сделка обязана уйти вперёд по воронке.
          До 23.08.2026 этого не было: подпись клиента жила в client_portals, а
@@ -27393,6 +27458,7 @@ Email: _____________________              Email: _____________________
         saveProposalModal,
         deleteProposal,
         markAdvancePaid,
+        addAdvancePaymentFromPortal,
         unapproveProposal,
         unmarkAdvancePaid,
         setPayMethod,
