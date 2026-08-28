@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const RESEND_FROM = "ADERVIS CRM <noreply@app.adervis.ru>";
+/* Конверт письма собирается ниже из имени студии — константы отправителя
+   больше нет специально, чтобы «ADERVIS CRM» не вернулось сюда мимо правки. */
 
 const cors = {
   "Access-Control-Allow-Origin": "https://app.adervis.ru",
@@ -144,7 +145,7 @@ Deno.serve(async (req) => {
         <!-- Footer -->
         <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center">
           <p style="margin:0;font-size:12px;color:#94a3b8">
-            ${portal.hide_branding ? "" : "Письмо отправлено через платформу <strong>ADERVIS CRM</strong>. "}Если вы получили его по ошибке — просто проигнорируйте.
+            ${portal.hide_branding ? "" : "Письмо отправлено через платформу <strong>ADERVIS</strong>. "}Если вы получили его по ошибке — просто проигнорируйте.
           </p>
         </td></tr>
 
@@ -154,6 +155,44 @@ Deno.serve(async (req) => {
 </body>
 </html>`;
 
+  /* Имя ОТПРАВИТЕЛЯ — то единственное, что заказчик видит в списке входящих
+     раньше письма. Здесь стояло «ADERVIS CRM»: подпись внутри письма 19.08
+     научили брать имя студии, а конверт остался сервисным, и человек, никогда
+     не слышавший про ADERVIS, получал КП от незнакомого отправителя (для
+     студии — от имени прямого конкурента).
+
+     Домен остаётся нашим (Resend шлёт только с проверенного app.adervis.ru) —
+     меняется отображаемое имя, это законно и не влияет на SPF/DKIM.
+
+     Без имени студии подставляем не сервис, а описание письма: правило то же,
+     что у подписи — лучше без имени, чем с чужим.
+
+     Кавычки и переводы строк в display-name вырезаем: запятая или кавычка в
+     названии студии («Полёт, студия») ломает заголовок From целиком. */
+  const fromName = (agency || "Коммерческое предложение")
+    .replace(/[\r\n"\\]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 64);
+  const from = `"${fromName}" <noreply@app.adervis.ru>`;
+
+  /* Текстовая версия. Письмо без text/plain — заметный сигнал для спам-фильтров
+     (и единственное, что увидит человек в текстовом клиенте). Собираем руками,
+     а не срезаем теги: тут всего четыре строки, и они должны читаться. */
+  const text = [
+    greeting,
+    "",
+    agency ? `${agency} подготовила для вас коммерческое предложение${dealName ? `: ${dealName}` : ""}.`
+           : `Для вас подготовлено коммерческое предложение${dealName ? `: ${dealName}` : ""}.`,
+    priceStr ? `Предварительная стоимость: ${priceStr}` : "",
+    "",
+    "Открыть коммерческое предложение:",
+    portalUrl,
+    "",
+    portal.hide_branding ? "" : "Письмо отправлено через платформу ADERVIS.",
+    "Если вы получили его по ошибке — просто проигнорируйте.",
+  ].filter((l) => l !== "").join("\n");
+
   const sendResp = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -162,8 +201,8 @@ Deno.serve(async (req) => {
     },
     body: JSON.stringify(
       agencyEmail
-        ? { from: RESEND_FROM, to: clientEmail, subject, html, reply_to: agencyEmail }
-        : { from: RESEND_FROM, to: clientEmail, subject, html }
+        ? { from, to: clientEmail, subject, html, text, reply_to: agencyEmail }
+        : { from, to: clientEmail, subject, html, text }
     ),
   });
 

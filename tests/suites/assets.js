@@ -637,6 +637,59 @@ module.exports = async function ({ test }) {
     assert(bad.length === 0, "«ADERVIS CRM» вне юр. документов:\n" + bad.slice(0, 8).join("\n"));
   });
 
+  /* Письма — та же витрина, но проверка её не видела: сторож выше читает только
+     index.html, manifest и app.js. Замер 23.08.2026: «ADERVIS CRM» стояло в
+     теме приветственного письма, в трёх телах и — главное — в ИМЕНИ
+     ОТПРАВИТЕЛЯ, то есть в единственном, что человек видит в списке входящих
+     раньше самого письма.
+
+     Отдельно проверяем text/plain: письмо только с html — заметный сигнал для
+     спам-фильтров, а письма и так единственный наш канал наружу с домена. */
+  await test("письма: имя продукта и текстовая версия", () => {
+    const MAILERS = ["send-portal-email", "welcome-email", "welcome-sequence", "subscription-reminder"];
+    const named = [];
+    const noText = [];
+    for (const fn of MAILERS) {
+      const file = path.join(REPO_ROOT, "supabase/functions", fn, "index.ts");
+      const src = fs.readFileSync(file, "utf8");
+      /* Комментарии вырезаем ЦЕЛИКОМ, а не по началу строки: в них описано, что
+         именно чинили, и слово «ADERVIS CRM» там законно — а продолжение
+         многострочного /* … *\/ не начинается ни с «//», ни с «*», и построчный
+         фильтр его пропускал (первая версия этой проверки на том и упала). */
+      const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+      code.split(/\r?\n/).forEach((line, i) => {
+        if (/ADERVIS CRM/.test(line)) named.push(`${fn}: ${line.trim().slice(0, 70)}`);
+      });
+      // Каждая отправка через Resend обязана нести текстовую часть.
+      const sends = (src.match(/api\.resend\.com\/emails/g) || []).length;
+      const texts = (src.match(/\btext:|\btext,/g) || []).length;
+      if (sends > 0 && texts === 0) noText.push(fn);
+    }
+    assert(named.length === 0, "«ADERVIS CRM» вернулось в письма:\n" + named.join("\n"));
+    assertEqual(noText.length, 0, "письма уходят без текстовой версии: " + noText.join(", "));
+  });
+
+  /* Имя отправителя письма с КП — то же правило, что у подписи внутри: заказчик
+     чужой студии не должен получать документ от незнакомого ему сервиса.
+     Проверяем, что конверт собирается из имени студии, а не из константы. */
+  await test("письмо с КП: отправителем стоит студия, а не сервис", () => {
+    const src = fs.readFileSync(
+      path.join(REPO_ROOT, "supabase/functions/send-portal-email/index.ts"), "utf8");
+    assert(
+      /const fromName = \(agency \|\|/.test(src),
+      "имя отправителя больше не берётся из названия студии"
+    );
+    assert(
+      !/from:\s*RESEND_FROM/.test(src),
+      "письмо с КП снова уходит от константы-отправителя вместо имени студии"
+    );
+    // Кавычки и переносы в названии студии ломают заголовок From целиком.
+    assert(
+      /replace\(\/\[\\r\\n"\\\\\]\/g/.test(src),
+      "имя отправителя не чистится от кавычек и переносов строк"
+    );
+  });
+
   // ── Вход и синхронизация ───────────────────────────────────────────────────
   // Всё ниже — сторожа статические: путь записи в Supabase тестами не покрыт в
   // принципе (прогон идёт в local mode, где _supabase нет вовсе), а цена ошибки

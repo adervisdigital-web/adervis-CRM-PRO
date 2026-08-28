@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const RESEND_FROM = "ADERVIS CRM <noreply@app.adervis.ru>";
+const RESEND_FROM = "ADERVIS <noreply@app.adervis.ru>";
 const REPLY_TO = "adervis.digital@gmail.com";
 const APP_URL = "https://app.adervis.ru";
 
@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Добро пожаловать в ADERVIS CRM</title>
+<title>Добро пожаловать в ADERVIS</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px">
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
         <!-- Header -->
         <tr><td style="background:linear-gradient(135deg,#6c00ff,#2563eb);padding:36px 40px;text-align:center">
-          <div style="font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.5px">ADERVIS CRM</div>
+          <div style="font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.5px">ADERVIS</div>
           <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:6px">CRM для видеопродакшн-студий</div>
         </td></tr>
 
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
             Привет, ${name}! 👋
           </p>
           <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6">
-            Вы зарегистрировались в ADERVIS CRM. У вас есть <strong style="color:#6c00ff">7 дней бесплатного пробного периода</strong> — без привязки карты.
+            Вы зарегистрировались в ADERVIS. У вас есть <strong style="color:#6c00ff">7 дней бесплатного пробного периода</strong> — без привязки карты.
           </p>
         </td></tr>
 
@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
         <!-- CTA -->
         <tr><td style="padding:0 40px 36px;text-align:center">
           <a href="${APP_URL}" style="display:inline-block;background:linear-gradient(135deg,#6c00ff,#2563eb);color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:15px 36px;border-radius:10px;letter-spacing:-0.2px">
-            Открыть ADERVIS CRM →
+            Открыть ADERVIS →
           </a>
           <p style="margin:16px 0 0;font-size:12px;color:#94a3b8">
             Все данные сохраняются в облаке — работайте с любого устройства
@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
         <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center">
           <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6">
             Есть вопросы? Ответьте на это письмо — мы поможем.<br>
-            <strong>ADERVIS CRM</strong> · <a href="${APP_URL}" style="color:#6c00ff;text-decoration:none">app.adervis.ru</a>
+            <strong>ADERVIS</strong> · <a href="${APP_URL}" style="color:#6c00ff;text-decoration:none">app.adervis.ru</a>
           </p>
         </td></tr>
 
@@ -135,8 +135,19 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       from: RESEND_FROM,
       to: user.email,
-      subject: "Добро пожаловать в ADERVIS CRM — ваши 7 дней начались",
+      subject: "Добро пожаловать в ADERVIS — ваши 7 дней начались",
       html,
+      // Письмо без text/plain — заметный сигнал для спам-фильтров, а первое
+      // письмо после регистрации обязано дойти: на нём держится активация.
+      text: [
+        "Добро пожаловать в ADERVIS!",
+        "",
+        "У вас есть 7 дней бесплатного пробного периода — без привязки карты.",
+        "",
+        "С чего начать: создайте сделку, соберите смету из каталога и отправьте клиенту ссылку на КП.",
+        "",
+        "Открыть ADERVIS: " + APP_URL,
+      ].join("\n"),
       reply_to: REPLY_TO,
     }),
   });

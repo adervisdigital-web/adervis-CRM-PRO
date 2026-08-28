@@ -6,11 +6,30 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Идемпотентность: колонки profiles.welcome_d{1,3,6}_at (не шлём повторно).
 // «День с регистрации» = (subscription_expires_at - 7 дней), триал всегда 7 дней.
 
-const RESEND_FROM = "ADERVIS CRM <noreply@app.adervis.ru>";
+const RESEND_FROM = "ADERVIS <noreply@app.adervis.ru>";
 const REPLY_TO = "adervis.digital@gmail.com";
 const DAY = 86400000;
 
 type Mail = { subject: string; heading: string; intro: string; steps: [string, string][]; cta: string; href: string; note: string };
+
+/* Текстовая версия того же письма. Собирается из ТОЙ ЖЕ структуры Mail, а не
+   вырезанием тегов из HTML: цепочка писем — маркетинговая, и без text/plain она
+   заметно чаще уходит в спам, то есть до человека не доходит вовсе. */
+function buildMailText(appUrl: string, name: string, m: Mail): string {
+  const steps = m.steps.map(([title, desc], i) => `${i + 1}. ${title} — ${desc}`).join("\n");
+  return [
+    name ? `Здравствуйте, ${name}!` : "Здравствуйте!",
+    "",
+    m.heading,
+    m.intro,
+    "",
+    steps,
+    "",
+    `${m.cta}: ${m.href || appUrl}`,
+    "",
+    m.note,
+  ].filter((l) => l !== "").join("\n");
+}
 
 function buildMail(appUrl: string, name: string, m: Mail): string {
   const stepsHtml = m.steps.map(([title, desc], i) => {
@@ -32,7 +51,7 @@ function buildMail(appUrl: string, name: string, m: Mail): string {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px"><tr><td align="center">
     <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;max-width:560px;width:100%">
       <tr><td style="background:linear-gradient(135deg,#6c00ff,#2563eb);padding:32px 40px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px">ADERVIS CRM</div>
+        <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px">ADERVIS</div>
         <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:6px">CRM для видеопродакшн-студий</div>
       </td></tr>
       <tr><td style="padding:34px 40px 8px">
@@ -50,7 +69,7 @@ function buildMail(appUrl: string, name: string, m: Mail): string {
       </td></tr>
       <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center">
         <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6">Есть вопросы? Просто ответьте на это письмо.<br>
-        <strong>ADERVIS CRM</strong> · <a href="${appUrl}" style="color:#6c00ff;text-decoration:none">app.adervis.ru</a></p>
+        <strong>ADERVIS</strong> · <a href="${appUrl}" style="color:#6c00ff;text-decoration:none">app.adervis.ru</a></p>
       </td></tr>
     </table>
   </td></tr></table>
@@ -59,7 +78,7 @@ function buildMail(appUrl: string, name: string, m: Mail): string {
 
 function mailFor(stage: 1 | 3 | 6, appUrl: string): Mail {
   if (stage === 1) return {
-    subject: "Соберите первую смету в ADERVIS CRM за 5 минут",
+    subject: "Соберите первую смету в ADERVIS за 5 минут",
     heading: "Смета за минуты, а не за вечер 📋",
     intro: "После регистрации мы уже завели демо-сделку с готовой сметой — откройте её, чтобы за минуту понять, как всё устроено, а потом соберите свою.",
     steps: [
@@ -67,7 +86,7 @@ function mailFor(stage: 1 | 3 | 6, appUrl: string): Mail {
       ["Создайте свою сделку", "Кнопка «+ Новая сделка», добавьте клиента — займёт полминуты"],
       ["Соберите смету из пакетов", "Готовые пакеты услуг и каталог позиций — сумма считается сама"],
     ],
-    cta: "Открыть ADERVIS CRM",
+    cta: "Открыть ADERVIS",
     href: appUrl,
     note: "Все данные в облаке — работайте с любого устройства",
   };
@@ -85,7 +104,7 @@ function mailFor(stage: 1 | 3 | 6, appUrl: string): Mail {
     note: "Одобрение и оплата аванса — не выходя из браузера",
   };
   return {
-    subject: "Завтра заканчивается пробный период ADERVIS CRM",
+    subject: "Завтра заканчивается пробный период ADERVIS",
     heading: "Остался один день пробного периода ⏳",
     // «от 490 ₽/мес» — это годовая оплата. С подъёмом цен 08.08.2026 месяц стоит
     // 890 ₽, и «от 490» без уточнения периода читалось бы как цена месяца: человек
@@ -147,7 +166,7 @@ Deno.serve(async (req) => {
       const resp = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Authorization": `Bearer ${resendKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from: RESEND_FROM, to: p.email, subject: m.subject, html: buildMail(appUrl, p.email.split("@")[0], m), reply_to: REPLY_TO }),
+        body: JSON.stringify({ from: RESEND_FROM, to: p.email, subject: m.subject, html: buildMail(appUrl, p.email.split("@")[0], m), text: buildMailText(appUrl, p.email.split("@")[0], m), reply_to: REPLY_TO }),
       });
       if (!resp.ok) { console.error("welcome-sequence: Resend", stage, resp.status, await resp.text()); continue; }
       const col = stage === 6 ? "welcome_d6_at" : stage === 3 ? "welcome_d3_at" : "welcome_d1_at";
