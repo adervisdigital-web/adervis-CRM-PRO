@@ -14936,6 +14936,23 @@
         }
         const row = _allPortals.find(p => p.id === portalId);
         if (row) { row.approved_at = null; row.signer_name = null; row.deal_status = "КП отправлено"; }
+
+        /* Сбрасываем отметку «этап уже подняли по этому КП». Диалог выше прямо
+           обещает: «Клиент сможет согласовать заново по той же ссылке», — а без
+           сброса второе согласование сделку бы не двинуло: перенос на
+           «Согласование» делается один раз (см. _syncStagesFromApprovedPortals),
+           и флаг оставался бы стоять навсегда.
+
+           Сам этап НЕ откатываем: студия могла увести сделку дальше вручную, и
+           тянуть её назад по снятию подписи — не наше решение. */
+        const dealId = row && row.project_id;
+        const deal = dealId ? (state.savedProjects || []).find(p => p.id === dealId) : null;
+        if (deal && deal.portalApprovedApplied) {
+          deal.portalApprovedApplied = false;
+          save();
+          saveToCloud();
+        }
+
         toast("Согласование снято");
         render(); renderModal();
       }
