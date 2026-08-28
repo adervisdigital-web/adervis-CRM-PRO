@@ -825,6 +825,50 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(res.body.includes("hello@polet.ru"), "почта студии не попала в реквизиты договора");
   });
 
+  /* Акт — закрывающий документ: по нему подписывают окончательный расчёт, и он
+     ССЫЛАЕТСЯ на договор. Токены «номер» и «номер договора» брались из одного
+     поля — номера самого акта, — и печаталось «АКТ № 2026-002 к Договору
+     № 2026-002», хотя договор был 2026-001. Договора с таким номером не
+     существует: бухгалтерия заказчика такой документ вернёт. */
+  await test("акт ссылается на номер ДОГОВОРА, а не на собственный", async () => {
+    await dismissStaleDialog(page);
+    const res = await page.evaluate(() => {
+      const st = () => JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      window.app.startWizard();
+      window.app.wizardSetField("name", "Клиент Актов");
+      window.app.wizardNext();
+      window.app.wizardSetField("projectName", "Проект с актом");
+      window.app.wizardNext();
+      window.app.finishWizard("estimate");
+
+      // Сначала договор по сделке, потом акт к нему — как в жизни.
+      window.app.quickContractFromDeal(st().activeProjectId);
+      const contract = (st().contracts || [])[0];
+      window.app.go("contracts");
+      window.app.createContractFromTemplate("tpl_act");
+      const act0 = (st().contracts || [])[0];
+      window.app.autofillContract(act0.id);
+      const act = (st().contracts || []).find((x) => x.id === act0.id);
+      return { contractNumber: contract.number, actNumber: act.number, actBody: act.body };
+    });
+    await page.waitForTimeout(250);
+
+    assert(res.contractNumber && res.actNumber, "не создались договор и акт");
+    assert(
+      res.contractNumber !== res.actNumber,
+      "акт получил тот же номер, что и договор: " + res.actNumber
+    );
+    const ref = (res.actBody.match(/к Договору № ([^\s]+)/) || [])[1];
+    assertEqual(
+      ref, res.contractNumber,
+      `акт ссылается на «${ref}» вместо номера договора ${res.contractNumber}`
+    );
+    assert(
+      res.actBody.includes("АКТ № " + res.actNumber),
+      "у акта пропал собственный номер"
+    );
+  });
+
   /* Тот же класс во ВСЕХ местах, а не в одном. Кнопка «Договор из сделки» всегда
      берёт шаблон видеопроизводства, но остальные четыре клиентских договора
      (фото, мероприятие, абонентский, свадебный) человек создаёт из списка

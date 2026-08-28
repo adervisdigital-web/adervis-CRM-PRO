@@ -25694,7 +25694,10 @@ Email: _____________________              Email: _____________________
           number: nextContractNumber(),
           dealId: (activeDeal && activeDeal.id) || "",
           clientId: (matchedClient && matchedClient.id) || "",
-          body: (base.body || "").replace("[ИСПОЛНИТЕЛЬ]", state.company.name || "Исполнитель").replace("[ЗАКАЗЧИК]", clientName || "Заказчик")
+          /* Замен по маркерам `[ИСПОЛНИТЕЛЬ]`/`[ЗАКАЗЧИК]` тут больше нет: таких
+             строк не было ни в одном шаблоне, они промахивались молча. Стороны
+             подставляет общий механизм `{{…}}` — автоматически ниже. */
+          body: base.body || ""
         });
         if (!state.contracts) state.contracts = [];
         state.contracts.unshift(contract);
@@ -25971,6 +25974,16 @@ Email: _____________________              Email: _____________________
            сохранении сделки, а условия оплаты человек правит прямо перед тем, как
            жать «Подставить». Для договора без привязки к сделке остаётся открытая
            сделка — из неё его и создают. */
+        const fmtDate = (iso) => {
+          const d = iso ? new Date(iso) : null;
+          return d && !isNaN(d) ? `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}` : dateStr;
+        };
+        // Закрывающие документы (акт) ссылаются на договор той же сделки.
+        const isClosingDoc = c.category === "Закрывающие";
+        const parentContract = (state.contracts || [])
+          .filter(x => x && x.id !== c.id && x.number && x.dealId && x.dealId === c.dealId && x.category !== "Закрывающие")
+          .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))[0] || null;
+
         const dealIsOpen = !deal || deal.id === state.activeProjectId;
         const dealSnap = (deal && deal.snapshot && deal.snapshot.project) || {};
         const fromDeal = (key) => String(
@@ -26005,8 +26018,17 @@ Email: _____________________              Email: _____________________
           // Номер договора система выдаёт сама (nextContractNumber), поэтому три
           // токена шаблонов закрываются без единого вопроса человеку.
           "номер": c.number || "",
-          "номер договора": c.number || "",
-          "дата договора": dateStr,
+          /* Акт ссылается НА ДОГОВОР, а не на себя. Здесь для обоих токенов
+             стоял c.number — номер САМОГО документа, — и акт печатался как
+             «АКТ № 2026-002 к Договору № 2026-002», хотя договор был 2026-001.
+             Бухгалтерия заказчика такой документ вернёт: договора с этим
+             номером не существует.
+
+             Родителя ищем среди документов ТОЙ ЖЕ сделки: самый ранний НЕ
+             закрывающий с выданным номером. Не нашли — оставляем пусто, и
+             мастер спросит: вопрос лучше ложной ссылки. */
+          "номер договора": parentContract ? parentContract.number : (isClosingDoc ? "" : (c.number || "")),
+          "дата договора": parentContract ? fmtDate(parentContract.createdAt) : (isClosingDoc ? "" : dateStr),
           /* Реквизиты сторон для статьи «РЕКВИЗИТЫ И ПОДПИСИ». Всё это продукт уже
              знает и печатает в других документах: ИНН/телефон/почта студии стоят в
              подвале самого договора, телефон и почта заказчика — в счёте. В теле
