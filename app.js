@@ -14384,6 +14384,43 @@
 
       function reloadBriefs() { _briefsLoaded = false; _briefsError = ""; render(); _loadBriefs(); }
 
+      /* Клиент согласовал КП — сделка обязана уйти вперёд по воронке.
+         До 23.08.2026 этого не было: подпись клиента жила в client_portals, а
+         сама сделка оставалась на «КП отправлено». На главной она висела не в
+         той колонке, а прогноз считал её с весом 0,30 вместо 0,50 — то есть
+         сделка, по которой клиент уже сказал «да», недооценивалась в деньгах.
+
+         Двигаем ТОЛЬКО ВПЕРЁД и ТОЛЬКО ОДИН РАЗ: тот же принцип, что у статуса
+         договора (он так же поднимает сделку до «Договора»). Флаг
+         portalApprovedApplied нужен, чтобы студия могла сознательно вернуть
+         сделку назад, и следующее открытие раздела не тащило её обратно.
+
+         Пишем из сессии студии, а не из портала: у анонимного клиента нет и не
+         должно быть доступа к состоянию агентства. */
+      function _syncStagesFromApprovedPortals() {
+        const target = CRM_STATUSES.indexOf("Согласование");
+        let moved = 0;
+        (_allPortals || []).forEach(p => {
+          if (!p.approved_at || !p.project_id) return;
+          const deal = (state.savedProjects || []).find(x => x.id === p.project_id);
+          if (!deal || deal.portalApprovedApplied) return;
+          deal.portalApprovedApplied = true;
+          const now = CRM_STATUSES.indexOf(deal.crmStatus || "Лид");
+          if (now >= 0 && now < target) {
+            _applyCrmStatus(deal, "Согласование");
+            _logActivity(deal.id, "Клиент согласовал КП — этап «Согласование»");
+            moved++;
+          }
+        });
+        if (moved) {
+          save();
+          saveToCloud();
+          toast(moved === 1
+            ? "Клиент согласовал КП — сделка на этапе «Согласование»"
+            : `Согласовано КП: ${moved} — сделки переведены на «Согласование»`);
+        }
+      }
+
       async function _loadAllPortals() {
         if (!_supabase || !_adminSession || _allPortalsLoaded) return;
         // То же, что и с брифами, но дороже: пустой список здесь означает «КП нет
@@ -14396,6 +14433,7 @@
           _allPortals = data || [];
           _allPortalsError = "";
           _allPortalsLoaded = true;
+          _syncStagesFromApprovedPortals();
           render();
         } catch (e) {
           console.warn('Portals load:', e);
