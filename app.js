@@ -14957,8 +14957,35 @@
 
       async function unmarkAdvancePaid(portalId) {
         if (!_supabase || !_adminSession) { toast("Нет связи с сервером"); return; }
+
+        /* Обратный ход. Если аванс уже внесён в финансы кнопкой «Внести в
+           финансы», снятие отметки оставляло поступление висеть: в КП аванс не
+           оплачен, а в деньгах сделки он есть — те же касса и учёт врозь, только
+           теперь в другую сторону. Спрашиваем прямо, потому что случаи разные:
+           отметку снимают и по ошибке (тогда платёж надо удалить), и при
+           возврате денег (тогда его чаще проводят отдельной операцией). */
+        const linked = (state.payments || []).find(p => p && p.portalAdvanceId === portalId);
+        let dropPayment = false;
+        if (linked) {
+          dropPayment = await confirmDialog({
+            title: "Убрать и поступление?",
+            message: `В финансах сделки есть поступление «${linked.title}» на ${money(linked.amount)}, внесённое по этой оплате. Удалить его вместе с отметкой?`,
+            okText: "Удалить поступление",
+            cancelText: "Оставить",
+          });
+        }
+
         const { error } = await _supabase.rpc("owner_unmark_advance_paid", { p_portal_id: portalId });
         if (error) { toast("Не удалось снять отметку: " + error.message); return; }
+
+        if (linked && dropPayment) {
+          saveHistory();
+          state.payments = (state.payments || []).filter(p => p.id !== linked.id);
+          flushActiveProjectToSaved();
+          _logActivity(state.activeProjectId, `Поступление ${money(linked.amount)} по авансу удалено вместе с отметкой оплаты`);
+          save();
+          saveToCloud();
+        }
         if (state.proposalModal && state.proposalModal.id === portalId) {
           state.proposalModal._advancePaidAt = null;
           state.proposalModal._advancePaymentId = null;
