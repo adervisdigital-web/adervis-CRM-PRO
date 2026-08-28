@@ -307,6 +307,46 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(/Ожидаем/.test(filled), "долг по неоплаченной сделке снова не показан: " + filled);
   });
 
+  /* Отчёты считают только транзакции: getAllTransactions читает payments и
+     expenses и про себестоимость СТРОК СМЕТЫ не знает вовсе. Из-за этого
+     «Расходы» занижены на всё, что посчитано в смете, — и человек, не понимая
+     почему, заводит те же деньги ещё и расходом, задваивая их в сделке (живой
+     случай владельца 23.08.2026).
+
+     Складывать две базы нельзя: смета — план, транзакция — проведённая
+     операция. Поэтому проверяем не сумму, а ОБЪЯСНЕНИЕ: аналитика обязана
+     называть заложенную в сметах себестоимость и говорить, что в «Расходы»
+     она не входит. */
+  await test("аналитика объясняет, почему себестоимость из смет не в «Расходах»", async () => {
+    await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Смета с себестоимостью");
+      window.app.finishWizard("estimate");
+      window.app.catalogAddOne("director");
+    });
+    await page.waitForTimeout(400);
+    await page.evaluate((KEY) => {
+      const st = JSON.parse(localStorage.getItem(KEY) || "{}");
+      const id = Object.keys(st.selected || {})[0];
+      if (id) { window.app.updateLine(id, "price", 50000); window.app.updateLine(id, "cost", 31000); }
+    }, STORAGE_KEY);
+    await page.waitForTimeout(350);
+
+    await page.evaluate(() => { window.app.go("global-finances"); window.app.setGFinSubTab("analytics"); });
+    await page.waitForTimeout(450);
+
+    const txt = await page.$eval("#appContent", (el) => (el.innerText || "").replace(/\s+/g, " "));
+    assert(
+      /В сметах заложена себестоимость/.test(txt),
+      "аналитика молчит о себестоимости, заложенной в сметах"
+    );
+    assert(/31\s*000/.test(txt), "названа не та сумма себестоимости: " + (txt.match(/В сметах заложена[^.]*/) || ["—"])[0]);
+    assert(
+      /не входит/.test(txt),
+      "не сказано главное — что в «Расходы» эта сумма не входит"
+    );
+  });
+
   /* Зеркало проверки выше. Нулевая ВЫРУЧКА когда-то давала «0% маржа» красным —
      тревогу там, где просто нет данных; это починили. Нулевая СЕБЕСТОИМОСТЬ
      осталась: у всех позиций каталога, кроме перевыставляемых, cost = 0, поэтому
