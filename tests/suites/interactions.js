@@ -825,6 +825,54 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(res.body.includes("hello@polet.ru"), "почта студии не попала в реквизиты договора");
   });
 
+  /* Тот же класс во ВСЕХ местах, а не в одном. Кнопка «Договор из сделки» всегда
+     берёт шаблон видеопроизводства, но остальные четыре клиентских договора
+     (фото, мероприятие, абонентский, свадебный) человек создаёт из списка
+     шаблонов — и там подстановке было НЕ ЗА ЧТО зацепиться: замер 23.08.2026
+     дал 0 токенов и 22–39 прочерков на шаблон, тогда как служебные (акт,
+     подрядчик, релиз) имели по 11–16 токенов.
+
+     Проверяем циклом: любой клиентский договор после «Подставить из сделки»
+     обязан знать обе стороны и свой номер. Список — источник правды: появится
+     шестой шаблон, он сюда впишется. */
+  await test("договоры: подстановка работает во ВСЕХ клиентских шаблонах, а не только в видео", async () => {
+    await dismissStaleDialog(page);
+    const res = await page.evaluate(() => {
+      const st = () => JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      window.app.updateCompany("name", "ООО «Полёт»");
+      window.app.startWizard();
+      window.app.wizardSetField("name", "Пётр Заказчиков");
+      window.app.wizardNext();
+      window.app.wizardSetField("projectName", "Съёмка по шаблонам");
+      window.app.wizardNext();
+      window.app.finishWizard("estimate");
+
+      const out = [];
+      for (const tpl of ["tpl_video", "tpl_photo", "tpl_event", "tpl_retainer", "tpl_wedding"]) {
+        window.app.go("contracts");
+        window.app.createContractFromTemplate(tpl);
+        const c0 = (st().contracts || [])[0];
+        window.app.autofillContract(c0.id);
+        const c1 = (st().contracts || []).find((x) => x.id === c0.id);
+        out.push({
+          tpl,
+          hasExec: (c1.body || "").includes("ООО «Полёт»"),
+          hasClient: (c1.body || "").includes("Пётр Заказчиков"),
+          hasNumber: !!c1.number && (c1.body || "").includes(c1.number),
+        });
+      }
+      return out;
+    });
+    await page.waitForTimeout(250);
+
+    const badExec = res.filter((r) => !r.hasExec).map((r) => r.tpl);
+    const badClient = res.filter((r) => !r.hasClient).map((r) => r.tpl);
+    const badNumber = res.filter((r) => !r.hasNumber).map((r) => r.tpl);
+    assertEqual(badExec.length, 0, "исполнитель не подставился в шаблоны: " + badExec.join(", "));
+    assertEqual(badClient.length, 0, "заказчик не подставился в шаблоны: " + badClient.join(", "));
+    assertEqual(badNumber.length, 0, "номер договора не попал в текст шаблонов: " + badNumber.join(", "));
+  });
+
   /* Последняя непроверенная пара «свой экран ↔ экран заказчика»: договор в
      редакторе против того, что уходит на печать и на подпись. В коде это заявлено
      принципом — подстановка идёт НЕОБРАТИМО в текст именно затем, чтобы правишь и
