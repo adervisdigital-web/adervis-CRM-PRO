@@ -2,7 +2,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Public endpoint — no JWT required.
 // Security: callers must know the portal UUID or agency UUID (both are UUIDs, not guessable).
-// Deployed with --no-verify-jwt.
+//
+// ДЕПЛОИТЬ ТОЛЬКО ТАК: supabase functions deploy agency-notify --no-verify-jwt
+// Без флага Supabase включает проверку JWT, и функция начинает отвечать
+// «Missing authorization header» — а зовут её АНОНИМЫ: клиент из портала КП
+// (portal_view / portal_approved) и посетитель публичного брифа. То есть
+// молча отваливаются и уведомления студии, и приём заявок с брифа.
+// Наступил на это 23.08.2026, задеплоив без флага; поймал дымом сразу после.
 
 const cors = {
   "Access-Control-Allow-Origin": "https://app.adervis.ru",
@@ -94,6 +100,47 @@ Deno.serve(async (req) => {
       `📋 ${esc(portal.deal_name) || "КП"}\n` +
       `👤 ${esc(portal.client_name) || "Клиент"}\n\n` +
       `<i>Хороший момент позвонить!</i>`;
+
+    await sendToAll(chatIds, text);
+    return ok("sent");
+  }
+
+  // ── Portal approved ────────────────────────────────────────────────────────
+  // Главное событие воронки: клиент подписал и утвердил КП. До 23.08.2026 оно
+  // проходило молча — сигналы были только про «клиент открыл КП» и про оплату
+  // аванса (её шлёт вебхук ЮKassa), а между этими двумя может пройти неделя,
+  // и всё это время студия не знала, что клиент уже сказал «да».
+  //
+  // Подделать нельзя: из запроса приходит только portalId (он и так в ссылке,
+  // которую студия разослала сама), а уведомление уходит, ЛИШЬ если approved_at
+  // реально проставлен в базе — то есть клиент действительно нажал «Подписать».
+
+  if (body.type === "portal_approved" && body.portalId) {
+    const { data: portal } = await supabase
+      .from("client_portals")
+      .select("agency_id, deal_name, client_name, approved_at, signer_name, total_price, advance_amount")
+      .eq("id", body.portalId)
+      .maybeSingle();
+
+    if (!portal?.agency_id) return ok("portal not found");
+    if (!portal.approved_at) return ok("not approved");
+
+    // Сутки: согласование однократно, но клиент может открыть ссылку и нажать
+    // ещё раз — второй такой же сигнал студии не нужен.
+    if (await isThrottled(portal.agency_id, "approved_" + body.portalId, 24 * 60 * 60 * 1000)) return ok("throttled");
+
+    const chatIds = await getTelegramIds(portal.agency_id);
+    if (!chatIds.length) return ok("no recipients");
+
+    const rub = (n: number) =>
+      new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 }).format(n);
+
+    const text =
+      `✅ <b>Клиент согласовал КП</b>\n\n` +
+      `📋 ${esc(portal.deal_name) || "КП"}\n` +
+      `👤 ${esc(portal.signer_name || portal.client_name) || "Клиент"}\n` +
+      (portal.total_price ? `💰 ${rub(Number(portal.total_price))}\n` : "") +
+      `\n<i>${portal.advance_amount ? `Дальше — аванс ${rub(Number(portal.advance_amount))}.` : "Дальше — счёт и предоплата."}</i>`;
 
     await sendToAll(chatIds, text);
     return ok("sent");

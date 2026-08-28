@@ -23448,6 +23448,25 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             _portalData.approved_at = new Date().toISOString();
             if (signerName) _portalData.signer_name = signerName;
             render();
+            /* Сигнал студии. До 23.08.2026 его не было: продукт сообщал, что
+               клиент ОТКРЫЛ КП, и что он ОПЛАТИЛ аванс, а самое главное
+               событие воронки — «клиент согласовал» — проходило молча. Между
+               открытием и оплатой может пройти неделя, и всё это время студия
+               не знала, что клиент уже сказал «да».
+
+               Как и у portal_view, передаём только id: все данные для
+               уведомления сервер берёт из БД и шлёт, лишь если согласование
+               там действительно записано. */
+            try {
+              const { url } = getSupabaseConfig();
+              fetch(url + '/functions/v1/agency-notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'portal_approved', portalId: _portalId }),
+              }).catch(() => {});
+            } catch (e) {
+              console.warn("agency-notify (portal_approved) не отправлено:", e);
+            }
           } else {
       if (btn) { btn.disabled = false; btn.textContent = 'Подписать и утвердить КП'; }
       toast("Ошибка: " + error.message);

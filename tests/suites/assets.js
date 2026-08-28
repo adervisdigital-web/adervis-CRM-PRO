@@ -682,6 +682,45 @@ module.exports = async function ({ test }) {
     assertEqual(noText.length, 0, "письма уходят без текстовой версии: " + noText.join(", "));
   });
 
+  /* Согласование КП — главное событие воронки, и до 23.08.2026 оно проходило
+     МОЛЧА: продукт сигналил студии, что клиент открыл КП, и что он оплатил
+     аванс (вебхук ЮKassa), а про «клиент подписал» не сообщал никак. Между
+     открытием и оплатой может пройти неделя.
+
+     Путь запись→Supabase тестами не покрыт в принципе (прогон в local mode),
+     поэтому сторож статический — как и остальные в этом блоке. */
+  await test("согласование КП: студия получает сигнал, и подделать его нельзя", () => {
+    const app = fs.readFileSync(path.join(REPO_ROOT, "app.js"), "utf8");
+    const fn = fs.readFileSync(
+      path.join(REPO_ROOT, "supabase/functions/agency-notify/index.ts"), "utf8");
+
+    // Клиентская половина: после успешного approve уходит уведомление.
+    const approveBody = app.slice(app.indexOf("async function approvePortal"), app.indexOf("async function approvePortal") + 2000);
+    assert(
+      /portal_approved/.test(approveBody),
+      "после согласования КП студии не уходит ни одного сигнала"
+    );
+
+    // Серверная половина: тип есть, и он шлёт только при РЕАЛЬНОМ согласовании.
+    assert(/body\.type === "portal_approved"/.test(fn), "agency-notify не знает тип portal_approved");
+    const branch = fn.slice(fn.indexOf('body.type === "portal_approved"'));
+    assert(
+      /if \(!portal\.approved_at\) return ok/.test(branch),
+      "уведомление о согласовании уходит без проверки approved_at — его можно подделать, зная UUID ссылки"
+    );
+    assert(
+      /isThrottled\(/.test(branch.slice(0, 1400)),
+      "нет ограничения частоты: повторное открытие ссылки снова дёрнет студию"
+    );
+
+    /* Флаг деплоя — здесь же: без --no-verify-jwt функция начинает требовать JWT,
+       а зовут её анонимы (портал и бриф). Наступил на это в тот же день. */
+    assert(
+      /--no-verify-jwt/.test(fn.slice(0, 900)),
+      "из шапки agency-notify пропало предупреждение о деплое с --no-verify-jwt"
+    );
+  });
+
   /* Имя отправителя письма с КП — то же правило, что у подписи внутри: заказчик
      чужой студии не должен получать документ от незнакомого ему сервиса.
      Проверяем, что конверт собирается из имени студии, а не из константы. */
