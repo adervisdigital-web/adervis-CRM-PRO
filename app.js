@@ -19022,9 +19022,13 @@
         const clickAction = isGlobal ? `app.openGlobalTaskModal('${idSafe}')` : `app.openDealTasks('${(row.projectId||"").replace(/'/g,"")}')`;
         return `
           <div class="gtask-row ${done ? "done" : ""}" onclick="${clickAction}" title="${isGlobal ? "Открыть задачу" : "Открыть в проекте"}">
+            ${/* Кружок теперь у ЛЮБОЙ задачи. У проектной вместо него стояла цветная
+                  точка статуса — она ничего не делала и дублировала капсулу статуса
+                  справа, а единственный путь отметить сделанной вёл через смену
+                  активной сделки и канбан (см. toggleProjectTaskDone). */""}
             ${isGlobal
        ? `<button class="gtask-check ${done ? "checked" : ""}" onclick="event.stopPropagation();app.toggleGlobalTaskDone('${idSafe}')" title="${done ? "Вернуть в работу" : "Отметить готово"}" aria-label="Готово">${done ? "✓" : ""}</button>`
-              : `<span class="gtask-dot" style="background:${statusColor}" title="${escapeHtml(t.status)}"></span>`}
+              : `<button class="gtask-check ${done ? "checked" : ""}" onclick="event.stopPropagation();app.toggleProjectTaskDone('${(row.projectId||"").replace(/'/g,"")}','${idSafe}')" title="${done ? "Вернуть в работу" : "Отметить готово"}" aria-label="Готово">${done ? "✓" : ""}</button>`}
             <div class="gtask-main">
               <div class="gtask-title">${escapeHtml(t.title)}</div>
               <div class="gtask-meta">
@@ -19096,12 +19100,85 @@
       function toggleGlobalTaskDone(taskId) {
         const task = (state.globalTasks || []).find(t => t.id === taskId);
         if (!task) return;
+        const prev = task.status;
         const becameDone = task.status !== "Готово";
         task.status = becameDone ? "Готово" : "Новая";
         task.updatedAt = new Date().toISOString();
         if (becameDone) _maybeRepeatTask(task, state.globalTasks);
         save();
         render();
+        _offerUndoTaskDone(task, becameDone, () => {
+          const again = (state.globalTasks || []).find(t => t && t.id === taskId);
+          if (!again) return;
+          again.status = prev;
+          again.updatedAt = new Date().toISOString();
+          save();
+          render();
+          toast("Вернули в работу");
+        });
+      }
+
+      /* Отметка «готово» УБИРАЕТ строку с экрана: список по умолчанию показывает
+         «Активные». На телефоне кружок стоит вплотную к строке, тап по которой
+         уводит в сделку, — промахнуться легко, а отменённое действие после
+         исчезновения строки уже не найти без смены фильтра. Поэтому тот же
+         undo-тост, что у удаления.
+         У повторяющейся задачи тоста нет: там _maybeRepeatTask уже сказал, что
+         создана следующая копия, и откатывать пришлось бы две вещи разом. */
+      function _offerUndoTaskDone(task, becameDone, restore) {
+        if (!becameDone) return;
+        if (task.repeat && task.repeat !== "none") return;
+        toastUndo("Готово: " + (task.title || "задача"), restore);
+      }
+
+      /* Отметить сделанной — из общего списка и для ПРОЕКТНОЙ задачи, а не только
+         для личной.
+
+         Кружок стоял лишь у личных задач. У проектной путь был один: тап по строке →
+         openDealTasks() ЗАГРУЖАЕТ эту сделку как активную (меняет активную сделку
+         всего приложения) → канбан из четырёх колонок, где нужная карточка на
+         телефоне оказывалась на 1325px при экране 844 → выпадающий список статуса.
+         Четыре шага и смена активной сделки ради галочки — при том, что «отметить
+         сделанным» это самое частое действие исполнителя, а проектных задач у
+         студии больше, чем личных.
+
+         Задача живёт в ДВУХ местах: у активной сделки — в live `state.tasks`, у
+         остальных — в снимке сохранённой (`snapshot.tasks`). Пишем туда, где она
+         вправду лежит: правка живой копии у неактивной сделки потерялась бы на
+         следующем flush, а правка снимка у активной — при первом же рендере. */
+      function toggleProjectTaskDone(projectId, taskId) {
+        const isLive = !projectId || projectId === state.activeProjectId;
+        const proj = projectId ? (state.savedProjects || []).find(p => p.id === projectId) : null;
+        const list = isLive ? state.tasks : ((proj && proj.snapshot && proj.snapshot.tasks) || null);
+        if (!Array.isArray(list)) return;
+        const task = list.find(t => t && t.id === taskId);
+        if (!task) return;
+        const prev = task.status;
+        const becameDone = task.status !== "Готово";
+        const persist = () => {
+          if (isLive && state.activeProjectId) flushActiveProjectToSaved();
+          else if (proj) proj.updatedAt = new Date().toISOString();
+          save();
+          render();
+        };
+        task.status = becameDone ? "Готово" : "Новая";
+        task.updatedAt = new Date().toISOString();
+        if (becameDone) _maybeRepeatTask(task, list);
+        persist();
+        /* В отмене ищем задачу ЗАНОВО по id: ссылка на объект живёт недолго —
+           state.tasks пересобирается клонами (flush снимка, переоткрытие сделки),
+           и правка по старой ссылке уходит в никуда. Проверено: отмена по ссылке
+           молча не срабатывала у проектной задачи, у личной работала. */
+        _offerUndoTaskDone(task, becameDone, () => {
+          const freshProj = projectId ? (state.savedProjects || []).find(p => p.id === projectId) : null;
+          const freshList = isLive ? state.tasks : ((freshProj && freshProj.snapshot && freshProj.snapshot.tasks) || []);
+          const again = (freshList || []).find(t => t && t.id === taskId);
+          if (!again) return;
+          again.status = prev;
+          again.updatedAt = new Date().toISOString();
+          persist();
+          toast("Вернули в работу");
+        });
       }
 
       function deleteGlobalTask(taskId) {
@@ -27514,6 +27591,7 @@ Email: _____________________              Email: _____________________
         createGlobalTaskOn,
         openGlobalTaskModal,
         toggleGlobalTaskDone,
+        toggleProjectTaskDone,
         deleteGlobalTask,
         setGlobalTaskFilter,
         setGlobalTaskSearch,

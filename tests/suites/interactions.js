@@ -402,6 +402,85 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(restored.cards, before.cards, "категория вернулась не полностью");
   });
 
+  /* «Отметить сделанной» — самое частое действие по задаче, и оно было доступно
+     только у ЛИЧНОЙ: у проектной вместо кружка стояла мёртвая точка статуса, а
+     единственный путь вёл через openDealTasks() — тот ЗАГРУЖАЕТ сделку как
+     активную (меняет активную сделку всего приложения) и показывает канбан, где
+     на телефоне нужная карточка лежала на 1325px при экране 844.
+
+     Задача живёт в ДВУХ местах, поэтому проверяем оба: активная сделка (живой
+     state.tasks) и любая другая (snapshot.tasks сохранённой) — правка не в то
+     место потерялась бы на ближайшем flush. Плюс отмена: строка после отметки
+     исчезает (фильтр «Активные»), и промах иначе не исправить. */
+  await test("задачи: проектную отмечаем готовой из списка — в активной сделке и в чужой", async () => {
+    const own = await bootLocal(browser, baseUrl, { width: 1280, height: 900, seedDemo: true });
+    try {
+      await own.page.evaluate(() => {
+        window.app.createTask();
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state"));
+        window.app.updateTask(st.tasks[0].id, "title", "Отснять интервью");
+      });
+      // Ждём автосохранение: снимок сделки достраивается по таймеру (2 с), а копия
+      // берётся именно из снимка — без паузы копия уехала бы без задачи.
+      await own.page.waitForTimeout(2600);
+      // Копия сделки не активна — её задачи лежат в снимке, а не в state.tasks.
+      await own.page.evaluate(() => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state"));
+        window.app.duplicateSavedProject(st.activeProjectId);
+      });
+      await own.page.waitForTimeout(400);
+      await own.page.evaluate(() => window.app.go("global-tasks"));
+      await own.page.waitForTimeout(500);
+
+      const read = () => own.page.evaluate(() => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+        const copy = (st.savedProjects || []).find((p) => /копия/.test(p.name || ""));
+        return {
+          view: st.view,
+          activeId: st.activeProjectId,
+          live: (st.tasks || []).map((t) => t.status),
+          copySnap: (((copy || {}).snapshot || {}).tasks || []).map((t) => t.status),
+          rows: [...document.querySelectorAll(".gtask-row")].map((r) => ({
+            project: ((r.querySelector(".gtask-project") || {}).textContent || "").trim(),
+            hasCheck: !!r.querySelector(".gtask-check"),
+          })),
+        };
+      });
+      const before = await read();
+      assertEqual(before.rows.length, 2, "ожидались две проектные задачи (оригинал и копия)");
+      assert(before.rows.every((r) => r.hasCheck), "у проектной задачи нет кружка «Готово»");
+      assertEqual(before.live[0], "Новая", "задача активной сделки уже готова — тест не о том");
+
+      const tick = (nameFragment) => own.page.evaluate((frag) => {
+        const row = [...document.querySelectorAll(".gtask-row")]
+          .find((r) => ((r.querySelector(".gtask-project") || {}).textContent || "").includes(frag));
+        row.querySelector(".gtask-check").click();
+      }, nameFragment);
+
+      // 1) чужая (неактивная) сделка — пишем в снимок
+      await tick("копия");
+      await own.page.waitForTimeout(500);
+      const afterCopy = await read();
+      assertEqual(afterCopy.copySnap[0], "Готово", "отметка не дошла до снимка неактивной сделки");
+      assertEqual(afterCopy.view, "global-tasks", "отметка увела с «Задач»");
+      assertEqual(afterCopy.activeId, before.activeId, "отметка сменила активную сделку");
+
+      // 2) активная сделка — пишем в живой список и в её снимок
+      await tick("Демо");
+      await own.page.waitForTimeout(500);
+      const afterLive = await read();
+      assertEqual(afterLive.live[0], "Готово", "отметка не дошла до задачи активной сделки");
+
+      // 3) отмена возвращает задачу в работу (строка уже исчезла из «Активных»)
+      await own.page.evaluate(() => document.querySelector("#toast .toast-undo").click());
+      await own.page.waitForTimeout(500);
+      const afterUndo = await read();
+      assertEqual(afterUndo.live[0], "Новая", "«Отменить» не вернуло задачу в работу");
+    } finally {
+      await own.context.close();
+    }
+  });
+
   /* Пустой экран «Задач» обещает словами: «задачи с дедлайном попадут в календарь».
      Для ЛИЧНЫХ задач это не выполнялось ни разу — календарь собирал события только
      из сделок. А личная задача это ровно тот вид, который заводят без открытой
