@@ -348,6 +348,111 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(broken.length, 0, "категории пакетов не открываются:\n  " + broken.join("\n  "));
   });
 
+  /* «Настроить разделы» у пакетов — та же настройка, что у каталога, но правило
+     скрытия НАМЕРЕННО жёстче: у каталога скрытый раздел уходит только из списка
+     слева (услуги остаются в «Все»), а у пакетов лента и есть весь экран — убрать
+     один пункт слева значило бы не убрать ничего.
+     Ради чего сторож: скрытая категория уходит и из списка, и из ленты; пакеты при
+     этом НЕ пропадают — их находит поиск; экран говорит, что часть скрыта; выбор,
+     павший на скрытую категорию, не оставляет человека перед пустотой. */
+  await test("пакеты: скрытая категория уходит из ленты, но находится поиском", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => { window.app.setPkgSearch(""); window.app.setPkgCatFilter("all"); window.app.go("packages"); });
+    await page.waitForTimeout(450);
+
+    const read = () => page.evaluate(() => ({
+      cats: [...document.querySelectorAll(".catalog-cat-item[data-pkg-cat]")].map((b) => b.dataset.pkgCat),
+      cards: document.querySelectorAll(".package-card").length,
+      cfg: !!document.querySelector('.catalog-cat-config[onclick*="openPkgCatsConfig"]'),
+      nav: (document.querySelector(".catalog-cat-sidebar") || {}).innerText || "",
+      label: ((document.querySelector(".catalog-nav-trigger-label strong") || {}).textContent || "").trim(),
+    }));
+
+    const before = await read();
+    assert(before.cats.includes("photo"), "в списке категорий пакетов нет «Фото»");
+    assert(before.cfg, "внизу списка категорий пакетов нет «Настроить разделы»");
+
+    await page.evaluate(() => window.app.setPkgCatFilter("photo"));
+    await page.waitForTimeout(250);
+    const photo = await page.evaluate(() => ({
+      cards: document.querySelectorAll(".package-card").length,
+      name: ((document.querySelector(".pkg-card-name") || {}).textContent || "").trim(),
+    }));
+    assert(photo.cards > 0 && photo.name, "в категории «Фото» нет пакетов — тест не о том");
+
+    await page.evaluate(() => window.app.togglePkgCatHidden("photo"));
+    await page.waitForTimeout(350);
+
+    const after = await read();
+    assert(!after.cats.includes("photo"), "скрытая категория осталась в списке слева");
+    assertEqual(after.cards, before.cards - photo.cards, "лента потеряла не ровно пакеты скрытой категории");
+    assert(/скрыто/.test(after.nav), "экран не говорит, что часть категорий скрыта — «куда делись пакеты» без ответа");
+    assertEqual(after.label, "Все", "скрыли выбранную категорию, а экран остался отфильтрованным по ней");
+
+    // Скрытие — про глаза, а не про удаление: поиск обязан доставать скрытое.
+    await page.evaluate((q) => window.app.setPkgSearch(q), photo.name);
+    await page.waitForTimeout(700);
+    const found = await page.evaluate((n) =>
+      [...document.querySelectorAll(".pkg-card-name")].filter((x) => x.textContent.trim() === n).length, photo.name);
+    assert(found > 0, "пакет скрытой категории не находится поиском — значит, скрытие его удалило");
+
+    await page.evaluate(() => { window.app.setPkgSearch(""); window.app.togglePkgCatHidden("photo"); });
+    await page.waitForTimeout(700);
+    const restored = await read();
+    assertEqual(restored.cards, before.cards, "категория вернулась не полностью");
+  });
+
+  /* Обещание окна настройки словами: «свои пакеты не пропадают — из скрытой
+     категории они переезжают в «Мои пакеты»». Это и есть граница между «убрал с
+     глаз» и «потерял свою работу», поэтому проверяем обещание, а не состояние.
+     Контекст свой: тест заводит пакет, а страница набора одна на все тесты. */
+  await test("пакеты: свой пакет из скрытой категории переезжает в «Мои пакеты»", async () => {
+    const own = await bootLocal(browser, baseUrl, { width: 1280, height: 900 });
+    try {
+      // Позиция в смете — без неё createPackage отказывается собирать пакет.
+      await own.page.evaluate(() => window.app.addItem("camera_basic"));
+      await own.page.waitForTimeout(200);
+      await own.page.evaluate(() => { window.app.createPackage(); });
+      await answerPrompt(own.page, "Свой фото-пакет");
+      const id = await own.page.evaluate(() =>
+        JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}")
+          .packages.find((p) => p.name === "Свой фото-пакет").id);
+      assert(id && id.startsWith("package_"), "свой пакет не создался");
+
+      await own.page.evaluate((pid) => {
+        window.app.openPackageEditModal(pid);
+        window.app.setPackageEditField("cat", "photo");
+        window.app.savePackageEdit();
+      }, id);
+      await own.page.waitForTimeout(400);
+      await own.page.evaluate(() => window.app.go("packages"));
+      await own.page.waitForTimeout(450);
+
+      // Заголовок группы, под которой лежит карточка: он и есть ответ «где пакет».
+      const groupOf = () => own.page.evaluate(() => {
+        const card = [...document.querySelectorAll(".package-card")].find((c) => /Свой фото-пакет/.test(c.innerText));
+        if (!card) return "(карточки нет)";
+        let n = card.closest(".pkg-cards-grid");
+        while (n && !(n.classList && n.classList.contains("pkg-group-header"))) n = n.previousElementSibling;
+        return n ? n.innerText.trim().toUpperCase() : "(без заголовка)";
+      });
+      assertEqual(await groupOf(), "ФОТО", "свой пакет не встал в свою категорию");
+
+      await own.page.evaluate(() => window.app.togglePkgCatHidden("photo"));
+      await own.page.waitForTimeout(450);
+      assertEqual(await groupOf(), "МОИ ПАКЕТЫ",
+        "свой пакет исчез вместе со скрытой категорией — «скрыл раздел» не должно означать «потерял свою работу»");
+
+      await own.page.evaluate(() => window.app.setPkgCatFilter("own"));
+      await own.page.waitForTimeout(350);
+      const inOwnTab = await own.page.evaluate(() =>
+        [...document.querySelectorAll(".pkg-card-name")].some((x) => x.textContent.trim() === "Свой фото-пакет"));
+      assert(inOwnTab, "«Свои» не показывают свой пакет из скрытой категории");
+    } finally {
+      await own.context.close();
+    }
+  });
+
   // Редактировать можно ЛЮБОЙ пакет, не только созданный вручную: готовые — тоже
   // заготовки агентства. Проверяем весь цикл: объём → удаление → сохранение → карточка.
   await test("пакет редактируется целиком: объём, состав, сохранение", async () => {

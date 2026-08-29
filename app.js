@@ -2025,7 +2025,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
+      const SYNC_SKIP_KEYS = new Set(["view","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","pkgCatsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
 
       // Кладёт облачное состояние в state. Отдельно от _loadCloudState, потому что
       // вызывается ещё и из разрешения конфликта.
@@ -7090,6 +7090,11 @@
         // трогаем, поэтому позиция остаётся и в своей вычисленной группе.
         catalogGroupsHidden: {},
         customCatalogGroups: [],
+        // То же для ПАКЕТОВ, но ось своя (CAT_META, а не CATALOG_GROUPS): студия,
+        // которая не снимает фото и не делает ИИ-ролики, не должна каждый раз
+        // пролистывать их категории. Своих разделов у пакетов нет: свой пакет
+        // и так виден в «Свои», второй способ группировки только запутал бы.
+        pkgCatsHidden: {},
         customBriefTypes: [],
         customKbCats: [],
         kbCatNames: {},
@@ -11379,6 +11384,7 @@
           state.helpModal ? "help" :
           state.docsModal ? "docs" :
           state.catalogGroupsConfigOpen ? "catalogGroups" :
+          state.pkgCatsConfigOpen ? "pkgCats" :
           state.adminModal ? "admin" : state.clientModal ? "client" :
           state.dealModal ? "deal" : state.taskModal ? "task" :
           state.editTransactionModal ? "editTx" : state.financeModal ? "finance" :
@@ -11388,6 +11394,7 @@
         if (state.helpModal) { el.innerHTML = renderHelpModal(); }
         else if (state.docsModal) { el.innerHTML = renderDocsModal(); }
         else if (state.catalogGroupsConfigOpen) { el.innerHTML = renderCatalogGroupsConfigModal(); }
+        else if (state.pkgCatsConfigOpen) { el.innerHTML = renderPkgCatsConfigModal(); }
         else if (state.adminModal) { el.innerHTML = renderAdminModalHtml(); }
         else if (state.clientModal) { el.innerHTML = renderClientModalHtml(); }
         else if (state.dealModal) { el.innerHTML = renderDealModalHtml(); }
@@ -17002,7 +17009,6 @@
           : "";
 
         const catOrder = Object.keys(CAT_META);
-        const totalPkgs = (state.packages || []).length;
         const pkgQuery = (state.pkgSearch || "").trim().toLowerCase();
         // Отсеиваем ДО группировки: тогда и счётчики категорий сбоку показывают,
         // сколько там найдено, а не сколько лежит всего.
@@ -17010,13 +17016,23 @@
           ? (state.packages || []).filter(p => packageMatchesQuery(p, pkgQuery))
           : (state.packages || []);
 
+        const isOwnPkg = (p) => p.id.startsWith("package_");
+        const pkgCatsHidden = state.pkgCatsHidden || {};
+        // Во время поиска скрытие не действует вовсе: искать надо среди всех
+        // пакетов, иначе «ничего не нашлось» будет неправдой.
+        const catIsHidden = (cat) => !pkgQuery && !!pkgCatsHidden[cat];
+
         // Group packages by cat
         const groups = {};
         const ungrouped = [];
         allPkgs.forEach(pkg => {
-          if (pkg.cat && CAT_META[pkg.cat]) {
-            if (!groups[pkg.cat]) groups[pkg.cat] = [];
-            groups[pkg.cat].push(pkg);
+          // Категория скрыта — встроенные пакеты уходят вместе с ней, а СВОЙ пакет
+          // переезжает в «Мои пакеты»: его собрал сам пользователь, и «скрыл
+          // раздел» не должно означать «потерял свою работу».
+          const cat = pkg.cat && CAT_META[pkg.cat] ? pkg.cat : "";
+          if (cat && !(catIsHidden(cat) && isOwnPkg(pkg))) {
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(pkg);
           } else {
             ungrouped.push(pkg);
           }
@@ -17074,10 +17090,20 @@
           `;
         }
 
-        const isOwnPkg = (p) => p.id.startsWith("package_");
-        const ownCount = allPkgs.filter(isOwnPkg).length;
+        /* Категории, убранные через «Настроить разделы».
 
-        const allCatsWithData = catOrder.filter(cat => groups[cat]?.length);
+           У каталога скрытие убирает ТОЛЬКО пункт слева: услуги остаются в «Все»,
+           иначе «скрыл раздел» означало бы «выкинул из сметы половину каталога».
+           У пакетов лента и есть весь экран — второго списка, где они бы остались,
+           тут нет, поэтому скрытая категория уходит и из ленты. Ничего при этом не
+           пропадает: поиск идёт по всем пакетам, свои пакеты переезжают в «Мои
+           пакеты» (см. группировку выше), внизу списка написано, сколько категорий
+           скрыто, и вернуть их можно там же. */
+        const visiblePkgs = allPkgs.filter(p => !(p.cat && CAT_META[p.cat] && catIsHidden(p.cat) && !isOwnPkg(p)));
+        const hiddenCatCount = catOrder.filter(c => pkgCatsHidden[c]).length;
+        const ownCount = visiblePkgs.filter(isOwnPkg).length;
+
+        const allCatsWithData = catOrder.filter(cat => groups[cat]?.length && !catIsHidden(cat));
         const savedCatFilter = state.pkgCatFilter || "all";
 
         // Найденное может лежать в другой категории. Если оставить выбранную, человек
@@ -17086,11 +17112,17 @@
         const catHasHits = savedCatFilter === "own"
           ? allPkgs.some(isOwnPkg)
           : !!(groups[savedCatFilter] || []).length;
-        const pkgCatFilter = (pkgQuery && savedCatFilter !== "all" && !catHasHits) ? "all" : savedCatFilter;
+        // Выбранная категория оказалась скрытой (скрыли в другой сессии, приехало
+        // импортом) — показываем «Все», иначе экран пустой и без объяснения.
+        const pkgCatFilter = catIsHidden(savedCatFilter) ? "all"
+          : (pkgQuery && savedCatFilter !== "all" && !catHasHits) ? "all"
+          : savedCatFilter;
 
         const filteredGroups = pkgCatFilter === "all" || pkgCatFilter === "own"
           ? allCatsWithData
           : allCatsWithData.filter(c => c === pkgCatFilter);
+        // Скрыли все категории — на экране осталась бы пустота без объяснения.
+        const allHiddenAway = !pkgQuery && !filteredGroups.length && !ungrouped.length && hiddenCatCount > 0;
 
         return `
           <div class="panel">
@@ -17117,9 +17149,11 @@
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                 <input id="pkgSearchInput" class="catalog-search-input" type="search" aria-label="Поиск по пакетам" value="${escapeHtml(state.pkgSearch || "")}" oninput="app.setPkgSearch(this.value)" placeholder="Поиск по названию или составу: дрон, субтитры…">
               </div>
+              ${/* Без запроса считаем ПОКАЗАННЫЕ пакеты, а не все: после скрытия
+                    категории «45 пакетов» над лентой из 30 — прямая неправда. */""}
               <span class="catalog-found-count">${pkgQuery
                 ? `найдено ${allPkgs.length} ${plural(allPkgs.length, "пакет", "пакета", "пакетов")}`
-                : `${totalPkgs} ${plural(totalPkgs, "пакет", "пакета", "пакетов")}`}</span>
+                : `${visiblePkgs.length} ${plural(visiblePkgs.length, "пакет", "пакета", "пакетов")}`}</span>
             </div>
 
             <div class="catalog-body">
@@ -17132,7 +17166,7 @@
                 <div class="catalog-cat-group">
                   <button class="catalog-cat-item ${pkgCatFilter==="all"?"active":""}" onclick="app.setPkgCatFilter('all')">
                     <span>Все</span>
-                    ${allPkgs.length ? `<span class="catalog-cat-count">${allPkgs.length}</span>` : ""}
+                    ${visiblePkgs.length ? `<span class="catalog-cat-count">${visiblePkgs.length}</span>` : ""}
                   </button>
                   <button class="catalog-cat-item ${pkgCatFilter==="own"?"active":""}" onclick="app.setPkgCatFilter('own')">
                     <span>Свои</span>
@@ -17144,13 +17178,26 @@
 
                 <div class="catalog-cat-group">
                   ${allCatsWithData.map(cat => `
-                    <button class="catalog-cat-item ${pkgCatFilter===cat?"active":""}" onclick="app.setPkgCatFilter('${cat}')">
+                    <button class="catalog-cat-item ${pkgCatFilter===cat?"active":""}" data-pkg-cat="${cat}" onclick="app.setPkgCatFilter('${cat}')">
                       <span style="display:inline-flex;align-items:center;gap:6px">${catIcon(CAT_META[cat])} ${escapeHtml(CAT_META[cat].label)}</span>
                       <span class="catalog-cat-count">${groups[cat].length}</span>
                     </button>
                   `).join("")}
                 </div>
 
+                ${/* Настройка списка стоит ВНИЗУ САМОГО СПИСКА и приглушена — там же
+                      и такая же, как у каталога и у главного бокового меню: она
+                      настраивает то, над чем стоит, и не должна спорить за внимание
+                      с категориями, которые выбирают. Счётчик скрытых нужен, чтобы
+                      «куда делись мои фото-пакеты» имело ответ прямо на экране. */""}
+                <button class="catalog-cat-item catalog-cat-config" onclick="app.openPkgCatsConfig()"
+                  title="Скрыть категории пакетов, которыми вы не пользуетесь">
+                  <span style="display:flex;align-items:center;gap:7px;min-width:0">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>
+                    <span>Настроить разделы</span>
+                  </span>
+                  ${hiddenCatCount ? `<span class="catalog-cat-count">${hiddenCatCount} скрыто</span>` : ""}
+                </button>
               </aside>
 
               <div class="catalog-body-main">
@@ -17159,6 +17206,11 @@
                   title: "Ничего не нашлось",
                   text: `По запросу «${escapeHtml((state.pkgSearch || "").trim())}» нет ни одного пакета — ни по названию, ни по составу.`,
                   cta: { label: "Сбросить поиск", onclick: "app.setPkgSearch('')" }
+                }) : allHiddenAway ? emptyState({
+                  icon: "box",
+                  title: "Все категории скрыты",
+                  text: `Пакеты никуда не делись — их находит поиск, а категории возвращаются там же, где были скрыты.`,
+                  cta: { label: "Настроить разделы", onclick: "app.openPkgCatsConfig()" }
                 }) : pkgCatFilter === "own" && !ownCount ? emptyState({
                   icon: "box",
                   title: "Своих пакетов пока нет",
@@ -18083,6 +18135,32 @@
         render();
       }
 
+      /* То же для ПАКЕТОВ. Ось своя (CAT_META), поэтому и настройка своя: скрыть
+         «Фото» в пакетах и скрыть «Фото/видео» в каталоге — разные решения, и
+         одна галочка на двоих врала бы обоим экранам.
+
+         Отличие от каталога одно, и оно намеренное: скрытая категория пакетов
+         уходит и из ленты, а не только из списка слева (см. комментарий в
+         renderPackages). Пакеты при этом не теряются — их находит поиск. */
+      function openPkgCatsConfig() {
+        state.pkgCatsConfigOpen = true;
+        renderModal();
+      }
+      function closePkgCatsConfig() {
+        state.pkgCatsConfigOpen = false;
+        renderModal();
+      }
+      function togglePkgCatHidden(cat) {
+        const h = { ...(state.pkgCatsHidden || {}) };
+        if (h[cat]) delete h[cat]; else h[cat] = true;
+        state.pkgCatsHidden = h;
+        // Скрыли выбранную категорию — уводим на «Все»: иначе экран остался бы
+        // отфильтрованным по пункту, которого больше нет в списке.
+        if (h[cat] && state.pkgCatFilter === cat) state.pkgCatFilter = "all";
+        save();
+        render();
+      }
+
       /* Навигация каталога на телефоне.
 
          Боковое меню разделов работало на десктопе именно тем, что показывало все
@@ -18196,6 +18274,45 @@
               </button>
               <p class="u-meta" style="margin:10px 0 0;line-height:1.5">
                 Услуги добавляются в свой раздел из карточки услуги — поле «Свой раздел».
+              </p>
+            </div>
+          </div>`;
+      }
+
+      function renderPkgCatsConfigModal() {
+        if (!state.pkgCatsConfigOpen) return "";
+        const hidden = state.pkgCatsHidden || {};
+        // Считаем по ВСЕМ пакетам, а не по отфильтрованным поиском: человек решает,
+        // нужна ли ему категория вообще, и цифра «8 пакетов» тут про запас, а не
+        // про текущий запрос.
+        const byCat = {};
+        (state.packages || []).forEach(p => { if (p.cat && CAT_META[p.cat]) byCat[p.cat] = (byCat[p.cat] || 0) + 1; });
+        return `
+          <div class="modal-overlay" onclick="event.target===this&&app.closePkgCatsConfig()">
+            <div class="modal-box" style="width:min(460px,calc(100vw - 24px))">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <h2 class="u-title-20" style="margin:0">Разделы пакетов</h2>
+                <button onclick="app.closePkgCatsConfig()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
+              </div>
+              <p class="u-meta" style="margin:0 0 16px;line-height:1.5">
+                Скрытая категория пропадает из списка слева и из ленты. Сами пакеты остаются:
+                их находит поиск, а вернуть категорию можно здесь же.
+              </p>
+              ${Object.keys(CAT_META).map(cat => {
+                const meta = CAT_META[cat];
+                const n = byCat[cat] || 0;
+                return `
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
+                  <span style="color:${meta.color};display:inline-flex;flex-shrink:0">${icon(meta.ic, 15)}</span>
+                  <span style="flex:1 1 auto;font-size:13px;font-weight:600">${escapeHtml(meta.label)}</span>
+                  <span class="u-meta" style="flex:0 0 auto">${n} ${plural(n, "пакет", "пакета", "пакетов")}</span>
+                  <button class="sidebar-nav-switch ${hidden[cat] ? "" : "on"}"
+                    onclick="app.togglePkgCatHidden('${cat}')"
+                    aria-label="${hidden[cat] ? "Показать" : "Скрыть"} раздел «${escapeHtml(meta.label)}»"></button>
+                </div>`;
+              }).join("")}
+              <p class="u-meta" style="margin:14px 0 0;line-height:1.5">
+                Свои пакеты не пропадают: из скрытой категории они переезжают в «Мои пакеты» внизу списка.
               </p>
             </div>
           </div>`;
@@ -26928,6 +27045,10 @@ Email: _____________________              Email: _____________________
             else if (state.docsModal) closeDocsModal();
             else if (state.adminModal) closeAdminModal();
             else if (state.briefEditorType) closeBriefEditor();
+            // Обе настройки списков закрывались только мышью: с клавиатуры окно
+            // не отпускало (одно из требований к диалогу — Esc).
+            else if (state.catalogGroupsConfigOpen) closeCatalogGroupsConfig();
+            else if (state.pkgCatsConfigOpen) closePkgCatsConfig();
             else if (state.dealSwitcherOpen) closeDealSwitcher();
           }
           // Ctrl+N — новая сделка (кроме полей ввода)
@@ -27043,6 +27164,9 @@ Email: _____________________              Email: _____________________
         addCustomCatalogGroup,
         removeCustomCatalogGroup,
         setItemCustomGroup,
+        openPkgCatsConfig,
+        closePkgCatsConfig,
+        togglePkgCatHidden,
         setSearch,
         setClientsFilter,
         setFilter,
