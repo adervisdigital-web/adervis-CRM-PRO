@@ -644,6 +644,52 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  /* «Убрать пример» — кнопка рядом с той самой полосой примера, и жмут её ровно
+     затем, чтобы выдуманных денег на экране не осталось. Сброс был НЕПОЛНЫЙ:
+     чистились проект, смета и порядок строк, а задачи, платежи, расходы, версии
+     и команда оставались в рабочей копии. Демо-платёж «Аванс 50%» продолжал
+     жить уже ни к чему не привязанным: сделок ноль, а «Финансы» показывали
+     «Всего получено 76 750 ₽» и одну транзакцию. Хуже, чем до нажатия: полоса
+     «это пример» исчезает вместе с демо-сделкой, то есть цифры оставались на
+     экране БЕЗ пометки — и уезжали в облако. */
+  await test("«Убрать пример» не оставляет демо-денег ни на одном экране", async () => {
+    const { context, page: p } = await bootLocal(browser, baseUrl, { seedDemo: true });
+    try {
+      const before = await p.evaluate(() => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+        return { payments: (st.payments || []).length, deals: (st.savedProjects || []).length };
+      });
+      assertEqual(before.payments, 1, "демо не положило платёж — тест не о том");
+
+      await p.evaluate(() => window.app.dropDemo());
+      await p.waitForTimeout(500);
+      const after = await p.evaluate(() => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+        return {
+          deals: (st.savedProjects || []).length,
+          payments: (st.payments || []).length,
+          expenses: (st.expenses || []).length,
+          tasks: (st.tasks || []).length,
+          versions: (st.versions || []).length,
+        };
+      });
+      assertEqual(after.deals, 0, "демо-сделка осталась в списке");
+      assertEqual(after.payments, 0, "демо-платёж пережил «Убрать пример» — деньги без сделки и без пометки");
+      assertEqual(after.tasks + after.expenses + after.versions, 0,
+        "в рабочей копии осталось наследство примера (задачи/расходы/версии)");
+
+      // И на экранах: суммы примера не должны считаться ни по всем проектам, ни в сделке
+      for (const view of ["global-finances", "finance"]) {
+        await p.evaluate((v) => window.app.go(v), view);
+        await p.waitForTimeout(400);
+        const text = await p.evaluate(() => (document.querySelector("#appContent") || {}).innerText.replace(/\s+/g, " "));
+        assert(!/76\s?750/.test(text), `раздел «${view}» всё ещё показывает деньги убранного примера`);
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
   /* Обратная сторона: как только сделка своя, цифры — правда, и продукт обязан
      вернуться к обычному виду. Иначе подсказка новичка становится вечной
      плашкой, а такие живут в продукте годами. Сделку заводим тем же путём, что

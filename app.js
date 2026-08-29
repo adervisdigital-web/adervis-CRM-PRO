@@ -11949,6 +11949,13 @@
           const t = totals();
           state.payments = [normalizePayment({ title: "Аванс 50%", amount: Math.round((t.total || 0) * 0.5), date: todayIso(), method: "Счёт", note: "Демо-платёж" })];
           state.expenses = [];
+          /* Остальное рабочей копии тоже обнуляем: пересборка примера меняет
+             проект и смету, а задачи/версии/команда от прошлого примера иначе
+             переезжают в новый и выглядят его частью (тот же неполный сброс,
+             из-за которого «Пример убран» оставлял висеть демо-платёж). */
+          state.tasks = [];
+          state.versions = [];
+          state.team = [];
 
           state.savedProjects = state.savedProjects || [];
           state.savedProjects.unshift({ id: projId, __demo: true, createdAt: now });
@@ -12008,15 +12015,34 @@
         toast(k ? `Пример пересобран: ${k.label.toLowerCase()}` : "Пример пересобран");
       }
 
-      // Убрать пример целиком: и сделку, и демо-клиента.
+      /* Убрать пример целиком: и сделку, и демо-клиента, и всё, что демо положило
+         в РАБОЧУЮ КОПИЮ.
+
+         Сброс был неполный — чистили проект, смету и порядок строк, а задачи,
+         платежи, расходы, версии и команду оставляли. Демо кладёт «Аванс 50%», и
+         после «Пример убран» он оставался в state.payments уже НИ К ЧЕМУ не
+         привязанным: сделок ноль, а «Финансы» показывали «Всего получено 76 750 ₽,
+         Прибыль 76 750 ₽, транзакций 1», экран сделки — «Оплачено 76 750 ₽»,
+         календарь — платёж «Сегодня». Причём оговорки «это пример» к тому моменту
+         исчезли вместе с демо-сделкой: выдуманные деньги оставались на экране уже
+         без всякой пометки — и уезжали в облако.
+         Полный сброс рабочей копии — тот же, что в deselectActiveProject(). */
       function dropDemo() {
         state.savedProjects = (state.savedProjects || []).filter(p => !(p && p.__demo));
         state.clients = (state.clients || []).filter(c => !(c && c.__demo));
         if (state.project && state.project.demoKind) {
+          const fresh = defaultState();
           state.activeProjectId = "";
-          state.project = defaultState().project;
+          state.project = { ...fresh.project };
           state.selected = {};
           state.estimateOrder = [];
+          state.lineCollapsed = {};
+          state.stageCollapsed = {};
+          state.versions = [];
+          state.tasks = [];
+          state.payments = [];
+          state.expenses = [];
+          state.team = [];
         }
         save();
         render();
