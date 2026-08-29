@@ -1564,4 +1564,97 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     assert(!bad.length, "в самом низу страницы под нижней панелью остались элементы:\n  " + bad.join("\n  "));
   });
 
+  /* Календарь на телефоне: первое действие в разделе было ловушкой.
+
+     Кнопка «+» в ячейке дня невидима (`opacity: 0`), а на телефоне ей ещё и
+     расширяли область касания до 44×44 — в ячейке 46×56. То есть НЕВИДИМАЯ
+     кнопка перекрывала день целиком: тап по дню не выбирал его, а молча заводил
+     задачу в открытой сделке и уводил на «Задачи проекта». Тот же класс, что
+     [[gotcha-opacity-hidden-but-clickable]], только хуже: расширение области
+     сделало невидимую кнопку ЕДИНСТВЕННЫМ, во что можно попасть.
+
+     Мерим результат тем же жестом, что и человек: настоящий тап пальцем в
+     середину дня. */
+  await test("календарь на телефоне: тап по дню открывает день, а не заводит задачу", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => window.app.go("global-calendar"));
+      await page.waitForTimeout(700);
+      const before = await page.evaluate(() => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+        return { dealTasks: (st.tasks || []).length, globalTasks: (st.globalTasks || []).length };
+      });
+      const cell = await page.evaluate(() => {
+        const c = [...document.querySelectorAll(".cal-cell:not(.other-month)")][8];
+        const r = c.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return {
+          day: c.querySelector(".cal-day-num").textContent,
+          x: r.left + r.width / 2, y: r.top + r.height / 2,
+          hitClass: hit ? String(hit.className || hit.tagName) : "none",
+        };
+      });
+      assert(!/cal-day-add/.test(cell.hitClass),
+        "середину дня по-прежнему перекрывает невидимая «+»: " + cell.hitClass);
+
+      await page.touchscreen.tap(cell.x, cell.y);
+      await page.waitForTimeout(600);
+      const after = await page.evaluate(() => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+        return {
+          view: st.view,
+          dealTasks: (st.tasks || []).length,
+          globalTasks: (st.globalTasks || []).length,
+          selected: (document.querySelector(".cal-cell.selected .cal-day-num") || {}).textContent || null,
+          panelAdd: !!document.querySelector(".cal-day-panel .btn.primary"),
+        };
+      });
+      assertEqual(after.selected, cell.day, "тап по дню не выбрал этот день");
+      assertEqual(after.view, "global-calendar", "тап по дню увёл с календаря");
+      assertEqual(after.dealTasks, before.dealTasks, "тап по дню завёл задачу в открытой сделке");
+      assertEqual(after.globalTasks, before.globalTasks, "тап по дню завёл задачу");
+      assert(after.panelAdd, "в панели дня нет подписанной кнопки «+ Задача» — на телефоне это единственный путь завести задачу на день");
+    } finally {
+      await context.close();
+    }
+  });
+
+  /* Кружок «Готово» в строке задачи — 24×24 по рамке. Обход целей касания его не
+     видел: он есть только у ЛИЧНОЙ задачи, а демо-данные их не заводят, поэтому
+     раздел обходили с одними проектными строками (там кружка нет вовсе). Заводим
+     личную задачу и меряем ФАКТИЧЕСКОЕ попадание, а не рамку. */
+  await test("задачи на телефоне: кружок «Готово» ловит палец, а не только рамку", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, {
+      width: 390, height: 844, touch: true, seedDemo: true,
+    });
+    try {
+      await page.evaluate(() => {
+        window.app.createGlobalTask();
+        window.app.setTaskModalField("title", "Забрать камеру из проката");
+        window.app.saveTaskModal();
+      });
+      await page.waitForTimeout(400);
+      await page.evaluate(() => window.app.go("global-tasks"));
+      await page.waitForTimeout(500);
+      const r = await page.evaluate(() => {
+        const el = document.querySelector(".gtask-check");
+        if (!el) return null;
+        const b = el.getBoundingClientRect();
+        const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+        const pts = [[cx, cy - 20], [cx, cy + 20], [cx - 20, cy], [cx + 20, cy]];
+        return {
+          hits: pts.filter(([x, y]) => { const e = document.elementFromPoint(x, y); return e && (e === el || el.contains(e)); }).length,
+          box: [Math.round(b.width), Math.round(b.height)],
+        };
+      });
+      assert(r, "в списке нет личной задачи с кружком «Готово»");
+      assertEqual(r.hits, 4,
+        `в кружок «Готово» попадает ${r.hits} из 4 точек в 20px от центра (рамка ${r.box[0]}×${r.box[1]})`);
+    } finally {
+      await context.close();
+    }
+  });
+
 };

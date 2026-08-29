@@ -4807,21 +4807,28 @@
     .cal-cell.weekend .cal-day-num { color: var(--text-danger); opacity: .7; }
 
     /* «+ Задача» живёт в самой ячейке — так она знает свой день. Появляется
-       по наведению на ячейку (на тач — в выбранном дне). */
+       по наведению на ячейку; на тач-экране её нет вовсе (см. ниже) — там день
+       открывается тапом, и кнопка стоит подписанной в панели дня.
+
+       `pointer-events: none`, пока кнопка невидима, — не украшение, а суть:
+       прозрачный элемент продолжает ловить нажатия, а на телефоне ему ещё и
+       расширяли область до 44×44 в ячейке 46×56 — то есть НЕВИДИМАЯ кнопка
+       перекрывала день целиком. Тап по дню не выбирал его, а молча заводил
+       задачу в открытой сделке и уводил с календаря на «Задачи проекта». */
     .cal-day-add {
       position: absolute; top: 4px; right: 4px;
       width: 22px; height: 22px; padding: 0;
       display: grid; place-items: center;
       border: 1px solid transparent; background: transparent;
       border-radius: var(--r-sm); color: var(--muted);
-      cursor: pointer; opacity: 0;
+      cursor: pointer; opacity: 0; pointer-events: none;
       transition: opacity var(--dur-1), background var(--dur-1), border-color var(--dur-1), color var(--dur-1);
     }
-    .cal-cell:hover .cal-day-add { opacity: 1; }
+    .cal-cell:hover .cal-day-add { opacity: 1; pointer-events: auto; }
     .cal-day-add:hover {
       background: var(--primary-bg); border-color: var(--primary-on-tint); color: var(--primary-on-tint);
     }
-    .cal-day-add:focus-visible { opacity: 1; outline: var(--ring-w) solid var(--ring); outline-offset: 1px; }
+    .cal-day-add:focus-visible { opacity: 1; pointer-events: auto; outline: var(--ring-w) solid var(--ring); outline-offset: 1px; }
     /* Прошлые/будущие месяцы — не предлагаем ставить туда задачу */
     .cal-cell.other-month .cal-day-add { display: none; }
     .cal-day-num {
@@ -6649,10 +6656,14 @@ body.portal-mode .nav { display: none !important; }
   .deal-menu-btn { opacity: 1; }
   /* Тот же случай для кнопки действия («Сдать проект →») в карточке сделки. */
   .deal-card .next-action-btn { opacity: 1; }
-  /* Тот же случай для «+» в календаре, но показывать его сразу во всех 42 ячейках —
-     мусор. Тап по дню выбирает его → «+» появляется только в выбранном. */
-  .cal-cell.selected .cal-day-add { opacity: 1; }
-  .cal-day-add { width: 26px; height: 26px; top: 3px; right: 3px; }
+  /* А вот «+» в дне календаря на телефоне не показываем ВОВСЕ. Раньше он
+     появлялся в выбранном дне, но невидимым висел во всех сорока двух — с
+     областью касания 44×44 поверх ячейки 46×56. Из-за этого тап по дню не
+     выбирал день, а заводил задачу в открытой сделке и уходил с календаря.
+     Первое действие в разделе оказывалось ловушкой.
+     На тач-экране день открывается тапом, а «+ Задача» стоит ПОДПИСАННОЙ
+     кнопкой в панели дня — там видно и что она делает, и на какое число. */
+  .cal-day-add { display: none; }
   .deal-bar .deal-compact-row { flex-wrap: wrap; gap: 8px; }
   .deal-stats-inline { display: none; }
   /* На телефоне колонок две, а не тридцать, поэтому явные span'ы десктопной
@@ -7400,10 +7411,10 @@ body.portal-mode .nav { display: none !important; }
     min-width: 44px;
   }
 
-  /* Кнопка «+» в клетке дня календаря. Высоту поднимать нельзя — она распирала бы
-     сетку месяца, поэтому расширяем НЕВИДИМУЮ область вокруг: приём уже
-     используется в приложении, и getBoundingClientRect() его не видит (замер
-     покажет 26px, палец попадёт по 44). */
+  /* Кнопка «+» в клетке дня календаря сюда БОЛЬШЕ НЕ ВХОДИТ: на телефоне её нет
+     (правило выше), и расширять область касания у невидимой кнопки — ровно то,
+     из-за чего тап по дню улетал в «Задачи проекта». Расширять можно область
+     ВИДИМОЙ кнопки; невидимой — нельзя, она тогда крадёт чужие нажатия. */
   /* Шаг количества в строке каталога («−» и «+», 26×32). Поднимать саму кнопку
      нельзя — она стоит внутри компактного степпера рядом с числом, и 44px разорвали
      бы строку позиции. Расширяем невидимую область, как у «+» в календаре.
@@ -7419,8 +7430,14 @@ body.portal-mode .nav { display: none !important; }
     transform: translate(-50%, -50%);
   }
 
-  .cal-day-add { position: relative; }
-  .cal-day-add::after {
+  /* Кружок «Готово» в строке задачи — 24×24 по рамке: самое частое действие
+     исполнителя на съёмке, и до правки палец в него не попадал (замер: ни одна
+     из четырёх точек в 20px от центра). Кнопка стоит в плотной строке рядом с
+     названием, поднимать её высоту нельзя — расширяем область, как у степпера.
+     Здесь это безопасно: кнопка ВИДНА, значит область совпадает с тем, во что
+     человек целится. */
+  .gtask-check { position: relative; }
+  .gtask-check::after {
     content: "";
     position: absolute;
     top: 50%; left: 50%;

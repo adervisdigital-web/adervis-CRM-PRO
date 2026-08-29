@@ -402,6 +402,83 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(restored.cards, before.cards, "категория вернулась не полностью");
   });
 
+  /* Пустой экран «Задач» обещает словами: «задачи с дедлайном попадут в календарь».
+     Для ЛИЧНЫХ задач это не выполнялось ни разу — календарь собирал события только
+     из сделок. А личная задача это ровно тот вид, который заводят без открытой
+     сделки (и который ставит себе исполнитель на съёмке).
+
+     Здесь же второе: «+ Задача» на дне. Раньше «+» в ячейке звал createTask() —
+     задача уходила в ТЕКУЩУЮ сделку (а без открытой — в несохранённую рабочую
+     копию), и человека уносило с календаря на «Задачи проекта». */
+  await test("календарь: личная задача с дедлайном видна в дне, «+ Задача» не уводит с экрана", async () => {
+    const own = await bootLocal(browser, baseUrl, { width: 1280, height: 900, seedDemo: true });
+    try {
+      const day = await own.page.evaluate(() => {
+        const d = new Date(); d.setDate(d.getDate() + 2);
+        const iso = d.toISOString().slice(0, 10);
+        window.app.createGlobalTask();
+        window.app.setTaskModalField("title", "Забрать камеру из проката");
+        window.app.setTaskModalField("deadline", iso);
+        window.app.saveTaskModal();
+        return iso;
+      });
+      await own.page.waitForTimeout(400);
+      await own.page.evaluate((d) => { window.app.go("global-calendar"); window.app.calSelectDay(d); }, day);
+      await own.page.waitForTimeout(600);
+
+      const shown = await own.page.evaluate(() => ({
+        inDayPanel: [...document.querySelectorAll(".cal-day-panel .cal-day-event-info h4")].map((h) => h.textContent.trim()),
+        panelSub: [...document.querySelectorAll(".cal-day-panel .cal-day-event-info p")].map((p) => p.textContent.trim()),
+      }));
+      assert(shown.inDayPanel.includes("Забрать камеру из проката"),
+        "личной задачи нет в её дне: " + JSON.stringify(shown.inDayPanel));
+      assert(shown.panelSub.some((t) => /Личная задача/.test(t)),
+        "личная задача не подписана как личная — не отличить от проектной");
+
+      // Клик по ней открывает саму задачу, а не уводит в чужой проект
+      await own.page.evaluate(() => {
+        const row = [...document.querySelectorAll(".cal-day-panel .cal-day-event-row")]
+          .find((r) => /Забрать камеру/.test(r.innerText));
+        row.click();
+      });
+      await own.page.waitForTimeout(500);
+      // Название задачи лежит в input, а не в тексте — innerText его не видит.
+      const opened = await own.page.evaluate(() => {
+        const box = document.querySelector("#modalContainer .modal-overlay");
+        const vals = box ? [...box.querySelectorAll("input, textarea")].map((i) => i.value) : [];
+        return { open: !!box, vals };
+      });
+      assert(opened.open && opened.vals.some((v) => /Забрать камеру/.test(v || "")),
+        "клик по личной задаче в календаре не открыл её: " + JSON.stringify(opened.vals).slice(0, 120));
+      await own.page.evaluate(() => window.app.closeTaskModal());
+      await own.page.waitForTimeout(300);
+
+      const before = await own.page.evaluate(() => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+        return { deal: (st.tasks || []).length, personal: (st.globalTasks || []).length };
+      });
+      await own.page.evaluate(() => document.querySelector(".cal-day-panel .btn.primary").click());
+      await own.page.waitForTimeout(600);
+      const after = await own.page.evaluate(() => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+        return {
+          view: st.view,
+          deal: (st.tasks || []).length,
+          personal: (st.globalTasks || []).length,
+          newDeadline: (st.globalTasks || [])[0] ? st.globalTasks[0].deadline : null,
+          modalOpen: !!document.querySelector("#modalContainer .modal-overlay"),
+        };
+      });
+      assertEqual(after.deal, before.deal, "«+ Задача» из календаря положила задачу в открытую сделку");
+      assertEqual(after.personal, before.personal + 1, "«+ Задача» не завела личную задачу");
+      assertEqual(after.newDeadline, day, "новая задача встала не на выбранный день");
+      assertEqual(after.view, "global-calendar", "«+ Задача» увела с календаря");
+      assert(after.modalOpen, "новая задача создалась молча — её нечем назвать");
+    } finally {
+      await own.context.close();
+    }
+  });
+
   /* Обещание окна настройки словами: «свои пакеты не пропадают — из скрытой
      категории они переезжают в «Мои пакеты»». Это и есть граница между «убрал с
      глаз» и «потерял свою работу», поэтому проверяем обещание, а не состояние.

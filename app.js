@@ -19062,6 +19062,24 @@
         openGlobalTaskModal(task.id);
       }
 
+      /* Задача с днём из календаря — ЛИЧНАЯ, а не в открытой сделке.
+         Раньше «+» в ячейке звал createTask(), а тот кладёт задачу в state.tasks
+         (задачи ТЕКУЩЕЙ сделки) и уводит на «Задачи проекта». Со стороны человека
+         это два сюрприза разом: задача тихо привязалась к тому, что случайно
+         открыто (а если не открыто ничего — к несохранённой рабочей копии), и
+         календарь, ради которого он сюда пришёл, закрылся.
+         Личная задача определена всегда, остаётся на своём дне (её события мы
+         теперь собираем) и правится тут же в модалке — экран не меняется. */
+      function createGlobalTaskOn(dateIso) {
+        const task = normalizeTask({ title: "Новая задача", status: "Новая", priority: "Средний", deadline: dateIso || "" });
+        if (!Array.isArray(state.globalTasks)) state.globalTasks = [];
+        state.globalTasks.unshift(task);
+        if (dateIso) state.calendarSelectedDay = dateIso;
+        save();
+        render();
+        openGlobalTaskModal(task.id);
+      }
+
       function openGlobalTaskModal(taskId) {
         const task = (state.globalTasks || []).find(t => t.id === taskId);
         if (!task) { toast("Задача не найдена"); return; }
@@ -21010,6 +21028,16 @@
           state.payments.filter(p => p.date).forEach(p => events.push({ date: p.date, title: p.title, type: "payment", project: state.project.name, projectId: state.activeProjectId, amount: p.amount }));
           state.expenses.filter(e => e.date).forEach(e => events.push({ date: e.date, title: e.title, type: "expense", project: state.project.name, projectId: state.activeProjectId, amount: e.amount }));
         }
+        /* Личные задачи (не привязанные к проекту) — тоже события календаря.
+           Их не было здесь ни разу: собирали только сделки, а пустой экран
+           «Задач» при этом обещает словами «задачи с дедлайном попадут в
+           календарь». Личная задача — единственный вид задачи, который заводит
+           человек без открытой сделки (и именно её ставит себе исполнитель на
+           съёмке), то есть обещание не выполнялось ровно в своём случае. */
+        (state.globalTasks || []).filter(t => t.deadline).forEach(t => events.push({
+          date: t.deadline, title: t.title, type: "task", project: "Личная задача",
+          projectId: "", taskId: t.id, personal: true,
+        }));
         (_googleCalEvents || []).forEach(ev => events.push({ date: ev.date, title: ev.title, type: "google", project: "Google Calendar", projectId: "", htmlLink: ev.htmlLink }));
 
         /* Индекс событий по дате */
@@ -21061,12 +21089,13 @@
 
         return `
           <div class="panel">
-            <!-- Шапка. Кнопка «+ Задача» переехала в саму ячейку дня: там она знает,
-                 на какой день ставить задачу, и не требует сперва выбрать день. -->
+            <!-- Шапка. «Наведите на день» тут стояло дословно, а на телефоне навести
+                 нечем: подсказка описывала жест, которого на устройстве нет. Пишем
+                 то, что верно обоими способами ввода. -->
             <div class="cal-header">
               <div class="cal-header-title">
                 <h1>Календарь</h1>
-                <p class="cal-header-sub">Дедлайны, задачи и финансы по всем проектам. Наведите на день, чтобы добавить задачу.</p>
+                <p class="cal-header-sub">Дедлайны, задачи и финансы по всем проектам. Нажмите на день — покажем, что в нём, и добавим задачу.</p>
               </div>
             </div>
 
@@ -21109,7 +21138,7 @@
                 return `
                   <div class="${classes}" onclick="app.calSelectDay('${iso}')" title="${iso}">
                     <span class="cal-day-num">${c.day}</span>
-                    <button class="cal-day-add no-print" onclick="event.stopPropagation();app.createTask('','${iso}')" title="Добавить задачу на ${escapeHtml(formatDate(iso))}" aria-label="Добавить задачу на ${escapeHtml(formatDate(iso))}">
+                    <button class="cal-day-add no-print" onclick="event.stopPropagation();app.createGlobalTaskOn('${iso}')" title="Добавить задачу на ${escapeHtml(formatDate(iso))}" aria-label="Добавить задачу на ${escapeHtml(formatDate(iso))}">
                       <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.1 2h1.8v5.1H14v1.8H8.9V14H7.1V8.9H2V7.1h5.1V2z"/></svg>
                     </button>
                     <div class="cal-dots">
@@ -21135,19 +21164,26 @@
             <!-- Selected day panel -->
             ${selDay ? `
               <div class="cal-day-panel">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
                   <h3 style="margin:0;font-size:15px">${formatDate(selDay)}${selDay === today ? " — Сегодня" : ""}</h3>
-                  <button class="btn small" onclick="app.calSelectDay('')">${icon("close", 13)}</button>
+                  ${/* Подписанная кнопка вместо «+» в ячейке: на телефоне это
+                        единственный путь завести задачу на день, а на мыши —
+                        второй, читаемый (у «+» в ячейке подписи нет вовсе). */""}
+                  <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto">
+                    <button class="btn small primary" onclick="app.createGlobalTaskOn('${selDay}')"
+                      title="Своя задача на ${escapeHtml(formatDate(selDay))}">+ Задача</button>
+                    <button class="btn small" onclick="app.calSelectDay('')" aria-label="Закрыть день">${icon("close", 13)}</button>
+                  </div>
                 </div>
                 ${selEvents.length ? selEvents.map(ev => `
-                  <div class="cal-day-event-row" style="cursor:${ev.projectId || ev.htmlLink ? "pointer" : "default"}"
-                    onclick="${ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : ev.htmlLink ? `window.open('${escapeHtml(ev.htmlLink)}','_blank')` : ""}">
+                  <div class="cal-day-event-row" style="cursor:${ev.projectId || ev.taskId || ev.htmlLink ? "pointer" : "default"}"
+                    onclick="${ev.personal && ev.taskId ? `app.openGlobalTaskModal('${ev.taskId}')` : ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : ev.htmlLink ? `window.open('${escapeHtml(ev.htmlLink)}','_blank')` : ""}">
                     <div class="cal-day-event-type" style="background:${typeColor[ev.type]}"></div>
                     <div class="cal-day-event-info">
                       <h4>${escapeHtml(ev.title)}</h4>
                       <p>${escapeHtml(ev.project || "")}${ev.amount ? ` · ${money(ev.amount)}` : ""} · <span style="color:${typeTextColor[ev.type]};font-weight:750">${typeLabel[ev.type] || ""}</span></p>
                     </div>
-                    ${ev.projectId || ev.htmlLink ? `<span class="u-meta">→</span>` : ""}
+                    ${ev.projectId || ev.taskId || ev.htmlLink ? `<span class="u-meta">→</span>` : ""}
                   </div>
                 `).join("") : emptyState({ icon: "calendar", size: "sm", text: "Событий нет" })}
               </div>
@@ -21193,8 +21229,8 @@
                     const isToday = ev.date === today;
                     const isPast = ev.date < today;
                     return `
-                    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid ${isToday ? "rgb(var(--primary-rgb) / .4)" : "var(--line)"};cursor:${ev.projectId ? "pointer" : "default"};transition:.12s"
-                      onclick="${ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : ev.htmlLink ? `window.open('${escapeHtml(ev.htmlLink)}','_blank')` : `app.calSelectDay('${ev.date}')`}">
+                    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid ${isToday ? "rgb(var(--primary-rgb) / .4)" : "var(--line)"};cursor:${ev.projectId || ev.taskId ? "pointer" : "default"};transition:.12s"
+                      onclick="${ev.personal && ev.taskId ? `app.openGlobalTaskModal('${ev.taskId}')` : ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : ev.htmlLink ? `window.open('${escapeHtml(ev.htmlLink)}','_blank')` : `app.calSelectDay('${ev.date}')`}">
                       <div style="width:8px;height:8px;border-radius:50%;background:${typeColor[ev.type]};flex:0 0 8px"></div>
                       <div class="u-flex1-min0">
                         ${/* title — то же лечение, что у названия сделки в таблице
@@ -27475,6 +27511,7 @@ Email: _____________________              Email: _____________________
         saveTaskModal,
 
         createGlobalTask,
+        createGlobalTaskOn,
         openGlobalTaskModal,
         toggleGlobalTaskDone,
         deleteGlobalTask,
