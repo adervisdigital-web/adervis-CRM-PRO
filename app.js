@@ -5545,7 +5545,7 @@
               <div><h1 class="m-0">Профиль</h1><p style="margin:4px 0 0;color:var(--muted)">Аккаунт, подписка и настройки</p></div>
               <div class="toolbar" style="gap:8px">
                 <button class="btn small green" onclick="app.forceSaveToCloud()">${icon("cloud")} Синхронизировать</button>
-                <button class="btn small" onclick="app.adminLogout()">→ Выйти</button>
+                <button class="btn small" onclick="app.adminLogout()">Выйти</button>
               </div>
             </div>
 
@@ -16454,7 +16454,7 @@
                       <div class="deal-list-deadline" style="color:${u&&u.level!=="ok"?u.color:"var(--muted)"}">${project.deadline?formatDate(project.deadline):"—"}</div>
                       <div class="deal-list-actions" onclick="event.stopPropagation()">
                         <button class="btn small" onclick="app.openDealModal('${projectIdSafe}')" title="Редактировать сделку">Ред.</button>
-                        ${nextLabel?`<button class="next-action-btn" onclick="app.advanceCrmStatus('${projectIdSafe}')" title="${nextLabel}" style="font-size:12px;padding:4px 8px">${nextLabel} →</button>`:""}
+                        ${nextLabel?`<button class="next-action-btn" onclick="app.advanceCrmStatus('${projectIdSafe}')" title="${nextLabel}" style="font-size:12px;padding:4px 8px">${nextLabel}</button>`:""}
                       </div>
                     </div>`;
                 }).join("")}
@@ -16595,7 +16595,7 @@
               <strong>${money(d.total)}</strong>
             </div>
             ${hasLines
-              ? `<button class="btn primary full no-print" style="margin-top:14px" onclick="app.go('deal')">Перейти в смету →</button>`
+              ? `<button class="btn primary full no-print" style="margin-top:14px" onclick="app.go('deal')">Перейти в смету</button>`
               : `<p style="margin-top:14px;font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5">Добавьте позиции — итог появится здесь</p>`}
           </aside>
         `;
@@ -17109,7 +17109,7 @@
 
               <div style="display:flex;gap:10px;justify-content:flex-end">
                 <button class="btn" onclick="app.closePackageEditModal()">Закрыть</button>
-                <button class="btn primary" onclick="app.applyPackage('${m.id}');app.closePackageEditModal()">В смету →</button>
+                <button class="btn primary" onclick="app.applyPackage('${m.id}');app.closePackageEditModal()">В смету</button>
                 <button class="btn green" onclick="app.savePackageEdit()">Сохранить</button>
               </div>
             </div>
@@ -17198,7 +17198,7 @@
               ${(pkg.notes || []).length ? `<p class="pkg-note">${escapeHtml(pkg.notes[0])}</p>` : ""}
 
               <div class="pkg-card-actions">
-                <button class="btn primary" style="flex:1" onclick="event.stopPropagation();app.applyPackage('${pkg.id}')">В смету →</button>
+                <button class="btn primary" style="flex:1" onclick="event.stopPropagation();app.applyPackage('${pkg.id}')">В смету</button>
                 <button class="btn" onclick="event.stopPropagation();app.copyPackageCalcLink('${pkg.id}')"
                         title="Скопировать ссылку на публичный расчёт по этому пакету — её можно отправить клиенту">Ссылка клиенту</button>
               </div>
@@ -18765,7 +18765,7 @@
                     <div class="client-list-paid" title="Всего оплачено клиентом">${m.paid ? money(m.paid) : ""}</div>
                     <div class="client-list-debt" title="Долг клиента">${m.debt ? money(m.debt) : ""}</div>
                     <div class="client-list-actions" onclick="event.stopPropagation()">
-                      ${m.count ? `<button class="btn small" onclick="app.openClientDetail('${client.id}')">Проекты →</button>` : ""}
+                      ${m.count ? `<button class="btn small" onclick="app.openClientDetail('${client.id}')">Проекты</button>` : ""}
                     </div>
                   </div>`;
                 }).join("") : `<div style="padding:8px 16px">${clientsEmpty()}</div>`}
@@ -18799,7 +18799,7 @@
                     </div>
                     ${client.note ? `<p style="font-size:12px;margin-top:8px">${escapeHtml(client.note.slice(0,80))}${client.note.length > 80 ? "…" : ""}</p>` : ""}
                     ${m.count ? `<div class="toolbar no-print" style="margin-top:10px">
-                      <button class="btn small" onclick="event.stopPropagation();app.openClientDetail('${client.id}')">Проекты →</button>
+                      <button class="btn small" onclick="event.stopPropagation();app.openClientDetail('${client.id}')">Проекты</button>
                     </div>` : ""}
                   </article>`;
                 }).join("") : clientsEmpty()}
@@ -19288,7 +19288,7 @@
             <span class="status-pill" style="font-size:12px;border-color:${statusColor}55;color:${statusColor}">${escapeHtml(t.status)}</span>
             ${isGlobal
               ? `<button class="icon-del-btn no-print" onclick="event.stopPropagation();app.deleteGlobalTask('${idSafe}')" title="Удалить задачу" aria-label="Удалить">${TRASH_SVG}</button>`
-              : `<span class="u-meta" style="flex:0 0 auto">→</span>`}
+              : ""}
           </div>
         `;
       }
@@ -21040,22 +21040,22 @@
               <div class="fin-card income-card u-pointer" title="Сумма всех поступлений по всем проектам. Нажмите, чтобы открыть список поступлений." onclick="app.setGFinTypeFilter('income');app.setGFinSubTab('transactions')">
                 <h3>Всего получено</h3>
                 <div class="fin-amount">${money(totalIncome)}</div>
-                <div class="fin-sub">по всем проектам →</div>
+                <div class="fin-sub">по всем проектам</div>
               </div>
               <div class="fin-card expense-card u-pointer" title="Сумма всех расходов по всем проектам. Нажмите, чтобы открыть список расходов." onclick="app.setGFinTypeFilter('expense');app.setGFinSubTab('transactions')">
                 <h3>Всего расходов</h3>
                 <div class="fin-amount">${money(totalExpense)}</div>
-                <div class="fin-sub">по всем проектам →</div>
+                <div class="fin-sub">по всем проектам</div>
               </div>
               <div class="fin-card profit-card u-pointer" title="Все поступления минус все расходы. Нажмите, чтобы открыть аналитику." onclick="app.setGFinSubTab('analytics')">
                 <h3>Прибыль</h3>
                 <div class="fin-amount">${money(totalProfit)}</div>
-                <div class="fin-sub">доход − расходы →</div>
+                <div class="fin-sub">доход − расходы</div>
               </div>
               <div class="fin-card ${allDebt > 0 ? "expense-card" : "income-card"} u-pointer" title="Сколько клиенты ещё не заплатили по всем сделкам. Нажмите, чтобы увидеть список должников." onclick="app.setGFinSubTab('receivables')">
                 <h3>Общий долг</h3>
                 <div class="fin-amount" style="color:${allDebt > 0 ? "var(--text-warning)" : "var(--text-success)"}">${money(allDebt)}</div>
-                <div class="fin-sub">кто должен →</div>
+                <div class="fin-sub">кто должен</div>
               </div>
               <div class="fin-card u-pointer" title="Всего операций: поступления и расходы. Нажмите, чтобы открыть все транзакции." onclick="app.setGFinTypeFilter('all');app.setGFinSubTab('transactions')">
                 <h3>Транзакций</h3>
@@ -21536,7 +21536,7 @@
                       <h4>${escapeHtml(ev.title)}</h4>
                       <p>${escapeHtml(ev.project || "")}${ev.amount ? ` · ${money(ev.amount)}` : ""} · <span style="color:${typeTextColor[ev.type]};font-weight:750">${typeLabel[ev.type] || ""}</span></p>
                     </div>
-                    ${ev.projectId || ev.taskId || ev.htmlLink ? `<span class="u-meta">→</span>` : ""}
+                    
                   </div>
                 `).join("") : emptyState({ icon: "calendar", size: "sm", text: "Событий нет" })}
               </div>
@@ -25088,7 +25088,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
                 <div class="u-flex-g8">
-                  ${m.id ? `<button class="btn small" onclick="app.closeClientModal();app.openClientDetail('${m.id}')">Проекты →</button>` : ""}
+                  ${m.id ? `<button class="btn small" onclick="app.closeClientModal();app.openClientDetail('${m.id}')">Проекты</button>` : ""}
                   ${m.id ? `<button class="btn danger small" onclick="app.closeClientModal();app.deleteClient('${m.id}')">${TRASH_SVG} Удалить клиента</button>` : ""}
                 </div>
                 <div class="u-flex-g8">
@@ -27080,7 +27080,7 @@ Email: _____________________              Email: _____________________
                 <h2 style="margin:0">Договор по сделке</h2>
                 <p class="u-meta" style="margin:4px 0 0">Хранится в разделе «Договора» — здесь только договоры этой сделки.</p>
               </div>
-              <button class="btn small no-print" onclick="app.go('contracts')">Все договоры →</button>
+              <button class="btn small no-print" onclick="app.go('contracts')">Все договоры</button>
             </div>
 
             <div class="panel" style="box-shadow:none;background:var(--panel2);padding:14px 16px;margin-bottom:16px">
