@@ -5174,6 +5174,22 @@
       margin: 0 0 22px;
     }
     .confirm-dialog-input { width: 100%; margin: 4px 0 22px; }
+    /* Пояснение и варианты в диалоге ввода. Поле без подписи заставляет гадать,
+       что именно вводят, а повторяющиеся значения (метки, роли) быстрее выбрать,
+       чем набрать. Отступ у поля снимаем, когда под ним идут варианты. */
+    /* Метка аккаунта в админке: амбассадор, партнёр, свой тестовый. Вид —
+       нейтральная пилюля рядом со статусом подписки: это две вещи, по которым
+       аккаунт узнают, и спорить за внимание они не должны. */
+    .admin-tag-pill {
+      padding: 3px 10px; border-radius: var(--r-pill); cursor: pointer;
+      font-size: 12px; font-weight: 700; white-space: nowrap;
+      background: var(--primary-bg); color: var(--primary-text);
+      border: 1px solid rgb(var(--primary-rgb) / .28);
+    }
+    .admin-tag-pill:hover { border-color: var(--primary); }
+    .confirm-dialog-message { margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+    .confirm-dialog-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin: -14px 0 20px; }
+    .confirm-dialog-suggestions .chip { font-size: 12px; }
     .confirm-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
     @media (max-width: 480px) {
       .confirm-dialog-actions { flex-direction: column-reverse; }

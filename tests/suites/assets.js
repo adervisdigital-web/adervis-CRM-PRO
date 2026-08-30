@@ -682,6 +682,39 @@ module.exports = async function ({ test }) {
     assertEqual(noText.length, 0, "письма уходят без текстовой версии: " + noText.join(", "));
   });
 
+  /* Метка аккаунта в админке (просьба владельца 29.08.2026): по ней видно, кто
+     это — амбассадор с подаренным годом, партнёр, свой тестовый аккаунт. Раньше
+     это знание жило в голове и в чатах, а решения принимаются именно по нему.
+
+     Админка не покрывается прогоном в принципе: нужен супер-админ и живой
+     Supabase. Поэтому статически проверяем то, где цена ошибки максимальна —
+     права. Метку читает и пишет ТОЛЬКО супер-админ; открой мы её обычному
+     `update` из браузера, любой пользователь смог бы писать себе в profiles. */
+  await test("метки аккаунтов: пишет и читает только супер-админ", () => {
+    const app = fs.readFileSync(path.join(REPO_ROOT, "app.js"), "utf8");
+    const mig = fs.readFileSync(
+      path.join(REPO_ROOT, "supabase/migrations/20260829000001_admin_user_tag.sql"), "utf8");
+
+    // Обе функции начинаются с проверки прав.
+    const setFn = mig.slice(mig.indexOf("FUNCTION public.admin_set_user_tag"));
+    assert(/_is_super_admin\(\)/.test(setFn), "запись метки не проверяет права супер-админа");
+    const getFn = mig.slice(mig.indexOf("FUNCTION public.admin_get_all_users"), mig.indexOf("FUNCTION public.admin_set_user_tag"));
+    assert(/_is_super_admin\(\)/.test(getFn), "чтение списка пользователей потеряло проверку прав");
+
+    // Нужны ОБА revoke: public даёт право всем ролям скопом, anon — отдельно.
+    assert(/REVOKE ALL ON FUNCTION public\.admin_set_user_tag\(uuid, text\) FROM public/.test(mig), "нет revoke от public");
+    assert(/REVOKE ALL ON FUNCTION public\.admin_set_user_tag\(uuid, text\) FROM anon/.test(mig), "нет revoke от anon");
+
+    // Клиент ходит через RPC, а не пишет в profiles напрямую.
+    assert(/rpc\("admin_set_user_tag"/.test(app), "клиент не зовёт admin_set_user_tag");
+    assert(
+      !/from\("profiles"\)[\s\S]{0,120}\.update\([\s\S]{0,80}admin_tag/.test(app),
+      "метка пишется прямым update в profiles мимо проверки прав"
+    );
+    // И метка видна в списке — иначе смысл теряется.
+    assert(/a\.admin_tag/.test(app), "метка не выводится в списке пользователей");
+  });
+
   /* Клиент оплатил аванс по ссылке КП — деньги пришли на счёт студии, но в
      финансах сделки их не было: вебхук ЮKassa ставит advance_paid_at и шлёт
      уведомление, а поступление не создаёт никто. «Оплачено» по сделке

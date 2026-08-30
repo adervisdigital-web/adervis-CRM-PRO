@@ -4594,6 +4594,35 @@
          закрыть доступ и показать порядок действий, чтобы шаг не забылся. Порядок
          именно такой: сперва вернуть деньги, потом закрывать подписку — человек не
          должен потерять доступ раньше, чем получит деньги. */
+      /* Метки аккаунтов. Набор ролей на этом этапе ещё меняется, поэтому в базе
+         лежит свободный текст, а подсказки живут здесь: витрину дешевле править,
+         чем миграцию. Порядок — по частоте, с какой ими пользуются. */
+      const ADMIN_USER_TAGS = ["Амбассадор", "Партнёр", "Пилот", "Свой аккаунт", "Тест", "Не писать"];
+
+      async function adminSetUserTag(userId) {
+        const current = (_adminAgencies.find(a => String(a.id) === String(userId)) || {}).admin_tag || "";
+        const tag = await promptDialog({
+          title: "Метка аккаунта",
+          message: "По метке видно, кто это: амбассадор с подаренным годом, партнёр, свой тестовый аккаунт. Пустое поле убирает метку.",
+          defaultValue: current,
+          placeholder: "Например: Амбассадор",
+          okText: "Сохранить",
+          suggestions: ADMIN_USER_TAGS,
+        });
+        if (tag === null) return;
+        const { error } = await _supabase.rpc("admin_set_user_tag", {
+          p_user_id: userId,
+          p_tag: String(tag || "").trim(),
+        });
+        if (error) { toast("Не удалось сохранить метку: " + error.message); return; }
+        // Обновляем список на месте: перезагрузка админки стоит трёх запросов,
+        // а изменилось одно поле одной строки.
+        const row = _adminAgencies.find(a => String(a.id) === String(userId));
+        if (row) row.admin_tag = String(tag || "").trim() || null;
+        toast(String(tag || "").trim() ? `Метка: ${String(tag).trim()}` : "Метка убрана");
+        render();
+      }
+
       async function adminRefund(agencyId, email) {
         const ok = await confirmDialog({
           title: "Оформить возврат?",
@@ -4803,6 +4832,13 @@
                           ${a.subscription_plan ? `<span style="font-size:12px;font-weight:600;color:var(--muted)">${_adminPlanLabel(a.subscription_plan)}</span>` : ""}
                           ${a.subscription_expires_at ? `<span style="font-size:12px;color:${isExpired?"var(--text-danger)":"var(--muted)"}">${daysLeft}</span>` : ""}
                           ${!a.email_confirmed ? `<span title="Email не подтверждён" style="font-size:12px;color:var(--yellow);display:inline-flex">${icon("warning", 13)}</span>` : ""}
+                          ${/* Метка аккаунта: амбассадор, партнёр, свой тестовый.
+                                По ней принимаются решения — кому продлевать
+                                бесплатно, кого считать рыночным сигналом, кому не
+                                писать в рассылке, — а держалась она в голове и в
+                                чатах. Стоит рядом со статусом подписки: это две
+                                вещи, по которым аккаунт узнают. */""}
+                          ${a.admin_tag ? `<span class="admin-tag-pill" title="Метка аккаунта — нажмите, чтобы изменить" onclick="app.adminSetUserTag('${aid}')">${escapeHtml(a.admin_tag)}</span>` : ""}
                         </div>
                         <!-- Actions -->
                         ${/* flex-wrap обязателен: у истёкшего аккаунта в ряду пять
@@ -4821,6 +4857,7 @@
                                   пользуется человек или нет, а не править ему подписку. */""}
                             <button class="btn small ${_adminActivity && _adminActivity.agencyId === (a.agency_id||"") ? "primary" : ""}" onclick="app.adminToggleActivity('${aid}')" title="Что человек делает внутри: сделки, сметы, КП" aria-label="Активность аккаунта">${icon("chart", 13)}</button>
                             <button class="btn small" onclick="app.adminExtendTrial('${aid}')" title="+14 дней к триалу">+14д</button>
+                            <button class="btn small" onclick="app.adminSetUserTag('${aid}')" title="${a.admin_tag ? "Метка: " + escapeHtml(a.admin_tag) + " — изменить" : "Пометить аккаунт: амбассадор, партнёр, тест…"}" aria-label="Метка аккаунта">${icon("star", 13)}</button>
                             <button class="btn small" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Изменить подписку" aria-label="Изменить подписку">${icon("pencil")}</button>
                             ${ast === "active" ? `<button class="btn small" onclick="app.adminRefund('${aid}','${escapeHtml(a.email||"")}')" title="Оформить возврат: закрыть подписку и вернуть деньги в ЮKassa">Возврат</button>` : ""}
                             <button class="btn small ${isBlocked?"green":"danger"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}" aria-label="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?icon("unlock"):icon("lock")}</button>
@@ -7934,16 +7971,37 @@
           overlay.setAttribute("role", "dialog");
           overlay.setAttribute("aria-modal", "true");
           if (title) overlay.setAttribute("aria-label", title);
+          /* message и suggestions — необязательные. Подсказка объясняет, что
+             именно вводят (у голого поля это приходится угадывать), а варианты
+             избавляют от набора руками там, где значения повторяются: метки
+             аккаунтов, роли, короткие статусы. */
+          const message = opts.message ? String(opts.message) : "";
+          const suggestions = Array.isArray(opts.suggestions) ? opts.suggestions.filter(Boolean) : [];
           overlay.innerHTML =
             '<div class="modal-box confirm-dialog-box" tabindex="-1">' +
               (title ? '<h2 class="u-title-20 confirm-dialog-title">' + escapeHtml(title) + '</h2>' : '') +
+              (message ? '<p class="confirm-dialog-message">' + escapeHtml(message) + '</p>' : '') +
               '<input type="text" class="confirm-dialog-input" value="' + escapeHtml(defVal) + '" placeholder="' + escapeHtml(placeholder) + '">' +
+              (suggestions.length
+                ? '<div class="confirm-dialog-suggestions">' +
+                    suggestions.map(s => '<button type="button" class="chip" data-suggest="' + escapeHtml(s) + '">' + escapeHtml(s) + '</button>').join('') +
+                  '</div>'
+                : '') +
               '<div class="confirm-dialog-actions">' +
                 '<button type="button" class="btn confirm-cancel">' + escapeHtml(cancelText) + '</button>' +
                 '<button type="button" class="btn primary confirm-ok">' + escapeHtml(okText) + '</button>' +
               '</div>' +
             '</div>';
           const input = overlay.querySelector(".confirm-dialog-input");
+          // Клик по варианту заполняет поле, но НЕ отправляет: человек может
+          // дописать своё («Амбассадор · Пермь»), а закрыть диалог случайным
+          // касанием подсказки было бы обидно.
+          overlay.querySelectorAll("[data-suggest]").forEach(btn => {
+            btn.addEventListener("click", () => {
+              input.value = btn.getAttribute("data-suggest") || "";
+              input.focus();
+            });
+          });
           const done = result => {
             document.removeEventListener("keydown", onKey, true);
             overlay.remove();
@@ -27769,6 +27827,7 @@ Email: _____________________              Email: _____________________
         adminExtendTrial,
         adminToggleBlock,
         adminRefund,
+        adminSetUserTag,
         adminMarkRefund,
         adminToggleActivity,
         _setExpenseBudget,
