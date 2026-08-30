@@ -621,10 +621,21 @@ module.exports = async function ({ browser, baseUrl, test }) {
         };
       });
       assertEqual(after.deal, before.deal, "«+ Задача» из календаря положила задачу в открытую сделку");
-      assertEqual(after.personal, before.personal + 1, "«+ Задача» не завела личную задачу");
-      assertEqual(after.newDeadline, day, "новая задача встала не на выбранный день");
+      /* С 29.08.2026 «+ Задача» открывает ЧЕРНОВИК: окно сразу, запись — по
+         «Создать». Поэтому сразу после клика в списке ещё пусто, а задача
+         появляется после сохранения — и обязана встать на выбранный день. */
+      assertEqual(after.personal, before.personal, "черновик записался в список до сохранения");
       assertEqual(after.view, "global-calendar", "«+ Задача» увела с календаря");
-      assert(after.modalOpen, "новая задача создалась молча — её нечем назвать");
+      assert(after.modalOpen, "окно новой задачи не открылось — её нечем назвать");
+
+      await own.page.evaluate(() => { window.app.setTaskModalField("title", "Из календаря"); window.app.saveTaskModal(); });
+      await own.page.waitForTimeout(500);
+      const saved = await own.page.evaluate(() => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+        return { personal: (st.globalTasks || []).length, deadline: (st.globalTasks || [])[0] ? st.globalTasks[0].deadline : null };
+      });
+      assertEqual(saved.personal, before.personal + 1, "задача не создалась по «Создать»");
+      assertEqual(saved.deadline, day, "новая задача встала не на выбранный день");
     } finally {
       await own.context.close();
     }
@@ -1156,6 +1167,47 @@ module.exports = async function ({ browser, baseUrl, test }) {
     // Реквизиты сторон: то, что продукт знает, печатается, а не спрашивается ручкой.
     assert(res.body.includes("590000000000"), "ИНН студии не попал в реквизиты договора");
     assert(res.body.includes("hello@polet.ru"), "почта студии не попала в реквизиты договора");
+  });
+
+  /* «+ Задача» открывает окно, а задача появляется только по «Создать». Раньше
+     болванка «Новая задача» падала в список ДО открытия модалки: закрыл окно —
+     убирай за собой. Просьба владельца 29.08.2026 — «задача должна открываться
+     окном сразу, чтобы быстро создавать».
+
+     Проверяем оба конца: отмена не оставляет следа, сохранение создаёт задачу с
+     введённым названием. */
+  await test("новая задача: окно сразу, запись — только по «Создать»", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await bootWithState(`st.globalTasks = [];`);
+    await p.evaluate(() => window.app.go("global-tasks"));
+    await p.waitForTimeout(300);
+
+    const KEY = "adervis_pro_381_state";
+    const count = () => p.evaluate((k) => (JSON.parse(localStorage.getItem(k) || "{}").globalTasks || []).length, KEY);
+
+    await p.evaluate(() => window.app.createGlobalTask());
+    await p.waitForTimeout(350);
+    const opened = await p.evaluate(() => !!document.querySelector(".task-modal-box"));
+    assert(opened, "окно новой задачи не открылось");
+    assertEqual(await count(), 0, "задача записалась в список ещё до сохранения");
+
+    // Отмена — следа не остаётся.
+    await p.evaluate(() => window.app.closeTaskModal());
+    await p.waitForTimeout(300);
+    await dismissStaleDialog(p);
+    assertEqual(await count(), 0, "после отмены в списке осталась болванка «Новая задача»");
+
+    // Создание — задача появляется с тем именем, что ввели.
+    await p.evaluate(() => {
+      window.app.createGlobalTask();
+      window.app.setTaskModalField("title", "Позвонить оператору");
+      window.app.saveTaskModal();
+    });
+    await p.waitForTimeout(400);
+    assertEqual(await count(), 1, "задача не создалась по «Создать»");
+    const title = await p.evaluate((k) => (JSON.parse(localStorage.getItem(k) || "{}").globalTasks || [])[0].title, KEY);
+    assertEqual(title, "Позвонить оператору", "у созданной задачи не то название");
+    await ctx.close();
   });
 
   /* Раздел «Задачи» умеет два вида: список (что горит) и доска по статусам (где
@@ -1935,7 +1987,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
     // обработчик, а не кликаем: закрытие модалки спрашивает «Закрыть окно?» и
     // диалог остаётся висеть поверх следующих тестов.
     assert(await page.evaluate(() =>
-      /openClientModal\('[^']+'\)/.test(document.querySelector(".client-list-row").getAttribute("onclick") || "")),
+      /openClientModal\('[^']+'\)/.test(document.querySelector(".client-list-row:not(.client-list-head)").getAttribute("onclick") || "")),
       "строка списка не открывает карточку клиента");
 
     await page.evaluate(() => window.app.setClientsView("grid"));

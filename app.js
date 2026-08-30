@@ -18739,6 +18739,21 @@
               <button class="btn small" onclick="app.openClientModal('')">${icon("plus", 13)} Новый клиент</button>
             </div>
             <div class="panel" style="padding:0;overflow:hidden">
+              ${/* Шапка таблицы. Без неё список читался как набор чисел: две суммы
+                    подряд — зелёная и оранжевая — и догадайся, где оплачено, а где
+                    долг. Подсказка была только в title, а его на телефоне нет.
+                    Классы те же, что у строк, поэтому колонки совпадают по ширине
+                    сами: вторая сетка рассыпалась бы при первой же правке. */""}
+              ${filteredClients.length ? `
+                <div class="client-list-row client-list-head" aria-hidden="true">
+                  <span class="status-pill" style="visibility:hidden">—</span>
+                  <div class="client-list-name">Клиент</div>
+                  <div class="client-list-company">Компания</div>
+                  <div class="client-list-deals">Сделок</div>
+                  <div class="client-list-paid">Оплачено</div>
+                  <div class="client-list-debt">Долг</div>
+                  <div class="client-list-actions"></div>
+                </div>` : ""}
               ${filteredClients.length ? filteredClients.map(client => {
                   const m = clientMoney(client);
                   return `
@@ -19297,12 +19312,22 @@
         _debouncedSearchRender();
       }
 
-      function createGlobalTask() {
-        const task = normalizeTask({ title: "Новая задача", status: "Новая", priority: "Средний" });
-        if (!Array.isArray(state.globalTasks)) state.globalTasks = [];
-        state.globalTasks.unshift(task);
-        save();
-        openGlobalTaskModal(task.id);
+      /* Окно открывается СРАЗУ, а задача появляется в списке только по
+         «Сохранить». Раньше было наоборот: сначала в список падала болванка
+         «Новая задача», потом открывалась модалка — и если человек передумал и
+         закрыл окно, болванка оставалась. Быстро завести задачу («+» → «Задача»)
+         значило каждый раз убирать за собой мусор.
+
+         Признак черновика — _isNew на модалке: по нему _commitTaskModal знает,
+         что задачу нужно создать, а не искать в списке. */
+      function createGlobalTask(deadline) {
+        state.taskModalSource = "global";
+        state.taskModal = normalizeTask({
+          title: "", status: "Новая", priority: "Средний", deadline: deadline || "",
+        });
+        state.taskModal._isNew = true;
+        _armDirtyCheck(state.taskModal);
+        renderModal();
       }
 
       /* Задача с днём из календаря — ЛИЧНАЯ, а не в открытой сделке.
@@ -19314,13 +19339,11 @@
          Личная задача определена всегда, остаётся на своём дне (её события мы
          теперь собираем) и правится тут же в модалке — экран не меняется. */
       function createGlobalTaskOn(dateIso) {
-        const task = normalizeTask({ title: "Новая задача", status: "Новая", priority: "Средний", deadline: dateIso || "" });
-        if (!Array.isArray(state.globalTasks)) state.globalTasks = [];
-        state.globalTasks.unshift(task);
+        // Тот же черновик, что и «+ Задача», только с датой выбранного дня:
+        // болванка в списке не появляется, пока человек не сохранит.
         if (dateIso) state.calendarSelectedDay = dateIso;
-        save();
         render();
-        openGlobalTaskModal(task.id);
+        createGlobalTask(dateIso || "");
       }
 
       function openGlobalTaskModal(taskId) {
@@ -25627,6 +25650,17 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const m = state.taskModal;
         if (!m) return null;
         const list = _taskModalList();
+        /* Черновик новой задачи: её ещё нет в списке — создаём здесь, по
+           «Сохранить». Без имени задача бессмысленна, поэтому пустое название
+           заменяем на «Новая задача», а не отказываем: человек мог открыть окно,
+           поставить срок и нажать сохранить. */
+        if (m._isNew) {
+          const created = normalizeTask({ ...m, title: String(m.title || "").trim() || "Новая задача" });
+          delete created._isNew;
+          list.unshift(created);
+          if (created.status === "Готово") _maybeRepeatTask(created, list);
+          return created;
+        }
         const idx = list.findIndex(t => t.id === m.id);
         if (idx < 0) return null;
         const wasDone = list[idx].status === "Готово";
@@ -25636,8 +25670,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       }
 
       function saveTaskModal() {
+        const wasNew = !!(state.taskModal && state.taskModal._isNew);
         const persisted = _commitTaskModal();
-        if (persisted) toast("Задача обновлена");
+        if (persisted) toast(wasNew ? "Задача создана" : "Задача обновлена");
         state.taskModal = null;
         save();
         render();
@@ -25686,7 +25721,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           <div class="modal-overlay task-modal-overlay" onclick="event.target===this&&app.closeTaskModal()">
             <div class="task-modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-                <h2 style="margin:0;font-size:18px">Задача</h2>
+                <h2 style="margin:0;font-size:18px">${m._isNew ? "Новая задача" : "Задача"}</h2>
                 <button onclick="app.closeTaskModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
               <div class="field" style="margin-bottom:12px">
@@ -25739,7 +25774,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <div style="display:flex;justify-content:flex-end;gap:8px">
                 <button class="btn" onclick="app.closeTaskModal()">Отмена</button>
         ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn" class="btn" onclick="app.syncTaskModalToGoogle()">${_myGoogleEventId(m) ? "Обновить в Google Calendar" : "В Google Calendar"}</button>` : ""}
-                <button class="btn primary" onclick="app.saveTaskModal()">Сохранить</button>
+                <button class="btn primary" onclick="app.saveTaskModal()">${m._isNew ? "Создать" : "Сохранить"}</button>
               </div>
             </div>
           </div>

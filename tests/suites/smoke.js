@@ -176,7 +176,12 @@ module.exports = async function ({ browser, baseUrl, test }) {
       const st = () => JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
       const t0 = (st().globalTasks || []).length;
       window.app.go("global-tasks");
+      // «+ Задача» открывает черновик в окне (с 29.08.2026): задача попадает в
+      // список по «Создать». Offline это не меняет, но шагов теперь два.
       window.app.createGlobalTask();
+      await new Promise((r) => setTimeout(r, 250));
+      window.app.setTaskModalField("title", "Задача с выезда");
+      window.app.saveTaskModal();
       await new Promise((r) => setTimeout(r, 350));
       res.task = (st().globalTasks || []).length - t0;
 

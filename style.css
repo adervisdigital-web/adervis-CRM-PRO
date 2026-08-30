@@ -3269,6 +3269,22 @@
       border-bottom: 1px solid var(--line); cursor: pointer; transition: background var(--dur-1);
     }
     .client-list-row:last-child { border-bottom: none; }
+    /* Шапка таблицы клиентов: те же классы колонок, что у строк, поэтому ширины
+       совпадают сами. Не кликается и не подсвечивается — это подпись, а не
+       строка данных. */
+    .client-list-head {
+      cursor: default; background: var(--panel2);
+      font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .client-list-head:hover { background: var(--panel2); }
+    .client-list-head .client-list-name,
+    .client-list-head .client-list-company,
+    .client-list-head .client-list-deals,
+    .client-list-head .client-list-paid,
+    .client-list-head .client-list-debt {
+      font-size: 11px; font-weight: 800; color: var(--muted);
+    }
     .client-list-row:hover { background: var(--panel2); }
     .client-list-row .status-pill { flex: 0 0 90px; text-align: center; justify-content: center; }
     .client-list-name { font-size: 14px; font-weight: 600; flex: 1 1 150px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -7634,6 +7650,50 @@ button.is-busy::before {
     width: auto !important;
     min-width: 110px;
   }
+}
+
+/* ── Карточка каталога: одна высота в ряду и внятное наведение ──────────────
+   Высота «плясала»: описание бывает в одну строку и в три, у части позиций есть
+   бейдж «Расходы», у части нет — и в ряду под короткой карточкой оставалась
+   дыра до низа соседней (скриншот владельца 29.08.2026).
+
+   Лечим не подгонкой высот, а строением карточки: она растягивается на всю
+   ячейку сетки, содержимое сверху, ряд действий прижат к низу. Тогда кнопки
+   «Добавить» стоят на одной линии во всём ряду — именно по ним глаз и ведёт.
+   Описание везде две строки (на телефоне так было и раньше): третья и
+   четвёртая не помогают выбрать, а высоту рвут. */
+.item--catalog {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.item--catalog > .item-top { flex: 1 1 auto; }
+/* Ряд действий — всегда у нижнего края карточки. */
+.item--catalog > .no-print:last-child { margin-top: auto; }
+.item--catalog .item-top p {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Наведение: карточка чуть приподнимается, рамка берёт акцентный цвет, под ней
+   мягкая тень того же тона. Не заливка — заливка спорит с ценой и бейджами,
+   а тень поднимает карточку над списком и сразу показывает, что она кликабельна. */
+.item--catalog {
+  transition: transform var(--dur-2), box-shadow var(--dur-2), border-color var(--dur-2);
+}
+.item--catalog:hover {
+  transform: translateY(-2px);
+  border-color: rgb(var(--primary-rgb) / .55);
+  box-shadow: 0 8px 22px -10px rgb(var(--primary-rgb) / .45);
+}
+.item--catalog:active { transform: translateY(0); }
+/* Выбранной карточке подъём не нужен: она и так выделена рамкой и фоном, а
+   прыжок под курсором мешает целиться в «−/+». */
+.item--catalog.selected:hover { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .item--catalog { transition: none; }
+  .item--catalog:hover { transform: none; }
 }
 
 /* Карточка каталога на телефоне: цена остаётся В ОДНОЙ СТРОКЕ с названием, а не
