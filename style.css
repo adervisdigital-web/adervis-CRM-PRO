@@ -5201,6 +5201,37 @@
     /* Бюджет клиента в шапке сметы — кнопка, а не подпись: его называют один
        раз в мастере, а менять и убирать приходится по ходу проекта. Вид как у
        соседних показателей, чтобы шапка не рассыпалась на разнородные блоки. */
+    /* Доска задач: та же сетка, что у канбана сделки, — раздел «Задачи» и
+       мини-канбан внутри сделки должны читаться как одно место, а не как две
+       разные программы. Колонки прокручиваются вбок на узком экране. */
+    .gtask-board {
+      display: grid; grid-auto-flow: column; grid-auto-columns: minmax(230px, 1fr);
+      gap: 12px; overflow-x: auto; padding-bottom: 4px;
+    }
+    .gtask-board-col {
+      background: var(--panel2); border: 1px solid var(--line);
+      border-radius: var(--r-xl); padding: 12px; min-width: 0;
+    }
+    .gtask-board-col h3 {
+      display: flex; align-items: center; gap: 8px;
+      margin: 0 0 10px; font-size: 14px;
+    }
+    .gtask-board-list { display: flex; flex-direction: column; gap: 8px; }
+    .gtask-board-empty {
+      padding: 18px 8px; text-align: center; font-size: 12px; color: var(--muted);
+      border: 1px dashed var(--line); border-radius: var(--r-lg);
+    }
+    .gtask-card {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: var(--r-lg); padding: 10px 12px; cursor: pointer;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .gtask-card:hover { border-color: var(--primary); }
+    .gtask-card.done { opacity: .6; }
+    .gtask-card.done .gtask-card-title { text-decoration: line-through; }
+    .gtask-card-top { display: flex; align-items: flex-start; gap: 8px; }
+    .gtask-card-title { font-size: 13px; font-weight: 600; line-height: 1.35; min-width: 0; overflow-wrap: anywhere; }
+    .gtask-card-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
     .client-budget-chip {
       display: flex; flex-direction: column; gap: 1px; align-items: flex-start;
       padding: 4px 12px; border: 0; border-left: 1px solid var(--line);

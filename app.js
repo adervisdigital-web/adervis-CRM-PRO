@@ -7230,6 +7230,10 @@
           // Показывать ли в списке задачи закрытых сделок (архив, завершённые).
           // По умолчанию нет: они не работа, а история, и вечно висели в «Просрочено».
           globalTaskShowClosed: false,
+          // Вид раздела «Задачи»: список или доска по статусам. По умолчанию
+          // список — он плотнее и отвечает на вопрос «что горит», а доска нужна,
+          // когда смотрят на распределение работы.
+          globalTaskView: "list",
           payments: [],
           expenses: [],
           team: [],
@@ -19087,6 +19091,9 @@
           return da < db ? -1 : da > db ? 1 : 0;
         });
 
+        /* Доска и список — один и тот же набор задач, разная подача: список
+           отвечает «что горит», доска — «где стоит работа». */
+        const boardView = (state.globalTaskView || "list") === "board";
         const projectOpts = (state.savedProjects || []).map(p => ({ id: p.id, name: p.name || "Без названия" }));
         const statusChips = [{ id: "active", label: "Активные" }, { id: "all", label: "Все" }, ...TASK_STATUSES.map(s => ({ id: s, label: s }))];
 
@@ -19128,8 +19135,16 @@
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                 <input id="globalTaskSearch" class="catalog-search-input" type="search" aria-label="Поиск по задачам" value="${escapeHtml(state.globalTaskSearch || "")}" oninput="app.setGlobalTaskSearch(this.value)" placeholder="Поиск: монтаж, Анна, проект…">
               </div>
-              <div class="gtask-chips">
+              ${/* На доске колонки И ЕСТЬ статусы — фильтр по статусу там лишний
+                    и вводил бы в заблуждение: выбрал «В работе» и видишь доску с
+                    одной непустой колонкой. Поиск и фильтр по проекту работают в
+                    обоих видах. */""}
+              ${boardView ? "" : `<div class="gtask-chips">
                 ${statusChips.map(c => `<button class="chip ${effStatus === c.id ? "active" : ""}" onclick="app.setGlobalTaskFilter('status','${c.id}')">${escapeHtml(c.label)}</button>`).join("")}
+              </div>`}
+              <div class="deal-view-toggle no-print" role="group" aria-label="Вид задач">
+                <button class="deal-view-btn ${boardView ? "" : "active"}" onclick="app.setGlobalTaskView('list')" title="Списком — плотно, по срокам" aria-label="Показать задачи списком">${icon("list", 14)}</button>
+                <button class="deal-view-btn ${boardView ? "active" : ""}" onclick="app.setGlobalTaskView('board')" title="Доской — по статусам" aria-label="Показать задачи доской">${icon("grid", 14) || icon("clipboard", 14)}</button>
               </div>
               <select class="gtask-project-select" title="Фильтр по проекту" aria-label="Фильтр задач по проекту" onchange="app.setGlobalTaskFilter('project',this.value)">
                 <option value="all" ${projectFilter === "all" ? "selected" : ""}>Все проекты</option>
@@ -19139,13 +19154,28 @@
               ${total ? `<button class="btn small gtask-add" onclick="app.createGlobalTask()" title="Личная задача, не привязанная к проекту">${icon("plus", 13)} Своя задача</button>` : ""}
             </div>
 
-            ${filtered.length ? `<div class="gtask-list">
+            ${filtered.length ? (boardView ? `<div class="gtask-board">
+              ${TASK_STATUSES.map(status => {
+                const inCol = filtered.filter(r => (r.task.status || "Новая") === status);
+                return `
+                  <div class="gtask-board-col">
+                    <h3>
+                      <span><span class="kanban-col-name">${escapeHtml(status)}</span> <span class="pill-count">${inCol.length}</span></span>
+                    </h3>
+                    <div class="gtask-board-list">
+                      ${inCol.length
+                        ? inCol.map(renderGlobalTaskCard).join("")
+                        : `<div class="gtask-board-empty">Пусто</div>`}
+                    </div>
+                  </div>`;
+              }).join("")}
+            </div>` : `<div class="gtask-list">
               ${shownTasks.map(renderGlobalTaskRow).join("")}
             </div>
             ${tasksHidden > 0 ? `<div class="show-more-row no-print">
               <button class="btn" onclick="app.tasksShowMore()">Показать ещё ${Math.min(TASKS_PAGE_SIZE, tasksHidden)} · осталось ${tasksHidden}</button>
-            </div>` : ""}
-            ${closedTasksNote}` : (taskQuery
+            </div>` : ""}`)
+            + closedTasksNote : (taskQuery
               ? emptyState({
                   icon: "search",
                   title: "Ничего не нашлось",
@@ -19172,6 +19202,43 @@
                 }))}
           </div>
         `;
+      }
+
+      /* Карточка задачи для доски. Тот же смысл, что у строки списка, но короче:
+         на доске четыре колонки в ряд, и длинная строка со всеми полями там не
+         помещается. Оставлено то, по чему задачу узнают и решают, браться ли:
+         название, чей это проект и срок. Действия ровно те же, что в списке —
+         иначе два вида одного раздела вели бы себя по-разному. */
+      function renderGlobalTaskCard(row) {
+        const t = row.task;
+        const u = t.deadline ? deadlineUrgency(t.deadline) : null;
+        const done = t.status === "Готово";
+        const isGlobal = row.kind === "global";
+        const idSafe = t.id.replace(/'/g, "");
+        const projSafe = (row.projectId || "").replace(/'/g, "");
+        const clickAction = isGlobal ? `app.openGlobalTaskModal('${idSafe}')` : `app.openDealTasks('${projSafe}')`;
+        const toggleAction = isGlobal
+          ? `app.toggleGlobalTaskDone('${idSafe}')`
+          : `app.toggleProjectTaskDone('${projSafe}','${idSafe}')`;
+        return `
+          <article class="gtask-card ${done ? "done" : ""}" onclick="${clickAction}" title="${isGlobal ? "Открыть задачу" : "Открыть в проекте"}">
+            <div class="gtask-card-top">
+              <button class="gtask-check ${done ? "checked" : ""}" onclick="event.stopPropagation();${toggleAction}"
+                title="${done ? "Вернуть в работу" : "Отметить готово"}" aria-label="Готово">${done ? "✓" : ""}</button>
+              <div class="gtask-card-title">${escapeHtml(t.title)}</div>
+            </div>
+            <div class="gtask-card-meta">
+              <span class="gtask-project ${isGlobal ? "personal" : ""}">${isGlobal ? "Личная" : escapeHtml(row.projectName)}</span>
+              ${row.dealClosed ? `<span class="gtask-closed-mark" title="Сделка закрыта">закрыта</span>` : ""}
+              ${t.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"};font-weight:${u && u.level !== "ok" ? 700 : 400}">${formatDate(t.deadline)}</span>` : ""}
+            </div>
+          </article>`;
+      }
+
+      function setGlobalTaskView(view) {
+        state.globalTaskView = view === "board" ? "board" : "list";
+        save();
+        render();
       }
 
       function renderGlobalTaskRow(row) {
@@ -27849,6 +27916,7 @@ Email: _____________________              Email: _____________________
         toggleProjectTaskDone,
         deleteGlobalTask,
         setGlobalTaskFilter,
+        setGlobalTaskView,
         toggleTasksShowClosed,
         setGlobalTaskSearch,
 

@@ -1158,6 +1158,58 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(res.body.includes("hello@polet.ru"), "почта студии не попала в реквизиты договора");
   });
 
+  /* Раздел «Задачи» умеет два вида: список (что горит) и доска по статусам (где
+     стоит работа). Просьба владельца 29.08.2026 — «удобный задачник с
+     переключением вида», как мини-канбан внутри сделки.
+
+     Проверяем то, что легко сломать: доска показывает ТЕ ЖЕ задачи, что список,
+     и раскладывает их по своим колонкам. Пустая доска или задача не в той
+     колонке — обе ошибки молчаливые. */
+  await test("«Задачи»: доска показывает те же задачи, что список, по своим статусам", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await bootWithState(`
+      st.globalTasks = [
+        { id: "gt1", title: "Личная — новая", status: "Новая", priority: "Средний", comments: [] },
+        { id: "gt2", title: "Личная — в работе", status: "В работе", priority: "Средний", comments: [] },
+        { id: "gt3", title: "Личная — готова", status: "Готово", priority: "Средний", comments: [] },
+      ];
+    `);
+
+    await p.evaluate(() => { window.app.go("global-tasks"); window.app.setGlobalTaskFilter("status", "all"); });
+    await p.waitForTimeout(400);
+    const list = await p.evaluate(() => document.querySelectorAll(".gtask-row").length);
+    assert(list >= 3, "в списке нет подсунутых задач: " + list);
+
+    await p.evaluate(() => window.app.setGlobalTaskView("board"));
+    await p.waitForTimeout(400);
+    const board = await p.evaluate(() => {
+      const cols = [...document.querySelectorAll(".gtask-board-col")].map((c) => ({
+        name: (c.querySelector(".kanban-col-name")?.textContent || "").trim(),
+        cards: [...c.querySelectorAll(".gtask-card")].map((x) => (x.querySelector(".gtask-card-title")?.textContent || "").trim()),
+      }));
+      return { cols, rows: document.querySelectorAll(".gtask-row").length };
+    });
+    assertEqual(board.rows, 0, "список остался на экране вместе с доской");
+    assertEqual(board.cols.length, 4, "на доске не четыре колонки статусов: " + board.cols.length);
+    const total = board.cols.reduce((s, c) => s + c.cards.length, 0);
+    assert(total >= 3, "доска потеряла задачи: на ней " + total + ", в списке было " + list);
+    const inWork = board.cols.find((c) => c.name === "В работе");
+    assert(
+      inWork && inWork.cards.some((t) => /в работе/i.test(t)),
+      "задача со статусом «В работе» не попала в свою колонку"
+    );
+
+    // Возврат к списку — вид переключается в обе стороны.
+    await p.evaluate(() => window.app.setGlobalTaskView("list"));
+    await p.waitForTimeout(350);
+    const back = await p.evaluate(() => ({
+      rows: document.querySelectorAll(".gtask-row").length,
+      board: document.querySelectorAll(".gtask-board-col").length,
+    }));
+    assert(back.rows >= 3 && back.board === 0, "не вернулись к списку: " + JSON.stringify(back));
+    await ctx.close();
+  });
+
   /* Акт — закрывающий документ: по нему подписывают окончательный расчёт, и он
      ССЫЛАЕТСЯ на договор. Токены «номер» и «номер договора» брались из одного
      поля — номера самого акта, — и печаталось «АКТ № 2026-002 к Договору
