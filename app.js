@@ -2635,8 +2635,18 @@
         const overdueCount = (() => {
           let cnt = 0;
           const t = todayIso();
-          (state.savedProjects||[]).forEach(p => { if (p.id !== state.activeProjectId) (p.snapshot?.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; }); });
-          (state.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; });
+          /* Задачи ЗАКРЫТЫХ сделок (сдана, оплачена, архив) в счёт не идут — как и
+             в самом списке «Задачи». Иначе бейдж в меню обещает семь просроченных,
+             человек открывает список и находит две: остальные пять — задачи сделок,
+             закрытых полгода назад. Расхождение бейджа со списком хуже, чем оба
+             неверных числа: первому перестают верить, а второй перестают открывать. */
+          (state.savedProjects||[]).forEach(p => { if (p.id !== state.activeProjectId && !isDealInactive(p.crmStatus || "Лид")) (p.snapshot?.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; }); });
+          // Открытая сделка живёт в state.tasks, а не в своём snapshot, — и её
+          // статус проверяем отдельно: закрыть можно и ту сделку, что сейчас на
+          // экране, и тогда её задачи обязаны уйти из счётчика так же.
+          if (!isDealInactive((state.project && state.project.crmStatus) || "Лид")) {
+            (state.tasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; });
+          }
           (state.globalTasks||[]).forEach(x => { if (x.deadline && x.deadline < t && x.status !== "Готово") cnt++; });
           return cnt;
         })();
@@ -16143,9 +16153,16 @@
           // globalTasks. Тот же счётчик в сайдбаре собран так же.
           projects.forEach(p => {
             if (p.id === state.activeProjectId) return;
+            // Закрытые сделки (сдана, оплачена, архив) из оперативных чисел
+            // уходят — тот же принцип, что в списке «Задачи» и в бейдже меню.
+            if (isDealInactive(p.crmStatus || "Лид")) return;
             (p.snapshot?.tasks||[]).forEach(t => { if (t.deadline && t.deadline < todayStr && t.status !== "Готово") cnt++; });
           });
-          (state.tasks||[]).forEach(t => { if (t.deadline && t.deadline < todayStr && t.status !== "Готово") cnt++; });
+          // Открытую сделку проверяем отдельно: её задачи лежат в state.tasks,
+          // и закрыть можно именно ту сделку, что сейчас на экране.
+          if (!isDealInactive((state.project && state.project.crmStatus) || "Лид")) {
+            (state.tasks||[]).forEach(t => { if (t.deadline && t.deadline < todayStr && t.status !== "Готово") cnt++; });
+          }
           (state.globalTasks||[]).forEach(t => { if (t.deadline && t.deadline < todayStr && t.status !== "Готово") cnt++; });
           return cnt;
         })();

@@ -307,6 +307,57 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(/Ожидаем/.test(filled), "долг по неоплаченной сделке снова не показан: " + filled);
   });
 
+  /* Закрытая сделка уходит из ОПЕРАТИВНЫХ чисел — правило, которое продукт уже
+     применяет в списке «Задачи» и в телеграм-статистике. Но два счётчика
+     просроченных (бейдж у пунктов меню и плитка «Дедлайны / 7 дн» на главной)
+     считали задачи ВСЕХ сделок, включая сданные и архивные.
+
+     Хуже всего тут расхождение: бейдж обещает семь просроченных, человек
+     открывает список и видит две — остальные пять принадлежат сделкам,
+     закрытым полгода назад. Первому числу перестают верить, а список
+     перестают открывать. */
+  await test("просрочки закрытых сделок не попадают в счётчики главной и меню", async () => {
+    /* Число просроченных живёт в ПОДПИСИ плитки («N просрочено»), а её крупное
+       значение — это дедлайны за 7 дней. Первая версия замера читала значение и
+       получала ноль на исправном экране. */
+    const overdue = () => page.evaluate(() => {
+      const tile = [...document.querySelectorAll("#appContent .db-stat")]
+        .find((e) => /Дедлайны/.test(e.textContent || ""));
+      if (!tile) return { found: false, count: null };
+      const delta = (tile.querySelector(".db-stat-delta")?.textContent || "").trim();
+      const m = delta.match(/(\d+)\s*просрочено/);
+      return { found: true, count: m ? Number(m[1]) : 0, delta };
+    });
+
+    await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Сделка с просрочкой");
+      window.app.finishWizard("estimate");
+      window.app.createTask("Новая", "2020-01-01"); // заведомо просроченная
+      window.app.saveCurrentProject();
+    });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(400);
+    const live = await overdue();
+    assert(live.found, "на главной нет плитки «Дедлайны / 7 дн»");
+    assert(live.count >= 1, "просроченная задача живой сделки не попала в счётчик: «" + live.delta + "»");
+
+    // Сделку закрыли — её просрочка обязана уйти из оперативных чисел.
+    await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      window.app.setKanbanStatus("crm", st.activeProjectId, "Завершённые");
+    });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => window.app.go("home"));
+    await page.waitForTimeout(400);
+    const closed = await overdue();
+    assertEqual(
+      closed.count, live.count - 1,
+      `плитка «Дедлайны» считает просрочку закрытой сделки: было ${live.count}, стало ${closed.count}`
+    );
+  });
+
   /* Отчёты считают только транзакции: getAllTransactions читает payments и
      expenses и про себестоимость СТРОК СМЕТЫ не знает вовсе. Из-за этого
      «Расходы» занижены на всё, что посчитано в смете, — и человек, не понимая
