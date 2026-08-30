@@ -402,6 +402,78 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(restored.cards, before.cards, "категория вернулась не полностью");
   });
 
+  /* Задачи ЗАКРЫТЫХ сделок (архив, завершённые) висели в списке наравне с живыми
+     и вечно росли в счётчике «Просрочено»: сделка сдана полгода назад, а её
+     недоделанная задача каждый день говорит «просрочен на 180 дн.». Тот же
+     дефект, что уже правили в телеграм-статистике: закрытая сделка обязана
+     уходить из оперативных чисел.
+
+     Но скрытое обязано быть НАЗВАНО — иначе «потерял задачи» не лучше «вечно
+     висят». Проверяем оба конца: их нет в списке и в счётчиках, и при этом видно,
+     сколько их и как показать; показанные помечены статусом сделки; поиск
+     достаёт их и без включения показа. */
+  await test("задачи: закрытые сделки уходят из списка и «Просрочено», но названы", async () => {
+    const own = await bootLocal(browser, baseUrl, { width: 1280, height: 900, seedDemo: true });
+    try {
+      await own.page.evaluate(() => {
+        const past = new Date(); past.setDate(past.getDate() - 5);
+        window.app.createTask();
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state"));
+        window.app.updateTask(st.tasks[0].id, "title", "Свести звук");
+        window.app.updateTask(st.tasks[0].id, "deadline", past.toISOString().slice(0, 10));
+      });
+      // Снимок сделки достраивается по таймеру — без паузы архив унесёт пустой снимок.
+      await own.page.waitForTimeout(2600);
+      await own.page.evaluate(() => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state"));
+        window.app.archiveDeal(st.activeProjectId);
+      });
+      await own.page.waitForTimeout(500);
+      await own.page.evaluate(() => window.app.go("global-tasks"));
+      await own.page.waitForTimeout(500);
+
+      const view = () => own.page.evaluate(() => {
+        const txt = (el) => (el && el.innerText ? el.innerText.replace(/\s+/g, " ").trim() : "");
+        return {
+          stats: txt(document.querySelector(".gtask-stats")),
+          rows: [...document.querySelectorAll(".gtask-row")].map((r) => txt(r)),
+          offer: [...document.querySelectorAll(".show-more-row .btn, .empty__actions .btn")].map((b) => txt(b)),
+        };
+      });
+
+      const hidden = await view();
+      assertEqual(hidden.rows.length, 0, "задача архивной сделки осталась в списке: " + JSON.stringify(hidden.rows));
+      assert(/ПРОСРОЧЕНО 0/i.test(hidden.stats.toUpperCase()),
+        "задача архивной сделки всё ещё считается просроченной: " + hidden.stats);
+      assert(hidden.offer.some((t) => /закрыт/i.test(t)),
+        "экран не говорит, что задачи закрытых сделок скрыты: " + JSON.stringify(hidden.offer));
+
+      await own.page.evaluate(() => {
+        const b = [...document.querySelectorAll(".empty__actions .btn, .show-more-row .btn")]
+          .find((x) => /закрыт/i.test(x.textContent));
+        b.click();
+      });
+      await own.page.waitForTimeout(600);
+      const shown = await view();
+      assertEqual(shown.rows.length, 1, "показ задач закрытых сделок ничего не показал");
+      assert(/Архив/.test(shown.rows[0]), "задача закрытой сделки не помечена статусом: " + shown.rows[0]);
+      assert(shown.offer.some((t) => /Скрыть/i.test(t)), "нет обратного хода — скрыть их снова нечем");
+
+      // Поиск достаёт закрытые независимо от переключателя
+      await own.page.evaluate(() => {
+        const b = [...document.querySelectorAll(".show-more-row .btn")].find((x) => /Скрыть/i.test(x.textContent));
+        b.click();
+      });
+      await own.page.waitForTimeout(500);
+      await own.page.evaluate(() => window.app.setGlobalTaskSearch("звук"));
+      await own.page.waitForTimeout(900);
+      const found = await view();
+      assertEqual(found.rows.length, 1, "поиск не нашёл задачу закрытой сделки — «ничего не нашлось» было бы неправдой");
+    } finally {
+      await own.context.close();
+    }
+  });
+
   /* «Отметить сделанной» — самое частое действие по задаче, и оно было доступно
      только у ЛИЧНОЙ: у проектной вместо кружка стояла мёртвая точка статуса, а
      единственный путь вёл через openDealTasks() — тот ЗАГРУЖАЕТ сделку как

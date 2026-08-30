@@ -7180,6 +7180,9 @@
           globalTasks: [],
           globalTaskStatusFilter: "active",
           globalTaskProjectFilter: "all",
+          // Показывать ли в списке задачи закрытых сделок (архив, завершённые).
+          // По умолчанию нет: они не работа, а история, и вечно висели в «Просрочено».
+          globalTaskShowClosed: false,
           payments: [],
           expenses: [],
           team: [],
@@ -18925,7 +18928,14 @@
           const isActive = !!activeId && p.id === activeId;
           if (isActive) activeIncluded = true;
           const tasks = isActive ? state.tasks : ((p.snapshot && p.snapshot.tasks) || []);
-          (tasks || []).forEach(t => rows.push({ task: t, kind: "project", projectId: p.id, projectName: p.name || "Без названия" }));
+          // Статус сделки нужен списку задач: задачи закрытых сделок (архив,
+          // завершённые) не должны попадать в оперативный список и в счётчик
+          // «Просрочено» — см. renderGlobalTasks.
+          const dealStatus = p.crmStatus || "";
+          (tasks || []).forEach(t => rows.push({
+            task: t, kind: "project", projectId: p.id, projectName: p.name || "Без названия",
+            dealStatus, dealClosed: isDealInactive(dealStatus),
+          }));
         });
         // Активный проект не найден в savedProjects (несохранён или отдельный) —
         // всё равно добавляем его живые задачи, иначе они бы потерялись.
@@ -18937,16 +18947,32 @@
       }
 
       function renderGlobalTasks() {
-        const rows = _collectAllTasks();
+        const allRows = _collectAllTasks();
         const statusFilter = state.globalTaskStatusFilter || "active";
         const projectFilter = state.globalTaskProjectFilter || "all";
         const today = todayIso();
+        const taskQuery = (state.globalTaskSearch || "").trim().toLowerCase();
 
+        /* Задачи ЗАКРЫТЫХ сделок (архив, завершённые) по умолчанию не показываем и
+           не считаем. Раньше они висели в списке наравне с живыми и вечно росли в
+           счётчике «Просрочено»: сделка сдана полгода назад, а её недоделанная
+           задача каждый день говорит «просрочен на 180 дн.». Тот же дефект, что
+           уже правили в телеграм-статистике: закрытая сделка обязана уходить из
+           оперативных чисел.
+           Три исключения, где они всё-таки нужны: явно выбран этот проект в
+           фильтре, включён показ кнопкой внизу, или идёт поиск — запрос сильнее
+           фильтра, иначе «ничего не нашлось» будет неправдой. */
+        const showClosed = !!state.globalTaskShowClosed;
+        const explicitProject = projectFilter !== "all" && projectFilter !== "personal";
+        const closedVisible = showClosed || explicitProject || !!taskQuery;
+        const closedCount = allRows.filter(r => r.dealClosed).length;
+        const rows = closedVisible ? allRows : allRows.filter(r => !r.dealClosed);
+
+        // Счётчики — по тому, что показано: иначе «Всего 12» над списком из трёх.
         const total = rows.length;
         const overdue = rows.filter(r => r.task.deadline && r.task.deadline < today && r.task.status !== "Готово").length;
         const done = rows.filter(r => r.task.status === "Готово").length;
 
-        const taskQuery = (state.globalTaskSearch || "").trim().toLowerCase();
         const taskMatches = (r) => {
           if (!taskQuery) return true;
           const hay = [r.task.title, r.task.assignee, r.task.note, r.projectName, r.task.status]
@@ -18977,10 +19003,22 @@
         const projectOpts = (state.savedProjects || []).map(p => ({ id: p.id, name: p.name || "Без названия" }));
         const statusChips = [{ id: "active", label: "Активные" }, { id: "all", label: "Все" }, ...TASK_STATUSES.map(s => ({ id: s, label: s }))];
 
-        const _tKey = effStatus + "|" + projectFilter + "|" + taskQuery;
+        const _tKey = effStatus + "|" + projectFilter + "|" + taskQuery + "|" + (closedVisible ? "closed" : "");
         if (_tKey !== _tasksLimitKey) { _tasksLimitKey = _tKey; _tasksVisibleLimit = TASKS_PAGE_SIZE; }
         const shownTasks = filtered.slice(0, _tasksVisibleLimit);
         const tasksHidden = filtered.length - shownTasks.length;
+
+        /* Скрытое обязано быть названо: молча «потерять» задачи закрытых сделок —
+           то же самое, что показывать их вечно. Строка внизу говорит, сколько их
+           и как показать. Во время поиска и при явно выбранном проекте её нет:
+           там они и так показаны. */
+        const closedTasksNote = closedCount && !taskQuery && !explicitProject
+          ? `<div class="show-more-row no-print">
+              <button class="btn" onclick="app.toggleTasksShowClosed()">${showClosed
+                ? "Скрыть задачи закрытых сделок"
+                : `Показать ещё ${closedCount} ${plural(closedCount, "задачу", "задачи", "задач")} из закрытых сделок`}</button>
+            </div>`
+          : "";
 
         return `
           <div class="panel">
@@ -19019,7 +19057,8 @@
             </div>
             ${tasksHidden > 0 ? `<div class="show-more-row no-print">
               <button class="btn" onclick="app.tasksShowMore()">Показать ещё ${Math.min(TASKS_PAGE_SIZE, tasksHidden)} · осталось ${tasksHidden}</button>
-            </div>` : ""}` : (taskQuery
+            </div>` : ""}
+            ${closedTasksNote}` : (taskQuery
               ? emptyState({
                   icon: "search",
                   title: "Ничего не нашлось",
@@ -19028,6 +19067,16 @@
                 })
               : total
               ? emptyState({ icon: "search", title: "Нет задач по этому фильтру" })
+              : closedCount
+              ? emptyState({
+                  icon: "tasks",
+                  title: "Открытых задач нет",
+                  text: `Все задачи остались в закрытых сделках — их ${closedCount}. Они не считаются просроченными, но их можно посмотреть.`,
+                  cta: [
+                    { label: "Показать задачи закрытых сделок", onclick: "app.toggleTasksShowClosed()" },
+                    { label: "+ Своя задача", onclick: "app.createGlobalTask()", variant: "" },
+                  ],
+                })
               : emptyState({
                   icon: "tasks",
                   title: "Задач пока нет",
@@ -19059,6 +19108,10 @@
               <div class="gtask-title">${escapeHtml(t.title)}</div>
               <div class="gtask-meta">
         <span class="gtask-project ${isGlobal ? "personal" : ""}">${isGlobal ? "Личная" : escapeHtml(row.projectName)}</span>
+                ${/* Задача из закрытой сделки видна только когда её попросили показать
+                      (или нашли поиском) — и обязана называть себя: иначе она читается
+                      как живая работа. */""}
+                ${row.dealClosed ? `<span class="gtask-project" style="opacity:.75">${escapeHtml(row.dealStatus || "Закрыта")}</span>` : ""}
                 ${t.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}"> ${escapeHtml(formatDate(t.deadline))}${u && u.level !== "ok" ? " · " + escapeHtml(u.label) : ""}</span>` : ""}
         ${t.assignee ? `<span> ${escapeHtml(t.assignee)}</span>` : ""}
               </div>
@@ -19074,6 +19127,12 @@
       function setGlobalTaskFilter(type, value) {
         if (type === "status") state.globalTaskStatusFilter = value;
         else if (type === "project") state.globalTaskProjectFilter = value;
+        render();
+      }
+
+      function toggleTasksShowClosed() {
+        state.globalTaskShowClosed = !state.globalTaskShowClosed;
+        save();
         render();
       }
 
@@ -27620,6 +27679,7 @@ Email: _____________________              Email: _____________________
         toggleProjectTaskDone,
         deleteGlobalTask,
         setGlobalTaskFilter,
+        toggleTasksShowClosed,
         setGlobalTaskSearch,
 
         openDealTasks,
