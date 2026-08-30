@@ -1798,6 +1798,9 @@
       padding: 10px 0;
       border-bottom: 1px solid var(--line);
     }
+    /* Суммы в «Итогах сметы» — тем же строем, что и в плитках: правый край
+       столбца не должен ездить от того, есть ли в числе единица. */
+    .summary-line strong { font-variant-numeric: tabular-nums; }
 
     .summary-line strong {
       text-align: right;
@@ -5489,9 +5492,14 @@
     .fin-summary-grid > * { grid-column: span 10; }
     .fin-summary-grid > :nth-child(4),
     .fin-summary-grid > :nth-child(5) { grid-column: span 15; }
-    /* 1040px = 5 плиток по 200px + четыре гэпа. Уже — плитка становится теснее
-       той, что была при auto-fit(minmax(150px)), и 3+2 читается лучше. */
-    @container (min-width: 1040px) {
+    /* Ряд из пяти включается с 920px, а не с 1040. Пять плиток по ~168px ещё
+       держат сумму в одну строку (замер: «1 742 100 ₽» при 22px — 132px), зато
+       исчезает промежуточная раскладка 3 + 2, где второй ряд шире первого и
+       цифры встают на разной сетке — именно её видно на среднем окне.
+       Ниже 920px раскладка 3 + 2 остаётся: там пять узких плиток уже рвут
+       суммы переносом, а разнобой ширин — меньшее зло, чем «1 742 100 ₽»
+       в две строки. */
+    @container (min-width: 920px) {
       .fin-summary-grid > *,
       .fin-summary-grid > :nth-child(4),
       .fin-summary-grid > :nth-child(5) { grid-column: span 6; }
@@ -5534,7 +5542,11 @@
     }
 
     .fin-card h3 { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
-    .fin-card .fin-amount { font-size: 22px; font-weight: 900; }
+    /* tabular-nums на суммах: без него цифры разной ширины, и в столбце плиток
+       «24 300» и «35 000» стоят с разным правым краем — колонка «дышит» при
+       каждом изменении суммы. Деньги в продукте всегда читают столбцом. */
+    .fin-card .fin-amount { font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
+    .fin-card .fin-sub { font-variant-numeric: tabular-nums; }
     .fin-card .fin-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
     .fin-card.income-card { border-color: rgba(22,163,74,.35); }
     .fin-card.expense-card { border-color: rgba(220,38,38,.2); }
