@@ -358,6 +358,44 @@ module.exports = async function ({ browser, baseUrl, test }) {
     );
   });
 
+  /* Себестоимость позиций и расходы складываются в «Расходы (план)» — и одни и
+     те же деньги попадают туда дважды на раз: у позиции с бейджем «Расходы»
+     себестоимость равна цене, а человек заводит тот же платёж ещё и расходом.
+     Живой случай владельца 29.08.2026: план 63 580 ₽ при реальных 31 790, и
+     заметить это можно было только сложив две строки итогов в уме.
+
+     Подсказка при вводе расхода (v353) помогает лишь тем, кто заводит его
+     ПОСЛЕ правки. Здесь — в самих итогах, где на цифры и смотрят. */
+  await test("итоги сметы предупреждают, когда себестоимость и расходы могут дублировать друг друга", async () => {
+    await page.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Двойной счёт");
+      window.app.finishWizard("estimate");
+      window.app.catalogAddOne("director");
+    });
+    await page.waitForTimeout(450);
+    await page.evaluate((KEY) => {
+      const st = JSON.parse(localStorage.getItem(KEY) || "{}");
+      const id = Object.keys(st.selected || {})[0];
+      if (id) { window.app.updateLine(id, "price", 40000); window.app.updateLine(id, "cost", 12000); }
+    }, STORAGE_KEY);
+    await page.waitForTimeout(350);
+
+    const note = () => page.$eval("#appContent", (el) => /себестоимость позиций и расходы складываются/i.test(el.innerText || ""));
+    assert(!(await note()), "предупреждение показано, хотя расходов ещё нет — так оно станет фоном");
+
+    await page.evaluate(() => {
+      window.app.openFinanceModal("expense");
+      window.app.setFinanceModalField("amount", "12000");
+      window.app.setFinanceModalField("title", "Тот же платёж");
+      window.app.saveFinanceModal();
+    });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => window.app.setDealView("estimate"));
+    await page.waitForTimeout(400);
+    assert(await note(), "итоги молчат о том, что себестоимость и расходы складываются");
+  });
+
   /* Отчёты считают только транзакции: getAllTransactions читает payments и
      expenses и про себестоимость СТРОК СМЕТЫ не знает вовсе. Из-за этого
      «Расходы» занижены на всё, что посчитано в смете, — и человек, не понимая
@@ -391,7 +429,12 @@ module.exports = async function ({ browser, baseUrl, test }) {
       /В сметах заложена себестоимость/.test(txt),
       "аналитика молчит о себестоимости, заложенной в сметах"
     );
-    assert(/31\s*000/.test(txt), "названа не та сумма себестоимости: " + (txt.match(/В сметах заложена[^.]*/) || ["—"])[0]);
+    /* Сумму НЕ сверяем с константой: набор прогоняется на одной странице, и
+       соседние тесты добавляют свои сделки с себестоимостью — жёсткое «31 000»
+       ломалось от любого нового теста рядом. Проверяем, что названо число и что
+       оно не меньше только что заведённой позиции. */
+    const named = Number(((txt.match(/В сметах заложена себестоимость ([\d\s ]+)/) || [])[1] || "").replace(/[\s ]/g, ""));
+    assert(named >= 31000, "названа не та сумма себестоимости: " + (txt.match(/В сметах заложена[^.]*/) || ["—"])[0]);
     assert(
       /не входит/.test(txt),
       "не сказано главное — что в «Расходы» эта сумма не входит"

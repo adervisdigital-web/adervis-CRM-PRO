@@ -16677,7 +16677,23 @@
               ${fin.debt > 0 ? `<div class="summary-line"><span>Долг</span><strong style="color:var(--text-warning)">${money(fin.debt)}</strong></div>` : ""}
               <div class="summary-line"><span>Расходы (план)</span><strong>${money(fin.totalExpenses)}</strong></div>
               ${fin.lineCosts > 0 ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них себестоимость позиций</span><strong>${money(fin.lineCosts)}</strong></div>` : ""}
+              ${fin.expenses > 0 ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них расходы</span><strong>${money(fin.expenses)}</strong></div>` : ""}
               ${fin.totalExpensesPaid !== fin.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них оплачено (факт)</span><strong>${money(fin.totalExpensesPaid)}</strong></div>` : ""}
+              ${/* Себестоимость позиций и расходы складываются в «Расходы (план)»,
+                    и одни и те же деньги легко попадают туда дважды: у позиции с
+                    бейджем «Расходы» себестоимость равна цене, а человек заводит
+                    тот же платёж ещё и расходом. Живой случай владельца: план
+                    63 580 ₽ при реальных 31 790 — и заметить это можно было
+                    только сложив две строки в уме.
+
+                    Пишем «проверьте», а не «ошибка»: бывает законно — позиции со
+                    своей себестоимостью плюс отдельная аренда. Продукт показывает
+                    совпадение, решает человек. */""}
+              ${fin.lineCosts > 0 && fin.expenses > 0 ? `
+                <div class="u-meta" style="margin:6px 0 10px;line-height:1.45">
+                  Проверьте: себестоимость позиций и расходы складываются в план.
+                  Если это одни и те же деньги — оставьте что-то одно, иначе они посчитаны дважды.
+                </div>` : ""}
               <div class="summary-line">
                 <span>Прибыль (план)</span>
                 <strong style="${fin.profit < 0 ? "color:var(--text-danger)" : ""}">${money(fin.profit)}</strong>
