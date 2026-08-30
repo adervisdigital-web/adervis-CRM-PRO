@@ -578,25 +578,54 @@ module.exports = async function ({ browser, baseUrl, test }) {
     });
     await page.waitForTimeout(300);
   });
+  /* Расход в «Финансах» — проведённая операция: его записывают, когда деньги
+     ушли. Галочка «Деньги уже выплачены» (v354) прожила один день: решение
+     владельца 29.08.2026 — убрать, «слишком сложно для пользователя». Пара
+     «начислено / выплачено» осталась там, где её вводят суммой, — в выплатах
+     команде.
 
-  /* «Факт» в прибыли сделки считается по РЕАЛЬНО ВЫПЛАЧЕННЫМ затратам
-     (`expense.paid`). Поле читалось в деньгах, но выставить его было НЕЧЕМ — ни
-     при создании расхода, ни при правке. Поэтому факт по расходам всегда стоял 0,
-     «Прибыль (факт)» была вечно завышена и вечно видна: на живой сделке владельца
-     рядом с «план 48 500 ₽ · 69%» стояло «факт 70 390 ₽ · 100%» зелёным, хотя
-     клиент оплатил половину, а подписка была куплена.
-
-     Проверяем и то, что флаг РАБОТАЕТ (меняет цифру), и то, что при невыплаченных
-     затратах 100% не подаётся как отличный результат — тот же дефект «нет данных
-     → похвала», что чинили у плановой маржи. */
-  await test("расход помечается выплаченным, и «факт» перестаёт хвалить за невыплаченное", async () => {
+     Сторож держит ДВА следствия. Первое: «факт» по расходам сходится с планом,
+     то есть отдельной строки «факт» в прибыли нет — именно она и путала. Второе
+     важнее: расходы, заведённые ДО v354, лежат с paid=false, и если код снова
+     начнёт смотреть на этот флаг, они станут «невыплаченными» навсегда, а
+     «Прибыль (факт)» опять покажет всю сумму сделки. */
+  await test("расход считается выплаченным сразу — «факт» не расходится с планом", async () => {
     await page.evaluate(() => {
       window.app.startWizard();
-      window.app.wizardSetField("projectName", "План и факт затрат");
-      window.app.wizardSetField("budget", "100 000");
+      window.app.wizardSetField("projectName", "Расход без галочек");
+      window.app.wizardSetField("budget", "200 000");
       window.app.finishWizard("estimate");
-      window.app.setDealView("finance");
+      window.app.openFinanceModal("expense");
+      window.app.setFinanceModalField("amount", "50000");
+      window.app.setFinanceModalField("title", "Аренда света");
+      window.app.saveFinanceModal();
     });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => window.app.setDealView("finance"));
+    await page.waitForTimeout(400);
+
+    const card = await page.evaluate(() => {
+      const el = [...document.querySelectorAll("#appContent .fin-card")]
+        .find((c) => /Прибыль/.test(c.textContent || ""));
+      return el ? el.innerText.replace(/\s+/g, " ") : null;
+    });
+    assert(card, "не нашлась карточка прибыли");
+    assert(!/факт:/.test(card), "«факт» снова расходится с планом: " + card.slice(0, 120));
+
+    // И в модалке расхода не должно быть никаких галочек про выплату.
+    await page.evaluate(() => window.app.openFinanceModal("expense"));
+    await page.waitForTimeout(300);
+    const hasCheck = await page.evaluate(() =>
+      /Деньги уже выплачены/.test(document.getElementById("modalContainer").textContent || ""));
+    await page.evaluate(() => { window.app.closeFinanceModal(); });
+    await page.waitForTimeout(250);
+    await page.evaluate(() => {
+      const b = [...document.querySelectorAll(".confirm-dialog-overlay button")].find((x) => /Закрыть/i.test(x.textContent || ""));
+      if (b) b.click();
+    });
+    await page.waitForTimeout(250);
+    assert(!hasCheck, "галочка «Деньги уже выплачены» вернулась в модалку расхода");
+  });
     await page.waitForTimeout(400);
 
     // Расход БЕЗ отметки о выплате — начисление вперёд.
@@ -614,54 +643,6 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.evaluate(() => window.app.setDealView("finance"));
     await page.waitForTimeout(350);
 
-    const factBadge = () => page.evaluate(() => {
-      const card = [...document.querySelectorAll("#appContent .fin-card")]
-        .find((c) => /Прибыль/.test(c.textContent || ""));
-      if (!card) return null;
-      const rows = [...card.querySelectorAll("div")].filter((d) => /факт:/.test(d.textContent || ""));
-      const badge = rows.length ? rows[rows.length - 1].querySelector(".margin-badge") : null;
-      return {
-        text: card.innerText.replace(/\s+/g, " ").trim(),
-        cls: badge ? badge.className : null,
-        title: badge ? badge.getAttribute("title") || "" : "",
-      };
-    });
-
-    const unpaid = await factBadge();
-    assert(unpaid && unpaid.cls, "не нашлась капсула фактической маржи при невыплаченном расходе");
-    assert(
-      !/\bgood\b/.test(unpaid.cls),
-      "фактическая маржа покрашена как отличный результат, хотя не выплачено ничего: " + unpaid.cls
-    );
-    assert(
-      /выплачен/i.test(unpaid.title),
-      "подсказка не объясняет, почему факт равен всей сумме: " + unpaid.title.slice(0, 90)
-    );
-
-    // Отметили выплату — «факт» обязан сойтись с планом и исчезнуть как отдельная строка.
-    await page.evaluate(() => {
-      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
-      const ex = (st.expenses || [])[0];
-      if (ex) window.app.openEditTransaction(ex.id, "expense", st.activeProjectId || "");
-    });
-    await page.waitForTimeout(350);
-    const opened = await page.evaluate(() => !!document.querySelector("#modalContainer .fin-paid-check input"));
-    assert(opened, "в правке расхода нет галочки «деньги уже выплачены» — старые записи не поправить");
-    await page.evaluate(() => {
-      window.app.setEditTransactionField("paid", true);
-      window.app.saveEditTransaction();
-    });
-    await page.waitForTimeout(450);
-    await page.evaluate(() => window.app.setDealView("finance"));
-    await page.waitForTimeout(350);
-
-    const paid = await factBadge();
-    assert(paid, "карточка прибыли пропала после отметки выплаты");
-    assert(
-      !/факт:/.test(paid.text),
-      "«факт» остался отдельной строкой, хотя выплачено всё: " + paid.text.slice(0, 110)
-    );
-  });
 
   /* Одни деньги на двух экранах должны сходиться. Сделка «одной суммой» (смета не
      разбита на позиции) считалась по-разному: карточка на главной брала бюджет

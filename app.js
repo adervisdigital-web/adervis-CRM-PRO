@@ -8526,7 +8526,19 @@
         const billed = shown.total;
         const paid = (state.payments || []).reduce((sum, payment) => sum + numberValue(payment.amount, 0), 0);
         const expenses = (state.expenses || []).reduce((sum, expense) => sum + numberValue(expense.amount, 0), 0);
-        const expensesPaid = (state.expenses || []).filter(e => e.paid).reduce((sum, expense) => sum + numberValue(expense.amount, 0), 0);
+        /* Расход в «Финансах» — это ПРОВЕДЁННАЯ операция: его записывают, когда
+           деньги ушли. Поэтому он считается выплаченным всегда.
+
+           Раньше здесь стоял фильтр по e.paid, а сам флаг выставлялся галочкой в
+           модалке (v354). Решение владельца 29.08.2026 — убрать её: «слишком
+           сложно для пользователя». Пара «начислено / выплачено» осталась там,
+           где её действительно вводят суммой, — в выплатах команде
+           (member.paidAmount).
+
+           Флаг из данных НЕ удаляем: у расходов, заведённых до v354, он стоит
+           false, и учитывать его теперь значило бы считать их невыплаченными
+           вечно — именно поэтому «Прибыль (факт)» и показывала всю сумму сделки. */
+        const expensesPaid = (state.expenses || []).reduce((sum, expense) => sum + numberValue(expense.amount, 0), 0);
         const teamPayouts = (state.team || []).reduce((sum, member) => sum + numberValue(member.payout, 0), 0);
         const teamPayoutsPaid = (state.team || []).reduce((sum, member) => sum + numberValue(member.paidAmount, 0), 0);
         const lineCosts = Object.values(state.selected || {}).reduce((sum, line) => sum + numberValue(line.cost, 0), 0);
@@ -11188,15 +11200,6 @@
           method: "",
           category: type === "payment" ? "Предоплата" : (EXPENSE_CATEGORIES[0] || "Прочее"),
           note: "",
-          /* Расход в «Финансах» записывают, когда деньги УЖЕ ушли, поэтому по
-             умолчанию он оплачен. Снять галочку нужно только тем, кто заводит
-             начисление вперёд — счёт подрядчика, который ещё не оплачен.
-             До 23.08.2026 флага в интерфейсе не было вовсе: `expense.paid`
-             читался в деньгах (expensesPaid → «факт (выплачено)» и «Прибыль
-             (факт)»), но выставить его было НЕЧЕМ — ни при создании, ни при
-             правке. Поэтому факт по расходам всегда стоял 0, а «Прибыль (факт)»
-             была вечно завышена и вечно видна. */
-          paid: true,
           projectId: state.activeProjectId || ""
         };
         _armDirtyCheck(state.financeModal);
@@ -11222,10 +11225,6 @@
         renderModal();
       }
 
-      function setFinanceModalPaid(checked) {
-        if (!state.financeModal) return;
-        state.financeModal.paid = !!checked;
-      }
 
       /* Разряды в поле суммы: «18933» глазами читается плохо — сколько это, 18 тысяч
          или 189? Ошибка в разряде на поступлении стоит дороже любой другой опечатки
@@ -11364,7 +11363,7 @@
 
         const newRecord = m.type === "payment"
           ? normalizePayment({ title: m.title || "Поступление", amount, date: m.date || todayIso(), method: m.method || m.category || "", note: m.note || "" })
-          : normalizeExpense({ title: m.title || "Расход", amount, date: m.date || todayIso(), category: m.category || EXPENSE_CATEGORIES[0] || "Прочее", note: m.note || "", paid: m.paid !== false });
+          : normalizeExpense({ title: m.title || "Расход", amount, date: m.date || todayIso(), category: m.category || EXPENSE_CATEGORIES[0] || "Прочее", note: m.note || "" });
 
         const targetProjectId = m.projectId || state.activeProjectId;
 
@@ -11776,21 +11775,6 @@
                 <textarea style="min-height:72px" oninput="app.setFinanceModalField('note',this.value)"
                   placeholder="Необязательно">${escapeHtml(m.note)}</textarea>
               </div>
-
-              ${/* Флаг «оплачен» существовал в данных и участвовал в деньгах
-                    (expensesPaid → «Расход факт (выплачено)» и «Прибыль (факт)»),
-                    но поставить его было НЕЧЕМ: ни здесь, ни в модалке правки.
-                    Поэтому факт по расходам всегда стоял 0, а «Прибыль (факт)»
-                    была вечно завышена и вечно видна. Галочка включена по
-                    умолчанию: расход записывают, когда деньги уже ушли. */""}
-              ${isPayment ? "" : `
-              <label class="fin-paid-check" style="margin-bottom:22px">
-                <input type="checkbox" ${m.paid !== false ? "checked" : ""} onchange="app.setFinanceModalPaid(this.checked)">
-                <span>
-                  <span style="font-weight:700">Деньги уже выплачены</span>
-                  <span class="u-meta">Снимите, если это начисление вперёд — счёт подрядчика, который ещё не оплачен.</span>
-                </span>
-              </label>`}
 
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
                 <button class="btn" onclick="app.closeFinanceModal()">Отмена</button>
@@ -24855,8 +24839,6 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           const idx = arr.findIndex(t => t.id === m.editId);
           if (idx < 0) return;
           const next = { ...arr[idx], title: m.title, amount, date: m.date, method: m.method || "", category: m.category || "", note: m.note || "" };
-          // Флаг выплаты — только у расхода: у поступления его нет и в модели.
-          if (m._type !== "income") next.paid = !!m.paid;
           arr[idx] = next;
         }
 
@@ -24973,17 +24955,6 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <label>Комментарий</label>
                 <textarea style="min-height:64px" oninput="app.setEditTransactionField('note',this.value)" placeholder="Необязательно">${escapeHtml(m.note || "")}</textarea>
               </div>
-              ${/* Здесь галочка нужнее, чем при создании: расходы, заведённые ДО
-                    её появления, лежат с paid=false и завышают «Прибыль (факт)».
-                    Поправить их можно только отсюда. */""}
-              ${isIncome ? "" : `
-              <label class="fin-paid-check" style="margin-bottom:22px">
-                <input type="checkbox" ${m.paid ? "checked" : ""} onchange="app.setEditTransactionField('paid',this.checked)">
-                <span>
-                  <span style="font-weight:700">Деньги уже выплачены</span>
-                  <span class="u-meta">Влияет на «факт» в прибыли сделки. Снято — расход считается начисленным, но не оплаченным.</span>
-                </span>
-              </label>`}
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
                 <button class="btn danger small" onclick="app.deleteEditTransaction()">${TRASH_SVG} Удалить</button>
                 <div class="u-flex-g8">
@@ -27929,7 +27900,6 @@ Email: _____________________              Email: _____________________
         saveEditTransaction,
         deleteEditTransaction,
         setEditTransactionField,
-        setFinanceModalPaid,
         formatAmountField,
 
         openClientModal,

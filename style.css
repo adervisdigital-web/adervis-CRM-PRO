@@ -5509,14 +5509,6 @@
       font-size: 12px; line-height: 1.5; color: var(--text);
     }
     .fin-linecost-note strong { font-variant-numeric: tabular-nums; }
-    /* Галочка «деньги уже выплачены» в модалках расхода. Тач-цель — вся строка
-       с текстом (min-height 44), сам чекбокс 18px, как у согласия в брифе. */
-    .fin-paid-check {
-      display: flex; align-items: flex-start; gap: 10px; min-height: 44px;
-      padding: 8px 0; cursor: pointer; font-size: 13px; line-height: 1.45;
-    }
-    .fin-paid-check input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; accent-color: var(--primary); }
-    .fin-paid-check > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .fin-card {
       padding: 16px;
       border: 1px solid var(--line);
