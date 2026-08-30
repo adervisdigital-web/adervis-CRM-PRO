@@ -19142,16 +19142,16 @@
               ${boardView ? "" : `<div class="gtask-chips">
                 ${statusChips.map(c => `<button class="chip ${effStatus === c.id ? "active" : ""}" onclick="app.setGlobalTaskFilter('status','${c.id}')">${escapeHtml(c.label)}</button>`).join("")}
               </div>`}
-              <div class="deal-view-toggle no-print" role="group" aria-label="Вид задач">
-                <button class="deal-view-btn ${boardView ? "" : "active"}" onclick="app.setGlobalTaskView('list')" title="Списком — плотно, по срокам" aria-label="Показать задачи списком">${icon("list", 14)}</button>
-                <button class="deal-view-btn ${boardView ? "active" : ""}" onclick="app.setGlobalTaskView('board')" title="Доской — по статусам" aria-label="Показать задачи доской">${icon("grid", 14) || icon("clipboard", 14)}</button>
-              </div>
               <select class="gtask-project-select" title="Фильтр по проекту" aria-label="Фильтр задач по проекту" onchange="app.setGlobalTaskFilter('project',this.value)">
                 <option value="all" ${projectFilter === "all" ? "selected" : ""}>Все проекты</option>
                 <option value="personal" ${projectFilter === "personal" ? "selected" : ""}>Личные задачи</option>
                 ${projectOpts.map(p => `<option value="${escapeHtml(p.id)}" ${projectFilter === p.id ? "selected" : ""}>${escapeHtml(p.name)}</option>`).join("")}
               </select>
               ${total ? `<button class="btn small gtask-add" onclick="app.createGlobalTask()" title="Личная задача, не привязанная к проекту">${icon("plus", 13)} Своя задача</button>` : ""}
+              <div class="deal-view-toggle no-print" role="group" aria-label="Вид задач">
+                <button class="deal-view-btn ${boardView ? "" : "active"}" onclick="app.setGlobalTaskView('list')" title="Списком — плотно, по срокам" aria-label="Показать задачи списком">${icon("list", 14)}</button>
+                <button class="deal-view-btn ${boardView ? "active" : ""}" onclick="app.setGlobalTaskView('board')" title="Доской — по статусам" aria-label="Показать задачи доской">${icon("grid", 14) || icon("clipboard", 14)}</button>
+              </div>
             </div>
 
             ${filtered.length ? (boardView ? `<div class="gtask-board">
