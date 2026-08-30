@@ -8152,6 +8152,12 @@
         return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(amount) + " " + currency;
       }
 
+      /* Знак перед нулём («−0 ₽» в итогах, когда расходов не было) читается как
+         минус, которого нет. Подписываем знаком только ненулевые суммы. */
+      function signedMoney(value, sign) {
+        return (Math.round(numberValue(value, 0)) === 0 ? "" : sign) + money(value);
+      }
+
       function highlightText(text, query) {
         const source = escapeHtml(text);
         const q = String(query !== undefined ? query : (state.search || "")).trim();
@@ -13797,9 +13803,15 @@
           const wrap = document.createElement("div");
           wrap.className = "uu-select-wrap";
           const cs = getComputedStyle(sel);
+          /* Внутри флекс-РЯДА браузер «блокифицирует» select — getComputedStyle
+             отдаёт block, и обёртка получала width:100%, то есть занимала строку
+             целиком. В «Финансах» из-за этого два коротких фильтра встали друг
+             под другом во всю ширину страницы. В ряду ширину задаёт сам ряд. */
+          const parentCs = sel.parentNode && sel.parentNode.nodeType === 1 ? getComputedStyle(sel.parentNode) : null;
+          const inFlexRow = !!parentCs && /flex/.test(parentCs.display) && !/column/.test(parentCs.flexDirection);
           wrap.style.display = /inline/.test(cs.display) ? "inline-block" : "block";
           if (sel.style.width) wrap.style.width = sel.style.width;
-          else if (!/inline/.test(cs.display)) wrap.style.width = "100%";
+          else if (!/inline/.test(cs.display) && !inFlexRow) wrap.style.width = "100%";
           // max-width переносим тоже: без него селект с width:auto растягивается по
           // самому длинному варианту списка и на телефоне уезжает за край экрана
           // (замер 390px: селект налога — 286px, страница ехала вбок на 63px).
@@ -16246,7 +16258,7 @@
               <div class="db-stat" onclick="app.go('global-finances')" title="Выручка / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(22,163,74,.15);color:var(--text-success)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Выручка / мес</span></div>
                 <div class="db-stat-value">${money(monthRevenue)}</div>
-                <div class="db-stat-delta ${revDelta!==null?(revDelta>=0?"pos":"neg"):"neu"}">${revDelta!==null?(revDelta>=0?"↑ ":"↓ ")+Math.abs(revDelta)+"% к прошлому":"нет данных"}</div>
+                <div class="db-stat-delta ${revDelta!==null?(revDelta>=0?"pos":"neg"):"neu"}">${revDelta!==null?(revDelta>=0?"↑ ":"↓ ")+Math.abs(revDelta)+"% к прошлому":"нет данных за прошлый месяц"}</div>
               </div>
               <div class="db-stat" onclick="app.go('global-finances')" title="Расходы / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(220,38,38,.13);color:var(--text-danger)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Расходы / мес</span></div>
@@ -19948,15 +19960,13 @@
                   ${displayTxs.length ? `
                     <tfoot class="fin-table-footer">
                       <tr>
-                        <td colspan="3"></td>
-                        <td>Поступлений: ${money(displayTxs.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
-                        <td class="amount-cell income" style="text-align:right">+${money(displayTxs.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
+                        <td colspan="4" class="u-meta">Итого получено</td>
+                        <td class="amount-cell income" style="text-align:right">${signedMoney(displayTxs.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0), "+")}</td>
                         <td></td>
                       </tr>
                       <tr>
-                        <td colspan="3"></td>
-                        <td>Расходов: ${money(displayTxs.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
-                        <td class="amount-cell expense" style="text-align:right">−${money(displayTxs.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
+                        <td colspan="4" class="u-meta">Итого расходов</td>
+                        <td class="amount-cell expense" style="text-align:right">${signedMoney(displayTxs.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0), "−")}</td>
                         <td></td>
                       </tr>
                     </tfoot>
@@ -20988,6 +20998,8 @@
         if (_finKey !== _finLimitKey) { _finLimitKey = _finKey; _finVisibleLimit = FIN_PAGE_SIZE; }
         const shownTxs = filtered.slice(0, _finVisibleLimit);
         const finHidden = filtered.length - shownTxs.length;
+        const filteredIncome = filtered.filter(t => t._type === "income").reduce((s, t) => s + numberValue(t.amount, 0), 0);
+        const filteredExpense = filtered.filter(t => t._type === "expense").reduce((s, t) => s + numberValue(t.amount, 0), 0);
 
         const totalIncome = allTxs.filter(t => t._type === "income").reduce((s, t) => s + numberValue(t.amount, 0), 0);
         const totalExpense = allTxs.filter(t => t._type === "expense").reduce((s, t) => s + numberValue(t.amount, 0), 0);
@@ -21319,7 +21331,7 @@
                         }
                       </td>
                       <td><span class="type-badge ${tx._type === "income" ? "income" : "expense"}">${tx._type === "income" ? "Поступление" : "Расход"}</span></td>
-                      <td class="amount-cell ${tx._type === "income" ? "income" : "expense"}">${tx._type === "income" ? "+" : "−"}${money(tx.amount)}</td>
+                      <td class="amount-cell ${tx._type === "income" ? "income" : "expense"}">${signedMoney(tx.amount, tx._type === "income" ? "+" : "−")}</td>
                     </tr>
                   `).join("") : `
                     <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Нет транзакций. Добавь поступление или расход.</td></tr>
@@ -21329,11 +21341,11 @@
                   <tfoot class="fin-table-footer">
                     <tr>
                       <td colspan="5" class="u-meta">Итого получено</td>
-                      <td class="amount-cell income" style="text-align:right">+${money(filtered.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
+                      <td class="amount-cell income" style="text-align:right">${signedMoney(filteredIncome, "+")}</td>
                     </tr>
                     <tr>
                       <td colspan="5" class="u-meta">Итого расходов</td>
-                      <td class="amount-cell expense" style="text-align:right">−${money(filtered.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))}</td>
+                      <td class="amount-cell expense" style="text-align:right">${signedMoney(filteredExpense, "−")}</td>
                     </tr>
                   </tfoot>
                 ` : ""}

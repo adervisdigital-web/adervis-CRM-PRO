@@ -1213,6 +1213,71 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  /* «Итого расходов −0 ₽» — знак минуса перед нулём. Расходов не было вовсе, а
+     строка выглядит как списание. Замечено на скриншоте раздела «Финансы» у
+     аккаунта с одним поступлением. Заодно проверяем, что у ненулевой суммы знак
+     остался: без него доход и расход в одной колонке не различить. */
+  await test("итоги финансов: нулевая сумма без знака, ненулевая — со знаком", async () => {
+    const { context: cz, page: pz } = await bootLocal(browser, baseUrl,
+      { width: 1280, height: 900, seedDemo: true });
+    // Фильтр «только поступления» гарантирует нулевой расход независимо от того,
+    // что накопили соседние тесты.
+    await pz.evaluate(() => {
+      window.app.go("global-finances");
+      window.app.setGFinSubTab("transactions");
+      window.app.setGFinTypeFilter("income");
+    });
+    await pz.waitForTimeout(400);
+    const foot = await pz.evaluate(() => {
+      const rows = [...document.querySelectorAll(".fin-table-footer tr")];
+      const out = {};
+      rows.forEach((r) => {
+        const cells = [...r.children];
+        const label = (cells[0].textContent || "").trim();
+        out[label] = (cells[cells.length - 1].textContent || "").replace(/\s+/g, " ").trim();
+      });
+      return out;
+    });
+    assert(foot["Итого расходов"] !== undefined, "в итогах нет строки расходов: " + JSON.stringify(foot));
+    assert(!/^[−-]/.test(foot["Итого расходов"]),
+      "нулевой расход подписан минусом: «" + foot["Итого расходов"] + "»");
+    assert(/^\+/.test(foot["Итого получено"] || ""),
+      "ненулевое поступление осталось без плюса: «" + foot["Итого получено"] + "»");
+    await cz.close();
+  });
+
+  /* Фильтры «Финансов» стояли друг под другом во всю ширину страницы: внутри
+     флекс-ряда браузер «блокифицирует» select, enhanceSelects читал display:block
+     и вешал на обёртку width:100%. Меряем живой DOM — по исходнику этого не видно. */
+  await test("фильтры финансов: два выбора и поиск — в одну строку", async () => {
+    const { context: cf, page: pf } = await bootLocal(browser, baseUrl,
+      { width: 1280, height: 900, seedDemo: true });
+    await pf.evaluate(() => {
+      window.app.go("global-finances");
+      window.app.setGFinSubTab("transactions");
+      window.app.setGFinTypeFilter("all");
+    });
+    await pf.waitForTimeout(400);
+    const bar = await pf.evaluate(() => {
+      const el = document.querySelector("#appContent .fin-action-bar");
+      if (!el) return null;
+      const pr = el.getBoundingClientRect();
+      const kids = [...el.children].map((k) => {
+        const r = k.getBoundingClientRect();
+        return { top: Math.round(r.top), w: Math.round(r.width) };
+      });
+      return { parentW: Math.round(pr.width), kids };
+    });
+    assert(bar && bar.kids.length >= 3, "не нашёл ряд фильтров в «Финансах»: " + JSON.stringify(bar));
+    const tops = bar.kids.map((k) => k.top);
+    assert(Math.max(...tops) - Math.min(...tops) <= 4,
+      "фильтры разъехались по строкам: " + JSON.stringify(bar.kids));
+    bar.kids.slice(0, 2).forEach((k) =>
+      assert(k.w < bar.parentW * 0.5,
+        "выпадашка заняла полстроки и больше (" + k.w + " из " + bar.parentW + ")"));
+    await cf.close();
+  });
+
   /* Остаток по сделке в форме поступления. Повод из жизни: на завершённой сделке
      навсегда повис долг 60 ₽ — сумму платежа набрали с переставленными цифрами
      (18933 вместо 18993), и приложение это молча приняло. Теперь остаток видно
