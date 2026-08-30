@@ -2021,6 +2021,11 @@
     }
     .crm-card:hover .drag-handle--corner,
     .task-card:hover .drag-handle--corner { opacity: .5; }
+    /* У карточки задачи в правом верхнем углу уже стоит крестик «Удалить», и
+       ручка-подсказка садилась ровно на него: два значка вплотную читались как
+       две кнопки, и в маленькую цель легко промахнуться. Ручке — низ карточки,
+       там пусто; крестик наверху остаётся один. */
+    .task-card .drag-handle--corner { top: auto; bottom: 6px; right: 8px; }
     /* Наведения на телефоне нет — там подсказка видна всегда, приглушённо. */
     @media (hover: none) {
       .crm-card .drag-handle--corner,
@@ -2214,6 +2219,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       position: sticky;
       top: 0;
       background: var(--panel2);
@@ -2221,6 +2227,18 @@
       padding-bottom: 10px;
       margin-bottom: 0;
     }
+    /* Название колонки и счётчик — одной строкой. Без этого «На согласовании»
+       занимало всю ширину, и «0» уезжал под текст: соседние колонки стояли
+       заголовками в одну строку, а эта — в две, и ряд визуально разъезжался.
+       Длинное имя ужимается многоточием, счётчик и «+» не сжимаются никогда. */
+    .kanban-col h3 > span:first-child {
+      display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+    }
+    /* Многоточие — только на названии: если обрезать весь блок, оно съедает
+       счётчик, ради которого в заголовок и смотрят. */
+    .kanban-col-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .kanban-col h3 .pill-count { flex: 0 0 auto; }
+    .kanban-col h3 > .btn { flex: 0 0 auto; }
 
     /* Этапы воронки CRM. Раньше десять колонок были одинаково серыми: на какой
        стадии сделка, читалось только по подписи, и глазом воронка не собиралась.
@@ -5180,6 +5198,15 @@
     /* Метка аккаунта в админке: амбассадор, партнёр, свой тестовый. Вид —
        нейтральная пилюля рядом со статусом подписки: это две вещи, по которым
        аккаунт узнают, и спорить за внимание они не должны. */
+    /* Бюджет клиента в шапке сметы — кнопка, а не подпись: его называют один
+       раз в мастере, а менять и убирать приходится по ходу проекта. Вид как у
+       соседних показателей, чтобы шапка не рассыпалась на разнородные блоки. */
+    .client-budget-chip {
+      display: flex; flex-direction: column; gap: 1px; align-items: flex-start;
+      padding: 4px 12px; border: 0; border-left: 1px solid var(--line);
+      background: none; color: inherit; cursor: pointer; text-align: left; font: inherit;
+    }
+    .client-budget-chip:hover { background: var(--panel2); }
     .admin-tag-pill {
       padding: 3px 10px; border-radius: var(--r-pill); cursor: pointer;
       font-size: 12px; font-weight: 700; white-space: nowrap;

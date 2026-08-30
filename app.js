@@ -17856,11 +17856,15 @@
                     const diff = cb - numberValue(t.total, 0);
                     const over = diff < 0;
                     const color = over ? "var(--red)" : "var(--green)";
-                    return `<div title="Бюджет назван клиентом при создании сделки. Сравнивается с итогом сметы с налогом."
-                      style="display:flex;flex-direction:column;gap:1px;padding:4px 12px;border-left:1px solid var(--line)">
+                    /* Блок кликабельный: бюджет называют при создании сделки, а
+                       потом он живёт вечно — поменять или убрать его было негде,
+                       и смета до конца проекта показывала «перерасход» по цифре,
+                       о которой давно договорились иначе. */
+                    return `<button type="button" class="client-budget-chip" onclick="app.editClientBudget()"
+                      title="Бюджет назван клиентом при создании сделки. Нажмите, чтобы изменить или убрать — сравнивается с итогом сметы с налогом.">
                       <span style="font-size:12px;color:var(--muted)">бюджет клиента ${money(cb)}</span>
                       <span style="font-size:13px;font-weight:800;color:${color}">${over ? "перерасход " + money(-diff) : "запас " + money(diff)}</span>
-                    </div>`;
+                    </button>`;
                   })()}
                 </div>
                 ${stagesWithItems.length ? `
@@ -19378,9 +19382,12 @@
                 <h1>Задачи проекта</h1>
                 <p>Мини-канбан для текущего проекта: от подготовки до сдачи.</p>
               </div>
-              <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.createTask()">+ Задача</button>
-              </div>
+              ${/* Кнопки «+ Задача» в шапке больше нет: «+» стоит в заголовке
+                    КАЖДОЙ колонки и там же говорит, куда именно попадёт задача
+                    («Добавить задачу в "В работе"»). Общая кнопка делала то же
+                    самое вслепую — задача падала в «Новую», и её приходилось
+                    перетаскивать. Два способа сделать одно, из которых один
+                    точнее, — это не выбор, а лишний шаг. */""}
             </div>
 
             <div class="kanban">
@@ -19393,7 +19400,10 @@
                     ondragleave="this.classList.remove('dragover')"
                     ondrop="app.onKanbanDrop(event,'${status}','task');this.classList.remove('dragover')">
                     <h3>
-                      <span>${escapeHtml(status)} <span class="pill-count">${tasks.length}</span></span>
+                      ${/* Название в своём элементе: ужиматься должно ОНО, а не
+                            счётчик — иначе многоточие съедает число, ради
+                            которого в заголовок и смотрят. */""}
+                      <span><span class="kanban-col-name">${escapeHtml(status)}</span> <span class="pill-count">${tasks.length}</span></span>
                       <button class="btn small no-print" onclick="app.createTask('${status}')" title="Добавить задачу в «${escapeHtml(status)}»" aria-label="Добавить задачу в «${escapeHtml(status)}»" style="padding:0 10px">+</button>
                     </h3>
 
@@ -20101,9 +20111,17 @@
                 <h1>Календарь</h1>
                 <p>Сегодня: <strong>${formatDate(today)}</strong> · Все даты текущего проекта.</p>
               </div>
+              ${/* Здесь стояли «+ Задача» и «Все задачи» — обе мимо экрана.
+                    «Все задачи» дублировала вкладку «Задачи», которая и так в
+                    шапке сделки строкой выше; «+ Задача» заводила задачу вслепую
+                    в «Новую», хотя на календаре важно КОГДА, а не куда.
+
+                    Вместо них — то, ради чего на календарь и заходят: добавить
+                    задачу НА КОНКРЕТНУЮ дату и внести деньги, которые тут же
+                    рядом и перечислены (поступления, расходы, дедлайн). */""}
               <div class="toolbar no-print">
-                ${events.length ? `<button class="btn primary" onclick="app.createTask()">+ Задача</button>` : ""}
-                <button class="btn" onclick="app.setDealView('tasks')">Все задачи</button>
+                <button class="btn primary" onclick="app.createTaskOnDate()" title="Задача с датой — попадёт в этот календарь">+ Задача на дату</button>
+                <button class="btn" onclick="app.openFinanceModal('payment')" title="Записать поступление по этой сделке">+ Поступление</button>
               </div>
             </div>
 
@@ -25288,6 +25306,60 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!state.dealModal) return;
         state.dealModal[key] = value;
       }
+
+      /* Убрать дедлайн одной кнопкой. Отдельно от setDealModalField, потому что
+         тот СПЕЦИАЛЬНО не перерисовывает модалку (иначе поле теряет курсор на
+         каждом символе), а здесь перерисовать надо: очистить само поле даты и
+         убрать плашку «просрочен». */
+      function clearDealModalDeadline() {
+        if (!state.dealModal) return;
+        state.dealModal.deadline = "";
+        renderModal();
+      }
+
+      /* Правка бюджета клиента прямо из шапки сметы. Его называют один раз — в
+         мастере создания сделки, — и до 29.08.2026 изменить или убрать его было
+         НЕГДЕ: смета до конца проекта показывала «перерасход 45 000 ₽» по
+         сумме, о которой давно договорились иначе.
+
+         Пустое поле убирает бюджет: тогда смета считается только по услугам и
+         сравнивать её больше не с чем — блок исчезает. */
+      /* Задача с датой — с календаря. Обычная «+ Задача» заводит её без срока, и
+         в календаре такая не появится вовсе: он показывает только то, у чего есть
+         дата. Спрашиваем дату сразу, по умолчанию — сегодня. */
+      async function createTaskOnDate() {
+        const value = await promptDialog({
+          title: "Задача на дату",
+          message: "Дата, на которую поставить задачу. Она появится в этом календаре и в списке «Задачи».",
+          defaultValue: todayIso(),
+          placeholder: "ГГГГ-ММ-ДД",
+          okText: "Создать",
+        });
+        if (value === null) return;
+        const date = String(value).trim();
+        // Пустую дату принимаем: задача просто не попадёт в календарь, и это
+        // законно — человек мог передумать про срок уже в диалоге.
+        createTask("Новая", date);
+      }
+
+      async function editClientBudget() {
+        const current = numberValue(state.project.clientBudget, 0);
+        const value = await promptDialog({
+          title: "Бюджет клиента",
+          message: "Сумма, которую клиент назвал в начале. Смета сравнивается с ней и показывает запас или перерасход. Оставьте поле пустым, чтобы убрать бюджет и считать только по услугам.",
+          defaultValue: current ? String(current) : "",
+          placeholder: "Например, 250000",
+          okText: "Сохранить",
+        });
+        if (value === null) return;
+        const next = Math.max(0, Math.round(numberValue(String(value).replace(/[^\d.,-]/g, "").replace(",", "."), 0)));
+        saveHistory();
+        state.project.clientBudget = next;
+        flushActiveProjectToSaved();
+        save();
+        render();
+        toast(next ? `Бюджет клиента: ${money(next)}` : "Бюджет клиента убран — смета считается по услугам");
+      }
       function linkDealClient(projectId, clientId) {
         const proj = (state.savedProjects || []).find(p => p.id === projectId);
         if (!proj) return;
@@ -25370,7 +25442,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       function renderDealModalHtml() {
         const m = state.dealModal;
         if (!m) return "";
-        const u = m.deadline ? deadlineUrgency(m.deadline) : null;
+        /* Через dealDeadlineUrgency, а НЕ через deadlineUrgency напрямую: тот не
+           знает про статус сделки, и модалка ругалась «Просрочен на 2 дн.» на
+           сделке, где работа сдана и оплачена. Карточка и шапка той же сделки при
+           этом молчали — считали правильной функцией. Один и тот же дедлайн на
+           двух экранах говорил разное. */
+        const u = dealDeadlineUrgency(m);
         return `
           <div class="modal-overlay" onclick="event.target===this&&app.closeDealModal()">
             <div class="modal-box" style="width:min(560px,calc(100vw - 32px))">
@@ -25396,10 +25473,17 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 ${field("Менеджер", `<input value="${escapeHtml(m.manager || "")}" oninput="app.setDealModalField('manager',this.value)" placeholder="Имя менеджера">`)}
               </div>
               <div style="background:rgb(var(--primary-rgb) / .06);border:1px solid rgb(var(--primary-rgb) / .2);border-radius:12px;padding:14px 16px;margin-bottom:14px">
-                <div style="font-size:12px;font-weight:800;color:var(--primary-text);margin-bottom:10px"> Дедлайн проекта${u && u.level !== "ok" ? ` <span style="color:${u.color};font-weight:700">· ${escapeHtml(u.label)}</span>` : ""}</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+                  <div style="font-size:12px;font-weight:800;color:var(--primary-text)">Дедлайн проекта${u && u.level !== "ok" ? ` <span style="color:${u.color};font-weight:700">· ${escapeHtml(u.label)}</span>` : ""}</div>
+                  ${/* Убрать дату иначе можно только через календарь браузера: у
+                        <input type="date"> своей кнопки очистки нет ни в одном
+                        мобильном, а работа уже сделана — человек просто хочет,
+                        чтобы поле перестало гореть. */""}
+                  ${m.deadline ? `<button type="button" class="btn small" style="margin-left:auto" onclick="app.clearDealModalDeadline()" title="Убрать дедлайн — работа сделана или срок больше не нужен">Убрать</button>` : ""}
+                </div>
                 <input type="date" value="${escapeHtml(m.deadline||"")}"
                   oninput="app.setDealModalField('deadline',this.value)"
-                  style="width:100%;border-radius:10px;border:1px solid var(--line);background:var(--input);color:var(--text);padding:10px 12px;font-size:14px">
+                  style="width:100%;border-radius:var(--r-lg);border:1px solid var(--line);background:var(--input);color:var(--text);padding:10px 12px;font-size:14px">
               </div>
               ${!m.hasSmetaLines ? `
               <div class="field" style="margin-bottom:14px">
@@ -27745,6 +27829,9 @@ Email: _____________________              Email: _____________________
         openDealModal,
         closeDealModal,
         setDealModalField,
+        clearDealModalDeadline,
+        editClientBudget,
+        createTaskOnDate,
         linkDealClient,
         saveDealModal,
 
