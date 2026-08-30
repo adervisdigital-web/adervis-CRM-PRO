@@ -15069,7 +15069,15 @@
         // покажет статус аванса от записи, которой больше нет.
         let touched = false;
         (state.savedProjects || []).forEach(proj => {
-          if (proj.portalId === portalId) { proj.portalId = ''; touched = true; }
+          if (proj.portalId !== portalId) return;
+          proj.portalId = '';
+          /* И отметку «этап уже поднимали по согласованию этого КП»: иначе
+             студия удаляет КП, отправляет новое, клиент подписывает — а сделка
+             стоит на месте, потому что флаг поднят навсегда. Тот же обратный
+             ход, что у снятия согласования: КП больше нет, а память о нём
+             продолжала бы блокировать перенос. */
+          proj.portalApprovedApplied = false;
+          touched = true;
         });
         if (state.project && state.project.portalId === portalId) state.project.portalId = '';
         if (touched) save();
