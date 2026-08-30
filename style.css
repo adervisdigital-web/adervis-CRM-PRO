@@ -7672,6 +7672,45 @@ button.is-busy::before {
   height: 100%;
 }
 .item--catalog > .item-top { flex: 1 1 auto; }
+/* Заголовок держит две строки всегда. Иначе у соседей по ряду («Аватар
+   сообщества» в одну строку, «Адаптация в вертикальный формат» в две) описание
+   и бейджи начинались на разной высоте: низ карточек уже выровнен, а середина
+   всё равно «плавала». Две строки — потолок для названия услуги в каталоге из
+   200 позиций (проверено: длиннее нет), поэтому резерв не создаёт пустоты
+   больше одной строки. */
+/* Карточка-шаблон (договоры). Растягивается на ячейку сетки, бейдж категории
+   прижат к низу — у соседей по ряду он стоит на одной линии независимо от того,
+   в одну строку имя шаблона или в две. Наведение — то же, что у карточек
+   каталога: подъём и мягкая тень акцентного тона. */
+.tpl-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  height: 100%; padding: 14px; text-align: left;
+  border: 1px solid var(--line); border-radius: var(--r-xl);
+  background: var(--panel2); color: inherit; font: inherit; cursor: pointer;
+  transition: transform var(--dur-2), box-shadow var(--dur-2), border-color var(--dur-2);
+}
+.tpl-card h3 { font-size: 13px; margin: 0; line-height: 1.3; }
+.tpl-card p { font-size: 12px; margin: 0; color: var(--muted); line-height: 1.45; }
+.tpl-card .badge { margin-top: auto; display: inline-flex; }
+.tpl-card:hover {
+  transform: translateY(-2px);
+  border-color: rgb(var(--primary-rgb) / .55);
+  box-shadow: 0 8px 22px -10px rgb(var(--primary-rgb) / .45);
+}
+.tpl-card:active { transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .tpl-card { transition: none; }
+  .tpl-card:hover { transform: none; }
+}
+
+.item--catalog .item-top h3 {
+  min-height: calc(2 * 1.3em);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 /* Ряд действий — всегда у нижнего края карточки. */
 .item--catalog > .no-print:last-child { margin-top: auto; }
 .item--catalog .item-top p {

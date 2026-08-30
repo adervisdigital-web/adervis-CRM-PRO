@@ -27299,16 +27299,18 @@ Email: _____________________              Email: _____________________
 
             <h2 style="font-size:16px;margin:0 0 12px;color:var(--muted)">Шаблоны</h2>
             <div class="grid four" style="margin-bottom:24px">
+              ${/* Класс вместо инлайнового стиля с onmouseover: карточки были
+                    разной высоты (имя шаблона в одну строку или в две), и бейдж
+                    категории вставал на разном уровне у соседей по ряду. Плюс
+                    свой ручной hover — рамка менялась, а тень и подъём, как у
+                    карточек каталога, не работали. Теперь одна разметка и один
+                    вид у всех карточек-плиток продукта. */""}
               ${CONTRACT_TEMPLATES.map(tpl => `
-                <div style="padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);cursor:pointer;transition:.15s"
-                     onclick="app.createContractFromTemplate('${tpl.id}')"
-                     onmouseover="this.style.borderColor='rgb(var(--primary-rgb) / .5)'"
-                     onmouseout="this.style.borderColor='var(--line)'">
-                  <div style="font-size:20px;margin-bottom:8px"></div>
-                  <h3 style="font-size:13px;margin:0 0 4px">${escapeHtml(tpl.name)}</h3>
-                  <p style="font-size:12px;margin:0">${escapeHtml(tpl.desc)}</p>
-                  <span class="badge" style="margin-top:8px;display:inline-flex">${escapeHtml(tpl.category)}</span>
-                </div>
+                <button type="button" class="tpl-card" onclick="app.createContractFromTemplate('${tpl.id}')">
+                  <h3>${escapeHtml(tpl.name)}</h3>
+                  <p>${escapeHtml(tpl.desc)}</p>
+                  <span class="badge">${escapeHtml(tpl.category)}</span>
+                </button>
               `).join("")}
             </div>
 
