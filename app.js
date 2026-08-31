@@ -2288,7 +2288,7 @@
                 ? `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px">
                      <span style="color:var(--text-success);display:inline-flex">${icon("check", 16)}</span>
                      <span style="font-size:13px;flex:1">Магазин подключён — авансы приходят на ваш счёт</span>
-                     <button class="btn small danger" onclick="app.removePayKeys()">Отключить</button>
+                     <button class="btn danger-quiet small" onclick="app.removePayKeys()">Отключить</button>
                    </div>`
                 : `<div class="grid two" style="margin-bottom:10px">
                      <div class="field" style="margin:0">
@@ -5573,7 +5573,7 @@
                       <span style="color:var(--primary);display:inline-flex">${icon("camera")}</span> Изменить фото
                       <input type="file" accept="image/*" onchange="app.uploadUserAvatar(event)" style="display:none">
                     </label>
-                    ${us.avatarDataUrl ? `<button class="btn small danger" onclick="app.removeUserAvatar()">${TRASH_SVG} Удалить</button>` : ""}
+                    ${us.avatarDataUrl ? `<button class="btn danger-quiet small" onclick="app.removeUserAvatar()">${TRASH_SVG} Удалить</button>` : ""}
                   </div>
                   <div class="grid two" style="gap:8px">
                     <div class="field" style="margin:0">
@@ -5608,7 +5608,7 @@
               <div id="changePasswordBox"></div>
               <div class="toolbar" style="gap:8px;flex-wrap:wrap">
                 <button class="btn small" onclick="app.openChangePassword()" style="display:inline-flex;align-items:center;gap:6px"><span style="color:var(--blue);display:inline-flex">${icon("key")}</span> Изменить пароль</button>
-                <button class="btn small danger" onclick="app.confirmDeleteAccount()">${TRASH_SVG} Удалить аккаунт</button>
+                <button class="btn danger-quiet small" onclick="app.confirmDeleteAccount()">${TRASH_SVG} Удалить аккаунт</button>
               </div>
             </div>
 
@@ -6477,7 +6477,7 @@
                 <div class="toolbar no-print">
                   <button class="btn small green" onclick="app.kbSave()">Сохранить</button>
                   <button class="btn small" onclick="app.kbDuplicate('${doc.id}')">Дублировать</button>
-                  <button class="btn small danger" onclick="app.kbDelete('${doc.id}')">Удалить</button>
+                  <button class="btn danger-quiet small" onclick="app.kbDelete('${doc.id}')">Удалить</button>
                 </div>
               </div>
               <div class="kb-editor">
@@ -11703,7 +11703,7 @@
               </div>
 
               <div class="field" style="margin-bottom:14px">
-                <label style="font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.04em">СУММА, ₽ *</label>
+                <label>Сумма, ₽ *</label>
                 <input class="modal-amount-input ${m.amount && !isValid ? "invalid" : ""}"
                   type="text" inputmode="numeric" autocomplete="off" placeholder="0"
                   value="${escapeHtml(groupDigits(m.amount))}"
@@ -11765,7 +11765,11 @@
                 </div>
               </div>
 
-              <div class="grid two" style="margin-bottom:14px">
+              ${/* У расхода второго поля в этом ряду нет, и «Категория» стояла в
+                    половине ширины: подпись выбранной статьи обрезалась на
+                    «Техника и оборудован…». Ряд из двух колонок — только когда их
+                    действительно две. */""}
+              <div class="grid ${isPayment ? "two" : ""}" style="margin-bottom:14px">
                 <div class="field">
                   <label>${isPayment ? "Статья" : "Категория"}</label>
                   <select onchange="app.setFinanceModalField('category',this.value)">
@@ -14983,7 +14987,7 @@
               ${_proposalApprovalRowHtml(m)}
               ${_proposalAdvanceRowHtml(m)}
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-                <button class="btn danger small" onclick="app.deleteProposal('${m.id}')">${icon("trash", 14)} Удалить</button>
+                <button class="btn danger-quiet small" onclick="app.deleteProposal('${m.id}')">${icon("trash", 14)} Удалить</button>
                 <div class="u-flex-g8">
                   <button class="btn" onclick="app.closeProposalModal()">Отмена</button>
                   <button class="btn primary" onclick="app.saveProposalModal()">Сохранить</button>
@@ -15324,7 +15328,7 @@
                   <div class="toolbar no-print">
                     <button class="btn small" onclick="app.openBriefEditor('${activeType}')" style="display:inline-flex;align-items:center;gap:6px">${icon('pencil', 14)} Редактировать вопросы</button>
                     <button class="btn small" onclick="app.previewBrief('${activeType}')" title="Открыть форму как клиент (новая вкладка)" style="display:inline-flex;align-items:center;gap:6px">${icon('eye', 14)} Предпросмотр</button>
-                    ${typeMeta.custom ? `<button class="btn small danger" onclick="app.removeCustomBriefType('${activeType}')" title="Удалить свой бриф" aria-label="Удалить бриф «${escapeHtml(typeMeta.label)}»" style="display:inline-flex;align-items:center;gap:6px">${icon('trash', 14)}</button>` : ''}
+                    ${typeMeta.custom ? `<button class="btn danger-quiet small" onclick="app.removeCustomBriefType('${activeType}')" title="Удалить свой бриф" aria-label="Удалить бриф «${escapeHtml(typeMeta.label)}»" style="display:inline-flex;align-items:center;gap:6px">${icon('trash', 14)}</button>` : ''}
                   </div>
                 </div>
                 <div class="brief-link-box" style="margin-top:12px">
@@ -15334,7 +15338,7 @@
                 <div class="toolbar no-print" style="margin-top:10px">
                   <button class="btn primary small" onclick="app.copyBriefLink('${activeType}')">Копировать ссылку</button>
                   <button class="btn small" onclick="app.showBriefQR('${activeType}')" title="QR-код для ссылки">QR-код</button>
-                  ${customized ? `<button class="btn small danger" onclick="app.resetBriefTemplate('${activeType}')" title="Вернуть стандартные вопросы">Сбросить вопросы</button>` : ''}
+                  ${customized ? `<button class="btn danger-quiet small" onclick="app.resetBriefTemplate('${activeType}')" title="Вернуть стандартные вопросы">Сбросить вопросы</button>` : ''}
                 </div>
                 <div id="briefQrContainer" style="margin-top:14px;display:none;text-align:center"></div>
               </div>
@@ -16455,7 +16459,7 @@
                     ` : ""}
                     <button class="btn small" onclick="app.selectAllCrmVisible()">Выбрать все (${visibleItems.length})</button>
                     <button class="btn small" onclick="app.clearCrmSelect()">${selCount ? "Снять выбор" : "Выйти"}</button>
-                    ${selCount ? `<button class="btn danger small" onclick="app.bulkDeleteDeals()">Удалить (${selCount})</button>` : ""}
+                    ${selCount ? `<button class="btn danger-quiet small" onclick="app.bulkDeleteDeals()">Удалить (${selCount})</button>` : ""}
                   </div>
                 `;
               })()}
@@ -16832,7 +16836,7 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">
             ${isHidden ? `
               <button class="btn small green" onclick="app.restoreCatalogItem('${id}');app.closeCatalogEdit()">↩ Восстановить</button>
-              <button class="btn small danger" onclick="app.permanentlyDeleteItem('${id}');app.closeCatalogEdit()">Удалить навсегда</button>
+              <button class="btn danger-quiet small" onclick="app.permanentlyDeleteItem('${id}');app.closeCatalogEdit()">Удалить навсегда</button>
             ` : `
               ${qty > 0
                 ? `<div class="catalog-qty-stepper catalog-qty-pop" style="flex-shrink:0">
@@ -16859,7 +16863,7 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                 </button>
               ` : `
-                <button class="btn small danger" onclick="app.deleteCustomItem('${id}')" title="Удалить свою позицию">${TRASH_SVG} Удалить</button>
+                <button class="btn danger-quiet small" onclick="app.deleteCustomItem('${id}')" title="Удалить свою позицию">${TRASH_SVG} Удалить</button>
               `}
             `}
           </div>
@@ -17749,7 +17753,7 @@
               ${hidden ? `
                 <div style="display:flex;gap:6px">
                   <button class="btn small green" onclick="app.restoreCatalogItem('${itemData.id}')">↩ Восстановить</button>
-                  <button class="btn small danger" onclick="app.permanentlyDeleteItem('${itemData.id}')">Удалить навсегда</button>
+                  <button class="btn danger-quiet small" onclick="app.permanentlyDeleteItem('${itemData.id}')">Удалить навсегда</button>
                 </div>
               ` : `
                 <div class="u-flex-ac-g6">
@@ -17837,10 +17841,10 @@
 
             <div class="toolbar no-print" style="margin-top:14px">
               ${selected
-                ? `<button class="btn danger" onclick="app.removeItem('${itemData.id}')">Убрать из сметы</button>`
+                ? `<button class="btn danger-quiet" onclick="app.removeItem('${itemData.id}')">Убрать из сметы</button>`
                 : `<button class="btn primary" onclick="app.addItem('${itemData.id}')">Добавить</button>`
               }
-              <button class="btn danger" onclick="app.deleteCustomItem('${itemData.id}')">${TRASH_SVG} Удалить</button>
+              <button class="btn danger-quiet" onclick="app.deleteCustomItem('${itemData.id}')">${TRASH_SVG} Удалить</button>
             </div>
           </article>
         `;
@@ -18928,7 +18932,7 @@
               <div class="toolbar no-print" style="margin-top:14px">
                 <button class="btn primary" onclick="app.startWizardForClient('${client.id}')">+ Новый проект для клиента</button>
                 <button class="btn" onclick="app.openClientEstimate('${client.id}')">Открыть текущую смету</button>
-                <button class="btn danger" onclick="app.deleteClient('${client.id}')">${TRASH_SVG} Удалить клиента</button>
+                <button class="btn danger-quiet" onclick="app.deleteClient('${client.id}')">${TRASH_SVG} Удалить клиента</button>
               </div>
             </div>
 
@@ -19045,7 +19049,7 @@
                     <button class="btn primary" onclick="app.loadSavedProject('${project.id}')">Открыть</button>
                     <button class="btn" onclick="app.duplicateSavedProject('${project.id}')">Копия</button>
                     <button class="btn" onclick="app.repeatSavedProject('${project.id}')" title="Копия со сдвинутым на месяц дедлайном и статусом «Лид» — для регулярных клиентов">↻ Повторить</button>
-                    <button class="btn danger" onclick="app.deleteSavedProject('${project.id}')">${TRASH_SVG} Удалить</button>
+                    <button class="btn danger-quiet" onclick="app.deleteSavedProject('${project.id}')">${TRASH_SVG} Удалить</button>
                   </div>
                 </article>
               `).join("") : (state.projectFilter !== "all"
@@ -19380,6 +19384,12 @@
         state.taskModal = normalizeTask({
           title: "", status: "Новая", priority: "Средний", deadline: deadline || "",
         });
+        /* normalizeTask подставляет «Новая задача» вместо пустого названия — это
+           нужно СОХРАНЁННОЙ задаче, чтобы она не осталась безымянной. В черновике
+           же это заготовка, которую человек обязан стереть, прежде чем набрать
+           своё: окно открыто ради быстрого ввода, а первым делом просит уборки.
+           Пустое поле с подсказкой; при сохранении подстановка сработает. */
+        state.taskModal.title = "";
         state.taskModal._isNew = true;
         _armDirtyCheck(state.taskModal);
         renderModal();
@@ -20121,7 +20131,7 @@
             </div>
 
             <div class="toolbar no-print" style="margin-top:10px">
-              <button class="btn danger small" onclick="app.deleteTeamMember('${member.id}')">${TRASH_SVG} Удалить</button>
+              <button class="btn danger-quiet small" onclick="app.deleteTeamMember('${member.id}')">${TRASH_SVG} Удалить</button>
             </div>
           </article>
         `;
@@ -20224,7 +20234,7 @@
             ` : ""}
 
             <div class="toolbar no-print" style="margin-top:10px">
-              <button class="btn danger small" onclick="app.deleteCompanyTeamMember('${member.id}')">${TRASH_SVG} Удалить</button>
+              <button class="btn danger-quiet small" onclick="app.deleteCompanyTeamMember('${member.id}')">${TRASH_SVG} Удалить</button>
             </div>
           </article>
         `;
@@ -20848,7 +20858,7 @@
 
                     <div class="toolbar no-print" style="margin-top:14px">
                       <button class="btn primary" onclick="app.restoreVersion('${version.id}')">Восстановить</button>
-                      <button class="btn danger" onclick="app.deleteVersion('${version.id}')">${TRASH_SVG} Удалить</button>
+                      <button class="btn danger-quiet" onclick="app.deleteVersion('${version.id}')">${TRASH_SVG} Удалить</button>
                     </div>
                   </article>
                 `).join("")}
@@ -22596,7 +22606,7 @@
               <p>Сброс удалит все локальные данные приложения в браузере.</p>
 
               <div class="toolbar no-print">
-                <button class="btn danger" onclick="app.resetAllData()">Сбросить всё</button>
+                <button class="btn danger-quiet" onclick="app.resetAllData()">Сбросить всё</button>
               </div>
             </div>
         `;
@@ -25017,7 +25027,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <textarea style="min-height:64px" oninput="app.setEditTransactionField('note',this.value)" placeholder="Необязательно">${escapeHtml(m.note || "")}</textarea>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-                <button class="btn danger small" onclick="app.deleteEditTransaction()">${TRASH_SVG} Удалить</button>
+                <button class="btn danger-quiet small" onclick="app.deleteEditTransaction()">${TRASH_SVG} Удалить</button>
                 <div class="u-flex-g8">
                   <button class="btn" onclick="app.closeEditTransactionModal()">Отмена</button>
                   <button class="modal-save-btn ${isIncome ? "income" : "expense"}" onclick="app.saveEditTransaction()">Сохранить</button>
@@ -25150,7 +25160,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
                 <div class="u-flex-g8">
                   ${m.id ? `<button class="btn small" onclick="app.closeClientModal();app.openClientDetail('${m.id}')">Проекты</button>` : ""}
-                  ${m.id ? `<button class="btn danger small" onclick="app.closeClientModal();app.deleteClient('${m.id}')">${TRASH_SVG} Удалить клиента</button>` : ""}
+                  ${m.id ? `<button class="btn danger-quiet small" onclick="app.closeClientModal();app.deleteClient('${m.id}')">${TRASH_SVG} Удалить клиента</button>` : ""}
                 </div>
                 <div class="u-flex-g8">
                   <button class="btn" onclick="app.closeClientModal()">Отмена</button>
@@ -25601,7 +25611,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 ${field("Клиент", `
                   <select onchange="app.linkDealClient('${escapeHtml(m.id)}', this.value)" title="Привяжи к клиенту из справочника — тогда переименование клиента подтянется сюда автоматически">
                     ${!m.clientId && m.client ? `<option value="" selected>${escapeHtml(m.client)} (не привязан)</option>` : `<option value="">— не привязан —</option>`}
-                    ${(state.clients || []).map(c => optionValueHtml(c.id, c.company ? `${c.name} · ${c.company}` : c.name, m.clientId)).join("")}
+                    ${/* clientSubtitle: у брендов компания совпадает с именем, и в списке стояло
+                          «Бренд «Вкус» · Бренд «Вкус»». */""}
+                    ${(state.clients || []).map(c => optionValueHtml(c.id, clientSubtitle(c) ? `${c.name} · ${clientSubtitle(c)}` : c.name, m.clientId)).join("")}
                   </select>
                 `)}
                 ${field("Статус воронки", `<select onchange="app.setDealModalField('crmStatus',this.value)">
@@ -25773,7 +25785,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <button onclick="app.closeTaskModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
               <div class="field" style="margin-bottom:12px">
-                ${field("Название", `<input value="${escapeHtml(m.title || "")}" oninput="app.setTaskModalField('title',this.value)">`)}
+                ${field("Название", `<input value="${escapeHtml(m.title || "")}" oninput="app.setTaskModalField('title',this.value)" placeholder="Что нужно сделать?">`)}
               </div>
               <div class="grid two" style="margin-bottom:12px">
                 ${field("Статус", `<select onchange="app.setTaskModalField('status',this.value)">
@@ -25794,6 +25806,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 ${field("Заметка", `<textarea style="min-height:80px" oninput="app.setTaskModalField('note',this.value)" placeholder="Детали задачи...">${escapeHtml(m.note||"")}</textarea>`)}
               </div>
 
+              ${/* У черновика комментариев быть не может: задачи ещё нет. Раньше
+                    окно новой задачи показывало «Комментариев пока нет», поле ввода
+                    и синюю кнопку «Добавить» — она стояла выше «Создать» и спорила
+                    с ней за главное действие. */""}
+              ${m._isNew ? "" : `
               <div style="border-top:1px solid var(--line);padding-top:16px;margin-bottom:18px">
                 <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">
                   Комментарии${(m.comments||[]).length ? ` (${m.comments.length})` : ""}
@@ -25817,7 +25834,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                     style="flex:1;min-height:60px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:13px;resize:none;font-family:inherit"></textarea>
                   <button class="btn primary" onclick="app.addTaskComment()" style="white-space:nowrap;align-self:flex-end">Добавить</button>
                 </div>
-              </div>
+              </div>`}
 
               <div style="display:flex;justify-content:flex-end;gap:8px">
                 <button class="btn" onclick="app.closeTaskModal()">Отмена</button>
@@ -27250,7 +27267,7 @@ Email: _____________________              Email: _____________________
                   <div class="toolbar no-print">
                     <button class="btn green" onclick="app.printContract('${c.id}')">Печать / PDF</button>
                     <button class="btn small" onclick="app.copyContractText('${c.id}')">Копировать</button>
-                    <button class="btn danger" onclick="app.deleteContract('${c.id}');app.closeContractEdit()">${TRASH_SVG} Удалить</button>
+                    <button class="btn danger-quiet" onclick="app.deleteContract('${c.id}');app.closeContractEdit()">${TRASH_SVG} Удалить</button>
                   </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
@@ -27271,7 +27288,7 @@ Email: _____________________              Email: _____________________
                     ${field("Описание", `<input value="${escapeHtml(c.desc||"")}" onchange="app.updateContractField('${c.id}','desc',this.value)" placeholder="Краткое описание">`)}
                     ${field("Клиент", `<select onchange="app.updateContractField('${c.id}','clientId',this.value)">
                       <option value="">— без привязки —</option>
-                      ${(state.clients||[]).map(cl => `<option value="${cl.id}" ${c.clientId===cl.id?"selected":""}>${escapeHtml(cl.name)}${cl.company?" · "+escapeHtml(cl.company):""}</option>`).join("")}
+                      ${(state.clients||[]).map(cl => `<option value="${cl.id}" ${c.clientId===cl.id?"selected":""}>${escapeHtml(cl.name)}${clientSubtitle(cl)?" · "+escapeHtml(clientSubtitle(cl)):""}</option>`).join("")}
                     </select>`)}
                     ${field("Сделка", `<select onchange="app.updateContractField('${c.id}','dealId',this.value)">
                       <option value="">— без привязки —</option>
@@ -27428,7 +27445,7 @@ Email: _____________________              Email: _____________________
                     <p style="font-size:12px;margin:0;color:var(--muted)">Обновлён: ${formatDate(c.updatedAt)}</p>
                     <div class="toolbar no-print" style="margin-top:10px">
                       <button class="btn small" onclick="event.stopPropagation();app.printContract('${c.id}')">Печать / PDF</button>
-                      <button class="btn danger small" onclick="event.stopPropagation();app.deleteContract('${c.id}')">${TRASH_SVG} Удалить</button>
+                      <button class="btn danger-quiet small" onclick="event.stopPropagation();app.deleteContract('${c.id}')">${TRASH_SVG} Удалить</button>
                     </div>
                   </article>
                 `).join("")}
