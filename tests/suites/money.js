@@ -1399,6 +1399,68 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Темп по первым дням месяца — не прогноз, а умножение случайности: одна оплата
+     первого числа превращалась в «прогноз поступлений» ×30. Ниже пяти дней прогноз
+     не строим и показываем факт. Ожидание считаем от СЕГОДНЯШНЕЙ даты, чтобы тест
+     был верен в любой день месяца, а не только первого. */
+  await test("прогноз месяца не строится по первым дням", async () => {
+    const сегодня = new Date();
+    const день = сегодня.getDate();
+    const днейВМесяце = new Date(сегодня.getFullYear(), сегодня.getMonth() + 1, 0).getDate();
+    const сумма = 100000;
+    const iso = `${сегодня.getFullYear()}-${String(сегодня.getMonth() + 1).padStart(2, "0")}-${String(день).padStart(2, "0")}`;
+
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+    const pg = await ctx.newPage();
+    await pg.addInitScript(({ key, iso, сумма }) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      localStorage.setItem(key, JSON.stringify({
+        view: "home",
+        savedProjects: [{
+          id: "fc1", name: "Сделка", client: "Клиент", clientId: "cfc1",
+          total: сумма, paid: сумма, debt: 0,
+          crmStatus: "Завершённые", status: "Завершено", updatedAt: new Date().toISOString(),
+          snapshot: { project: { name: "Сделка", client: "Клиент" },
+            payments: [{ id: "pfc1", title: "Оплата", amount: сумма, date: iso, method: "Счёт" }],
+            expenses: [], tasks: [], selected: {} }
+        }]
+      }));
+    }, { key: STORAGE_KEY, iso, сумма });
+    await pg.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await pg.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await pg.evaluate(() => {
+      window.app.go("global-finances");
+      window.app.setGFinSubTab("analytics");
+    });
+    await pg.waitForTimeout(600);
+    const карточка = await pg.$eval("#appContent .fin-forecast-card",
+      (el) => el.textContent.replace(/\s+/g, " "));
+    // Число берём из САМОГО значения, а не из всего текста карточки: в подписи
+    // «за 1 день» тоже есть цифра, и она приклеивалась к сумме.
+    const значение = await pg.$eval("#appContent .fin-forecast-card .fc-val",
+      (el) => el.textContent.replace(/\s+/g, " "));
+    const шапка = await pg.$eval("#appContent .analytics-section h3",
+      (el) => el.textContent.replace(/\s+/g, " "));
+    await ctx.close();
+
+    const число = Number(значение.replace(/[^\d]/g, "")) || 0;
+    if (день < 5) {
+      assert(/показываем факт/.test(шапка),
+        "на " + день + "-й день месяца страница всё ещё обещает прогноз: " + шапка);
+      assert(Math.abs(число - сумма) < 1000,
+        "вместо факта показан домысел: " + карточка);
+    } else {
+      const ожидание = Math.round(сумма / день * днейВМесяце);
+      assert(Math.abs(число - ожидание) <= ожидание * 0.02,
+        "прогноз посчитан не по темпу: " + карточка + " (ждали ~" + ожидание + ")");
+    }
+  });
+
   /* Остаток по сделке в форме поступления. Повод из жизни: на завершённой сделке
      навсегда повис долг 60 ₽ — сумму платежа набрали с переставленными цифрами
      (18933 вместо 18993), и приложение это молча приняло. Теперь остаток видно

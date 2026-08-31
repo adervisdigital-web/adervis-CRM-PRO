@@ -5324,9 +5324,25 @@
 
     /* ── KPI-плитки в аналитике финансов ─────────── */
     .kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 16px; }
-    .kpi-tile { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); text-align: center; }
+    /* Значок и подпись сверху, число снизу — как в плитках главной. Центрирование
+       убрано: шесть центрированных блоков подряд не дают глазу вертикали, по
+       которой он идёт вниз по колонке. */
+    .kpi-tile { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+    .kpi-top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; min-width: 0; }
+    .kpi-ico {
+      width: 20px; height: 20px; border-radius: var(--r-xs); flex: 0 0 auto;
+      background: var(--primary-bg); color: var(--primary-text);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .kpi-body { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
     .kpi-val { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .kpi-lbl { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .kpi-lbl {
+      font-size: 11px; color: var(--muted); min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    /* Полукруг уходит первым: на узкой плитке число важнее формы. */
+    .kpi-body .spark { flex: 0 1 auto; min-width: 0; }
+    @media (max-width: 1280px) { .kpi-body .spark { display: none; } }
     @media (max-width: 768px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 480px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
 
@@ -5764,6 +5780,13 @@
       border-radius: var(--r-xl);
       background: var(--panel2);
     }
+    /* Сумма слева, мини-график справа — тот же приём, что в плитках главной.
+       График сжимается первым и пропадает на узкой карточке: число важнее формы. */
+    .fin-amount-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+    .fin-amount-row .fin-amount { min-width: 0; }
+    .fin-amount-row .spark { flex: 0 1 auto; min-width: 0; opacity: .9; }
+    .fin-card:hover .spark { opacity: 1; }
+    @media (max-width: 1180px) { .fin-amount-row .spark { display: none; } }
     /* Нечётная плитка на телефоне занимает ряд целиком.
        Замер на 390px: сетка даёт две колонки по 168px, плиток пять — последняя
        («Прибыль» в финансах сделки, «Транзакций» на общей странице) висела одна и
@@ -5818,7 +5841,15 @@
     .fin-forecast-card {
       padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel2);
     }
-    .fin-forecast-card .fc-lbl { font-size: 11px; color: var(--muted); font-weight: 650; text-transform: uppercase; letter-spacing: .03em; }
+    /* Значок в одну строку с подписью: он называет величину раньше, чем глаз
+       дочитает капс. inline-flex — иначе svg сидит на базовой линии и подпись
+       «прыгает» относительно соседних карточек. */
+    .fin-forecast-card .fc-lbl {
+      font-size: 11px; color: var(--muted); font-weight: 650;
+      text-transform: uppercase; letter-spacing: .03em;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .fin-forecast-card .fc-lbl svg { flex: 0 0 auto; color: var(--primary-text); }
     .fin-forecast-card .fc-val { font-size: 21px; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -.01em; margin: 5px 0 2px; }
     .fin-forecast-card .fc-sub { font-size: 12px; color: var(--muted); }
     .fin-trend { font-weight: 700; }

@@ -15864,12 +15864,12 @@
         const plotW = W - PADL - PADR, plotH = H - PADT - PADB;
         const baseY = PADT + plotH;
         const gw = plotW / months.length;
-        /* Ширина пары столбцов — от ширины месяца, а не константой. При 24+6 пара
-           занимала 54px из 118 доступных: почти половина поля пустовала, и график
-           выглядел жидким при том, что места было вдоволь. 0,62 — доля, при
-           которой между месяцами остаётся внятный зазор, а столбцы уже читаются
-           как объём. Минимум в 18px держит форму, когда месяцев станет больше. */
-        const bw = Math.max(18, Math.round((gw * 0.62 - 8) / 2)), gap = 8;
+        /* Ширина пары столбцов — от ширины месяца. 0,62 доли оказалось слишком:
+           столбцы вышли громоздкими, график читался как стена. 0,40 — столбцы
+           остаются считываемыми, но между месяцами появляется воздух, как в
+           аналитических панелях, на которые ориентируемся. Минимум 12px держит
+           форму, когда месяцев станет больше. */
+        const bw = Math.max(12, Math.round((gw * 0.40 - 6) / 2)), gap = 6;
 
         const shortNum = v => v >= 1000000 ? (v/1000000).toFixed(v >= 10000000 ? 0 : 1).replace('.0','') + 'М'
                             : v >= 1000 ? Math.round(v/1000) + 'к' : String(Math.round(v));
@@ -15890,13 +15890,13 @@
           const eh = expenseArr[i] > 0 ? Math.max(3, expenseArr[i] / scaleMax * plotH) : 0;
           const label = MLfull[parseInt(m.split('-')[1]) - 1];
           const revLabel = revenue[i] > 0
-            ? `<text x="${rx + bw/2}" y="${baseY - rh - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)" font-family="inherit">${shortNum(revenue[i])}</text>`
+            ? `<text x="${rx + bw/2}" y="${baseY - rh - 5}" text-anchor="middle" font-size="9" font-weight="650" fill="var(--text)" font-family="inherit">${shortNum(revenue[i])}</text>`
             : '';
           /* Столбец расхода при доходе в разы больше — обрубок в три пикселя:
              видно, что он есть, и не видно, сколько. Подпись мельче и приглушена,
              чтобы не спорить с суммой дохода, ради которой в график и смотрят. */
           const expLabel = expenseArr[i] > 0
-            ? `<text x="${ex + bw/2}" y="${baseY - eh - 5}" text-anchor="middle" font-size="9.5" font-weight="650" fill="var(--text-danger)" font-family="inherit">${shortNum(expenseArr[i])}</text>`
+            ? `<text x="${ex + bw/2}" y="${baseY - eh - 5}" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text-danger)" font-family="inherit" opacity=".85">${shortNum(expenseArr[i])}</text>`
             : '';
           return `
             <g class="db-chart-col"
@@ -15906,11 +15906,11 @@
                onclick="app.drillIntoMonth('${m}')">
               <rect class="db-chart-hit-bg" x="${gx + 2}" y="${PADT}" width="${gw - 4}" height="${plotH}" rx="8"/>
               <rect class="db-chart-hit" x="${gx}" y="0" width="${gw}" height="${H}" fill="transparent"/>
-              ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, 5)}" fill="url(#dbGradRev)" filter="url(#dbBarGlow)"/>` : ''}
-              ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, 5)}" fill="url(#dbGradExp)"/>` : ''}
+              ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, Math.min(6, bw / 2))}" fill="url(#dbGradRev)" filter="url(#dbBarGlow)"/>` : ''}
+              ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, Math.min(6, bw / 2))}" fill="url(#dbGradExp)"/>` : ''}
               ${revLabel}
               ${expLabel}
-              <text x="${gx + gw/2}" y="${H - 9}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="inherit">${label}</text>
+              <text x="${gx + gw/2}" y="${H - 10}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="inherit" letter-spacing=".2">${label}</text>
             </g>`;
         }).join('');
 
@@ -15918,7 +15918,7 @@
           const val = maxVal * f;
           const y = baseY - (val / scaleMax) * plotH;
           return `<line x1="${PADL}" y1="${y}" x2="${W - PADR}" y2="${y}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3,5"/>
-                  <text x="${PADL - 7}" y="${y + 3.5}" text-anchor="end" font-size="10" fill="var(--muted)" font-family="inherit" opacity="0.85">${shortNum(val)}</text>`;
+                  <text x="${PADL - 7}" y="${y + 3}" text-anchor="end" font-size="8.5" fill="var(--muted)" font-family="inherit" opacity="0.8">${shortNum(val)}</text>`;
         }).join('');
         const baseAxis = `<line x1="${PADL}" y1="${baseY}" x2="${W - PADR}" y2="${baseY}" stroke="var(--line)" stroke-width="1.4"/>`;
 
@@ -16041,7 +16041,7 @@
                         больших значениях столбцы «плывут» и перестают читаться как
                         точная величина, а это деньги. */""}
                   <filter id="dbBarGlow" x="-60%" y="-40%" width="220%" height="200%">
-                    <feGaussianBlur stdDeviation="2.4" result="b"/>
+                    <feGaussianBlur stdDeviation="1.5" result="b"/>
                     <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
                   </filter>
                 </defs>
@@ -21239,8 +21239,14 @@
         const monthTx = allTxs.filter(t => (t.date || "").slice(0, 7) === curMonthKey);
         const monthIncome  = monthTx.filter(t => t._type === "income").reduce((s, t) => s + numberValue(t.amount, 0), 0);
         const monthExpense = monthTx.filter(t => t._type === "expense").reduce((s, t) => s + numberValue(t.amount, 0), 0);
-        const projIncome  = day > 0 ? Math.round(monthIncome  / day * daysInMonth) : monthIncome;
-        const projExpense = day > 0 ? Math.round(monthExpense / day * daysInMonth) : monthExpense;
+        /* Темп по первым дням месяца — не прогноз, а умножение случайности. На
+           первое число одна оплата в 594 000 ₽ превращалась в «прогноз 17 820 000»
+           (×30), и страница обещала владельцу тридцатикратный месяц. Ниже пяти
+           дней прогноз не строим и говорим об этом прямо. */
+        const FORECAST_MIN_DAYS = 5;
+        const forecastReady = day >= FORECAST_MIN_DAYS;
+        const projIncome  = forecastReady ? Math.round(monthIncome  / day * daysInMonth) : monthIncome;
+        const projExpense = forecastReady ? Math.round(monthExpense / day * daysInMonth) : monthExpense;
         const projProfit  = projIncome - projExpense;
 
         // Доход по месяцам → среднее, лучший месяц, тренд
@@ -21249,7 +21255,16 @@
         const monthKeys = Object.keys(incByMonth).sort();
         const avgMonthly = monthKeys.length ? Math.round(monthKeys.reduce((s, k) => s + incByMonth[k], 0) / monthKeys.length) : 0;
         const prevKey = localIso(new Date(today.getFullYear(), today.getMonth() - 1, 1)).slice(0, 7);
-        const prevIncome = incByMonth[prevKey] || 0;
+        /* Сравниваем ОДИНАКОВЫЕ отрезки: дни 1–N этого месяца против дней 1–N
+           прошлого. Раньше неполный месяц мерился против полного предыдущего, и
+           первого числа страница объявляла падение на 100% — при том что месяц
+           просто не начался. Та же правка, что и в плитке «Выручка / мес». */
+        const prevIncome = allTxs.reduce((s, t) => {
+          if (t._type !== "income") return s;
+          const d = String(t.date || "");
+          if (d.slice(0, 7) !== prevKey) return s;
+          return Number(d.slice(8, 10)) <= day ? s + numberValue(t.amount, 0) : s;
+        }, 0);
         const trend = prevIncome > 0 ? Math.round((monthIncome - prevIncome) / prevIncome * 100) : null;
         const bestKey = monthKeys.reduce((best, k) => incByMonth[k] > (incByMonth[best] || 0) ? k : best, monthKeys[0]);
 
@@ -21273,29 +21288,31 @@
            Это разные величины: среднее меняется медленно, месяц скачет. */
         const trendHtml = trend === null
           ? `<span class="fc-sub">нет данных за прошлый месяц</span>`
-          : `<span class="fin-trend ${trend >= 0 ? "up" : "down"}">этот месяц ${trend >= 0 ? "▲" : "▼"} ${Math.abs(trend)}% к прошлому</span>`;
+          : `<span class="fin-trend ${trend >= 0 ? "up" : "down"}" title="Сравнение по одинаковому отрезку: 1–${day} ${day === 1 ? "число" : "числа"} этого и прошлого месяца">этот месяц ${trend >= 0 ? "▲" : "▼"} ${Math.abs(trend)}% к тем же дням</span>`;
 
         const forecast = `
           <div class="analytics-section">
-            <h3>Прогноз на этот месяц <span class="fin-h3-note">по темпу за ${day} ${pl(day, ["день","дня","дней"])}</span></h3>
+            <h3>${forecastReady ? "Прогноз на этот месяц" : "Этот месяц"} <span class="fin-h3-note">${forecastReady
+              ? `по темпу за ${day} ${pl(day, ["день","дня","дней"])}`
+              : `прошло ${day} ${pl(day, ["день","дня","дней"])} — для прогноза мало, показываем факт`}</span></h3>
             <div class="fin-forecast-grid">
               <div class="fin-forecast-card" title="Ожидаемые поступления к концу месяца по текущему темпу (${money(monthIncome)} за ${day} ${pl(day, ["день","дня","дней"])})">
-                <div class="fc-lbl">Прогноз поступлений</div>
+                <div class="fc-lbl">${icon("coins", 12)} ${forecastReady ? "Прогноз поступлений" : "Поступления"}</div>
                 <div class="fc-val" style="color:var(--text-success)">${money(projIncome)}</div>
-                <div class="fc-sub">уже ${money(monthIncome)}</div>
+                <div class="fc-sub">${forecastReady ? `уже ${money(monthIncome)}` : `за ${day} ${pl(day, ["день","дня","дней"])}`}</div>
               </div>
               <div class="fin-forecast-card" title="Ожидаемая прибыль к концу месяца: прогноз поступлений минус прогноз расходов">
-                <div class="fc-lbl">Прогноз прибыли</div>
+                <div class="fc-lbl">${icon("chart", 12)} ${forecastReady ? "Прогноз прибыли" : "Прибыль"}</div>
                 <div class="fc-val" style="color:${projProfit >= 0 ? "var(--primary-text)" : "var(--red)"}">${money(projProfit)}</div>
-                <div class="fc-sub">расходы ~${money(projExpense)}</div>
+                <div class="fc-sub">${forecastReady ? `расходы ~${money(projExpense)}` : `расходы ${money(projExpense)}`}</div>
               </div>
               <div class="fin-forecast-card" title="Сколько клиенты ещё должны заплатить по всем сделкам — деньги, которые реально собрать">
-                <div class="fc-lbl">Ожидается к получению</div>
+                <div class="fc-lbl">${icon("wallet", 12)} Ожидается к получению</div>
                 <div class="fc-val" style="color:${allDebt > 0 ? "var(--text-warning)" : "var(--text-success)"}">${money(allDebt)}</div>
                 <div class="fc-sub">${debtors.length} ${pl(debtors.length, ["сделка","сделки","сделок"])} с долгом</div>
               </div>
               <div class="fin-forecast-card" title="Средний доход в месяц за всё время (${monthKeys.length} ${pl(monthKeys.length, ["месяц","месяца","месяцев"])})">
-                <div class="fc-lbl">Средний доход / мес</div>
+                <div class="fc-lbl">${icon("target", 12)} Средний доход / мес</div>
                 <div class="fc-val">${money(avgMonthly)}</div>
                 <div class="fc-sub">${trendHtml}</div>
               </div>
@@ -21332,12 +21349,16 @@
     insights.push(costsTrustworthy
       ? ["chart", "", `Маржа ${margin}% — ${margin >= 50 ? "высокая, бизнес прибыльный" : margin >= 25 ? "нормальная" : "низкая: стоит поднять цены или срезать расходы"}.`]
       : ["warning", "warn", `Маржа ${margin}% посчитана по внесённым расходам, а они есть только у ${dealsWithCosts} ${pl(dealsWithCosts, ["сделки","сделок","сделок"])} из ${countedDeals.length}. Реальная маржа ниже — впишите себестоимость в позиции сметы или расходы во вкладке «Финансы» сделки.`]);
-    if (trend !== null) insights.push([trend >= 0 ? "trendUp" : "trendDown", trend >= 0 ? "good" : "warn", `Доход этого месяца ${trend >= 0 ? "выше" : "ниже"} прошлого на ${Math.abs(trend)}%.`]);
-    if (avgMonthly > 0) insights.push(["target", "", `При текущем темпе за год выйдет около ${money(avgMonthly * 12)} поступлений.`]);
+    if (trend !== null) insights.push([trend >= 0 ? "trendUp" : "trendDown", trend >= 0 ? "good" : "warn", `Доход за первые ${day} ${pl(day, ["день","дня","дней"])} месяца ${trend >= 0 ? "выше" : "ниже"} тех же дней прошлого на ${Math.abs(trend)}%.`]);
+    if (avgMonthly > 0) insights.push(["target", "", `При среднем месяце за год выйдет около ${money(avgMonthly * 12)} поступлений.`]);
 
         const insightsHtml = `
           <div class="analytics-section">
-            <h3>Что важно</h3>
+            ${/* Подпись «за всё время» обязательна: плитки выше считаются за
+                  ВЫБРАННЫЙ период, и «Маржа 75%» там соседствовала с «Маржа 95%»
+                  здесь. Два одинаково названных числа на одном экране — из разных
+                  отрезков, и без подписи это выглядело ошибкой счёта. */""}
+            <h3>Что важно <span class="fin-h3-note">за всё время, независимо от периода выше</span></h3>
             <div class="fin-insights">
               ${/* Значок слева был ПУСТЫМ span'ом — остаток от убранных эмодзи:
                     держал отступ в 25px и ничего не показывал, из-за чего строки
@@ -21445,6 +21466,39 @@
           .filter(p => !isDealInactive(p.crmStatus || "Лид"))
           .reduce((s, p) => s + Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), 0);
 
+        /* Ряды за полгода для мини-графиков в карточках. Один проход по allTxs на
+           все четыре ряда: у владельца 270 записей, и считать их по разу на
+           карточку значило бы обойти список лишние три раза. */
+        const finSpark = (() => {
+          const now = new Date();
+          const keys = [];
+          for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+          }
+          const idx = new Map(keys.map((k, i) => [k, i]));
+          const inc = keys.map(() => 0), exp = keys.map(() => 0), cnt = keys.map(() => 0);
+          allTxs.forEach(t => {
+            const i = idx.get(String(t.date || "").slice(0, 7));
+            if (i === undefined) return;
+            cnt[i]++;
+            if (t._type === "income") inc[i] += numberValue(t.amount, 0);
+            else exp[i] += numberValue(t.amount, 0);
+          });
+          return { inc, exp, cnt, prof: inc.map((v, i) => v - exp[i]) };
+        })();
+
+        /* Собираемость для полукруга у «Общего долга»: доля уже оплаченного от
+           суммы всех неархивных сделок. Та же формула, что в «Что важно», — иначе
+           два процента на одной странице разошлись бы. */
+        const finCollect = (() => {
+          const deals = (state.savedProjects || []).filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED);
+          const total = deals.reduce((s, p) => s + numberValue(p.total, 0), 0);
+          if (!(total > 0)) return null;
+          const paid = deals.reduce((s, p) => s + numberValue(p.paid, 0), 0);
+          return Math.round(paid / total * 100);
+        })();
+
         const maxBar = Math.max(...monthly.map(m => Math.max(m.income, m.expense)), 1);
 
         const projects = [{ id: "all", name: "Все проекты" }, ...
@@ -21485,27 +21539,45 @@
             <div class="fin-summary-grid" style="margin-bottom:20px">
               <div class="fin-card income-card u-pointer" title="Сумма всех поступлений по всем проектам. Нажмите, чтобы открыть список поступлений." onclick="app.setGFinTypeFilter('income');app.setGFinSubTab('transactions')">
                 <h3>Всего получено</h3>
-                <div class="fin-amount">${money(totalIncome)}</div>
+                <div class="fin-amount-row">
+                  <span class="fin-amount">${money(totalIncome)}</span>
+                  ${sparklineSvg(finSpark.inc, "spkFinInc", "var(--text-success)", { w: 72, h: 28 })}
+                </div>
                 <div class="fin-sub">по всем проектам</div>
               </div>
               <div class="fin-card expense-card u-pointer" title="Сумма всех расходов по всем проектам. Нажмите, чтобы открыть список расходов." onclick="app.setGFinTypeFilter('expense');app.setGFinSubTab('transactions')">
                 <h3>Всего расходов</h3>
-                <div class="fin-amount">${money(totalExpense)}</div>
+                <div class="fin-amount-row">
+                  <span class="fin-amount">${money(totalExpense)}</span>
+                  ${sparklineSvg(finSpark.exp, "spkFinExp", "var(--text-danger)", { w: 72, h: 28 })}
+                </div>
                 <div class="fin-sub">по всем проектам</div>
               </div>
               <div class="fin-card profit-card u-pointer" title="Все поступления минус все расходы. Нажмите, чтобы открыть аналитику." onclick="app.setGFinSubTab('analytics')">
                 <h3>Прибыль</h3>
-                <div class="fin-amount">${money(totalProfit)}</div>
+                <div class="fin-amount-row">
+                  <span class="fin-amount">${money(totalProfit)}</span>
+                  ${sparklineSvg(finSpark.prof, "spkFinProf", totalProfit >= 0 ? "var(--text-success)" : "var(--text-danger)", { w: 72, h: 28 })}
+                </div>
                 <div class="fin-sub">доход − расходы</div>
               </div>
+              ${/* У долга нет ряда по месяцам — это остаток на сейчас, а не поток.
+                    Вместо спарклайна полукруг собираемости: он отвечает на тот же
+                    вопрос («много ли ещё ждать»), но формой, а не выдумкой. */""}
               <div class="fin-card ${allDebt > 0 ? "expense-card" : "income-card"} u-pointer" title="Сколько клиенты ещё не заплатили по всем сделкам. Нажмите, чтобы увидеть список должников." onclick="app.setGFinSubTab('receivables')">
                 <h3>Общий долг</h3>
-                <div class="fin-amount" style="color:${allDebt > 0 ? "var(--text-warning)" : "var(--text-success)"}">${money(allDebt)}</div>
-                <div class="fin-sub">кто должен</div>
+                <div class="fin-amount-row">
+                  <span class="fin-amount" style="color:${allDebt > 0 ? "var(--text-warning)" : "var(--text-success)"}">${money(allDebt)}</span>
+                  ${finCollect !== null ? gaugeSvg(finCollect, finCollect >= 80 ? "var(--text-success)" : finCollect >= 50 ? "var(--text-warning)" : "var(--text-danger)") : ""}
+                </div>
+                <div class="fin-sub">${finCollect !== null ? `оплачено ${finCollect}%` : "кто должен"}</div>
               </div>
               <div class="fin-card u-pointer" title="Всего операций: поступления и расходы. Нажмите, чтобы открыть все транзакции." onclick="app.setGFinTypeFilter('all');app.setGFinSubTab('transactions')">
                 <h3>Транзакций</h3>
-                <div class="fin-amount">${allTxs.length}</div>
+                <div class="fin-amount-row">
+                  <span class="fin-amount">${allTxs.length}</span>
+                  ${sparklineSvg(finSpark.cnt, "spkFinCnt", "var(--primary-text)", { w: 72, h: 28 })}
+                </div>
                 <div class="fin-sub">${allTxs.filter(t=>t._type==="income").length} поступл. · ${allTxs.filter(t=>t._type==="expense").length} расх.</div>
               </div>
             </div>
@@ -21557,14 +21629,32 @@
                 const allTotal = (state.savedProjects || []).filter(p => (p.crmStatus||"Лид") !== CRM_ARCHIVED).reduce((s, p) => s + numberValue(p.total, 0), 0);
                 const allPaid = (state.savedProjects || []).filter(p => (p.crmStatus||"Лид") !== CRM_ARCHIVED).reduce((s, p) => s + numberValue(p.paid, 0), 0);
                 const collect = allTotal > 0 ? Math.round(allPaid / allTotal * 100) : 0;
-                const kpi = (label, val, color, hint) => `<div class="kpi-tile"${hint ? ` title="${hint}"` : ""}><div class="kpi-val" style="${color ? `color:${color}` : ""}">${val}</div><div class="kpi-lbl">${label}</div></div>`;
+                /* Плитки были шестью одинаковыми прямоугольниками с числом и
+                   подписью — ряд читался как таблица без шапки. Значок называет
+                   величину до того, как глаз дочитает подпись, а у долей (маржа,
+                   собираемость) есть форма: процент — это часть целого, и
+                   полукруг отвечает на «много или мало» быстрее цифры. */
+                const kpi = (label, val, color, hint, ico, extra) => `
+                  <div class="kpi-tile"${hint ? ` title="${hint}"` : ""}>
+                    <div class="kpi-top">
+                      <span class="kpi-ico">${icon(ico, 13)}</span>
+                      <span class="kpi-lbl">${label}</span>
+                    </div>
+                    <div class="kpi-body">
+                      <span class="kpi-val" style="${color ? `color:${color}` : ""}">${val}</span>
+                      ${extra || ""}
+                    </div>
+                  </div>`;
+                const shareColor = v => v >= 80 ? "var(--text-success)" : v >= 50 ? "var(--text-warning)" : "var(--text-danger)";
                 return `<div class="kpi-row">
-                  ${kpi("Поступления", money(inc), "var(--green)", "Сумма поступлений за выбранный период")}
-                  ${kpi("Расходы", money(exp), "var(--red)", "Сумма расходов за выбранный период")}
-                  ${kpi("Прибыль", money(prof), prof >= 0 ? "var(--primary2)" : "var(--red)", "Поступления минус расходы за период")}
-                  ${kpi("Маржа", margin + "%", "", "Доля прибыли в поступлениях: прибыль ÷ поступления")}
-                  ${kpi("Средний чек", money(avgCheck), "", "Средняя сумма одного поступления за период")}
-                  ${kpi("Собираемость", collect + "%", "", "Какая доля от сумм всех сделок уже оплачена клиентами")}
+                  ${kpi("Поступления", money(inc), "var(--text-success)", "Сумма поступлений за выбранный период", "coins")}
+                  ${kpi("Расходы", money(exp), "var(--text-danger)", "Сумма расходов за выбранный период", "wallet")}
+                  ${kpi("Прибыль", money(prof), prof >= 0 ? "var(--primary-text)" : "var(--text-danger)", "Поступления минус расходы за период", "chart")}
+                  ${kpi("Маржа", margin + "%", "", "Доля прибыли в поступлениях: прибыль ÷ поступления", "target",
+                    inc > 0 ? gaugeSvg(Math.max(0, margin), shareColor(margin)) : "")}
+                  ${kpi("Средний чек", money(avgCheck), "", "Средняя сумма одного поступления за период", "receipt")}
+                  ${kpi("Собираемость", collect + "%", "", "Какая доля от сумм всех сделок уже оплачена клиентами", "check",
+                    gaugeSvg(collect, shareColor(collect)))}
                 </div>`;
               })()}
 
