@@ -12344,9 +12344,21 @@
       function renderActivityLog() {
         const proj = state.savedProjects.find(p => p.id === state.activeProjectId);
         const log = proj?.activity || [];
+        /* Вкладка была единственной без панели и заголовка: на фоне страницы висела
+           одна серая строка, и вкладка выглядела недоделанной рядом с соседними. */
         return `
-          <div style="padding:0 4px">
-            ${log.length === 0 ? `<div style="text-align:center;padding:48px 24px;color:var(--muted)">История пуста — действия начнут записываться с этого момента</div>` : ""}
+          <div class="panel">
+            <div class="section-title">
+              <div>
+                <h1>История</h1>
+                <p>Что и когда происходило с этой сделкой.</p>
+              </div>
+            </div>
+            ${log.length === 0 ? emptyState({
+              icon: "tasks",
+              title: "История пуста",
+              text: "Действия по сделке начнут записываться с этого момента.",
+            }) : ""}
             ${log.map(e => {
               const d = new Date(e.date);
               const ds = d.toLocaleDateString("ru-RU", { day:"2-digit", month:"short" }) + " " + d.toLocaleTimeString("ru-RU", { hour:"2-digit", minute:"2-digit" });
@@ -20043,7 +20055,7 @@
                 <p>Ставки и выплаты участников по этому проекту.</p>
               </div>
               <div class="toolbar no-print">
-                ${state.team.length ? `<button class="btn primary" onclick="app.createTeamMember()">+ Пустой участник</button>` : ""}
+                ${state.team.length ? `<button class="btn primary" onclick="app.createTeamMember()">+ Участник вручную</button>` : ""}
               </div>
             </div>
 
@@ -20060,7 +20072,9 @@
               </div>
             ` : ""}
 
-            <div class="grid three">
+            ${/* Три счётчика с однозначным числом растягивались на треть страницы
+                  каждый — та же правка, что и в «Задачах». */""}
+            <div class="grid three tiles-compact">
               <div class="calc-box"><h3>Участников</h3><div class="price">${state.team.length}</div></div>
               <div class="calc-box"><h3>Выплачено</h3><div class="price" style="color:var(--text-success)">${money(f.teamPayoutsPaid)}</div></div>
               <div class="calc-box"><h3>Остаток</h3><div class="price" style="color:${f.teamPayouts - f.teamPayoutsPaid > 0 ? "var(--red)" : "var(--muted)"}">${money(Math.max(0, f.teamPayouts - f.teamPayoutsPaid))}</div></div>
@@ -20071,10 +20085,10 @@
                 icon: "users",
                 title: "Команда пока не добавлена",
                 text: (state.companyTeam || []).length
-                  ? "Выберите людей из справочника выше или добавьте пустого участника."
+                  ? "Выберите людей из справочника выше или заведите участника вручную."
                   : "Добавьте участников этого проекта — ставки и выплаты появятся здесь.",
                 style: "grid-column:1/-1",
-                cta: { label: "+ Пустой участник", onclick: "app.createTeamMember()" }
+                cta: { label: "+ Участник вручную", onclick: "app.createTeamMember()" }
               })}
             </div>
           </div>
@@ -20353,7 +20367,7 @@
                     Главное действие доски сделок — завести сделку. */""}
               <div class="toolbar no-print">
                 <button class="btn primary" onclick="app.startWizard()">+ Сделка</button>
-                <button class="btn" onclick="app.go('projects')">Список проектов</button>
+                <button class="btn" onclick="app.go('projects')">Сохранённые проекты</button>
               </div>
             </div>
 
@@ -20828,7 +20842,7 @@
 
               <div class="toolbar no-print">
                 ${state.versions.length ? `<button class="btn primary" onclick="app.createVersion()">+ Сохранить текущую версию</button>` : ""}
-                <button class="btn" onclick="app.go('projects')">Проекты</button>
+                <button class="btn" onclick="app.go('projects')">Сохранённые проекты</button>
               </div>
             </div>
 
@@ -27144,7 +27158,9 @@ Email: _____________________              Email: _____________________
           ["Заказчик", (client && (client.company || client.name)) || clientName || "", "карточка клиента"],
           ["Проект", (deal && deal.name) || state.project.name || "", "название сделки"],
           ["Сумма", deal && deal.total ? money(deal.total) : (totals().total ? money(totals().total) : ""), "смета"],
-          ["Срок", (deal && deal.deadline) || state.project.deadline || "", "дедлайн сделки"],
+          // Дата печаталась как есть — «2026-09-14», единственный ISO на экране;
+          // везде остальное formatDate даёт «14.09.2026».
+          ["Срок", (() => { const d = (deal && deal.deadline) || state.project.deadline || ""; return d ? formatDate(d) : ""; })(), "дедлайн сделки"],
           // Источник тот же, что у автоподстановки, и подпись честная: город живёт
           // в сделке (поле «Город» в её карточке), а не в настройках компании.
           ["Город", (deal && deal.city) || state.project.city || (client && client.city) || "", "карточка сделки"]
