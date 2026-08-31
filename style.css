@@ -3778,6 +3778,11 @@
       flex: 0 0 auto; min-width: 30px; text-align: right;
     }
     .db-top-sum { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+    /* «Остальные» — служебная строка, не клиент: приглушена и не притворяется
+       нажимаемой. */
+    .db-client-row--rest .db-top-name,
+    .db-client-row--rest .db-top-sum { color: var(--muted); }
+
     .db-clients-foot {
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
       margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line);

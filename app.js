@@ -15955,9 +15955,21 @@
         const clientsRanked = Object.values(byClient).filter(c => c.total > 0)
           .sort((a,b) => b.total - a.total);
         const topClients = clientsRanked.slice(0, 5);
-        const clientsTotal = clientsRanked.reduce((s, c) => s + c.total, 0);
         const clientsHidden = clientsRanked.length - topClients.length;
         const maxC = topClients[0]?.total || 1;
+        /* Кольцо должно покрывать ВЕСЬ доход периода, а не только пятёрку и не
+           только тех, у кого есть карточка клиента. Иначе рядом стоят три разных
+           числа: кольцо (пятёрка), его центр (все клиенты) и «Доход» соседней
+           панели — и они не сходятся. Замер у владельца: 683 143 / 881 143 /
+           918 143, три величины на расстоянии ладони.
+
+           Остаток (клиенты за пределами пятёрки плюс поступления, не привязанные
+           ни к какому клиенту) уходит в один приглушённый сегмент «Остальные».
+           Тогда центр = доход периода = столбцы слева, и проценты складываются
+           в сто. */
+        const topSum = topClients.reduce((s, c) => s + c.total, 0);
+        const clientsTotal = totalRev;
+        const restSum = Math.max(0, clientsTotal - topSum);
 
         const profit = totalRev - totalExp;
 
@@ -16082,9 +16094,12 @@
                     полное кольцо на 100% не сообщает ничего. */""}
               ${topClients.length > 1 ? `
                 <div class="db-clients-donut">
-                  ${donutSvg(topClients.map(c => ({ name: c.name, value: c.total })), { size: 132, width: 15 })}
+                  ${donutSvg([
+                    ...topClients.map((c, i) => ({ name: c.name, value: c.total, color: DONUT_COLORS[i % DONUT_COLORS.length] })),
+                    ...(restSum > 0 ? [{ name: "Остальные", value: restSum, color: "var(--hint)" }] : [])
+                  ], { size: 132, width: 15 })}
                   <div class="db-clients-donut-center">
-                    <span class="db-money-lbl">Всего</span>
+                    <span class="db-money-lbl">Доход</span>
                     <b>${money(clientsTotal)}</b>
                   </div>
                 </div>` : ""}
@@ -16104,6 +16119,17 @@
                     ? `<button type="button" class="db-client-row is-clickable" onclick="app.openClientDetail('${c.id}')" title="Открыть клиента «${escapeHtml(c.name)}»">${body}</button>`
                     : `<div class="db-client-row" title="Сделки этого клиента не привязаны к карточке клиента">${body}</div>`;
                 }).join("")}
+                ${/* «Остальные» — тот же сегмент, что и в кольце: клиенты за
+                      пределами пятёрки плюс поступления без привязки к клиенту.
+                      Без этой строки проценты в списке не складывались в сто, и
+                      было непонятно, куда делась разница с доходом слева. */""}
+                ${restSum > 0 ? `
+                  <div class="db-client-row db-client-row--rest" title="Клиенты за пределами первой пятёрки и поступления, не привязанные к клиенту">
+                    <span class="db-top-dot" style="background:var(--hint)"></span>
+                    <span class="db-top-name">Остальные</span>
+                    <span class="db-client-share">${clientsTotal > 0 ? Math.round(restSum / clientsTotal * 100) : 0}%</span>
+                    <span class="db-top-sum">${money(restSum)}</span>
+                  </div>` : ""}
               </div>
 
               <div class="db-clients-foot no-print">
@@ -16447,7 +16473,27 @@
         }
 
         const monthRevenue = paymentsInMonth(curMonth);
-        const prevRevenue  = paymentsInMonth(prevMonth);
+
+        /* Сравнение месяца с месяцем — по ОДИНАКОВОМУ отрезку дней, а не «сколько
+           уже есть» против «сколько было за весь прошлый». Первого числа неполный
+           месяц всегда проигрывал полному, и дашборд каждое первое встречал
+           владельца красным «↓ 100% к прошлому» — при том что месяц просто не
+           начался. Сравниваем с теми же днями прошлого месяца: 1–N против 1–N.
+
+           Если в прошлом месяце за эти дни не было ничего — сравнивать не с чем,
+           и мы честно молчим, а не показываем рост в бесконечность. */
+        const dayOfMonth = nowDate.getDate();
+        function paymentsInMonthUpToDay(m, day) {
+          let sum = 0;
+          const fits = x => {
+            if (!x.date || !x.date.startsWith(m)) return false;
+            return Number(String(x.date).slice(8, 10)) <= day;
+          };
+          state.savedProjects.forEach(p => { if (p.id === state.activeProjectId) return; (p.snapshot?.payments||[]).forEach(x => { if (fits(x)) sum += x.amount||0; }); });
+          state.payments.forEach(x => { if (fits(x)) sum += x.amount||0; });
+          return sum;
+        }
+        const prevRevenue = paymentsInMonthUpToDay(prevMonth, dayOfMonth);
         const revDelta = prevRevenue > 0 ? Math.round((monthRevenue - prevRevenue) / prevRevenue * 100) : null;
 
         function expensesInMonth(m) {
@@ -16555,7 +16601,14 @@
               <div class="db-stat" onclick="app.go('global-finances')" title="Выручка / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(22,163,74,.15);color:var(--text-success)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Выручка / мес</span></div>
                 <div class="db-stat-value-row"><span class="db-stat-value">${money(monthRevenue)}</span>${sparklineSvg(sparkRevenue, "spkRev", "var(--text-success)")}</div>
-                <div class="db-stat-delta ${revDelta!==null?(revDelta>=0?"pos":"neg"):"neu"}">${revDelta!==null?(revDelta>=0?"↑ ":"↓ ")+Math.abs(revDelta)+"% к прошлому":"нет данных за прошлый месяц"}</div>
+                ${/* Подпись называет отрезок сравнения: «к тем же дням» — иначе
+                      цифра выглядит сравнением с полным прошлым месяцем, каким
+                      она и была до этого. На первое число отрезок — один день,
+                      и об этом честнее сказать словом. */""}
+                <div class="db-stat-delta ${revDelta!==null?(revDelta>=0?"pos":"neg"):"neu"}"
+                  title="${revDelta!==null ? `Сравнение по одинаковому отрезку: 1–${dayOfMonth} ${dayOfMonth === 1 ? "число" : "числа"} этого и прошлого месяца` : "За эти же дни прошлого месяца поступлений не было — сравнивать не с чем"}">${revDelta!==null
+                    ? (revDelta>=0?"↑ ":"↓ ")+Math.abs(revDelta)+"% к тем же дням"
+                    : (dayOfMonth <= 5 ? `месяц только начался` : "за эти дни прошлого месяца пусто")}</div>
               </div>
               <div class="db-stat" onclick="app.go('global-finances')" title="Расходы / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(220,38,38,.13);color:var(--text-danger)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Расходы / мес</span></div>

@@ -1344,6 +1344,61 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "оговорка про незаполненные расходы осталась, хотя они есть у всех сделок");
   });
 
+  /* Первого сентября дашборд встретил владельца красным «↓ 100% к прошлому»:
+     неполный месяц сравнивался с ПОЛНЫМ предыдущим, и каждое первое число бизнес
+     выглядел рухнувшим. Сравнение должно идти по одинаковому отрезку дней. */
+  await test("выручка месяца сравнивается с тем же отрезком прошлого месяца", async () => {
+    const сегодня = new Date();
+    const день = сегодня.getDate();
+    const прошлый = new Date(сегодня.getFullYear(), сегодня.getMonth() - 1, 1);
+    const днейВПрошлом = new Date(прошлый.getFullYear(), прошлый.getMonth() + 1, 0).getDate();
+    const iso = (d, day) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+    const прогон = async (деньОплаты) => {
+      const deals = [{
+        id: "t1", name: "Сделка", client: "Клиент", clientId: "ct1",
+        total: 100000, paid: 100000, debt: 0,
+        crmStatus: "Завершённые", status: "Завершено", updatedAt: new Date().toISOString(),
+        snapshot: { project: { name: "Сделка", client: "Клиент" },
+          payments: [{ id: "pt1", title: "Оплата", amount: 100000, date: iso(прошлый, деньОплаты), method: "Счёт" }],
+          expenses: [], tasks: [], selected: {} }
+      }];
+      const ctx = await browser.newContext({ viewport: { width: 1440, height: 950 } });
+      const pg = await ctx.newPage();
+      await pg.addInitScript(({ key, deals }) => {
+        localStorage.setItem("adervis_local_mode", "1");
+        localStorage.setItem("adervis_tour_done", "1");
+        localStorage.setItem("adervis_onboarded", "1");
+        localStorage.setItem(key, JSON.stringify({ savedProjects: deals, view: "home" }));
+      }, { key: STORAGE_KEY, deals });
+      await pg.goto(baseUrl + "/index.html", { waitUntil: "load" });
+      await pg.waitForFunction(() => {
+        const el = document.getElementById("appContent");
+        return el && el.innerHTML.trim().length > 0;
+      }, { timeout: 20000 });
+      await pg.waitForTimeout(400);
+      const txt = await pg.$eval('#appContent .db-stat[title="Выручка / мес"]',
+        (el) => el.textContent.replace(/\s+/g, " "));
+      await ctx.close();
+      return txt;
+    };
+
+    // Деньги пришли в тот же день месяца, что идёт сейчас, — отрезок сопоставим,
+    // падение настоящее, и оно должно быть названо отрезком, а не «к прошлому».
+    const сопоставимо = await прогон(Math.min(день, днейВПрошлом));
+    assert(/к тем же дням/.test(сопоставимо),
+      "подпись не называет отрезок сравнения: " + сопоставимо);
+
+    /* Деньги пришли ПОЗЖЕ той даты, где мы сейчас. Сравнивать не с чем — и
+       вопить «↓ 100%» не с чего. Проверяем только когда такой день существует:
+       в последний день месяца «позже» уже не бывает. */
+    if (день < днейВПрошлом) {
+      const позже = await прогон(днейВПрошлом);
+      assert(!/100% к тем же дням/.test(позже) && !/↓/.test(позже),
+        "неполный месяц объявлен провалом, хотя деньги в прошлом пришли позже этой даты: " + позже);
+    }
+  });
+
   /* Остаток по сделке в форме поступления. Повод из жизни: на завершённой сделке
      навсегда повис долг 60 ₽ — сумму платежа набрали с переставленными цифрами
      (18933 вместо 18993), и приложение это молча приняло. Теперь остаток видно

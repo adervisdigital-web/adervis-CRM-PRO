@@ -4631,6 +4631,57 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "сумма топ-клиентов (" + res.топ + ") больше дохода за период (" + res.доход + ") — считается за разные отрезки");
   });
 
+  /* Рядом стояли ТРИ разных числа: кольцо (пятёрка клиентов), его центр (все
+     клиенты) и «Доход» соседней панели. У владельца — 683 143 / 881 143 /
+     918 143 на расстоянии ладони. Кольцо должно покрывать весь доход периода:
+     остаток уходит в сегмент «Остальные», проценты складываются в сто. */
+  await test("кольцо клиентов покрывает весь доход периода", async () => {
+    const { ctx, p } = await bootWithState(`
+      const now = new Date();
+      const iso = (back) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - back, 10);
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-10";
+      };
+      const pay = (id, amt, back) => ({ id, title: "Оплата", amount: amt, date: iso(back), method: "Счёт" });
+      const mk = (id, cid, name, amt, back) => ({
+        id, name, client: name, clientId: cid, total: amt, paid: amt, debt: 0,
+        crmStatus: "Завершённые", status: "Завершено", updatedAt: new Date().toISOString(),
+        snapshot: { project: { name }, payments: [pay("p" + id, amt, back)], expenses: [], tasks: [], selected: {} }
+      });
+      st.clients = [
+        { id: "r1", name: "Первый" }, { id: "r2", name: "Второй" }, { id: "r3", name: "Третий" },
+        { id: "r4", name: "Четвёртый" }, { id: "r5", name: "Пятый" }, { id: "r6", name: "Шестой" }
+      ];
+      st.savedProjects = [
+        mk("a1","r1","Первый",300000,4), mk("a2","r2","Второй",200000,3), mk("a3","r3","Третий",150000,2),
+        mk("a4","r4","Четвёртый",100000,1), mk("a5","r5","Пятый",90000,4), mk("a6","r6","Шестой",60000,3),
+        // Сделка БЕЗ карточки клиента — её деньги раньше выпадали из кольца совсем.
+        { id: "a7", name: "Без клиента", client: "", clientId: "", total: 40000, paid: 40000, debt: 0,
+          crmStatus: "Завершённые", status: "Завершено", updatedAt: new Date().toISOString(),
+          snapshot: { project: { name: "Без клиента" }, payments: [pay("p7", 40000, 2)], expenses: [], tasks: [], selected: {} } }
+      ];
+      st.activeProjectId = ""; st.payments = []; st.expenses = [];
+    `, { width: 1440, height: 1000 });
+    await p.evaluate(() => window.app.go("home"));
+    await p.waitForTimeout(700);
+    const res = await p.evaluate(() => {
+      const num = (s) => Number(String(s).replace(/[^\d]/g, "")) || 0;
+      const sums = document.querySelector("#appContent .db-money-sums");
+      const доход = sums ? num(sums.querySelector(".db-money-sum b").textContent) : 0;
+      const центр = num((document.querySelector("#appContent .db-clients-donut-center b") || {}).textContent);
+      const доли = [...document.querySelectorAll("#appContent .db-client-share")].map((e) => num(e.textContent));
+      const сегменты = document.querySelectorAll("#appContent .db-clients-donut .donut circle").length - 1;
+      const строк = document.querySelectorAll("#appContent .db-client-row").length;
+      return { доход, центр, доли, сумма: доли.reduce((s, v) => s + v, 0), сегменты, строк };
+    });
+    await ctx.close();
+    assert(res.доход > 0, "не нашёл доход за период");
+    assertEqual(res.центр, res.доход, "в центре кольца не доход периода — числа рядом не сходятся");
+    assertEqual(res.сегменты, res.строк, "сегментов в кольце не столько же, сколько строк в списке");
+    assert(Math.abs(res.сумма - 100) <= 2,
+      "доли не складываются в сто: " + JSON.stringify(res.доли) + " = " + res.сумма + "%");
+  });
+
   /* «Справа ничего не нажимается» — замечание владельца по скриншоту. Список имён
      выглядел итогом, хотя за каждым стоят сделки, ради которых в него и смотрят.
      Проверяем, что строка ведёт в карточку клиента, и что раскладка — две панели
