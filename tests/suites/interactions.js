@@ -4588,6 +4588,51 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "пустое состояние занимает " + вид.h + "px над непустым списком — блок должен быть коротким");
   });
 
+  /* Карточка на доске CRM. Три дефекта одним замером:
+     1. Правило заголовка КОЛОНКИ было потомковым (.kanban-col h3) и доставало до
+        <h3> каждой карточки: название сделки получало серую подложку колонки,
+        отступ снизу и position:sticky — прилипало при прокрутке колонки.
+     2. При колонке 220px внутри карточки оставалось 160px, и две кнопки
+        («Открыть» + «КП-ссылка») не помещались в строку — каждая карточка несла
+        ряд из одной кнопки и вторую под ним.
+     3. Выбор этапа брал ширину по содержимому (145px против 176px у остального)
+        — правый край карточки получался рваным. */
+  await test("доска CRM: карточка не наследует стиль заголовка колонки", async () => {
+    const { context: ck, page: pk } = await bootLocal(browser, baseUrl,
+      { width: 1440, height: 950, seedDemo: true });
+    await pk.evaluate(() => window.app.go("crm"));
+    await pk.waitForTimeout(700);
+    const карточка = await pk.evaluate(() => {
+      const c = document.querySelector("#appContent .crm-card");
+      if (!c) return null;
+      const h = c.querySelector("h3");
+      const hcs = h ? getComputedStyle(h) : null;
+      const cr = c.getBoundingClientRect();
+      const cs = getComputedStyle(c);
+      const inner = cr.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const btns = [...c.querySelectorAll(".toolbar button")].map((b) => Math.round(b.getBoundingClientRect().top));
+      const sel = c.querySelector(".uu-select-wrap, select.task-mini-select");
+      return {
+        pos: hcs ? hcs.position : "",
+        bg: hcs ? hcs.backgroundColor : "",
+        рядов: new Set(btns).size,
+        кнопок: btns.length,
+        поле: Math.round(inner),
+        выбор: sel ? Math.round(sel.getBoundingClientRect().width) : 0,
+      };
+    });
+    await ck.close();
+    assert(карточка, "на доске нет ни одной карточки сделки");
+    assertEqual(карточка.pos, "static", "заголовок карточки липкий — правило колонки достаёт до карточки");
+    assert(/rgba\(0, 0, 0, 0\)|transparent/.test(карточка.bg),
+      "у заголовка карточки подложка колонки: " + карточка.bg);
+    if (карточка.кнопок > 1) {
+      assertEqual(карточка.рядов, 1, "кнопки карточки разъехались по строкам — колонка слишком узкая");
+    }
+    assert(Math.abs(карточка.выбор - карточка.поле) <= 2,
+      "выбор этапа шириной " + карточка.выбор + "px при поле " + карточка.поле + "px — правый край рваный");
+  });
+
   /* Шапка сметы шла тремя разными сетками подряд (4 колонки, 5, 2): двенадцать
      полей стояли по ширинам 238 / 187 / 489px, ни одна вертикаль не совпадала.
      Проверяем результат — одинаковую ширину и общие левые кромки. */
