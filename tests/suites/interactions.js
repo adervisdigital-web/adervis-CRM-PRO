@@ -4588,6 +4588,48 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "пустое состояние занимает " + вид.h + "px над непустым списком — блок должен быть коротким");
   });
 
+  /* «Топ клиентов» живёт внутри панели «За 6 месяцев», а суммировал оплаты за ВСЁ
+     время: у владельца против столбцов на 1,09 млн за полгода стоял клиент с
+     3,39 млн. Числа рядом, а из разных миров. Проверяем главное свойство: сумма
+     топ-клиентов не больше дохода за показанный период. */
+  await test("топ клиентов считается за тот же период, что и столбцы", async () => {
+    const { ctx, p } = await bootWithState(`
+      const now = new Date();
+      const iso = (back, day) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - back, day);
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+      };
+      const mk = (id, name, client, pays) => ({
+        id, name, client, clientId: id,
+        total: pays.reduce((s,x)=>s+x.amount,0), paid: pays.reduce((s,x)=>s+x.amount,0), debt: 0,
+        crmStatus: "Завершённые", status: "Завершено", updatedAt: new Date().toISOString(),
+        snapshot: { project: { name, client }, payments: pays, expenses: [], tasks: [], selected: {} }
+      });
+      const pay = (k, back, amt) => ({ id: k + back, title: "Оплата", amount: amt, date: iso(back, 12), method: "Счёт" });
+      st.savedProjects = [
+        // Внутри периода: 100 000 + 60 000. Плюс ДАВНЯЯ оплата на 5 000 000 —
+        // именно она раньше и делала «топ-клиента» из воздуха.
+        mk("t1", "Свежая", "Кофейня", [pay("a",4,40000), pay("a1",2,100000), pay("a2",30,5000000)]),
+        mk("t2", "Тоже свежая", "Метрополис", [pay("b",1,60000)])
+      ];
+      st.activeProjectId = ""; st.payments = []; st.expenses = [];
+    `, { width: 1440, height: 950 });
+    await p.evaluate(() => window.app.go("home"));
+    await p.waitForTimeout(700);
+    const res = await p.evaluate(() => {
+      const num = (s) => Number(String(s).replace(/[^\d]/g, "")) || 0;
+      const legend = document.querySelector("#appContent .db-analytics-legend");
+      const доход = legend ? num(legend.children[0].textContent) : 0;
+      const суммы = [...document.querySelectorAll("#appContent .db-top-sum")].map((e) => num(e.textContent));
+      return { доход, суммы, топ: суммы.reduce((s, v) => s + v, 0) };
+    });
+    await ctx.close();
+    assert(res.доход > 0, "не нашёл доход за период в легенде графика");
+    assert(res.суммы.length, "не нашёл сумм в топ-клиентах");
+    assert(res.топ <= res.доход,
+      "сумма топ-клиентов (" + res.топ + ") больше дохода за период (" + res.доход + ") — считается за разные отрезки");
+  });
+
   /* Кольцо долей в «Топ клиентов». Проверяем ровно то, ради чего форму и брали:
      сегментов столько же, сколько клиентов, и каждый своего цвета. И отдельно —
      что с ОДНИМ клиентом кольцо не рисуется: полное кольцо на 100% не сообщает

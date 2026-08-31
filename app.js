@@ -15901,19 +15901,33 @@
         }).join('');
         const baseAxis = `<line x1="${PADL}" y1="${baseY}" x2="${W - PADR}" y2="${baseY}" stroke="var(--line)" stroke-width="1.4"/>`;
 
-        // Топ клиентов — по фактически ОПЛАЧЕННОМУ (p.paid), не по бюджету сделки (p.total):
-        // клиент с крупной неоплаченной или отменённой (Архив) сделкой не должен выглядеть
-        // «топовым» только за размер бюджета. Статус сделки НЕ фильтруем (в отличие от
-        // «Долга» и «Воронки») — завершённая оплаченная сделка это ровно то, что и должно
-        // быть топ-клиентом; клиенты без реальных оплат сами отсеются условием total>0 ниже.
+        /* Топ клиентов — по фактически ОПЛАЧЕННОМУ, не по бюджету сделки: клиент
+           с крупной неоплаченной или отменённой сделкой не должен выглядеть
+           «топовым» только за размер бюджета.
+
+           И ровно ЗА ПОКАЗАННЫЙ ПЕРИОД. Раньше суммировалось p.paid по всем
+           сделкам за всё время, а блок живёт внутри панели «За 6 месяцев» — у
+           владельца против столбцов на 1,09 млн за полгода стоял клиент с
+           3,39 млн. Числа рядом, а из разных миров: сравнить их нельзя, но глаз
+           пытается. Считаем по тем же платежам и тем же месяцам, что и столбцы,
+           включая правило про активную сделку (её платежи живут в state.payments,
+           а снапшот в savedProjects — копия, которая задвоила бы суммы). */
+        const monthSet = new Set(months);
         const byClient = {};
-        projects.forEach(p => {
+        const addClientPayments = (p, list) => {
           const key = p.clientId || p.client || '';
           if (!key) return;
+          const sum = (list || []).reduce((s, x) =>
+            s + (x && x.date && monthSet.has(String(x.date).slice(0, 7)) ? (x.amount || 0) : 0), 0);
+          if (!sum) return;
           const name = (p.clientId ? getClientById(p.clientId)?.name : null) || p.client || '—';
           if (!byClient[key]) byClient[key] = { name, total: 0, count: 0 };
-          byClient[key].total += p.paid || 0;
+          byClient[key].total += sum;
           byClient[key].count++;
+        };
+        projects.forEach(p => {
+          if (p.id === state.activeProjectId) addClientPayments(p, state.payments);
+          else addClientPayments(p, p.snapshot?.payments);
         });
         const topClients = Object.values(byClient).filter(c => c.total > 0)
           .sort((a,b) => b.total - a.total).slice(0, 5);
@@ -16574,8 +16588,14 @@
 
             <div class="panel" style="margin-bottom:14px">
               <div class="crm-home-funnel">
-                <div class="funnel-stage ${filter === "all" ? "active" : ""}" onclick="app.setCrmFilter('all')">
-                  <h3>Все</h3>
+                ${/* Плитка называлась «Все», а считала АКТИВНЫЕ: у владельца
+                      124 сделки, в шапке страницы так и написано, а тут стояло
+                      «Все 8» — рядом с «Завершённые 114» и «Архив 2» в той же
+                      ленте. Подпись обещала сумму всей ленты и её не давала.
+                      Переименовано под то, что плитка делает на самом деле. */""}
+                <div class="funnel-stage ${filter === "all" ? "active" : ""}" onclick="app.setCrmFilter('all')"
+                  title="Сделки в работе — все этапы, кроме «Завершённые» и «Архив»">
+                  <h3>Активные</h3>
                   <div class="fs-count">${activeProjects.length}</div>
                 </div>
                 ${/* Пустые этапы на телефоне скрыты: воронка рисует ВСЕ одиннадцать,
@@ -16785,7 +16805,11 @@
                         if (!project.deadline && !note && !tags.length) return "";
                         return `
                       <div class="deal-card-meta">
-                        ${project.deadline ? `<div class="deal-card-deadline" style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}"> ${escapeHtml(formatDate(project.deadline))}${u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : ""}</div>` : ""}
+                        ${/* Дата стояла на карточке голым числом: «28.08.2026» —
+                              и это могло быть что угодно, от дедлайна до даты
+                              создания. Значок календаря объясняет её, не занимая
+                              строки; когда срок горит, рядом встаёт и слово. */""}
+                        ${project.deadline ? `<div class="deal-card-deadline" title="Дедлайн сделки" style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}">${icon("calendar", 11)} ${escapeHtml(formatDate(project.deadline))}${u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : ""}</div>` : ""}
             ${note ? `<div class="deal-card-note" title="${escapeHtml(note)}"> ${escapeHtml(note)}</div>` : ""}
                         ${tags.length ? `<div class="deal-card-tags">${tags.map(t=>`<span class="deal-card-tag" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
                       </div>`;
