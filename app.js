@@ -21157,9 +21157,12 @@
         const topCat = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
         const margin = totalIncome > 0 ? Math.round((totalIncome - totalExpense) / totalIncome * 100) : 0;
 
+        /* Подпись говорит про ЭТОТ месяц, а стоит под средним за всё время —
+           без слова «этот» карточка читалась так, будто на 30% просело среднее.
+           Это разные величины: среднее меняется медленно, месяц скачет. */
         const trendHtml = trend === null
           ? `<span class="fc-sub">нет данных за прошлый месяц</span>`
-          : `<span class="fin-trend ${trend >= 0 ? "up" : "down"}">${trend >= 0 ? "▲" : "▼"} ${Math.abs(trend)}% к прошлому месяцу</span>`;
+          : `<span class="fin-trend ${trend >= 0 ? "up" : "down"}">этот месяц ${trend >= 0 ? "▲" : "▼"} ${Math.abs(trend)}% к прошлому</span>`;
 
         const forecast = `
           <div class="analytics-section">
@@ -21188,22 +21191,51 @@
             </div>
           </div>`;
 
+        /* Насколько вообще заполнены расходы. Маржа считается от них, и без этой
+           проверки продукт объявлял «Маржа 95% — высокая, бизнес прибыльный» на
+           аккаунте, где расходы внесены у горстки сделок из сотни, а 62% всех
+           внесённых трат — налог. Это не высокая маржа, это незаполненные
+           расходы: тот же класс ошибки, что и «100% маржа» на пустой смете
+           (см. marginBadgeClass) — продукт утверждает бизнес-факт, которого не
+           знает, и человек по нему назначает цену.
+
+           Считаем по сделкам, а не по сумме: сделка «с расходами» — та, у
+           которой есть хоть одна расходная операция или проставлена
+           себестоимость позиций. */
+        const countedDeals = projects.filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED);
+        const dealsWithExpenseTx = new Set(
+          allTxs.filter(t => t._type === "expense" && t.projectId).map(t => t.projectId));
+        const dealsWithCosts = countedDeals.filter(p =>
+          dealsWithExpenseTx.has(p.id) || numberValue(p.expensesTotal, 0) > 0).length;
+        const costCoverage = countedDeals.length
+          ? Math.round(dealsWithCosts / countedDeals.length * 100) : 0;
+        // 60% — не «правильный» порог, а граница, ниже которой утверждать что-либо
+        // о марже нельзя: у большинства сделок затрат просто нет в системе.
+        const costsTrustworthy = countedDeals.length === 0 || costCoverage >= 60;
+
         const insights = [];
-    if (collect >= 90) insights.push(["", "good", `Отличная собираемость — оплачено ${collect}% от суммы всех сделок (${money(allPaid)} из ${money(allTotal)}).`]);
-    else if (collect > 0) insights.push(["", "warn", `Собираемость ${collect}% — оплачено ${money(allPaid)} из ${money(allTotal)}. Есть смысл напомнить клиентам об оплате.`]);
-    if (bestKey) insights.push(["", "good", `Лучший месяц — ${monthTitle(bestKey)}: ${money(incByMonth[bestKey])} поступлений.`]);
-    if (topCat && totalExpense > 0) insights.push(["", "", `Больше всего расходов — «${escapeHtml(topCat[0])}»: ${money(topCat[1])} (${Math.round(topCat[1] / totalExpense * 100)}% всех трат).`]);
-    insights.push([margin >= 50 ? "" : margin >= 25 ? "" : "", "", `Маржа ${margin}% — ${margin >= 50 ? "высокая, бизнес прибыльный" : margin >= 25 ? "нормальная" : "низкая: стоит поднять цены или срезать расходы"}.`]);
-    if (trend !== null) insights.push([trend >= 0 ? "" : "", trend >= 0 ? "good" : "warn", `Доход этого месяца ${trend >= 0 ? "выше" : "ниже"} прошлого на ${Math.abs(trend)}%.`]);
-    if (avgMonthly > 0) insights.push(["", "", `При текущем темпе за год выйдет около ${money(avgMonthly * 12)} поступлений.`]);
+    if (collect >= 90) insights.push(["check", "good", `Отличная собираемость — оплачено ${collect}% от суммы всех сделок (${money(allPaid)} из ${money(allTotal)}).`]);
+    else if (collect > 0) insights.push(["warning", "warn", `Собираемость ${collect}% — оплачено ${money(allPaid)} из ${money(allTotal)}. Есть смысл напомнить клиентам об оплате.`]);
+    if (bestKey) insights.push(["star", "good", `Лучший месяц — ${monthTitle(bestKey)}: ${money(incByMonth[bestKey])} поступлений.`]);
+    if (topCat && totalExpense > 0) insights.push(["wallet", "", `Больше всего расходов — «${escapeHtml(topCat[0])}»: ${money(topCat[1])} (${Math.round(topCat[1] / totalExpense * 100)}% всех трат).`]);
+    insights.push(costsTrustworthy
+      ? ["chart", "", `Маржа ${margin}% — ${margin >= 50 ? "высокая, бизнес прибыльный" : margin >= 25 ? "нормальная" : "низкая: стоит поднять цены или срезать расходы"}.`]
+      : ["warning", "warn", `Маржа ${margin}% посчитана по внесённым расходам, а они есть только у ${dealsWithCosts} ${pl(dealsWithCosts, ["сделки","сделок","сделок"])} из ${countedDeals.length}. Реальная маржа ниже — впишите себестоимость в позиции сметы или расходы во вкладке «Финансы» сделки.`]);
+    if (trend !== null) insights.push([trend >= 0 ? "trendUp" : "trendDown", trend >= 0 ? "good" : "warn", `Доход этого месяца ${trend >= 0 ? "выше" : "ниже"} прошлого на ${Math.abs(trend)}%.`]);
+    if (avgMonthly > 0) insights.push(["target", "", `При текущем темпе за год выйдет около ${money(avgMonthly * 12)} поступлений.`]);
 
         const insightsHtml = `
           <div class="analytics-section">
             <h3>Что важно</h3>
             <div class="fin-insights">
+              ${/* Значок слева был ПУСТЫМ span'ом — остаток от убранных эмодзи:
+                    держал отступ в 25px и ничего не показывал, из-за чего строки
+                    выглядели сдвинутыми без причины. Теперь значок настоящий и
+                    красится по тону вывода: хорошее — зелёным, предупреждение —
+                    оранжевым, нейтральное — приглушённым. */""}
               ${insights.map(([ico, tone, text]) => `
                 <div class="fin-insight ${tone}">
-                  <span class="fin-insight-ico">${ico}</span>
+                  <span class="fin-insight-ico">${icon(ico, 14)}</span>
                   <span class="fin-insight-text">${text}</span>
                 </div>`).join("")}
             </div>

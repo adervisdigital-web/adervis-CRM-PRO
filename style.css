@@ -5762,7 +5762,12 @@
       font-size: 13.5px; line-height: 1.45;
     }
     .fin-insight:last-child { border-bottom: none; }
-    .fin-insight-ico { flex: 0 0 auto; font-size: 15px; line-height: 1.35; }
+    .fin-insight-ico {
+      flex: 0 0 auto; display: inline-flex; align-items: center;
+      height: 20px; color: var(--muted);
+    }
+    .fin-insight.good .fin-insight-ico { color: var(--text-success); }
+    .fin-insight.warn .fin-insight-ico { color: var(--text-warning); }
     .fin-insight-text { color: var(--text); }
 
     @media (max-width: 900px) { .fin-forecast-grid { grid-template-columns: 1fr 1fr; } }

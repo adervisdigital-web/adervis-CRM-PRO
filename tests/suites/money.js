@@ -1278,6 +1278,72 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await cf.close();
   });
 
+  /* «Маржа 95% — высокая, бизнес прибыльный» на аккаунте владельца, где расходы
+     внесены у горстки сделок из сотни, а 62% всех внесённых трат — налог. Это не
+     высокая маржа, это незаполненные расходы. Тот же класс, что «100% маржа» на
+     пустой смете: продукт утверждает бизнес-факт, которого не знает, а человек по
+     нему назначает цену. */
+  await test("аналитика финансов: маржа не хвалится, пока расходов почти нет", async () => {
+    /* Состояние кладём через addInitScript — ДО первой загрузки страницы.
+       Подсовывать его потом и перезагружать нельзя: на выгрузке приложение
+       пишет свой снимок поверх. */
+    const прогон = async (сКакимиРасходами) => {
+      const deals = [];
+      const iso = (back) => {
+        const d = new Date(); d.setDate(12); d.setMonth(d.getMonth() - back);
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-12";
+      };
+      for (let i = 0; i < 20; i++) {
+        const amt = 50000 + i * 1000;
+        const свои = сКакимиРасходами === "все" || i < 2;
+        deals.push({
+          id: "m" + i, name: "Сделка " + i, client: "Клиент " + i, clientId: "cm" + i,
+          total: amt, paid: amt, debt: 0, expensesTotal: 0,
+          crmStatus: "Завершённые", status: "Завершено", updatedAt: new Date().toISOString(),
+          snapshot: {
+            project: { name: "Сделка " + i, client: "Клиент " + i },
+            payments: [{ id: "pm" + i, title: "Оплата", amount: amt, date: iso(i % 5), method: "Счёт" }],
+            expenses: свои ? [{ id: "em" + i, title: "Затраты", amount: 20000, date: iso(i % 5), category: "Команда" }] : [],
+            tasks: [], selected: {}
+          }
+        });
+      }
+      const ctx = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+      const pg = await ctx.newPage();
+      await pg.addInitScript(({ key, deals }) => {
+        localStorage.setItem("adervis_local_mode", "1");
+        localStorage.setItem("adervis_tour_done", "1");
+        localStorage.setItem("adervis_onboarded", "1");
+        localStorage.setItem(key, JSON.stringify({ savedProjects: deals, view: "home" }));
+      }, { key: STORAGE_KEY, deals });
+      await pg.goto(baseUrl + "/index.html", { waitUntil: "load" });
+      await pg.waitForFunction(() => {
+        const el = document.getElementById("appContent");
+        return el && el.innerHTML.trim().length > 0;
+      }, { timeout: 20000 });
+      await pg.evaluate(() => {
+        window.app.go("global-finances");
+        window.app.setGFinSubTab("analytics");
+      });
+      await pg.waitForTimeout(600);
+      const txt = await pg.$eval("#appContent", (el) => el.textContent.replace(/\s+/g, " "));
+      await ctx.close();
+      return txt;
+    };
+
+    const мало = await прогон("у двух");
+    assert(/Маржа \d+%/.test(мало), "вывода про маржу нет вовсе: " + мало.slice(0, 160));
+    assert(!/бизнес прибыльный/.test(мало),
+      "продукт хвалит маржу, хотя расходы есть у двух сделок из двадцати");
+    assert(/2 сделок из 20/.test(мало),
+      "не сказано, у скольких сделок есть расходы: " + мало.slice(0, 300));
+
+    const все = await прогон("все");
+    assert(/Маржа \d+%/.test(все), "вывод про маржу пропал, когда расходы заполнены");
+    assert(!/посчитана по внесённым расходам/.test(все),
+      "оговорка про незаполненные расходы осталась, хотя они есть у всех сделок");
+  });
+
   /* Остаток по сделке в форме поступления. Повод из жизни: на завершённой сделке
      навсегда повис долг 60 ₽ — сумму платежа набрали с переставленными цифрами
      (18933 вместо 18993), и приложение это молча приняло. Теперь остаток видно
