@@ -4148,8 +4148,8 @@
                 onkeydown="if(event.key==='Enter')app.validatePromo()"
               >
               ${promoValid
-                ? `<button onclick="app.clearPromo()" style="border:none;background:transparent;color:var(--muted);padding:9px 10px;cursor:pointer;font-size:16px" title="Убрать промокод"></button>`
-                : `<button onclick="app.validatePromo()" style="border:none;background:var(--primary);color:#fff;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600" ${promoChecking ? "disabled" : ""}>${promoChecking ? "..." : "→"}</button>`
+                ? `<button onclick="app.clearPromo()" style="border:none;background:transparent;color:var(--muted);padding:9px 10px;cursor:pointer;display:grid;place-items:center" title="Убрать промокод" aria-label="Убрать промокод">${icon("close", 14)}</button>`
+                : `<button onclick="app.validatePromo()" style="border:none;background:var(--primary);color:#fff;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600" ${promoChecking ? "disabled" : ""}>${promoChecking ? "Проверяем…" : "Применить"}</button>`
               }
             </div>
             ${statusHtml}
@@ -5414,8 +5414,12 @@
               </thead>
               <tbody>
                 ${group("CRM и продажи")}
+                ${/* В таблице у пробного стояло «до 5» активных сделок, а карточка
+                      того же тарифа строкой выше обещала «Безлимитные сделки» — два
+                      разных обещания на одном экране. В коде ограничения нет вовсе:
+                      шестая сделка в пробном заводится молча. Пишем то, что есть. */""}
                 ${row("Активных сделок",
-                  [`<span style='color:var(--muted);font-weight:600'>до 5</span>`,
+                  [`<span style='color:var(--text-success);font-weight:700'>∞</span>`,
                    `<span style='color:var(--text-success);font-weight:700'>∞</span>`,
                    `<span style='color:var(--text-success);font-weight:700'>∞</span>`,
                    `<span style='color:var(--text-success);font-weight:700'>∞</span>`,
@@ -5664,7 +5668,10 @@
             <div class="grid two" style="gap:10px">
               ${[
                 ["CRM и сделки", "Неограниченное число сделок и проектов по всем стадиям воронки"],
-                ["Калькулятор смет", "100+ позиций каталога: съёмка, постпродакшн, ИИ, логистика"],
+                // Каталог давно вырос до 200 позиций, а витрина обещала «100+» —
+                // считаем от самого каталога, чтобы обещание не отставало снова
+                // (так уже сделано в подписи публичного расчёта).
+                ["Калькулятор смет", `${BASE_ITEMS.length} позиций каталога: съёмка, постпродакшн, ИИ, логистика`],
                 ["КП и договоры", "Генерация коммерческих предложений и договоров за секунды"],
                 ["Календарь", "Дедлайны, задачи и платежи по всем проектам в одном месте"],
                 ["Финансы", "Доходы, расходы, маржа и аналитика по каждому проекту"],

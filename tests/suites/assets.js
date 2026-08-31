@@ -1158,7 +1158,9 @@ module.exports = async function ({ test }) {
   await test("нет пустых заглушек от убранных эмодзи", () => {
     const src = readSrc("app.js");
     const bad = [];
-    const re = /<(div|span|p)\b[^>]*?(?:font-size:\s*(\d+)px|class="([^"]*icon[^"]*)")[^>]*>\s*<\/\1>/g;
+    /* Кнопки тоже: у «Убрать промокод» внутри не осталось НИЧЕГО, только
+       font-size:16px от снятого эмодзи — пустой кликабельный прямоугольник. */
+    const re = /<(div|span|p|button)\b[^>]*?(?:font-size:\s*(\d+)px|class="([^"]*icon[^"]*)")[^>]*>\s*<\/\1>/g;
     let m;
     while ((m = re.exec(src))) {
       const px = Number(m[2] || 0);
