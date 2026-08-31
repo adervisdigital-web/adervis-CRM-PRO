@@ -14778,7 +14778,9 @@
                 <h1>Коммерческие предложения</h1>
                 <p>${_allPortalsError
                   ? 'Список не загрузился — суммы и счётчики показать не можем.'
-                  : `Все КП по сделкам агентства. Всего на ${money(totalSum)}${paidSum ? ` · авансов оплачено ${money(paidSum)}` : ''}.`}</p>
+                  : _allPortals.length
+                    ? `Все КП по сделкам агентства. Всего на ${money(totalSum)}${paidSum ? ` · авансов оплачено ${money(paidSum)}` : ''}.`
+                    : 'Все КП по сделкам агентства.'}</p>
               </div>
               <div class="toolbar no-print">
                 <button class="btn small" onclick="app.refreshAllProposals()" title="Обновить">↻ Обновить</button>
@@ -14821,7 +14823,11 @@
                       <div class="kp-row-dot"></div>
                       <div class="kp-row-main" onclick="app.openDeal('${d.id}')" title="Открыть сделку" style="cursor:pointer">
                         <div class="kp-row-name">${escapeHtml(d.name || 'Без названия')}</div>
-                        <div class="kp-row-sub">${money(d.total || 0)}${d.client ? ` · ${escapeHtml(d.client)}` : ''} · ${escapeHtml(d.crmStatus || 'Лид')}</div>
+                        ${/* Этап воронки называем этапом. Без этого слова строка
+                              спорила с заголовком над ней: под «Без отправленного
+                              КП» стояла сделка, подписанная «КП отправлено» — это
+                              её позиция в воронке, а не ссылка, ушедшая клиенту. */""}
+                        <div class="kp-row-sub">${money(d.total || 0)}${d.client ? ` · ${escapeHtml(d.client)}` : ''} · этап «${escapeHtml(d.crmStatus || 'Лид')}»</div>
                       </div>
                       <button class="btn small primary no-print" onclick="event.stopPropagation();app.createClientPortal('${d.id}')" title="Создать и скопировать ссылку КП">Отправить КП</button>
                     </div>`).join('')}
@@ -16686,7 +16692,14 @@
               <div class="summary-line"><span>Расходы (план)</span><strong>${money(fin.totalExpenses)}</strong></div>
               ${fin.lineCosts > 0 ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них себестоимость позиций</span><strong>${money(fin.lineCosts)}</strong></div>` : ""}
               ${fin.expenses > 0 ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них расходы</span><strong>${money(fin.expenses)}</strong></div>` : ""}
-              ${fin.totalExpensesPaid !== fin.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них оплачено (факт)</span><strong>${money(fin.totalExpensesPaid)}</strong></div>` : ""}
+              ${/* Пара «начислено / выплачено» осталась ровно в одном месте — в
+                    гонорарах команды (member.payout / member.paidAmount). Расход в
+                    «Финансах» выплачен по определению (решение владельца 29.08.2026),
+                    а себестоимость позиций — это ПРОГНОЗ затрат, а не долг: пока
+                    условием было «totalExpensesPaid !== totalExpenses», строка
+                    вылезала на каждой смете с себестоимостью и писала «оплачено 0 ₽»
+                    про деньги, которых никто не должен. */""}
+              ${fin.teamPayouts !== fin.teamPayoutsPaid ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них уже выплачено</span><strong>${money(fin.totalExpensesPaid)}</strong></div>` : ""}
               ${/* Себестоимость позиций и расходы складываются в «Расходы (план)»,
                     и одни и те же деньги легко попадают туда дважды: у позиции с
                     бейджем «Расходы» себестоимость равна цене, а человек заводит
@@ -16706,11 +16719,14 @@
                 <span>Прибыль (план)</span>
                 <strong style="${fin.profit < 0 ? "color:var(--text-danger)" : ""}">${money(fin.profit)}</strong>
               </div>
-              ${/* «Факт» здесь про ЗАТРАТЫ, а не про полученные деньги: доход в нём
-                    плановый. Без подписи строка читается как «столько заработано»,
-                    хотя клиент мог оплатить половину. Объясняем прямо в подсказке —
-                    считать иначе нельзя, это осознанная пара «план/факт расходов». */""}
-              ${fin.totalExpensesPaid !== fin.totalExpenses ? `<div class="summary-line" style="font-size:12px;color:var(--muted)" title="Прибыль, если считать только УЖЕ ВЫПЛАЧЕННЫЕ затраты (${money(fin.totalExpensesPaid)} из ${money(fin.totalExpenses)}). Доход в этой строке плановый — по сумме сметы, а не по полученным деньгам."><span>Прибыль (факт)</span><strong>${money(fin.profitFact)}</strong></div>` : ""}
+              ${/* Строка называлась «Прибыль (факт)» и стояла БОЛЬШЕ плановой: «факт»
+                    в ней относился только к затратам, доход брался плановый, а
+                    себестоимость позиций в затраты не попадала вовсе. Под «Прибыль
+                    (план) 150 500 ₽» шло «Прибыль (факт) 153 500 ₽» — читается как
+                    «по факту заработали больше», хотя клиент оплатил половину.
+                    Теперь строка выходит только когда гонорары команды действительно
+                    начислены, но ещё не выплачены, и называет себя этим. */""}
+              ${fin.teamPayouts !== fin.teamPayoutsPaid ? `<div class="summary-line" style="font-size:12px;color:var(--muted)" title="Гонораров начислено ${money(fin.teamPayouts)}, выплачено ${money(fin.teamPayoutsPaid)}. Доход в строке плановый — по сумме сметы, а не по полученным деньгам."><span>Прибыль без невыплаченных гонораров</span><strong>${money(fin.profitFact)}</strong></div>` : ""}
               <div class="mt-8">
                 <span class="margin-badge ${marginClass}" title="${escapeHtml(marginTitle)}">${margin}% маржа</span>
                 ${!costsKnown && fin.revenue > 0 ? `<div class="u-meta" style="margin-top:6px">Себестоимость не заполнена — прибыль показана как вся сумма сметы</div>` : ""}
@@ -16722,7 +16738,12 @@
               ${hasLines ? `<button class="btn primary full" onclick="app.go('deal');app.setDealView('proposal')">Сформировать КП</button>` : ""}
               ${!state.activeProjectId ? `<button class="btn full" onclick="app.saveCurrentProject()">Сохранить сделку</button>` : ""}
               ${hasLines ? `<button class="btn full" onclick="app.createVersion()">Сохранить версию</button>` : ""}
-              ${hasLines ? `<button class="btn danger full" onclick="app.clearEstimate()">Очистить смету</button>` : ""}
+              ${/* Тихий красный, а не заливка: в колонке итогов эта кнопка стояла
+                    таким же плотным пятном, как «Сформировать КП», и спорила с ней
+                    за первый взгляд — хотя одна ведёт сделку вперёд, а вторая
+                    стирает работу. В окнах-подтверждениях заливка остаётся: там
+                    удаление и есть главное действие. */""}
+              ${hasLines ? `<button class="btn danger-quiet full" onclick="app.clearEstimate()">Очистить смету</button>` : ""}
             </div>
           </aside>
         `;
@@ -21545,7 +21566,14 @@
               <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--green)"></div>Поступление</div>
               <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--orange)"></div>Расход</div>
               ${(_googleCalEvents || []).length ? `<div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--primary)"></div>Google Calendar</div>` : ""}
-              <div class="cal-legend-item" style="margin-left:auto;font-size:12px;color:var(--muted)">Всего событий: ${events.length}</div>
+              ${/* Счётчик стоит ПОД сеткой месяца и читается как «столько в этом
+                    месяце», а считал он все события за всё время: под августом с
+                    одним платежом было написано «Всего событий: 2», а строкой ниже
+                    — «1». Считаем ровно то, что нарисовано в сетке. */""}
+              <div class="cal-legend-item" style="margin-left:auto;font-size:12px;color:var(--muted)">${(() => {
+                const shown = calAllMode ? events : events.filter(ev => ev.date && ev.date.startsWith(`${yr}-${padZ(mo)}`));
+                return `${calAllMode ? "Всего" : "В этом месяце"}: ${shown.length} ${plural(shown.length, "событие", "события", "событий")}`;
+              })()}</div>
             </div>
 
             <!-- Selected day panel -->
@@ -21607,7 +21635,7 @@
                           и ни одно правило про цели касания их не видело. */""}
                     ${typeFilters.map(f => `<button class="cal-type-chip" style="padding:4px 10px;font-size:12px;font-weight:750;border-radius:99px;border:1px solid ${calTypeFilter===f.id?"var(--primary)":"var(--line)"};background:${calTypeFilter===f.id?"rgb(var(--primary-rgb) / .15)":"transparent"};color:${calTypeFilter===f.id?"var(--primary-on-tint)":"var(--muted)"};cursor:pointer" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
                   </div>
-                  <span style="font-size:12px;color:var(--muted);margin-left:auto">${listEvents.length} событий</span>
+                  <span style="font-size:12px;color:var(--muted);margin-left:auto">${listEvents.length} ${plural(listEvents.length, "событие", "события", "событий")}</span>
                 </div>
                 ${!listEvents.length
                   ? `<p style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0">Нет событий${calTypeFilter!=="all"?" по выбранному типу":calAllMode?"":" в этом месяце"}. Нажми на день, чтобы добавить задачу.</p>`

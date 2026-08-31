@@ -1274,6 +1274,16 @@
     }
     .btn.danger:hover { background: var(--red-strong); }
 
+    /* Разрушительное действие рядом с главным: цвет предупреждает, но вес не
+       спорит с призывом. Заливка остаётся у .danger — в окнах-подтверждениях
+       удаление и есть главное действие. */
+    .btn.danger-quiet {
+      background: transparent;
+      border-color: rgba(220, 38, 38, .35);
+      color: var(--text-danger);
+    }
+    .btn.danger-quiet:hover { background: rgba(220, 38, 38, .1); border-color: rgba(220, 38, 38, .55); }
+
     .btn.small {
       padding: 7px 10px;
       font-size: 13px;
