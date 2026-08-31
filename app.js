@@ -13508,20 +13508,27 @@
       }
 
       function projectFields() {
+        /* Шапка сметы шла тремя разными сетками подряд — 4 колонки, потом 5,
+           потом 2. Двенадцать полей стояли по ширинам 238 / 187 / 489px, и ни
+           одна вертикаль не совпадала: форма выглядела рваной. Двенадцать полей
+           ровно ложатся в три ряда по четыре — все поля одной ширины, колонки
+           продолжают друг друга сверху вниз. «Статус» и «CRM-статус» встали
+           рядом намеренно: это две разные вещи, и видеть их вместе полезнее,
+           чем разнесёнными по разным рядам. */
         return `
           <div class="grid four">
             ${field("Название проекта", `<input data-autosave data-scope="project" data-key="name" value="${escapeHtml(state.project.name)}">`)}
             ${field("Клиент", `<input data-autosave data-scope="project" data-key="client" value="${escapeHtml(state.project.client)}" placeholder="Название клиента">`)}
             ${field("Город", `<input data-autosave data-scope="project" data-key="city" value="${escapeHtml(state.project.city)}">`)}
             ${field("Бюджет клиента, ₽", `<input inputmode="numeric" autocomplete="off" data-scope="project" data-key="clientBudget" value="${escapeHtml(groupDigits(state.project.clientBudget || ""))}" placeholder="сколько назвал клиент" oninput="app.updateProjectQuiet('clientBudget', app.formatAmountField(this))" onchange="app.updateProject('clientBudget', app.formatAmountField(this))">`)}
+          </div>
+
+          <div class="grid four" style="margin-top:14px">
             ${field("Статус", `
               <select data-autosave data-scope="project" data-key="status">
                 ${["Черновик", "Отправлено", "На согласовании", "Согласовано", "В работе", "Завершено"].map(x => optionValueHtml(x, x, state.project.status)).join("")}
               </select>
             `)}
-          </div>
-
-          <div class="grid five" style="margin-top:14px">
             ${field("CRM-статус", `
               <select data-autosave data-scope="project" data-key="crmStatus">
                 ${CRM_STATUSES.map(x => optionValueHtml(x, x, state.project.crmStatus)).join("")}
@@ -13533,8 +13540,13 @@
               </select>
             `)}
             ${field("Дней съёмки / проекта", `<input type="number" min="1" data-autosave data-scope="project" data-key="days" value="${escapeHtml(state.project.days)}">`)}
+          </div>
+
+          <div class="grid four" style="margin-top:14px">
             ${field("Дедлайн", `<input type="date" data-autosave data-scope="project" data-key="deadline" value="${escapeHtml(state.project.deadline)}">`)}
             ${field("Менеджер", `<input data-autosave data-scope="project" data-key="manager" value="${escapeHtml(state.project.manager)}">`)}
+            ${field("Скидка, %", `<input type="number" min="0" max="100" data-autosave data-scope="project" data-key="discount" value="${escapeHtml(state.project.discount)}">`)}
+            ${field("Источник", `<input data-autosave data-scope="project" data-key="source" value="${escapeHtml(state.project.source)}">`)}
           </div>
 
           ${_googleCalStatus && _googleCalStatus.connected && state.activeProjectId && state.project.deadline ? `
@@ -13542,11 +13554,6 @@
        <button id="projectSyncGoogleBtn" class="btn small" onclick="app.syncProjectDeadlineToGoogle()">${_myGoogleEventId(state.project) ? "Обновить дедлайн в Google Calendar" : "Дедлайн в Google Calendar"}</button>
             </div>
           ` : ""}
-
-          <div class="grid two" style="margin-top:14px">
-            ${field("Скидка, %", `<input type="number" min="0" max="100" data-autosave data-scope="project" data-key="discount" value="${escapeHtml(state.project.discount)}">`)}
-            ${field("Источник", `<input data-autosave data-scope="project" data-key="source" value="${escapeHtml(state.project.source)}">`)}
-          </div>
         `;
       }
 

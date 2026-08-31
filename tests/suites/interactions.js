@@ -4588,6 +4588,67 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "пустое состояние занимает " + вид.h + "px над непустым списком — блок должен быть коротким");
   });
 
+  /* Шапка сметы шла тремя разными сетками подряд (4 колонки, 5, 2): двенадцать
+     полей стояли по ширинам 238 / 187 / 489px, ни одна вертикаль не совпадала.
+     Проверяем результат — одинаковую ширину и общие левые кромки. */
+  await test("смета: поля шапки одной ширины и в общих колонках", async () => {
+    // Своё окно: общая страница набора — 1000px, а там сетки уже схлопнуты в одну
+    // колонку, и проверять было бы нечего (первая версия сторожа так и прошла
+    // мимо дефекта). Ширина 1440 — рабочий десктоп.
+    const { context: cw, page: pw } = await bootLocal(browser, baseUrl,
+      { width: 1440, height: 950, seedDemo: true });
+    await pw.evaluate(() => window.app.go("estimate"));
+    await pw.waitForTimeout(500);
+    const поля = await pw.evaluate(() =>
+      [...document.querySelectorAll("#appContent .field")]
+        .map((f) => {
+          const r = f.getBoundingClientRect();
+          const l = f.querySelector("label");
+          return { t: (l ? l.textContent : "").trim(), w: Math.round(r.width), x: Math.round(r.left) };
+        })
+        .filter((f) => /^(Название проекта|Клиент|Город|Бюджет клиента|Статус|CRM-статус|Приоритет|Дней съёмки|Дедлайн|Менеджер|Скидка|Источник)/.test(f.t)));
+    assert(поля.length >= 12, "шапка сметы разобралась не полностью: " + JSON.stringify(поля.map(f => f.t)));
+    const ширины = [...new Set(поля.map((f) => f.w))];
+    const колонки = [...new Set(поля.map((f) => f.x))];
+    await cw.close();
+    assertEqual(ширины.length, 1, "поля шапки разной ширины: " + JSON.stringify(поля));
+    assert(колонки.length <= 4, "поля шапки стоят в " + колонки.length + " колонках вместо четырёх: " + JSON.stringify(колонки));
+  });
+
+  /* Кнопка «+» рядом с «Ответственным» уезжала на 42px за пределы своего поля —
+     под правую панель сделки: выпадашка не сжималась (min-width:auto у флекс-
+     элемента), и сосед выдавливался наружу. */
+  await test("смета: кнопки рядом с выпадашками не выезжают за поле", async () => {
+    /* Своё окно на 1440 и обязательно ВНУТРИ сделки: на отдельной странице сметы
+       колонка шире, кнопка помещается, и дефект не воспроизводится — он живёт
+       там, где рядом лента сделок и панель итогов. */
+    const { context: cb, page: pb } = await bootLocal(browser, baseUrl,
+      { width: 1440, height: 950, seedDemo: true });
+    const dealId = await pb.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const d = (raw.savedProjects || [])[0];
+      return d ? d.id : "";
+    });
+    assert(dealId, "нет демо-сделки — проверять негде");
+    await pb.evaluate((x) => window.app.openDeal(x), dealId);
+    await pb.waitForTimeout(700);
+    const беглецы = await pb.evaluate(() => {
+      const out = [];
+      document.querySelectorAll("#appContent .field .u-flex-ac-g6").forEach((w) => {
+        const wr = w.getBoundingClientRect();
+        [...w.children].forEach((k) => {
+          const r = k.getBoundingClientRect();
+          if (r.width && r.right > wr.right + 1) {
+            out.push({ tag: k.tagName, за: Math.round(r.right - wr.right) });
+          }
+        });
+      });
+      return out;
+    });
+    await cb.close();
+    assertEqual(беглецы.length, 0, "элементы выехали за своё поле: " + JSON.stringify(беглецы));
+  });
+
   /* Поле цены в карточке каталога сжималось вслед за названием: в одном ряду
      стояли коробки 91 и 124px. Меряем живой DOM — по CSS этого не видно, там
      объявлено 190px, а до элемента доезжает результат сжатия флекса. */

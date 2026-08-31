@@ -7156,6 +7156,13 @@ body.portal-mode .nav { display: none !important; }
 .u-flex1 { flex: 1; }
 .u-flex-g8 { display: flex; gap: 8px; }
 .u-flex-ac-g6 { display: flex; align-items: center; gap: 6px; }
+/* Выпадашка рядом с кнопкой: без min-width:0 флекс-элемент не сжимается ниже
+   своего содержимого, и сосед выдавливается за край. Замер на карточке сделки:
+   поле «Ответственный» шириной 154px, выпадашка занимала 157px, кнопка «+»
+   уезжала на 42px за пределы поля — прямо под правую панель. */
+.u-flex-ac-g6 > .uu-select-wrap,
+.u-flex-ac-g6 > select { flex: 1 1 auto; min-width: 0; }
+.u-flex-ac-g6 > button { flex: 0 0 auto; }
 .u-subpanel-mb16 { box-shadow: none; background: var(--panel2); margin-bottom: 16px; }
 
 /* ── ПУБЛИЧНЫЙ КАЛЬКУЛЯТОР (?calc=…) — продающий мастер из трёх шагов ─────
