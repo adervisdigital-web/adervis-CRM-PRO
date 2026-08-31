@@ -772,21 +772,27 @@
     .sidebar-user-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
 
     /* ── Topbar icon buttons ───────────────────────────────── */
+    /* Значки шапки — в собственных «стеклянных» кружках, а не просто иконки на
+       фоне. Без рамки они висели в пустоте и не читались как кнопки: единственным
+       признаком нажимаемости был курсор, которого на телефоне нет. Рамка едва
+       заметна (6% линии), поэтому шапка не превращается в ряд коробок. */
     .topbar-icon-btn {
       width: 34px; height: 34px; padding: 0;
       display: grid; place-items: center;
-      border: 1px solid transparent;
-      background: transparent;
+      border: 1px solid var(--line);
+      background: var(--panel2);
       border-radius: var(--r-md);
       color: var(--muted);
       cursor: pointer;
-      transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1);
+      transition: background var(--dur-1), color var(--dur-1),
+                  border-color var(--dur-1), box-shadow var(--dur-1);
       flex-shrink: 0;
     }
     .topbar-icon-btn:hover {
       background: var(--primary-bg);
       color: var(--text);
-      border-color: rgb(var(--primary-rgb) / .18);
+      border-color: rgb(var(--primary-rgb) / .35);
+      box-shadow: var(--glow-sm);
     }
     .topbar-utils { display: flex; align-items: center; gap: 2px; }
     .topbar-page-title { display: none; }
@@ -3595,6 +3601,24 @@
          столбца — линии остаются строго между плитками, по краям их нет. */
       --stat-sep: -1px 0 0 var(--line), 0 -1px 0 var(--line);
       box-shadow: var(--stat-sep);
+    }
+    /* Акцентная плитка. Подложка-градиент вместо ровной заливки и чуть более
+       крупное число: полоса из десяти одинаковых плиток не давала глазу точки
+       входа. Разделители (--stat-sep) сохраняем — без них у плитки пропадали бы
+       линии, которыми она отделена от соседей. */
+    /* Подложка ТИХАЯ (--grad-soft, а не --grad-hero). Первая версия ставила сюда
+       hero-градиент, и плотный фиолет съедал зелёную сумму прибыли: цвет числа
+       здесь несёт смысл (доход/убыток), спорить с ним подложке нельзя. Проверка
+       контраста этого НЕ поймала бы — она читает background-color, а градиент
+       живёт в background-image. */
+    .db-stat--hero {
+      background-image: var(--grad-soft);
+      box-shadow: var(--stat-sep), inset 0 0 0 1px rgb(var(--primary-rgb) / .28);
+    }
+    .db-stat--hero .db-stat-value { font-size: 19px; }
+    .db-stat--hero[onclick]:hover {
+      background-image: var(--grad-soft);
+      box-shadow: var(--stat-sep), inset 0 0 0 1px rgb(var(--primary-rgb) / .45), inset 0 -2px 0 var(--primary);
     }
     .db-stat[onclick] { cursor: pointer; }
     /* Плитки ведут в раздел, но выглядели как обычный текст: единственным намёком

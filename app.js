@@ -16490,7 +16490,13 @@
                 <div class="db-stat-value-row"><span class="db-stat-value" style="${monthExpenses>0?"color:var(--text-danger)":""}">${money(monthExpenses)}</span>${sparklineSvg(sparkExpense, "spkExp", "var(--text-danger)")}</div>
                 <div class="db-stat-delta neu">В ${curMonthName}</div>
               </div>
-              <div class="db-stat" onclick="app.go('global-finances')" title="Прибыль / мес">
+              ${/* Одна плитка из десяти — акцентная. Полоса из десяти одинаковых
+                    плиток не давала глазу точки входа: все числа кричали одинаково.
+                    Выделяем прибыль — это ответ на вопрос, ради которого владелец
+                    вообще открывает главную; выручка без расходов на него не
+                    отвечает. Выделение не цветом ТЕКСТА (он уже несёт знак
+                    прибыли), а подложкой-градиентом. */""}
+              <div class="db-stat db-stat--hero" onclick="app.go('global-finances')" title="Прибыль / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${monthProfit>=0?"rgba(22,163,74,.15);color:var(--text-success)":"rgba(220,38,38,.13);color:var(--text-danger)"}"><svg viewBox="0 0 16 16" fill="currentColor">${monthProfit>=0?EMPTY_ICON_PATHS.trendUp:EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Прибыль / мес</span></div>
                 <div class="db-stat-value-row"><span class="db-stat-value" style="color:${monthProfit>=0?"var(--text-success)":"var(--text-danger)"}">${money(monthProfit)}</span>${sparklineSvg(sparkProfit, "spkProfit", monthProfit>=0?"var(--text-success)":"var(--text-danger)")}</div>
                 <div class="db-stat-delta ${monthProfit>=0?"pos":"neg"}">${monthProfit>=0?"доход":"убыток"}</div>
