@@ -17,6 +17,7 @@
         { id: "emerald",  label: "Зелёная",    sw: "#0a7a43" },
         { id: "amber",    label: "Янтарная",   sw: "#b45309" },
         { id: "teal",     label: "Бирюзовая",  sw: "#0d7f8f" },
+        { id: "midnight", label: "Ночная",     sw: "#3352d1" },
         { id: "graphite", label: "Графитовая", sw: "#4b5563" }
       ];
 
@@ -8174,6 +8175,73 @@
         return (Math.round(numberValue(value, 0)) === 0 ? "" : sign) + money(value);
       }
 
+      /* ── Мини-графики в плитках ────────────────────────────────────────────
+         Плитка KPI показывала одно число: «76 750 ₽» и подпись. Число без формы
+         не отвечает на главный вопрос — растёт или падает; за этим приходилось
+         идти в «Финансы». Спарклайн умещается в 64×26 справа от суммы и отвечает
+         на него сразу.
+
+         Рисуем сами, без библиотеки: проект намеренно без зависимостей, а здесь
+         нужна ровно полилиния с заливкой. `id` обязателен и уникален — градиент
+         заливки живёт в <defs> и адресуется по нему; два спарклайна с одним id
+         на странице взяли бы один градиент на двоих.
+
+         Ряд из одного значения линией не рисуется (нечего соединять) — в этом
+         случае отдаём пустую строку, плитка остаётся как была. */
+      function sparklineSvg(values, id, color, opts) {
+        const vals = (values || []).map(v => numberValue(v, 0));
+        if (vals.length < 2) return "";
+        if (vals.every(v => v === 0)) return "";
+        const o = opts || {};
+        const W = o.w || 64, H = o.h || 26, PAD = 2;
+        const max = Math.max(...vals), min = Math.min(...vals);
+        const span = max - min || Math.abs(max) || 1;
+        const stepX = (W - PAD * 2) / (vals.length - 1);
+        const pt = i => {
+          const x = PAD + i * stepX;
+          const y = H - PAD - ((vals[i] - min) / span) * (H - PAD * 2);
+          return [Math.round(x * 10) / 10, Math.round(y * 10) / 10];
+        };
+        const pts = vals.map((_, i) => pt(i));
+        const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join(" ");
+        const area = `${line} L${pts[pts.length - 1][0]} ${H} L${pts[0][0]} ${H} Z`;
+        const [lx, ly] = pts[pts.length - 1];
+        const c = color || "var(--primary2)";
+        return `
+          <svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true" focusable="false">
+            <defs>
+              <linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stop-color="${c}" stop-opacity=".35"/>
+                <stop offset="1" stop-color="${c}" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="${area}" fill="url(#${id})"/>
+            <path d="${line}" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="${lx}" cy="${ly}" r="2.4" fill="${c}"/>
+          </svg>`;
+      }
+
+      /* Полукруглый индикатор доли — форма из референсов «Earnings 58%». Работает
+         там, где число это ПРОЦЕНТ от целого: доля в процентах читается формой
+         быстрее, чем цифрой, а место занимает столько же, сколько спарклайн. */
+      function gaugeSvg(percent, color) {
+        const p = Math.max(0, Math.min(100, numberValue(percent, 0)));
+        const W = 64, H = 34, R = 25, CX = W / 2, CY = H - 4, SW = 5;
+        /* Заполненную часть рисуем НЕ вторым, укороченным путём, а тем же самым
+           полукругом с пунктиром длиной в нужную долю. Так заполнение гарантированно
+           начинается с левого конца дуги и повторяет её пиксель в пиксель: с двумя
+           разными путями я уже получил дугу, растущую не с той стороны. */
+        const len = Math.PI * R;
+        const d = `M${CX - R} ${CY} A${R} ${R} 0 0 1 ${CX + R} ${CY}`;
+        const c = color || "var(--primary2)";
+        return `
+          <svg class="spark spark-gauge" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true" focusable="false">
+            <path d="${d}" fill="none" stroke="var(--line)" stroke-width="${SW}" stroke-linecap="round" opacity=".9"/>
+            ${p > 0 ? `<path d="${d}" fill="none" stroke="${c}" stroke-width="${SW}" stroke-linecap="round"
+              stroke-dasharray="${(len * p / 100).toFixed(2)} ${len.toFixed(2)}"/>` : ""}
+          </svg>`;
+      }
+
       function highlightText(text, query) {
         const source = escapeHtml(text);
         const q = String(query !== undefined ? query : (state.search || "")).trim();
@@ -16240,6 +16308,21 @@
         const monthExpenses = expensesInMonth(curMonth);
         const monthProfit   = monthRevenue - monthExpenses;
 
+        /* Шесть месяцев для спарклайнов в плитках. Считаем ОДИН раз на три
+           плитки: paymentsInMonth/expensesInMonth обходят все сделки, и вызывать
+           их по разу на плитку значило бы пройти список шесть раз лишних. */
+        const sparkMonths = (() => {
+          const out = [];
+          for (let i = 5; i >= 0; i--) {
+            const d = new Date(nowDate.getFullYear(), nowDate.getMonth() - i, 1);
+            out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+          }
+          return out;
+        })();
+        const sparkRevenue = sparkMonths.map(paymentsInMonth);
+        const sparkExpense = sparkMonths.map(expensesInMonth);
+        const sparkProfit  = sparkRevenue.map((v, i) => v - sparkExpense[i]);
+
         const totalDebt = projects.filter(p => !isDealInactive(p.crmStatus||"Лид"))
           .reduce((s, p) => s + Math.max(0, (p.total||0) - (p.paid||0)), 0);
 
@@ -16320,17 +16403,17 @@
             <div class="db-stat-row">
               <div class="db-stat" onclick="app.go('global-finances')" title="Выручка / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(22,163,74,.15);color:var(--text-success)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Выручка / мес</span></div>
-                <div class="db-stat-value">${money(monthRevenue)}</div>
+                <div class="db-stat-value-row"><span class="db-stat-value">${money(monthRevenue)}</span>${sparklineSvg(sparkRevenue, "spkRev", "var(--text-success)")}</div>
                 <div class="db-stat-delta ${revDelta!==null?(revDelta>=0?"pos":"neg"):"neu"}">${revDelta!==null?(revDelta>=0?"↑ ":"↓ ")+Math.abs(revDelta)+"% к прошлому":"нет данных за прошлый месяц"}</div>
               </div>
               <div class="db-stat" onclick="app.go('global-finances')" title="Расходы / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:rgba(220,38,38,.13);color:var(--text-danger)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Расходы / мес</span></div>
-                <div class="db-stat-value" style="${monthExpenses>0?"color:var(--text-danger)":""}">${money(monthExpenses)}</div>
+                <div class="db-stat-value-row"><span class="db-stat-value" style="${monthExpenses>0?"color:var(--text-danger)":""}">${money(monthExpenses)}</span>${sparklineSvg(sparkExpense, "spkExp", "var(--text-danger)")}</div>
                 <div class="db-stat-delta neu">В ${curMonthName}</div>
               </div>
               <div class="db-stat" onclick="app.go('global-finances')" title="Прибыль / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${monthProfit>=0?"rgba(22,163,74,.15);color:var(--text-success)":"rgba(220,38,38,.13);color:var(--text-danger)"}"><svg viewBox="0 0 16 16" fill="currentColor">${monthProfit>=0?EMPTY_ICON_PATHS.trendUp:EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Прибыль / мес</span></div>
-                <div class="db-stat-value" style="color:${monthProfit>=0?"var(--text-success)":"var(--text-danger)"}">${money(monthProfit)}</div>
+                <div class="db-stat-value-row"><span class="db-stat-value" style="color:${monthProfit>=0?"var(--text-success)":"var(--text-danger)"}">${money(monthProfit)}</span>${sparklineSvg(sparkProfit, "spkProfit", monthProfit>=0?"var(--text-success)":"var(--text-danger)")}</div>
                 <div class="db-stat-delta ${monthProfit>=0?"pos":"neg"}">${monthProfit>=0?"доход":"убыток"}</div>
               </div>
               <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')" title="Долг клиентов">
@@ -16391,7 +16474,10 @@
                 return `
               <div class="db-stat" onclick="app.go('global-finances')" title="Собираемость: какая доля выставленных сумм уже оплачена">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Собираемость</span></div>
-                <div class="db-stat-value">${billed > 0 ? pct + "%" : "—"}</div>
+                <div class="db-stat-value-row">
+                  <span class="db-stat-value">${billed > 0 ? pct + "%" : "—"}</span>
+                  ${billed > 0 ? gaugeSvg(pct, pct >= 80 ? "var(--text-success)" : pct >= 50 ? "var(--text-warning)" : "var(--text-danger)") : ""}
+                </div>
                 <div class="db-stat-delta ${cls}">${billed > 0 ? money(got) + " из " + money(billed) : "нет сумм"}</div>
               </div>`;
               })()}

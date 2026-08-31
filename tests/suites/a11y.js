@@ -583,7 +583,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
     // (В «catalog» активного пункта в этот момент нет, и случай не воспроизводится —
     //  проверено подстановкой заведомо провального цвета.)
     const ACCENT_VIEWS = ["home", "packages", "crm"];
-    for (const accent of ["indigo", "emerald", "amber", "teal", "graphite"]) {
+    for (const accent of ["indigo", "emerald", "amber", "teal", "midnight", "graphite"]) {
       await page.evaluate((a) => document.documentElement.setAttribute("data-accent", a), accent);
       for (const theme of ["dark", "light"]) {
         await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);

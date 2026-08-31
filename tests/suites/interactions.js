@@ -4588,6 +4588,31 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "пустое состояние занимает " + вид.h + "px над непустым списком — блок должен быть коротким");
   });
 
+  /* Мини-графики в плитках KPI. Ловушка здесь не в рисовании, а в id: заливка
+     спарклайна живёт в <defs> и адресуется по id, и два графика с одинаковым id
+     на одной странице возьмут ОДИН градиент на двоих — второй окрасится цветом
+     первого. Поэтому проверяем и наличие формы, и уникальность идентификаторов. */
+  await test("главная: у сумм есть мини-графики, и их градиенты не пересекаются", async () => {
+    const { context: cs, page: ps } = await bootLocal(browser, baseUrl,
+      { width: 1440, height: 950, seedDemo: true });
+    await ps.evaluate(() => window.app.go("home"));
+    await ps.waitForTimeout(700);
+    const res = await ps.evaluate(() => {
+      const sparks = [...document.querySelectorAll("#appContent .db-stat .spark")];
+      const ids = [...document.querySelectorAll("#appContent .db-stat svg linearGradient")].map((g) => g.id);
+      const плоские = sparks.filter((s) => {
+        const r = s.getBoundingClientRect();
+        return r.width < 8 || r.height < 8;
+      }).length;
+      return { всего: sparks.length, ids, плоские };
+    });
+    await cs.close();
+    assert(res.всего >= 2, "в плитках KPI нет мини-графиков: " + res.всего);
+    assertEqual(res.плоские, 0, "мини-график схлопнулся в точку — рисовать его незачем");
+    assertEqual(new Set(res.ids).size, res.ids.length,
+      "у мини-графиков совпадают id градиентов, цвета перепутаются: " + res.ids.join(", "));
+  });
+
   /* Карточка на доске CRM. Три дефекта одним замером:
      1. Правило заголовка КОЛОНКИ было потомковым (.kanban-col h3) и доставало до
         <h3> каждой карточки: название сделки получало серую подложку колонки,

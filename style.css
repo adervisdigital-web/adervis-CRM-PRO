@@ -141,6 +141,29 @@
       --elev-3: 0 20px 56px rgba(0,0,0,.52), 0 6px 18px rgba(0,0,0,.28);
       --shadow: var(--elev-2);
 
+      /* ── Градиенты и свечение ──────────────────────────────────────────────
+         Приём из современных дашбордов: акцент не плоской заливкой, а мягким
+         переходом со свечением по краю. Держим ТОКЕНАМИ и строим из
+         --primary-rgb, чтобы градиент следовал и за темой, и за выбранной
+         схемой: захардкоженный фиолетовый в «зелёной» схеме выглядел бы чужим,
+         ровно как это было со 168 хардкодами rgba(124,58,237,…) до --primary-rgb.
+
+           grad-hero  — крупная акцентная карточка (главная метрика, промо);
+           grad-soft  — лёгкая подложка под плитку/строку под курсором;
+           grad-btn   — заливка главной кнопки;
+           glow-sm    — свечение под элементом (кнопка, карточка при наведении);
+           glow-md    — заметное свечение у акцентной карточки и точки графика.
+
+         Радиальная часть grad-hero сдвинута вправо-вверх (85% 0%): свет падает
+         из угла, как в референсах, и не спорит с текстом, который идёт слева. */
+      --grad-hero:
+        radial-gradient(120% 150% at 85% 0%, rgb(var(--primary-rgb) / .55) 0%, rgb(var(--primary-rgb) / .14) 48%, transparent 100%),
+        linear-gradient(135deg, rgb(var(--primary-rgb) / .30) 0%, rgb(var(--primary-rgb) / .06) 100%);
+      --grad-soft: linear-gradient(180deg, rgb(var(--primary-rgb) / .10) 0%, rgb(var(--primary-rgb) / .02) 100%);
+      --grad-btn: linear-gradient(135deg, var(--primary2) 0%, var(--primary) 100%);
+      --glow-sm: 0 6px 20px -8px rgb(var(--primary-rgb) / .55);
+      --glow-md: 0 10px 34px -10px rgb(var(--primary-rgb) / .70);
+
       /* ── Скругления ────────────────────────────────────────────────────────
          Замер по живому DOM (08.08.2026): на экранах встречалось ДЕСЯТЬ разных
          радиусов, в самом файле — восемнадцать значений от 2 до 999px, включая
@@ -296,6 +319,16 @@
       --tint-indigo: #4338ca;
       --tint-red:    #991b1b;
       --tint-slate:  #475569;
+
+      /* Градиенты и свечение в светлой теме — вдвое тише. Те же значения, что в
+         тёмной, на белой панели читаются как грязное пятно: там свет ложится НА
+         тёмное, здесь — на светлое, и глазу нужен куда меньший перепад. */
+      --grad-hero:
+        radial-gradient(120% 150% at 85% 0%, rgb(var(--primary-rgb) / .28) 0%, rgb(var(--primary-rgb) / .08) 48%, transparent 100%),
+        linear-gradient(135deg, rgb(var(--primary-rgb) / .16) 0%, rgb(var(--primary-rgb) / .03) 100%);
+      --grad-soft: linear-gradient(180deg, rgb(var(--primary-rgb) / .07) 0%, rgb(var(--primary-rgb) / .015) 100%);
+      --glow-sm: 0 6px 18px -10px rgb(var(--primary-rgb) / .45);
+      --glow-md: 0 10px 28px -12px rgb(var(--primary-rgb) / .50);
     }
 
     /* ── Цветовые схемы (акцент) ─────────────────────────────────────────────
@@ -354,6 +387,19 @@
     [data-theme="light"][data-accent="graphite"] {
       --primary: #475569; --primary2: #64748b; --primary-rgb: 71 85 105;
       --primary-text: #3f4c5f; --primary-on-tint: #3f4c5f;
+    }
+
+    /* Сине-стальная. Отличается от «Синей» (indigo) тем, что уходит не в чистый
+       синий, а в холодный сине-серый: с ним градиенты и свечение дают ту самую
+       «ночную» подачу аналитических панелей, ради которой схему и заводили.
+       От «Графитовой» отличается наличием цвета — та полностью нейтральна. */
+    [data-accent="midnight"] {
+      --primary: #3352d1; --primary2: #6d8bff; --primary-rgb: 51 82 209;
+      --primary-text: #8fa8ff; --primary-on-tint: #8fa8ff;
+    }
+    [data-theme="light"][data-accent="midnight"] {
+      --primary: #2f49b8; --primary2: #4d6ae0; --primary-rgb: 47 73 184;
+      --primary-text: #2a4099; --primary-on-tint: #24377f;
     }
 
     [data-theme="light"] body {
@@ -1239,12 +1285,24 @@
       align-items: center;
     }
 
+    /* Главная кнопка — градиентом и со свечением. Плоская заливка --primary
+       выглядела «наклейкой» рядом со стеклянными панелями; переход светлее→темнее
+       по диагонали даёт объём, а мягкая тень акцентного тона отрывает кнопку от
+       фона. Цвет тот же: градиент собран из --primary2 → --primary, поэтому идёт
+       за выбранной схемой. Контраст подписи не меняется — на светлом конце
+       градиента лежит --primary2, тот же, что был у :hover. */
     .btn.primary {
-      background: var(--primary);
+      background-image: var(--grad-btn);
+      background-color: var(--primary);
       border-color: transparent;
       color: var(--on-color);
+      box-shadow: var(--glow-sm);
     }
-    .btn.primary:hover { background: var(--primary2); }
+    .btn.primary:hover {
+      background-color: var(--primary2);
+      box-shadow: var(--glow-md);
+    }
+    .btn.primary:active { box-shadow: var(--glow-sm); }
 
     .btn.blue {
       background: var(--blue);
@@ -3545,7 +3603,10 @@
     /* Наведение ДОБАВЛЯЕТ подчёркивание к разделителям, а не заменяет их: без
        var(--stat-sep) в этих правилах линии вокруг плитки пропадали под курсором. */
     .db-stat[onclick]:hover {
-      background: var(--panel);
+      background-color: var(--panel);
+      /* Лёгкая акцентная подложка сверху вниз вместо ровной заливки: плитка под
+         курсором «подсвечивается», а не просто меняет серый на серый. */
+      background-image: var(--grad-soft);
       box-shadow: var(--stat-sep), inset 0 -2px 0 var(--primary);
     }
     .db-stat[onclick]:hover .db-stat-label { color: var(--text); }
@@ -3575,6 +3636,19 @@
       font-size: 16.5px; font-weight: 800; letter-spacing: -.01em;
       font-variant-numeric: tabular-nums; line-height: 1.2; margin-bottom: 2px;
     }
+    /* Сумма слева, мини-график справа. Ряд, а не два этажа: плитка и так низкая,
+       а форма нужна ГЛАЗУ рядом с числом, а не под ним. График сжимается первым
+       (flex: 0 1 auto) и пропадает на узкой плитке — число важнее формы. */
+    .db-stat-value-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-bottom: 2px; min-width: 0;
+    }
+    .db-stat-value-row .db-stat-value { margin-bottom: 0; min-width: 0; }
+    .db-stat-value-row .spark { flex: 0 1 auto; min-width: 0; opacity: .9; }
+    .db-stat[onclick]:hover .spark { opacity: 1; }
+    /* Ниже 1100px в плитке остаётся ~120px под содержимое: график и сумма
+       начинают спорить за место, и первым уходит график. */
+    @media (max-width: 1100px) { .db-stat-value-row .spark { display: none; } }
     /* tabular-nums: в подписи плитки бывают суммы («20 750 ₽ из 41 500 ₽»), а
        DESIGN.md §5 требует табличных цифр везде, где деньги. Сторож в a11y это
        и поймал на новой плитке «Собираемость». */
@@ -3808,7 +3882,16 @@
       cursor: pointer; transition: var(--dur-1);
     }
     .funnel-stage:hover { border-color: rgb(var(--primary-rgb) / .5); transform: translateY(-1px); }
-    .funnel-stage.active { border-color: var(--primary-on-tint); background: rgb(var(--primary-rgb) / .12); }
+    /* Выбранный этап воронки — акцентная карточка с градиентом и свечением, а не
+       ровный тинт: на ленте из одиннадцати одинаковых плиток «где я сейчас»
+       читалось только по чуть более светлому фону. */
+    .funnel-stage.active {
+      border-color: var(--primary-on-tint);
+      background-color: rgb(var(--primary-rgb) / .12);
+      background-image: var(--grad-soft);
+      box-shadow: var(--glow-sm);
+    }
+    .funnel-stage.active:hover { box-shadow: var(--glow-md); }
     .funnel-stage h3 { font-size: 11px; color: var(--muted); margin: 0 0 2px; }
     .funnel-stage .fs-count { font-size: 19px; font-weight: 900; line-height: 1.1; }
     /* 11.5px, а не 10.5: это ДЕНЬГИ по этапу, ради которых воронку и открывают.
