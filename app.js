@@ -15846,12 +15846,21 @@
         if (totalRev === 0 && totalExp === 0 && !chartOffset) return '';
 
         const maxVal = Math.max(...revenue, ...expenseArr, 1);
-        const scaleMax = maxVal * 1.15; // запас сверху, чтобы подпись над самым высоким столбцом не упиралась в край
+        /* Запас сверху 1.06, а не 1.15. При 1.15 верхняя восьмая поля пустовала
+           ВСЕГДА — между строкой сумм и самым высоким столбцом зияла дыра, и
+           график казался приплюснутым к низу панели. 6% хватает, чтобы подпись
+           значения не упиралась в край: она рисуется на 6px выше столбца, а
+           PADT добавляет ещё запас. */
+        const scaleMax = maxVal * 1.06;
 
         // Сгруппированный столбчатый график: тонкие столбцы с округлым верхом на базовой линии,
         // прямые подписи сумм над выручкой и полные названия месяцев снизу.
-        const W = 760, H = 172;
-        const PADL = 42, PADR = 10, PADT = 26, PADB = 30;
+        /* Пропорция поля 760×210, а не 760×176. Панель графика тянется по высоте
+           до соседней («Топ клиентов» выше за счёт кольца и списка), и при плоском
+           поле сверху оставалась дыра в 90px. Более высокое поле её съедает, а
+           столбцы становятся длиннее — по ним и читают. */
+        const W = 760, H = 210;
+        const PADL = 42, PADR = 10, PADT = 22, PADB = 32;
         const plotW = W - PADL - PADR, plotH = H - PADT - PADB;
         const baseY = PADT + plotH;
         const gw = plotW / months.length;
@@ -15883,6 +15892,12 @@
           const revLabel = revenue[i] > 0
             ? `<text x="${rx + bw/2}" y="${baseY - rh - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)" font-family="inherit">${shortNum(revenue[i])}</text>`
             : '';
+          /* Столбец расхода при доходе в разы больше — обрубок в три пикселя:
+             видно, что он есть, и не видно, сколько. Подпись мельче и приглушена,
+             чтобы не спорить с суммой дохода, ради которой в график и смотрят. */
+          const expLabel = expenseArr[i] > 0
+            ? `<text x="${ex + bw/2}" y="${baseY - eh - 5}" text-anchor="middle" font-size="9.5" font-weight="650" fill="var(--text-danger)" font-family="inherit">${shortNum(expenseArr[i])}</text>`
+            : '';
           return `
             <g class="db-chart-col"
                onmouseenter="app.showChartTip(event,'${label}',${revenue[i]},${expenseArr[i]})"
@@ -15894,6 +15909,7 @@
               ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, 5)}" fill="url(#dbGradRev)" filter="url(#dbBarGlow)"/>` : ''}
               ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, 5)}" fill="url(#dbGradExp)"/>` : ''}
               ${revLabel}
+              ${expLabel}
               <text x="${gx + gw/2}" y="${H - 9}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="inherit">${label}</text>
             </g>`;
         }).join('');
@@ -15989,11 +16005,10 @@
                 <div class="db-money-sum"><span class="db-money-lbl">Доход</span><b style="color:var(--text-success)">${money(totalRev)}</b></div>
                 <div class="db-money-sum"><span class="db-money-lbl">Расход</span><b style="color:var(--text-danger)">${money(totalExp)}</b></div>
                 <div class="db-money-sum"><span class="db-money-lbl">Прибыль</span><b style="color:${profit>=0?'var(--text-success)':'var(--text-danger)'}">${money(profit)}</b></div>
-                <span class="db-money-hint no-print">Нажмите на месяц — откроются его операции</span>
               </div>` : ""}
             <div class="db-analytics-body">
               ${chartWorthDrawing ? `
-              <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-height:260px">
+              <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-height:320px">
                 <defs>
                   <linearGradient id="dbGradRev" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="0" stop-color="var(--green)" stop-opacity="0.95"/>
@@ -16038,6 +16053,15 @@
               </div>
               `}
             </div>
+              ${/* Подсказка про клик — подвалом панели, а не строкой у правого
+                    края: там она висела в одиночестве посреди пустоты. Заодно у
+                    обеих панелей появился одинаковый низ, и они перестали
+                    заканчиваться на разной высоте. */""}
+              ${chartWorthDrawing ? `
+              <div class="db-money-foot no-print">
+                <span class="db-clients-foot-note">Нажмите на месяц — откроются его операции</span>
+                <button class="btn small" onclick="app.go('global-finances')">Все операции</button>
+              </div>` : ""}
               <div id="dbChartTooltip" class="db-chart-tooltip no-print" style="display:none"></div>
             </div>
 

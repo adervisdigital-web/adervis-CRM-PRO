@@ -4666,6 +4666,22 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(раскладка.заголовки, 2, "у одной из панелей нет своей шапки");
     assert(раскладка.кнопки >= 2, "строки клиентов не нажимаются: " + раскладка.кнопки);
 
+    /* Панели заканчивались на разной высоте — ряд выглядел собранным на скорую
+       руку («ну смотри как некрасиво»). Обе тянутся до нижней кромки ряда, а
+       подвалы стоят на одной линии. */
+    const низы = await p.evaluate(() => {
+      const ps = [...document.querySelectorAll("#appContent .db-analytics-row > .panel")]
+        .map((el) => Math.round(el.getBoundingClientRect().bottom));
+      const foots = [...document.querySelectorAll("#appContent .db-money-foot, #appContent .db-clients-foot")]
+        .map((el) => Math.round(el.getBoundingClientRect().top));
+      return { ps, foots };
+    });
+    assert(Math.max(...низы.ps) - Math.min(...низы.ps) <= 2,
+      "панели заканчиваются на разной высоте: " + JSON.stringify(низы.ps));
+    assertEqual(низы.foots.length, 2, "подвал есть не у обеих панелей");
+    assert(Math.max(...низы.foots) - Math.min(...низы.foots) <= 4,
+      "подвалы панелей стоят на разной высоте: " + JSON.stringify(низы.foots));
+
     await p.evaluate(() => document.querySelector("#appContent .db-client-row.is-clickable").click());
     await p.waitForTimeout(600);
     const после = await p.$eval("#appContent", (el) => el.textContent.replace(/\s+/g, " "));
