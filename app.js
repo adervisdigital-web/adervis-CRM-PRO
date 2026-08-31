@@ -8242,6 +8242,53 @@
           </svg>`;
       }
 
+      /* Кольцевая диаграмма долей. Форма честна ровно там, где части складываются
+         в целое, — например «сколько какой клиент принёс из всей выручки». Полоски
+         разной длины на такой вопрос отвечают хуже: глаз сравнивает их попарно, а
+         не с целым.
+
+         Сегменты рисуем ОДНОЙ окружностью с пунктиром и сдвигом, а не дугами:
+         дуга через `A` требует ручной тригонометрии на каждую границу и уже один
+         раз дала мне сегмент, растущий не с той стороны. Здесь длина дуги —
+         арифметика, направление задано один раз поворотом на -90°. */
+      /* Цвета сегментов берём из «текстовых» токенов, а не из --primary2 и
+         прочих «светлых» вариантов: те рассчитаны на тёмный фон, и на белой
+         панели светлая сирень превращалась в едва различимую точку легенды.
+         Токены семейств --text- и --tint- переопределены для обеих тем. */
+      const DONUT_COLORS = ["var(--primary-text)", "var(--text-info)", "var(--text-success)",
+        "var(--text-warning)", "var(--tint-cyan)", "var(--tint-pink)"];
+      function donutSvg(parts, opts) {
+        const list = (parts || []).filter(p => numberValue(p.value, 0) > 0);
+        if (!list.length) return "";
+        const o = opts || {};
+        const size = o.size || 92, SW = o.width || 12;
+        const R = (size - SW) / 2, C = size / 2, LEN = 2 * Math.PI * R;
+        const total = list.reduce((s, p) => s + numberValue(p.value, 0), 0);
+        let acc = 0;
+        const segs = list.map((p, i) => {
+          const frac = numberValue(p.value, 0) / total;
+          const dash = LEN * frac;
+          // -2px на зазор между сегментами; у одного-единственного сегмента зазор
+          // не нужен — иначе кольцо получается разомкнутым без причины.
+          const gapped = list.length > 1 ? Math.max(0, dash - 2) : dash;
+          const seg = `<circle cx="${C}" cy="${C}" r="${R.toFixed(2)}" fill="none"
+            stroke="${p.color || DONUT_COLORS[i % DONUT_COLORS.length]}" stroke-width="${SW}"
+            stroke-dasharray="${gapped.toFixed(2)} ${(LEN - gapped).toFixed(2)}"
+            stroke-dashoffset="${(-acc).toFixed(2)}" stroke-linecap="round"/>`;
+          acc += dash;
+          return seg;
+        }).join("");
+        return `
+          <svg class="donut" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true" focusable="false">
+            <g transform="rotate(-90 ${C} ${C})">
+              <circle cx="${C}" cy="${C}" r="${R.toFixed(2)}" fill="none" stroke="var(--line)" stroke-width="${SW}"/>
+              ${segs}
+            </g>
+            ${o.label ? `<text x="${C}" y="${C + 4}" text-anchor="middle" font-size="13" font-weight="800"
+              fill="var(--text)" font-family="inherit">${escapeHtml(o.label)}</text>` : ""}
+          </svg>`;
+      }
+
       function highlightText(text, query) {
         const source = escapeHtml(text);
         const q = String(query !== undefined ? query : (state.search || "")).trim();
@@ -15839,7 +15886,7 @@
                onclick="app.drillIntoMonth('${m}')">
               <rect class="db-chart-hit-bg" x="${gx + 2}" y="${PADT}" width="${gw - 4}" height="${plotH}" rx="8"/>
               <rect class="db-chart-hit" x="${gx}" y="0" width="${gw}" height="${H}" fill="transparent"/>
-              ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, 5)}" fill="url(#dbGradRev)"/>` : ''}
+              ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, 5)}" fill="url(#dbGradRev)" filter="url(#dbBarGlow)"/>` : ''}
               ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, 5)}" fill="url(#dbGradExp)"/>` : ''}
               ${revLabel}
               <text x="${gx + gw/2}" y="${H - 9}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="inherit">${label}</text>
@@ -15927,7 +15974,22 @@
                     <stop offset="0" stop-color="var(--red)" stop-opacity="0.7"/>
                     <stop offset="1" stop-color="var(--red)" stop-opacity="0.3"/>
                   </linearGradient>
+                  ${/* Подложка под областью графика: акцентный свет снизу вверх.
+                        Не декор ради декора — она отделяет поле данных от панели,
+                        на которой прежде столбцы висели в пустоте. */""}
+                  <linearGradient id="dbPlotWash" x1="0" x2="0" y1="1" y2="0">
+                    <stop offset="0" stop-color="var(--primary)" stop-opacity="0.10"/>
+                    <stop offset="1" stop-color="var(--primary)" stop-opacity="0"/>
+                  </linearGradient>
+                  ${/* Свечение столбцов дохода. stdDeviation держим маленьким: на
+                        больших значениях столбцы «плывут» и перестают читаться как
+                        точная величина, а это деньги. */""}
+                  <filter id="dbBarGlow" x="-60%" y="-40%" width="220%" height="200%">
+                    <feGaussianBlur stdDeviation="2.4" result="b"/>
+                    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                  </filter>
                 </defs>
+                <rect x="${PADL}" y="${PADT}" width="${W - PADL - PADR}" height="${plotH}" rx="10" fill="url(#dbPlotWash)"/>
                 ${gridLines}
                 ${baseAxis}
                 ${barsHtml}
@@ -15949,7 +16011,24 @@
               ${topClients.length ? `
               <div class="db-analytics-top">
                 <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Топ клиентов</div>
-                ${topClients.map(c => `
+                ${/* Кольцо вместо пяти полосок: вопрос здесь про ДОЛЮ каждого во
+                      всей выручке, а полоски заставляли сравнивать их попарно.
+                      Кольцо рисуем только при двух и более клиентах — с одним оно
+                      всегда полное и не сообщает ничего. Подписи с суммами остались:
+                      кольцо показывает соотношение, а деньги читают цифрой. */""}
+                ${topClients.length > 1 ? `
+                  <div class="db-top-donut">
+                    ${donutSvg(topClients.map(c => ({ name: c.name, value: c.total })), { size: 84, width: 11 })}
+                    <div class="db-top-legend">
+                      ${topClients.map((c, i) => `
+                        <div class="db-top-legend-row">
+                          <span class="db-top-dot" style="background:${DONUT_COLORS[i % DONUT_COLORS.length]}"></span>
+                          <span class="db-top-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+                          <span class="db-top-sum">${money(c.total)}</span>
+                        </div>`).join("")}
+                    </div>
+                  </div>
+                ` : topClients.map(c => `
                   <div style="margin-bottom:8px">
                     <div style="display:flex;justify-content:space-between;gap:6px;margin-bottom:3px">
                       <span style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${escapeHtml(c.name)}</span>

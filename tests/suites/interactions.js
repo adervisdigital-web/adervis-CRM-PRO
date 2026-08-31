@@ -4588,6 +4588,42 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "пустое состояние занимает " + вид.h + "px над непустым списком — блок должен быть коротким");
   });
 
+  /* Кольцо долей в «Топ клиентов». Проверяем ровно то, ради чего форму и брали:
+     сегментов столько же, сколько клиентов, и каждый своего цвета. И отдельно —
+     что с ОДНИМ клиентом кольцо не рисуется: полное кольцо на 100% не сообщает
+     ничего, там остаётся полоска с суммой. */
+  await test("топ клиентов: доли кольцом, у каждого свой цвет", async () => {
+    const { ctx, p } = await bootWithState(`
+      const now = new Date();
+      const iso = (back, day) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - back, day);
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+      };
+      const mk = (id, name, client, amt, back) => ({
+        id, name, client, clientId: id, total: amt, paid: amt, debt: 0,
+        crmStatus: "Завершённые", status: "Завершено", updatedAt: new Date().toISOString(),
+        snapshot: { project: { name, client },
+          payments: [{ id: "p" + id, title: "Оплата", amount: amt, date: iso(back, 12), method: "Счёт" }],
+          expenses: [], tasks: [], selected: {} }
+      });
+      st.savedProjects = [mk("k1","Ролик","Кофейня",300000,3), mk("k2","Форум","Метрополис",200000,2), mk("k3","Промо","Афина",100000,1)];
+      st.activeProjectId = ""; st.payments = []; st.expenses = [];
+    `, { width: 1440, height: 950 });
+    await p.evaluate(() => window.app.go("home"));
+    await p.waitForTimeout(700);
+    const res = await p.evaluate(() => {
+      const wrap = document.querySelector("#appContent .db-top-donut");
+      if (!wrap) return null;
+      const segs = [...wrap.querySelectorAll(".donut circle")].slice(1); // первый — дорожка
+      const dots = [...wrap.querySelectorAll(".db-top-dot")].map((d) => getComputedStyle(d).backgroundColor);
+      return { сегментов: segs.length, точек: dots.length, цветов: new Set(dots).size };
+    });
+    await ctx.close();
+    assert(res, "кольцо долей не нарисовано при трёх клиентах");
+    assertEqual(res.сегментов, 3, "сегментов в кольце не столько, сколько клиентов");
+    assertEqual(res.цветов, res.точек, "у клиентов в легенде повторяются цвета — кольцо не прочитать");
+  });
+
   /* Мини-графики в плитках KPI. Ловушка здесь не в рисовании, а в id: заливка
      спарклайна живёт в <defs> и адресуется по id, и два графика с одинаковым id
      на одной странице возьмут ОДИН градиент на двоих — второй окрасится цветом
