@@ -793,14 +793,16 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
       agency: { name: "Студия «Полёт»", logo: "", hide_branding: false },
     });
     const withSign = await shown.page.evaluate(() => (document.getElementById("appContent").innerText || "").replace(/\s+/g, " "));
-    assert(/Powered by ADERVIS/i.test(withSign), "на бесплатном тарифе пропала подпись сервиса — бесплатный канал распространения");
+    // Подпись по-русски, как в клиентском портале: «Powered by» была единственной
+    // английской строкой на странице, которую студия показывает своему заказчику.
+    assert(/Сделано в ADERVIS/i.test(withSign), "на бесплатном тарифе пропала подпись сервиса — бесплатный канал распространения");
     await shown.context.close();
 
     const hidden = await bootBrief(browser, baseUrl, {
       agency: { name: "Студия «Полёт»", logo: "", hide_branding: true },
     });
     const noSign = await hidden.page.evaluate(() => (document.getElementById("appContent").innerText || "").replace(/\s+/g, " "));
-    assert(!/Powered by ADERVIS/i.test(noSign), "оплаченный тариф снял подпись в КП, но на брифе она осталась");
+    assert(!/Сделано в ADERVIS/i.test(noSign), "оплаченный тариф снял подпись в КП, но на брифе она осталась");
     assert(
       /Данные используются только для связи с вами/.test(noSign),
       "вместе с подписью пропала строка про обработку данных — она не про брендирование"

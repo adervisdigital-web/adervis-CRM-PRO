@@ -14264,13 +14264,19 @@
         const name = (_briefAgency && _briefAgency.name || '').trim();
         const logo = (_briefAgency && _briefAgency.logo || '').trim();
         if (!name && !logo) return '';
+        /* Без логотипа — первая буква названия, как в клиентском портале: там это
+           решение уже принято («пустой квадрат цвета сервиса выглядел бы как чужой
+           бренд, а буква принадлежит самой студии»), а бриф остался с голой строкой
+           текста. Две клиентские поверхности одной студии должны здороваться
+           одинаково. */
         return `
           <div class="brief-logo-row">
             ${logo ? `
               <div class="brief-logo-box">
                 <img src="${escapeHtml(logo)}" alt="${escapeHtml(name || 'Логотип')}" width="32" height="32"
                      onerror="this.closest('.brief-logo-box').style.display='none'">
-              </div>` : ''}
+              </div>`
+              : name ? `<div class="brief-logo-box letter">${escapeHtml(name.slice(0, 1).toUpperCase())}</div>` : ''}
             ${name ? `<div><div style="font-size:18px;font-weight:900;line-height:1.2">${escapeHtml(name)}</div></div>` : ''}
           </div>`;
       }
@@ -14332,7 +14338,7 @@
                     который эти данные вводит, и к брендированию отношения не
                     имеет — снимать её вместе с подписью было бы подменой. */""}
               <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:20px">
-                ${_briefAgency && _briefAgency.hideBranding ? '' : 'Powered by <strong>ADERVIS</strong> · '}Данные используются только для связи с вами
+                ${_briefAgency && _briefAgency.hideBranding ? '' : 'Сделано в <strong>ADERVIS</strong> · '}Данные используются только для связи с вами
               </p>
             </div>
           </div>`;

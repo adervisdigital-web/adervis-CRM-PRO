@@ -6270,6 +6270,11 @@ body.calc-mode #appContent { padding: 0; }
   background: var(--primary);
   display: grid; place-items: center;
 }
+/* Первая буква названия студии, когда логотипа нет, — тот же приём, что и в
+   клиентском портале (.portal-brand-logo.letter). */
+.brief-logo-box.letter {
+  color: var(--on-color); font-size: 21px; font-weight: 900; line-height: 1;
+}
 .brief-card {
   background: var(--panel); border: 1px solid var(--line);
   border-radius: var(--r-2xl); padding: 36px 32px; box-shadow: var(--shadow);
