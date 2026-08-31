@@ -1994,6 +1994,31 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.waitForTimeout(200);
   });
 
+  /* У брендов «компания» совпадает с именем клиента, и карточка печатала одно и
+     то же двумя строками подряд — «Бренд «Вкус»» заголовком и им же серым под
+     ним (скриншот раздела «Клиенты» на демо-аккаунте). */
+  await test("клиенты: карточка не называет клиента дважды", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => {
+      window.app.setClientsView("grid");
+      window.app.go("clients");
+    });
+    await page.waitForTimeout(300);
+    const дубли = await page.evaluate(() => {
+      const out = [];
+      document.querySelectorAll("#appContent .client-card").forEach((c) => {
+        const h = c.querySelector("h3");
+        const p = c.querySelector(".line-head p");
+        if (!h || !p) return;
+        const a = (h.textContent || "").trim().toLowerCase();
+        const b = (p.textContent || "").trim().toLowerCase();
+        if (b && a === b) out.push(h.textContent.trim());
+      });
+      return out;
+    });
+    assertEqual(дубли.length, 0, "карточка повторяет имя клиента подписью: " + дубли.join(", "));
+  });
+
   // Тематики базы знаний были захардкожены одной строкой (KB_CATS): ни своей
   // завести, ни встроенную переименовать. Проверяем оба пути целиком, включая
   // главное свойство переименования — документы остаются на месте.

@@ -3206,7 +3206,6 @@
             </ul>
 
             <div style="display:flex;gap:10px;align-items:flex-start;background:rgb(var(--primary-rgb) / .06);border:1px solid rgb(var(--primary-rgb) / .18);border-radius:12px;padding:12px 14px;margin-bottom:24px">
-              <span style="font-size:18px;line-height:1.3"></span>
               <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">ADERVIS сделали люди из видеопродакшна — мы сами теряли вечера на смету в Excel и отправляли клиенту невнятный файл. Инструмент вырос из своей практики: агентство ведёт в нём настоящие сделки, а не демо.</p>
             </div>
 
@@ -3825,31 +3824,31 @@
           <div style="padding:6px 0">
             <div class="help-dd-section">Знакомство</div>
             <button class="help-dd-item" onclick="app.openHelpModal();app.toggleHelpDd(false)">
-              <span class="help-dd-item-icon" style="background:rgb(var(--primary-rgb) / .15)"></span>
+              <span class="help-dd-item-icon" style="background:rgb(var(--primary-rgb) / .15);color:var(--primary)">${icon("rocket", 13)}</span>
               <div><div>Начало работы</div>${seen ? `<div class="hdi-sub" style="color:var(--text-success)">Завершено ✓</div>` : `<div class="hdi-sub">Быстрый старт</div>`}</div>
             </button>
             <button class="help-dd-item" onclick="app.toggleHelpDd(false);app.startTour()">
-              <span class="help-dd-item-icon" style="background:rgba(22,163,74,.15)"></span>
+              <span class="help-dd-item-icon" style="background:rgba(22,163,74,.15);color:var(--text-success)">${icon("target", 13)}</span>
               <div><div>Тур по интерфейсу</div><div class="hdi-sub">Подсветка разделов меню</div></div>
             </button>
             <button class="help-dd-item" onclick="app.go('knowledge');app.toggleHelpDd(false)">
-              <span class="help-dd-item-icon" style="background:rgba(37,99,235,.15)"></span>
+              <span class="help-dd-item-icon" style="background:rgba(37,99,235,.15);color:#2563eb">${icon("doc", 13)}</span>
               <div><div>Руководство</div><div class="hdi-sub">База знаний</div></div>
             </button>
             <div class="pd-sep" style="margin:6px 0"></div>
             <div class="help-dd-section">Обновления</div>
             <a class="help-dd-item" href="https://t.me/adervis_manager" target="_blank" rel="noopener" onclick="app.toggleHelpDd(false)">
-              <span class="help-dd-item-icon" style="background:rgba(8,145,178,.15)"></span>
+              <span class="help-dd-item-icon" style="background:rgba(8,145,178,.15);color:#0891b2">${icon("send", 13)}</span>
               <div><div>Telegram канал</div><div class="hdi-sub">Новости и обновления</div></div>
             </a>
             <div class="pd-sep" style="margin:6px 0"></div>
             <div class="help-dd-section">Получить помощь</div>
             <a class="help-dd-item" href="mailto:adervis.digital@gmail.com?subject=Помощь по ADERVIS" onclick="app.toggleHelpDd(false)">
-              <span class="help-dd-item-icon" style="background:rgba(22,163,74,.15)"></span>
+              <span class="help-dd-item-icon" style="background:rgba(22,163,74,.15);color:var(--text-success)">${icon("mail", 13)}</span>
               <div><div>Написать нам</div><div class="hdi-sub">adervis.digital@gmail.com</div></div>
             </a>
             <button class="help-dd-item" onclick="app.go('knowledge');app.toggleHelpDd(false)">
-              <span class="help-dd-item-icon" style="background:rgba(202,138,4,.15)"></span>
+              <span class="help-dd-item-icon" style="background:rgba(202,138,4,.15);color:#ca8a04">${icon("live", 13)}</span>
               <div><div>Записаться на демо</div><div class="hdi-sub">Онлайн-показ для вас</div></div>
             </button>
           </div>
@@ -4020,7 +4019,6 @@
         if (!results.length) {
           el.innerHTML = `
             <div style="padding:32px 20px;text-align:center">
-              <div style="font-size:28px;margin-bottom:10px;opacity:.4"></div>
               <div style="color:var(--text);font-size:13px;font-weight:600;margin-bottom:4px">Ничего не найдено</div>
               <div style="color:var(--muted);font-size:12px">Нет результатов по «${escapeHtml(q)}»</div>
             </div>`;
@@ -4191,7 +4189,6 @@
         const promoChecking = _promoState === "checking";
         return `
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;text-align:center;padding:32px 16px">
-            <div style="font-size:48px;margin-bottom:18px"></div>
             <h1 style="font-size:26px;margin-bottom:10px">Подписка истекла</h1>
             <p style="max-width:420px;margin-bottom:8px;line-height:1.55;color:var(--muted)">
               Аккаунт <strong style="color:var(--text)">${escapeHtml(email)}</strong>. Выберите тариф, чтобы продолжить работу.
@@ -4341,7 +4338,6 @@
             <div class="notif-list">
               ${notifs.length === 0 ? `
                 <div style="padding:32px 20px;text-align:center">
-                  <div style="font-size:28px;margin-bottom:10px;opacity:.5"></div>
                   <div style="color:var(--text);font-size:13px;font-weight:600;margin-bottom:4px">Всё тихо</div>
                   <div style="color:var(--muted);font-size:12px">Уведомления о дедлайнах<br>и событиях появятся здесь</div>
                 </div>` :
@@ -5263,6 +5259,19 @@
                   <div class="u-label-strong">Помощь и обучение</div>
                   <div class="u-meta-13">Быстрый старт — как начать работать в CRM</div>
                   <div class="u-meta-mt3">Онбординг, подсказки, видео-инструкции</div>
+                </div>
+              </button>
+
+              ${/* Тур по разделам показывался ОДИН раз при первом входе, а вручную
+                    запускался только из выпадающего меню помощи — а оно лежит в
+                    index.html внутри блока display:none, то есть недостижимо. Кто
+                    закрыл тур в первый день, вернуть его не мог ничем. */""}
+              <button class="support-card" onclick="app.startTour()" style="border:none;cursor:pointer;text-align:left;width:100%">
+                ${iconBadge("target", "var(--primary2)", 44)}
+                <div>
+                  <div class="u-label-strong">Тур по интерфейсу</div>
+                  <div class="u-meta-13">Подсветим разделы бокового меню и расскажем, что где лежит</div>
+                  <div class="u-meta-mt3">Полторы минуты, на компьютере</div>
                 </div>
               </button>
 
@@ -14255,7 +14264,7 @@
                 ${_briefAgencyHeaderHtml()}
                 <div class="brief-card">
                   <div class="brief-success-wrap">
-          <div class="brief-success-icon"></div>
+          <div class="brief-success-icon">${icon("check", 32)}</div>
                     <h2>Заявка отправлена!</h2>
                     <p>Мы получили вашу заявку и свяжемся с вами в течение 24 часов.</p>
                   </div>
@@ -15335,11 +15344,14 @@
                 <button class="btn primary no-print" onclick="app.reloadBriefs()">Повторить</button>
               </div>
             ` : newBriefs.length === 0 && done.length === 0 ? `
-              <div class="panel" style="text-align:center;padding:48px 24px">
-                <div style="font-size:48px;margin-bottom:16px"></div>
-                <h3 style="margin:0 0 8px">Нет новых заявок</h3>
-                <p style="color:var(--muted);font-size:14px">Скопируйте ссылку и поделитесь ею с клиентами</p>
-              </div>
+              ${/* Раньше здесь был свой блок с пустым div на 48px — остаток от
+                    убранного эмодзи: он держал дыру в 64px и не походил на
+                    пустые состояния остальных разделов. */""}
+              ${emptyState({
+                icon: "doc",
+                title: "Нет новых заявок",
+                text: "Скопируйте ссылку выше и поделитесь ею с клиентами",
+              })}
             ` : ''}
 
             ${newBriefs.length ? `
@@ -15951,7 +15963,7 @@
         if (done === steps.length) {
           return `
           <div class="panel" style="margin-bottom:14px;border:1px solid rgba(22,163,74,.3);background:rgba(22,163,74,.05);display:flex;align-items:center;gap:12px">
-            <div style="font-size:22px;flex:0 0 auto"></div>
+            <div style="flex:0 0 auto;color:var(--text-success);display:grid;place-items:center">${icon("check", 22)}</div>
             <div class="u-flex1">
               <div style="font-weight:700;font-size:14px;margin-bottom:2px">Первые шаги пройдены</div>
               <div class="u-meta">Сделка, смета и КП на месте. Дальше сделка живёт в воронке: статусы, задачи и деньги считаются сами.</div>
@@ -18662,6 +18674,16 @@
         return "";
       }
 
+      /* Подпись под именем клиента. У брендов «компания» совпадает с именем, и
+         карточка называла клиента дважды подряд. Печатаем компанию, только если
+         она добавляет что-то новое, иначе — город. */
+      function clientSubtitle(client) {
+        const name = String(client?.name || "").trim();
+        const company = String(client?.company || "").trim();
+        if (company && company.toLowerCase() !== name.toLowerCase()) return company;
+        return String(client?.city || "").trim();
+      }
+
       function renderClients() {
         if (state.clientDetailId) return renderClientDetail(state.clientDetailId);
 
@@ -18796,7 +18818,7 @@
                     <div class="line-head">
                       <div>
                         <h3>${escapeHtml(client.name)}</h3>
-                        <p>${escapeHtml(client.company || client.city || "")}</p>
+                        ${clientSubtitle(client) ? `<p>${escapeHtml(clientSubtitle(client))}</p>` : ""}
                       </div>
                       <span class="status-pill">${statusLabel(client.status)}</span>
                     </div>
@@ -18843,7 +18865,7 @@
                       ${["new", "active", "vip", "paused", "lost"].map(s => `<option value="${s}" ${client.status === s ? "selected" : ""}>${{new:"Новый",active:"Активный",vip:"VIP",paused:"Пауза",lost:"Потерян"}[s]||s}</option>`).join("")}
                     </select>
                   </div>
-                  ${client.company ? `<p style="margin:6px 0 0;font-size:14px;color:var(--muted)">${escapeHtml(client.company)}</p>` : ""}
+                  ${clientSubtitle(client) ? `<p style="margin:6px 0 0;font-size:14px;color:var(--muted)">${escapeHtml(clientSubtitle(client))}</p>` : ""}
                 </div>
                 <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
                   <div class="fin-card income-card" style="padding:12px 16px;min-width:110px">
@@ -20267,7 +20289,7 @@
                 <div><h1>CRM</h1><p>Воронка сохранённых проектов по CRM-статусам.</p></div>
               </div>
               <div style="min-height:50vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:48px 24px;text-align:center">
-                <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgb(var(--primary-rgb) / .12),rgba(37,99,235,.12));display:grid;place-items:center;font-size:32px"></div>
+                <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgb(var(--primary-rgb) / .12),rgba(37,99,235,.12));display:grid;place-items:center;color:var(--primary)">${icon("funnel", 30)}</div>
                 ${/* Текст и порядок кнопок приведены к нынешней модели. Раньше
                       главной была «Сохранить текущую смету» — остаток времён, когда
                       смета жила «текущей» и её отдельно клали в воронку. На пустом
@@ -23922,7 +23944,6 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         }
         if (!_portalData) {
           return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:32px;text-align:center">
-            <div style="font-size:64px"></div>
             <h2 style="margin:0;font-size:22px">Ссылка недействительна</h2>
             <p style="color:var(--muted);max-width:360px;line-height:1.6">КП не найдено. Проверьте ссылку или обратитесь к менеджеру.</p>
           </div>`;
@@ -23995,7 +24016,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   </div>
                 ` : `
                   <div style="text-align:center;margin-top:24px;padding:22px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3);border-radius:14px">
-                    <div style="font-size:36px;margin-bottom:8px"></div>
+                    <div style="margin-bottom:8px;color:var(--text-success)">${icon("check", 30)}</div>
                     <div style="font-weight:800;color:var(--text-success);font-size:15px">КП утверждено</div>
                     ${d.signer_name ? `<div style="font-size:12px;color:var(--muted);margin-top:6px">Подписал: <b>${escapeHtml(d.signer_name)}</b></div>` : ''}
                     <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5">Мы получили ваше подтверждение и свяжемся с вами в ближайшее время.</div>

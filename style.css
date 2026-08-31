@@ -3970,7 +3970,14 @@
     .chip:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--text); }
     .chip.active { background: rgb(var(--primary-rgb) / .15); border-color: var(--primary); color: var(--primary-on-tint); }
 
-    .gtask-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+    /* Три счётчика с однозначным числом растягивались на 460px каждый — плитка
+       в полстраницы ради нуля. Ширину ограничиваем, остаток строки оставляем
+       пустым; на телефоне 1fr-колонки те же, что и были. */
+    .gtask-stats {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 240px));
+      justify-content: start; gap: 12px; margin-bottom: 16px;
+    }
+    @media (max-width: 820px) { .gtask-stats { grid-template-columns: repeat(3, 1fr); } }
     .gtask-stat {
       display: flex; flex-direction: column; gap: 4px;
       padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel2);
@@ -6286,7 +6293,14 @@ body.calc-mode #appContent { padding: 0; }
 .brief-submit:disabled { opacity: .5; cursor: default; }
 .brief-error { color: var(--text-danger); font-size: 13px; margin-top: 10px; }
 .brief-success-wrap { text-align: center; padding: 48px 24px; }
-.brief-success-icon { font-size: 64px; margin-bottom: 16px; }
+/* Кружок с галочкой вместо убранного эмодзи: раньше пустой div на 64px просто
+   держал дыру над «Заявка отправлена!» — а это первый экран, который видит
+   заказчик после заполнения брифа. */
+.brief-success-icon {
+  width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(22, 163, 74, .14); color: var(--text-success);
+}
 .brief-success-wrap h2 { margin: 0 0 10px; font-size: 26px; font-weight: 900; }
 .brief-success-wrap p { color: var(--muted); font-size: 15px; line-height: 1.55; margin: 0; }
 .brief-link-box {
