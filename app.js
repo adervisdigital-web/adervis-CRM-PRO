@@ -8242,6 +8242,137 @@
           </svg>`;
       }
 
+      /* Насколько заполнены расходы: маржа считается от них, и без этой проверки
+         продукт объявляет «95% — высокая» там, где расходы внесены у горстки
+         сделок. Функция одна на плитку периода и на вывод в «Что важно» — иначе
+         плитка хвалит, а текст под ней опровергает (ровно это и было).
+         60% — не «правильный» порог, а граница, ниже которой утверждать о марже
+         нельзя: у большинства сделок затрат просто нет в системе. */
+      function costsAreTrustworthy(allTxs) {
+        const deals = (state.savedProjects || []).filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED);
+        if (!deals.length) return { trusted: true, withCosts: 0, total: 0 };
+        const withTx = new Set((allTxs || [])
+          .filter(t => t._type === "expense" && t.projectId).map(t => t.projectId));
+        const withCosts = deals.filter(p => withTx.has(p.id) || numberValue(p.expensesTotal, 0) > 0).length;
+        return {
+          trusted: Math.round(withCosts / deals.length * 100) >= 60,
+          withCosts,
+          total: deals.length
+        };
+      }
+
+      // «2026-03» → «Март 2026». Для подсказки над столбцом: короткое «03/26»
+      // годится подписью под ним, но в всплывашке читается как шифр.
+      function monthTitleRu(key) {
+        const MN = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+        const m = /^(\d{4})-(\d{2})$/.exec(String(key || ""));
+        return m ? `${MN[Number(m[2]) - 1]} ${m[1]}` : String(key || "");
+      }
+
+      /* Столбцы «доход/расход по месяцам». ОДИН рисователь на все места, где такой
+         график нужен: на главной он был свой, а в «Финансах» — свой, из HTML-дивов
+         по 10px шириной, и два графика об одном и том же выглядели как из разных
+         продуктов. Здесь же и подписи значений, и клик по месяцу.
+
+         `id` обязателен и уникален: градиенты и фильтр живут в <defs> и адресуются
+         по нему — два графика с одним id взяли бы заливку друг друга.
+
+         months: [{ key: "2026-03", label: "Март", income, expense }] */
+      function monthlyBarsSvg(id, months, opts) {
+        const list = (months || []).filter(Boolean);
+        if (!list.length) return "";
+        const o = opts || {};
+        const W = 760, H = o.h || 210;
+        const PADL = 42, PADR = 10, PADT = 22, PADB = 32;
+        const plotW = W - PADL - PADR, plotH = H - PADT - PADB;
+        const baseY = PADT + plotH;
+        const gw = plotW / list.length;
+        /* Ширина пары — доля от ширины месяца. 0,62 давало стену из столбцов;
+           0,40 оставляет воздух между месяцами. Минимум 8px держит форму, когда
+           месяцев двенадцать и на каждый приходится вдвое меньше места. */
+        const bw = Math.max(8, Math.round((gw * 0.40 - 6) / 2)), gap = Math.min(6, Math.round(bw / 2));
+        const maxVal = Math.max(...list.map(m => Math.max(numberValue(m.income, 0), numberValue(m.expense, 0))), 1);
+        const scaleMax = maxVal * 1.06;
+
+        const shortNum = v => v >= 1000000 ? (v / 1000000).toFixed(v >= 10000000 ? 0 : 1).replace(".0", "") + "М"
+          : v >= 1000 ? Math.round(v / 1000) + "к" : String(Math.round(v));
+        const barPath = (x, y, w, h, r) => {
+          r = Math.max(0, Math.min(r, w / 2, h));
+          return `M${x} ${y + h} L${x} ${y + r} Q${x} ${y} ${x + r} ${y} L${x + w - r} ${y} Q${x + w} ${y} ${x + w} ${y + r} L${x + w} ${y + h} Z`;
+        };
+        // Подписи значений на двенадцати месяцах наезжают друг на друга — при
+        // тесных колонках их не рисуем, суммы остаются в подсказке при наведении.
+        const showValues = gw >= 70;
+
+        const cols = list.map((m, i) => {
+          const inc = numberValue(m.income, 0), exp = numberValue(m.expense, 0);
+          const gx = PADL + i * gw;
+          const pairX = gx + (gw - (bw * 2 + gap)) / 2;
+          const rx = pairX, ex = pairX + bw + gap;
+          const rh = inc > 0 ? Math.max(3, inc / scaleMax * plotH) : 0;
+          const eh = exp > 0 ? Math.max(3, exp / scaleMax * plotH) : 0;
+          const revLabel = showValues && inc > 0
+            ? `<text x="${rx + bw / 2}" y="${baseY - rh - 5}" text-anchor="middle" font-size="9" font-weight="650" fill="var(--text)" font-family="inherit">${shortNum(inc)}</text>` : "";
+          /* Столбец расхода при доходе в разы больше — обрубок в три пикселя:
+             видно, что он есть, и не видно, сколько. Подпись мельче и приглушена,
+             чтобы не спорить с суммой дохода, ради которой в график и смотрят. */
+          const expLabel = showValues && exp > 0
+            ? `<text x="${ex + bw / 2}" y="${baseY - eh - 5}" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text-danger)" font-family="inherit" opacity=".85">${shortNum(exp)}</text>` : "";
+          const hooks = o.interactive === false ? "" :
+            `onmouseenter="app.showChartTip(event,'${escapeHtml(m.label)}',${inc},${exp})"
+             onmousemove="app.positionChartTip(event)"
+             onmouseleave="app.hideChartTip()"
+             onclick="app.drillIntoMonth('${m.key}')"`;
+          return `
+            <g class="db-chart-col" ${hooks}>
+              <rect class="db-chart-hit-bg" x="${gx + 2}" y="${PADT}" width="${gw - 4}" height="${plotH}" rx="8"/>
+              <rect class="db-chart-hit" x="${gx}" y="0" width="${gw}" height="${H}" fill="transparent"/>
+              ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, Math.min(6, bw / 2))}" fill="url(#${id}Rev)" filter="url(#${id}Glow)"/>` : ""}
+              ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, Math.min(6, bw / 2))}" fill="url(#${id}Exp)"/>` : ""}
+              ${revLabel}${expLabel}
+              <text x="${gx + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="inherit" letter-spacing=".2">${escapeHtml(m.short || m.label)}</text>
+            </g>`;
+        }).join("");
+
+        const gridLines = [0.4, 0.8].map(f => {
+          const val = maxVal * f;
+          const y = baseY - (val / scaleMax) * plotH;
+          return `<line x1="${PADL}" y1="${y}" x2="${W - PADR}" y2="${y}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3,5"/>
+                  <text x="${PADL - 7}" y="${y + 3}" text-anchor="end" font-size="8.5" fill="var(--muted)" font-family="inherit" opacity="0.8">${shortNum(val)}</text>`;
+        }).join("");
+
+        return `
+          <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-height:${o.maxH || 320}px">
+            <defs>
+              <linearGradient id="${id}Rev" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stop-color="var(--green)" stop-opacity="0.95"/>
+                <stop offset="1" stop-color="var(--green)" stop-opacity="0.4"/>
+              </linearGradient>
+              <linearGradient id="${id}Exp" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stop-color="var(--red)" stop-opacity="0.7"/>
+                <stop offset="1" stop-color="var(--red)" stop-opacity="0.3"/>
+              </linearGradient>
+              ${/* Подложка под областью данных: акцентный свет снизу вверх. Не декор
+                    ради декора — она отделяет поле от панели, на которой прежде
+                    столбцы висели в пустоте. */""}
+              <linearGradient id="${id}Wash" x1="0" x2="0" y1="1" y2="0">
+                <stop offset="0" stop-color="var(--primary)" stop-opacity="0.10"/>
+                <stop offset="1" stop-color="var(--primary)" stop-opacity="0"/>
+              </linearGradient>
+              ${/* Свечение столбцов дохода. Радиус маленький: на большем столбцы
+                    «плывут» и перестают читаться как точная величина, а это деньги. */""}
+              <filter id="${id}Glow" x="-60%" y="-40%" width="220%" height="200%">
+                <feGaussianBlur stdDeviation="1.5" result="b"/>
+                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <rect x="${PADL}" y="${PADT}" width="${plotW}" height="${plotH}" rx="10" fill="url(#${id}Wash)"/>
+            ${gridLines}
+            <line x1="${PADL}" y1="${baseY}" x2="${W - PADR}" y2="${baseY}" stroke="var(--line)" stroke-width="1.4"/>
+            ${cols}
+          </svg>`;
+      }
+
       /* Кольцевая диаграмма долей. Форма честна ровно там, где части складываются
          в целое, — например «сколько какой клиент принёс из всей выручки». Полоски
          разной длины на такой вопрос отвечают хуже: глаз сравнивает их попарно, а
@@ -15845,82 +15976,15 @@
         // пустой — иначе пропадают и стрелки навигации, вернуться к текущим месяцам будет нечем.
         if (totalRev === 0 && totalExp === 0 && !chartOffset) return '';
 
-        const maxVal = Math.max(...revenue, ...expenseArr, 1);
-        /* Запас сверху 1.06, а не 1.15. При 1.15 верхняя восьмая поля пустовала
-           ВСЕГДА — между строкой сумм и самым высоким столбцом зияла дыра, и
-           график казался приплюснутым к низу панели. 6% хватает, чтобы подпись
-           значения не упиралась в край: она рисуется на 6px выше столбца, а
-           PADT добавляет ещё запас. */
-        const scaleMax = maxVal * 1.06;
-
-        // Сгруппированный столбчатый график: тонкие столбцы с округлым верхом на базовой линии,
-        // прямые подписи сумм над выручкой и полные названия месяцев снизу.
-        /* Пропорция поля 760×210, а не 760×176. Панель графика тянется по высоте
-           до соседней («Топ клиентов» выше за счёт кольца и списка), и при плоском
-           поле сверху оставалась дыра в 90px. Более высокое поле её съедает, а
-           столбцы становятся длиннее — по ним и читают. */
-        const W = 760, H = 210;
-        const PADL = 42, PADR = 10, PADT = 22, PADB = 32;
-        const plotW = W - PADL - PADR, plotH = H - PADT - PADB;
-        const baseY = PADT + plotH;
-        const gw = plotW / months.length;
-        /* Ширина пары столбцов — от ширины месяца. 0,62 доли оказалось слишком:
-           столбцы вышли громоздкими, график читался как стена. 0,40 — столбцы
-           остаются считываемыми, но между месяцами появляется воздух, как в
-           аналитических панелях, на которые ориентируемся. Минимум 12px держит
-           форму, когда месяцев станет больше. */
-        const bw = Math.max(12, Math.round((gw * 0.40 - 6) / 2)), gap = 6;
-
-        const shortNum = v => v >= 1000000 ? (v/1000000).toFixed(v >= 10000000 ? 0 : 1).replace('.0','') + 'М'
-                            : v >= 1000 ? Math.round(v/1000) + 'к' : String(Math.round(v));
-        const barPath = (x, y, w, h, r) => {
-          r = Math.max(0, Math.min(r, w/2, h));
-          return `M${x} ${y+h} L${x} ${y+r} Q${x} ${y} ${x+r} ${y} L${x+w-r} ${y} Q${x+w} ${y} ${x+w} ${y+r} L${x+w} ${y+h} Z`;
-        };
-
-        // Клик по месяцу → «Финансы» с фильтром на этот период; hover → кастомный
-        // тултип (app.showChartTip), не нативный <title> (тот не стилизуется и долго
-        // всплывает). Невидимый rect на всю колонку — чтобы наводить/тапать было удобно
-        // не только по тонким столбцам, а по всей области месяца.
-        const barsHtml = months.map((m, i) => {
-          const gx = PADL + i * gw;
-          const pairX = gx + (gw - (bw * 2 + gap)) / 2;
-          const rx = pairX, ex = pairX + bw + gap;
-          const rh = revenue[i] > 0 ? Math.max(3, revenue[i] / scaleMax * plotH) : 0;
-          const eh = expenseArr[i] > 0 ? Math.max(3, expenseArr[i] / scaleMax * plotH) : 0;
-          const label = MLfull[parseInt(m.split('-')[1]) - 1];
-          const revLabel = revenue[i] > 0
-            ? `<text x="${rx + bw/2}" y="${baseY - rh - 5}" text-anchor="middle" font-size="9" font-weight="650" fill="var(--text)" font-family="inherit">${shortNum(revenue[i])}</text>`
-            : '';
-          /* Столбец расхода при доходе в разы больше — обрубок в три пикселя:
-             видно, что он есть, и не видно, сколько. Подпись мельче и приглушена,
-             чтобы не спорить с суммой дохода, ради которой в график и смотрят. */
-          const expLabel = expenseArr[i] > 0
-            ? `<text x="${ex + bw/2}" y="${baseY - eh - 5}" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text-danger)" font-family="inherit" opacity=".85">${shortNum(expenseArr[i])}</text>`
-            : '';
-          return `
-            <g class="db-chart-col"
-               onmouseenter="app.showChartTip(event,'${label}',${revenue[i]},${expenseArr[i]})"
-               onmousemove="app.positionChartTip(event)"
-               onmouseleave="app.hideChartTip()"
-               onclick="app.drillIntoMonth('${m}')">
-              <rect class="db-chart-hit-bg" x="${gx + 2}" y="${PADT}" width="${gw - 4}" height="${plotH}" rx="8"/>
-              <rect class="db-chart-hit" x="${gx}" y="0" width="${gw}" height="${H}" fill="transparent"/>
-              ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, Math.min(6, bw / 2))}" fill="url(#dbGradRev)" filter="url(#dbBarGlow)"/>` : ''}
-              ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, Math.min(6, bw / 2))}" fill="url(#dbGradExp)"/>` : ''}
-              ${revLabel}
-              ${expLabel}
-              <text x="${gx + gw/2}" y="${H - 10}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="inherit" letter-spacing=".2">${label}</text>
-            </g>`;
-        }).join('');
-
-        const gridLines = [0.4, 0.8].map(f => {
-          const val = maxVal * f;
-          const y = baseY - (val / scaleMax) * plotH;
-          return `<line x1="${PADL}" y1="${y}" x2="${W - PADR}" y2="${y}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3,5"/>
-                  <text x="${PADL - 7}" y="${y + 3}" text-anchor="end" font-size="8.5" fill="var(--muted)" font-family="inherit" opacity="0.8">${shortNum(val)}</text>`;
-        }).join('');
-        const baseAxis = `<line x1="${PADL}" y1="${baseY}" x2="${W - PADR}" y2="${baseY}" stroke="var(--line)" stroke-width="1.4"/>`;
+        /* Геометрия и рисование — в monthlyBarsSvg: тот же график нужен и в
+           «Финансах», а два разных рисователя об одном и том же уже разошлись
+           видом. Здесь остаётся только сбор данных. */
+        const chartMonths = months.map((m, i) => ({
+          key: m,
+          label: MLfull[parseInt(m.split('-')[1]) - 1],
+          income: revenue[i],
+          expense: expenseArr[i]
+        }));
 
         /* Топ клиентов — по фактически ОПЛАЧЕННОМУ, не по бюджету сделки: клиент
            с крупной неоплаченной или отменённой сделкой не должен выглядеть
@@ -16020,36 +16084,7 @@
               </div>` : ""}
             <div class="db-analytics-body">
               ${chartWorthDrawing ? `
-              <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-height:320px">
-                <defs>
-                  <linearGradient id="dbGradRev" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0" stop-color="var(--green)" stop-opacity="0.95"/>
-                    <stop offset="1" stop-color="var(--green)" stop-opacity="0.4"/>
-                  </linearGradient>
-                  <linearGradient id="dbGradExp" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0" stop-color="var(--red)" stop-opacity="0.7"/>
-                    <stop offset="1" stop-color="var(--red)" stop-opacity="0.3"/>
-                  </linearGradient>
-                  ${/* Подложка под областью графика: акцентный свет снизу вверх.
-                        Не декор ради декора — она отделяет поле данных от панели,
-                        на которой прежде столбцы висели в пустоте. */""}
-                  <linearGradient id="dbPlotWash" x1="0" x2="0" y1="1" y2="0">
-                    <stop offset="0" stop-color="var(--primary)" stop-opacity="0.10"/>
-                    <stop offset="1" stop-color="var(--primary)" stop-opacity="0"/>
-                  </linearGradient>
-                  ${/* Свечение столбцов дохода. stdDeviation держим маленьким: на
-                        больших значениях столбцы «плывут» и перестают читаться как
-                        точная величина, а это деньги. */""}
-                  <filter id="dbBarGlow" x="-60%" y="-40%" width="220%" height="200%">
-                    <feGaussianBlur stdDeviation="1.5" result="b"/>
-                    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-                  </filter>
-                </defs>
-                <rect x="${PADL}" y="${PADT}" width="${W - PADL - PADR}" height="${plotH}" rx="10" fill="url(#dbPlotWash)"/>
-                ${gridLines}
-                ${baseAxis}
-                ${barsHtml}
-              </svg>
+              ${monthlyBarsSvg("dbBars", chartMonths)}
               ` : `
               <div class="db-analytics-early">
                 <p class="mini-note" style="margin:0 0 10px">
@@ -21287,7 +21322,7 @@
            без слова «этот» карточка читалась так, будто на 30% просело среднее.
            Это разные величины: среднее меняется медленно, месяц скачет. */
         const trendHtml = trend === null
-          ? `<span class="fc-sub">нет данных за прошлый месяц</span>`
+          ? `<span class="fc-sub">${day <= 5 ? "месяц только начался" : "за эти дни прошлого месяца пусто"}</span>`
           : `<span class="fin-trend ${trend >= 0 ? "up" : "down"}" title="Сравнение по одинаковому отрезку: 1–${day} ${day === 1 ? "число" : "числа"} этого и прошлого месяца">этот месяц ${trend >= 0 ? "▲" : "▼"} ${Math.abs(trend)}% к тем же дням</span>`;
 
         const forecast = `
@@ -21330,16 +21365,10 @@
            Считаем по сделкам, а не по сумме: сделка «с расходами» — та, у
            которой есть хоть одна расходная операция или проставлена
            себестоимость позиций. */
-        const countedDeals = projects.filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED);
-        const dealsWithExpenseTx = new Set(
-          allTxs.filter(t => t._type === "expense" && t.projectId).map(t => t.projectId));
-        const dealsWithCosts = countedDeals.filter(p =>
-          dealsWithExpenseTx.has(p.id) || numberValue(p.expensesTotal, 0) > 0).length;
-        const costCoverage = countedDeals.length
-          ? Math.round(dealsWithCosts / countedDeals.length * 100) : 0;
-        // 60% — не «правильный» порог, а граница, ниже которой утверждать что-либо
-        // о марже нельзя: у большинства сделок затрат просто нет в системе.
-        const costsTrustworthy = countedDeals.length === 0 || costCoverage >= 60;
+        const costsInfo = costsAreTrustworthy(allTxs);
+        const costsTrustworthy = costsInfo.trusted;
+        const dealsWithCosts = costsInfo.withCosts;
+        const countedDeals = { length: costsInfo.total };
 
         const insights = [];
     if (collect >= 90) insights.push(["check", "good", `Отличная собираемость — оплачено ${collect}% от суммы всех сделок (${money(allPaid)} из ${money(allTotal)}).`]);
@@ -21646,12 +21675,20 @@
                     </div>
                   </div>`;
                 const shareColor = v => v >= 80 ? "var(--text-success)" : v >= 50 ? "var(--text-warning)" : "var(--text-danger)";
+                const marginCostsTrusted = costsAreTrustworthy(allTxs).trusted;
                 return `<div class="kpi-row">
                   ${kpi("Поступления", money(inc), "var(--text-success)", "Сумма поступлений за выбранный период", "coins")}
                   ${kpi("Расходы", money(exp), "var(--text-danger)", "Сумма расходов за выбранный период", "wallet")}
                   ${kpi("Прибыль", money(prof), prof >= 0 ? "var(--primary-text)" : "var(--text-danger)", "Поступления минус расходы за период", "chart")}
-                  ${kpi("Маржа", margin + "%", "", "Доля прибыли в поступлениях: прибыль ÷ поступления", "target",
-                    inc > 0 ? gaugeSvg(Math.max(0, margin), shareColor(margin)) : "")}
+                  ${/* Полукруг маржи НЕ красим зелёным, пока расходы заполнены у
+                        меньшинства сделок: плитка хвалила «95%», а вывод прямо под
+                        ней говорил, что расходы есть у 40 сделок из 122. Один
+                        экран, два противоположных сообщения. Порог тот же, что и
+                        в выводах, — считаем его один раз (marginCostsTrusted). */""}
+                  ${kpi("Маржа", margin + "%", "", marginCostsTrusted
+                      ? "Доля прибыли в поступлениях: прибыль ÷ поступления"
+                      : "Расходы заполнены не у всех сделок — настоящая маржа ниже. Подробности в «Что важно» ниже", "target",
+                    inc > 0 ? gaugeSvg(Math.max(0, margin), marginCostsTrusted ? shareColor(margin) : "var(--hint)") : "")}
                   ${kpi("Средний чек", money(avgCheck), "", "Средняя сумма одного поступления за период", "receipt")}
                   ${kpi("Собираемость", collect + "%", "", "Какая доля от сумм всех сделок уже оплачена клиентами", "check",
                     gaugeSvg(collect, shareColor(collect)))}
@@ -21688,29 +21725,24 @@
 
               ${monthly.length > 0 ? `
                 <div class="analytics-section">
-                  <h3>Доход и расходы по месяцам</h3>
-                  <div style="display:flex;align-items:flex-end;gap:6px;overflow-x:auto;padding-bottom:4px">
-                    ${monthly.map(m => {
-                      const incH = Math.max(2, Math.round(m.income / maxBar * 120));
-                      const expH = Math.max(2, Math.round(m.expense / maxBar * 120));
-                      const profH = Math.max(0, Math.round((m.income - m.expense) / maxBar * 120));
-                      const label = m.label.slice(5) + "/" + m.label.slice(2, 4);
-                      return `
-                        <div class="gfin-month-col" title="${m.label}: +${money(m.income)} −${money(m.expense)}">
-                          <div style="display:flex;gap:2px;align-items:flex-end;height:120px">
-                            <div class="gfin-bar income" style="height:${incH}px;min-width:10px;opacity:.9"></div>
-                            <div class="gfin-bar expense" style="height:${expH}px;min-width:10px;opacity:.7"></div>
-                            ${profH > 0 ? `<div class="gfin-bar" style="height:${profH}px;min-width:6px;background:var(--primary2);opacity:.5;border-radius:4px 4px 0 0"></div>` : ""}
-                          </div>
-                          <div class="gfin-month-label">${label}</div>
-                        </div>
-                      `;
-                    }).join("")}
-                  </div>
+                  ${/* Тот же рисователь, что и на главной. Раньше здесь стояли
+                        HTML-дивы шириной 10px по три на месяц: доход, расход и
+                        прибыль. Два графика об одном и том же выглядели как из
+                        разных продуктов, а третий столбец ничего не добавлял —
+                        прибыль это разность двух соседних, и на двенадцати
+                        месяцах она превращала ряд в частокол. Прибыль осталась
+                        числом в плитках выше и в подсказке при наведении. */""}
+                  <h3>Доход и расходы по месяцам <span class="fin-h3-note">нажмите на месяц — откроются его операции</span></h3>
+                  ${monthlyBarsSvg("gfinBars", monthly.map(m => ({
+                    key: m.label,
+                    label: monthTitleRu(m.label),
+                    short: m.label.slice(5) + "/" + m.label.slice(2, 4),
+                    income: m.income,
+                    expense: m.expense
+                  })), { h: 190, maxH: 260 })}
                   <div style="display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:8px">
                     <span><span style="display:inline-block;width:10px;height:10px;background:var(--green);border-radius:2px;margin-right:4px"></span>Поступления</span>
                     <span><span style="display:inline-block;width:10px;height:10px;background:var(--red);opacity:.7;border-radius:2px;margin-right:4px"></span>Расходы</span>
-                    <span><span style="display:inline-block;width:10px;height:10px;background:var(--primary2);opacity:.5;border-radius:2px;margin-right:4px"></span>Прибыль</span>
                   </div>
                 </div>
               ` : ""}
