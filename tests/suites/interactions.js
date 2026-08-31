@@ -4565,5 +4565,44 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await b.context.close();
   });
 
+  /* «КП пока нет» большим блоком стояло НАД списком сделок, которым КП ещё не
+     отправляли: страница объявляла себя пустой, а под ней лежала работа с
+     кнопкой «Отправить КП». */
+  await test("КП: пустое состояние не спорит со списком под ним", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => window.app.go("proposals"));
+    await page.waitForTimeout(500);
+    const вид = await page.evaluate(() => {
+      const empty = document.querySelector("#appContent .empty");
+      const drafts = document.querySelectorAll("#appContent .kp-row").length;
+      return {
+        drafts,
+        title: empty ? (empty.querySelector("strong") || {}).textContent || "" : "",
+        h: empty ? Math.round(empty.getBoundingClientRect().height) : 0,
+      };
+    });
+    if (!вид.drafts) return; // без сделок-черновиков проверять нечего
+    assert(!/^КП пока нет/.test(вид.title.trim()),
+      "страница названа пустой, хотя под блоком лежит " + вид.drafts + " сделка(и): «" + вид.title + "»");
+    assert(вид.h < 160,
+      "пустое состояние занимает " + вид.h + "px над непустым списком — блок должен быть коротким");
+  });
+
+  /* Поле цены в карточке каталога сжималось вслед за названием: в одном ряду
+     стояли коробки 91 и 124px. Меряем живой DOM — по CSS этого не видно, там
+     объявлено 190px, а до элемента доезжает результат сжатия флекса. */
+  await test("каталог: поля цены одной ширины во всех карточках", async () => {
+    await dismissStaleDialog(page);
+    await page.evaluate(() => window.app.go("catalog"));
+    await page.waitForTimeout(600);
+    const ширины = await page.evaluate(() =>
+      [...document.querySelectorAll("#appContent .item--catalog .catalog-price-input")]
+        .slice(0, 8)
+        .map((el) => Math.round(el.getBoundingClientRect().width)));
+    assert(ширины.length >= 4, "не нашлось карточек каталога с полем цены: " + JSON.stringify(ширины));
+    const разброс = Math.max(...ширины) - Math.min(...ширины);
+    assert(разброс <= 2, "поля цены разной ширины: " + JSON.stringify(ширины));
+  });
+
   await context.close();
 };
