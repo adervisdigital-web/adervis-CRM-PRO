@@ -15855,7 +15855,12 @@
         const plotW = W - PADL - PADR, plotH = H - PADT - PADB;
         const baseY = PADT + plotH;
         const gw = plotW / months.length;
-        const bw = 24, gap = 6;
+        /* Ширина пары столбцов — от ширины месяца, а не константой. При 24+6 пара
+           занимала 54px из 118 доступных: почти половина поля пустовала, и график
+           выглядел жидким при том, что места было вдоволь. 0,62 — доля, при
+           которой между месяцами остаётся внятный зазор, а столбцы уже читаются
+           как объём. Минимум в 18px держит форму, когда месяцев станет больше. */
+        const bw = Math.max(18, Math.round((gw * 0.62 - 8) / 2)), gap = 8;
 
         const shortNum = v => v >= 1000000 ? (v/1000000).toFixed(v >= 10000000 ? 0 : 1).replace('.0','') + 'М'
                             : v >= 1000 ? Math.round(v/1000) + 'к' : String(Math.round(v));
@@ -15921,7 +15926,9 @@
             s + (x && x.date && monthSet.has(String(x.date).slice(0, 7)) ? (x.amount || 0) : 0), 0);
           if (!sum) return;
           const name = (p.clientId ? getClientById(p.clientId)?.name : null) || p.client || '—';
-          if (!byClient[key]) byClient[key] = { name, total: 0, count: 0 };
+          // id нужен, чтобы строку можно было НАЖАТЬ и попасть в карточку клиента.
+          // У сделок без привязки его нет — такая строка остаётся просто текстом.
+          if (!byClient[key]) byClient[key] = { name, id: p.clientId || '', total: 0, count: 0 };
           byClient[key].total += sum;
           byClient[key].count++;
         };
@@ -15929,8 +15936,11 @@
           if (p.id === state.activeProjectId) addClientPayments(p, state.payments);
           else addClientPayments(p, p.snapshot?.payments);
         });
-        const topClients = Object.values(byClient).filter(c => c.total > 0)
-          .sort((a,b) => b.total - a.total).slice(0, 5);
+        const clientsRanked = Object.values(byClient).filter(c => c.total > 0)
+          .sort((a,b) => b.total - a.total);
+        const topClients = clientsRanked.slice(0, 5);
+        const clientsTotal = clientsRanked.reduce((s, c) => s + c.total, 0);
+        const clientsHidden = clientsRanked.length - topClients.length;
         const maxC = topClients[0]?.total || 1;
 
         const profit = totalRev - totalExp;
@@ -15942,10 +15952,8 @@
            стрелки листания оставляем — по ним можно уйти в прошлые периоды. */
         const monthsWithData = months.reduce((n, _, i) => n + ((revenue[i] > 0 || expenseArr[i] > 0) ? 1 : 0), 0);
         const chartWorthDrawing = monthsWithData >= 3;
-        // Список клиентов в один-два имени не заслуживает колонки сбоку: под ним
-        // остаётся пустота во всю высоту графика. Короткий список кладём под график
-        // строкой, длинный — как раньше, колонкой справа.
-        const topAside = topClients.length >= 3;
+        // Топ клиентов переехал в СВОЮ панель рядом, поэтому колонки внутри
+        // графика больше нет и выбирать раскладку по длине списка не нужно.
         // Метка диапазона — ВСЕГДА (не только при смещении от текущего периода): раньше
         // она пряталась на chartOffset=0, из-за чего при возврате к текущим месяцам
         // ширина заголовка менялась и стрелки листания «скакали» по горизонтали.
@@ -15953,32 +15961,39 @@
         // экранах полные «Январь – Июнь» не помещались рядом со стрелками.
         const rangeLabel = `${ML[parseInt(months[0].split('-')[1])-1]} – ${ML[parseInt(months[months.length-1].split('-')[1])-1]}`;
         return `
-          <div class="panel" style="margin-bottom:14px">
-            <div class="db-analytics-header">
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="width:22px;height:22px;border-radius:7px;background:var(--primary-bg);color:var(--primary-text);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto">
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="9" width="3.2" height="6" rx="1"/><rect x="6.4" y="4.5" width="3.2" height="10.5" rx="1"/><rect x="11.8" y="1.5" width="3.2" height="13.5" rx="1"/></svg>
-                </span>
-                <span style="font-weight:700;font-size:13px">За 6 месяцев</span>
-                <span class="db-analytics-range" style="font-size:12px;color:var(--muted);display:inline-block;min-width:66px" title="Показанный период">· ${rangeLabel}</span>
-                <div class="db-chart-nav no-print">
-                  <button class="db-chart-nav-btn" onclick="app.shiftDbChart(1)" title="Более ранний период" aria-label="Более ранний период">‹</button>
-                  <button class="db-chart-nav-btn" onclick="app.shiftDbChart(-1)" ${chartOffset ? '' : 'disabled'} title="Более поздний период" aria-label="Более поздний период">›</button>
+          ${/* ДВЕ панели вместо одной. Раньше график и «Топ клиентов» жили в одной
+                коробке, разделённые только вертикальной чертой: правый столбец шёл
+                без заголовка, легенда графика жалась в верхний угол НАД ним, и всё
+                вместе читалось кучей. Теперь это два блока со своими шапками —
+                каждый понятен, не глядя на соседний. */""}
+          <div class="db-analytics-row">
+            <div class="panel db-money-panel">
+              <div class="db-analytics-header">
+                <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                  <span class="db-panel-ico">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="9" width="3.2" height="6" rx="1"/><rect x="6.4" y="4.5" width="3.2" height="10.5" rx="1"/><rect x="11.8" y="1.5" width="3.2" height="13.5" rx="1"/></svg>
+                  </span>
+                  <span style="font-weight:700;font-size:13px">Доход и расходы</span>
+                  <span class="db-analytics-range" title="Показанный период">· ${rangeLabel}</span>
+                  <div class="db-chart-nav no-print">
+                    <button class="db-chart-nav-btn" onclick="app.shiftDbChart(1)" title="Более ранний период" aria-label="Более ранний период">‹</button>
+                    <button class="db-chart-nav-btn" onclick="app.shiftDbChart(-1)" ${chartOffset ? '' : 'disabled'} title="Более поздний период" aria-label="Более поздний период">›</button>
+                  </div>
                 </div>
               </div>
-              ${/* Легенда объясняет ЦВЕТА столбцов. Без графика объяснять нечего, а
-                    три её числа — те же доход, расход и прибыль, что и в сводке ниже:
-                    получался повтор на одной панели. */""}
+              ${/* Три числа периода — подписанной строкой под шапкой, а не капсулой
+                    в углу. Прежняя легенда «▋ сумма ▋ сумма = сумма» объясняла цвет
+                    столбцов, но не говорила, ЧТО это за суммы. */""}
               ${chartWorthDrawing ? `
-              <div class="db-analytics-legend">
-                <span style="color:var(--text-success)">▋ ${money(totalRev)}</span>
-                <span style="color:var(--text-danger)">▋ ${money(totalExp)}</span>
-                <span style="color:${profit>=0?'var(--text-success)':'var(--text-danger)'}">= ${money(profit)}</span>
+              <div class="db-money-sums">
+                <div class="db-money-sum"><span class="db-money-lbl">Доход</span><b style="color:var(--text-success)">${money(totalRev)}</b></div>
+                <div class="db-money-sum"><span class="db-money-lbl">Расход</span><b style="color:var(--text-danger)">${money(totalExp)}</b></div>
+                <div class="db-money-sum"><span class="db-money-lbl">Прибыль</span><b style="color:${profit>=0?'var(--text-success)':'var(--text-danger)'}">${money(profit)}</b></div>
+                <span class="db-money-hint no-print">Нажмите на месяц — откроются его операции</span>
               </div>` : ""}
-            </div>
-            <div class="db-analytics-body ${topAside ? "" : "db-analytics-body--wide"}">
+            <div class="db-analytics-body">
               ${chartWorthDrawing ? `
-              <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-height:230px">
+              <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-height:260px">
                 <defs>
                   <linearGradient id="dbGradRev" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="0" stop-color="var(--green)" stop-opacity="0.95"/>
@@ -16022,39 +16037,58 @@
                 </div>
               </div>
               `}
-              ${topClients.length ? `
-              <div class="db-analytics-top">
-                <div style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Топ клиентов</div>
-                ${/* Кольцо вместо пяти полосок: вопрос здесь про ДОЛЮ каждого во
-                      всей выручке, а полоски заставляли сравнивать их попарно.
-                      Кольцо рисуем только при двух и более клиентах — с одним оно
-                      всегда полное и не сообщает ничего. Подписи с суммами остались:
-                      кольцо показывает соотношение, а деньги читают цифрой. */""}
-                ${topClients.length > 1 ? `
-                  <div class="db-top-donut">
-                    ${donutSvg(topClients.map(c => ({ name: c.name, value: c.total })), { size: 84, width: 11 })}
-                    <div class="db-top-legend">
-                      ${topClients.map((c, i) => `
-                        <div class="db-top-legend-row">
-                          <span class="db-top-dot" style="background:${DONUT_COLORS[i % DONUT_COLORS.length]}"></span>
-                          <span class="db-top-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
-                          <span class="db-top-sum">${money(c.total)}</span>
-                        </div>`).join("")}
-                    </div>
-                  </div>
-                ` : topClients.map(c => `
-                  <div style="margin-bottom:8px">
-                    <div style="display:flex;justify-content:space-between;gap:6px;margin-bottom:3px">
-                      <span style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${escapeHtml(c.name)}</span>
-                      <span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;flex:0 0 auto">${money(c.total)}</span>
-                    </div>
-                    <div style="height:3px;background:var(--line);border-radius:999px">
-                      <div style="height:100%;width:${Math.round(c.total/maxC*100)}%;background:var(--primary);border-radius:999px"></div>
-                    </div>
-                  </div>`).join('')}
-              </div>` : ''}
             </div>
-            <div id="dbChartTooltip" class="db-chart-tooltip no-print" style="display:none"></div>
+              <div id="dbChartTooltip" class="db-chart-tooltip no-print" style="display:none"></div>
+            </div>
+
+            ${topClients.length ? `
+            <div class="panel db-clients-panel">
+              <div class="db-analytics-header">
+                <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                  <span class="db-panel-ico">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">${EMPTY_ICON_PATHS.users}</svg>
+                  </span>
+                  <span style="font-weight:700;font-size:13px">Топ клиентов</span>
+                  <span class="db-analytics-range" title="Тот же период, что и у графика">· ${rangeLabel}</span>
+                </div>
+              </div>
+
+              ${/* Кольцо с суммой периода в центре: доля каждого читается формой, а
+                    от чего доля — цифрой внутри. С одним клиентом кольцо не рисуем:
+                    полное кольцо на 100% не сообщает ничего. */""}
+              ${topClients.length > 1 ? `
+                <div class="db-clients-donut">
+                  ${donutSvg(topClients.map(c => ({ name: c.name, value: c.total })), { size: 132, width: 15 })}
+                  <div class="db-clients-donut-center">
+                    <span class="db-money-lbl">Всего</span>
+                    <b>${money(clientsTotal)}</b>
+                  </div>
+                </div>` : ""}
+
+              ${/* Строка ведёт в карточку клиента. До этого справа не нажималось
+                    НИЧЕГО: список выглядел итогом, хотя за каждым именем стоят
+                    сделки, ради которых в него и смотрят. Сделки без привязки к
+                    карточке клиента остаются просто текстом — вести некуда. */""}
+              <div class="db-clients-list">
+                ${topClients.map((c, i) => {
+                  const share = clientsTotal > 0 ? Math.round(c.total / clientsTotal * 100) : 0;
+                  const dot = `<span class="db-top-dot" style="background:${DONUT_COLORS[i % DONUT_COLORS.length]}"></span>`;
+                  const body = `${dot}<span class="db-top-name">${escapeHtml(c.name)}</span>`
+                    + `<span class="db-client-share">${share}%</span>`
+                    + `<span class="db-top-sum">${money(c.total)}</span>`;
+                  return c.id
+                    ? `<button type="button" class="db-client-row is-clickable" onclick="app.openClientDetail('${c.id}')" title="Открыть клиента «${escapeHtml(c.name)}»">${body}</button>`
+                    : `<div class="db-client-row" title="Сделки этого клиента не привязаны к карточке клиента">${body}</div>`;
+                }).join("")}
+              </div>
+
+              <div class="db-clients-foot no-print">
+                <span class="db-clients-foot-note">${clientsHidden > 0
+                  ? `и ещё ${clientsHidden} ${plural(clientsHidden, "клиент", "клиента", "клиентов")}`
+                  : `${topClients.length} ${plural(topClients.length, "клиент", "клиента", "клиентов")} за период`}</span>
+                <button class="btn small" onclick="app.go('clients')">Все клиенты</button>
+              </div>
+            </div>` : ""}
           </div>`;
       }
 

@@ -3691,34 +3691,93 @@
       gap: 6px 0; margin-bottom: 8px;
     }
     .db-analytics-legend { display: flex; gap: 12px; font-size: 12px; }
-    .db-analytics-body {
-      display: grid; grid-template-columns: 1fr 200px; gap: 16px; align-items: start;
+    .db-analytics-body { display: block; }
+
+    /* ── Деньги по месяцам + топ клиентов: ДВЕ панели рядом ──────────────────
+       Раньше это была одна коробка с вертикальной чертой посередине: правая
+       половина шла без заголовка, легенда графика жалась в верхний угол над ней,
+       и блок читался кучей. Правая колонка фиксированной ширины — список имён с
+       суммами не выигрывает от растягивания, а график выигрывает. Порог 1040px:
+       ниже него на график остаётся меньше 620px, и столбцы месяцев начинают
+       сливаться — тогда панели встают друг под друга. */
+    .db-analytics-row {
+      display: grid; grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 14px; margin-bottom: 14px; align-items: start;
     }
-    /* Один-два клиента в колонке сбоку оставляли под собой пустоту во всю высоту
-       графика. Короткий список кладём ПОД график строкой: место отдаётся графику,
-       а имена читаются в ряд. */
-    .db-analytics-body--wide { grid-template-columns: 1fr; }
-    .db-analytics-body--wide .db-analytics-top {
-      border-left: none; padding-left: 0;
-      border-top: 1px solid var(--line); padding-top: 10px;
-      display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: flex-end;
+    @media (max-width: 1040px) { .db-analytics-row { grid-template-columns: 1fr; } }
+    .db-money-panel, .db-clients-panel { margin-bottom: 0; }
+    .db-clients-panel { display: flex; flex-direction: column; }
+    .db-panel-ico {
+      width: 22px; height: 22px; border-radius: var(--r-sm); flex: 0 0 auto;
+      background: var(--primary-bg); color: var(--primary-text);
+      display: inline-flex; align-items: center; justify-content: center;
     }
-    .db-analytics-body--wide .db-analytics-top > div { min-width: 180px; flex: 0 1 auto; }
-    .db-analytics-top {
-      padding-left: 14px; border-left: 1px solid var(--line);
+    .db-analytics-range { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+    /* Три числа периода подписанной строкой. Прежняя легенда «▋ сумма ▋ сумма
+       = сумма» объясняла цвет столбцов, но не говорила, что это за суммы. */
+    .db-money-sums {
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 26px;
+      margin-bottom: 6px;
     }
-    /* Кольцо долей и легенда к нему. Кольцо не сжимается (flex:0 0 auto): его
-       размер — часть смысла, а вот подписи имён ужимаются многоточием. */
-    .db-top-donut { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-    .db-top-donut .donut { flex: 0 0 auto; }
-    .db-top-legend { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-    .db-top-legend-row { display: flex; align-items: center; gap: 7px; min-width: 0; }
+    .db-money-sum { display: flex; flex-direction: column; gap: 1px; }
+    .db-money-sum b { font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+    .db-money-lbl {
+      font-size: 11px; color: var(--muted); font-weight: 650;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    /* Подсказка про клик по месяцу: столбцы вели в «Финансы» с фильтром, но
+       узнать об этом можно было только случайным нажатием. */
+    .db-money-hint { margin-left: auto; font-size: 11.5px; color: var(--hint); }
+    @media (max-width: 720px) { .db-money-hint { display: none; } }
+
+    /* Кольцо с суммой периода по центру. Размер кольца — часть смысла, поэтому
+       оно не сжимается; цифра внутри абсолютным слоем, чтобы не съезжать. */
+    .db-clients-donut {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      padding: 4px 0 12px;
+    }
+    .db-clients-donut-center {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1px; pointer-events: none;
+      padding-bottom: 8px;
+    }
+    .db-clients-donut-center b { font-size: 14px; font-variant-numeric: tabular-nums; }
+
+    .db-clients-list { display: flex; flex-direction: column; gap: 2px; }
+    /* Строка ведёт в карточку клиента. До этого справа не нажималось ничего:
+       список выглядел итогом, хотя за каждым именем стоят сделки. */
+    .db-client-row {
+      display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%;
+      padding: 6px 8px; border: none; background: transparent; color: inherit;
+      font: inherit; text-align: left; border-radius: var(--r-sm);
+    }
+    .db-client-row.is-clickable { cursor: pointer; transition: background var(--dur-1); }
+    /* На пальце строка должна быть не ниже 44px. Расширенная зона через ::after
+       здесь НЕ годится: строки идут вплотную, и невидимые области перекрыли бы
+       соседей — попадёшь в одного клиента, откроется другой. Растим саму строку. */
+    @media (hover: none) and (pointer: coarse) {
+      .db-client-row { min-height: var(--h-lg); padding: 8px; }
+    }
+    .db-client-row.is-clickable:hover { background: var(--primary-bg); }
+    .db-client-row.is-clickable:active { background: var(--panel2); }
     .db-top-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
     .db-top-name {
-      font-size: 12px; min-width: 0; flex: 1 1 auto;
+      font-size: 12.5px; min-width: 0; flex: 1 1 auto;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .db-top-sum { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+    .db-client-share {
+      font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+      flex: 0 0 auto; min-width: 30px; text-align: right;
+    }
+    .db-top-sum { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+    .db-clients-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line);
+    }
+    /* Подпись подвала — обычным регистром, не капсом: «И ЕЩЁ 1 КЛИЕНТ» кричит
+       ровно там, где сообщается мелочь. Капс оставлен подписям метрик. */
+    .db-clients-foot-note { font-size: 11.5px; color: var(--muted); }
 
     /* Сводка вместо графика на молодом аккаунте: шесть колонок, из которых пять
        пустых, ничего не показывают и занимают 230px. */
@@ -3756,8 +3815,8 @@
     @media (max-width: 768px) {
       .db-stat { min-width: 45%; padding: 10px 12px; }
       .db-stat-value { font-size: 15px; }
-      .db-analytics-body { grid-template-columns: 1fr; }
-      .db-analytics-top { border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 10px; }
+      /* .db-analytics-top больше нет: топ клиентов уехал в свою панель, а
+         одноколоночная раскладка задана порогом 1040px на .db-analytics-row. */
     }
     @media (max-width: 480px) {
       .db-stat { min-width: 50%; }

@@ -4618,16 +4618,61 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await p.waitForTimeout(700);
     const res = await p.evaluate(() => {
       const num = (s) => Number(String(s).replace(/[^\d]/g, "")) || 0;
-      const legend = document.querySelector("#appContent .db-analytics-legend");
-      const доход = legend ? num(legend.children[0].textContent) : 0;
+      // Доход периода — первая подписанная сумма в шапке панели «Доход и расходы».
+      const sums = document.querySelector("#appContent .db-money-sums");
+      const доход = sums ? num(sums.querySelector(".db-money-sum b").textContent) : 0;
       const суммы = [...document.querySelectorAll("#appContent .db-top-sum")].map((e) => num(e.textContent));
       return { доход, суммы, топ: суммы.reduce((s, v) => s + v, 0) };
     });
     await ctx.close();
-    assert(res.доход > 0, "не нашёл доход за период в легенде графика");
+    assert(res.доход > 0, "не нашёл доход за период в шапке панели «Доход и расходы»");
     assert(res.суммы.length, "не нашёл сумм в топ-клиентах");
     assert(res.топ <= res.доход,
       "сумма топ-клиентов (" + res.топ + ") больше дохода за период (" + res.доход + ") — считается за разные отрезки");
+  });
+
+  /* «Справа ничего не нажимается» — замечание владельца по скриншоту. Список имён
+     выглядел итогом, хотя за каждым стоят сделки, ради которых в него и смотрят.
+     Проверяем, что строка ведёт в карточку клиента, и что раскладка — две панели
+     со своими шапками, а не одна коробка с чертой посередине. */
+  await test("топ клиентов: строка открывает карточку клиента", async () => {
+    const { ctx, p } = await bootWithState(`
+      const now = new Date();
+      const iso = (back) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - back, 12);
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-12";
+      };
+      st.clients = [{ id: "kc1", name: "Кофейня «Пар»" }, { id: "kc2", name: "Метрополис" }];
+      const mk = (id, cid, name, amt, back) => ({
+        id, name, client: name, clientId: cid, total: amt, paid: amt, debt: 0,
+        crmStatus: "Завершённые", status: "Завершено", updatedAt: new Date().toISOString(),
+        snapshot: { project: { name }, payments: [{ id: "p" + id, title: "Оплата", amount: amt, date: iso(back), method: "Счёт" }],
+          expenses: [], tasks: [], selected: {} }
+      });
+      st.savedProjects = [mk("q1","kc1","Кофейня «Пар»",300000,3), mk("q2","kc2","Метрополис",200000,2), mk("q3","kc1","Кофейня «Пар»",90000,1)];
+      st.activeProjectId = ""; st.payments = []; st.expenses = [];
+    `, { width: 1440, height: 1000 });
+    await p.evaluate(() => window.app.go("home"));
+    await p.waitForTimeout(700);
+
+    const раскладка = await p.evaluate(() => {
+      const row = document.querySelector("#appContent .db-analytics-row");
+      const panels = row ? row.querySelectorAll(":scope > .panel").length : 0;
+      const заголовки = row ? [...row.querySelectorAll(":scope > .panel .db-analytics-header")].length : 0;
+      const кнопки = document.querySelectorAll("#appContent .db-client-row.is-clickable").length;
+      return { panels, заголовки, кнопки };
+    });
+    assertEqual(раскладка.panels, 2, "блок не разделён на две панели");
+    assertEqual(раскладка.заголовки, 2, "у одной из панелей нет своей шапки");
+    assert(раскладка.кнопки >= 2, "строки клиентов не нажимаются: " + раскладка.кнопки);
+
+    await p.evaluate(() => document.querySelector("#appContent .db-client-row.is-clickable").click());
+    await p.waitForTimeout(600);
+    const после = await p.$eval("#appContent", (el) => el.textContent.replace(/\s+/g, " "));
+    await ctx.close();
+    assert(/Кофейня|Метрополис/.test(после), "после нажатия не открылась карточка клиента");
+    assert(/Проектов|Оборот|Все клиенты/.test(после),
+      "открылось не то: " + после.slice(0, 160));
   });
 
   /* Кольцо долей в «Топ клиентов». Проверяем ровно то, ради чего форму и брали:
@@ -4654,10 +4699,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await p.evaluate(() => window.app.go("home"));
     await p.waitForTimeout(700);
     const res = await p.evaluate(() => {
-      const wrap = document.querySelector("#appContent .db-top-donut");
-      if (!wrap) return null;
-      const segs = [...wrap.querySelectorAll(".donut circle")].slice(1); // первый — дорожка
-      const dots = [...wrap.querySelectorAll(".db-top-dot")].map((d) => getComputedStyle(d).backgroundColor);
+      const panel = document.querySelector("#appContent .db-clients-panel");
+      if (!panel) return null;
+      const segs = [...panel.querySelectorAll(".donut circle")].slice(1); // первый — дорожка
+      const dots = [...panel.querySelectorAll(".db-top-dot")].map((d) => getComputedStyle(d).backgroundColor);
       return { сегментов: segs.length, точек: dots.length, цветов: new Set(dots).size };
     });
     await ctx.close();
