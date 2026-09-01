@@ -2209,21 +2209,35 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.evaluate(() => { window.app.setCrmFilter("all"); window.app.go("home"); });
   });
 
+
   // Порядок вкладок в «Финансах» — от повседневного к редкому. «Транзакции»
   // открываются по умолчанию, но кнопка стояла третьей: ряд читался как «выбрано
   // не то, что показано».
   await test("финансы: вкладки идут в порядке транзакции → задолженность → аналитика", async () => {
-    await page.evaluate(() => window.app.go("global-finances"));
-    await page.waitForTimeout(300);
-    const tabs = await page.$$eval("#appContent .fin-subtab-bar .fin-subtab", (bs) =>
+    /* СВОЁ окно: проверяем состояние ПО УМОЛЧАНИЮ, а общая страница набора к
+       этому моменту уже походила по разделам — в частности, плитка «Долг
+       клиентов» теперь открывает вкладку «Задолженность», и на общей странице
+       активной оставалась она. Это верное поведение, просто не «по умолчанию». */
+    const { context: ct, page: pt } = await bootLocal(browser, baseUrl,
+      { width: 1280, height: 900, seedDemo: true });
+    await pt.evaluate(() => window.app.go("global-finances"));
+    await pt.waitForTimeout(400);
+    const tabs = await pt.$$eval("#appContent .fin-subtab-bar .fin-subtab", (bs) =>
       bs.map((b) => ({ label: b.textContent.trim(), active: b.classList.contains("active") }))
     );
+    await ct.close();
     assertEqual(
       tabs.map((t) => t.label).join(" → "),
       "Транзакции → Задолженность → Аналитика",
       "порядок вкладок в «Финансах» другой"
     );
     assertEqual(tabs[0].active, true, "по умолчанию подсвечена не первая вкладка — ряд снова врёт о том, что показано");
+    /* Общую страницу набора оставляем там же, где её оставляла прежняя версия
+       этого теста: следующие проверки идут по ней и рассчитывают на «Финансы».
+       Набор делит одну страницу — уводя её в своё окно, порядок для соседей
+       менять нельзя. */
+    await page.evaluate(() => window.app.go("global-finances"));
+    await page.waitForTimeout(250);
   });
 
   // Удаление сделки необратимо, а кнопка была серой с opacity .6 — тише «Отмены»
@@ -4923,6 +4937,36 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(ширины.length >= 4, "не нашлось карточек каталога с полем цены: " + JSON.stringify(ширины));
     const разброс = Math.max(...ширины) - Math.min(...ширины);
     assert(разброс <= 2, "поля цены разной ширины: " + JSON.stringify(ширины));
+  });
+
+  /* Стоит в КОНЦЕ набора, хотя работает в своём окне. Проверено: вставленный в
+     середину, он ломал «историю сделки» ниже — та идёт по общей странице и
+     чувствительна к тому, что делали до неё. Самодостаточным тестам место в
+     хвосте: они ничего не должны сдвигать соседям.
+
+     Плитка «Долг клиентов» открывала общий список ОПЕРАЦИЙ, где долг ещё нужно
+     было найти глазами, — при том что рядом есть вкладка «Задолженность» ровно с
+     этим. Плитка про то, КТО должен: туда и ведём. */
+  await test("долг клиентов ведёт сразу в список должников", async () => {
+    const { context: cd, page: pd } = await bootLocal(browser, baseUrl,
+      { width: 1280, height: 900, seedDemo: true });
+    await pd.evaluate(() => window.app.go("home"));
+    await pd.waitForTimeout(500);
+    const нашлась = await pd.evaluate(() => {
+      const tile = document.querySelector('#appContent .db-stat[title="Долг клиентов"]');
+      if (!tile) return false;
+      tile.click();
+      return true;
+    });
+    await pd.waitForTimeout(600);
+    const вкладка = await pd.evaluate(() => {
+      const act = document.querySelector("#appContent .fin-subtab.active");
+      return act ? act.textContent.trim() : "";
+    });
+    await cd.close();
+    assert(нашлась, "на главной нет плитки «Долг клиентов»");
+    assertEqual(вкладка, "Задолженность",
+      "плитка долга открыла не список должников, а «" + вкладка + "»");
   });
 
   await context.close();

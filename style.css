@@ -3999,6 +3999,12 @@
       box-shadow: var(--glow-sm);
     }
     .funnel-stage.active:hover { box-shadow: var(--glow-md); }
+    /* Этап без сделок остаётся на месте, но приглушён. Прятать его нельзя: семь
+       нулей подряд — это и есть сообщение «сверху воронки никто не заходит», и
+       убрать его значило бы убрать сигнал. А вот кричать наравне с занятыми
+       этапами ему незачем — глаз должен находить те, где сделки есть. */
+    .funnel-stage--empty { opacity: .5; }
+    .funnel-stage--empty:hover { opacity: .8; }
     .funnel-stage h3 { font-size: 11px; color: var(--muted); margin: 0 0 2px; }
     .funnel-stage .fs-count { font-size: 19px; font-weight: 900; line-height: 1.1; }
     /* 11.5px, а не 10.5: это ДЕНЬГИ по этапу, ради которых воронку и открывают.

@@ -8330,7 +8330,10 @@
               ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, Math.min(6, bw / 2))}" fill="url(#${id}Rev)" filter="url(#${id}Glow)"/>` : ""}
               ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, Math.min(6, bw / 2))}" fill="url(#${id}Exp)"/>` : ""}
               ${revLabel}${expLabel}
-              <text x="${gx + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="inherit" letter-spacing=".2">${escapeHtml(m.short || m.label)}</text>
+              ${/* Месяц без движения денег: колонка пустая, и подпись под ней
+                    приглушена — иначе пустое место читается как обрыв графика, а
+                    не как «в этом месяце ничего не было». */""}
+              <text x="${gx + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="inherit" letter-spacing=".2"${inc === 0 && exp === 0 ? ' opacity=".45"' : ''}>${escapeHtml(m.short || m.label)}</text>
             </g>`;
         }).join("");
 
@@ -16659,9 +16662,14 @@
               <div class="db-stat db-stat--hero" onclick="app.go('global-finances')" title="Прибыль / мес">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${monthProfit>=0?"rgba(22,163,74,.15);color:var(--text-success)":"rgba(220,38,38,.13);color:var(--text-danger)"}"><svg viewBox="0 0 16 16" fill="currentColor">${monthProfit>=0?EMPTY_ICON_PATHS.trendUp:EMPTY_ICON_PATHS.trendDown}</svg></span><span class="db-stat-label">Прибыль / мес</span></div>
                 <div class="db-stat-value-row"><span class="db-stat-value" style="color:${monthProfit>=0?"var(--text-success)":"var(--text-danger)"}">${money(monthProfit)}</span>${sparklineSvg(sparkProfit, "spkProfit", monthProfit>=0?"var(--text-success)":"var(--text-danger)")}</div>
-                <div class="db-stat-delta ${monthProfit>=0?"pos":"neg"}">${monthProfit>=0?"доход":"убыток"}</div>
+                ${/* При нуле это ни доход, ни убыток: зелёное слово «доход» под
+                      нулём утверждало то, чего нет. */""}
+                <div class="db-stat-delta ${monthProfit>0?"pos":monthProfit<0?"neg":"neu"}">${monthProfit>0?"доход":monthProfit<0?"убыток":"пока ноль"}</div>
               </div>
-              <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.go('global-finances')" title="Долг клиентов">
+              ${/* Ведём сразу в «Задолженность», а не в общий раздел: плитка про
+                    то, КТО должен, а открывался список всех операций, где долг
+                    ещё нужно было найти. */""}
+              <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.setGFinSubTab('receivables');app.go('global-finances')" title="Долг клиентов">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${totalDebt>0?"rgba(234,88,12,.15);color:var(--text-warning)":"rgba(22,163,74,.15);color:var(--text-success)"}"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Долг клиентов</span></div>
                 <div class="db-stat-value" style="${totalDebt>0?"color:var(--text-warning)":"color:var(--text-success)"}">${money(totalDebt)}</div>
         <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
