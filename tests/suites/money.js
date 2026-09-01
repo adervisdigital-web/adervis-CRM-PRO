@@ -1478,6 +1478,26 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Период без операций давал ДВЕ панели подряд с одинаковым «Нет данных» —
+     на телефоне это полэкрана пустоты вместо ответа. */
+  await test("аналитика: пустой период не плодит одинаковые «Нет данных»", async () => {
+    const { context: ce, page: pe } = await bootLocal(browser, baseUrl,
+      { width: 390, height: 900, seedDemo: true });
+    await pe.evaluate(() => {
+      window.app.go("global-finances");
+      window.app.setGFinSubTab("analytics");
+      window.app.setGFinDatePreset("custom");
+      window.app.setGFinDateFrom("2020-01-01");
+      window.app.setGFinDateTo("2020-01-31");
+    });
+    await pe.waitForTimeout(600);
+    const txt = await pe.$eval("#appContent", (el) => el.textContent.replace(/\s+/g, " "));
+    await ce.close();
+    const пустышек = (txt.match(/Нет данных/g) || []).length;
+    assert(пустышек <= 1, "пустых блоков с «Нет данных» " + пустышек + " — они дублируют друг друга");
+    assert(/операций нет/.test(txt), "не сказано, почему разрезы пустые: " + txt.slice(0, 200));
+  });
+
   /* Заголовок обещал «Прибыль по проектам (топ-10)», а бралось десять ПЕРВЫХ
      сделок из списка и уже они сортировались между собой: у аккаунта со ста
      сделками в «топе» оказывались случайные. */

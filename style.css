@@ -5948,7 +5948,11 @@
     .fin-insight-text { color: var(--text); }
 
     @media (max-width: 900px) { .fin-forecast-grid { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 480px) { .fin-forecast-grid { grid-template-columns: 1fr; } }
+    /* Ниже 480px карточки прогноза вставали в СТОЛБИК: четыре коротких числа
+       занимали целый экран телефона, и до «Что важно» приходилось листать.
+       Числа короткие, подписи в две строки помещаются — держим два в ряд до
+       самых узких экранов. */
+    @media (max-width: 360px) { .fin-forecast-grid { grid-template-columns: 1fr; } }
     .fin-row {
       display: flex; justify-content: space-between;
       align-items: flex-start; gap: 12px;
