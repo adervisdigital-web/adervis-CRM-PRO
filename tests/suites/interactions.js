@@ -4939,6 +4939,48 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(разброс <= 2, "поля цены разной ширины: " + JSON.stringify(ширины));
   });
 
+  /* Меню «три точки» на карточке каталога открывалось ПОД соседние карточки:
+     карточка под курсором приподнимается на 2px через transform, а transform
+     создаёт стековый контекст — меню с z-index:200 запирается внутри карточки, и
+     следующая по DOM рисуется поверх. Ровно этот дефект уже чинили для карточек
+     сделок, но лечение искало только `.deal-card`, а каталог носит `.item`.
+
+     Курсор наводим ПО-НАСТОЯЩЕМУ: без :hover карточка не получает transform, и
+     дефект не воспроизводится вовсе — первая версия пробника так и «доказала»,
+     что всё в порядке. */
+  await test("каталог: меню карточки не прячется под соседние", async () => {
+    const { context: cm, page: pm } = await bootLocal(browser, baseUrl,
+      { width: 1440, height: 950, seedDemo: true });
+    await pm.evaluate(() => window.app.go("catalog"));
+    await pm.waitForTimeout(700);
+    const btn = await pm.$("#appContent .item--catalog [onclick*='toggleDealMenu']");
+    assert(btn, "на карточке каталога нет кнопки «ещё действия»");
+    await btn.hover();
+    await pm.waitForTimeout(150);
+    await btn.click();
+    await pm.waitForTimeout(300);
+    const скрыто = await pm.evaluate(() => {
+      const menu = [...document.querySelectorAll("#appContent .item--catalog .deal-ctx-menu")]
+        .find((m) => getComputedStyle(m).display !== "none");
+      if (!menu) return "меню не открылось";
+      const r = menu.getBoundingClientRect();
+      const бяки = [];
+      // Низ меню свисает ниже карточки и попадает на соседнюю — там и прятался.
+      [0.15, 0.5, 0.9].forEach((f) => {
+        const x = Math.round(r.left + r.width / 2);
+        const y = Math.round(r.top + r.height * f);
+        const top = document.elementFromPoint(x, y);
+        if (!(top && menu.contains(top))) {
+          бяки.push(`на ${Math.round(f * 100)}% высоты сверху ${top ? top.tagName + "." + (top.className || "") : "?"}`);
+        }
+      });
+      return бяки;
+    });
+    await cm.close();
+    assert(Array.isArray(скрыто), скрыто);
+    assertEqual(скрыто.length, 0, "меню перекрыто: " + скрыто.join("; "));
+  });
+
   /* Стоит в КОНЦЕ набора, хотя работает в своём окне. Проверено: вставленный в
      середину, он ломал «историю сделки» ниже — та идёт по общей странице и
      чувствительна к тому, что делали до неё. Самодостаточным тестам место в

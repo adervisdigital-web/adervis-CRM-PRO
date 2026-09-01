@@ -12873,7 +12873,11 @@
                по DOM карточка рисуется поверх него. Замер: «В архив» перекрыт
                .deal-card-head соседа, хотя места в окне хватало. Поэтому на время
                открытого меню поднимаем саму карточку над соседями. */
-            const card = el.closest(".deal-card") || el.closest("[data-deal-id]");
+            /* Карточек с таким меню несколько видов, и селектор знал только про
+               сделки: в каталоге меню «трёх точек» пряталось под соседнюю
+               карточку ровно по этой же причине (скриншот владельца 01.09.2026).
+               Ищем ЛЮБОГО ближайшего носителя меню. */
+            const card = el.closest(".deal-card, .item, .client-card, .package-card, [data-deal-id]");
             if (card) card.classList.add("deal-card-menu-open");
           }
         }
@@ -12887,7 +12891,7 @@
             el.classList.remove("dcm-up");
             // Подъём карточки снимаем вместе с меню: иначе она так и останется
             // лежать поверх соседей до следующего рендера.
-            const card = el.closest(".deal-card") || el.closest("[data-deal-id]");
+            const card = el.closest(".deal-card, .item, .client-card, .package-card, [data-deal-id]");
             if (card) card.classList.remove("deal-card-menu-open");
           }
           _dealMenuOpen = null;
