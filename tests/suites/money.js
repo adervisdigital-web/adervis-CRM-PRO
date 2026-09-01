@@ -1478,6 +1478,55 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Заголовок обещал «Прибыль по проектам (топ-10)», а бралось десять ПЕРВЫХ
+     сделок из списка и уже они сортировались между собой: у аккаунта со ста
+     сделками в «топе» оказывались случайные. */
+  await test("прибыль по проектам: в топ-10 попадают самые прибыльные", async () => {
+    const deals = [];
+    // Двадцать сделок: прибыль растёт к концу списка. При старом отборе первые
+    // десять (самые бедные) и попадали бы в «топ».
+    for (let i = 0; i < 20; i++) {
+      deals.push({
+        id: "tp" + i, name: "Проект " + i, client: "К" + i, clientId: "ctp" + i,
+        total: 100000, paid: 100000, debt: 0, profit: (i + 1) * 1000,
+        crmStatus: "Завершённые", status: "Завершено", updatedAt: new Date().toISOString(),
+        snapshot: { project: { name: "Проект " + i }, payments: [], expenses: [], tasks: [], selected: {} }
+      });
+    }
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+    const pg = await ctx.newPage();
+    await pg.addInitScript(({ key, deals }) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      localStorage.setItem(key, JSON.stringify({ savedProjects: deals, view: "home" }));
+    }, { key: STORAGE_KEY, deals });
+    await pg.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await pg.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await pg.evaluate(() => {
+      window.app.go("global-finances");
+      window.app.setGFinSubTab("analytics");
+    });
+    await pg.waitForTimeout(600);
+    const имена = await pg.evaluate(() => {
+      const h = [...document.querySelectorAll("#appContent .analytics-section h3")]
+        .find((x) => /Прибыль по проектам/.test(x.textContent || ""));
+      if (!h) return null;
+      // Оба класса: старая разметка звалась .category-bar-label. Иначе сторож
+      // падал бы «нет строк» вместо «отобраны не те» и ничего не доказывал.
+      return [...h.parentElement.querySelectorAll(".rank-name, .category-bar-label")]
+        .map((e) => e.textContent.trim());
+    });
+    await ctx.close();
+    assert(имена && имена.length === 10, "в блоке не десять строк: " + JSON.stringify(имена));
+    assertEqual(имена[0], "Проект 19", "первым идёт не самый прибыльный проект");
+    assert(!имена.includes("Проект 0"),
+      "в «топ-10» попал самый бедный проект — отбирается не по прибыли: " + JSON.stringify(имена));
+  });
+
   /* Остаток по сделке в форме поступления. Повод из жизни: на завершённой сделке
      навсегда повис долг 60 ₽ — сумму платежа набрали с переставленными цифрами
      (18933 вместо 18993), и приложение это молча приняло. Теперь остаток видно

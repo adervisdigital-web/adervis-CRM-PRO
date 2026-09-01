@@ -8261,6 +8261,26 @@
         };
       }
 
+      /* Строка списка-рейтинга: имя, полоска, доля, сумма. Таких списков в
+         «Финансах» четыре («по статьям», «по категориям», «по проектам», «по
+         клиентам»), и все четыре были скопированы друг у друга вместе с
+         инлайновыми стилями дорожки — поправить вид разом было негде.
+
+         share: доля в процентах. Показываем ТОЛЬКО там, где строки складываются
+         в целое (статьи, категории, клиенты). У «прибыли по проектам» шкала от
+         максимума, а не от суммы, и процент там означал бы не то. */
+      function rankBarRow(opts) {
+        const o = opts || {};
+        const pct = Math.max(0, Math.min(100, Math.round(numberValue(o.ratio, 0) * 100)));
+        return `
+          <div class="rank-row"${o.title ? ` title="${escapeHtml(o.title)}"` : ""}>
+            <span class="rank-name">${escapeHtml(o.name)}</span>
+            <span class="rank-track"><span class="rank-fill" style="width:${pct}%;background:${o.color || "var(--primary)"}"></span></span>
+            ${o.share !== undefined ? `<span class="rank-share">${o.share}%</span>` : ""}
+            <span class="rank-sum"${o.valueColor ? ` style="color:${o.valueColor}"` : ""}>${o.value}</span>
+          </div>`;
+      }
+
       // «2026-03» → «Март 2026». Для подсказки над столбцом: короткое «03/26»
       // годится подписью под ним, но в всплывашке читается как шифр.
       function monthTitleRu(key) {
@@ -16091,6 +16111,16 @@
                 <div class="db-money-sum"><span class="db-money-lbl">Доход</span><b style="color:var(--text-success)">${money(totalRev)}</b></div>
                 <div class="db-money-sum"><span class="db-money-lbl">Расход</span><b style="color:var(--text-danger)">${money(totalExp)}</b></div>
                 <div class="db-money-sum"><span class="db-money-lbl">Прибыль</span><b style="color:${profit>=0?'var(--text-success)':'var(--text-danger)'}">${money(profit)}</b></div>
+                ${/* Четвёртая величина — не ради симметрии: три колонки на широкой
+                      панели оставляли справа пустую четверть, а средний доход за
+                      месяц отвечает на вопрос «на что я живу», которого ни одна из
+                      трёх сумм периода не закрывает. Делим на месяцы С ДВИЖЕНИЕМ
+                      денег, а не на шесть: пустые месяцы занизили бы среднее и
+                      сделали бы его неправдой. */""}
+                <div class="db-money-sum" title="Средний доход за месяц по тем месяцам периода, в которых были поступления">
+                  <span class="db-money-lbl">В среднем / мес</span>
+                  <b>${money(monthsWithData > 0 ? Math.round(totalRev / monthsWithData) : 0)}</b>
+                </div>
               </div>` : ""}
             <div class="db-analytics-body">
               ${chartWorthDrawing ? `
@@ -21771,15 +21801,10 @@
                       const k = t.method || "Не указано"; byArticle[k] = (byArticle[k] || 0) + numberValue(t.amount, 0);
                     });
                     const total = Object.values(byArticle).reduce((s, v) => s + v, 0) || 1;
-                    return Object.entries(byArticle).sort((a,b) => b[1]-a[1]).map(([k, v]) => `
-                      <div class="category-bar-item">
-                        <div class="category-bar-label">${escapeHtml(k)}</div>
-                        <div style="flex:2;background:var(--line);border-radius:999px;height:8px;overflow:hidden">
-                          <div class="category-bar-fill" style="background:var(--green);width:${Math.round(v/total*100)}%"></div>
-                        </div>
-                        <div class="category-bar-amount">${money(v)}</div>
-                      </div>
-                    `).join("") || `<p style="color:var(--muted);font-size:13px">Нет данных</p>`;
+                    return Object.entries(byArticle).sort((a,b) => b[1]-a[1]).map(([k, v]) => rankBarRow({
+                      name: k, value: money(v), ratio: v / total,
+                      share: Math.round(v / total * 100), color: "var(--green)"
+                    })).join("") || `<p style="color:var(--muted);font-size:13px">Нет данных</p>`;
                   })()}
                 </div>
                 <div class="analytics-section">
@@ -21790,15 +21815,10 @@
                       const k = t.category || "Прочее"; byCat[k] = (byCat[k] || 0) + numberValue(t.amount, 0);
                     });
                     const total = Object.values(byCat).reduce((s, v) => s + v, 0) || 1;
-                    return Object.entries(byCat).sort((a,b) => b[1]-a[1]).map(([k, v]) => `
-                      <div class="category-bar-item">
-                        <div class="category-bar-label">${escapeHtml(k)}</div>
-                        <div style="flex:2;background:var(--line);border-radius:999px;height:8px;overflow:hidden">
-                          <div class="category-bar-fill" style="background:var(--red);width:${Math.round(v/total*100)}%"></div>
-                        </div>
-                        <div class="category-bar-amount">${money(v)}</div>
-                      </div>
-                    `).join("") || `<p style="color:var(--muted);font-size:13px">Нет данных</p>`;
+                    return Object.entries(byCat).sort((a,b) => b[1]-a[1]).map(([k, v]) => rankBarRow({
+                      name: k, value: money(v), ratio: v / total,
+                      share: Math.round(v / total * 100), color: "var(--red)"
+                    })).join("") || `<p style="color:var(--muted);font-size:13px">Нет данных</p>`;
                   })()}
                 </div>
               </div>
@@ -21806,20 +21826,20 @@
               <div class="analytics-section">
                 <h3>Прибыль по проектам (топ-10)</h3>
                 ${(() => {
-                  const byProj = [];
-                  state.savedProjects.slice(0, 10).forEach(p => {
-                    byProj.push({ name: p.name, profit: p.profit || 0, total: p.total || 0 });
-                  });
+                  /* Заголовок обещает ТОП-10, а бралось десять ПЕРВЫХ сделок из
+                     списка и уже они сортировались: у владельца со 124 сделками в
+                     «топе» оказывались случайные. Сортируем всё, потом отрезаем. */
+                  const byProj = (state.savedProjects || [])
+                    .map(p => ({ name: p.name, profit: numberValue(p.profit, 0) }))
+                    .sort((a, b) => b.profit - a.profit)
+                    .slice(0, 10);
                   const maxProfit = Math.max(...byProj.map(p => Math.abs(p.profit)), 1);
-                  return byProj.sort((a,b) => b.profit - a.profit).map(p => `
-                    <div class="category-bar-item">
-                      <div class="category-bar-label" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name)}</div>
-                      <div style="flex:2;background:var(--line);border-radius:999px;height:8px;overflow:hidden">
-                        <div class="category-bar-fill" style="background:${p.profit >= 0 ? "var(--primary2)" : "var(--red)"};width:${Math.round(Math.abs(p.profit)/maxProfit*100)}%"></div>
-                      </div>
-                      <div class="category-bar-amount" style="color:${p.profit >= 0 ? "var(--primary-text)" : "var(--red)"}">${money(p.profit)}</div>
-                    </div>
-                  `).join("") || `<p style="color:var(--muted);font-size:13px">Нет данных</p>`;
+                  return byProj.map(p => rankBarRow({
+                    name: p.name, title: p.name, value: money(p.profit),
+                    ratio: Math.abs(p.profit) / maxProfit,
+                    color: p.profit >= 0 ? "var(--primary2)" : "var(--red)",
+                    valueColor: p.profit >= 0 ? "var(--primary-text)" : "var(--red)"
+                  })).join("") || `<p style="color:var(--muted);font-size:13px">Нет данных</p>`;
                 })()}
               </div>
 
@@ -21833,15 +21853,11 @@
                   });
                   const entries = Object.entries(byClient).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
                   const max = Math.max(...entries.map(e => e[1]), 1);
-                  return entries.map(([k, v]) => `
-                    <div class="category-bar-item">
-                      <div class="category-bar-label" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(k)}</div>
-                      <div style="flex:2;background:var(--line);border-radius:999px;height:8px;overflow:hidden">
-                        <div class="category-bar-fill" style="background:var(--green);width:${Math.round(v / max * 100)}%"></div>
-                      </div>
-                      <div class="category-bar-amount">${money(v)}</div>
-                    </div>
-                  `).join("") || `<p style="color:var(--muted);font-size:13px">Нет данных</p>`;
+                  const clientsAll = Object.values(byClient).reduce((s, v) => s + v, 0) || 1;
+                  return entries.map(([k, v]) => rankBarRow({
+                    name: k, title: k, value: money(v), ratio: v / max,
+                    share: Math.round(v / clientsAll * 100), color: "var(--green)"
+                  })).join("") || `<p style="color:var(--muted);font-size:13px">Нет данных</p>`;
                 })()}
               </div>
             ` : ""}
