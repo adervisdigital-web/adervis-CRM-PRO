@@ -4996,7 +4996,11 @@
     }
     /* Обёртка вокруг самих пилюль-пресетов (без подписи «Период:» и кастомных дат) —
        на мобильном превращается в горизонтальный скролл, см. media-запрос ниже. */
-    .date-preset-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    /* Полосу прокрутки под лентой периодов прячем: на телефоне она рисуется
+       серой чертой под чипами и читается как подчёркивание выбранного. */
+    .date-preset-row::-webkit-scrollbar { display: none; }
+    .date-preset-row {
+      scrollbar-width: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .date-preset-btn {
       padding: 6px 12px; border-radius: var(--r-pill); border: 1px solid var(--line);
       min-height: var(--h-sm);
@@ -5290,11 +5294,20 @@
       font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums;
       white-space: nowrap; min-width: 96px; text-align: right;
     }
-    @media (max-width: 560px) {
-      .rank-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
-      .rank-track { grid-column: 1 / -1; }
+    /* На телефоне колонки не помещаются, и строка разворачивается в два этажа:
+       имя и сумма В ОДНОЙ строке (их и сравнивают), полоска — под ними. Первая
+       версия отправляла сумму на третий этаж, и каждая позиция занимала три
+       строки: десять проектов растягивались на пол-экрана. */
+    @media (max-width: 620px) {
+      .rank-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas: "name sum" "track track";
+        gap: 3px 10px; padding: 7px 0;
+      }
+      .rank-name { grid-area: name; }
+      .rank-sum { grid-area: sum; min-width: 0; }
+      .rank-track { grid-area: track; }
       .rank-share { display: none; }
-      .rank-sum { min-width: 0; }
     }
 
     .category-bar-item {
@@ -7970,11 +7983,65 @@ button.is-busy::before {
   .crm-home-funnel .funnel-stage--empty { display: none; }
 }
 
-/* Вкладки админки: на телефоне три штуки в строку не помещались (width: fit-content
-   без переноса), и «Ошибки» обрезалось на полуслове. Переносим и даём цель касания. */
+/* ── Админка: карточка пользователя ──────────────────────────────────────────
+   Карточка собиралась одним flex-wrap: аватар, имя, статусы и ШЕСТЬ кнопок в
+   одном потоке. На телефоне это разваливалось в кашу — кнопки переносились по
+   две-три в ряд, последняя (красная «Заблокировать») оставалась сиротой на своей
+   строке, и карточка читалась как свалка. Даём явные зоны: кто → в каком
+   состоянии → что с ним можно сделать. */
+.adm-card { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.adm-card-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; flex-wrap: wrap;
+}
+.adm-avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  background: var(--primary); color: var(--on-color);
+  display: grid; place-items: center; font-size: 14px; font-weight: 900;
+}
+.adm-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
+.adm-actions { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
+
+@media (max-width: 720px) {
+  /* Три этажа вместо одного потока. Аватар с именем занимают строку целиком,
+     статусы идут под ними, действия — последней строкой. */
+  .adm-card-row { align-items: flex-start; gap: 10px; padding: 12px 13px; }
+  .adm-who { flex: 1 1 100%; min-width: 0; order: 1; }
+  .adm-avatar { order: 0; }
+  .adm-status { order: 2; flex: 1 1 100%; }
+  /* Действия — СЕТКОЙ, а не переносом: при переносе последняя кнопка вставала
+     одна и ряд выглядел оборванным. Колонки равной ширины, минимум 44px —
+     тач-цель; текстовые кнопки («Активировать», «Возврат») занимают две. */
+  /* Ровно ЧЕТЫРЕ колонки, а не auto-fit: при автоподборе выходило пять, и
+     семь ячеек (шесть кнопок, одна из них двойная) ложились как 5+2 — вторая
+     строка выглядела огрызком. Четыре дают 4+3, ряд читается целым. */
+  .adm-actions {
+    order: 3; flex: 1 1 100%; display: grid; gap: 6px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .adm-actions .btn { min-height: 44px; padding-left: 6px; padding-right: 6px; justify-content: center; }
+  /* Две колонки — только кнопкам с длинной подписью («Активировать»,
+     «Возврат»); они помечены классом в разметке. Правило «всё, что не значок»
+     раздувало и «+14д», хотя тому хватает одной колонки. */
+  .adm-actions .adm-act-wide { grid-column: span 2; }
+}
+
+/* Ряды-ленты админки (вкладки, отборы). Раньше они переносились: шесть отборов
+   вставали в ТРИ строки и съедали треть экрана до первого пользователя. Лента с
+   прокруткой держит одну строку и не прячет порядок — свайп по ней привычен по
+   воронке на главной. Полосу прокрутки прячем: она тут шумит. */
+.adm-strip {
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 10px, black calc(100% - 10px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, black 10px, black calc(100% - 10px), transparent 100%);
+}
+.adm-strip::-webkit-scrollbar { display: none; }
+.adm-strip > * { flex: 0 0 auto; }
 @media (max-width: 640px) {
-  .admin-tabs { flex-wrap: wrap; max-width: 100%; }
   .admin-tab { min-height: 44px; }
+  .adm-strip .fin-subtab { min-height: 40px; }
 }
 
 /* Форма промокода в админке: на телефоне четыре колонки не помещаются, поле

@@ -4708,7 +4708,10 @@
         };
         const shown = _adminFilteredUsers().length;
         return `
-          <div class="fin-subtab-bar" style="margin-bottom:10px;flex-wrap:wrap">
+          ${/* Шесть отборов переносились на телефоне на ТРИ строки и съедали
+                треть экрана до первого пользователя. Лента с прокруткой: порядок
+                виден, место занимает одну строку. */""}
+          <div class="fin-subtab-bar adm-strip" style="margin-bottom:10px">
             ${chip("", "Все")}${chip("active", "Активные")}${chip("trial", "Триал")}${chip("expired", "Истёкшие")}${chip("blocked", "Заблокированные")}${chip("none", "Без профиля")}
           </div>
           <div class="kp-toolbar">
@@ -4806,15 +4809,13 @@
                   const isBlocked = ast === "blocked";
                   const isExpired = ast === "expired";
                   return `
-                    <div style="border:1px solid var(--line);border-radius:14px;overflow:hidden;${isBlocked?"opacity:.6":""}">
+                    <div class="adm-card" style="${isBlocked?"opacity:.6":""}">
                       <!-- User row -->
-                      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;flex-wrap:wrap">
+                      <div class="adm-card-row">
                         <!-- Avatar -->
-                        <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:14px;font-weight:900;color:#fff;flex-shrink:0">
-                          ${(a.email||"?")[0].toUpperCase()}
-                        </div>
+                        <div class="adm-avatar">${(a.email||"?")[0].toUpperCase()}</div>
                         <!-- Info -->
-                        <div class="u-flex1-min0">
+                        <div class="u-flex1-min0 adm-who">
                           <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.email||"—")}</div>
                           <div style="font-size:12px;color:var(--muted);margin-top:2px">
                             Зарег.: ${a.created_at ? new Date(a.created_at).toLocaleDateString("ru-RU") : "—"}
@@ -4822,7 +4823,7 @@
                           </div>
                         </div>
                         <!-- Status + plan + expiry -->
-                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0">
+                        <div class="adm-status">
                           <span style="padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;background:${statusColor[ast]||"var(--panel2)"};color:${statusText[ast]||"var(--muted)"}">
                             ${_adminSubLabel(ast)}
                           </span>
@@ -4847,17 +4848,17 @@
                               дети уместятся в одну строку внутри него, а сам он вылезет
                               за край — и перенос не сработает никогда. Запрет сжатия
                               оставлен на самих кнопках, чтобы не плющились иконки. */""}
-                        <div style="display:flex;gap:6px;flex-wrap:wrap;min-width:0">
+                        <div class="adm-actions">
                           ${!isEditing ? `
-                            ${(isExpired || ast === "") ? `<button class="btn small green" onclick="app.adminActivate('${aid}')" title="Активировать на 30 дней">${icon("check")} Активировать</button>` : ""}
+                            ${(isExpired || ast === "") ? `<button class="btn small green adm-act-wide" onclick="app.adminActivate('${aid}')" title="Активировать на 30 дней">${icon("check")} Активировать</button>` : ""}
                             ${/* Активность — первым действием: чаще всего нужно понять,
                                   пользуется человек или нет, а не править ему подписку. */""}
                             <button class="btn small ${_adminActivity && _adminActivity.agencyId === (a.agency_id||"") ? "primary" : ""}" onclick="app.adminToggleActivity('${aid}')" title="Что человек делает внутри: сделки, сметы, КП" aria-label="Активность аккаунта">${icon("chart", 13)}</button>
                             <button class="btn small" onclick="app.adminExtendTrial('${aid}')" title="+14 дней к триалу">+14д</button>
                             <button class="btn small" onclick="app.adminSetUserTag('${aid}')" title="${a.admin_tag ? "Метка: " + escapeHtml(a.admin_tag) + " — изменить" : "Пометить аккаунт: амбассадор, партнёр, тест…"}" aria-label="Метка аккаунта">${icon("star", 13)}</button>
                             <button class="btn small" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Изменить подписку" aria-label="Изменить подписку">${icon("pencil")}</button>
-                            ${ast === "active" ? `<button class="btn small" onclick="app.adminRefund('${aid}','${escapeHtml(a.email||"")}')" title="Оформить возврат: закрыть подписку и вернуть деньги в ЮKassa">Возврат</button>` : ""}
-                            <button class="btn small ${isBlocked?"green":"danger"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}" aria-label="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?icon("unlock"):icon("lock")}</button>
+                            ${ast === "active" ? `<button class="btn small adm-act-wide" onclick="app.adminRefund('${aid}','${escapeHtml(a.email||"")}')" title="Оформить возврат: закрыть подписку и вернуть деньги в ЮKassa">Возврат</button>` : ""}
+                            <button class="btn small ${isBlocked?"green":"danger-quiet"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}" aria-label="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?icon("unlock"):icon("lock")}</button>
                           ` : `
                             <button class="btn small" onclick="app._closeEditSub()" style="opacity:.6">Отмена</button>
                           `}
@@ -4941,7 +4942,7 @@
             ${/* Класс нужен, чтобы правила доставали до кнопок: ряд целиком на
                   инлайновых стилях с width:fit-content и без переноса — на 390px
                   три вкладки не помещались, и «Ошибки» обрезалось на полуслове. */""}
-            <div class="admin-tabs" style="display:flex;gap:4px;margin-bottom:20px;background:var(--panel2);padding:4px;border-radius:12px;width:fit-content">
+            <div class="admin-tabs adm-strip" style="display:flex;gap:4px;margin-bottom:20px;background:var(--panel2);padding:4px;border-radius:12px;width:fit-content;max-width:100%">
               ${[["users",icon("users"),"Пользователи"],["promos",icon("gift"),"Промокоды"],["payments",icon("wallet"),"Платежи"],["errors",icon("bug"),"Ошибки" + ((_adminErrors||[]).length ? ` (${_adminErrors.length})` : "")]].map(([k,ic,l]) => `
                 <button class="admin-tab" onclick="app._setAdminTab('${k}')"
                   style="display:inline-flex;align-items:center;gap:7px;padding:8px 18px;border-radius:9px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:.15s;
@@ -8308,8 +8309,16 @@
            отступы: подпись в 9 единиц выходила на экран двенадцатью пикселями, и
            график выглядел крупнее, чем задумано. Теперь размеры в разметке —
            это примерно те же пиксели, что и на экране. */
-        const W = 1040, H = o.h || 260;
-        const PADL = 46, PADR = 12, PADT = 26, PADB = 38;
+        /* На телефоне то же поле в 1040 единиц сжимается до 350px — масштаб 0,34,
+           и подпись месяца в 12 единиц приезжает четырьмя пикселями: график
+           превращается в нечитаемую полоску (скриншот владельца 01.09.2026).
+           Поэтому на узком экране поле меньше — масштаб снова около единицы, а
+           кегли остаются теми же. Ширину берём у окна: рисунок собирается в
+           браузере, и знать её здесь законно. */
+        const narrow = typeof window !== "undefined" && window.innerWidth < 760;
+        const W = narrow ? 430 : 1040, H = o.h || (narrow ? 240 : 260);
+        const PADL = narrow ? 34 : 46, PADR = narrow ? 6 : 12;
+        const PADT = narrow ? 20 : 26, PADB = narrow ? 30 : 38;
         const plotW = W - PADL - PADR, plotH = H - PADT - PADB;
         const baseY = PADT + plotH;
         const gw = plotW / list.length;
@@ -8320,7 +8329,7 @@
            теряются в промежутках, график читается пустым; больше (0,62) —
            сливаются в стену. Зазор внутри пары фиксированный: он разделяет
            доход и расход, а не масштабируется вместе с ними. */
-        const bw = Math.max(11, Math.round((gw * 0.46 - 8) / 2)), gap = 8;
+        const bw = Math.max(narrow ? 7 : 11, Math.round((gw * 0.46 - (narrow ? 5 : 8)) / 2)), gap = narrow ? 5 : 8;
         const maxVal = Math.max(...list.map(m => Math.max(numberValue(m.income, 0), numberValue(m.expense, 0))), 1);
         const scaleMax = maxVal * 1.06;
 
@@ -8332,7 +8341,10 @@
         };
         // Подписи значений на двенадцати месяцах наезжают друг на друга — при
         // тесных колонках их не рисуем, суммы остаются в подсказке при наведении.
-        const showValues = gw >= 95;
+        /* Подписи значений над столбцами: на узком поле колонка втрое уже, и
+           «237к» над каждой парой сливается в кашу. Порог считаем от ширины
+           поля, а не абсолютным числом. */
+        const showValues = gw >= (narrow ? 62 : 95);
 
         const cols = list.map((m, i) => {
           const inc = numberValue(m.income, 0), exp = numberValue(m.expense, 0);
