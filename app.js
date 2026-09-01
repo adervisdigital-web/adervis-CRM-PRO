@@ -8282,15 +8282,25 @@
         const list = (months || []).filter(Boolean);
         if (!list.length) return "";
         const o = opts || {};
-        const W = 760, H = o.h || 210;
-        const PADL = 42, PADR = 10, PADT = 22, PADB = 32;
+        /* Поле 1040×260 — близко к реальной ширине панели на десктопе, поэтому
+           масштаб получается около единицы. При прежних 760 браузер растягивал
+           весь рисунок в 1,4 раза, и вместе со столбцами раздувались шрифты и
+           отступы: подпись в 9 единиц выходила на экран двенадцатью пикселями, и
+           график выглядел крупнее, чем задумано. Теперь размеры в разметке —
+           это примерно те же пиксели, что и на экране. */
+        const W = 1040, H = o.h || 260;
+        const PADL = 46, PADR = 12, PADT = 26, PADB = 38;
         const plotW = W - PADL - PADR, plotH = H - PADT - PADB;
         const baseY = PADT + plotH;
         const gw = plotW / list.length;
         /* Ширина пары — доля от ширины месяца. 0,62 давало стену из столбцов;
            0,40 оставляет воздух между месяцами. Минимум 8px держит форму, когда
            месяцев двенадцать и на каждый приходится вдвое меньше места. */
-        const bw = Math.max(8, Math.round((gw * 0.40 - 6) / 2)), gap = Math.min(6, Math.round(bw / 2));
+        /* Пара столбцов занимает 46% ширины месяца. Меньше (0,34) — столбцы
+           теряются в промежутках, график читается пустым; больше (0,62) —
+           сливаются в стену. Зазор внутри пары фиксированный: он разделяет
+           доход и расход, а не масштабируется вместе с ними. */
+        const bw = Math.max(11, Math.round((gw * 0.46 - 8) / 2)), gap = 8;
         const maxVal = Math.max(...list.map(m => Math.max(numberValue(m.income, 0), numberValue(m.expense, 0))), 1);
         const scaleMax = maxVal * 1.06;
 
@@ -8302,7 +8312,7 @@
         };
         // Подписи значений на двенадцати месяцах наезжают друг на друга — при
         // тесных колонках их не рисуем, суммы остаются в подсказке при наведении.
-        const showValues = gw >= 70;
+        const showValues = gw >= 95;
 
         const cols = list.map((m, i) => {
           const inc = numberValue(m.income, 0), exp = numberValue(m.expense, 0);
@@ -8312,12 +8322,12 @@
           const rh = inc > 0 ? Math.max(3, inc / scaleMax * plotH) : 0;
           const eh = exp > 0 ? Math.max(3, exp / scaleMax * plotH) : 0;
           const revLabel = showValues && inc > 0
-            ? `<text x="${rx + bw / 2}" y="${baseY - rh - 5}" text-anchor="middle" font-size="9" font-weight="650" fill="var(--text)" font-family="inherit">${shortNum(inc)}</text>` : "";
+            ? `<text x="${rx + bw / 2}" y="${baseY - rh - 5}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)" font-family="inherit">${shortNum(inc)}</text>` : "";
           /* Столбец расхода при доходе в разы больше — обрубок в три пикселя:
              видно, что он есть, и не видно, сколько. Подпись мельче и приглушена,
              чтобы не спорить с суммой дохода, ради которой в график и смотрят. */
           const expLabel = showValues && exp > 0
-            ? `<text x="${ex + bw / 2}" y="${baseY - eh - 5}" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text-danger)" font-family="inherit" opacity=".85">${shortNum(exp)}</text>` : "";
+            ? `<text x="${ex + bw / 2}" y="${baseY - eh - 5}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text-danger)" font-family="inherit" opacity=".85">${shortNum(exp)}</text>` : "";
           const hooks = o.interactive === false ? "" :
             `onmouseenter="app.showChartTip(event,'${escapeHtml(m.label)}',${inc},${exp})"
              onmousemove="app.positionChartTip(event)"
@@ -8327,13 +8337,13 @@
             <g class="db-chart-col" ${hooks}>
               <rect class="db-chart-hit-bg" x="${gx + 2}" y="${PADT}" width="${gw - 4}" height="${plotH}" rx="8"/>
               <rect class="db-chart-hit" x="${gx}" y="0" width="${gw}" height="${H}" fill="transparent"/>
-              ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, bw / 2)}" fill="url(#${id}Rev)" filter="url(#${id}Glow)"/>` : ""}
-              ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, bw / 2)}" fill="url(#${id}Exp)"/>` : ""}
+              ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, 3)}" fill="url(#${id}Rev)" filter="url(#${id}Glow)"/>` : ""}
+              ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, 3)}" fill="url(#${id}Exp)"/>` : ""}
               ${revLabel}${expLabel}
               ${/* Месяц без движения денег: колонка пустая, и подпись под ней
                     приглушена — иначе пустое место читается как обрыв графика, а
                     не как «в этом месяце ничего не было». */""}
-              <text x="${gx + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="inherit" letter-spacing=".2"${inc === 0 && exp === 0 ? ' opacity=".45"' : ''}>${escapeHtml(m.short || m.label)}</text>
+              <text x="${gx + gw / 2}" y="${H - 13}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="inherit" letter-spacing=".2"${inc === 0 && exp === 0 ? ' opacity=".45"' : ''}>${escapeHtml(m.short || m.label)}</text>
             </g>`;
         }).join("");
 
@@ -8346,7 +8356,7 @@
           const val = maxVal * f;
           const y = baseY - (val / scaleMax) * plotH;
           return `<line x1="${PADL}" y1="${y}" x2="${W - PADR}" y2="${y}" stroke="var(--line)" stroke-width="0.8" stroke-dasharray="2,6" opacity=".7"/>
-                  <text x="${PADL - 7}" y="${y + 3}" text-anchor="end" font-size="8.5" fill="var(--muted)" font-family="inherit" opacity="0.7">${shortNum(val)}</text>`;
+                  <text x="${PADL - 7}" y="${y + 3}" text-anchor="end" font-size="10" fill="var(--muted)" font-family="inherit" opacity="0.7">${shortNum(val)}</text>`;
         }).join("");
 
         return `

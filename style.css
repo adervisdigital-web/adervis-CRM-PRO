@@ -3727,11 +3727,23 @@
 
     /* Три числа периода подписанной строкой. Прежняя легенда «▋ сумма ▋ сумма
        = сумма» объясняла цвет столбцов, но не говорила, что это за суммы. */
+    /* Три суммы жались к левому краю и занимали треть ширины — оставшиеся две
+       трети над графиком пустовали, и шапка панели выглядела оборванной. Теперь
+       это ряд на всю ширину с разделителями: он держит верх панели и повторяет
+       ритм колонок графика под ним. */
     .db-money-sums {
-      display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 26px;
-      margin-bottom: 6px;
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-bottom: 4px; border-bottom: 1px solid var(--line); padding-bottom: 10px;
     }
-    .db-money-sum { display: flex; flex-direction: column; gap: 1px; }
+    .db-money-sum {
+      display: flex; flex-direction: column; gap: 2px; min-width: 0;
+      padding-left: 14px; border-left: 1px solid var(--line);
+    }
+    .db-money-sum:first-child { padding-left: 0; border-left: none; }
+    @media (max-width: 560px) {
+      .db-money-sums { grid-template-columns: 1fr 1fr; gap: 10px 0; }
+      .db-money-sum:nth-child(3) { padding-left: 0; border-left: none; }
+    }
     .db-money-sum b { font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
     .db-money-lbl {
       font-size: 11px; color: var(--muted); font-weight: 650;
