@@ -1478,6 +1478,63 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Ширина выпадашки идёт от самого длинного варианта списка. У фильтра по
+     проекту это название сделки: у владельца «Реклама – База отдыха "Раздолье –
+     Троица"» растягивала выбор на всю строку, поиск уезжал вниз, и ряд ломался.
+     Проверяем на заведомо длинных именах — на коротких дефект не виден. */
+  await test("фильтр по проекту не растягивается длинным названием сделки", async () => {
+    const длинное = 'Реклама – База отдыха "Раздолье – Троица" (осенняя серия роликов)';
+    /* Сделок нужно БОЛЬШЕ СОРОКА и обязательно touch-окно: на телефоне длинный
+       список остаётся нативным select (см. UU_TOUCH_MAX_OPTIONS), а растягивает
+       строку именно он. На четырёх сделках с кастомной выпадашкой дефекта нет —
+       первая версия сторожа так и прошла мимо. */
+    const deals = Array.from({ length: 60 }, (_, i) => ({
+      id: "L" + i, name: длинное + " " + i, client: "Клиент " + i, clientId: "cl" + i,
+      total: 100000, paid: 50000, debt: 50000,
+      crmStatus: "В работе", status: "В работе", updatedAt: new Date().toISOString(),
+      snapshot: { project: { name: длинное + " " + i }, payments: [], expenses: [], tasks: [], selected: {} }
+    }));
+    const ctx = await browser.newContext({
+      viewport: { width: 390, height: 900 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    const pg = await ctx.newPage();
+    await pg.addInitScript(({ key, deals }) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      localStorage.setItem(key, JSON.stringify({ savedProjects: deals, view: "home" }));
+    }, { key: STORAGE_KEY, deals });
+    await pg.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await pg.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await pg.evaluate(() => {
+      window.app.go("global-finances");
+      window.app.setGFinSubTab("transactions");
+    });
+    await pg.waitForTimeout(600);
+    const ряд = await pg.evaluate(() => {
+      const bar = document.querySelector("#appContent .fin-action-bar");
+      if (!bar) return null;
+      const bw = bar.getBoundingClientRect().width;
+      // Ищем и кастомные обёртки, и нативные селекты: на телефоне длинный
+      // список остаётся нативным, и растягивает строку именно он.
+      // enhanceSelects помечает классом .uu-done ВСЕ селекты, включая те, что
+      // оставил нативными, — отличать надо не по нему, а по наличию обёртки.
+      const sels = [...bar.querySelectorAll(".uu-select-wrap, select")]
+        .filter((el) => !(el.tagName === "SELECT" && el.closest(".uu-select-wrap")));
+      const wraps = sels.map((w) => Math.round(w.getBoundingClientRect().width));
+      const tops = sels.map((w) => Math.round(w.getBoundingClientRect().top));
+      return { ширина: Math.round(bw), выборы: wraps, наОднойСтроке: new Set(tops).size === 1 };
+    });
+    await ctx.close();
+    assert(ряд && ряд.выборы.length >= 2, "не нашёл выпадашки фильтров: " + JSON.stringify(ряд));
+    assert(ряд.наОднойСтроке, "выпадашки разъехались по строкам: " + JSON.stringify(ряд));
+    ряд.выборы.forEach((w) =>
+      assert(w <= ряд.ширина * 0.55,
+        "выпадашка заняла " + w + "px из " + ряд.ширина + " — её растянуло название сделки"));
+  });
+
   /* Период без операций давал ДВЕ панели подряд с одинаковым «Нет данных» —
      на телефоне это полэкрана пустоты вместо ответа. */
   await test("аналитика: пустой период не плодит одинаковые «Нет данных»", async () => {
