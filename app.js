@@ -8327,8 +8327,8 @@
             <g class="db-chart-col" ${hooks}>
               <rect class="db-chart-hit-bg" x="${gx + 2}" y="${PADT}" width="${gw - 4}" height="${plotH}" rx="8"/>
               <rect class="db-chart-hit" x="${gx}" y="0" width="${gw}" height="${H}" fill="transparent"/>
-              ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, Math.min(6, bw / 2))}" fill="url(#${id}Rev)" filter="url(#${id}Glow)"/>` : ""}
-              ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, Math.min(6, bw / 2))}" fill="url(#${id}Exp)"/>` : ""}
+              ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, bw / 2)}" fill="url(#${id}Rev)" filter="url(#${id}Glow)"/>` : ""}
+              ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, bw / 2)}" fill="url(#${id}Exp)"/>` : ""}
               ${revLabel}${expLabel}
               ${/* Месяц без движения денег: колонка пустая, и подпись под ней
                     приглушена — иначе пустое место читается как обрыв графика, а
@@ -8337,11 +8337,16 @@
             </g>`;
         }).join("");
 
-        const gridLines = [0.4, 0.8].map(f => {
+        /* Три линии вместо двух: с двумя глаз мерил высоту столбца «на глазок»
+           между далеко отстоящими уровнями. Линии тоньше — сетка это опора, а не
+           рисунок. Верхнего уровня (1,0) нет намеренно: он совпадал с вершиной
+           самого высокого столбца, и подпись оси дублировала его собственную —
+           одно и то же число дважды в двух сантиметрах. */
+        const gridLines = [0.25, 0.5, 0.75].map(f => {
           const val = maxVal * f;
           const y = baseY - (val / scaleMax) * plotH;
-          return `<line x1="${PADL}" y1="${y}" x2="${W - PADR}" y2="${y}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3,5"/>
-                  <text x="${PADL - 7}" y="${y + 3}" text-anchor="end" font-size="8.5" fill="var(--muted)" font-family="inherit" opacity="0.8">${shortNum(val)}</text>`;
+          return `<line x1="${PADL}" y1="${y}" x2="${W - PADR}" y2="${y}" stroke="var(--line)" stroke-width="0.8" stroke-dasharray="2,6" opacity=".7"/>
+                  <text x="${PADL - 7}" y="${y + 3}" text-anchor="end" font-size="8.5" fill="var(--muted)" font-family="inherit" opacity="0.7">${shortNum(val)}</text>`;
         }).join("");
 
         return `
@@ -8355,13 +8360,6 @@
                 <stop offset="0" stop-color="var(--red)" stop-opacity="0.7"/>
                 <stop offset="1" stop-color="var(--red)" stop-opacity="0.3"/>
               </linearGradient>
-              ${/* Подложка под областью данных: акцентный свет снизу вверх. Не декор
-                    ради декора — она отделяет поле от панели, на которой прежде
-                    столбцы висели в пустоте. */""}
-              <linearGradient id="${id}Wash" x1="0" x2="0" y1="1" y2="0">
-                <stop offset="0" stop-color="var(--primary)" stop-opacity="0.10"/>
-                <stop offset="1" stop-color="var(--primary)" stop-opacity="0"/>
-              </linearGradient>
               ${/* Свечение столбцов дохода. Радиус маленький: на большем столбцы
                     «плывут» и перестают читаться как точная величина, а это деньги. */""}
               <filter id="${id}Glow" x="-60%" y="-40%" width="220%" height="200%">
@@ -8369,7 +8367,6 @@
                 <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
               </filter>
             </defs>
-            <rect x="${PADL}" y="${PADT}" width="${plotW}" height="${plotH}" rx="10" fill="url(#${id}Wash)"/>
             ${gridLines}
             <line x1="${PADL}" y1="${baseY}" x2="${W - PADR}" y2="${baseY}" stroke="var(--line)" stroke-width="1.4"/>
             ${cols}
