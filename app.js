@@ -19203,6 +19203,14 @@
           };
         };
         const statusLabel = s => ({ new: "Новый", active: "Активный", vip: "VIP", paused: "Пауза", lost: "Потерян" })[s] || "Новый";
+        /* Все пять статусов рисовались ОДНОЙ капсулой: «Новый», «Пауза» и
+           «Активный» в списке выглядели одинаково, и колонка статуса ничего не
+           сообщала — приходилось читать каждое слово. Даём каждому свой тон.
+           Потерянный клиент НЕ красный: это факт, а не ошибка, и кричать ему
+           незачем — приглушённый серый, как у архива. */
+        const statusTone = s => ({
+          new: "info", active: "green", vip: "accent", paused: "yellow", lost: "archived"
+        })[s] || "info";
         const clientsEmpty = () => !clientQ
           ? emptyState({
               icon: "users",
@@ -19275,7 +19283,7 @@
                   const m = clientMoney(client);
                   return `
                   <div class="client-list-row" onclick="app.openClientModal('${client.id}')" title="Открыть карточку клиента">
-                    <span class="status-pill">${statusLabel(client.status)}</span>
+                    <span class="status-pill ${statusTone(client.status)}">${statusLabel(client.status)}</span>
                     <div class="client-list-name">${escapeHtml(client.name)}</div>
                     <div class="client-list-company">${escapeHtml(client.company || client.city || "—")}</div>
                     <div class="client-list-deals" title="Сделок с клиентом">${m.count ? `${m.count} ${plural(m.count, "сделка", "сделки", "сделок")}` : ""}</div>
@@ -19303,7 +19311,7 @@
                         <h3>${escapeHtml(client.name)}</h3>
                         ${clientSubtitle(client) ? `<p>${escapeHtml(clientSubtitle(client))}</p>` : ""}
                       </div>
-                      <span class="status-pill">${statusLabel(client.status)}</span>
+                      <span class="status-pill ${statusTone(client.status)}">${statusLabel(client.status)}</span>
                     </div>
                     <div class="client-card-stats">
                       <span title="Сделок с клиентом">${m.count} ${plural(m.count, "сделка", "сделки", "сделок")}</span>

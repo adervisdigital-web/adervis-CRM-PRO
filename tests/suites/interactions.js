@@ -4939,6 +4939,39 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(разброс <= 2, "поля цены разной ширины: " + JSON.stringify(ширины));
   });
 
+  /* Все пять статусов клиента рисовались ОДНОЙ капсулой: «Новый», «Пауза» и
+     «Активный» в списке выглядели одинаково, и колонка статуса ничего не
+     сообщала — приходилось читать каждое слово. */
+  await test("клиенты: статусы различаются цветом, а не только словом", async () => {
+    const { ctx, p } = await bootWithState(`
+      st.clients = [
+        { id: "s1", name: "Активный клиент", status: "active" },
+        { id: "s2", name: "Новый клиент", status: "new" },
+        { id: "s3", name: "Клиент на паузе", status: "paused" },
+        { id: "s4", name: "Важный клиент", status: "vip" },
+        { id: "s5", name: "Ушедший клиент", status: "lost" }
+      ];
+      st.savedProjects = st.clients.map((c, i) => ({
+        id: "cp" + i, name: "Сделка " + i, client: c.name, clientId: c.id,
+        total: 100000, paid: 60000, debt: 40000, crmStatus: "В работе", status: "В работе",
+        updatedAt: new Date().toISOString(),
+        snapshot: { project: { name: "Сделка " + i }, payments: [], expenses: [], tasks: [], selected: {} }
+      }));
+      st.activeProjectId = ""; st.clientsView = "list";
+    `, { width: 1440, height: 950 });
+    await p.evaluate(() => { window.app.setClientsView("list"); window.app.go("clients"); });
+    await p.waitForTimeout(600);
+    const тона = await p.evaluate(() =>
+      [...document.querySelectorAll("#appContent .status-pill")]
+        .map((e) => ({ t: e.textContent.trim(), c: getComputedStyle(e).color }))
+        .filter((x) => /Активный|Новый|Пауза|VIP|Потерян/.test(x.t)));
+    await ctx.close();
+    assert(тона.length >= 5, "не нашёл капсулы статусов: " + JSON.stringify(тона));
+    const цветов = new Set(тона.map((x) => x.c));
+    assertEqual(цветов.size, тона.length,
+      "у статусов повторяются цвета — колонка не отличает их друг от друга: " + JSON.stringify(тона));
+  });
+
   /* Меню «три точки» на карточке каталога открывалось ПОД соседние карточки:
      карточка под курсором приподнимается на 2px через transform, а transform
      создаёт стековый контекст — меню с z-index:200 запирается внутри карточки, и
