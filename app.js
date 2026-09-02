@@ -17175,7 +17175,7 @@
                     начислены, но ещё не выплачены, и называет себя этим. */""}
               ${fin.teamPayouts !== fin.teamPayoutsPaid ? `<div class="summary-line" style="font-size:12px;color:var(--muted)" title="Гонораров начислено ${money(fin.teamPayouts)}, выплачено ${money(fin.teamPayoutsPaid)}. Доход в строке плановый — по сумме сметы, а не по полученным деньгам."><span>Прибыль без невыплаченных гонораров</span><strong>${money(fin.profitFact)}</strong></div>` : ""}
               <div class="mt-8">
-                <span class="margin-badge ${marginClass}" title="${escapeHtml(marginTitle)}">${margin}% маржа</span>
+                ${fin.revenue > 0 ? `<span class="margin-badge ${marginClass}" title="${escapeHtml(marginTitle)}">${margin}% маржа</span>` : ""}
                 ${!costsKnown && fin.revenue > 0 ? `<div class="u-meta" style="margin-top:6px">Себестоимость не заполнена — прибыль показана как вся сумма сметы</div>` : ""}
               </div>
               ${fin.profit < 0 ? `<div class="no-print" style="margin-top:10px;padding:9px 12px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;font-size:12px;font-weight:700;color:var(--text-danger)"> Смета в минусе: себестоимость и расходы превышают цену для клиента</div>` : ""}
@@ -22129,7 +22129,19 @@
                     <div class="cal-dots">
                       ${dayEvs.slice(0, 4).map(ev => `<span class="cal-dot-item ${ev.type}" title="${escapeHtml(ev.title)}"></span>`).join("")}
                     </div>
-                    ${dayEvs.slice(0, MAX_LABELS).map(ev => `<span class="cal-event-label ${ev.type}">${escapeHtml(ev.title.slice(0,22))}</span>`).join("")}
+                    ${/* В ячейке у денежных событий стояло их НАЗВАНИЕ, а по
+                          умолчанию оно одинаковое для всех: «Платёж», «Расход»,
+                          «Поступление». В августе у владельца шестнадцать событий,
+                          и почти все подписаны одним словом — календарь сообщал,
+                          что «что-то было», и молчал о том, что именно. Сумма
+                          отвечает на главный вопрос и занимает столько же места;
+                          название идёт следом и обрезается многоточием. */""}
+                    ${dayEvs.slice(0, MAX_LABELS).map(ev => {
+                      const money$ = (ev.type === "payment" || ev.type === "expense") && numberValue(ev.amount, 0) > 0
+                        ? (ev.type === "payment" ? "+" : "−") + money(ev.amount) : "";
+                      const text = money$ ? `${money$} · ${ev.title}` : ev.title;
+                      return `<span class="cal-event-label ${ev.type}" title="${escapeHtml(ev.title)}${ev.project ? " · " + escapeHtml(ev.project) : ""}">${escapeHtml(text)}</span>`;
+                    }).join("")}
                     ${dayEvs.length > MAX_LABELS ? `<span style="font-size:12px;color:var(--muted);display:block;margin-top:1px">+${dayEvs.length - MAX_LABELS} ещё</span>` : ""}
                   </div>
                 `;
@@ -22567,7 +22579,12 @@
                 <button class="btn small" onclick="app.go('home')">← Проекты</button>
                 <div id="dealBarSwitcher">${renderDealSwitcherButtonHtml()}</div>
                 ${state.project.client ? `<span class="badge" style="font-size:12px">${escapeHtml(state.project.client)}</span>` : ""}
-                <span class="margin-badge ${marginClass}" style="font-size:12px" title="${escapeHtml(marginLabel)}">${margin}% маржа</span>
+                ${/* Пустая смета: считать маржу не из чего, а капсула всё равно
+                      писала «0% маржа» — и в шапке, и в «Итогах» ниже, то есть
+                      дважды утверждала то, чего не знает. Тот же класс, что и
+                      «100% маржа» на смете без себестоимости: при нуле выручки
+                      капсулы просто нет. */""}
+                ${f.revenue > 0 ? `<span class="margin-badge ${marginClass}" style="font-size:12px" title="${escapeHtml(marginLabel)}">${margin}% маржа</span>` : ""}
                 ${(() => { const u = dealDeadlineUrgency(state.project); if (!u || u.level === "ok") return ""; return `<span style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px"> ${escapeHtml(u.label)}</span>`; })()}
               </div>
 

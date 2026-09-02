@@ -1478,6 +1478,77 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Пустая смета: считать маржу не из чего, а капсула писала «0% маржа» — и в
+     шапке сделки, и в «Итогах» ниже, то есть дважды утверждала то, чего не знает.
+     Тот же класс, что «100% маржа» на смете без себестоимости. */
+  await test("пустая смета не объявляет «0% маржа»", async () => {
+    const { context: cz, page: pz } = await bootLocal(browser, baseUrl,
+      { width: 1440, height: 950, seedDemo: true });
+    await pz.evaluate(() => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "Пустая сделка");
+      window.app.finishWizard("estimate");
+    });
+    await pz.waitForTimeout(700);
+    const res = await pz.evaluate(() => {
+      const pills = [...document.querySelectorAll("#appContent .margin-badge")].map((e) => e.textContent.trim());
+      const txt = document.getElementById("appContent").textContent.replace(/\s+/g, " ");
+      return { капсул: pills.length, тексты: pills, естьНоль: /0% маржа/.test(txt) };
+    });
+    await cz.close();
+    assertEqual(res.капсул, 0, "на пустой смете осталась капсула маржи: " + JSON.stringify(res.тексты));
+    assert(!res.естьНоль, "на пустой смете написано «0% маржа» — маржу считать не из чего");
+  });
+
+  /* В ячейке календаря у денежных событий стояло их НАЗВАНИЕ, а по умолчанию оно
+     одинаковое для всех: «Платёж», «Расход», «Поступление». У владельца в августе
+     шестнадцать событий, и почти все подписаны одним словом — календарь сообщал,
+     что «что-то было», и молчал о том, что именно. */
+  await test("календарь: у денежных событий в ячейке видна сумма", async () => {
+    const iso = (d) => "2026-08-" + String(d).padStart(2, "0");
+    const deals = [{
+      id: "cal1", name: "Раздолье – День нептуна", client: "Арина", clientId: "ca1",
+      total: 200000, paid: 120000, debt: 80000, deadline: iso(28),
+      crmStatus: "В работе", status: "В работе", updatedAt: new Date().toISOString(),
+      snapshot: { project: { name: "Раздолье – День нептуна" },
+        payments: [
+          { id: "q1", title: "Платёж", amount: 18992, date: iso(4), method: "Счёт" },
+          { id: "q2", title: "Поступление", amount: 7000, date: iso(5), method: "Карта" }
+        ],
+        expenses: [{ id: "w1", title: "Расход", amount: 1140, date: iso(4), category: "Прочее" }],
+        tasks: [], selected: {} }
+    }];
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const pg = await ctx.newPage();
+    await pg.addInitScript(({ key, deals }) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      localStorage.setItem(key, JSON.stringify({ savedProjects: deals, view: "home", calMonth: "2026-08" }));
+    }, { key: STORAGE_KEY, deals });
+    await pg.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await pg.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await pg.evaluate(() => {
+      window.app.go("global-calendar");
+      if (window.app.calSetMonth) window.app.calSetMonth("2026-08");
+    });
+    await pg.waitForTimeout(700);
+    const подписи = await pg.evaluate(() =>
+      [...document.querySelectorAll("#appContent .cal-event-label.payment, #appContent .cal-event-label.expense")]
+        .map((e) => e.textContent.trim()));
+    await ctx.close();
+    assert(подписи.length >= 3, "в календаре нет денежных событий: " + JSON.stringify(подписи));
+    const безСуммы = подписи.filter((t) => !/\d/.test(t));
+    assertEqual(безСуммы.length, 0,
+      "денежные события подписаны без суммы: " + JSON.stringify(безСуммы));
+    assert(подписи.some((t) => /18\s*992/.test(t)),
+      "суммы в ячейках не те: " + JSON.stringify(подписи));
+    assert(подписи.some((t) => /^−/.test(t)), "расход не отмечен минусом: " + JSON.stringify(подписи));
+  });
+
   /* Список операций на телефоне был ТАБЛИЦЕЙ в шесть колонок: замер на 390px —
      741px при доступных 348, вдвое шире экрана. На виду оставались «Дата ·
      Проект · Описание», а СУММА, ради которой в список и заходят, уезжала за

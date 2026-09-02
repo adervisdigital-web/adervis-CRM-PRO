@@ -5238,6 +5238,9 @@
       display: block; font-size: 12px; font-weight: 600;
       padding: 2px 4px; border-radius: var(--r-xs); margin-top: 2px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3;
+      /* Суммы в ячейках — табличными цифрами: в столбце дней они выстраиваются
+         разряд под разряд и читаются как колонка, а не как случайные подписи. */
+      font-variant-numeric: tabular-nums;
     }
     .cal-event-label.deadline { background: rgba(220,38,38,.18); color: var(--text-danger); }
     .cal-event-label.task { background: rgba(37,99,235,.18); color: var(--text-info); }
