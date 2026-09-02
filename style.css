@@ -8101,6 +8101,15 @@ button.is-busy::before {
 }
 .adm-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
 .adm-actions { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
+/* Аккаунт без записи агентства: действий нет, и вместо ряда кнопок стоит
+   объяснение — почему. Приглушённое, но с предупреждающим знаком: это не
+   ошибка интерфейса, а состояние аккаунта. */
+.adm-no-profile {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--muted);
+  padding: 6px 10px; border: 1px dashed var(--line); border-radius: var(--r-pill);
+}
+.adm-no-profile svg { color: var(--text-warning); flex: 0 0 auto; }
 
 @media (max-width: 720px) {
   /* Три этажа вместо одного потока. Аватар с именем занимают строку целиком,
