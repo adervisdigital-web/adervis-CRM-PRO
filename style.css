@@ -3718,6 +3718,20 @@
     @media (max-width: 1040px) { .db-analytics-row { grid-template-columns: 1fr; } }
     .db-money-panel, .db-clients-panel { margin-bottom: 0; }
     .db-clients-panel { display: flex; flex-direction: column; }
+    /* Значок у заголовка раздела. Тот же квадрат с акцентным тинтом, что и у
+       панелей аналитики, — чтобы значки на странице читались как одна семья, а
+       не как случайные картинки. inline-flex и выравнивание по центру: без них
+       svg садится на базовую линию и заголовок «подпрыгивает». */
+    .h1-ico {
+      width: 28px; height: 28px; border-radius: var(--r-sm); flex: 0 0 auto;
+      background: var(--primary-bg); color: var(--primary-text);
+      display: inline-flex; align-items: center; justify-content: center;
+      margin-right: 10px; vertical-align: -6px;
+    }
+    @media (max-width: 640px) {
+      .h1-ico { width: 24px; height: 24px; margin-right: 8px; vertical-align: -5px; }
+    }
+
     .db-panel-ico {
       width: 22px; height: 22px; border-radius: var(--r-sm); flex: 0 0 auto;
       background: var(--primary-bg); color: var(--primary-text);

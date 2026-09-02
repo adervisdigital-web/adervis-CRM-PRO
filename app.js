@@ -5016,7 +5016,7 @@
             <!-- Promos tab -->
             ${_adminPanelTab === "promos" ? `
               <div style="background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px">
-                <h3 style="margin:0 0 16px;font-size:15px">+ Новый промокод</h3>
+                <h3 style="margin:0 0 16px;font-size:15px">${icon("plus", 13)} Новый промокод</h3>
                 ${_adminPromoForm.error ? `<div style="color:var(--text-danger);font-size:13px;margin-bottom:10px;padding:8px 12px;background:rgba(220,38,38,.1);border-radius:8px">${escapeHtml(_adminPromoForm.error)}</div>` : ""}
                 ${/* На телефоне четыре колонки не помещаются: поле «Истекает»
                       схлопывалось до одной иконки календаря — вводить дату было
@@ -6545,7 +6545,7 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>База знаний</h1>
+                <h1>${h1Icon("clipboard")}База знаний</h1>
                 <p>Полезные статьи о продажах, производстве и работе с клиентами.</p>
               </div>
               <div class="toolbar no-print">
@@ -8280,6 +8280,13 @@
             ${o.share !== undefined ? `<span class="rank-share">${o.share}%</span>` : ""}
             <span class="rank-sum"${o.valueColor ? ` style="color:${o.valueColor}"` : ""}>${o.value}</span>
           </div>`;
+      }
+
+      /* Значок рядом с заголовком раздела. Разделы в меню слева помечены
+         значками, а на самой странице заголовок шёл голым текстом — глаз терял
+         связь «пункт меню → страница». Значок берём тот же, что в меню. */
+      function h1Icon(name) {
+        return `<span class="h1-ico" aria-hidden="true">${icon(name, 15)}</span>`;
       }
 
       // «2026-03» → «Март 2026». Для подсказки над столбцом: короткое «03/26»
@@ -15103,7 +15110,7 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Коммерческие предложения</h1>
+                <h1>${h1Icon("receipt")}Коммерческие предложения</h1>
                 <p>${_allPortalsError
                   ? 'Список не загрузился — суммы и счётчики показать не можем.'
                   : _allPortals.length
@@ -15639,7 +15646,7 @@
             <div class="panel" style="margin-bottom:14px">
               <div class="section-title">
                 <div>
-                  <h1>Онлайн-брифы</h1>
+                  <h1>${h1Icon("list")}Онлайн-брифы</h1>
                   <p>Отдельная форма-бриф под каждый тип задач — видео, фото, дизайн, ИИ и общий. Отправьте клиенту ссылку нужного типа, заявка появится ниже.</p>
                 </div>
               </div>
@@ -15976,8 +15983,8 @@
               <div class="field" style="margin-bottom:14px"><label>Подзаголовок</label><textarea class="input" rows="2" style="resize:vertical" oninput="app.briefEditorSetMeta('sub',this.value)">${escapeHtml(d.sub || '')}</textarea></div>
               <div class="bfe-list">${d.fields.map((fld, i) => fieldRow(fld, i)).join('')}</div>
               <div class="toolbar no-print" style="margin-top:12px;flex-wrap:wrap">
-                <button class="btn small" onclick="app.briefEditorAdd('field')">+ Вопрос</button>
-                <button class="btn small" onclick="app.briefEditorAdd('section')">+ Раздел</button>
+                <button class="btn small" onclick="app.briefEditorAdd('field')">${icon("plus", 13)} Вопрос</button>
+                <button class="btn small" onclick="app.briefEditorAdd('section')">${icon("plus", 13)} Раздел</button>
               </div>
               <div style="display:flex;justify-content:space-between;gap:10px;margin-top:18px;flex-wrap:wrap">
                 <button class="btn small" onclick="app.closeBriefEditor()">Отмена</button>
@@ -16894,7 +16901,7 @@
                     <button class="btn primary small" onclick="app.bulkSetCrmStatus(document.getElementById('crmBulkStatusSel').value)">Применить статус</button>
                     <input id="crmBulkTagInput" placeholder="Добавить тег..." style="padding:6px 10px;border-radius:8px;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text);width:140px"
                       onkeydown="if(event.key==='Enter'){event.preventDefault();app.bulkAddCrmTag(this.value);this.value=''}">
-                    <button class="btn small" onclick="app.bulkAddCrmTag(document.getElementById('crmBulkTagInput').value);document.getElementById('crmBulkTagInput').value=''">+ Тег</button>
+                    <button class="btn small" onclick="app.bulkAddCrmTag(document.getElementById('crmBulkTagInput').value);document.getElementById('crmBulkTagInput').value=''">${icon("plus", 13)} Тег</button>
                     ` : ""}
                     <button class="btn small" onclick="app.selectAllCrmVisible()">Выбрать все (${visibleItems.length})</button>
                     <button class="btn small" onclick="app.clearCrmSelect()">${selCount ? "Снять выбор" : "Выйти"}</button>
@@ -17044,7 +17051,7 @@
                     icon: "box",
                     title: "Сделок пока нет",
                     text: "Создайте первую — по ней можно будет собрать смету, КП и договор.",
-                    cta: { label: "+ Новая сделка", onclick: "app.startWizard()" }
+                    cta: { label: "Новая сделка", ic: "plus", onclick: "app.startWizard()" }
                   })
                 : emptyState({
                     icon: "search",
@@ -17592,7 +17599,7 @@
                     <div style="max-height:230px;overflow-y:auto">${entries || `<div class="mini-note">Пусто — добавьте позиции ниже</div>`}</div>
                     <div style="margin-top:10px">
                       <select onchange="app.addPackageItem(this.value);this.value=''" title="Добавить позицию в пакет">
-                        <option value="">+ добавить позицию из каталога…</option>
+                        <option value="">${icon("plus", 12)} добавить позицию из каталога…</option>
                         ${addable.map(x => `<option value="${x.id}">${escapeHtml(x.name)} — ${money(getCatalogPrice(x))}</option>`).join("")}
                       </select>
                     </div>
@@ -17913,7 +17920,7 @@
             <section class="panel">
               <div class="section-title">
                 <div>
-                  <h1>Каталог услуг</h1>
+                  <h1>${h1Icon("grid")}Каталог услуг</h1>
                   ${/* На телефоне это описание скрыто (класс ниже): три строки текста,
                         который читают один раз, стояли между заголовком и работой —
                         до первой услуги приходилось прокручивать почти экран.
@@ -18318,7 +18325,7 @@
                         где видна и внутри сделки. Здесь оставалась бы вторая такая
                         же кнопка на одном экране. */""}
                   <div class="toolbar no-print">
-                    <button class="btn" onclick="app.go('catalog')">+ Добавить</button>
+                    <button class="btn" onclick="app.go('catalog')">${icon("plus", 13)} Добавить</button>
                   </div>
                 </div>
                 ${projectFields()}
@@ -18372,8 +18379,8 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
                     ${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}
                   </button>
-                  <button class="btn small" onclick="app.go('catalog')">+ Услуги</button>
-                  <button class="btn small" onclick="app.go('packages')">+ Пакет</button>
+                  <button class="btn small" onclick="app.go('catalog')">${icon("plus", 13)} Услуги</button>
+                  <button class="btn small" onclick="app.go('packages')">${icon("plus", 13)} Пакет</button>
                   ${inDeal ? "" : `<button class="btn small" onclick="app.createVersion()">Версия</button>`}
                   ${/* Кнопка Excel ПЕРЕЕХАЛА в меню «⋮» шапки сделки (просьба
                         владельца). Здесь её держать было нельзя по той же причине,
@@ -19205,7 +19212,7 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Клиенты ${clients.length ? `<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:4px">${clients.length}</span>` : ""}</h1>
+                <h1>${h1Icon("users")}Клиенты ${clients.length ? `<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:4px">${clients.length}</span>` : ""}</h1>
               </div>
               ${/* flex-wrap обязателен: поле поиска появляется от пяти клиентов, и тогда
                     в ряду оказываются поиск, переключатель вида и «Выгрузить». На
@@ -19368,12 +19375,12 @@
                 </div>
               ` : `
                 <div class="mt-10">
-                  <button class="btn small" onclick="app.showClientRequisites('${client.id}')">+ Добавить реквизиты</button>
+                  <button class="btn small" onclick="app.showClientRequisites('${client.id}')">${icon("plus", 13)} Добавить реквизиты</button>
                 </div>
               `}
 
               <div class="toolbar no-print" style="margin-top:14px">
-                <button class="btn primary" onclick="app.startWizardForClient('${client.id}')">+ Новый проект для клиента</button>
+                <button class="btn primary" onclick="app.startWizardForClient('${client.id}')">${icon("plus", 13)} Новый проект для клиента</button>
                 <button class="btn" onclick="app.openClientEstimate('${client.id}')">Открыть текущую смету</button>
                 <button class="btn danger-quiet" onclick="app.deleteClient('${client.id}')">${TRASH_SVG} Удалить клиента</button>
               </div>
@@ -19635,7 +19642,7 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Задачи</h1>
+                <h1>${h1Icon("tasks")}Задачи</h1>
                 <p>Все задачи по проектам и свои личные — в одном месте.</p>
               </div>
 
@@ -19708,14 +19715,14 @@
                   text: `Все задачи остались в закрытых сделках — их ${closedCount}. Они не считаются просроченными, но их можно посмотреть.`,
                   cta: [
                     { label: "Показать задачи закрытых сделок", onclick: "app.toggleTasksShowClosed()" },
-                    { label: "+ Своя задача", onclick: "app.createGlobalTask()", variant: "" },
+                    { label: "Своя задача", ic: "plus", onclick: "app.createGlobalTask()", variant: "" },
                   ],
                 })
               : emptyState({
                   icon: "tasks",
                   title: "Задач пока нет",
                   text: "Добавьте первую — задачи с дедлайном попадут в календарь.",
-                  cta: { label: "+ Своя задача", onclick: "app.createGlobalTask()" }
+                  cta: { label: "Своя задача", ic: "plus", onclick: "app.createGlobalTask()" }
                 }))}
           </div>
         `;
@@ -19977,7 +19984,7 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Задачи проекта</h1>
+                <h1>${h1Icon("tasks")}Задачи проекта</h1>
                 <p>Мини-канбан для текущего проекта: от подготовки до сдачи.</p>
               </div>
               ${/* Кнопки «+ Задача» в шапке больше нет: «+» стоит в заголовке
@@ -20244,7 +20251,7 @@
               ${inDeal ? "" : `
                 <div class="section-title" style="margin-bottom:18px">
                   <div>
-                    <h1>Финансы</h1>
+                    <h1>${h1Icon("wallet")}Финансы</h1>
                     <p>${escapeHtml(state.project.name || "Проект")} · ${escapeHtml(state.project.client || "Клиент не указан")}</p>
                   </div>
                   ${/* Выгрузка в Excel отсюда убрана: она отдаёт СМЕТУ, а не
@@ -20289,7 +20296,7 @@
                     ${f.totalExpensesPaid !== f.totalExpenses ? `<span>факт (выплачено): ${money(f.totalExpensesPaid)}</span><br>` : ""}
                     ${(() => {
                       const budget = state.project.expenseBudget || 0;
-                      if (!budget) return `<button class="btn small no-print" style="margin-top:4px;font-size:12px" onclick="app._setExpenseBudget()">+ Бюджет</button>`;
+                      if (!budget) return `<button class="btn small no-print" style="margin-top:4px;font-size:12px" onclick="app._setExpenseBudget()">${icon("plus", 13)} Бюджет</button>`;
                       const over = f.totalExpenses - budget;
                       const pct = Math.round(f.totalExpenses / budget * 100);
                       return `<span style="color:${over>0?"var(--text-danger)":"var(--muted)"}">Бюджет: ${money(budget)} (${pct}%)</span>${over>0?` <span style="color:var(--text-danger);font-size:12px"> +${money(over)}</span>`:""}`;
@@ -20482,11 +20489,11 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Команда проекта</h1>
+                <h1>${h1Icon("team")}Команда проекта</h1>
                 <p>Ставки и выплаты участников по этому проекту.</p>
               </div>
               <div class="toolbar no-print">
-                ${state.team.length ? `<button class="btn primary" onclick="app.createTeamMember()">+ Участник вручную</button>` : ""}
+                ${state.team.length ? `<button class="btn primary" onclick="app.createTeamMember()">${icon("plus", 13)} Участник вручную</button>` : ""}
               </div>
             </div>
 
@@ -20519,7 +20526,7 @@
                   ? "Выберите людей из справочника выше или заведите участника вручную."
                   : "Добавьте участников этого проекта — ставки и выплаты появятся здесь.",
                 style: "grid-column:1/-1",
-                cta: { label: "+ Участник вручную", onclick: "app.createTeamMember()" }
+                cta: { label: "Участник вручную", ic: "plus", onclick: "app.createTeamMember()" }
               })}
             </div>
           </div>
@@ -20606,7 +20613,7 @@
                 <p>Сотрудники и фрилансеры агентства — назначаются «Ответственным» на строках сметы.</p>
               </div>
               <div class="toolbar no-print">
-                ${allTeam.length ? `<button class="btn primary" onclick="app.createCompanyTeamMember()">+ Участник</button>` : ""}
+                ${allTeam.length ? `<button class="btn primary" onclick="app.createCompanyTeamMember()">${icon("plus", 13)} Участник</button>` : ""}
               </div>
             </div>
 
@@ -20632,7 +20639,7 @@
                 title: "Команда пока пуста",
                 text: "Добавьте сотрудников и фрилансеров — потом их можно назначать на позиции сметы как «Ответственного».",
                 style: "grid-column:1/-1",
-                cta: { label: "+ Участник", onclick: "app.createCompanyTeamMember()" }
+                cta: { label: "Участник", ic: "plus", onclick: "app.createCompanyTeamMember()" }
               })}
             </div>
             ${teamHidden > 0 ? `
@@ -20706,7 +20713,7 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Календарь</h1>
+                <h1>${h1Icon("calendar")}Календарь</h1>
                 <p>Сегодня: <strong>${formatDate(today)}</strong> · Все даты текущего проекта.</p>
               </div>
               ${/* Здесь стояли «+ Задача» и «Все задачи» — обе мимо экрана.
@@ -20718,7 +20725,7 @@
                     задачу НА КОНКРЕТНУЮ дату и внести деньги, которые тут же
                     рядом и перечислены (поступления, расходы, дедлайн). */""}
               <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.createTaskOnDate()" title="Задача с датой — попадёт в этот календарь">+ Задача на дату</button>
+                <button class="btn primary" onclick="app.createTaskOnDate()" title="Задача с датой — попадёт в этот календарь">${icon("plus", 13)} Задача на дату</button>
                 <button class="btn" onclick="app.openFinanceModal('payment')" title="Записать поступление по этой сделке">+ Поступление</button>
               </div>
             </div>
@@ -20741,7 +20748,7 @@
                 icon: "calendar",
                 title: "Дат пока нет",
                 text: "Добавьте задачу с дедлайном — она появится здесь.",
-                cta: { label: "+ Задача", onclick: "app.createTask()" }
+                cta: { label: "Задача", ic: "plus", onclick: "app.createTask()" }
               })}
             </div>
           </div>
@@ -20776,7 +20783,7 @@
                 <h2 style="margin:0;font-size:22px">Воронка пуста</h2>
                 <p style="margin:0;color:var(--muted);max-width:380px;line-height:1.5">Заведите сделку — она встанет на первый этап, и воронка покажет, на чём стоят деньги.</p>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-                  <button class="btn primary" onclick="app.startWizard()">+ Сделка</button>
+                  <button class="btn primary" onclick="app.startWizard()">${icon("plus", 13)} Сделка</button>
                   ${(!state.activeProjectId && ((state.project.name || "").trim() || Object.keys(state.selected || {}).length))
                     ? `<button class="btn" onclick="app.saveCurrentProject()">Сохранить текущую смету</button>` : ""}
                 </div>
@@ -20797,7 +20804,7 @@
                     итогов («Сохранить сделку») и из «Проектов» — путь не потерян.
                     Главное действие доски сделок — завести сделку. */""}
               <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.startWizard()">+ Сделка</button>
+                <button class="btn primary" onclick="app.startWizard()">${icon("plus", 13)} Сделка</button>
                 <button class="btn" onclick="app.go('projects')">Сохранённые проекты</button>
               </div>
             </div>
@@ -21272,7 +21279,7 @@
               </div>
 
               <div class="toolbar no-print">
-                ${state.versions.length ? `<button class="btn primary" onclick="app.createVersion()">+ Сохранить текущую версию</button>` : ""}
+                ${state.versions.length ? `<button class="btn primary" onclick="app.createVersion()">${icon("check", 13)} Сохранить текущую версию</button>` : ""}
                 <button class="btn" onclick="app.go('projects')">Сохранённые проекты</button>
               </div>
             </div>
@@ -21312,7 +21319,7 @@
               icon: "doc",
               title: "Версий пока нет",
               text: "Зафиксируйте текущее состояние сметы — к версии можно будет вернуться в один клик.",
-              cta: { label: "+ Сохранить текущую версию", onclick: "app.createVersion()" }
+              cta: { label: "Сохранить текущую версию", ic: "check", onclick: "app.createVersion()" }
             })}
           </div>
         `;
@@ -21601,7 +21608,7 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Финансы</h1>
+                <h1>${h1Icon("wallet")}Финансы</h1>
                 <p>Все поступления и расходы по всем проектам.</p>
               </div>
               <div class="toolbar no-print">
@@ -22079,7 +22086,7 @@
                  то, что верно обоими способами ввода. -->
             <div class="cal-header">
               <div class="cal-header-title">
-                <h1>Календарь</h1>
+                <h1>${h1Icon("calendar")}Календарь</h1>
                 <p class="cal-header-sub">Дедлайны, задачи и финансы по всем проектам. Нажмите на день — покажем, что в нём, и добавим задачу.</p>
               </div>
             </div>
@@ -22175,7 +22182,7 @@
                         второй, читаемый (у «+» в ячейке подписи нет вовсе). */""}
                   <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto">
                     <button class="btn small primary" onclick="app.createGlobalTaskOn('${selDay}')"
-                      title="Своя задача на ${escapeHtml(formatDate(selDay))}">+ Задача</button>
+                      title="Своя задача на ${escapeHtml(formatDate(selDay))}">${icon("plus", 13)} Задача</button>
                     <button class="btn small" onclick="app.calSelectDay('')" aria-label="Закрыть день">${icon("close", 13)}</button>
                   </div>
                 </div>
@@ -22726,7 +22733,7 @@
                   <button class="icon-del-btn" onclick="app.removeTelegramRecipient('${r.id}')" title="Удалить получателя" aria-label="Удалить получателя">${TRASH_SVG}</button>
                 </div>
               `).join("")}
-              <button class="btn" onclick="app.addTelegramRecipient()" style="margin-top:4px">+ Добавить получателя</button>
+              <button class="btn" onclick="app.addTelegramRecipient()" style="margin-top:4px">${icon("plus", 13)} Добавить получателя</button>
               <p style="font-size:12px;color:var(--muted);margin-top:12px">Уведомления: просроченные дедлайны, смена статуса сделки.</p>
             </div>
         `;
@@ -26233,7 +26240,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <div style="display:flex;gap:6px">
                   <input id="dealTagInput" placeholder="Новый тег..." style="flex:1;padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--text);font-size:13px"
                     onkeydown="if(event.key==='Enter'){event.preventDefault();app._addDealTag(this.value);this.value=''}">
-                  <button class="btn small" onclick="app._addDealTag(document.getElementById('dealTagInput').value);document.getElementById('dealTagInput').value=''">+ Тег</button>
+                  <button class="btn small" onclick="app._addDealTag(document.getElementById('dealTagInput').value);document.getElementById('dealTagInput').value=''">${icon("plus", 13)} Тег</button>
                 </div>
               </div>
               <div style="display:flex;justify-content:flex-end;gap:8px">
@@ -27952,12 +27959,12 @@ Email: _____________________              Email: _____________________
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Договоры</h1>
+                <h1>${h1Icon("doc")}Договоры</h1>
                 <p>База шаблонов и готовых договоров. Редактируй под каждый проект.</p>
                 <p class="mini-note" style="margin-top:4px">ℹ Шаблоны носят справочный характер и не являются юридической консультацией — перед использованием с клиентами рекомендуем проверить текст у юриста.</p>
               </div>
               <div class="toolbar no-print">
-                ${contracts.length ? `<button class="btn primary" onclick="app.createBlankContract()">+ Пустой договор</button>` : ""}
+                ${contracts.length ? `<button class="btn primary" onclick="app.createBlankContract()">${icon("plus", 13)} Пустой договор</button>` : ""}
               </div>
             </div>
 
@@ -28054,7 +28061,7 @@ Email: _____________________              Email: _____________________
               icon: "doc",
               title: "Договоров пока нет",
               text: "Выберите шаблон выше — или начните с пустого договора.",
-              cta: { label: "+ Пустой договор", onclick: "app.createBlankContract()" }
+              cta: { label: "Пустой договор", ic: "plus", onclick: "app.createBlankContract()" }
             })}
           </div>
         `;
