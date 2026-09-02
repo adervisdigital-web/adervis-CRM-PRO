@@ -21923,7 +21923,11 @@
             </div>
 
             <div class="fin-table-wrap">
-              <table class="fin-table">
+              ${/* Модификатор нужен для телефона: на узком экране эта таблица
+                    перестраивается в список (см. .fin-table--ops в style.css), а
+                    у таблицы операций СДЕЛКИ колонки другие — общее правило
+                    перепутало бы им порядок. */""}
+              <table class="fin-table fin-table--ops">
                 <thead>
                   <tr>
                     <th>Дата</th>

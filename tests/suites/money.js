@@ -1478,6 +1478,68 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Список операций на телефоне был ТАБЛИЦЕЙ в шесть колонок: замер на 390px —
+     741px при доступных 348, вдвое шире экрана. На виду оставались «Дата ·
+     Проект · Описание», а СУММА, ради которой в список и заходят, уезжала за
+     правый край вместе с итогами. Проверяем результат: строка помещается в
+     ширину, и сумма видна. */
+  await test("операции на телефоне: сумма видна без прокрутки вбок", async () => {
+    const deals = [0, 1, 2].map((i) => ({
+      id: "op" + i, name: 'Реклама – База отдыха "Раздолье – Троица" ' + i,
+      client: "Клиент " + i, clientId: "cop" + i,
+      total: 120000, paid: 60000, debt: 60000,
+      crmStatus: "В работе", status: "В работе", updatedAt: new Date().toISOString(),
+      snapshot: { project: { name: "Реклама" },
+        payments: [{ id: "pp" + i, title: "Предоплата по договору", amount: 60000, date: "2026-08-2" + i, method: "Счёт (безнал)" }],
+        expenses: [{ id: "pe" + i, title: "Оплата подрядчику за монтаж", amount: 12000, date: "2026-08-2" + i, category: "Команда" }],
+        tasks: [], selected: {} }
+    }));
+    const ctx = await browser.newContext({
+      viewport: { width: 390, height: 900 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    const pg = await ctx.newPage();
+    await pg.addInitScript(({ key, deals }) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      localStorage.setItem(key, JSON.stringify({ savedProjects: deals, view: "home" }));
+    }, { key: STORAGE_KEY, deals });
+    await pg.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await pg.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await pg.evaluate(() => {
+      window.app.go("global-finances");
+      window.app.setGFinSubTab("transactions");
+    });
+    await pg.waitForTimeout(600);
+    const res = await pg.evaluate(() => {
+      const wrap = document.querySelector("#appContent .fin-table-wrap");
+      // Запасной селектор — на старую разметку без модификатора: иначе сторож
+      // падал бы «нет таблицы» вместо «сумма за краем» и ничего не доказывал.
+      const table = document.querySelector("#appContent .fin-table--ops, #appContent .fin-table");
+      if (!wrap || !table) return null;
+      const row = table.querySelector("tbody tr");
+      const cells = row ? [...row.children] : [];
+      const sum = cells[cells.length - 1];
+      const sr = sum ? sum.getBoundingClientRect() : null;
+      return {
+        обёртка: Math.round(wrap.getBoundingClientRect().width),
+        прокрутка: Math.round(wrap.scrollWidth),
+        суммаСправа: sr ? Math.round(sr.right) : 0,
+        окно: window.innerWidth,
+        суммаТекст: sum ? (sum.textContent || "").trim() : "",
+      };
+    });
+    await ctx.close();
+    assert(res, "не нашёл таблицу операций");
+    assert(res.прокрутка <= res.обёртка + 2,
+      "список операций шире экрана: " + res.прокрутка + "px при " + res.обёртка);
+    assert(res.суммаСправа > 0 && res.суммаСправа <= res.окно,
+      "сумма операции за краем экрана: правый край " + res.суммаСправа + " при окне " + res.окно);
+    assert(/\d/.test(res.суммаТекст), "в ячейке суммы нет числа: «" + res.суммаТекст + "»");
+  });
+
   /* Ширина выпадашки идёт от самого длинного варианта списка. У фильтра по
      проекту это название сделки: у владельца «Реклама – База отдыха "Раздолье –
      Троица"» растягивала выбор на всю строку, поиск уезжал вниз, и ряд ломался.

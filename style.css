@@ -4602,6 +4602,53 @@
       overflow-y: hidden;
       margin-top: 10px;
     }
+
+    /* ── Операции на телефоне: список, а не таблица ──────────────────────────
+       Замер на 390px: таблица 741px при доступных 348 — вдвое шире экрана. На
+       виду оставались «Дата · Проект · Описание», а СУММА, ради которой в список
+       и заходят, уезжала за правый край; итоги внизу тоже. Листать вбок, чтобы
+       узнать, сколько денег, — это не список операций.
+
+       Строка становится сеткой из двух колонок и трёх этажей:
+         описание   сумма      ← главное, крупно
+         проект     дата       ← мелко, приглушённо
+         категория             ← бейдж
+       Тип операции («Поступление»/«Расход») скрыт: знак и цвет суммы говорят то
+       же самое, а место он занимал как полноценная колонка. */
+    @media (max-width: 640px) {
+      .fin-table--ops { display: block; width: 100%; }
+      .fin-table--ops thead { display: none; }
+      .fin-table--ops tbody, .fin-table--ops tfoot { display: block; }
+      .fin-table--ops tbody tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas: "desc sum" "proj date" "cat cat";
+        gap: 2px 10px; padding: 11px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .fin-table--ops tbody tr:last-child { border-bottom: none; }
+      .fin-table--ops tbody td {
+        display: block; border: none; padding: 0; max-width: none !important;
+      }
+      .fin-table--ops tbody td:nth-child(1) { grid-area: date; text-align: right; font-size: 11.5px; }
+      .fin-table--ops tbody td:nth-child(2) { grid-area: proj; font-size: 11.5px !important; font-weight: 600 !important; color: var(--muted); }
+      .fin-table--ops tbody td:nth-child(3) {
+        grid-area: desc; font-size: 13.5px; font-weight: 600;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      }
+      .fin-table--ops tbody td:nth-child(4) { grid-area: cat; margin-top: 3px; }
+      .fin-table--ops tbody td:nth-child(5) { display: none; }
+      .fin-table--ops tbody td:nth-child(6) { grid-area: sum; text-align: right; font-size: 14px; font-weight: 800; }
+      /* Пустая строка «Нет транзакций» занимает всю ширину, а не одну колонку. */
+      .fin-table--ops tbody tr > td[colspan] { grid-area: unset; grid-column: 1 / -1; text-align: center; }
+      /* Итоги: подпись слева, сумма справа — тем же ритмом, что и строки. */
+      .fin-table--ops tfoot tr {
+        display: flex; justify-content: space-between; gap: 10px;
+        padding: 9px 12px;
+      }
+      .fin-table--ops tfoot td { display: block; border: none; padding: 0; }
+      .fin-table--ops tfoot td:first-child { text-align: left; }
+    }
     .fin-table {
       width: 100%; border-collapse: collapse;
     }
