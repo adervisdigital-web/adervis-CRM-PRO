@@ -1657,4 +1657,63 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  for (const [ширина, touch] of [[1440, false], [390, true]]) {
+    await test(`ничего не обрезано без возможности прокрутить · ${ширина}px`, async () => {
+      /* Отличие настоящего дефекта от ложного, на котором я ошибался дважды за
+         сессию 03.09.2026: элемент ЗА КРАЕМ контейнера — это нормально, если до
+         него можно доскроллить (вкладки базы знаний, пресеты дат, чипы фильтров
+         живут в лентах с overflow-x:auto и специально уезжают). Дефект — когда
+         прокрутить нельзя: ни один предок не прокручивается по этой оси, и часть
+         интерфейса просто недостижима.
+
+         Поэтому проверка одна и она про ДОСТУПНОСТЬ, а не про геометрию:
+         родитель прячет выходящее (overflow hidden/clip), элемент за его правым
+         краем, и ни один предок не даёт прокрутку. */
+      const ВИДЫ = ["home", "crm", "deal", "services", "clients", "proposals", "briefs",
+        "company-team", "global-finances", "global-calendar", "global-tasks",
+        "contracts", "knowledge", "settings", "profile"];
+      const { context, page } = await bootLocal(browser, baseUrl,
+        { width: ширина, height: touch ? 844 : 1000, touch, seedDemo: true });
+      try {
+        const плохо = [];
+        for (const v of ВИДЫ) {
+          await page.evaluate((view) => window.app.go(view), v);
+          await page.waitForTimeout(180);
+          const найдено = await page.evaluate(() => {
+            const out = [];
+            const прокручиваемыйПредок = (el) => {
+              let p = el.parentElement;
+              while (p && p !== document.body) {
+                const st = getComputedStyle(p);
+                if (/(auto|scroll)/.test(st.overflowX) && p.scrollWidth > p.clientWidth + 2) return true;
+                p = p.parentElement;
+              }
+              return false;
+            };
+            document.querySelectorAll("#appContent *").forEach((el) => {
+              const b = el.getBoundingClientRect();
+              if (b.width < 2 || b.height < 2) return;
+              const st = getComputedStyle(el);
+              if (st.visibility === "hidden" || st.opacity === "0" || st.position === "fixed") return;
+              const host = el.parentElement;
+              if (!host) return;
+              const hs = getComputedStyle(host);
+              if (!/(hidden|clip)/.test(hs.overflowX)) return;
+              const за = Math.round(b.right - host.getBoundingClientRect().right);
+              if (за <= 1) return;
+              if (прокручиваемыйПредок(el)) return;
+              out.push(`${(el.className || el.tagName).toString().split(/\s+/)[0].slice(0, 26)} +${за}px «${(el.textContent || "").trim().slice(0, 24)}»`);
+            });
+            return [...new Set(out)].slice(0, 4);
+          });
+          найдено.forEach(x => плохо.push(`${v}: ${x}`));
+        }
+        assert(плохо.length === 0,
+          "обрезано и прокрутить нельзя — до этого не добраться:\n  " + плохо.join("\n  "));
+      } finally {
+        await context.close();
+      }
+    });
+  }
+
 };
