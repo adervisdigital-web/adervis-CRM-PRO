@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 425;
+      const APP_BUILD = 426;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -4759,6 +4759,75 @@
          чем миграцию. Порядок — по частоте, с какой ими пользуются. */
       const ADMIN_USER_TAGS = ["Амбассадор", "Партнёр", "Пилот", "Свой аккаунт", "Тест", "Не писать"];
 
+      let _adminUsersSelectMode = false;
+      let _adminUsersSelected = {};
+
+      function toggleAdminUsersSelect() {
+        _adminUsersSelectMode = !_adminUsersSelectMode;
+        if (!_adminUsersSelectMode) _adminUsersSelected = {};
+        render();
+      }
+
+      function toggleAdminUserSelect(id) {
+        if (!id) return;
+        if (_adminUsersSelected[id]) delete _adminUsersSelected[id];
+        else _adminUsersSelected[id] = true;
+        render();
+      }
+
+      function clearAdminUsersSelect() {
+        _adminUsersSelected = {};
+        _adminUsersSelectMode = false;
+        render();
+      }
+
+      function selectAllAdminUsersVisible() {
+        // «Видимые» = ровно то, что отобрано фильтром и поиском: кнопка обещает
+        // число из этой же выборки, и брать что-то другое значит соврать.
+        _adminFilteredUsers().forEach(a => { _adminUsersSelected[a.id] = true; });
+        render();
+      }
+
+      /* Массовая пометка. Батч-RPC нет и заводить его ради этого незачем: метку
+         ставят десяткам аккаунтов один раз, а не тысячам постоянно. Поэтому
+         вызовы идут по одному, и КАЖДЫЙ проверяется — supabase-js не бросает
+         исключение, и без проверки половина отказов выглядела бы успехом.
+
+         Считаем сделанное и несделанное отдельно: «пометил 9 из 13» — это другой
+         разговор, чем «готово», и человек должен увидеть разницу. */
+      async function bulkSetUserTag(tag) {
+        const ids = Object.keys(_adminUsersSelected || {});
+        if (!ids.length) return;
+        const clean = String(tag || "").trim();
+        let ok = 0;
+        const failed = [];
+        for (const id of ids) {
+          try {
+            const { error } = await _supabase.rpc("admin_set_user_tag", { p_user_id: id, p_tag: clean });
+            if (error) throw error;
+            const row = (_adminAgencies || []).find(a => String(a.id) === String(id));
+            if (row) row.admin_tag = clean || null;
+            ok++;
+          } catch (e) {
+            const row = (_adminAgencies || []).find(a => String(a.id) === String(id));
+            failed.push((row && row.email) || id);
+          }
+        }
+        _adminUsersSelected = {};
+        render();
+
+        if (!ok) { toast("Не удалось пометить ни один аккаунт"); return; }
+        const хвост = failed.length ? `, не вышло у ${failed.length}` : "";
+        toast(clean
+          ? `Метка «${clean}»: ${ok} ${plural(ok, "аккаунт", "аккаунта", "аккаунтов")}${хвост}`
+          : `Метка убрана у ${ok} ${plural(ok, "аккаунта", "аккаунтов", "аккаунтов")}${хвост}`);
+
+        /* Воронка активации отбирает по метке — после пометки её числа устарели.
+           Оставить старые под изменившимися данными значит показать человеку
+           ровно ту неправду, ради которой галочка «только внешние» и заводилась. */
+        if (_promoOnlyExternal) await setPromoOnlyExternal(true);
+      }
+
       async function adminSetUserTag(userId) {
         const current = (_adminAgencies.find(a => String(a.id) === String(userId)) || {}).admin_tag || "";
         const tag = await promptDialog({
@@ -4891,7 +4960,34 @@
               <button class="fin-subtab ${_adminUsersSort === "signin" ? "active" : ""}" onclick="app._setAdminUsersSort('signin')">заходили</button>
             </div>
           </div>
-          <div class="u-meta" style="font-size:12px;margin-bottom:10px">Показано ${shown} из ${all.length}</div>`;
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <span class="u-meta" style="font-size:12px">Показано ${shown} из ${all.length}</span>
+            ${shown ? `<button class="btn small ${_adminUsersSelectMode ? "primary" : ""}" onclick="app.toggleAdminUsersSelect()"
+              title="Отметить несколько аккаунтов и пометить их разом">Выбрать</button>` : ""}
+          </div>
+
+          ${(() => {
+            /* Метка ставилась по одной через диалог — поэтому из 16 аккаунтов
+               помечено 3, а воронка активации без меток считает владельца, а не
+               рынок. Панель видна всё время в режиме: сняв последнюю галочку,
+               из режима иначе не выйти (тот же разбор, что у выбора сделок). */
+            if (!_adminUsersSelectMode) return "";
+            const n = Object.keys(_adminUsersSelected || {}).length;
+            return `
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--panel2);border:1px solid var(--primary);border-radius:12px;margin-bottom:12px">
+                <span style="font-size:13px;font-weight:750;color:var(--primary)">${n ? `Выбрано: ${n}` : "Отметьте аккаунты галочками"}</span>
+                ${n ? `
+                  <select id="admBulkTagSel" aria-label="Метка для выбранных"
+                    style="padding:6px 32px 6px 10px;border-radius:8px;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text)">
+                    ${ADMIN_USER_TAGS.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("")}
+                    <option value="">— убрать метку —</option>
+                  </select>
+                  <button class="btn primary small" onclick="app.bulkSetUserTag(document.getElementById('admBulkTagSel').value)">Пометить</button>
+                ` : ""}
+                <button class="btn small" onclick="app.selectAllAdminUsersVisible()">Выбрать все (${shown})</button>
+                <button class="btn small" onclick="app.clearAdminUsersSelect()">${n ? "Снять выбор" : "Выйти"}</button>
+              </div>`;
+          })()}`;
       }
 
       /* Панель активности под строкой пользователя.
@@ -4975,6 +5071,12 @@
                     <div class="adm-card" style="${isBlocked?"opacity:.6":""}">
                       <!-- User row -->
                       <div class="adm-card-row">
+                        ${/* Галочка перед аватаром: строка — flex, а не сетка, и
+                              лишний элемент в начале ничего не сдвигает. */""}
+                        ${_adminUsersSelectMode ? `<input type="checkbox" class="adm-cb no-print" ${(_adminUsersSelected || {})[a.id] ? "checked" : ""}
+                          aria-label="Выбрать ${escapeHtml(a.email || "аккаунт")}"
+                          onclick="event.stopPropagation();app.toggleAdminUserSelect('${escapeHtml(String(a.id))}')"
+                          style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">` : ""}
                         <!-- Avatar -->
                         <div class="adm-avatar">${(a.email||"?")[0].toUpperCase()}</div>
                         <!-- Info -->
@@ -30027,6 +30129,11 @@ Email: _____________________              Email: _____________________
         adminToggleBlock,
         adminRefund,
         adminSetUserTag,
+        toggleAdminUsersSelect,
+        toggleAdminUserSelect,
+        clearAdminUsersSelect,
+        selectAllAdminUsersVisible,
+        bulkSetUserTag,
         adminMarkRefund,
         adminToggleActivity,
         _setExpenseBudget,
