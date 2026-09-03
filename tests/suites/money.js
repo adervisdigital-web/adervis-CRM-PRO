@@ -2040,6 +2040,70 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  await test("сделки в работе стоят выше завершённых во всех списках выбора", async () => {
+    /* Замер на боевом объёме (122 сделки: 115 сданных, 7 в работе): в списке
+       124 пункта, активные стояли на местах 2, 19, 36, 53, 70, 87, 104 и 121 —
+       чтобы выбрать сделку, в которой идёт работа, надо пролистать сотню
+       сданных, и так при КАЖДОМ внесении платежа.
+
+       Завершённые не прячем: платёж, задача и договор законно прилетают к сданной
+       сделке. Меняем не состав, а порядок — <optgroup> поднимает работающие
+       наверх. Тест держит и то, и другое: активные выше ВСЕХ завершённых, и ни
+       одна сделка не пропала. */
+    const ВСЕГО = 30, АКТИВНЫХ = 5;
+    const ctx = await browser.newContext({ viewport: { width: 1400, height: 950 } });
+    const p = await ctx.newPage();
+    await p.addInitScript(({ key, всего, активных }) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      const deals = [];
+      for (let i = 0; i < всего; i++) {
+        // Активные ВПЕРЕМЕШКУ со сданными: если положить их подряд, тест пройдёт
+        // и без группировки — просто потому, что фикстура уже отсортирована.
+        deals.push({
+          id: "p" + i, name: "Проект " + i, client: "К" + i,
+          crmStatus: (i % Math.floor(всего / активных) === 0) ? "В работе" : "Завершённые",
+          total: 1000, paid: 0, updatedAt: new Date().toISOString(),
+          snapshot: { project: { name: "Проект " + i }, payments: [], expenses: [], tasks: [], selected: {} },
+        });
+      }
+      localStorage.setItem(key, JSON.stringify({ view: "global-finances", savedProjects: deals }));
+    }, { key: STORAGE_KEY, всего: ВСЕГО, активных: АКТИВНЫХ });
+
+    await p.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await p.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await p.evaluate(() => { window.app.go("global-finances"); window.app.setGFinSubTab("transactions"); });
+    await p.waitForTimeout(300);
+
+    const r = await p.evaluate(() => {
+      let sel = null;
+      document.querySelectorAll("#appContent select").forEach(s => { if (!sel || s.options.length > sel.options.length) sel = s; });
+      if (!sel) return null;
+      const группы = [...sel.querySelectorAll("optgroup")].map(g => g.label);
+      const позиции = [...sel.options].map((o, i) => ({ i, txt: o.textContent.trim(), гр: o.parentElement.label || "" }));
+      return { всего: sel.options.length, группы, позиции };
+    });
+    assert(r, "список выбора проекта не найден");
+    assert(r.группы.some(g => /В работе/.test(g)), "нет группы «В работе»: " + JSON.stringify(r.группы));
+    assert(r.группы.some(g => /Завершённые/.test(g)), "нет группы «Завершённые»: " + JSON.stringify(r.группы));
+
+    // Ни одна сделка не пропала: прятать завершённые нельзя.
+    const сделок = r.позиции.filter(o => /^Проект \d+/.test(o.txt)).length;
+    assertEqual(сделок, ВСЕГО, `в списке ${сделок} сделок вместо ${ВСЕГО} — завершённые прятать нельзя`);
+
+    // Каждая активная выше каждой завершённой.
+    const посл = Math.max(...r.позиции.filter(o => /В работе/.test(o.гр)).map(o => o.i));
+    const перв = Math.min(...r.позиции.filter(o => /Завершённые/.test(o.гр)).map(o => o.i));
+    assert(посл < перв,
+      `активные не выше завершённых: последняя активная на ${посл}, первая завершённая на ${перв}`);
+
+    await ctx.close();
+  });
+
   await test("«Данные»: плитки называют настоящий объём базы, а не круглые нули", async () => {
     /* Экран выгрузок показывал только кнопки — ни слова о том, что именно лежит
        в базе. Человек приходит сюда перед необратимым (импорт поверх, сброс), и

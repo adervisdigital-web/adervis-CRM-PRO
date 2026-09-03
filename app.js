@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 427;
+      const APP_BUILD = 428;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -10994,6 +10994,37 @@
         toastUndo("Черновик сметы убран", () => { proj.botEstimate = prevDraft; save(); render(); });
       }
 
+      /* ── Сделки в выпадающих списках ─────────────────────────────────────────
+         Замер на боевом объёме (122 сделки: 115 завершённых, 7 в работе):
+         в списке 124 пункта, активные стоят на местах 2, 19, 36, 53, 70, 87,
+         104 и 121. Чтобы выбрать сделку, в которой идёт работа, приходится
+         пролистать сотню сданных — и так при КАЖДОМ внесении платежа.
+
+         Завершённые НЕ прячем: платёж, задача и договор законно прилетают к
+         сданной сделке, и спрятанное пришлось бы искать обходным путём. Меняем
+         не состав, а порядок: <optgroup> ставит работающие наверх и подписывает
+         обе группы. Ничего не исчезает, всё достижимо. */
+      function dealsByActivity(list) {
+        const active = [], done = [];
+        (list || state.savedProjects || []).forEach(p => {
+          (isDealInactive(p.crmStatus || "Лид") ? done : active).push(p);
+        });
+        return { active, done };
+      }
+
+      // Один рисователь на все четыре списка: иначе группировка появится в одном
+      // и не появится в трёх, а разойдутся они молча.
+      function dealOptionGroups(selectedId, opts) {
+        const o = opts || {};
+        const src = (state.savedProjects || []).filter(p => !o.exclude || p.id !== o.exclude);
+        const { active, done } = dealsByActivity(src);
+        const label = (p) => (p.name || "Без названия") + (o.withClient && p.client ? " · " + p.client : "");
+        const group = (title, arr) => arr.length
+          ? `<optgroup label="${escapeHtml(title)}">${arr.map(p => optionValueHtml(p.id, label(p), selectedId)).join("")}</optgroup>`
+          : "";
+        return group("В работе", active) + group(`Завершённые · ${done.length}`, done);
+      }
+
       function updateProject(key, value) {
         // clientBudget обязан быть числом: плашка сверки в шапке сметы сравнивает его
         // с итогом, а строка "37985" в сравнении вела бы себя непредсказуемо.
@@ -13252,9 +13283,7 @@
                 <select onchange="app.setFinanceModalProject(this.value)">
                   <option value="">— Без проекта —</option>
          ${state.activeProjectId ? `<option value="${state.activeProjectId}" ${m.projectId === state.activeProjectId ? "selected" : ""}> ${escapeHtml(state.project.name || "Текущий проект")}</option>` : ""}
-                  ${(state.savedProjects || []).filter(p => p.id !== state.activeProjectId).map(p =>
-                    `<option value="${p.id}" ${m.projectId === p.id ? "selected" : ""}>${escapeHtml(p.name)}${p.client ? " · " + escapeHtml(p.client) : ""}</option>`
-                  ).join("")}
+                  ${dealOptionGroups(m.projectId, { exclude: state.activeProjectId, withClient: true })}
                 </select>
               </div>
 
@@ -20954,7 +20983,6 @@
         /* Доска и список — один и тот же набор задач, разная подача: список
            отвечает «что горит», доска — «где стоит работа». */
         const boardView = (state.globalTaskView || "list") === "board";
-        const projectOpts = (state.savedProjects || []).map(p => ({ id: p.id, name: p.name || "Без названия" }));
         const statusChips = [{ id: "active", label: "Активные" }, { id: "all", label: "Все" }, ...TASK_STATUSES.map(s => ({ id: s, label: s }))];
 
         const _tKey = effStatus + "|" + projectFilter + "|" + taskQuery + "|" + (closedVisible ? "closed" : "");
@@ -21005,7 +21033,7 @@
               <select class="gtask-project-select" title="Фильтр по проекту" aria-label="Фильтр задач по проекту" onchange="app.setGlobalTaskFilter('project',this.value)">
                 <option value="all" ${projectFilter === "all" ? "selected" : ""}>Все проекты</option>
                 <option value="personal" ${projectFilter === "personal" ? "selected" : ""}>Личные задачи</option>
-                ${projectOpts.map(p => `<option value="${escapeHtml(p.id)}" ${projectFilter === p.id ? "selected" : ""}>${escapeHtml(p.name)}</option>`).join("")}
+                ${dealOptionGroups(projectFilter)}
               </select>
               ${total ? `<button class="btn small gtask-add" onclick="app.createGlobalTask()" title="Личная задача, не привязанная к проекту">${icon("plus", 13)} Своя задача</button>` : ""}
               <div class="deal-view-toggle no-print" role="group" aria-label="Вид задач">
@@ -22935,11 +22963,6 @@
 
         const maxBar = Math.max(...monthly.map(m => Math.max(m.income, m.expense)), 1);
 
-        const projects = [{ id: "all", name: "Все проекты" }, ...
-          [state.activeProjectId ? { id: state.activeProjectId, name: state.project.name || "Текущий" } : null,
-           ...(state.savedProjects || []).filter(p => p.id !== state.activeProjectId).map(p => ({ id: p.id, name: p.name }))
-          ].filter(Boolean)
-        ];
 
         return `
           <div class="panel">
@@ -23238,7 +23261,15 @@
             ${(state.gFinSubTab || "transactions") === "transactions" ? `
             <div class="fin-action-bar no-print" style="margin-bottom:8px;flex-wrap:wrap;gap:8px">
               <select title="Фильтр по проекту" aria-label="Фильтр операций по проекту" onchange="app.setGFinFilter(this.value)" style="padding:8px 34px 8px 12px;border-radius:10px;font-size:13px">
-                ${projects.map(p => `<option value="${p.id}" ${gFilter===p.id?"selected":""}>${escapeHtml(p.name)}</option>`).join("")}
+                <option value="all" ${gFilter==="all"?"selected":""}>Все проекты</option>
+                ${/* Открытая, но ещё НЕ СОХРАНЁННАЯ сделка в savedProjects не лежит,
+                      а операции по ней уже заводят. Прежний список добавлял её
+                      отдельной строкой с живым именем — сохраняем это поведение,
+                      иначе фильтр по текущей сделке молча исчезнет. */""}
+                ${state.activeProjectId && !(state.savedProjects || []).some(p => p.id === state.activeProjectId)
+                  ? optionValueHtml(state.activeProjectId, (state.project.name || "Текущий") + " · не сохранена", gFilter)
+                  : ""}
+                ${dealOptionGroups(gFilter)}
               </select>
               <select title="Тип операции" aria-label="Фильтр по типу операции" onchange="app.setGFinTypeFilter(this.value)" style="padding:8px 34px 8px 12px;border-radius:10px;font-size:13px">
                 <option value="all" ${typeFilter==="all"?"selected":""}>Все операции</option>
@@ -29373,7 +29404,7 @@ Email: _____________________              Email: _____________________
                     </select>`)}
                     ${field("Сделка", `<select onchange="app.updateContractField('${c.id}','dealId',this.value)">
                       <option value="">— без привязки —</option>
-                      ${(state.savedProjects||[]).map(p => `<option value="${p.id}" ${c.dealId===p.id?"selected":""}>${escapeHtml(p.name)}${p.client?" · "+escapeHtml(p.client):""}</option>`).join("")}
+                      ${dealOptionGroups(c.dealId, { withClient: true })}
                     </select>`)}
                   </div>
                 </div>
