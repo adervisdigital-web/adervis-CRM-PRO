@@ -1957,6 +1957,50 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  await test("«Данные»: плитки называют настоящий объём базы, а не круглые нули", async () => {
+    /* Экран выгрузок показывал только кнопки — ни слова о том, что именно лежит
+       в базе. Человек приходит сюда перед необратимым (импорт поверх, сброс), и
+       решать вслепую нельзя. Плитки обязаны считать РЕАЛЬНОЕ состояние: пустые
+       или застывшие числа здесь хуже, чем их отсутствие. */
+    const { context: ctx, page: p } = await bootSeeded(browser, baseUrl);
+    await p.evaluate(() => { window.app.go("settings"); window.app._setSettingsTab("data"); });
+    await p.waitForTimeout(300);
+
+    const плитки = await p.evaluate(() => [...document.querySelectorAll(".data-stat")].map(el => ({
+      num: (el.querySelector(".data-stat__num") || {}).textContent?.trim(),
+      lbl: (el.querySelector(".data-stat__lbl") || {}).textContent?.trim(),
+    })));
+    assert(плитки.length >= 6, "плиток с фактами меньше, чем должно быть: " + плитки.length);
+
+    const поПодписи = (re) => плитки.find(t => re.test(t.lbl || ""));
+    const сделки = поПодписи(/сделк/i);
+    assert(сделки, "нет плитки со сделками");
+    // seedDeals() кладёт ровно три сделки — плитка обязана назвать это число.
+    assertEqual(сделки.num, "3", "плитка сделок посчитала не состояние: " + JSON.stringify(сделки));
+
+    const объём = поПодписи(/занято в браузере/i);
+    assert(объём, "нет плитки с занятым объёмом");
+    assert(/^\d+([.,]\d+)?\s*(КБ|МБ)$/.test(объём.num || ""),
+      "объём показан не как размер: " + JSON.stringify(объём));
+    assert(Number(String(объём.num).replace(/[^\d.,]/g, "").replace(",", ".")) > 0,
+      "объём хранилища нулевой — значит считается не то");
+
+    // Склонения: «1 сделок» на этом экране уже было.
+    for (const t of плитки) {
+      assert(!/^\s*1\s*$/.test(t.num) || !/(сделок|клиентов|задач|договоров|операций)$/.test(t.lbl || ""),
+        "число 1 с подписью во множественном числе: " + JSON.stringify(t));
+    }
+
+    const опасно = await p.evaluate(() => {
+      const h = [...document.querySelectorAll("h2")].find(x => /Опасная зона/.test(x.textContent));
+      return h ? h.parentElement.textContent.replace(/\s+/g, " ") : "";
+    });
+    assert(/облак/i.test(опасно),
+      "«Опасная зона» не предупреждает про облачную копию: " + опасно.slice(0, 120));
+
+    await ctx.close();
+  });
+
   await test("себестоимость каталога проставляется разделу и наследуется новой строкой", async () => {
     /* До 03.09.2026 себестоимость жила ТОЛЬКО в строке сметы и начиналась с нуля.
        Каждая новая смета выходила с маржой 100%, а совет продукта «проставьте

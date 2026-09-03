@@ -3308,6 +3308,52 @@
       .pwa-install-cta { width: 100%; }
       .pwa-install-cta .btn { width: 100%; }
     }
+
+    /* ── Вкладка «Данные» ────────────────────────────────────────────────────
+       Карточка занимает ячейку целиком, описанию отведены две строки, действие
+       прижато к низу. Высоты НЕ подгоняем: ровный ряд держится строением, иначе
+       карточки поплывут от текста разной длины — тот же разбор, что у каталога,
+       пакетов и шаблонов договоров (31.08). */
+    .data-card {
+      display: flex; flex-direction: column; gap: 8px; height: 100%;
+      padding: 14px; border-radius: var(--r-lg);
+      background: var(--panel); border: 1px solid var(--line);
+      transition: border-color .15s ease, transform .15s ease;
+    }
+    .data-card:hover { border-color: rgb(var(--primary-rgb) / .45); transform: translateY(-1px); }
+    .data-card__title { font-size: 13px; font-weight: 750; line-height: 1.35; }
+    .data-card__note {
+      font-size: 12px; color: var(--muted); line-height: 1.5;
+      min-height: 2.6em; /* резерв под две строки — ровно ради ровного ряда */
+    }
+    /* Кнопка НЕ на всю ширину карточки: сетку держит сама карточка, а залитая
+       плита во всю ячейку кричит там, где нужно обычное действие — три таких
+       подряд (фиолетовая и две зелёные) читались рядом цветных полос. */
+    .data-card__act { margin-top: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    /* width:auto перебивает общее правило для полей ввода: месяц во всю ширину
+       карточки — ровно то, что раздражало на прежнем экране. */
+    .data-card input[type="month"] {
+      width: auto; max-width: 190px; padding: 7px 10px; font-size: 13px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--panel2); color: var(--text);
+    }
+    @media (max-width: 1160px) {
+      /* В одну колонку карточка широкая, и кнопка у левого края теряется. */
+      .data-card__act .btn { flex: 1 1 auto; justify-content: center; }
+    }
+
+    /* Плитка факта: значок, число, подпись. Числа моноширинные — колонка цифр
+       должна читаться сверху вниз, а не прыгать. */
+    .data-stat {
+      display: flex; align-items: center; gap: 11px;
+      padding: 12px 14px; border-radius: var(--r-lg);
+      background: var(--panel); border: 1px solid var(--line);
+    }
+    .data-stat__num {
+      font-family: var(--font-display); font-weight: 800; font-size: 18px;
+      font-variant-numeric: tabular-nums; line-height: 1.15;
+    }
+    .data-stat__lbl { font-size: 12px; color: var(--muted); line-height: 1.35; }
     @media (max-width: 640px) {
       .seg-switch.wrap button { flex: 1 1 calc(50% - 4px); min-width: 0; }
     }

@@ -5037,8 +5037,7 @@
                   ${field("Макс. исп.", `<input type="number" min="1" value="${_adminPromoForm.maxUses||100}" oninput="app._setPromoForm('maxUses',this.value)">`)}
                   ${field("Истекает", `<input type="date" value="${escapeHtml(_adminPromoForm.expires||"")}" onchange="app._setPromoForm('expires',this.value)">`)}
                 </div>
-                <button class="btn primary" onclick="app.adminCreatePromo()" ${_adminPromoForm.loading?"disabled":""} style="display:flex;align-items:center;gap:6px">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                <button class="btn primary" onclick="app.adminCreatePromo()" ${_adminPromoForm.loading?"disabled":""}>
                   ${_adminPromoForm.loading?"Создание...":"Создать промокод"}
                 </button>
               </div>
@@ -10248,7 +10247,10 @@
       async function resetAllData() {
         if (!(await confirmDialog({
           title: "Сбросить все данные?",
-          message: "Будут удалены проекты, клиенты, цены и настройки этого устройства. Это действие нельзя отменить.",
+          // «Этого устройства» было неправдой: следом идёт save(), а он через три
+          // секунды отправляет пустое состояние в agency_state — облачная копия
+          // тоже обнуляется, и на других устройствах данные пропадут.
+          message: "Будут удалены проекты, клиенты, цены и настройки — и в этом браузере, и в облаке, то есть на всех устройствах. Это действие нельзя отменить.",
           okText: "Сбросить всё", danger: true
         }))) return;
         state = defaultState();
@@ -17623,10 +17625,7 @@
                      <span class="catalog-qty-value">${qty}</span>
                      <button type="button" class="catalog-qty-btn" onclick="app.catalogAddOne('${id}')">+</button>
                    </div>`
-                : `<button class="btn primary" onclick="app.catalogAddOne('${id}');app.closeCatalogEdit()">
-                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                     Добавить в смету
-                   </button>`
+                : `<button class="btn primary" onclick="app.catalogAddOne('${id}');app.closeCatalogEdit()">Добавить в смету</button>`
               }
               <button class="catalog-action-btn ${isFav ? "active" : ""}" onclick="app.toggleFavorite('${id}')" title="${isFav ? "Убрать из избранного" : "В избранное"}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="${isFav ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
@@ -18584,10 +18583,14 @@
                          <span class="catalog-qty-value">${qty}</span>
                          <button type="button" class="catalog-qty-btn" onclick="app.catalogAddOne('${itemData.id}')" title="Больше" aria-label="Увеличить количество">+</button>
                        </div>`
-                    : `<button class="btn small primary catalog-add-btn" onclick="app.catalogAddOne('${itemData.id}')">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                        Добавить
-                       </button>`
+                    /* Плюса у «Добавить» нет намеренно: подпись уже глагол, значок
+                       повторял бы её (та же причина, по которой 31.08 убрали
+                       шаблонные «→»). Важнее другое — в ЭТОМ ЖЕ месте карточки
+                       плюс занят настоящим смыслом: как только позиция в смете,
+                       кнопка становится счётчиком «− 1 +», где «+» значит «ещё
+                       одну». Один знак в одной точке не может означать то
+                       украшение, то действие. */
+                    : `<button class="btn small primary catalog-add-btn" onclick="app.catalogAddOne('${itemData.id}')">Добавить</button>`
                   }
                 </div>
                 <div style="display:flex;gap:4px;align-items:center">
@@ -23596,41 +23599,138 @@
             </div>
         `;
 
+        /* Экран выгрузок раньше показывал ТОЛЬКО кнопки: пять штук разного размера
+           в один ряд, одна вовсе без подписи (зелёный значок Excel), и ни слова о
+           том, что именно лежит в базе и куда оно уедет. Человек приходит сюда
+           перед чем-то необратимым — импортом поверх или сбросом, — и решать это
+           вслепую нельзя. Поэтому сначала факты, потом действия. */
+        const dataFacts = (() => {
+          const deals = state.savedProjects || [];
+          const projTasks = deals.reduce((s, p) => s + ((p.snapshot && p.snapshot.tasks) || []).length, 0);
+          const items = allItems(true);
+          // Размер берём у УЖЕ сериализованной копии в localStorage, а не через
+          // повторный JSON.stringify(state): на трёхстах сделках это 5 МБ строки
+          // на каждый render раздела.
+          const raw = lsGet(STORAGE_KEY);
+          const bytes = raw ? raw.length : 0;
+          const mark = _getCloudSyncMark() || {};
+          return {
+            deals: deals.length,
+            active: deals.filter(p => !isDealInactive(p.crmStatus || "Лид")).length,
+            clients: (state.clients || []).length,
+            items: items.length,
+            own: (state.customItems || []).length,
+            txs: getAllTransactions().length,
+            tasks: (state.globalTasks || []).length + projTasks,
+            contracts: (state.contracts || []).length,
+            bytes,
+            cloudAt: mark.cloudUpdatedAt || "",
+            dirty: !!mark.dirty,
+          };
+        })();
+
+        const statTile = (iconName, colorVar, num, label) => `
+          <div class="data-stat">
+            ${iconBadge(iconName, colorVar, 30)}
+            <div style="min-width:0">
+              <div class="data-stat__num">${num}</div>
+              <div class="data-stat__lbl">${label}</div>
+            </div>
+          </div>`;
+
+        const dataCard = (iconName, colorVar, title, note, action) => `
+          <div class="data-card">
+            ${iconBadge(iconName, colorVar, 30)}
+            <div class="data-card__title">${title}</div>
+            <div class="data-card__note">${note}</div>
+            <div class="data-card__act no-print">${action}</div>
+          </div>`;
+
         const dataTab = `
             <div class="panel" style="box-shadow:none;background:var(--panel2)">
-              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("download", "var(--green)")} Экспорт и импорт</h2>
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("chart", "var(--blue)")} Что хранится</h2>
+              <p class="mini-note" style="margin-top:0">Всё это уедет в файл при выгрузке и будет заменено при импорте.</p>
 
-              <div class="toolbar no-print">
-                <button class="btn primary" onclick="app.exportData()">Экспорт JSON</button>
-                <button class="btn" onclick="document.getElementById('importJsonInput').click()">Импорт JSON</button>
-                ${/* Подпись исправлена: «все данные» кнопка не выгружает — только
-                      смету открытой сделки. Полная выгрузка здесь одна — «Экспорт
-                      JSON» слева. Кнопку оставили: этот экран люди и открывают
-                      ради выгрузок, но обещание должно совпадать с делом. */""}
-                <button class="xlsx-icon-btn" onclick="app.exportXlsx()" title="Смета открытой сделки в Excel (.xlsx)" aria-label="Смета открытой сделки в Excel"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg></button>
-                <button class="btn" onclick="app.printProposal()">Печать / PDF</button>
-                <button class="btn" onclick="document.getElementById('importCatalogInput').click()">Импорт каталога</button>
+              <div class="grid four" style="gap:10px;margin-top:12px">
+                ${statTile("target", "var(--primary)", dataFacts.deals,
+                  plural(dataFacts.deals, "сделка", "сделки", "сделок")
+                  + (dataFacts.deals === dataFacts.active ? "" : ` · ${dataFacts.active} в работе`))}
+                ${statTile("person", "var(--blue)", dataFacts.clients, plural(dataFacts.clients, "клиент", "клиента", "клиентов"))}
+                ${statTile("list", "var(--green)", dataFacts.items, dataFacts.own ? `позиций · ${dataFacts.own} ${plural(dataFacts.own, "своя", "свои", "своих")}` : "позиций каталога")}
+                ${statTile("coins", "var(--yellow)", dataFacts.txs, plural(dataFacts.txs, "операция", "операции", "операций"))}
+                ${statTile("check", "var(--primary)", dataFacts.tasks, plural(dataFacts.tasks, "задача", "задачи", "задач"))}
+                ${statTile("doc", "var(--blue)", dataFacts.contracts, plural(dataFacts.contracts, "договор", "договора", "договоров"))}
+                ${statTile("archive", "var(--muted)", dataFacts.bytes > 1048576 ? (dataFacts.bytes / 1048576).toFixed(1) + " МБ" : Math.round(dataFacts.bytes / 1024) + " КБ", "занято в браузере")}
+                ${(() => {
+                  /* Облачная копия — единственный факт здесь, который человек не
+                     может проверить сам, а от него зависит, переживут ли данные
+                     этот браузер. Показываем СОСТОЯНИЕ, а не обещание. */
+                  if (!_adminSession) return statTile("cloud", "var(--muted)", "—", "вход не выполнен");
+                  if (dataFacts.dirty || !dataFacts.cloudAt) return statTile("cloud", "var(--text-warning)", "нет", "не сохранено в облако");
+                  return statTile("cloud", "var(--text-success)", formatDate(dataFacts.cloudAt), "копия в облаке");
+                })()}
               </div>
-              <div class="toolbar no-print" style="margin-top:8px">
-                <span style="font-size:12px;color:var(--muted);align-self:center">Ежемесячный отчёт:</span>
-                <input type="month" id="monthReportInput" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:13px"
-                  ${/* localIso, а не toISOString: в ночь на 1-е число месяца UTC ещё
-                        показывает прошлый, и отчёт «за месяц» по умолчанию сдавался
-                        за предыдущий — ровно та же причина, что у платежей. */""}
-                  value="${todayIso().slice(0,7)}">
-                <button class="btn green" onclick="app.exportMonthlyReport(document.getElementById('monthReportInput').value)" style="display:inline-flex;align-items:center;gap:6px">${icon("download")} Отчёт за месяц</button>
-              </div>
+            </div>
 
-              <p class="mini-note">
-                JSON сохраняет полностью всё состояние: проекты, клиентов, каталог, цены, версии, задачи, финансы, команду и настройки.
-              </p>
+            <div class="panel" style="margin-top:16px;box-shadow:none;background:var(--panel2)">
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("download", "var(--green)")} Выгрузить</h2>
+
+              ${/* Две колонки, а не три: выгрузок четыре, и при трёх в ряд четвёртая
+                    висела бы одна в пустом ряду — тот же дефект, что чинили у плиток
+                    финансов 31.08. 2×2 закрывает ряд целиком. */""}
+              <div class="grid two" style="gap:10px;margin-top:12px">
+                ${dataCard("archive", "var(--primary)", "Полная копия (JSON)",
+                  "Всё состояние одним файлом: сделки, клиенты, каталог и цены, версии смет, задачи, финансы, команда, настройки.",
+                  `<button class="btn primary" onclick="app.exportData()">Скачать JSON</button>`)}
+
+                ${/* У кнопки Excel не было подписи вовсе — только зелёный значок,
+                      и что она выгружает, знал лишь тот, кто наводил мышь. */""}
+                ${dataCard("chart", "var(--green)", "Смета в Excel",
+                  "Позиции, количества и суммы открытой сделки в .xlsx — для бухгалтерии или правки в таблице.",
+                  `<button class="btn green" onclick="app.exportXlsx()">Скачать .xlsx</button>`)}
+
+                ${dataCard("receipt", "var(--blue)", "Печать / PDF",
+                  "Коммерческое предложение открытой сделки на фирменном бланке. В окне печати выберите «Сохранить как PDF».",
+                  `<button class="btn" onclick="app.printProposal()">Открыть печать</button>`)}
+
+                ${dataCard("calendar", "var(--yellow)", "Отчёт за месяц",
+                  "Поступления, расходы и прибыль выбранного месяца отдельным файлом.",
+                  `<input type="month" id="monthReportInput"
+                     ${/* localIso, а не toISOString: в ночь на 1-е число месяца UTC
+                           ещё показывает прошлый, и отчёт «за месяц» по умолчанию
+                           сдавался за предыдущий — та же причина, что у платежей. */""}
+                     value="${todayIso().slice(0,7)}" aria-label="Месяц отчёта">
+                   <button class="btn green" onclick="app.exportMonthlyReport(document.getElementById('monthReportInput').value)">Скачать отчёт</button>`)}
+              </div>
+            </div>
+
+            <div class="panel" style="margin-top:16px;box-shadow:none;background:var(--panel2)">
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("upload", "var(--yellow)")} Загрузить</h2>
+              <p class="mini-note" style="margin-top:0">Загрузка ЗАМЕНЯЕТ данные, а не дополняет их. Сначала выгрузите копию.</p>
+
+              <div class="grid two" style="gap:10px;margin-top:12px">
+                ${dataCard("archive", "var(--yellow)", "Полная копия (JSON)",
+                  "Заменит всё состояние целиком — сделки, клиентов, каталог, финансы. Переносить на другое устройство только так.",
+                  `<button class="btn" onclick="document.getElementById('importJsonInput').click()">Выбрать файл JSON</button>`)}
+
+                ${dataCard("list", "var(--yellow)", "Каталог позиций",
+                  "Заменит позиции и цены каталога. Сделки и финансы не тронет.",
+                  `<button class="btn" onclick="document.getElementById('importCatalogInput').click()">Выбрать файл каталога</button>`)}
+              </div>
             </div>
 
             <div class="panel" style="margin-top:16px;box-shadow:none;background:var(--panel2);border-color:rgba(220,38,38,.45)">
-              <h2 style="display:flex;align-items:center;gap:9px">${iconBadge("warning", "var(--red)")} Опасная зона</h2>
-              <p>Сброс удалит все локальные данные приложения в браузере.</p>
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("warning", "var(--red)")} Опасная зона</h2>
+              ${/* Прежняя подпись обещала «локальные данные в браузере» — и это
+                    НЕПРАВДА: resetAllData ставит пустое состояние и зовёт save(),
+                    а save() через три секунды отправляет его в agency_state. То
+                    есть сброс стирает и облачную копию, на всех устройствах.
+                    Человек, читавший старый текст, мог нажать «Сбросить» именно
+                    потому, что рассчитывал на облако как на запасную копию. */""}
+              <p style="margin-top:0">Сброс очищает данные <strong>и в этом браузере, и в облаке</strong> — на всех устройствах, где выполнен вход. Отменить нельзя.</p>
+              <p class="mini-note">Сначала скачайте полную копию JSON: она восстанавливается загрузкой в разделе выше.</p>
 
-              <div class="toolbar no-print">
+              <div class="toolbar no-print" style="margin-top:12px">
                 <button class="btn danger-quiet" onclick="app.resetAllData()">Сбросить всё</button>
               </div>
             </div>
