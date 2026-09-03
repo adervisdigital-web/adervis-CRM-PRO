@@ -259,6 +259,76 @@ Deno.serve(async (req) => {
     };
   }
 
+  /* ── Смета из свободного текста ──────────────────────────────────────────
+     Признак сметы: минимум две строки, и хотя бы в двух из них есть сумма.
+     Одиночный вопрос («сколько должен Альфа?») сюда не попадает и уходит в
+     общий AI-ответ, как раньше. */
+  function looksLikeEstimate(t: string) {
+    const rows = t.split("\n").map(s => s.trim()).filter(Boolean);
+    if (rows.length < 2) return false;
+    const money = /\d[\d\s.,]{2,}\s*(₽|руб|р\.)/i;
+    return rows.filter(r => money.test(r)).length >= 2;
+  }
+
+  async function parseEstimate(t: string) {
+    try {
+      const r = await fetch(`${supabaseUrl}/functions/v1/parse-estimate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+        body: JSON.stringify({ text: t }),
+      });
+      const d = await r.json();
+      if (!r.ok) return { error: d?.error || "Не удалось разобрать смету" };
+      return d;
+    } catch (e) {
+      console.error("parseEstimate:", e);
+      return null;
+    }
+  }
+
+  function estimateSummary(p: any) {
+    const rows = (p.lines || []).map((l: any, i: number) =>
+      `${i + 1}. ${esc(l.name)}${l.qty > 1 ? ` × ${l.qty}` : ""}${l.note ? ` <i>(${esc(l.note)})</i>` : ""} — <b>${money(l.price * l.qty)}</b>`
+    ).join("\n");
+
+    let out = `🧾 <b>Разобрал смету</b>\n\n${rows}\n\n` +
+      `Позиций: ${p.lines.length} · Сумма: <b>${money(p.sum)}</b>`;
+
+    /* Сверка с «Итого», которое написал человек. Это единственная защита от
+       того, что модель потеряла или удвоила строку: расхождение показываем
+       ЧИСЛОМ и не даём создать сделку одной кнопкой. */
+    if (p.mismatch) {
+      out += `\n\n⚠️ <b>Не сходится с «Итого»</b>\n` +
+        `Вы написали ${money(p.statedTotal)}, по позициям выходит ${money(p.sum)} ` +
+        `(разница ${money(Math.abs(p.mismatch))}).\n` +
+        `<i>Проверьте — возможно, я потерял строку.</i>`;
+    } else if (p.statedTotal) {
+      out += ` ✅ сходится с «Итого»`;
+    }
+
+    if ((p.openItems || []).length) {
+      out += `\n\n❓ Без суммы: ${p.openItems.map((x: string) => esc(x)).join(", ")}\n` +
+        `<i>В смету не попадёт — допишите в CRM.</i>`;
+    }
+
+    out += `\n\n📋 Название: ${p.dealName ? esc(p.dealName) : "<i>не нашёл</i>"}\n` +
+      `👤 Клиент: ${p.client ? esc(p.client) : "<i>не указан</i>"}`;
+    return out;
+  }
+
+  function estimateConfirmKb(p: any) {
+    const rows: any[] = [];
+    // При расхождении «Создать» не первой кнопкой и с оговоркой: подтверждение
+    // должно стоить одного лишнего взгляда, а не одного случайного тапа.
+    rows.push([{ text: p.mismatch ? "Всё равно создать" : "✅ Создать сделку", callback_data: "est_confirm" }]);
+    rows.push([
+      { text: "✏ Название", callback_data: "est_edit_name" },
+      { text: "✏ Клиент",   callback_data: "est_edit_client" },
+    ]);
+    rows.push([{ text: "❌ Отмена", callback_data: "est_cancel" }]);
+    return { inline_keyboard: rows };
+  }
+
   async function startDealFlow(agencyId: string) {
     await writeSession(agencyId, { action: "create_deal", step: "name", data: {} });
     await send(
@@ -440,6 +510,79 @@ Deno.serve(async (req) => {
     // Text input for current step
     if (!isCallback && !text.startsWith("/")) {
       await handleDealStep(agencyId, session, text, false);
+      return new Response("ok", { status: 200 });
+    }
+  }
+
+  /* ── Подтверждение разобранной сметы ─────────────────────────────────────
+     Правки ровно двух полей: название и клиент. Суммы позиций правятся в CRM,
+     а не в переписке: менять деньги вслепую, без сметы перед глазами, — самый
+     дорогой способ ошибиться. */
+  if (session?.action === "estimate_confirm") {
+    const p = session.data || {};
+
+    if (text === "est_cancel") {
+      await writeSession(agencyId, null);
+      await send("Отменено. Смета не создана.", mainKeyboard);
+      return new Response("ok", { status: 200 });
+    }
+
+    if (text === "est_edit_name" || text === "est_edit_client") {
+      await writeSession(agencyId, { ...session, step: text === "est_edit_name" ? "name" : "client" });
+      await send(text === "est_edit_name" ? "Введите <b>название</b> сделки:" : "Введите <b>клиента</b>:", cancelKb("est"));
+      return new Response("ok", { status: 200 });
+    }
+
+    if (!isCallback && (session.step === "name" || session.step === "client")) {
+      const next = { ...p, [session.step === "name" ? "dealName" : "client"]: text.trim().slice(0, 120) };
+      await writeSession(agencyId, { ...session, step: "confirm", data: next });
+      await send(estimateSummary(next), estimateConfirmKb(next));
+      return new Response("ok", { status: 200 });
+    }
+
+    if (text === "est_confirm" && session.step === "confirm") {
+      const name = (p.dealName || "").trim() || `Смета из Telegram ${new Date().toLocaleDateString("ru-RU")}`;
+      /* Сумма сделки — та, что ПОСЧИТАНА по позициям, а не «Итого» из текста:
+         в CRM бюджет обязан совпадать с составом сметы. Если человек всё же
+         создал сделку с расхождением, оно уходит в заметку, а не теряется. */
+      const deal = {
+        id: uid("proj"),
+        name, client: (p.client || "").trim(), clientId: "",
+        crmStatus: "Лид", total: p.sum, paid: 0,
+        deadline: "", lines: [], payments: [], expenses: [], tasks: [], team: [],
+        /* Позиции кладём отдельным полем, а НЕ собираем строку сметы здесь.
+           У строки сметы 35 полей и своя математика (defaultLineForItem в
+           app.js); повторить её в Edge Function — значит завести вторую
+           реализацию, которая разойдётся с первой молча. Приложение развернёт
+           этот черновик своим же кодом при открытии сделки. */
+        botEstimate: {
+          source: "telegram",
+          createdAt: new Date().toISOString(),
+          lines: p.lines,
+          statedTotal: p.statedTotal || 0,
+          mismatch: p.mismatch || 0,
+          openItems: p.openItems || [],
+        },
+        notes: [
+          `Создано из сметы в Telegram (${new Date().toLocaleDateString("ru-RU")})`,
+          p.mismatch ? `Расхождение с «Итого»: ${p.statedTotal} вместо ${p.sum}` : "",
+          (p.openItems || []).length ? `Без суммы: ${(p.openItems || []).join(", ")}` : "",
+        ].filter(Boolean).join("\n"),
+        createdAt: new Date().toISOString(),
+      };
+      await addDeal(agencyId, deal);
+      await send(
+        `🎉 <b>Сделка создана</b>\n\n📋 ${esc(name)}\n` +
+        `${p.client ? `👤 ${esc(p.client)}\n` : ""}` +
+        `💰 ${money(p.sum)} · ${p.lines.length} ${p.lines.length === 1 ? "позиция" : "позиций"}\n\n` +
+        `Откройте сделку в CRM — там кнопка «Развернуть смету».`,
+        mainKeyboard,
+      );
+      return new Response("ok", { status: 200 });
+    }
+
+    if (!isCallback && !text.startsWith("/")) {
+      await send("Нажмите кнопку под сметой: создать, поправить или отменить.", estimateConfirmKb(p));
       return new Response("ok", { status: 200 });
     }
   }
@@ -629,6 +772,39 @@ Deno.serve(async (req) => {
       `«Сколько я заработал в этом месяце?»`,
       mainKeyboard,
     );
+    return new Response("ok", { status: 200 });
+  }
+
+  // ── Смета из свободного текста ─────────────────────────────────────────────
+  /* Владелец присылает боту то, что и так пишет клиенту руками — список услуг с
+     ценами и «Итого». Раньше такое сообщение уходило в общий AI-ответ: бот
+     пересказывал его словами и ничего не создавал.
+
+     Стоит ВЫШЕ свободного AI-ответа: сообщение со сметой должно разбираться, а
+     не обсуждаться. Признак — несколько строк, в каждой сумма; одиночный вопрос
+     «сколько должен Альфа» под него не попадает.
+
+     Сделку не создаём молча: сначала показываем разбор и сверку с «Итого».
+     Ошибка разбора — это неправильная сумма в договоре, поэтому последнее слово
+     за человеком. */
+  if (!text.startsWith("/") && !isCallback && looksLikeEstimate(text)) {
+    const parsed = await parseEstimate(text);
+    if (!parsed) {
+      await send("Не смог разобрать смету — попробуйте ещё раз или создайте сделку кнопкой.", mainKeyboard);
+      return new Response("ok", { status: 200 });
+    }
+    if (parsed.error) {
+      await send(`❌ ${esc(parsed.error)}`, mainKeyboard);
+      return new Response("ok", { status: 200 });
+    }
+
+    await writeSession(agencyId, {
+      action: "estimate_confirm",
+      step: "confirm",
+      data: parsed,
+      ts: Date.now(),
+    });
+    await send(estimateSummary(parsed), estimateConfirmKb(parsed));
     return new Response("ok", { status: 200 });
   }
 

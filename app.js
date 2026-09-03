@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 419;
+      const APP_BUILD = 420;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -10092,6 +10092,72 @@
         );
       }
 
+      /* ── Смета, присланная ботом ─────────────────────────────────────────────
+         Бот разбирает текст владельца («Съёмка — 50 000₽» и далее списком) и
+         кладёт позиции в сделку полем botEstimate. Саму строку сметы он НЕ
+         собирает: у неё 35 полей и своя математика (defaultLineForItem), и
+         вторая реализация в Edge Function разошлась бы с первой молча. Поэтому
+         разворачивает черновик приложение — тем же кодом, каким добавляет
+         позиции человек. */
+      function botEstimateOf(projectId) {
+        const proj = (state.savedProjects || []).find(p => p.id === projectId);
+        const d = proj && proj.botEstimate;
+        return d && Array.isArray(d.lines) && d.lines.length ? d : null;
+      }
+
+      function expandBotEstimate() {
+        const proj = (state.savedProjects || []).find(p => p.id === state.activeProjectId);
+        const draft = botEstimateOf(state.activeProjectId);
+        if (!draft) { toast("Черновик сметы не найден"); return; }
+
+        const prevDraft = deepClone(draft);
+        const createdIds = [];
+        draft.lines.forEach(l => {
+          const item = {
+            id: uid("custom"),
+            category: "custom",
+            section: CAT.custom,
+            name: String(l.name || "Позиция").slice(0, 120),
+            desc: String(l.note || "").slice(0, 200),
+            calcModel: "fixed",
+            price: Math.max(0, Math.round(numberValue(l.price, 0))),
+            unit: "шт",
+            tags: ["из Telegram"],
+            stage: "pre",
+            rates: {}
+          };
+          state.customItems.unshift(item);
+          const line = defaultLineForItem(item);
+          line.qty = Math.max(1, Math.round(numberValue(l.qty, 1)));
+          state.selected[item.id] = line;
+          if (!state.estimateOrder.includes(item.id)) state.estimateOrder.push(item.id);
+          createdIds.push(item.id);
+        });
+        // Черновик снимаем, иначе плашка вернётся и позиции задвоятся вторым нажатием.
+        delete proj.botEstimate;
+        save();
+        render();
+
+        toastUndo(`В смету добавлено ${createdIds.length} ${plural(createdIds.length, "позиция", "позиции", "позиций")}`, () => {
+          createdIds.forEach(id => {
+            delete state.selected[id];
+            state.estimateOrder = state.estimateOrder.filter(x => x !== id);
+            state.customItems = state.customItems.filter(x => x.id !== id);
+          });
+          proj.botEstimate = prevDraft;
+          save(); render();
+        });
+      }
+
+      function dismissBotEstimate() {
+        const proj = (state.savedProjects || []).find(p => p.id === state.activeProjectId);
+        if (!proj || !proj.botEstimate) return;
+        const prevDraft = deepClone(proj.botEstimate);
+        delete proj.botEstimate;
+        save(); render();
+        toastUndo("Черновик сметы убран", () => { proj.botEstimate = prevDraft; save(); render(); });
+      }
+
       function updateProject(key, value) {
         // clientBudget обязан быть числом: плашка сверки в шапке сметы сравнивает его
         // с итогом, а строка "37985" в сравнении вела бы себя непредсказуемо.
@@ -17938,7 +18004,7 @@
                     <div style="max-height:230px;overflow-y:auto">${entries || `<div class="mini-note">Пусто — добавьте позиции ниже</div>`}</div>
                     <div style="margin-top:10px">
                       <select onchange="app.addPackageItem(this.value);this.value=''" title="Добавить позицию в пакет">
-                        <option value="">${icon("plus", 12)} добавить позицию из каталога…</option>
+                        <option value="">добавить позицию из каталога…</option>
                         ${addable.map(x => `<option value="${x.id}">${escapeHtml(x.name)} — ${money(getCatalogPrice(x))}</option>`).join("")}
                       </select>
                     </div>
@@ -18694,9 +18760,32 @@
         const t = totals();
         const totalItems = selectedIds().length;
 
+        /* Плашка стоит НАД сметой и только пока черновик есть: развернул или
+           убрал — исчезла. Сумму показываем ту, что посчитал бот по позициям, и
+           отдельно называем расхождение с «Итого» из сообщения, если оно было, —
+           человек должен увидеть его до того, как смета уйдёт клиенту. */
+        const botDraft = botEstimateOf(state.activeProjectId);
+        const botDraftHtml = !botDraft ? "" : `
+          <div class="no-print" style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:14px 16px;margin-bottom:14px;border-radius:var(--r-lg);background:rgb(var(--primary-rgb) / .08);border:1px solid rgb(var(--primary-rgb) / .35)">
+            ${iconBadge("chat", "var(--primary)", 30)}
+            <div style="flex:1;min-width:200px">
+              <div style="font-size:13px;font-weight:750;margin-bottom:2px">Смета из Telegram — ${botDraft.lines.length} ${plural(botDraft.lines.length, "позиция", "позиции", "позиций")} на ${money(botDraft.lines.reduce((s, l) => s + numberValue(l.price, 0) * Math.max(1, numberValue(l.qty, 1)), 0))}</div>
+              <div class="u-meta" style="font-size:12px">
+                Бот разобрал ваше сообщение. Позиции добавятся как свои — цены и названия останутся вашими.
+                ${botDraft.mismatch ? `<br><strong style="color:var(--text-warning)">В сообщении «Итого» было ${money(botDraft.statedTotal)} — на ${money(Math.abs(botDraft.mismatch))} больше суммы позиций.</strong>` : ""}
+                ${(botDraft.openItems || []).length ? `<br>Без суммы: ${escapeHtml(botDraft.openItems.join(", "))} — допишите вручную.` : ""}
+              </div>
+            </div>
+            <div class="toolbar" style="margin:0">
+              <button class="btn primary small" onclick="app.expandBotEstimate()">Развернуть смету</button>
+              <button class="btn small" onclick="app.dismissBotEstimate()">Убрать</button>
+            </div>
+          </div>`;
+
         return `
           <div class="layout">
             <section${inDeal ? "" : ' class="panel"'}>
+              ${botDraftHtml}
 
               ${inDeal ? "" : `
                 <div class="section-title">
@@ -18708,7 +18797,7 @@
                         где видна и внутри сделки. Здесь оставалась бы вторая такая
                         же кнопка на одном экране. */""}
                   <div class="toolbar no-print">
-                    <button class="btn" onclick="app.go('catalog')">${icon("plus", 13)} Добавить</button>
+                    <button class="btn" onclick="app.go('catalog')">Добавить</button>
                   </div>
                 </div>
                 ${projectFields()}
@@ -19766,7 +19855,7 @@
                 </div>
               ` : `
                 <div class="mt-10">
-                  <button class="btn small" onclick="app.showClientRequisites('${client.id}')">${icon("plus", 13)} Добавить реквизиты</button>
+                  <button class="btn small" onclick="app.showClientRequisites('${client.id}')">Добавить реквизиты</button>
                 </div>
               `}
 
@@ -23179,7 +23268,7 @@
                   <button class="icon-del-btn" onclick="app.removeTelegramRecipient('${r.id}')" title="Удалить получателя" aria-label="Удалить получателя">${TRASH_SVG}</button>
                 </div>
               `).join("")}
-              <button class="btn" onclick="app.addTelegramRecipient()" style="margin-top:4px">${icon("plus", 13)} Добавить получателя</button>
+              <button class="btn" onclick="app.addTelegramRecipient()" style="margin-top:4px">Добавить получателя</button>
               <p style="font-size:12px;color:var(--muted);margin-top:12px">Уведомления: просроченные дедлайны, смена статуса сделки.</p>
             </div>
         `;
@@ -23476,7 +23565,7 @@
                     </div>
                   `).join("")}
                 </div>
-                <button class="btn small" onclick="app.addFinanceArticle('${kind}')" style="margin-top:10px;display:inline-flex;align-items:center;gap:6px">${icon("plus", 13)} Добавить статью</button>
+                <button class="btn small" onclick="app.addFinanceArticle('${kind}')" style="margin-top:10px;display:inline-flex;align-items:center;gap:6px">Добавить статью</button>
               </div>`;
           };
           return `
@@ -28994,6 +29083,8 @@ Email: _____________________              Email: _____________________
         bulkSetCrmStatus,
         bulkAddCrmTag,
         bulkDeleteDeals,
+        expandBotEstimate,
+        dismissBotEstimate,
         toggleCatalogCostPanel,
         setCatalogCostPct,
         bulkSetCatalogCost,

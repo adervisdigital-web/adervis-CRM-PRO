@@ -1957,6 +1957,89 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  await test("смета из Telegram разворачивается в позиции с теми же ценами", async () => {
+    /* Бот разбирает сообщение владельца («Съёмка — 50 000₽» списком) и кладёт
+       позиции в сделку полем botEstimate. Строку сметы он НЕ собирает: у неё 35
+       полей и своя математика, и вторая реализация в Edge Function разошлась бы
+       с первой молча. Разворачивает приложение — тем же кодом, каким добавляет
+       позиции человек.
+
+       Здесь проверяется то, ради чего всё затевалось: цены из сообщения должны
+       доехать до сметы БЕЗ изменений. Плюс расхождение с «Итого» — его человек
+       обязан увидеть до того, как смета уйдёт клиенту. */
+    const ПОЗИЦИИ = [
+      { name: "Создание сценария", price: 10000, qty: 1, note: "" },
+      { name: "Съёмка", price: 50000, qty: 1, note: "2 оператора" },
+      { name: "Монтаж", price: 20000, qty: 1, note: "" },
+      { name: "Графика 2D", price: 35000, qty: 1, note: "" },
+      { name: "Аренда оборудования", price: 20000, qty: 1, note: "" },
+    ];
+    const СУММА = ПОЗИЦИИ.reduce((s, l) => s + l.price * l.qty, 0); // 135 000
+
+    const ctx = await browser.newContext({ viewport: { width: 1400, height: 950 } });
+    const p = await ctx.newPage();
+    const ошибки = [];
+    p.on("pageerror", e => ошибки.push(String(e.message || e)));
+    await p.addInitScript(({ key, lines, sum }) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      localStorage.setItem(key, JSON.stringify({
+        view: "deal",
+        activeProjectId: "d_bot",
+        project: { name: "Рекорд Урала", client: "Рекорд Урала" },
+        selected: {}, estimateOrder: [], customItems: [],
+        savedProjects: [{
+          id: "d_bot", name: "Рекорд Урала", client: "Рекорд Урала",
+          crmStatus: "Лид", total: sum, paid: 0,
+          updatedAt: new Date().toISOString(),
+          snapshot: { project: { name: "Рекорд Урала" }, payments: [], expenses: [], tasks: [], selected: {} },
+          // «Итого» в сообщении было на 5 000 больше — бот обязан это показать
+          botEstimate: { source: "telegram", lines, statedTotal: sum + 5000, mismatch: 5000, openItems: ["трансфер"] },
+        }],
+      }));
+    }, { key: STORAGE_KEY, lines: ПОЗИЦИИ, sum: СУММА });
+
+    await p.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await p.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await p.evaluate(() => window.app.go("deal"));
+    await p.waitForTimeout(400);
+
+    const плашка = () => p.evaluate(() => {
+      const b = [...document.querySelectorAll("button")].find(x => /Развернуть смету/.test(x.textContent));
+      return b ? b.closest("div").parentElement.textContent.replace(/\s+/g, " ").trim() : null;
+    });
+
+    const текст = await плашка();
+    assert(текст, "плашки «Смета из Telegram» нет — черновик бота негде развернуть");
+    assert(/5 позиций/.test(текст), "плашка неверно считает позиции: " + текст.slice(0, 140));
+    assert(/трансфер/.test(текст), "позиция без суммы не названа — она потеряется молча");
+    assert(/Итого/.test(текст) && /5\s*000/.test(текст.replace(/ /g, " ")),
+      "расхождение с «Итого» не показано — клиент получит смету с другой суммой: " + текст.slice(0, 200));
+
+    await p.evaluate(() => window.app.expandBotEstimate());
+    await p.waitForTimeout(500);
+
+    assertEqual(await плашка(), null, "плашка осталась после разворота — второе нажатие задвоит позиции");
+
+    // Цены обязаны доехать без изменений: это и есть смысл всей затеи.
+    const цены = await p.evaluate(() => [...document.querySelectorAll("input[data-scope='line'][data-key='price']")]
+      .map(i => Number(i.value)).filter(n => n > 0));
+    assertEqual(цены.length, ПОЗИЦИИ.length, "в смете не столько строк, сколько прислал бот: " + JSON.stringify(цены));
+    assertEqual(цены.reduce((s, n) => s + n, 0), СУММА,
+      "суммы позиций разошлись с присланными: " + JSON.stringify(цены));
+
+    const имена = await p.evaluate(() => [...document.querySelectorAll(".line-head, .line-name, [data-key='lineName']")]
+      .map(e => (e.value || e.textContent || "").trim()).join(" | "));
+    assert(/Съёмка/.test(имена), "названия позиций не доехали до сметы: " + имена.slice(0, 160));
+
+    assertEqual(ошибки.length, 0, "исключения на странице: " + ошибки.join(" | "));
+    await ctx.close();
+  });
+
   await test("«Данные»: плитки называют настоящий объём базы, а не круглые нули", async () => {
     /* Экран выгрузок показывал только кнопки — ни слова о том, что именно лежит
        в базе. Человек приходит сюда перед необратимым (импорт поверх, сброс), и
