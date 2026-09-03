@@ -15296,9 +15296,41 @@
 
       // Фильтр + поиск + сортировка одним местом: список перерисовывается и целиком
       // (render()), и точечно из filterProposals() — правила отбора должны совпадать.
+      /* Похожие КП. У владельца в списке лежит «Монтаж серии из 3 видеороликов»
+         дважды — одна сумма, один день. Такие пары остались от записей до 40efb44
+         и появляются, когда КП пересоздают вместо правки.
+
+         ДАННЫЕ НЕ ТРОГАЕМ и ничего не склеиваем автоматически: одинаковые имя,
+         сумма и день — это повод посмотреть, а не доказательство. Продукт только
+         показывает пару и оставляет решение человеку; удалить лишнее можно той же
+         кнопкой в строке, что и всегда.
+
+         День, а не время: пересоздание идёт подряд, но секунды у записей разные, и
+         сравнение по created_at целиком не нашло бы ни одной пары. */
+      function _proposalDupKey(p) {
+        return [
+          String(p.deal_name || '').trim().toLowerCase(),
+          Math.round(numberValue(p.total_price, 0)),
+          String(p.created_at || '').slice(0, 10),
+        ].join('|');
+      }
+
+      function _proposalDupIds() {
+        const groups = new Map();
+        _allPortals.forEach(p => {
+          const k = _proposalDupKey(p);
+          groups.set(k, (groups.get(k) || 0) + 1);
+        });
+        const ids = new Set();
+        _allPortals.forEach(p => { if (groups.get(_proposalDupKey(p)) > 1) ids.add(p.id); });
+        return ids;
+      }
+
       function _proposalsFiltered() {
         const filter = _proposalsFilter || 'all';
-        let list = filter === 'all' ? _allPortals.slice() : _allPortals.filter(p => _portalStatus(p).key === filter);
+        let list = filter === 'all' ? _allPortals.slice()
+          : filter === 'dups' ? (() => { const d = _proposalDupIds(); return _allPortals.filter(p => d.has(p.id)); })()
+          : _allPortals.filter(p => _portalStatus(p).key === filter);
         const q = (_proposalsQuery || '').trim().toLowerCase();
         if (q) {
           list = list.filter(p =>
@@ -15314,7 +15346,8 @@
         return list;
       }
 
-      function _proposalRowHtml(p) {
+      function _proposalRowHtml(p, dupIds) {
+        const isDup = !!(dupIds && dupIds.has(p.id));
         const st = _portalStatus(p);
         const date = p.created_at ? formatDate(p.created_at) : '';
         const client = _portalClientName(p);
@@ -15336,6 +15369,7 @@
               <div class="kp-row-name">${escapeHtml(p.deal_name || 'Без названия')}</div>
               <div class="kp-row-sub">${sub}</div>
             </div>
+            ${isDup ? `<span class="status-pill" style="font-size:11px;flex-shrink:0;color:var(--text-warning)" title="Есть другое КП с тем же названием, суммой и датой. Проверьте: возможно, одно из них лишнее — удалить можно кнопкой в этой же строке.">Похоже на дубль</span>` : ''}
             ${needsLink ? `<span class="status-pill" style="font-size:11px;flex-shrink:0;color:var(--text-warning)" title="Способ оплаты «ссылка», но ссылка не задана — клиент увидит КП без кнопки оплаты">Нет ссылки оплаты</span>` : ''}
             <span class="status-pill ${st.cls}" style="font-size:11px;flex-shrink:0">${st.label}</span>
             <div class="kp-row-actions no-print">
@@ -15349,10 +15383,17 @@
 
       function _proposalsListHtml() {
         const list = _proposalsFiltered();
-        if (list.length) return list.map(_proposalRowHtml).join('');
+        // Набор считается ОДИН раз на список, а не в каждой строке: иначе на
+        // сотне КП это сто проходов по сотне записей.
+        const dupIds = _proposalDupIds();
+        if (list.length) return list.map(p => _proposalRowHtml(p, dupIds)).join('');
         return emptyState({
           icon: "search", size: "sm",
-          text: (_proposalsQuery || '').trim() ? "Ничего не найдено." : "Нет КП с таким статусом."
+          // Разобрали последнюю пару — вкладка «Похожие» ещё выбрана, но список
+          // пуст. Общая фраза про статус тут ничего не объясняет.
+          text: (_proposalsQuery || '').trim() ? "Ничего не найдено."
+            : (_proposalsFilter === 'dups') ? "Похожих КП не осталось."
+            : "Нет КП с таким статусом."
         });
       }
 
@@ -15378,11 +15419,13 @@
         const drafts = _allPortalsError ? [] :
           (state.savedProjects || []).filter(p => !withPortal.has(p.id) && !isDealInactive(p.crmStatus || 'Лид'));
 
+        const dupCount = _proposalDupIds().size;
         const counts = {
           all: _allPortals.length,
           sent: _allPortals.filter(p => _portalStatus(p).key === 'sent').length,
           approved: _allPortals.filter(p => _portalStatus(p).key === 'approved').length,
           paid: _allPortals.filter(p => _portalStatus(p).key === 'paid').length,
+          dups: dupCount,
         };
         const totalSum = _allPortals.reduce((s, p) => s + numberValue(p.total_price, 0), 0);
         const paidSum = _allPortals.filter(p => p.advance_paid_at).reduce((s, p) => s + numberValue(p.advance_amount, 0), 0);
@@ -15408,6 +15451,9 @@
             ${_allPortals.length ? `
               <div class="fin-subtab-bar no-print" style="margin-bottom:10px">
                 ${tab('all', 'Все')}${tab('sent', 'Отправлено')}${tab('approved', 'Согласовано')}${tab('paid', 'Оплачено')}
+                ${/* Вкладка появляется, только когда пары есть: постоянный «Дубли · 0»
+                      был бы пунктом, который никогда никуда не ведёт. */""}
+                ${dupCount ? tab('dups', 'Похожие') : ''}
               </div>
               <div class="kp-toolbar no-print">
                 <div class="kp-search">
