@@ -2026,7 +2026,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","pkgCatsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
+      const SYNC_SKIP_KEYS = new Set(["view","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","gFinSelectMode","gFinSelected","gFinNoMethodOnly","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","pkgCatsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
 
       // Кладёт облачное состояние в state. Отдельно от _loadCloudState, потому что
       // вызывается ещё и из разрешения конфликта.
@@ -7213,6 +7213,9 @@
           finTypeFilter: "all",
           crmSelected: {},
           crmSelectMode: false,
+          gFinSelected: {},
+          gFinSelectMode: false,
+          gFinNoMethodOnly: false,
           taskDetailsOpen: {},
           lineCommentsOpen: {},
           crmTagFilter: "",
@@ -7596,6 +7599,12 @@
           wizard: null,
           crmFilter: old.crmFilter || "all",
           crmSelectMode: false,
+          // Режим выбора и фильтр «без способа» — экранное состояние: после
+          // перезагрузки человек не должен обнаружить включённый фильтр, который
+          // прячет часть операций, и не помнить, что сам его ставил.
+          gFinSelectMode: false,
+          gFinSelected: {},
+          gFinNoMethodOnly: false,
           taskDetailsOpen: {},
           lineCommentsOpen: {},
           recentlyAdded: "",
@@ -11462,6 +11471,133 @@
         if (cur && !list.includes(cur)) list.unshift(cur);
         return `<option value="">— не указан —</option>`
           + list.map(m => `<option value="${escapeHtml(m)}"${cur === m ? " selected" : ""}>${escapeHtml(m)}</option>`).join("");
+      }
+
+      function _txHasNoMethod(tx) {
+        return tx._type === "income" && !String(tx.method || "").trim();
+      }
+
+      /* ── Операции: фильтр, выбор, массовая простановка способа ────────────────
+
+         Замер на боевом счёте владельца 02.09.2026: поступлений со способом
+         «не указан» — на 1 017 887 ₽, пятая часть всех денег. Аналитика по
+         статьям честно рисовала гору «Не указано», но исправить её было нечем:
+         способ правится только внутри модалки ОДНОЙ операции, то есть сорок раз
+         открыть и закрыть. Продукт предупреждал о дыре и не помогал её закрыть.
+
+         Здесь три части: фильтр «без способа» (иначе эти сорок ищутся глазами
+         среди трёхсот), режим выбора галочками и одно действие над выбором.
+
+         Предикат фильтра ОДИН на весь раздел: список и «Выбрать все» обязаны
+         понимать «видимое» одинаково, иначе кнопка выделит не то, что на экране.
+         `source` передаётся из рендера, чтобы не собирать транзакции второй раз. */
+      function _gFinFilteredTxs(source, opts) {
+        const ignoreNoMethod = !!(opts && opts.ignoreNoMethod);
+        const gFilter = state.gFinFilter || "all";
+        const typeFilter = state.gFinTypeFilter || "all";
+        const gFinSearch = (state.gFinSearch || "").toLowerCase().trim();
+        const list = source || filterByDateRange(getAllTransactions());
+        return list.filter(tx => {
+          if (gFilter !== "all" && tx.projectId !== gFilter) return false;
+          if (typeFilter === "income" && tx._type !== "income") return false;
+          if (typeFilter === "expense" && tx._type !== "expense") return false;
+          if (!ignoreNoMethod && state.gFinNoMethodOnly && !_txHasNoMethod(tx)) return false;
+          if (gFinSearch && !(`${tx.title||""} ${tx.projectName||""} ${tx.method||""} ${tx.category||""}`.toLowerCase().includes(gFinSearch))) return false;
+          return true;
+        });
+      }
+
+      function toggleGFinNoMethod() {
+        state.gFinNoMethodOnly = !state.gFinNoMethodOnly;
+        // Выбор сделан по прошлому списку — после смены фильтра он относился бы
+        // к строкам, которых на экране уже нет.
+        state.gFinSelected = {};
+        render();
+      }
+
+      function toggleGFinSelectMode() {
+        state.gFinSelectMode = !state.gFinSelectMode;
+        if (!state.gFinSelectMode) state.gFinSelected = {};
+        render();
+      }
+
+      function toggleGFinSelect(id) {
+        if (!id) return;
+        state.gFinSelected = state.gFinSelected || {};
+        if (state.gFinSelected[id]) delete state.gFinSelected[id];
+        else state.gFinSelected[id] = true;
+        render();
+      }
+
+      function clearGFinSelect() {
+        state.gFinSelected = {};
+        state.gFinSelectMode = false;
+        render();
+      }
+
+      function selectAllGFinVisible() {
+        state.gFinSelected = state.gFinSelected || {};
+        _gFinFilteredTxs().forEach(tx => { state.gFinSelected[tx.id] = true; });
+        render();
+      }
+
+      /* Транзакция живёт в том массиве, откуда её собрал getAllTransactions:
+         у открытой сделки это state.payments/expenses, у остальных —
+         proj.snapshot.*. Тот же разбор, что в saveEditTransaction. */
+      function _txArrayOf(projectId, type) {
+        if (projectId === state.activeProjectId) return type === "income" ? state.payments : state.expenses;
+        const proj = (state.savedProjects || []).find(p => p.id === projectId);
+        if (!proj || !proj.snapshot) return null;
+        return type === "income" ? proj.snapshot.payments : proj.snapshot.expenses;
+      }
+
+      function bulkSetTxMethod(method) {
+        const ids = Object.keys(state.gFinSelected || {});
+        if (!ids.length) return;
+        const byId = new Map(getAllTransactions().map(t => [t.id, t]));
+        // Откат хранит projectId и id, а НЕ ссылку на массив: state.payments
+        // местами пересобирается (filter создаёт новый массив), и придержанная
+        // ссылка вернула бы значение в объект, которого уже нет в state.
+        const undo = [];
+        let skippedExpense = 0;
+        ids.forEach(id => {
+          const tx = byId.get(id);
+          if (!tx) return;
+          if (tx._type !== "income") { skippedExpense++; return; }
+          const arr = _txArrayOf(tx.projectId, "income");
+          if (!arr) return;
+          const idx = arr.findIndex(t => t.id === id);
+          if (idx < 0) return;
+          const prev = arr[idx].method || "";
+          if (prev === method) return;
+          undo.push({ projectId: tx.projectId, id, prev });
+          arr[idx] = { ...arr[idx], method };
+        });
+
+        const touched = undo.length;
+        if (!touched) {
+          toast(skippedExpense === ids.length
+            ? "У расходов способа оплаты нет — отметьте поступления"
+            : "У выбранных поступлений уже стоит этот способ");
+          return;
+        }
+        state.gFinSelected = {};
+        save();
+        render();
+
+        const tail = skippedExpense ? `, расходов пропущено: ${skippedExpense}` : "";
+        toastUndo(
+          `Способ «${method}» проставлен: ${touched} ${plural(touched, "поступление", "поступления", "поступлений")}${tail}`,
+          () => {
+            undo.forEach(u => {
+              const arr = _txArrayOf(u.projectId, "income");
+              if (!arr) return;
+              const i = arr.findIndex(t => t.id === u.id);
+              if (i >= 0) arr[i] = { ...arr[i], method: u.prev };
+            });
+            save(); render();
+          }
+        );
       }
 
       /* Статьи доходов и расходов настраиваются агентством. У всех своя
@@ -21559,19 +21695,20 @@
         const typeFilter = state.gFinTypeFilter || "all";
         const gFinSearch = (state.gFinSearch || "").toLowerCase().trim();
 
-        const filtered = filteredByDate.filter(tx => {
-          if (gFilter !== "all" && tx.projectId !== gFilter) return false;
-          if (typeFilter === "income" && tx._type !== "income") return false;
-          if (typeFilter === "expense" && tx._type !== "expense") return false;
-          if (gFinSearch && !(`${tx.title||""} ${tx.projectName||""} ${tx.method||""} ${tx.category||""}`.toLowerCase().includes(gFinSearch))) return false;
-          return true;
-        });
+        const filtered = _gFinFilteredTxs(filteredByDate);
+
+        /* Счётчик «без способа» считается по ТОМУ ЖЕ отбору, что и список, минус
+           сам этот фильтр. Если брать его от всех транзакций, рядом окажутся два
+           числа из разных выборок: список за квартал по одной сделке — и «без
+           способа» за всё время по всем. */
+        const noMethodTxs = _gFinFilteredTxs(filteredByDate, { ignoreNoMethod: true }).filter(_txHasNoMethod);
+        const noMethodSum = noMethodTxs.reduce((s, t) => s + numberValue(t.amount, 0), 0);
 
         /* Пагинация КАСАЕТСЯ ТОЛЬКО СТРОК таблицы. Всё, что считает деньги — счётчик
            «N операций · X получено» над таблицей и «Итого» под ней — остаётся на полном
            `filtered`: показать первые сорок операций законно, а показать сумму первых
            сорока под подписью «Итого получено» значит соврать про деньги. */
-        const _finKey = [gFilter, typeFilter, gFinSearch, state.gFinDateFrom, state.gFinDateTo, state.gFinDatePreset].join("|");
+        const _finKey = [gFilter, typeFilter, gFinSearch, state.gFinDateFrom, state.gFinDateTo, state.gFinDatePreset, state.gFinNoMethodOnly ? "nm" : ""].join("|");
         if (_finKey !== _finLimitKey) { _finLimitKey = _finKey; _finVisibleLimit = FIN_PAGE_SIZE; }
         const shownTxs = filtered.slice(0, _finVisibleLimit);
         const finHidden = filtered.length - shownTxs.length;
@@ -21936,6 +22073,20 @@
               <input type="search" aria-label="Поиск по операциям" placeholder="Поиск по описанию..." value="${escapeHtml(state.gFinSearch||"")}"
                 oninput="app.setGFinSearch(this.value)"
                 style="padding:8px 12px;border-radius:10px;font-size:13px;border:1px solid var(--line);background:var(--panel2);color:var(--text);min-width:180px;flex:1">
+              ${/* Кнопка называет ДЫРУ вместе с её ценой, а не просто фильтрует:
+                    «Не указано» в аналитике по статьям было видно и раньше, а вот
+                    сколько это денег и где эти строки — нет. Появляется только
+                    когда есть что чинить, и исчезает, когда дыры не осталось. */""}
+              ${noMethodTxs.length ? `
+                <button class="btn small ${state.gFinNoMethodOnly ? "primary" : ""}" onclick="app.toggleGFinNoMethod()"
+                  title="Поступления, у которых не проставлен способ оплаты">
+                  Без способа: ${noMethodTxs.length} · ${money(noMethodSum)}
+                </button>
+              ` : ""}
+              ${filtered.length ? `
+                <button class="btn small ${state.gFinSelectMode ? "primary" : ""}" onclick="app.toggleGFinSelectMode()"
+                  title="Отметить несколько операций и проставить способ разом">Выбрать</button>
+              ` : ""}
             </div>
             <div class="analytics-date-bar no-print" style="margin-bottom:12px">
               <span style="font-size:12px;color:var(--muted);font-weight:750;margin-right:4px">Период:</span>
@@ -21953,6 +22104,29 @@
               ` : ""}
               <span style="font-size:12px;color:var(--muted);margin-left:auto;font-variant-numeric:tabular-nums">${filtered.length} ${plural(filtered.length, "операция", "операции", "операций")} · ${money(filtered.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))} получено · ${money(filtered.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))} расходов</span>
             </div>
+
+            ${(() => {
+              // Панель видна всё время в режиме выбора — иначе, сняв последнюю
+              // галочку, человек остаётся с чекбоксами и без кнопки выйти
+              // (тот же разбор, что у панели выбора сделок в CRM).
+              if (!state.gFinSelectMode) return "";
+              const selIds = Object.keys(state.gFinSelected || {});
+              const selCount = selIds.length;
+              return `
+                <div class="no-print" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--panel2);border:1px solid var(--primary);border-radius:12px;margin-bottom:12px">
+                  <span style="font-size:13px;font-weight:750;color:var(--primary)">${selCount ? `Выбрано: ${selCount}` : "Отметьте операции галочками"}</span>
+                  ${selCount ? `
+                    <select id="gFinBulkMethodSel" aria-label="Способ оплаты для выбранных"
+                      style="padding:6px 32px 6px 10px;border-radius:8px;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text)">
+                      ${PAYMENT_METHODS.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("")}
+                    </select>
+                    <button class="btn primary small" onclick="app.bulkSetTxMethod(document.getElementById('gFinBulkMethodSel').value)">Проставить способ</button>
+                  ` : ""}
+                  <button class="btn small" onclick="app.selectAllGFinVisible()">Выбрать все (${filtered.length})</button>
+                  <button class="btn small" onclick="app.clearGFinSelect()">${selCount ? "Снять выбор" : "Выйти"}</button>
+                </div>
+              `;
+            })()}
 
             <div class="fin-table-wrap">
               ${/* Модификатор нужен для телефона: на узком экране эта таблица
@@ -21975,7 +22149,19 @@
                     <tr class="u-pointer" title="Нажми для редактирования" onclick="app.openEditTransaction('${tx.id}','${tx._type}','${tx.projectId}')">
                       <td style="color:var(--muted);font-size:12px;white-space:nowrap">${escapeHtml(formatDate(tx.date))}</td>
                       <td title="${escapeHtml(tx.projectName || "—")}" style="font-size:12px;font-weight:750;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(tx.projectName || "—")}</td>
-                      <td style="max-width:200px">${escapeHtml(tx.title)}</td>
+                      ${/* Галочка живёт ВНУТРИ ячейки описания, а не отдельной
+                            колонкой: на телефоне .fin-table--ops раскладывает
+                            строку по td:nth-child(1..6), и седьмая колонка сдвинула
+                            бы все области — дата уехала бы на место проекта. */""}
+                      <td style="max-width:200px">${state.gFinSelectMode
+                        ? `<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer" onclick="event.stopPropagation()">
+                             <input type="checkbox" class="gfin-cb no-print" ${(state.gFinSelected||{})[tx.id]?"checked":""}
+                               aria-label="Выбрать операцию «${escapeHtml(tx.title)}»"
+                               onclick="event.stopPropagation();app.toggleGFinSelect('${escapeHtml(tx.id)}')"
+                               style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">
+                             <span>${escapeHtml(tx.title)}</span>
+                           </label>`
+                        : escapeHtml(tx.title)}</td>
                       <td class="fs-12">
                         ${tx._type === "income"
                           ? `<span class="type-badge income">${escapeHtml(tx.method || "")}</span>`
@@ -21986,7 +22172,12 @@
                       <td class="amount-cell ${tx._type === "income" ? "income" : "expense"}">${signedMoney(tx.amount, tx._type === "income" ? "+" : "−")}</td>
                     </tr>
                   `).join("") : `
-                    <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Нет транзакций. Добавь поступление или расход.</td></tr>
+                    ${/* При включённом фильтре «без способа» пустой список значит
+                          «всё размечено», а не «операций нет». Общая фраза тут
+                          пугала бы ровно в момент успеха. */""}
+                    <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">${state.gFinNoMethodOnly
+                      ? "Способ проставлен у всех поступлений за период — размечать нечего."
+                      : "Нет транзакций. Добавь поступление или расход."}</td></tr>
                   `}
                 </tbody>
                 ${filtered.length ? `
@@ -28476,6 +28667,12 @@ Email: _____________________              Email: _____________________
         bulkSetCrmStatus,
         bulkAddCrmTag,
         bulkDeleteDeals,
+        toggleGFinNoMethod,
+        toggleGFinSelectMode,
+        toggleGFinSelect,
+        clearGFinSelect,
+        selectAllGFinVisible,
+        bulkSetTxMethod,
         duplicateDeal,
         updateClientField,
         startWizardForClient,

@@ -1844,5 +1844,118 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "частичная оплата вызвала предупреждение — оно станет шумом: " + частичный.toastText);
   });
 
+  await test("способ оплаты проставляется группой — и открытой сделке, и снимкам", async () => {
+    /* На боевом счёте владельца 02.09.2026 поступлений «без способа» было на
+       1 017 887 ₽ — пятая часть денег. Правился способ только внутри модалки
+       ОДНОЙ операции, то есть сорок раз открыть и закрыть.
+
+       Главная ловушка не в интерфейсе, а в хранении: поступления открытой сделки
+       живут в state.payments, всех остальных — в proj.snapshot.payments. Запись
+       обязана попадать В ОБА места, поэтому фикстура держит и то, и другое, а
+       проверка смотрит РЕЗУЛЬТАТ на экране (значок способа в строке), а не то,
+       какую функцию мы позвали. */
+    const ФИКСТУРА = {
+      свои:   [{ id: "nm_a", title: "Аванс без способа", amount: 100000 },
+               { id: "nm_b", title: "Второй без способа", amount: 50000 }],
+      чужие:  [{ id: "nm_c", title: "Снимок без способа", amount: 300000 },
+               { id: "nm_d", title: "Ещё один без", amount: 7000 }],
+    };
+    const ожидаемоБез = ФИКСТУРА.свои.length + ФИКСТУРА.чужие.length;
+    const ожидаемоСумма = [...ФИКСТУРА.свои, ...ФИКСТУРА.чужие].reduce((s, x) => s + x.amount, 0);
+
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const p = await ctx.newPage();
+    const ошибки = [];
+    p.on("pageerror", e => ошибки.push(String(e.message || e)));
+    await p.addInitScript(({ key, fx, date }) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      const снимок = (payments) => ({ project: { name: "Ч", client: "К" }, payments, expenses: [], tasks: [], selected: {} });
+      const своиПлатежи = fx.свои.map(x => ({ ...x, date, method: "" }));
+      const чужиеПлатежи = fx.чужие.map(x => ({ ...x, date, method: "" }));
+      localStorage.setItem(key, JSON.stringify({
+        view: "global-finances",
+        activeProjectId: "d_open",
+        // открытая сделка: её платежи лежат в state.payments, снимок — копия
+        payments: своиПлатежи,
+        expenses: [{ id: "nm_exp", title: "Аренда", amount: 30000, date, category: "Прочее" }],
+        project: { name: "Открытая", client: "К" },
+        savedProjects: [
+          { id: "d_open", name: "Открытая", client: "К", total: 150000, paid: 150000, crmStatus: "В работе",
+            updatedAt: new Date().toISOString(), snapshot: снимок(своиПлатежи) },
+          { id: "d_snap", name: "Из снимка", client: "К", total: 307000, paid: 307000, crmStatus: "В работе",
+            updatedAt: new Date().toISOString(), snapshot: снимок(чужиеПлатежи) },
+        ],
+      }));
+    }, { key: STORAGE_KEY, fx: ФИКСТУРА, date: dayThisMonth(5) });
+
+    await p.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await p.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await p.evaluate(() => { window.app.go("global-finances"); window.app.setGFinSubTab("transactions"); });
+    await p.waitForTimeout(250);
+
+    const фишка = () => p.evaluate(() => {
+      const b = [...document.querySelectorAll("button")].find(x => /Без способа/.test(x.textContent));
+      return b ? b.textContent.replace(/\s+/g, " ").trim() : null;
+    });
+    // Строка операции: описание + значок способа/статьи (третья и четвёртая ячейки).
+    const строки = () => p.evaluate(() => {
+      const tb = document.querySelector(".fin-table--ops tbody");
+      if (!tb) return [];
+      return [...tb.querySelectorAll("tr")]
+        .filter(r => !r.querySelector("td[colspan]"))
+        .map(r => ({ title: r.children[2].textContent.trim(), method: r.children[3].textContent.trim() }));
+    });
+
+    const текстФишки = await фишка();
+    assert(текстФишки, "нет кнопки «Без способа» — дыру в данных нечем найти");
+    const числоВФишке = Number((текстФишки.match(/Без способа:\s*(\d+)/) || [])[1]);
+    assertEqual(числоВФишке, ожидаемоБез, "кнопка считает не те поступления: " + текстФишки);
+    assertEqual(Number(текстФишки.replace(/.*·\s*/, "").replace(/[^\d]/g, "")), ожидаемоСумма,
+      "сумма в кнопке разошлась с фикстурой: " + текстФишки);
+
+    await p.evaluate(() => window.app.toggleGFinNoMethod());
+    await p.waitForTimeout(200);
+    assertEqual((await строки()).length, ожидаемоБез,
+      "фильтр «без способа» показывает не только поступления без способа");
+
+    await p.evaluate(() => { window.app.toggleGFinSelectMode(); window.app.selectAllGFinVisible(); });
+    await p.waitForTimeout(200);
+    assertEqual(await p.evaluate(() => document.querySelectorAll(".gfin-cb:checked").length), ожидаемоБез,
+      "«Выбрать все» отметило не все видимые операции");
+
+    await p.evaluate(() => window.app.bulkSetTxMethod("СБП"));
+    await p.waitForTimeout(300);
+
+    assertEqual((await строки()).length, 0, "после простановки в фильтре «без способа» что-то осталось");
+    assertEqual(await фишка(), null, "кнопка «Без способа» осталась, хотя размечать больше нечего");
+
+    // Снимаем фильтр и смотрим, ЧТО записалось — в обе стороны хранения.
+    await p.evaluate(() => window.app.toggleGFinNoMethod());
+    await p.waitForTimeout(250);
+    const после = await строки();
+    for (const x of [...ФИКСТУРА.свои, ...ФИКСТУРА.чужие]) {
+      const r = после.find(r => r.title === x.title);
+      assert(r, `операция «${x.title}» пропала из списка`);
+      assertEqual(r.method, "СБП",
+        `«${x.title}» осталась без способа — запись не дошла до ${ФИКСТУРА.свои.includes(x) ? "state.payments открытой сделки" : "snapshot.payments чужой сделки"}`);
+    }
+
+    // Обратный ход: у каждой автоматики он должен быть и должен работать.
+    await p.evaluate(() => window.app.undoLastDelete());
+    await p.waitForTimeout(300);
+    const текстПослеОтмены = await фишка();
+    assert(текстПослеОтмены, "после отмены кнопка «Без способа» не вернулась — откат неполный");
+    assertEqual(Number((текстПослеОтмены.match(/Без способа:\s*(\d+)/) || [])[1]), ожидаемоБез,
+      "откат вернул не все способы: " + текстПослеОтмены);
+
+    assertEqual(ошибки.length, 0, "исключения на странице: " + ошибки.join(" | "));
+    await ctx.close();
+  });
+
   await context.close();
 };
