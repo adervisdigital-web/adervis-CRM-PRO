@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 423;
+      const APP_BUILD = 424;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -4569,6 +4569,8 @@
          плитками зияла пустая половина экрана, пока не ткнёшь во вкладку руками. */
       let _adminPanelTab = "users";
       let _adminPayments = [];
+      // Активация по каналам: [{source, regs, with_deal, with_estimate, with_portal, paid}]
+      let _adminActivation = [];
       let _settingsTab = "company";
       let _adminAgencies = null; // null = not loaded
       let _adminPromoCodes = null;
@@ -4589,14 +4591,17 @@
         if (!_isSuperAdmin() || !_supabase) return;
         _adminLoading = true; render();
         try {
-          const [agRes, promoRes, errRes, payRes] = await Promise.all([
+          const [agRes, promoRes, errRes, payRes, actRes] = await Promise.all([
             _supabase.rpc("admin_get_all_users"),
             _supabase.rpc("admin_get_promo_codes"),
             _supabase.from("client_errors").select("*").order("created_at", { ascending: false }).limit(300),
             /* Платежи грузим МЯГКО: миграция 20260817000001 накатывается владельцем
                вручную, и до этого функции просто нет. Падать всей админкой из-за
                ещё не накаченной таблицы нельзя — остальные вкладки живые. */
-            _supabase.rpc("admin_get_payments", { p_limit: 300 }).then(r => r).catch(() => ({ data: [], error: null }))
+            _supabase.rpc("admin_get_payments", { p_limit: 300 }).then(r => r).catch(() => ({ data: [], error: null })),
+            // Активация по каналам — так же мягко: раздел «Продвижение» без неё
+            // покажет разрез по регистрациям, а не развалит всю панель.
+            _supabase.rpc("admin_get_activation").then(r => r).catch(() => ({ data: [], error: null }))
           ]);
           if (agRes.error) throw new Error("admin_get_all_users: " + agRes.error.message);
           if (promoRes.error) throw new Error("admin_get_promo_codes: " + promoRes.error.message);
@@ -4606,6 +4611,7 @@
           _adminPromoCodes = Array.isArray(promoRes.data) ? promoRes.data : (promoRes.data || []);
           _adminErrors = errRes.data || [];
           _adminPayments = (payRes && !payRes.error && Array.isArray(payRes.data)) ? payRes.data : [];
+          _adminActivation = (actRes && !actRes.error && Array.isArray(actRes.data)) ? actRes.data : [];
           const now = new Date();
           const month1 = new Date(now.getFullYear(), now.getMonth(), 1);
           _adminStats = {
@@ -5199,42 +5205,61 @@
                    сохранялся вовсе, и все прежние регистрации навсегда останутся
                    без него. Сложить их с настоящим каналом значит приписать ему
                    чужие заслуги. */
-                const payers = new Set((_adminPayments || []).map(p => p.user_id).filter(Boolean));
-                const по = new Map();
-                ag.forEach(a => {
-                  const k = a.signup_source || "";
-                  if (!по.has(k)) по.set(k, { regs: 0, trial: 0, paid: 0 });
-                  const row = по.get(k);
-                  row.regs++;
-                  if (a.subscription_status === "trial") row.trial++;
-                  if (payers.has(a.id)) row.paid++;
-                });
-                const строки = [...по.entries()]
-                  .sort((a, b) => (b[1].paid - a[1].paid) || (b[1].regs - a[1].regs));
-                const сМеткой = строки.filter(([k]) => k).length;
+                /* Разрез считает БАЗА (admin_get_activation): шаги активации живут
+                   в agency_state и client_portals, до браузера они не доезжают.
+                   Если RPC не ответила — падать нечему, показываем пустой список
+                   и говорим об этом. */
+                const строки = (_adminActivation || []).slice();
+                const сМеткой = строки.filter(r => r.source).length;
+                const ШАГИ = [
+                  ["regs",          "пришли",   "var(--muted)"],
+                  ["with_deal",     "завели сделку", "var(--blue)"],
+                  ["with_estimate", "посчитали смету", "var(--primary)"],
+                  ["with_portal",   "отправили КП", "var(--yellow)"],
+                  ["paid",          "оплатили", "var(--green)"],
+                ];
 
                 return `
-                  <h3 style="margin:18px 0 8px;font-size:14px">Откуда приходят</h3>
-                  ${!сМеткой ? `
-                    <p class="mini-note" style="margin-top:0">
-                      Пока ни одной регистрации с меткой. Метки начали собираться 03.09.2026 —
-                      возьмите ссылку канала в блоке ниже и опубликуйте её: всё, что придёт по ней,
-                      появится здесь.
-                    </p>` : ""}
-                  <div style="display:grid;gap:6px;margin-top:8px">
-                    ${строки.map(([k, v]) => {
-                      const конв = v.regs ? Math.round(v.paid / v.regs * 100) : 0;
+                  <h3 style="margin:18px 0 6px;font-size:14px">Откуда приходят — и докуда доходят</h3>
+                  ${/* Канал, из которого приходят и сразу уходят, и канал, из которого
+                        доходят до КП, в отчёте «регистрации / оплаты» выглядят
+                        ОДИНАКОВО, пока платящих ноль. А платящих ноль — это и есть
+                        сегодняшнее состояние, то есть без шагов отчёт не различал бы
+                        ничего. Шаги — те же, что считаются целями в Метрике. */""}
+                  <p class="mini-note" style="margin-top:0">
+                    ${!строки.length ? "Разрез не загрузился — обновите панель."
+                      : !сМеткой ? "Пока ни одной регистрации с меткой: метки собираются с 03.09.2026. Возьмите ссылку канала ниже и опубликуйте её — всё, что придёт по ней, появится здесь."
+                      : "Доля считается от пришедших из этого канала."}
+                  </p>
+                  <div style="display:grid;gap:10px;margin-top:10px">
+                    ${строки.map(r => {
+                      const всего = numberValue(r.regs, 0) || 1;
                       return `
-                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 12px;border-radius:var(--r-lg);background:var(--panel);border:1px solid var(--line)">
-                          <span style="min-width:150px;font-size:13px;font-weight:${k ? 750 : 600};color:${k ? "var(--text)" : "var(--muted)"};font-family:${k ? "monospace" : "inherit"}">
-                            ${k ? escapeHtml(k) : "без метки"}
-                          </span>
-                          <span style="font-size:12px;font-variant-numeric:tabular-nums;min-width:112px">${v.regs} ${plural(v.regs, "регистрация", "регистрации", "регистраций")}</span>
-                          <span style="font-size:12px;font-variant-numeric:tabular-nums;min-width:96px;color:var(--muted)">${v.trial} на триале</span>
-                          <span style="font-size:12px;font-variant-numeric:tabular-nums;min-width:96px;color:${v.paid ? "var(--text-success)" : "var(--muted)"}">${v.paid} ${plural(v.paid, "оплатил", "оплатили", "оплатили")}</span>
-                          <span style="flex:1;min-width:90px;height:6px;border-radius:99px;background:var(--line);overflow:hidden;display:block" title="Конверсия в оплату ${конв}%">
-                            <span style="display:block;height:100%;width:${конв}%;background:var(--green)"></span>
-                          </span>
+                        <div style="padding:10px 12px;border-radius:var(--r-lg);background:var(--panel);border:1px solid var(--line)">
+                          <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+                            <span style="font-size:13px;font-weight:${r.source ? 750 : 600};color:${r.source ? "var(--text)" : "var(--muted)"};font-family:${r.source ? "monospace" : "inherit"}">
+                              ${r.source ? escapeHtml(r.source) : "без метки"}
+                            </span>
+                            <span class="u-meta" style="font-size:12px">${r.regs} ${plural(numberValue(r.regs, 0), "регистрация", "регистрации", "регистраций")}</span>
+                          </div>
+                          ${/* Ступени рисуем ОДНА ПОД ДРУГОЙ с долей от пришедших:
+                                так видно, на каком шаге отваливаются, а не только
+                                сколько дошло до конца. */""}
+                          <div style="display:grid;gap:4px">
+                            ${ШАГИ.map(([key, label, color]) => {
+                              const n = numberValue(r[key], 0);
+                              const pct = Math.round(n / всего * 100);
+                              return `
+                                <div style="display:flex;align-items:center;gap:10px">
+                                  <span class="u-meta" style="min-width:132px;font-size:12px">${label}</span>
+                                  <span style="font-size:12px;font-variant-numeric:tabular-nums;min-width:30px;color:${n ? "var(--text)" : "var(--muted)"}">${n}</span>
+                                  <span style="flex:1;min-width:70px;height:6px;border-radius:99px;background:var(--line);overflow:hidden;display:block">
+                                    <span style="display:block;height:100%;width:${pct}%;background:${color}"></span>
+                                  </span>
+                                  <span class="u-meta" style="font-size:11px;font-variant-numeric:tabular-nums;min-width:34px;text-align:right">${pct}%</span>
+                                </div>`;
+                            }).join("")}
+                          </div>
                         </div>`;
                     }).join("")}
                   </div>`;
