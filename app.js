@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 424;
+      const APP_BUILD = 425;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -4571,6 +4571,11 @@
       let _adminPayments = [];
       // Активация по каналам: [{source, regs, with_deal, with_estimate, with_portal, paid}]
       let _adminActivation = [];
+      /* Считать ли ТОЛЬКО внешних (без admin_tag). По умолчанию да: 16 из 16
+         регистраций — собственные аккаунты владельца, и отчёт "по всем" измеряет
+         не рынок, а самого себя. Первый же прогон 03.09 я прочитал как обрыв
+         воронки, а это был тест. */
+      let _promoOnlyExternal = true;
       let _settingsTab = "company";
       let _adminAgencies = null; // null = not loaded
       let _adminPromoCodes = null;
@@ -4601,7 +4606,7 @@
             _supabase.rpc("admin_get_payments", { p_limit: 300 }).then(r => r).catch(() => ({ data: [], error: null })),
             // Активация по каналам — так же мягко: раздел «Продвижение» без неё
             // покажет разрез по регистрациям, а не развалит всю панель.
-            _supabase.rpc("admin_get_activation").then(r => r).catch(() => ({ data: [], error: null }))
+            _supabase.rpc("admin_get_activation", { p_only_untagged: _promoOnlyExternal }).then(r => r).catch(() => ({ data: [], error: null }))
           ]);
           if (agRes.error) throw new Error("admin_get_all_users: " + agRes.error.message);
           if (promoRes.error) throw new Error("admin_get_promo_codes: " + promoRes.error.message);
@@ -5219,16 +5224,40 @@
                   ["paid",          "оплатили", "var(--green)"],
                 ];
 
+                const помечено = ag.filter(a => (a.admin_tag || "").trim()).length;
+
                 return `
-                  <h3 style="margin:18px 0 6px;font-size:14px">Откуда приходят — и докуда доходят</h3>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:18px 0 6px">
+                    <h3 style="margin:0;font-size:14px">Откуда приходят — и докуда доходят</h3>
+                    ${/* Свои и тестовые аккаунты — не рынок. Признак берём готовый
+                          (admin_tag), второго определения «кто тут настоящий»
+                          в продукте быть не должно. */""}
+                    <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:var(--muted)">
+                      <input type="checkbox" ${_promoOnlyExternal ? "checked" : ""}
+                        onchange="app.setPromoOnlyExternal(this.checked)"
+                        style="width:15px;height:15px;cursor:pointer;accent-color:var(--primary)">
+                      только внешние${помечено ? ` (без ${помечено} помеченных)` : ""}
+                    </label>
+                  </div>
                   ${/* Канал, из которого приходят и сразу уходят, и канал, из которого
                         доходят до КП, в отчёте «регистрации / оплаты» выглядят
                         ОДИНАКОВО, пока платящих ноль. А платящих ноль — это и есть
                         сегодняшнее состояние, то есть без шагов отчёт не различал бы
                         ничего. Шаги — те же, что считаются целями в Метрике. */""}
+                  ${/* Пока свои аккаунты не помечены, отчёт считает владельца — и
+                        любой вывод из него будет выводом о себе. Говорим это прямо
+                        и даём дорогу к пометке, а не прячем оговорку в подпись. */""}
+                  ${_promoOnlyExternal && !помечено ? `
+                    <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:10px;border-radius:var(--r-lg);background:rgba(202,138,4,.10);border:1px solid rgba(202,138,4,.35)">
+                      <div style="flex:1;min-width:200px;font-size:12.5px;line-height:1.55">
+                        <strong>Ни один аккаунт не помечен</strong> — в счёт попадают ваши собственные и тестовые,
+                        и цифры ниже описывают вас, а не рынок.
+                      </div>
+                      <button class="btn small" onclick="app._setAdminTab('users')">Пометить аккаунты</button>
+                    </div>` : ""}
                   <p class="mini-note" style="margin-top:0">
                     ${!строки.length ? "Разрез не загрузился — обновите панель."
-                      : !сМеткой ? "Пока ни одной регистрации с меткой: метки собираются с 03.09.2026. Возьмите ссылку канала ниже и опубликуйте её — всё, что придёт по ней, появится здесь."
+                      : !сМеткой ? "Пока ни одной регистрации с меткой канала: они собираются с 03.09.2026. Возьмите ссылку канала ниже и опубликуйте её — всё, что придёт по ней, появится здесь."
                       : "Доля считается от пришедших из этого канала."}
                   </p>
                   <div style="display:grid;gap:10px;margin-top:10px">
@@ -5507,6 +5536,26 @@
 
       // Сегмент копируется ЦЕЛИКОМ, готовым куском брифа: копирайтеру нужны и
       // боль, и слова, которыми человек её называет, а не одно название сегмента.
+      /* Переключатель ходит в базу заново, а не фильтрует загруженное: разрез
+         считает SQL, и в браузере лежат уже свёрнутые числа — вычесть из них
+         помеченных нельзя. */
+      async function setPromoOnlyExternal(v) {
+        _promoOnlyExternal = !!v;
+        if (!_supabase || !_isSuperAdmin()) { render(); return; }
+        try {
+          // supabase-js v2 не бросает исключение — ошибка приходит в результате.
+          // Молча оставить старые числа под новой галочкой нельзя: человек решит,
+          // что помеченные аккаунты уже вычтены, а это прежняя выборка.
+          const { data, error } = await _supabase.rpc("admin_get_activation", { p_only_untagged: _promoOnlyExternal });
+          if (error) throw error;
+          _adminActivation = Array.isArray(data) ? data : [];
+        } catch (e) {
+          _adminActivation = [];
+          toast("Не удалось пересчитать воронку: " + (e.message || e));
+        }
+        render();
+      }
+
       function copyPromoAudience(id) {
         const a = PROMO_AUDIENCE.find(x => x.id === id);
         if (!a) return;
@@ -29733,6 +29782,7 @@ Email: _____________________              Email: _____________________
         bulkDeleteDeals,
         copyPromoText,
         copyPromoAudience,
+        setPromoOnlyExternal,
         addPromoChannel,
         setPromoChannelField,
         deletePromoChannel,
