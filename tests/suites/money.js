@@ -1957,5 +1957,100 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  await test("себестоимость каталога проставляется разделу и наследуется новой строкой", async () => {
+    /* До 03.09.2026 себестоимость жила ТОЛЬКО в строке сметы и начиналась с нуля.
+       Каждая новая смета выходила с маржой 100%, а совет продукта «проставьте
+       себестоимость в позициях» означал заполнять её заново в каждой сделке: на
+       боевом счёте из 122 сделок себестоимость есть у 40.
+
+       Здесь проверяется именно СЦЕПКА: значение у позиции каталога → строка сметы.
+       И граница: уже собранная смета не должна поехать задним числом. */
+    const { context: ctx, page: p, errors: ошибки } =
+      await bootLocal(browser, baseUrl, { width: 1400, height: 950, seedDemo: true });
+
+    await p.evaluate(() => { window.app.go("catalog"); window.app.setTab("post"); });
+    await p.waitForTimeout(300);
+
+    const наЭкране = await p.evaluate(() => document.querySelectorAll(".catalog-grid .item").length);
+    assert(наЭкране > 0, "в разделе «Пост» не нарисовано ни одной позиции — проверять нечего");
+
+    // Себестоимость строк ДО простановки — граница «старое не трогаем».
+    const костыДо = await p.evaluate(() => {
+      window.app.go("deal");
+      return null;
+    });
+    await p.waitForTimeout(400);
+    const строкиДо = await p.evaluate(() => Object.fromEntries(
+      [...document.querySelectorAll("input[data-scope='line'][data-key='cost']")]
+        .map(i => [i.getAttribute("data-id"), i.value])));
+    assert(Object.keys(строкиДо).length > 0, "в демо-смете нет строк — не с чем сравнивать");
+
+    await p.evaluate(() => { window.app.go("catalog"); window.app.setTab("post"); window.app.toggleCatalogCostPanel(); });
+    await p.waitForTimeout(300);
+
+    // Область действия обязана совпасть с тем, что на экране: кнопка называет число.
+    const подписьКнопки = await p.evaluate(() => {
+      const b = [...document.querySelectorAll("button")].find(x => /Проставить \d+ позици/.test(x.textContent));
+      return b ? b.textContent.trim().replace(/\s+/g, " ") : null;
+    });
+    assert(подписьКнопки, "панель себестоимости не открылась");
+    assertEqual(Number((подписьКнопки.match(/(\d+)/) || [])[1]), наЭкране,
+      "кнопка обещает тронуть не столько позиций, сколько показано: " + подписьКнопки);
+
+    await p.evaluate(() => window.app.bulkSetCatalogCost(40));
+    await p.waitForTimeout(400);
+
+    // Берём позицию из этого же раздела и кладём в смету — она обязана прийти с себестоимостью.
+    const добавленный = await p.evaluate(() => {
+      const btn = document.querySelector(".catalog-grid .item [onclick*='catalogAddOne']");
+      const m = btn && btn.getAttribute("onclick").match(/catalogAddOne\('([^']+)'/);
+      if (!m) return null;
+      window.app.catalogAddOne(m[1]);
+      return m[1];
+    });
+    assert(добавленный, "не нашлось позиции, которую можно добавить в смету");
+    await p.evaluate(() => window.app.go("deal"));
+    await p.waitForTimeout(500);
+
+    const пара = await p.evaluate((id) => {
+      const cost = document.querySelector(`input[data-scope='line'][data-key='cost'][data-id='${id}']`);
+      const price = document.querySelector(`input[data-scope='line'][data-key='price'][data-id='${id}']`);
+      return cost && price ? { cost: Number(cost.value), price: Number(price.value) } : null;
+    }, добавленный);
+    assert(пара, `строка «${добавленный}» не появилась в смете`);
+    assert(пара.price > 0, "у позиции нулевая цена — от неё нельзя посчитать процент");
+    assertEqual(пара.cost, Math.round(пара.price * 0.4),
+      `новая строка пришла с себестоимостью ${пара.cost} при цене ${пара.price} — 40% не наследовались`);
+
+    // Старые строки не поехали: смета — документ, задним числом деньги в нём не меняем.
+    const строкиПосле = await p.evaluate(() => Object.fromEntries(
+      [...document.querySelectorAll("input[data-scope='line'][data-key='cost']")]
+        .map(i => [i.getAttribute("data-id"), i.value])));
+    for (const [id, было] of Object.entries(строкиДо)) {
+      assertEqual(строкиПосле[id], было,
+        `строка «${id}» уже собранной сметы изменила себестоимость с ${было} на ${строкиПосле[id]}`);
+    }
+
+    // Обратный ход: после отмены та же позиция снова приходит без себестоимости.
+    await p.evaluate((id) => {
+      window.app.go("catalog");
+      window.app.undoLastDelete();
+      window.app.catalogRemoveOne(id);
+    }, добавленный);
+    await p.waitForTimeout(400);
+    await p.evaluate((id) => window.app.catalogAddOne(id), добавленный);
+    await p.evaluate(() => window.app.go("deal"));
+    await p.waitForTimeout(500);
+    const послеОтмены = await p.evaluate((id) => {
+      const c = document.querySelector(`input[data-scope='line'][data-key='cost'][data-id='${id}']`);
+      return c ? Number(c.value) : null;
+    }, добавленный);
+    assertEqual(послеОтмены, 0,
+      "после отмены позиция всё ещё приносит себестоимость — откат массовой простановки неполный");
+
+    assertEqual(ошибки.length, 0, "исключения на странице: " + ошибки.join(" | "));
+    await ctx.close();
+  });
+
   await context.close();
 };

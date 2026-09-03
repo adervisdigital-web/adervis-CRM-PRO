@@ -2026,7 +2026,7 @@
         });
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","gFinSelectMode","gFinSelected","gFinNoMethodOnly","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","pkgCatsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
+      const SYNC_SKIP_KEYS = new Set(["view","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","gFinSelectMode","gFinSelected","gFinNoMethodOnly","catalogCostPanelOpen","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","pkgCatsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
 
       // Кладёт облачное состояние в state. Отдельно от _loadCloudState, потому что
       // вызывается ещё и из разрешения конфликта.
@@ -7216,6 +7216,8 @@
           gFinSelected: {},
           gFinSelectMode: false,
           gFinNoMethodOnly: false,
+          catalogCostPanelOpen: false,
+          catalogCostPct: 40,
           taskDetailsOpen: {},
           lineCommentsOpen: {},
           crmTagFilter: "",
@@ -7605,6 +7607,8 @@
           gFinSelectMode: false,
           gFinSelected: {},
           gFinNoMethodOnly: false,
+          catalogCostPanelOpen: false,
+          catalogCostPct: numberValue(old.catalogCostPct, 40),
           taskDetailsOpen: {},
           lineCommentsOpen: {},
           recentlyAdded: "",
@@ -8506,6 +8510,51 @@
         return !!itemData && (itemData.category === "expenses" || itemData.passthroughCost === true);
       }
 
+      /* Себестоимость ПОЗИЦИИ КАТАЛОГА — значение по умолчанию для новых строк сметы.
+
+         До 03.09.2026 её не было вовсе: cost жил только в строке сметы и начинался
+         с нуля, поэтому каждая новая смета собиралась с маржой 100%, а «проставьте
+         себестоимость в позициях» означало заполнить её заново в каждой сделке.
+         На боевом счёте владельца из 122 сделок себестоимость есть у 40.
+
+         Теперь значение живёт у позиции (override или своя позиция) и наследуется
+         каждой новой строкой. Уже собранные сметы не трогаются НИКОГДА: смета —
+         это документ, задним числом менять в нём деньги нельзя. */
+      function defaultCostOf(itemData) {
+        if (!itemData) return 0;
+        const own = itemData.defaultCost;
+        if (own !== undefined && own !== null && own !== "") {
+          const n = numberValue(own, NaN);
+          if (Number.isFinite(n) && n >= 0) return Math.round(n);
+        }
+        return isPassthroughCostItem(itemData) ? getCatalogPrice(itemData) : 0;
+      }
+
+      function hasOwnDefaultCost(itemData) {
+        const own = itemData && itemData.defaultCost;
+        return own !== undefined && own !== null && own !== "" && Number.isFinite(numberValue(own, NaN));
+      }
+
+      /* Поле себестоимости в карточке позиции. Плейсхолдер показывает, что
+         действует СЕЙЧАС, поэтому пустое поле читается как «по умолчанию», а не
+         как ноль — тот же приём, что у тарифов сверх лимита. */
+      function costField(itemData, scope, id) {
+        const eff = defaultCostOf(itemData);
+        const price = getCatalogPrice(itemData);
+        const pct = price > 0 && eff > 0 ? Math.round(eff / price * 100) : 0;
+        return field("Себестоимость, ₽", `
+          <input type="number" min="0" inputmode="numeric"
+            data-autosave data-scope="${scope}" data-id="${id}" data-key="defaultCost"
+            placeholder="${eff}"
+            title="Во сколько позиция обходится агентству. Клиенту не показывается."
+            value="${hasOwnDefaultCost(itemData) ? escapeHtml(String(itemData.defaultCost)) : ""}">
+          <p class="mini-note" style="margin-top:6px">
+            Подставляется в НОВЫЕ строки сметы${eff > 0 && pct > 0 ? ` · сейчас ${money(eff)} (${pct}% от цены)` : " · сейчас не задана"}.
+            Уже собранные сметы не меняются.
+          </p>
+        `);
+      }
+
       function defaultLineForItem(itemData) {
         const price = getCatalogPrice(itemData);
         const rates = getEffectiveRates(itemData);
@@ -8514,7 +8563,7 @@
           id: itemData.id,
           qty: 1,
           price,
-          cost: isPassthroughCostItem(itemData) ? price : 0,
+          cost: defaultCostOf(itemData),
           days: numberValue(state.project.days, 1),
           people: 1,
           stageId: itemData.stage || "pre",
@@ -9950,6 +9999,21 @@
           return;
         }
 
+        /* Себестоимости нет в BASE_ITEMS, поэтому общее правило «совпало с базой —
+           снимаем override» её не очистит: пустое поле осело бы строкой "" и
+           отличалось бы от undefined навсегда. Пусто = «не задана», и тогда
+           работает умолчание (0, а у перевыставляемых — цена). */
+        if (key === "defaultCost") {
+          const num = numberValue(value, NaN);
+          if (String(value).trim() === "" || !Number.isFinite(num) || num < 0) delete current.defaultCost;
+          else current.defaultCost = Math.round(num);
+          if (Object.keys(current).length) state.catalogOverrides[id] = current;
+          else delete state.catalogOverrides[id];
+          save();
+          render();
+          return;
+        }
+
         const isIncluded = INCLUDED_KEYS.includes(key);
         const nextValue = isIncluded ? Math.max(0, Math.round(numberValue(value, 0))) : value;
         const baseValue = isIncluded ? (base[key] ?? 1) : base[key];
@@ -9962,6 +10026,62 @@
 
         save();
         render();
+      }
+
+      /* Низкоуровневая запись себестоимости позиции: БЕЗ save/render, чтобы
+         массовая простановка на 200 позиций не сделала 200 сохранений.
+         value === null снимает своё значение и возвращает умолчание. */
+      function _writeDefaultCost(id, value) {
+        const custom = (state.customItems || []).find(x => x.id === id);
+        if (custom) {
+          if (value === null) delete custom.defaultCost;
+          else custom.defaultCost = value;
+          return;
+        }
+        if (!BASE_ITEMS.find(x => x.id === id)) return;
+        if (!state.catalogOverrides) state.catalogOverrides = {};
+        const cur = { ...(state.catalogOverrides[id] || {}) };
+        if (value === null) delete cur.defaultCost;
+        else cur.defaultCost = value;
+        if (Object.keys(cur).length) state.catalogOverrides[id] = cur;
+        else delete state.catalogOverrides[id];
+      }
+
+      function toggleCatalogCostPanel() {
+        state.catalogCostPanelOpen = !state.catalogCostPanelOpen;
+        render();
+      }
+
+      function setCatalogCostPct(v) {
+        const n = numberValue(v, NaN);
+        state.catalogCostPct = Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : 40;
+        render();
+      }
+
+      function bulkSetCatalogCost(pctRaw) {
+        const pct = numberValue(pctRaw, NaN);
+        if (!Number.isFinite(pct) || pct < 0 || pct > 100) { toast("Процент — число от 0 до 100"); return; }
+        // Тот же список, что нарисован на экране: область действия обязана
+        // совпадать с тем, что человек видит, иначе кнопка тронет не то.
+        const items = filteredItems();
+        if (!items.length) { toast("В списке нет позиций"); return; }
+
+        const undo = [];
+        items.forEach(it => {
+          const next = Math.round(getCatalogPrice(it) * pct / 100);
+          const prev = hasOwnDefaultCost(it) ? Math.round(numberValue(it.defaultCost, 0)) : null;
+          if (prev === next) return;
+          undo.push({ id: it.id, prev });
+          _writeDefaultCost(it.id, next);
+        });
+
+        if (!undo.length) { toast(`У всех позиций в списке уже стоит ${pct}% от цены`); return; }
+        save();
+        render();
+        toastUndo(
+          `Себестоимость ${pct}% проставлена: ${undo.length} ${plural(undo.length, "позиция", "позиции", "позиций")}`,
+          () => { undo.forEach(u => _writeDefaultCost(u.id, u.prev)); save(); render(); }
+        );
       }
 
       function updateProject(key, value) {
@@ -10172,6 +10292,16 @@
           else next[rateKey] = Math.round(num);
           if (Object.keys(next).length) custom.rateOverrides = next;
           else delete custom.rateOverrides;
+          save();
+          render();
+          return;
+        }
+        if (key === "defaultCost") {
+          // Пусто = «не задана» (см. defaultCostOf), а не ноль: у своих позиций
+          // ноль и «не задано» дают одно и то же, но у перевыставляемых — разное.
+          const num = numberValue(value, NaN);
+          if (String(value).trim() === "" || !Number.isFinite(num) || num < 0) delete custom.defaultCost;
+          else custom.defaultCost = Math.round(num);
           save();
           render();
           return;
@@ -17477,6 +17607,7 @@
             ${field("Название", `<input data-autosave data-scope="custom" data-id="${id}" data-key="name" value="${escapeHtml(itemData.name)}">`)}
             ${field("Цена, ₽", `<input type="number" data-autosave data-scope="custom" data-id="${id}" data-key="price" value="${escapeHtml(itemData.price)}">`)}
           </div>
+          <div class="mb-14">${costField(itemData, "custom", id)}</div>
           <div class="mb-14">
             ${field("Описание", `<textarea data-autosave data-scope="custom" data-id="${id}" data-key="desc" style="min-height:64px;resize:vertical">${escapeHtml(itemData.desc || "")}</textarea>`)}
           </div>
@@ -17538,6 +17669,7 @@
           <div>
             ${field("Цена, ₽", `<input type="number" class="catalog-price-input" value="${currentPrice}" onchange="app.updateCatalogPrice('${id}', this.value)" style="font-size:20px;font-weight:800;padding:12px 14px">`)}
           </div>
+          <div style="margin-top:14px">${costField(itemData, "catalogOverride", id)}</div>
         `;
 
         // Лимиты «включено в базовую цену» — тариф агентства, а не параметр заказа,
@@ -18117,6 +18249,13 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>
                         Загрузить из Excel
                       </button>
+                      ${/* Тоже редкое действие над каталогом целиком — соседям по
+                            меню ровня. На каждой позиции своё поле себестоимости
+                            есть в её карточке. */""}
+                      <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.toggleCatalogCostPanel()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                        Проставить себестоимость
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -18274,6 +18413,39 @@
                   ${state.tab === "hidden" && hidden.length ? `
                     <div class="hidden-bar">Скрытые позиции не показываются в общем каталоге. Их можно восстановить.</div>
                   ` : ""}
+
+                  ${(() => {
+                    /* Массовая простановка себестоимости. Область действия — ТО, ЧТО
+                       СЕЙЧАС В СПИСКЕ: раздел, поиск, избранное — что угодно, чем
+                       человек уже сузил каталог. Отдельный выбор «раздел / весь
+                       каталог» был бы вторым способом сказать то же самое, причём
+                       расходящимся с тем, что человек видит на экране. */
+                    if (!state.catalogCostPanelOpen) return "";
+                    const pct = numberValue(state.catalogCostPct, 40);
+                    const withOwn = allFiltered.filter(hasOwnDefaultCost).length;
+                    const пример = allFiltered.find(x => getCatalogPrice(x) > 0);
+                    return `
+                      <div class="no-print" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;background:var(--panel2);border:1px solid var(--primary);border-radius:12px;margin-bottom:14px">
+                        <span style="font-size:13px;font-weight:750;color:var(--primary)">Себестоимость</span>
+                        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px">
+                          <input type="number" min="0" max="100" inputmode="numeric" value="${pct}"
+                            aria-label="Процент от цены"
+                            onchange="app.setCatalogCostPct(this.value)"
+                            style="width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text)">
+                          <span>% от цены</span>
+                        </label>
+                        <button class="btn primary small" onclick="app.bulkSetCatalogCost(${pct})">
+                          Проставить ${allFiltered.length} ${plural(allFiltered.length, "позиции", "позициям", "позициям")}
+                        </button>
+                        <button class="btn small" onclick="app.toggleCatalogCostPanel()">Закрыть</button>
+                        <span class="u-meta" style="flex-basis:100%;font-size:12px">
+                          Применится к тому, что сейчас в списке${withOwn ? `, у ${withOwn} ${plural(withOwn, "позиции значение будет заменено", "позиций значения будут заменены", "позиций значения будут заменены")}` : ""}.
+                          ${пример ? `Например: ${escapeHtml(пример.name)} — ${money(getCatalogPrice(пример))} → ${money(Math.round(getCatalogPrice(пример) * pct / 100))}.` : ""}
+                          Уже собранные сметы не меняются.
+                        </span>
+                      </div>
+                    `;
+                  })()}
 
                   ${state.tab === "ai" ? renderAiCatalogGrid(shownItems) : `
                     <div class="catalog-grid">
@@ -28667,6 +28839,9 @@ Email: _____________________              Email: _____________________
         bulkSetCrmStatus,
         bulkAddCrmTag,
         bulkDeleteDeals,
+        toggleCatalogCostPanel,
+        setCatalogCostPct,
+        bulkSetCatalogCost,
         toggleGFinNoMethod,
         toggleGFinSelectMode,
         toggleGFinSelect,
