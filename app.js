@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 420;
+      const APP_BUILD = 421;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -4419,6 +4419,124 @@
       // ai-proposal — там он и решает: клиентская проверка лишь бережёт лишний запрос.
       const AI_PROPOSAL_TRIAL_LIMIT = 5;
 
+      /* ─── ПРОДВИЖЕНИЕ ПРОДУКТА (только супер-админ) ──────────────────────────
+
+         Это НЕ раздел для агентств-клиентов: их продвижение — их дело. Здесь
+         владелец ADERVIS продаёт саму CRM. Поэтому живёт в Admin Panel, рядом с
+         пользователями, платежами и промокодами, а не в меню приложения.
+
+         Тексты держим ОДНОЙ копией в коде, а не в голове и не в десяти заметках:
+         продукт продаётся одной формулировкой, и как только их становится две,
+         в соцсетях начинают жить обе. Правило то же, что у цены (PLANS ↔ касса).
+
+         Формулировка — из PLAN.md §2: продаём СМЕТУ И КП, а не «ещё одну CRM».
+         Слово «CRM» в витрине намеренно не первое: человек ищет, чем посчитать
+         смету, а не чем вести воронку. */
+      const PROMO_PITCH = [
+        {
+          id: "oneline",
+          label: "Одна строка (шапка профиля, подпись)",
+          text: "Смета и КП для видеопродакшна за 15 минут вместо вечера в Excel.",
+        },
+        {
+          id: "short",
+          label: "Абзац (описание сообщества, ответ в чате)",
+          text: "ADERVIS — сервис смет и коммерческих предложений для видеопродакшна. "
+            + "Каталог на 200 позиций с вашими ценами, готовые пакеты, расчёт съёмочных дней и техники. "
+            + "Смета собирается за 15 минут, из неё сразу выходит КП по ссылке — клиент открывает его в браузере, "
+            + "подписывает и вносит аванс. Дальше сделка живёт сама: воронка, финансы, договоры, задачи. "
+            + "890 ₽ в месяц, 7 дней бесплатно, без привязки карты.",
+        },
+        {
+          id: "long",
+          label: "Полное (лендинг, статья, письмо)",
+          text: "Смета в видеопродакшне — это вечер в Excel: вспомнить все позиции, не забыть про технику и трансфер, "
+            + "посчитать смены операторов, свести это в документ, который не стыдно отправить клиенту.\n\n"
+            + "ADERVIS делает это за 15 минут. Внутри каталог на 200 позиций и 45 готовых пакетов — "
+            + "со своими ценами, которые вы правите один раз. Съёмочные дни, количество камер, "
+            + "срочность и наценки считаются сами.\n\n"
+            + "Из готовой сметы одной кнопкой выходит коммерческое предложение — ссылка, которую клиент открывает "
+            + "в браузере, читает, подписывает и оплачивает аванс. Вам приходит уведомление, аванс попадает в финансы.\n\n"
+            + "Дальше сделка живёт сама: воронка, договоры по шаблонам, задачи, P&L по каждому проекту, "
+            + "Telegram-бот. Сделано людьми из индустрии — это не универсальная CRM с настройкой под себя, "
+            + "а готовый инструмент с уже заложенной логикой продакшна.\n\n"
+            + "890 ₽ в месяц. 7 дней бесплатно, карта не нужна.",
+        },
+        {
+          id: "audience",
+          label: "Кому это (для таргета и текстов)",
+          text: "Соло-видеографы и студии 1–10 человек. Считают сметы в Excel или в заметках, "
+            + "теряют позиции и занижают цену. Главная боль — «не знаю, сколько брать» и «полдня на КП». "
+            + "Решение принимают сами, за один вечер.",
+        },
+      ];
+
+      /* Промпты — рабочий инструмент, а не витрина. Каждый несёт ФАКТЫ о продукте
+         внутри себя: без них модель сочиняет несуществующие возможности, и в
+         соцсети уходит обещание, которого продукт не выполняет. */
+      const PROMO_PROMPTS = [
+        {
+          id: "tg_post",
+          label: "Пост в Telegram",
+          text: "Ты — практик видеопродакшна, который ведёт канал о деньгах в профессии. Пиши от первого лица, "
+            + "без маркетингового тона, без восклицаний и эмодзи-мусора.\n\n"
+            + "Напиши пост на 700–900 знаков по теме: [ТЕМА].\n\n"
+            + "Правила: начни с конкретной ситуации из работы, а не с вопроса к читателю. "
+            + "Дай одну мысль, которую можно применить сегодня. В конце — одна строка про то, что смету и КП "
+            + "я считаю в ADERVIS (adervis.ru), без призыва «переходи по ссылке».\n\n"
+            + "Про продукт, если упоминаешь: сервис смет и КП для видеопродакшна, каталог 200 позиций со своими "
+            + "ценами, КП уходит клиенту ссылкой с подписью и авансом, 890 ₽/мес, 7 дней бесплатно без карты.",
+        },
+        {
+          id: "reels",
+          label: "Сценарий Reels / Shorts (40–60 сек)",
+          text: "Напиши сценарий вертикального ролика на 40–60 секунд для видеографа-практика.\n\n"
+            + "Тема: [ТЕМА]. Формат: первые 3 секунды — конкретная боль без вступления, "
+            + "дальше 3–4 коротких тезиса, в конце — что делать.\n\n"
+            + "Отдай таблицей: время | что в кадре | что говорю. Речь разговорная, короткими фразами, "
+            + "как человек говорит вслух, а не читает. Без слов «друзья», «сегодня поговорим», «подписывайтесь».",
+        },
+        {
+          id: "chat_reply",
+          label: "Ответ в чате видеографов",
+          text: "В профессиональном чате видеографов кто-то спросил: «[ВОПРОС]».\n\n"
+            + "Напиши ответ, который поможет по делу: 3–5 предложений, конкретика, без рекламы. "
+            + "Если по теме уместно — одним предложением упомяни, что сам считаю сметы в ADERVIS, "
+            + "но только если это действительно отвечает на вопрос. Если неуместно — не упоминай вовсе.\n\n"
+            + "Тон: коллега, а не продавец. Реклама в профильном чате убивает репутацию быстрее, чем приносит клиентов.",
+        },
+        {
+          id: "objection",
+          label: "Разбор возражения",
+          text: "Потенциальный клиент говорит: «[ВОЗРАЖЕНИЕ]» (например: «мне хватает Excel», «дорого», "
+            + "«не хочу переносить данные», «а если сервис закроется»).\n\n"
+            + "Напиши ответ в 3–4 предложениях. Правила: не спорь и не переубеждай, согласись с тем, что в возражении "
+            + "правда, и покажи, чего человек не учёл. Никаких «на самом деле» и «вы просто не пробовали».\n\n"
+            + "Факты, на которые можно опираться: 890 ₽/мес; 7 дней бесплатно без карты; данные выгружаются одним "
+            + "файлом JSON в любой момент; смета считается за 15 минут; КП уходит ссылкой с подписью и авансом.",
+        },
+        {
+          id: "case",
+          label: "Разбор своего проекта (кейс)",
+          text: "Помоги превратить мой проект в публичный разбор без хвастовства.\n\n"
+            + "Данные: [НАЗВАНИЕ], бюджет [СУММА], что снимали [ЧТО], сколько заняло [СРОК], "
+            + "что пошло не так [ПРОБЛЕМА].\n\n"
+            + "Структура: задача клиента → как считал смету и почему такая цена → что пошло не так и что сделал → "
+            + "сколько в итоге осталось. Обязательно назови ошибку, которую сам допустил: разбор без ошибки "
+            + "читается как реклама. 900–1200 знаков.",
+        },
+        {
+          id: "profile",
+          label: "Описание профиля / сообщества",
+          text: "Напиши три варианта описания сообщества для [ПЛОЩАДКА] — 90, 200 и 500 знаков.\n\n"
+            + "Продукт: ADERVIS, сервис смет и коммерческих предложений для видеопродакшна. "
+            + "Каталог 200 позиций со своими ценами, готовые пакеты, расчёт съёмочных дней и техники. "
+            + "КП уходит клиенту ссылкой — он подписывает и вносит аванс. 890 ₽/мес, 7 дней бесплатно без карты. "
+            + "Сайт adervis.ru, приложение app.adervis.ru.\n\n"
+            + "Тон: точный, быстрый, свой. Без «инновационный», «уникальный», «команда профессионалов».",
+        },
+      ];
+
       // ─── ADMIN PANEL ─────────────────────────────────────────────────────────
       /* «users», а не «stats»: вкладок в панели три — users / promos / errors, и
          значения "stats" среди них нет. Панель открывалась вообще без выбранной
@@ -4914,6 +5032,132 @@
         }).join("");
       }
 
+      /* Продажи считаем по ДЕНЬГАМ (таблица payments), а не по статусам подписок.
+         В KPI-полосе выше MRR выводится из subscription_status — и туда попадают
+         собственные аккаунты владельца и амбассадор с бесплатным годом. Для
+         вопроса «продают ли продукт незнакомцам» такой счёт врёт в лучшую
+         сторону, а это единственный вопрос, ради которого раздел и заведён. */
+      function _promoSales() {
+        const pays = _adminPayments || [];
+        const payers = new Set(pays.map(p => p.user_id).filter(Boolean));
+        const now = Date.now();
+        const in30 = pays.filter(p => p.paid_at && (now - new Date(p.paid_at).getTime()) <= 30 * 86400000);
+        return {
+          payers: payers.size,
+          revenue: pays.reduce((s, p) => s + numberValue(p.amount, 0), 0),
+          revenue30: in30.reduce((s, p) => s + numberValue(p.amount, 0), 0),
+          count: pays.length,
+          last: pays.map(p => p.paid_at).filter(Boolean).sort().slice(-1)[0] || "",
+        };
+      }
+
+      const PROMO_MILESTONES = [
+        { n: 1,  label: "Первая продажа",  why: "продукт вообще покупают" },
+        { n: 5,  label: "Сигнал",          why: "покупка не случайность" },
+        { n: 10, label: "Окупаемость",     why: "Supabase, домен, Resend" },
+        { n: 50, label: "Бизнес",          why: "можно платить подрядчику" },
+      ];
+
+      function renderPromoTab() {
+        const s = _promoSales();
+        const ag = _adminAgencies || [];
+        const regs = ag.length;
+        const trial = ag.filter(a => a.subscription_status === "trial").length;
+
+        const copyBtn = (id) =>
+          `<button class="btn small" onclick="app.copyPromoText('${id}')" title="Скопировать в буфер">${icon("copy", 13)} Копировать</button>`;
+
+        return `
+          <div style="display:grid;gap:16px">
+
+            <div class="panel" style="box-shadow:none;background:var(--panel2)">
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("coins", "var(--green)")} Продажи</h2>
+              <p class="mini-note" style="margin-top:0">Считается по фактическим платежам, а не по статусам подписок: свои аккаунты и бесплатный год амбассадора в этот счёт не попадают.</p>
+              <div class="grid four" style="gap:10px;margin-top:12px">
+                <div class="data-stat">${iconBadge("person", "var(--primary)", 30)}<div><div class="data-stat__num">${s.payers}</div><div class="data-stat__lbl">${plural(s.payers, "платящий", "платящих", "платящих")}</div></div></div>
+                <div class="data-stat">${iconBadge("wallet", "var(--green)", 30)}<div><div class="data-stat__num">${money(s.revenue)}</div><div class="data-stat__lbl">получено всего</div></div></div>
+                <div class="data-stat">${iconBadge("calendar", "var(--blue)", 30)}<div><div class="data-stat__num">${money(s.revenue30)}</div><div class="data-stat__lbl">за 30 дней</div></div></div>
+                <div class="data-stat">${iconBadge("receipt", "var(--muted)", 30)}<div><div class="data-stat__num">${s.count}</div><div class="data-stat__lbl">${s.last ? "последний " + formatDate(s.last) : plural(s.count, "платёж", "платежа", "платежей")}</div></div></div>
+              </div>
+
+              <h3 style="margin:18px 0 10px;font-size:14px">План продаж</h3>
+              <div style="display:grid;gap:8px">
+                ${PROMO_MILESTONES.map(m => {
+                  const done = s.payers >= m.n;
+                  const pct = Math.min(100, Math.round(s.payers / m.n * 100));
+                  return `
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                      <span style="width:150px;font-size:13px;font-weight:${done ? 750 : 600};color:${done ? "var(--text-success)" : "var(--text)"}">
+                        ${done ? "✓ " : ""}${escapeHtml(m.label)}
+                      </span>
+                      <span style="font-family:var(--font-display);font-variant-numeric:tabular-nums;font-size:13px;min-width:74px">${s.payers} / ${m.n}</span>
+                      <span style="flex:1;min-width:120px;height:6px;border-radius:99px;background:var(--line);overflow:hidden;display:block">
+                        <span style="display:block;height:100%;width:${pct}%;background:${done ? "var(--green)" : "var(--primary)"}"></span>
+                      </span>
+                      <span class="u-meta" style="font-size:12px;min-width:170px">${escapeHtml(m.why)}</span>
+                    </div>`;
+                }).join("")}
+              </div>
+            </div>
+
+            <div class="panel" style="box-shadow:none;background:var(--panel2)">
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("target", "var(--blue)")} Воронка</h2>
+              <p class="mini-note" style="margin-top:0">
+                Разрез <strong>по каналам</strong> пока невозможен: источник регистрации нигде не сохраняется.
+                Чтобы он появился, нужна UTM-метка при первом визите → колонка <code>profiles.signup_source</code>.
+              </p>
+              <div class="grid three" style="gap:10px;margin-top:12px">
+                <div class="data-stat">${iconBadge("person", "var(--muted)", 30)}<div><div class="data-stat__num">${regs}</div><div class="data-stat__lbl">${plural(regs, "регистрация", "регистрации", "регистраций")}</div></div></div>
+                <div class="data-stat">${iconBadge("fire", "var(--yellow)", 30)}<div><div class="data-stat__num">${trial}</div><div class="data-stat__lbl">сейчас на триале</div></div></div>
+                <div class="data-stat">${iconBadge("check", "var(--green)", 30)}<div><div class="data-stat__num">${regs ? Math.round(s.payers / regs * 100) : 0}%</div><div class="data-stat__lbl">регистрация → оплата</div></div></div>
+              </div>
+            </div>
+
+            <div class="panel" style="box-shadow:none;background:var(--panel2)">
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("megaphone", "var(--primary)")} Описание продукта</h2>
+              <p class="mini-note" style="margin-top:0">Одна формулировка на все площадки. Как только их станет две, в соцсетях будут жить обе.</p>
+              <div style="display:grid;gap:10px;margin-top:12px">
+                ${PROMO_PITCH.map(x => `
+                  <div class="data-card" style="gap:10px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                      <div class="data-card__title">${escapeHtml(x.label)}</div>
+                      ${copyBtn(x.id)}
+                    </div>
+                    <div style="font-size:13px;line-height:1.6;white-space:pre-wrap;color:var(--text)">${escapeHtml(x.text)}</div>
+                  </div>`).join("")}
+              </div>
+            </div>
+
+            <div class="panel" style="box-shadow:none;background:var(--panel2)">
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("robot", "var(--primary)")} Промпты</h2>
+              <p class="mini-note" style="margin-top:0">
+                Скопируйте, замените <code>[ТЕМА]</code> и отдайте нейросети. Факты о продукте вшиты в промпт —
+                без них модель придумывает возможности, которых нет.
+              </p>
+              <div style="display:grid;gap:10px;margin-top:12px">
+                ${PROMO_PROMPTS.map(x => `
+                  <div class="data-card" style="gap:10px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                      <div class="data-card__title">${escapeHtml(x.label)}</div>
+                      ${copyBtn(x.id)}
+                    </div>
+                    <details>
+                      <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:700">Показать текст</summary>
+                      <div style="font-size:12.5px;line-height:1.6;white-space:pre-wrap;margin-top:8px;color:var(--muted)">${escapeHtml(x.text)}</div>
+                    </details>
+                  </div>`).join("")}
+              </div>
+            </div>
+
+          </div>`;
+      }
+
+      function copyPromoText(id) {
+        const x = PROMO_PITCH.concat(PROMO_PROMPTS).find(t => t.id === id);
+        if (!x) return;
+        copyToClipboard(x.text, `«${x.label}» скопировано`);
+      }
+
       function renderAdminPanel() {
         if (!_isSuperAdmin()) return `<div class="panel"><p class="u-muted">Доступ запрещён.</p></div>`;
         if (_adminLoading) return `<div class="panel" style="text-align:center;padding:48px"><div class="spinner" style="margin:0 auto 12px"></div><p class="u-muted">Загрузка...</p></div>`;
@@ -4961,7 +5205,7 @@
                   инлайновых стилях с width:fit-content и без переноса — на 390px
                   три вкладки не помещались, и «Ошибки» обрезалось на полуслове. */""}
             <div class="admin-tabs adm-strip" style="display:flex;gap:4px;margin-bottom:20px;background:var(--panel2);padding:4px;border-radius:12px;width:fit-content;max-width:100%">
-              ${[["users",icon("users"),"Пользователи"],["promos",icon("gift"),"Промокоды"],["payments",icon("wallet"),"Платежи"],["errors",icon("bug"),"Ошибки" + ((_adminErrors||[]).length ? ` (${_adminErrors.length})` : "")]].map(([k,ic,l]) => `
+              ${[["users",icon("users"),"Пользователи"],["promo",icon("megaphone"),"Продвижение"],["promos",icon("gift"),"Промокоды"],["payments",icon("wallet"),"Платежи"],["errors",icon("bug"),"Ошибки" + ((_adminErrors||[]).length ? ` (${_adminErrors.length})` : "")]].map(([k,ic,l]) => `
                 <button class="admin-tab" onclick="app._setAdminTab('${k}')"
                   style="display:inline-flex;align-items:center;gap:7px;padding:8px 18px;border-radius:9px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:.15s;
                   background:${_adminPanelTab===k?"var(--primary)":"transparent"};
@@ -4975,6 +5219,8 @@
               ${_adminUsersToolbarHtml()}
               <div id="adminUsersList" style="display:flex;flex-direction:column;gap:8px">${_adminUsersListHtml()}</div>
             ` : ""}
+
+            ${_adminPanelTab === "promo" ? renderPromoTab() : ""}
 
 
             <!-- Payments tab -->
@@ -29083,6 +29329,7 @@ Email: _____________________              Email: _____________________
         bulkSetCrmStatus,
         bulkAddCrmTag,
         bulkDeleteDeals,
+        copyPromoText,
         expandBotEstimate,
         dismissBotEstimate,
         toggleCatalogCostPanel,
