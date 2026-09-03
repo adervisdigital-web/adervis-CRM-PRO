@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 421;
+      const APP_BUILD = 422;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -5051,6 +5051,63 @@
         };
       }
 
+      /* ── Кому продаём ────────────────────────────────────────────────────────
+         Сегменты по УБЫВАНИЮ готовности платить, а не по размеру рынка: продукт
+         продаёт один человек без бюджета на рекламу, и первым надо брать того,
+         кто решает сам и за один вечер. Каждому — своя боль ЕГО словами: это то,
+         что копируется в пост, в объявление и в бриф копирайтеру. */
+      const PROMO_AUDIENCE = [
+        {
+          id: "solo",
+          name: "Соло-видеограф",
+          who: "Снимает один или с оператором на подхвате. 3–15 проектов в год, чек 30–150 тыс.",
+          pain: "«Не знаю, сколько брать». Считает в заметках или в голове, забывает технику и трансфер, "
+            + "называет цену на глаз и потом работает в минус.",
+          words: "полдня на смету · посчитал на глаз · забыл заложить · неудобно называть цену",
+          why: "Решает сам, за один вечер, 890 ₽ для него — цена одного обеда на площадке. **Целевой сегмент.**",
+        },
+        {
+          id: "studio",
+          name: "Студия 3–10 человек",
+          who: "Есть свои шаблоны и постоянные подрядчики. 20–60 проектов в год, чек 100–500 тыс.",
+          pain: "КП делает один человек, остальные ждут. Цены живут в чужих головах и в разных файлах, "
+            + "у каждого менеджера своя версия сметы.",
+          words: "смету считает только Саша · в каком файле актуальные цены · КП обещали вчера",
+          why: "Платит больше и дольше остаётся, но решение идёт через двоих-троих. Второй по очереди.",
+        },
+        {
+          id: "producer",
+          name: "Продюсер / организатор",
+          who: "Своей команды нет, собирает проект из подрядчиков под задачу.",
+          pain: "Свести чужие ставки в одну смету и не потерять свою маржу. "
+            + "Подрядчики называют цены в разных форматах, итог считается вручную.",
+          words: "собрать смету из подрядчиков · где моя маржа · сводил три часа",
+          why: "Боль острая, но таких меньше и они разрознены. Брать, когда первые два пойдут.",
+        },
+      ];
+
+      /* ── Каналы ──────────────────────────────────────────────────────────────
+         Только те, что работают В РОССИИ. Meta (Instagram, Facebook, Threads)
+         признана экстремистской и заблокирована — Threads отпадает целиком, а не
+         «с оговоркой». YouTube в РФ замедлен, поэтому он не первый канал, а
+         вторичный: ролик туда кладём, но трафик ждём из VK и Telegram.
+
+         Это ЗАГОТОВКА списка при первом входе. Дальше владелец правит его сам —
+         список живёт в состоянии, а не в коде. */
+      const PROMO_CHANNEL_SEED = [
+        { name: "Telegram-канал",          kind: "Свой", note: "Основной. 2 поста в неделю: разборы денег в продакшне." },
+        { name: "Чаты видеографов",        kind: "Чужой", note: "Отвечать по делу, без рекламы. Репутация, а не охват." },
+        { name: "VK-сообщество",           kind: "Свой", note: "Кросспост из Telegram + Клипы." },
+        { name: "VK Клипы",                kind: "Свой", note: "Вертикальные ролики 40–60 сек." },
+        { name: "Дзен",                    kind: "Свой", note: "Длинные разборы, живёт в поиске." },
+        { name: "Rutube / VK Видео",       kind: "Свой", note: "Дубль роликов: YouTube в РФ замедлен." },
+        { name: "VC.ru",                   kind: "Чужой", note: "Кейсы и разборы, аудитория с деньгами." },
+        { name: "Авито · Профи.ру",        kind: "Чужой", note: "Там сидят те, кто ищет видеографа — и сами видеографы." },
+        { name: "Публичный калькулятор",   kind: "Свой", note: "?calc= — вход без регистрации. ВКЛЮЧИТЬ в Настройки → Данные." },
+      ];
+
+      const PROMO_POST_STATUS = ["Идея", "Пишется", "Опубликовано"];
+
       const PROMO_MILESTONES = [
         { n: 1,  label: "Первая продажа",  why: "продукт вообще покупают" },
         { n: 5,  label: "Сигнал",          why: "покупка не случайность" },
@@ -5114,6 +5171,108 @@
             </div>
 
             <div class="panel" style="box-shadow:none;background:var(--panel2)">
+              <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("team", "var(--yellow)")} Кому продаём</h2>
+              <p class="mini-note" style="margin-top:0">Сегменты по убыванию готовности платить, а не по размеру рынка. Боль — словами самого человека: это то, что копируется в пост и в объявление.</p>
+              <div class="grid three" style="gap:10px;margin-top:12px">
+                ${PROMO_AUDIENCE.map((a, i) => `
+                  <div class="data-card" style="gap:8px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="width:22px;height:22px;border-radius:7px;background:rgb(var(--primary-rgb) / .15);color:var(--primary-text);display:grid;place-items:center;font-size:12px;font-weight:800;flex-shrink:0">${i + 1}</span>
+                      <div class="data-card__title">${escapeHtml(a.name)}</div>
+                    </div>
+                    <div class="u-meta" style="font-size:12px;line-height:1.5">${escapeHtml(a.who)}</div>
+                    <div style="font-size:12.5px;line-height:1.55">${escapeHtml(a.pain)}</div>
+                    <div style="font-size:12px;line-height:1.5;color:var(--primary-text);font-style:italic">${escapeHtml(a.words)}</div>
+                    <div class="u-meta" style="font-size:12px;line-height:1.5">${a.why.replace(/\*\*(.+?)\*\*/g, "<strong style='color:var(--text)'>$1</strong>")}</div>
+                    <div class="data-card__act"><button class="btn small" onclick="app.copyPromoAudience('${a.id}')">${icon("copy", 13)} Копировать</button></div>
+                  </div>`).join("")}
+              </div>
+            </div>
+
+            ${(() => {
+              const p = _promo();
+              return `
+            <div class="panel" style="box-shadow:none;background:var(--panel2)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                <h2 style="margin:0;display:flex;align-items:center;gap:9px">${iconBadge("megaphone", "var(--blue)")} Каналы</h2>
+                <button class="btn small" onclick="app.addPromoChannel()">${icon("plus", 13)} Канал</button>
+              </div>
+              <p class="mini-note">
+                Только те, что работают в России. <strong>Threads, Instagram и Facebook — Meta, её деятельность в РФ признана
+                экстремистской и запрещена</strong>, каналом они быть не могут. YouTube замедлен — ролики туда дублируем,
+                но трафика оттуда не ждём.
+              </p>
+              <p class="mini-note">У каждого канала своя ссылка с меткой: перейдите по ней, и регистрация будет засчитана этому каналу — но только после того, как заработает <code>profiles.signup_source</code>.</p>
+              <div style="display:grid;gap:8px;margin-top:12px">
+                ${p.channels.map(ch => {
+                  const тихо = ch.active && ch.lastPost && (Date.now() - new Date(ch.lastPost).getTime()) > 14 * 86400000;
+                  return `
+                  <div class="data-card" style="gap:8px">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                      <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;flex-shrink:0" title="Канал заведён и ведётся">
+                        <input type="checkbox" ${ch.active ? "checked" : ""} onchange="app.setPromoChannelField('${ch.id}','active',this.checked)"
+                          style="width:15px;height:15px;cursor:pointer;accent-color:var(--primary)">
+                      </label>
+                      <input value="${escapeHtml(ch.name)}" onchange="app.setPromoChannelField('${ch.id}','name',this.value)"
+                        aria-label="Название канала"
+                        style="flex:1;min-width:140px;font-weight:750;font-size:13px;padding:5px 8px;border:1px solid transparent;border-radius:var(--r-sm);background:transparent;color:var(--text)"
+                        onmouseenter="this.style.borderColor='var(--line)'" onmouseleave="this.style.borderColor='transparent'">
+                      <span class="status-pill" style="font-size:11px;flex-shrink:0">${escapeHtml(ch.kind || "Свой")}</span>
+                      ${ch.lastPost ? `<span class="status-pill ${тихо ? "" : "green"}" style="font-size:11px;flex-shrink:0;${тихо ? "color:var(--text-warning)" : ""}" title="Дата последней публикации">${тихо ? "тихо с " : ""}${escapeHtml(formatDate(ch.lastPost))}</span>` : `<span class="u-meta" style="font-size:11px;flex-shrink:0">не начат</span>`}
+                      <button class="icon-del-btn no-print" title="Убрать канал" aria-label="Убрать канал" onclick="app.deletePromoChannel('${ch.id}')">${TRASH_SVG}</button>
+                    </div>
+                    <div class="u-meta" style="font-size:12px">${escapeHtml(ch.note || "")}</div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                      <input value="${escapeHtml(ch.utm || _utmSlug(ch.name))}" onchange="app.setPromoChannelField('${ch.id}','utm',this.value)"
+                        aria-label="Метка канала для ссылки" placeholder="метка"
+                        style="width:130px;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel2);color:var(--text);font-family:monospace">
+                      <button class="btn small" onclick="app.copyPromoUtm('${ch.id}')">${icon("link", 13)} Ссылка с меткой</button>
+                    </div>
+                  </div>`;
+                }).join("")}
+              </div>
+            </div>
+
+            <div class="panel" style="box-shadow:none;background:var(--panel2)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                <h2 style="margin:0;display:flex;align-items:center;gap:9px">${iconBadge("calendar", "var(--green)")} Контент-план</h2>
+                <button class="btn small primary" onclick="app.addPromoPost()">${icon("plus", 13)} Запись</button>
+              </div>
+              ${(() => {
+                const идей = p.posts.filter(x => x.status === "Идея").length;
+                const вРаботе = p.posts.filter(x => x.status === "Пишется").length;
+                const вышло = p.posts.filter(x => x.status === "Опубликовано").length;
+                return `<p class="mini-note">Идей ${идей} · пишется ${вРаботе} · опубликовано ${вышло}. Отметили «Опубликовано» — каналу проставится дата, и в списке выше станет видно, где работа встала.</p>`;
+              })()}
+              ${p.posts.length ? `
+                <div style="display:grid;gap:8px;margin-top:12px">
+                  ${p.posts.map(post => `
+                    <div class="data-card" style="gap:8px">
+                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                        <input type="date" value="${escapeHtml(post.date || "")}" onchange="app.setPromoPostField('${post.id}','date',this.value)"
+                          aria-label="Дата" style="font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel2);color:var(--text);width:auto">
+                        <select onchange="app.setPromoPostField('${post.id}','status',this.value)" aria-label="Состояние"
+                          style="font-size:12px;padding:5px 26px 5px 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel2);color:var(--text)">
+                          ${PROMO_POST_STATUS.map(s => optionValueHtml(s, s, post.status)).join("")}
+                        </select>
+                        <select onchange="app.setPromoPostField('${post.id}','channelId',this.value)" aria-label="Канал"
+                          style="font-size:12px;padding:5px 26px 5px 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel2);color:var(--text);max-width:190px">
+                          ${optionValueHtml("", "— канал не выбран", post.channelId || "")}
+                          ${p.channels.map(c => optionValueHtml(c.id, c.name, post.channelId || "")).join("")}
+                        </select>
+                        <button class="icon-del-btn no-print" title="Убрать" aria-label="Убрать запись" onclick="app.deletePromoPost('${post.id}')">${TRASH_SVG}</button>
+                      </div>
+                      <input value="${escapeHtml(post.title || "")}" onchange="app.setPromoPostField('${post.id}','title',this.value)"
+                        placeholder="О чём: «сколько на самом деле стоит съёмочный день»"
+                        aria-label="Тема записи"
+                        style="width:100%;font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel2);color:var(--text)">
+                    </div>`).join("")}
+                </div>
+              ` : `<p class="u-meta" style="margin-top:12px;font-size:13px">Плана пока нет. Возьмите промпт ниже, придумайте пять тем — и запишите их сюда, чтобы не начинать каждый раз с чистого листа.</p>`}
+            </div>`;
+            })()}
+
+            <div class="panel" style="box-shadow:none;background:var(--panel2)">
               <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("megaphone", "var(--primary)")} Описание продукта</h2>
               <p class="mini-note" style="margin-top:0">Одна формулировка на все площадки. Как только их станет две, в соцсетях будут жить обе.</p>
               <div style="display:grid;gap:10px;margin-top:12px">
@@ -5152,10 +5311,117 @@
           </div>`;
       }
 
+      /* Каналы и контент-план живут в состоянии супер-админа (agency_state), а не
+         в коде и не в отдельной таблице: это данные одного человека, они уже
+         синхронизируются в облако и переживают смену устройства. Заготовка
+         разворачивается ОДИН раз — дальше список принадлежит владельцу, и код в
+         него больше не лезет, иначе правки затирались бы при каждом обновлении. */
+      function _promo() {
+        if (!state.promo || typeof state.promo !== "object") state.promo = {};
+        if (!Array.isArray(state.promo.channels)) {
+          state.promo.channels = PROMO_CHANNEL_SEED.map(c => ({
+            id: uid("ch"), name: c.name, kind: c.kind, note: c.note,
+            url: "", utm: _utmSlug(c.name), active: false, lastPost: "",
+          }));
+        }
+        if (!Array.isArray(state.promo.posts)) state.promo.posts = [];
+        return state.promo;
+      }
+
+      // utm_source должен быть машинным: «VK Клипы» → vk_klipy. Кириллица в UTM
+      // доезжает до Метрики процентами и в отчёте читается как мусор.
+      function _utmSlug(s) {
+        const map = { а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"e",ж:"zh",з:"z",и:"i",й:"y",к:"k",л:"l",м:"m",
+          н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",ф:"f",х:"h",ц:"c",ч:"ch",ш:"sh",щ:"sch",ъ:"",ы:"y",ь:"",э:"e",ю:"yu",я:"ya" };
+        return String(s || "").toLowerCase().split("").map(ch => map[ch] !== undefined ? map[ch] : ch)
+          .join("").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 24) || "channel";
+      }
+
+      function promoUtmLink(ch) {
+        const src = (ch.utm || _utmSlug(ch.name)).trim();
+        return `https://app.adervis.ru/?utm_source=${encodeURIComponent(src)}&utm_medium=social`;
+      }
+
+      function addPromoChannel() {
+        _promo().channels.push({ id: uid("ch"), name: "Новый канал", kind: "Свой", note: "", url: "", utm: "", active: false, lastPost: "" });
+        save(); render();
+      }
+
+      function setPromoChannelField(id, key, value) {
+        const ch = _promo().channels.find(c => c.id === id);
+        if (!ch) return;
+        ch[key] = key === "active" ? !!value : String(value ?? "").slice(0, 200);
+        save();
+        // Галочка и дата перерисовывают строку, текстовые поля — нет: render()
+        // на каждый символ увёл бы фокус из инпута.
+        if (key === "active" || key === "lastPost") render();
+      }
+
+      function deletePromoChannel(id) {
+        const p = _promo();
+        const idx = p.channels.findIndex(c => c.id === id);
+        if (idx < 0) return;
+        const removed = p.channels[idx];
+        p.channels.splice(idx, 1);
+        save(); render();
+        toastUndo(`Канал «${removed.name}» убран`, () => { p.channels.splice(idx, 0, removed); save(); render(); });
+      }
+
+      function copyPromoUtm(id) {
+        const ch = _promo().channels.find(c => c.id === id);
+        if (!ch) return;
+        copyToClipboard(promoUtmLink(ch), `Ссылка для «${ch.name}» скопирована`);
+      }
+
+      function addPromoPost() {
+        _promo().posts.unshift({ id: uid("post"), title: "", channelId: "", date: todayIso(), status: "Идея", note: "" });
+        save(); render();
+      }
+
+      function setPromoPostField(id, key, value) {
+        const post = _promo().posts.find(p => p.id === id);
+        if (!post) return;
+        post[key] = String(value ?? "").slice(0, 300);
+        /* Отметили «Опубликовано» — проставляем каналу дату последней публикации.
+           Ради этого числа блок «Каналы» и заведён: он отвечает на вопрос «где
+           работа встала», а вручную такую дату не ведёт никто. */
+        if (key === "status" && value === "Опубликовано" && post.channelId) {
+          const ch = _promo().channels.find(c => c.id === post.channelId);
+          if (ch) { ch.lastPost = post.date || todayIso(); ch.active = true; }
+        }
+        save();
+        if (key === "status" || key === "channelId") render();
+      }
+
+      function deletePromoPost(id) {
+        const p = _promo();
+        const idx = p.posts.findIndex(x => x.id === id);
+        if (idx < 0) return;
+        const removed = p.posts[idx];
+        p.posts.splice(idx, 1);
+        save(); render();
+        toastUndo("Запись убрана из плана", () => { p.posts.splice(idx, 0, removed); save(); render(); });
+      }
+
       function copyPromoText(id) {
         const x = PROMO_PITCH.concat(PROMO_PROMPTS).find(t => t.id === id);
         if (!x) return;
         copyToClipboard(x.text, `«${x.label}» скопировано`);
+      }
+
+      // Сегмент копируется ЦЕЛИКОМ, готовым куском брифа: копирайтеру нужны и
+      // боль, и слова, которыми человек её называет, а не одно название сегмента.
+      function copyPromoAudience(id) {
+        const a = PROMO_AUDIENCE.find(x => x.id === id);
+        if (!a) return;
+        const text = [
+          a.name,
+          a.who,
+          "Боль: " + a.pain,
+          "Как говорит: " + a.words,
+          a.why.replace(/\*\*/g, ""),
+        ].join("\n");
+        copyToClipboard(text, `Сегмент «${a.name}» скопирован`);
       }
 
       function renderAdminPanel() {
@@ -7472,6 +7738,10 @@
           gFinNoMethodOnly: false,
           catalogCostPanelOpen: false,
           catalogCostPct: 40,
+          // Каналы и контент-план супер-админа. null, а не {}: пустой объект
+          // означал бы «список уже заведён и он пуст», и заготовка каналов не
+          // развернулась бы ни разу (см. _promo()).
+          promo: null,
           taskDetailsOpen: {},
           lineCommentsOpen: {},
           crmTagFilter: "",
@@ -7863,6 +8133,11 @@
           gFinNoMethodOnly: false,
           catalogCostPanelOpen: false,
           catalogCostPct: numberValue(old.catalogCostPct, 40),
+          /* Сам перенос делает `...old` выше — строка здесь не ради него, а ради
+             ТИПА: в состояние приезжает и облачная копия, и чужой JSON импортом,
+             и если promo окажется строкой или массивом, `_promo()` полезет в
+             .channels у не-объекта и раздел упадёт при открытии. */
+          promo: (old.promo && typeof old.promo === "object" && !Array.isArray(old.promo)) ? old.promo : null,
           taskDetailsOpen: {},
           lineCommentsOpen: {},
           recentlyAdded: "",
@@ -8792,19 +9067,32 @@
       /* Поле себестоимости в карточке позиции. Плейсхолдер показывает, что
          действует СЕЙЧАС, поэтому пустое поле читается как «по умолчанию», а не
          как ноль — тот же приём, что у тарифов сверх лимита. */
-      function costField(itemData, scope, id) {
+      /* `big` — когда поле стоит В ПАРЕ с ценой: у цены крупный кегль, и обычный
+         инпут рядом читался бы как поле второго сорта, хотя маржа считается из
+         обоих. Разный размер в одной строке — это подсказка «это важнее», а тут
+         она была бы неправдой. */
+      function costField(itemData, scope, id, big) {
         const eff = defaultCostOf(itemData);
         const price = getCatalogPrice(itemData);
         const pct = price > 0 && eff > 0 ? Math.round(eff / price * 100) : 0;
+        const margin = price > 0 && eff > 0 ? Math.round((price - eff) / price * 100) : null;
         return field("Себестоимость, ₽", `
           <input type="number" min="0" inputmode="numeric"
             data-autosave data-scope="${scope}" data-id="${id}" data-key="defaultCost"
             placeholder="${eff}"
             title="Во сколько позиция обходится агентству. Клиенту не показывается."
+            ${big ? `style="font-size:20px;font-weight:800;padding:12px 14px"` : ""}
             value="${hasOwnDefaultCost(itemData) ? escapeHtml(String(itemData.defaultCost)) : ""}">
+          ${/* Пустое поле — НЕ ошибка. Владелец поправил 03.09.2026: «100% маржа
+                была потому, что я полностью сделал проект сам и всё заработал».
+                У соло-видеографа прямых затрат по позиции действительно нет, и
+                продукт не вправе называть это дырой в данных — он и раньше не
+                называл (см. MARGIN_NO_COSTS_HINT), а вот эта подпись успела. */""}
           <p class="mini-note" style="margin-top:6px">
-            Подставляется в НОВЫЕ строки сметы${eff > 0 && pct > 0 ? ` · сейчас ${money(eff)} (${pct}% от цены)` : " · сейчас не задана"}.
-            Уже собранные сметы не меняются.
+            ${eff > 0 && pct > 0
+              ? `${money(eff)} — это ${pct}% от цены, маржа ${margin}%.`
+              : "Пусто — значит позиция достаётся даром: делаете сами, подрядчику не платите. Заполните, если платите."}
+            Подставляется в НОВЫЕ строки; уже собранные сметы не меняются.
           </p>
         `);
       }
@@ -12485,9 +12773,16 @@
       // Подсказка к капсуле маржи. Одна на все три места, где капсула рисуется:
       // раньше подпись «Высокая маржа» считалась на шапке сделки и НИКУДА не
       // выводилась — переменная была мёртвой, а капсула висела вовсе без title.
+      /* «Тогда маржа станет настоящей» стояло здесь до 03.09.2026 и намекало, что
+         сейчас она ненастоящая. Владелец поправил: «100% была потому, что я
+         полностью сделал проект сам и всё заработал». Если исполнитель работает
+         один и подрядчикам не платит, прибыль ДЕЙСТВИТЕЛЬНО равна всей сумме —
+         продукт не вправе называть это неправдой. Говорим, ЧТО учтено, и на чём
+         число изменится, а не что оно неверное. */
       const MARGIN_NO_COSTS_HINT =
-        "Себестоимость не заполнена, поэтому прибыль равна всей сумме сметы. " +
-        "Проставьте себестоимость в позициях или расходы во вкладке «Финансы» — тогда маржа станет настоящей.";
+        "Затраты по позициям не заполнены, поэтому прибыль равна всей сумме сметы. " +
+        "Так и есть, если делаете всё сами. Платите подрядчикам или за технику — впишите себестоимость в позициях " +
+        "или расходы во вкладке «Финансы», и число изменится.";
       /* unknownHint — свой текст для случая «данных о затратах нет». У ПЛАНА это
          «себестоимость не заполнена», у ФАКТА причина другая: расходы начислены,
          но ещё не выплачены. Общий текст врал бы про заполненную себестоимость. */
@@ -17969,11 +18264,16 @@
         `;
 
         const contentHtml = custom ? `
-          <div class="grid two" style="margin-bottom:14px">
+          <div class="mb-14">
             ${field("Название", `<input data-autosave data-scope="custom" data-id="${id}" data-key="name" value="${escapeHtml(itemData.name)}">`)}
-            ${field("Цена, ₽", `<input type="number" data-autosave data-scope="custom" data-id="${id}" data-key="price" value="${escapeHtml(itemData.price)}">`)}
           </div>
-          <div class="mb-14">${costField(itemData, "custom", id)}</div>
+          ${/* Название на всю ширину, а деньги — парой: цена и себестоимость
+                сравниваются друг с другом, и ставить между ними название значит
+                разрывать пару, из которой считается маржа. */""}
+          <div class="grid two mb-14" style="align-items:start">
+            ${field("Цена, ₽", `<input type="number" data-autosave data-scope="custom" data-id="${id}" data-key="price" value="${escapeHtml(itemData.price)}">`)}
+            ${costField(itemData, "custom", id)}
+          </div>
           <div class="mb-14">
             ${field("Описание", `<textarea data-autosave data-scope="custom" data-id="${id}" data-key="desc" style="min-height:64px;resize:vertical">${escapeHtml(itemData.desc || "")}</textarea>`)}
           </div>
@@ -18032,10 +18332,14 @@
               </select>
             `)}</div>`;
           })()}
-          <div>
+          ${/* Цена и себестоимость — ОДНОЙ строкой: их сравнивают глазами, и
+                разносить пару, из которой считается маржа, по разным рядам
+                значит заставлять смотреть вверх-вниз. Заодно уходит пустая
+                ячейка справа от цены. */""}
+          <div class="grid two" style="align-items:start">
             ${field("Цена, ₽", `<input type="number" class="catalog-price-input" value="${currentPrice}" onchange="app.updateCatalogPrice('${id}', this.value)" style="font-size:20px;font-weight:800;padding:12px 14px">`)}
+            ${costField(itemData, "catalogOverride", id, true)}
           </div>
-          <div style="margin-top:14px">${costField(itemData, "catalogOverride", id)}</div>
         `;
 
         // Лимиты «включено в базовую цену» — тариф агентства, а не параметр заказа,
@@ -18619,7 +18923,11 @@
                             меню ровня. На каждой позиции своё поле себестоимости
                             есть в её карточке. */""}
                       <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.toggleCatalogCostPanel()">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                        ${/* Был нарисован знак ДОЛЛАРА — в продукте, где всё в рублях
+                              и продаётся он только в России, это чужая валюта на
+                              видном месте. Берём значок из общей базы, а не рисуем
+                              свой: он один на весь продукт и меняется в одном месте. */""}
+                        ${icon("coins", 14)}
                         Проставить себестоимость
                       </button>
                     </div>
@@ -29330,6 +29638,14 @@ Email: _____________________              Email: _____________________
         bulkAddCrmTag,
         bulkDeleteDeals,
         copyPromoText,
+        copyPromoAudience,
+        addPromoChannel,
+        setPromoChannelField,
+        deletePromoChannel,
+        copyPromoUtm,
+        addPromoPost,
+        setPromoPostField,
+        deletePromoPost,
         expandBotEstimate,
         dismissBotEstimate,
         toggleCatalogCostPanel,

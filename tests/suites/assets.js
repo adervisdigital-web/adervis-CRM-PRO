@@ -1608,6 +1608,27 @@ module.exports = async function ({ test }) {
     assertEqual(ids.length, new Set(ids).size, "дублируются id в текстах продвижения: " + ids.join(", "));
   });
 
+  await test("каналы продвижения не включают запрещённые в РФ площадки", () => {
+    /* Владелец спросил про Threads. Threads — это Meta, а её деятельность в
+       России признана экстремистской и запрещена; Instagram и Facebook
+       заблокированы. Рынок у продукта только российский (PROMO.md), значит эти
+       площадки не «канал с оговоркой», а не канал вовсе.
+
+       Сторож нужен потому, что список каналов — заготовка в коде, и вернуть туда
+       Instagram по привычке легко: он у всех на слуху как «канал по умолчанию». */
+    const code = readSrc("app.js");
+    const seed = code.slice(code.indexOf("PROMO_CHANNEL_SEED"), code.indexOf("PROMO_POST_STATUS"));
+    assert(seed.length > 200, "заготовка каналов PROMO_CHANNEL_SEED пропала");
+    for (const запрет of ["Threads", "Instagram", "Facebook"]) {
+      assert(!new RegExp(запрет, "i").test(seed),
+        `«${запрет}» в списке каналов — площадка Meta, в РФ запрещена, трафика оттуда не будет`);
+    }
+    // И наоборот: раздел обязан объяснять ПОЧЕМУ, иначе это выглядит как забывчивость.
+    const tab = code.slice(code.indexOf("function renderPromoTab"), code.indexOf("function copyPromoText"));
+    assert(/экстремистск/i.test(tab),
+      "раздел не объясняет, почему Meta-площадок нет в списке — без причины их вернут");
+  });
+
   await test("версия в приложении совпадает с номером сборки в sw.js", () => {
     /* «4.3» стояло в APP_VERSION с 01.07.2026 и пережило 330 коммитов: на экране
        профиля и в сайдбаре пользователю показывали число, которое давно ничего не

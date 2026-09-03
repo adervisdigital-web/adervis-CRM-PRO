@@ -2084,6 +2084,55 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  await test("в карточке позиции цена и себестоимость стоят одной строкой", async () => {
+    /* Из них считается маржа, и сравнивают их друг с другом — разносить пару по
+       разным рядам значит заставлять смотреть вверх-вниз.
+
+       Первая версия поставила себестоимость строкой ниже, и рядом с ценой
+       осталась пустая ячейка. Когда поля свели в один ряд, вылез второй дефект:
+       сетка ТЯНЕТ ячейки по высоте, у себестоимости снизу подпись — и поле цены
+       растянулось на две высоты, а число легло у нижнего края. Лечится
+       `align-items:start`, а не подгонкой высот. Тест меряет ровно это. */
+    const { context: ctx, page: p } = await bootLocal(browser, baseUrl, { width: 1400, height: 950, seedDemo: true });
+    await p.evaluate(() => { window.app.go("catalog"); window.app.setTab("shoot"); });
+    await p.waitForTimeout(300);
+
+    const id = await p.evaluate(() => {
+      const card = document.querySelector(".catalog-grid .item");
+      const m = card && (card.outerHTML.match(/catalogAddOne\('([^']+)'/) || [])[1];
+      if (m) { window.app.openCatalogEdit(m); return m; }
+      return null;
+    });
+    assert(id, "не нашлась позиция каталога, чтобы открыть карточку");
+    await p.waitForTimeout(400);
+
+    const r = await p.evaluate(() => {
+      const price = document.querySelector(".modal-box input.catalog-price-input");
+      const cost = document.querySelector(".modal-box input[data-key='defaultCost']");
+      if (!price || !cost) return { err: `поля не найдены: цена ${!!price}, себестоимость ${!!cost}` };
+      const pb = price.getBoundingClientRect(), cb = cost.getBoundingClientRect();
+      const пустые = [];
+      document.querySelectorAll(".modal-box .grid").forEach(g => {
+        const cols = getComputedStyle(g).gridTemplateColumns.split(" ").length;
+        const kids = [...g.children].filter(k => k.getBoundingClientRect().height > 0).length;
+        if (kids % cols !== 0) пустые.push(`${g.className}: ${kids} в ${cols}`);
+      });
+      return {
+        dTop: Math.abs(pb.top - cb.top), dH: Math.abs(pb.height - cb.height),
+        pSize: getComputedStyle(price).fontSize, cSize: getComputedStyle(cost).fontSize,
+        пустые,
+      };
+    });
+    assert(!r.err, r.err);
+    assert(r.dTop < 6, `цена и себестоимость не на одной линии — разница ${r.dTop}px`);
+    assert(r.dH < 6, `поля разной высоты (${r.dH}px) — сетка снова тянет ячейку`);
+    assertEqual(r.cSize, r.pSize,
+      `кегли разные (цена ${r.pSize}, себестоимость ${r.cSize}) — в одной строке это читается как «второй сорт»`);
+    assertEqual(r.пустые.length, 0, "в карточке есть сетка с пустой ячейкой: " + r.пустые.join("; "));
+
+    await ctx.close();
+  });
+
   await test("себестоимость каталога проставляется разделу и наследуется новой строкой", async () => {
     /* До 03.09.2026 себестоимость жила ТОЛЬКО в строке сметы и начиналась с нуля.
        Каждая новая смета выходила с маржой 100%, а совет продукта «проставьте
