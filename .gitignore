@@ -39,3 +39,4 @@ tests/screenshots/
 tests/*-shot.js
 tests/*-probe.js
 tests/sidebar-iso.html
+PROMO.md
