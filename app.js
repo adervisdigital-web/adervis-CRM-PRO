@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 426;
+      const APP_BUILD = 427;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -4589,7 +4589,7 @@
       let _adminErrorExpanded = null; // ключ развёрнутой группы
       // Поиск и отбор на вкладке «Пользователи». Список плоский и растёт с каждой
       // регистрацией — без отбора нужного человека приходится искать глазами.
-      let _adminUsersFilter = { q: "", status: "" };
+      let _adminUsersFilter = { q: "", status: "", tag: "" };
       let _adminUsersSort = "created"; // created | expires | signin
 
       async function loadAdminPanel() {
@@ -4946,6 +4946,38 @@
           <div class="fin-subtab-bar adm-strip" style="margin-bottom:10px">
             ${chip("", "Все")}${chip("active", "Активные")}${chip("trial", "Триал")}${chip("expired", "Истёкшие")}${chip("blocked", "Заблокированные")}${chip("none", "Без профиля")}
           </div>
+
+          ${(() => {
+            /* Метки — ВТОРАЯ лента, а не продолжение первой: статус подписки и
+               метка отвечают на разные вопросы («платит ли» и «кто это»), и в
+               одном ряду человек читал бы их как один список.
+
+               Лента строится по ФАКТИЧЕСКИМ меткам, а не по ADMIN_USER_TAGS:
+               набор подсказок — это то, что предлагаем ввести, а фильтровать
+               можно только по тому, что реально проставлено. Иначе половина
+               кнопок всегда даёт пустой список. */
+            const метки = _adminTagList();
+            const безМетки = (_adminAgencies || []).filter(a => !(a.admin_tag || "").trim()).length;
+            if (!метки.length && !безМетки) return "";
+            /* В обработчик уходит ПОЗИЦИЯ, а не текст метки. Метка — свободный
+               ввод, а `escapeHtml` превращает апостроф в `&#039;`, который HTML-
+               разборщик вернёт в `'` ДО того, как выполнится JS: обработчик
+               `app._setAdminUsersTag('Свой'аккаунт')` — синтаксическая ошибка, и
+               кнопка молча мертва. Индекс не содержит ничего, что можно сломать;
+               список у кнопки и у обработчика один — _adminTagList(). */
+            const tchip = (key, label, n) => {
+              const active = (_adminUsersFilter.tag || "") === key;
+              const arg = key === "" ? "-1" : key === "__none" ? "-2" : String(метки.indexOf(key));
+              return `<button class="fin-subtab ${active ? "active" : ""}" onclick="app._setAdminUsersTag(${arg})">${escapeHtml(label)} · ${n}</button>`;
+            };
+            return `
+              <div class="fin-subtab-bar adm-strip" style="margin-bottom:10px">
+                <span class="u-meta" style="font-size:12px;align-self:center;padding:0 6px;white-space:nowrap">Метка:</span>
+                ${tchip("", "Любая", (_adminAgencies || []).length)}
+                ${безМетки ? tchip("__none", "Без метки", безМетки) : ""}
+                ${метки.map(t => tchip(t, t, (_adminAgencies || []).filter(a => (a.admin_tag || "").trim() === t).length)).join("")}
+              </div>`;
+          })()}
           <div class="kp-toolbar">
             <div class="kp-search">
               <span class="kp-search-icon" aria-hidden="true">${icon("search", 14)}</span>
@@ -5903,6 +5935,25 @@
       function _setSettingsTab(tab) { _settingsTab = tab; render(); }
       function _setErrorsFilter(k, v) { _adminErrorsFilter[k] = v; render(); }
       function _setAdminUsersStatus(v) { _adminUsersFilter.status = v; render(); }
+      /* Один источник списка меток — и для кнопок, и для обработчика: иначе
+         позиция у кнопки и позиция при клике могли бы разъехаться. Считается по
+         ФАКТИЧЕСКИМ меткам, а не по ADMIN_USER_TAGS: подсказки — это то, что
+         предлагаем ввести, а фильтровать можно только по проставленному, иначе
+         половина кнопок всегда даёт пустой список. */
+      function _adminTagList() {
+        return [...new Set((_adminAgencies || []).map(a => (a.admin_tag || "").trim()).filter(Boolean))].sort();
+      }
+
+      /* Принимает ПОЗИЦИЮ (-1 «любая», -2 «без метки»), а не текст: метка —
+         свободный ввод, и апостроф в ней сломал бы инлайновый обработчик.
+         Смена отбора сбрасывает выбор: галочки ставились по прошлому списку, и
+         «Пометить» тронуло бы аккаунты, которых на экране уже нет. */
+      function _setAdminUsersTag(idx) {
+        const i = Number(idx);
+        _adminUsersFilter.tag = i === -1 ? "" : i === -2 ? "__none" : (_adminTagList()[i] || "");
+        _adminUsersSelected = {};
+        render();
+      }
       function _setAdminUsersSort(v) { _adminUsersSort = v; render(); }
       // Поиск перерисовывает только список: полный render() пересоздал бы поле
       // и увёл фокус после первой буквы (тот же приём, что на «Все КП»).
@@ -5920,8 +5971,14 @@
         const all = _adminAgencies || [];
         const q = (_adminUsersFilter.q || "").trim().toLowerCase();
         const st = _adminUsersFilter.status || "";
+        /* Отбор по метке. «__none» — особое значение «без метки»: именно эти
+           аккаунты и надо разметить, а искать их глазами среди помеченных значит
+           не разметить никогда. Пустая строка — «все», как и у статуса. */
+        const tg = _adminUsersFilter.tag || "";
+        const tagOf = (a) => (a.admin_tag || "").trim();
         let list = all.filter(a =>
           (!st || _adminUserStatus(a) === st) &&
+          (!tg || (tg === "__none" ? !tagOf(a) : tagOf(a) === tg)) &&
           (!q || (a.email || "").toLowerCase().includes(q) || (a.agency_id || "").toLowerCase().includes(q))
         );
         const ts = (v) => (v ? new Date(v).getTime() : 0);
@@ -30145,6 +30202,7 @@ Email: _____________________              Email: _____________________
         _setPromoForm,
         _setErrorsFilter,
         _setAdminUsersStatus,
+        _setAdminUsersTag,
         _setAdminUsersSort,
         _setAdminUsersQuery,
         _toggleErrorGroup,
