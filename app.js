@@ -1,7 +1,16 @@
 ﻿    (() => {
       "use strict";
 
-      const APP_VERSION = "4.3";
+      /* Версия = ветка продукта + НОМЕР СБОРКИ из sw.js (CACHE_NAME).
+
+         «4.3» стояло здесь с 01.07.2026 и не двигалось 330 коммитов: цифра
+         выглядела как факт, а была украшением, и на вопрос «какая у вас версия»
+         пользователь отвечал бы неправдой. Отдельный ручной счётчик тут не нужен —
+         номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
+         CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
+         Сторож в tests/suites/assets.js держит эти два числа в согласии. */
+      const APP_BUILD = 419;
+      const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
       const THEME_MODE_KEY = "adervis_pro_theme_mode";
@@ -5323,11 +5332,11 @@
 
             <div class="panel" style="background:var(--panel2);border:none;box-shadow:none">
               <h3 style="margin:0 0 14px;font-size:15px">Реквизиты</h3>
+              ${/* Налоговый статус продавца в витрине НЕ называем: он ничего не
+                    говорит покупателю о продукте и звучит мельче, чем продукт есть.
+                    Идентифицирует продавца ИНН — он остаётся, как и ссылка на оферту,
+                    где статус указан полностью (этого требует закон, а не интерфейс). */""}
               <div style="display:grid;gap:8px;font-size:13px">
-                <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
-                  <span class="u-muted">Организация</span>
-                  <span>Самозанятый</span>
-                </div>
                 <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
                   <span class="u-muted">ИНН</span>
                   <span style="font-family:monospace">592110786536</span>
@@ -23914,7 +23923,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             ${tab === "dev" ? devTab : ""}
 
             <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--line);text-align:center;font-size:12px;color:var(--muted);line-height:1.8">
-              ADERVIS · сметы и КП для видеопродакшна · Самозанятый · ИНН&nbsp;592110786536 ·
+              ADERVIS · сметы и КП для видеопродакшна · ИНН&nbsp;592110786536 ·
               <a href="mailto:adervis.digital@gmail.com" style="color:var(--muted)">adervis.digital@gmail.com</a> ·
               <a href="https://adervis.ru/docs" target="_blank" rel="noopener" style="color:var(--muted)">Оферта и политика конфиденциальности</a><br>
               Доступ предоставляется онлайн сразу после оплаты
