@@ -16,8 +16,12 @@
 ## О проекте
 
 CRM + калькулятор смет для видеопродакшн агентства. SaaS по подписке.  
-**Стек:** Vanilla JS (один IIFE, `app.js` ~10 800 строк) + Supabase + CSS + PWA.  
+**Стек:** Vanilla JS (один IIFE, `app.js` ≈29 000 строк / 1,9 МБ) + Supabase + CSS + PWA.  
 **Деплой:** GitHub Pages → `app.adervis.ru`
+
+> Размер и карту §6 сверять раз в несколько заходов: файл растёт быстро, а
+> `Get-Content | Measure-Object` на нём ВРЁТ (даёт ~26 800). Честное число —
+> `node -e "console.log(require('fs').readFileSync('app.js','utf8').split('\n').length)"`.
 
 ---
 
@@ -49,9 +53,16 @@ initialize → discuss → plan → execute → verify → ship
 
 ### Код
 - **Один файл — один контекст**: `app.js` это IIFE, не добавлять внешние модули ES6 import
-- `window.app = {...}` — публичный API, все `onclick=` в HTML вызывают через него
-- Все Supabase-запросы через существующий клиент (`window._sb`)
-- Состояние хранится в `window._state` и синхронизируется через `agency_state`
+- **Глобал ровно один — `window.app`** (собирается ~L28308). Все `onclick=` в разметке
+  зовут через него; забыл префикс `app.` — кнопка молча мертва
+- Все Supabase-запросы через существующий клиент — переменная `_supabase`
+  внутри IIFE (объявлена ~L1303). **`window._sb` не существует**, до 03.09.2026
+  этот файл называл именно его
+- Состояние — переменная `state` внутри IIFE (форма задаётся `defaultState()`, ~L7151),
+  синхронизируется через `agency_state`. **`window._state` тоже не существует**
+- supabase-js v2 **не бросает исключение**: ошибка приходит в результате, поэтому
+  `try/catch` вокруг записи не срабатывает никогда, и отказ выглядит как успех.
+  Проверять `error` у КАЖДОЙ записи
 - После каждого рендера проверять: не сломался ли VK ID widget, не потерялся ли event listener
 
 ### CSS
@@ -93,26 +104,59 @@ initialize → discuss → plan → execute → verify → ship
 Все UI-изменения должны следовать `DESIGN.md`:
 - Шрифты: DM Sans (UI) + Space Grotesk (числа/заголовки)
 - Spacing: шаг 2px, числом в px (DESIGN.md §4). `--sp-*` не существует
-- Новые компоненты: карточка → 16px radius, 1px border `--line`, hover = primary glow
+- Скругления — только токенами `--r-sm/md/lg/xl/2xl/pill` (8/10/12/16/24/999px).
+  Пиксельных литералов в `border-radius` в `style.css` **ноль**, так и держать
+- Новые компоненты: карточка → `var(--r-xl)`, 1px border `--line`, hover = primary glow
 - Числа/суммы: `font-variant-numeric: tabular-nums`, font-weight: 700
 
 ---
 
 ## 6. Структура app.js (навигация по файлу)
 
+Сверено с файлом 03.09.2026 (29 007 строк). Границы приблизительные — это
+ориентир, чтобы не грепать вслепую; точку входа всё равно искать по имени
+функции. В самом файле разделы размечены комментариями `/* ═══ ИМЯ ═══ */`.
+
 ```
-~L1-50       — константы (SB URL, SB KEY, VK APP ID)
-~L50-200     — инициализация, Supabase client, state
-~L200-600    — auth (renderAuthGateEl, handleVKIDSuccess, Google OAuth)
-~L600-1200   — render() главная, topbar
-~L1200-2500  — CRM (deals, kanban, drag-and-drop)
-~L2500-4000  — Смета/Калькулятор (services, prices)
-~L4000-5500  — Финансы, Задачи (calendar, kanban tasks)
-~L5500-6500  — Клиентский портал (?portal=UUID)
-~L6500-7000  — Онлайн-бриф (?brief=UUID)
-~L7000-8500  — Подписка, ЮKassa, тарифы
-~L8500-9500  — Профиль, настройки, аватар
-~L9500-10800 — Утилиты (swipe-to-delete, helpers, PWA)
+    1–265   — константы (SUPABASE_URL/KEY, VK_APP_ID, YANDEX_CLIENT_ID)
+  266–383   — ICON_PATHS + icon() — вся иконочная база
+  384–1300  — DEFAULT_STAGES, DEFAULT_PACKAGES, каталог по умолчанию,
+              безопасные обёртки localStorage (lsGet/lsSet/lsRemove)
+ 1300–3175  — Supabase client, сессия, realtime-синхронизация,
+              saveToCloud/загрузка облака (2129), способ оплаты аванса (2160)
+ 3176–4274  — AUTH GATE: handleVKIDSuccess (3532), renderAuthGateEl (4107)
+ 4275–4374  — уведомления
+ 4375–5803  — подписка и профиль: PLANS (4392), renderSupport (5226),
+              renderPlans (5354), renderProfile (5510)
+ 5804–6151  — Google Calendar (личное OAuth-подключение)
+ 6152–6448  — help / онбординг / тур
+ 6449–7150  — база знаний (renderKnowledge 6480), escapeHtml (6818)
+ 7151–7754  — defaultState() — форма всего состояния
+ 7755–8175  — save/load (7755, 7777), toast (7901), confirmDialog (7941)
+ 8176–8816  — деньги и математика сметы: money (8176), lineBreakdown (8668)
+ 8817–9450  — totals() (8817), пакеты, слияние своих позиций
+ 9450–11400 — сделки: обновление, финансы проекта, drag-and-drop карточек
+11400–12600 — аналитика по месяцам, финансовые фильтры, модалки финансов
+12600–13340 — мастер новой сделки, меню сделки, импорт данных
+13341–13875 — экспорт в Excel (_xls*, exportMonthlyReport)
+13876–15200 — render() — главный диспетчер (13876); онлайн-брифы (14356)
+15201–15620 — редактирование и удаление КП («Все КП»)
+15621–16505 — renderBriefs (15621), renderAnalyticsSection (16014)
+16506–17635 — renderHome (16506)
+17636–18319 — услуги: renderPackages (17636), renderServices/renderCatalog (17875)
+18320–19178 — renderEstimate (18320) — смета
+19179–19588 — renderClients (19179)
+19589–20616 — задачи: renderGlobalTasks (19589), renderTasks (20005),
+              renderFinance (20226)
+20617–21553 — renderCompanyTeam (20617), renderCalendar (20720), renderCrm (20783)
+21554–22916 — renderGlobalFinances (21554), renderGlobalCalendar (22020)
+22917–23439 — renderSettings (22917), управление календарём (23417)
+23440–24495 — публичный калькулятор смет (?calc=…)
+24496–25225 — клиентский портал (?portal=UUID), loadPortalData (24731)
+25226–25405 — канбан drag-and-drop, swipe-to-delete, AI-помощник КП (25348)
+25406–26464 — главное меню и модалки: транзакция, клиент, сделка, задача
+26465–29007 — договоры (renderContracts 27869), напоминания о дедлайнах,
+              офлайн-баннер, запись состояния на выгрузке, PWA
 ```
 
 ---
@@ -127,20 +171,27 @@ initialize → discuss → plan → execute → verify → ship
 - `client_portals.services_list` — JSONB список услуг (уже есть)
 - `client_portals.proposal_note` — текстовые заметки (уже есть)
 
-**Реализовано (код готов, ждёт ключа — решение от 2026-06-08):**
+**РАБОТАЕТ НА ПРОДЕ** (сверено 03.09.2026: `supabase functions list` — `ai-proposal`
+ACTIVE версия 10 от 15.07.2026, `supabase secrets list` — `GEMINI_API_KEY` на месте).
+До 03.09 здесь стояло «код готов, ждёт ключа» — это была неправда, унаследованная
+от решения 08.06:
+
 - Edge Function `ai-proposal` (supabase/functions/ai-proposal/index.ts) — принимает
   данные сделки (клиент, услуги, этапы, сумма), вызывает Gemini API, возвращает
   готовые includedText/excludedText/proposalNote. Подключена в app.js на месте
-  старого мока (`generateProposalAI`)
+  старого мока (`generateProposalAI`, ~L25351)
 - Провайдер: **Gemini API, бесплатный тариф** (не Claude — пользователь явно
   отказался от платного варианта 2026-06-08, даже от ~50 копеек за генерацию).
   Личные подписки (Gemini/Claude) тут ни при чём — это отдельный продукт от
   API; но у Gemini есть полностью бесплатный тариф для разработчиков
   (aistudio.google.com, ключ без привязки карты)
-- Секрет: `GEMINI_API_KEY` → добавить в Supabase secrets (`supabase secrets set`)
 - Модель: `gemini-2.5-flash-lite` — бесплатный лимит 15 запросов/мин,
   1000 запросов/день, этого с большим запасом хватает на одно агентство.
   Вызов через прямой fetch к `generativelanguage.googleapis.com` (REST), без SDK
+- Лимит на триале — 5 генераций. Решает СЕРВЕР (`TRIAL_LIMIT` в Edge Function,
+  счётчик в таблице `ai_usage`, RLS без политик = только service_role);
+  `AI_PROPOSAL_TRIAL_LIMIT` в app.js (~L4411) лишь бережёт заведомо лишний запрос.
+  Копия пары — правится вместе, как цены
 
 ---
 
@@ -158,9 +209,15 @@ initialize → discuss → plan → execute → verify → ship
 ## 9. Контакты и ресурсы
 
 - Supabase dashboard: `qzeylogyledmhjpzvgkk`
-- Edge Functions logs: `supabase functions logs <name>`
+- **Логов Edge Functions в CLI НЕТ** — в 2.105 у `supabase functions` только
+  `list / delete / download / deploy / new / serve`. Смотреть в дашборде.
+  Что задеплоено и когда — `supabase functions list`, какие секреты стоят —
+  `supabase secrets list` (показывает имена и хэши, не значения)
 - Деплой: `git push origin main` → GitHub Pages автоматически
-- ROADMAP: `ROADMAP.md` (приоритеты A→B→C→D)
+- **`ROADMAP.md`, `PLAN.md`, `NEXT.md`, `PRODUCT.md`, `REFUNDS.md` и планы —
+  в `.gitignore`**: их нет в репозитории, только на машине владельца. В свежем
+  клоне ссылки на них не разрешатся — это не пропажа. В репозитории намеренно
+  остаются `CLAUDE.md`, `DESIGN.md`, `SECURITY.md`, `tests/README.md`
 - Регистратор домена `adervis.ru`: **рег.ру** (reg.ru) — туда заходить для правки DNS-записей
 - Email-рассылка: **Resend**, домен `app.adervis.ru` подтверждён (DKIM/SPF/MX/DMARC настроены
   в DNS на рег.ру, статус Verified на 2026-06-07) — используется для писем-напоминаний
