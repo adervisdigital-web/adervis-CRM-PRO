@@ -217,4 +217,53 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
     assert(hidden, "сеть вернулась, а плашка «нет соединения» осталась висеть");
   });
+
+  await test("канал из ссылки запоминается при первом визите и не перебивается вторым", async () => {
+    /* Между переходом по ссылке канала и созданием профиля человек успевает
+       походить по приложению, открыть калькулятор и уйти на экран входа — к
+       моменту записи в profiles адресной строки с меткой уже нет. Поэтому метка
+       ловится на старте и лежит в localStorage до регистрации.
+
+       ПЕРВАЯ метка побеждает: пришёл из Telegram, через неделю вернулся из
+       поиска и тогда зарегистрировался — привёл всё-таки Telegram. Перезапись
+       приписала бы заслугу последнему каналу, а это худший из возможных
+       ответов на вопрос «куда вкладывать время».
+
+       Нормализация здесь и в базе (_normalize_signup_source, миграция
+       20260903000001) обязаны совпадать, иначе «Telegram» и «telegram » станут
+       в отчёте двумя разными каналами. */
+    const context = await browser.newContext({ viewport: { width: 1200, height: 800 } });
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+    });
+
+    const открыть = async (qs) => {
+      await page.goto(baseUrl + "/index.html" + qs, { waitUntil: "load" });
+      await page.waitForFunction(() => {
+        const el = document.getElementById("appContent");
+        return el && el.innerHTML.trim().length > 0;
+      }, { timeout: 20000 });
+      return page.evaluate(() => localStorage.getItem("_signupSource"));
+    };
+
+    // Регистр и пробелы приводятся к машинному виду.
+    const первый = await открыть("?utm_source=Telegram%20Kanal");
+    assert(первый === "telegram_kanal",
+      `метка сохранена не в машинном виде: ${JSON.stringify(первый)} (ждали "telegram_kanal")`);
+
+    // Второй визит из другого канала НЕ перебивает первый.
+    const второй = await открыть("?utm_source=vk");
+    assert(второй === "telegram_kanal",
+      `второй канал перебил первый: ${JSON.stringify(второй)} — заслуга уедет последнему источнику`);
+
+    // Заход без метки ничего не портит.
+    const третий = await открыть("");
+    assert(третий === "telegram_kanal",
+      `заход без метки затёр канал: ${JSON.stringify(третий)}`);
+
+    await context.close();
+  });
 };

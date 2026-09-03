@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 422;
+      const APP_BUILD = 423;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -1360,6 +1360,26 @@
           lsSet('_refCode', ref);
         }
       })();
+
+      /* Канал, из которого пришёл человек. Ловим при ПЕРВОМ визите и держим до
+         регистрации: между переходом по ссылке и созданием профиля человек
+         успевает походить по приложению, открыть калькулятор и уйти на страницу
+         входа — к моменту записи в profiles адресной строки с меткой уже нет.
+
+         Первая метка ПОБЕЖДАЕТ: если человек пришёл из Telegram, а через неделю
+         вернулся из поиска и тогда зарегистрировался, привёл его всё-таки
+         Telegram. Перезаписывать значит приписывать заслугу последнему каналу.
+
+         Чистим той же формулой, что и база (_normalize_signup_source в миграции
+         20260903000001): регистр и мусор режутся с обеих сторон, иначе
+         «Telegram» и «telegram » окажутся в отчёте разными каналами. */
+      const SIGNUP_SOURCE_KEY = "_signupSource";
+      (function() {
+        const raw = (new URLSearchParams(location.search).get("utm_source") || "").trim();
+        if (!raw || lsGet(SIGNUP_SOURCE_KEY)) return;
+        const src = raw.toLowerCase().replace(/[^a-z0-9_-]+/g, "_").slice(0, 40);
+        if (src) lsSet(SIGNUP_SOURCE_KEY, src);
+      })();
       let _portalData = null;
       let _portalLoaded = false;
       // Форма брифа теперь template-driven: значения полей лежат в values[fieldId].
@@ -1781,7 +1801,12 @@
               agency_id: agencyId,
               subscription_status: "trial",
               subscription_plan: "pro",
-              subscription_expires_at: trial_expires
+              subscription_expires_at: trial_expires,
+              /* Канал ставится ТОЛЬКО здесь, при создании профиля: дальше база
+                 его не даст переписать (write-once в protect_subscription_fields).
+                 Пришёл без метки — пишем null, а не «direct»: выдуманное значение
+                 неотличимо в отчёте от настоящего канала с таким именем. */
+              signup_source: lsGet(SIGNUP_SOURCE_KEY) || null
             };
             // Ошибка записи приходит в результате, а не исключением. Без проверки
             // профиль считался созданным при любом отказе: в Метрику улетали
@@ -5159,15 +5184,61 @@
 
             <div class="panel" style="box-shadow:none;background:var(--panel2)">
               <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("target", "var(--blue)")} Воронка</h2>
-              <p class="mini-note" style="margin-top:0">
-                Разрез <strong>по каналам</strong> пока невозможен: источник регистрации нигде не сохраняется.
-                Чтобы он появился, нужна UTM-метка при первом визите → колонка <code>profiles.signup_source</code>.
-              </p>
               <div class="grid three" style="gap:10px;margin-top:12px">
                 <div class="data-stat">${iconBadge("person", "var(--muted)", 30)}<div><div class="data-stat__num">${regs}</div><div class="data-stat__lbl">${plural(regs, "регистрация", "регистрации", "регистраций")}</div></div></div>
                 <div class="data-stat">${iconBadge("fire", "var(--yellow)", 30)}<div><div class="data-stat__num">${trial}</div><div class="data-stat__lbl">сейчас на триале</div></div></div>
                 <div class="data-stat">${iconBadge("check", "var(--green)", 30)}<div><div class="data-stat__num">${regs ? Math.round(s.payers / regs * 100) : 0}%</div><div class="data-stat__lbl">регистрация → оплата</div></div></div>
               </div>
+
+              ${(() => {
+                /* Разрез по каналам. Метка ставится один раз при создании профиля
+                   (`signup_source`, миграция 20260903000001) и переписать её нельзя.
+
+                   Аккаунты БЕЗ метки показываем отдельной строкой «без метки», а не
+                   прячем и не называем «прямые заходы»: до 03.09.2026 источник не
+                   сохранялся вовсе, и все прежние регистрации навсегда останутся
+                   без него. Сложить их с настоящим каналом значит приписать ему
+                   чужие заслуги. */
+                const payers = new Set((_adminPayments || []).map(p => p.user_id).filter(Boolean));
+                const по = new Map();
+                ag.forEach(a => {
+                  const k = a.signup_source || "";
+                  if (!по.has(k)) по.set(k, { regs: 0, trial: 0, paid: 0 });
+                  const row = по.get(k);
+                  row.regs++;
+                  if (a.subscription_status === "trial") row.trial++;
+                  if (payers.has(a.id)) row.paid++;
+                });
+                const строки = [...по.entries()]
+                  .sort((a, b) => (b[1].paid - a[1].paid) || (b[1].regs - a[1].regs));
+                const сМеткой = строки.filter(([k]) => k).length;
+
+                return `
+                  <h3 style="margin:18px 0 8px;font-size:14px">Откуда приходят</h3>
+                  ${!сМеткой ? `
+                    <p class="mini-note" style="margin-top:0">
+                      Пока ни одной регистрации с меткой. Метки начали собираться 03.09.2026 —
+                      возьмите ссылку канала в блоке ниже и опубликуйте её: всё, что придёт по ней,
+                      появится здесь.
+                    </p>` : ""}
+                  <div style="display:grid;gap:6px;margin-top:8px">
+                    ${строки.map(([k, v]) => {
+                      const конв = v.regs ? Math.round(v.paid / v.regs * 100) : 0;
+                      return `
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 12px;border-radius:var(--r-lg);background:var(--panel);border:1px solid var(--line)">
+                          <span style="min-width:150px;font-size:13px;font-weight:${k ? 750 : 600};color:${k ? "var(--text)" : "var(--muted)"};font-family:${k ? "monospace" : "inherit"}">
+                            ${k ? escapeHtml(k) : "без метки"}
+                          </span>
+                          <span style="font-size:12px;font-variant-numeric:tabular-nums;min-width:112px">${v.regs} ${plural(v.regs, "регистрация", "регистрации", "регистраций")}</span>
+                          <span style="font-size:12px;font-variant-numeric:tabular-nums;min-width:96px;color:var(--muted)">${v.trial} на триале</span>
+                          <span style="font-size:12px;font-variant-numeric:tabular-nums;min-width:96px;color:${v.paid ? "var(--text-success)" : "var(--muted)"}">${v.paid} ${plural(v.paid, "оплатил", "оплатили", "оплатили")}</span>
+                          <span style="flex:1;min-width:90px;height:6px;border-radius:99px;background:var(--line);overflow:hidden;display:block" title="Конверсия в оплату ${конв}%">
+                            <span style="display:block;height:100%;width:${конв}%;background:var(--green)"></span>
+                          </span>
+                        </div>`;
+                    }).join("")}
+                  </div>`;
+              })()}
             </div>
 
             <div class="panel" style="box-shadow:none;background:var(--panel2)">
@@ -9080,19 +9151,17 @@
           <input type="number" min="0" inputmode="numeric"
             data-autosave data-scope="${scope}" data-id="${id}" data-key="defaultCost"
             placeholder="${eff}"
-            title="Во сколько позиция обходится агентству. Клиенту не показывается."
+            ${/* Подробности — в подсказке по наведению, а не под полем: объяснение
+                  на четыре строки под маленьким инпутом читается один раз, а место
+                  занимает всегда (замечание владельца 03.09.2026). */""}
+            title="Во сколько позиция обходится агентству: подрядчик, аренда, расходники. Клиенту не показывается. Подставляется в НОВЫЕ строки сметы — уже собранные не меняются."
             ${big ? `style="font-size:20px;font-weight:800;padding:12px 14px"` : ""}
             value="${hasOwnDefaultCost(itemData) ? escapeHtml(String(itemData.defaultCost)) : ""}">
-          ${/* Пустое поле — НЕ ошибка. Владелец поправил 03.09.2026: «100% маржа
-                была потому, что я полностью сделал проект сам и всё заработал».
-                У соло-видеографа прямых затрат по позиции действительно нет, и
-                продукт не вправе называть это дырой в данных — он и раньше не
-                называл (см. MARGIN_NO_COSTS_HINT), а вот эта подпись успела. */""}
+          ${/* Пустое поле — НЕ ошибка. Владелец поправил: «100% маржа была потому,
+                что я полностью сделал проект сам и всё заработал». У соло-видеографа
+                прямых затрат по позиции действительно нет. */""}
           <p class="mini-note" style="margin-top:6px">
-            ${eff > 0 && pct > 0
-              ? `${money(eff)} — это ${pct}% от цены, маржа ${margin}%.`
-              : "Пусто — значит позиция достаётся даром: делаете сами, подрядчику не платите. Заполните, если платите."}
-            Подставляется в НОВЫЕ строки; уже собранные сметы не меняются.
+            ${eff > 0 && pct > 0 ? `${pct}% от цены · маржа ${margin}%` : "Пусто — если делаете сами"}
           </p>
         `);
       }
