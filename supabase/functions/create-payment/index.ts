@@ -72,6 +72,22 @@ Deno.serve(async (req) => {
       ? Math.round(originalAmount * (1 - discountPercent / 100))
       : originalAmount;
 
+    /* Промокод на 100% схема разрешает (CHECK BETWEEN 1 AND 100), и это
+       осмысленно — «бесплатно амбассадору». Но счёт на ноль ЮKassa отклоняет, и
+       человек получал невнятное «Ошибка платёжной системы: {...}» вместо
+       доступа: отказ приходил от чужого сервиса, и понять, что дело в промокоде,
+       было нельзя.
+
+       Бесплатный доступ выдаётся не через кассу, а подпиской из админки —
+       говорим это прямо, чтобы владелец не искал ошибку в платёжной системе. */
+    if (finalAmount <= 0) {
+      console.warn("create-payment: 100% promo cannot be charged", { promoCode, planId });
+      return json({
+        error: "Промокод даёт скидку 100% — счёт на ноль касса не принимает. "
+             + "Бесплатный доступ выдаётся в админке: Пользователи → Активировать подписку.",
+      }, 400);
+    }
+
     const shopId  = Deno.env.get("YOOKASSA_SHOP_ID")!;
     const secret  = Deno.env.get("YOOKASSA_SECRET_KEY")!;
     const appUrl  = Deno.env.get("APP_URL")!;
