@@ -2104,6 +2104,62 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  await test("дедлайны на дашборде: задача закрытой сделки не всплывает в «ближайших»", async () => {
+    /* На плитке «Дедлайны / 7 дн» рядом жили ДВА числа по разным правилам:
+       счётчик просрочек закрытые сделки отбрасывал, а список «ближ. дата» — нет,
+       фильтра там не было вовсе. Понять, какое из двух правда, было нельзя.
+
+       Фикстура ставит закрытой сделке задачу на завтра. До правки она вылезала
+       в «ближайших» и обещала работу, которой нет. */
+    const завтра = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return localIsoOf(d); })();
+    function localIsoOf(d) {
+      const p = n => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+
+    const ctx = await browser.newContext({ viewport: { width: 1400, height: 950 } });
+    const p = await ctx.newPage();
+    await p.addInitScript(({ key, дата }) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      const снимок = (tasks) => ({ project: {}, payments: [], expenses: [], tasks, selected: {} });
+      localStorage.setItem(key, JSON.stringify({
+        view: "home",
+        savedProjects: [
+          { id: "d_done", name: "Сданная сделка", crmStatus: "Завершённые",
+            total: 100000, paid: 100000, updatedAt: new Date().toISOString(),
+            snapshot: снимок([{ id: "t_done", title: "ЗАДАЧА-ПРИЗРАК", deadline: дата, status: "Новая" }]) },
+          { id: "d_live", name: "Живая сделка", crmStatus: "В работе",
+            total: 50000, paid: 0, updatedAt: new Date().toISOString(),
+            snapshot: снимок([{ id: "t_live", title: "ЗАДАЧА-ЖИВАЯ", deadline: дата, status: "Новая" }]) },
+        ],
+      }));
+    }, { key: STORAGE_KEY, дата: завтра });
+
+    await p.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await p.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await p.evaluate(() => window.app.go("home"));
+    await p.waitForTimeout(350);
+
+    // Плитка показывает ЧИСЛО и ближайшую дату, заголовков задач на ней нет —
+    // поэтому меряем счётчик, а не текст (первая версия теста смотрела не туда).
+    const n = await p.evaluate(() => {
+      const tile = document.querySelector('.db-stat[title="Дедлайны / 7 дн"]');
+      const v = tile && tile.querySelector(".db-stat-value");
+      return v ? Number(v.textContent.replace(/\D+/g, "")) : null;
+    });
+    assert(n !== null, "плитка «Дедлайны / 7 дн» не найдена");
+    assertEqual(n, 1,
+      `в ближайших дедлайнах ${n} вместо 1: в счёт попала задача ЗАКРЫТОЙ сделки, ` +
+      "хотя счётчик просрочек рядом её не считает — два числа на одной плитке по разным правилам");
+
+    await ctx.close();
+  });
+
   await test("в карточке клиента идущие сделки выше сданных, свежие сверху", async () => {
     /* Пара к проверке выше: тот же дефект, другое место. У постоянного клиента
        сданных сделок в разы больше, чем идущих, а список шёл плоским и БЕЗ

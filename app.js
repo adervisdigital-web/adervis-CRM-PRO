@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 429;
+      const APP_BUILD = 430;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -17807,7 +17807,7 @@
         const canReorder = sortMode === "default";
         const crmHiddenCount = visibleItems.length - pagedItems.length;
 
-        const totalPipeline = projects.filter(p => !["Сдано", "Оплата", "Завершённые", CRM_ARCHIVED].includes(p.crmStatus || "Лид"))
+        const totalPipeline = projects.filter(p => !DEAL_DELIVERED.has(p.crmStatus || "Лид"))
           .reduce((s, p) => s + (p.total || 0), 0);
         const inWork = projects.filter(p => p.crmStatus === "В работе").length;
         // Один список закрытых сделок на счётчик И на средний чек. Раньше средний
@@ -17815,6 +17815,9 @@
         // и знаменатель считались по разным множествам, и плитка занижала чек. При
         // сделках в «Сдано»/«Оплате» без единой «Завершённой» она показывала прочерк
         // и рядом «по 2 сделкам» — то есть закрытые сделки есть, а чек неизвестен.
+        /* Список НАМЕРЕННО у́же DEAL_DELIVERED: «Архив» — это отменённая сделка,
+           а не проданная, и в средний чек она попасть не должна. Рядом стоят три
+           места с полным набором — не считать это опиской и не «унифицировать». */
         const closedDeals = projects.filter(p => ["Завершённые","Оплата","Сдано"].includes(p.crmStatus || "Лид"));
         const closedCount = closedDeals.length;
 
@@ -17906,10 +17909,23 @@
         const in7Str = localIso(in7);
         const upcomingDeadlines = [];
         projects.forEach(p => {
-          if (p.deadline && p.deadline >= todayStr && p.deadline <= in7Str && !["Завершённые","Оплата","Сдано",CRM_ARCHIVED].includes(p.crmStatus||"Лид"))
+          if (p.deadline && p.deadline >= todayStr && p.deadline <= in7Str && !DEAL_DELIVERED.has(p.crmStatus||"Лид"))
             upcomingDeadlines.push({ name: p.name, date: p.deadline, type: "Проект" });
           // Активный проект берём из live-state ниже, иначе его задачи задвоятся
           if (p.id === state.activeProjectId) return;
+          /* Задачи ЗАКРЫТЫХ сделок в счёт не идут — как в списке «Задачи», в
+             бейдже меню и в счётчике просрочек прямо под этой плиткой.
+
+             До 04.09.2026 фильтра здесь не было вовсе: «ближ. дата» показывала
+             задачу сданной сделки, а счётчик просрочек рядом её уже не считал.
+             Два числа на ОДНОЙ плитке жили по разным правилам, и понять, какое
+             из них правда, было нельзя.
+
+             Правило то же, что у счётчика — isDealInactive (сдана/архив), а не
+             более широкое DEAL_DELIVERED: у сделки в «Сдано» задача ещё может
+             быть живой («выставить счёт»), а вот дедлайн самой сделки уже нет —
+             поэтому у строки выше правило шире, и это НЕ описка. */
+          if (isDealInactive(p.crmStatus || "Лид")) return;
           (p.snapshot?.tasks||[]).forEach(t => {
             if (t.deadline && t.deadline >= todayStr && t.deadline <= in7Str && t.status !== "Готово")
               upcomingDeadlines.push({ name: t.title, date: t.deadline, type: "Задача" });
@@ -18015,7 +18031,7 @@
               <div class="db-stat" onclick="app.dashFilterDeals('all')" title="Сумма сделок в работе — открыть список">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.funnel}</svg></span><span class="db-stat-label">Воронка</span></div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>
-                <div class="db-stat-delta neu">${(() => { const n = projects.filter(p=>!["Сдано","Оплата","Завершённые",CRM_ARCHIVED].includes(p.crmStatus||"Лид")).length; return `${n} ${plural(n, "активная", "активные", "активных")}`; })()}</div>
+                <div class="db-stat-delta neu">${(() => { const n = projects.filter(p => !DEAL_DELIVERED.has(p.crmStatus||"Лид")).length; return `${n} ${plural(n, "активная", "активные", "активных")}`; })()}</div>
               </div>
               <div class="db-stat" onclick="app.dashFilterDeals('В работе')" title="Сделки на этапе «В работе» — открыть список">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.tasks}</svg></span><span class="db-stat-label">В работе</span></div>
