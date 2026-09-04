@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 428;
+      const APP_BUILD = 429;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -20753,9 +20753,22 @@
 
             <h2 style="margin:0 0 12px">Проекты клиента</h2>
 
-            ${clientProjects.length ? `
-              <div class="client-projects-list">
-                ${clientProjects.map(project => `
+            ${(() => {
+              if (!clientProjects.length) {
+                return emptyState({ icon: "box", size: "sm", text: "Проектов с этим клиентом пока нет." });
+              }
+              /* Тот же разбор, что у списков выбора (SW v428): у постоянного
+                 клиента сданных сделок в разы больше, чем идущих, а список шёл
+                 плоским и БЕЗ порядка — в каком лежат в состоянии, в таком и
+                 рисовались. Работающая сделка оказывалась где придётся.
+
+                 Сначала идущие, потом сданные под подписью; внутри каждой группы
+                 свежие сверху. Ничего не прячем — к сданной сделке возвращаются
+                 за документами и суммами. */
+              const { active, done } = dealsByActivity(clientProjects);
+              const свежиеСверху = (arr) => arr.slice().sort((a, b) =>
+                String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+              const row = (project) => `
                   <div class="client-project-row" onclick="app.openDeal('${project.id}')">
                     <div>
                       <h4>${escapeHtml(project.name)}</h4>
@@ -20768,10 +20781,17 @@
                       </div>
                       <span class="status-pill">${escapeHtml(project.crmStatus || project.status)}</span>
                     </div>
-                  </div>
-                `).join("")}
-              </div>
-            ` : emptyState({ icon: "box", size: "sm", text: "Проектов с этим клиентом пока нет." })}
+                  </div>`;
+              return `
+                <div class="client-projects-list">
+                  ${свежиеСверху(active).map(row).join("")}
+                  ${done.length && active.length ? `
+                    <div class="u-meta" style="padding:10px 4px 4px;font-size:12px;font-weight:700">
+                      Завершённые · ${done.length}
+                    </div>` : ""}
+                  ${свежиеСверху(done).map(row).join("")}
+                </div>`;
+            })()}
           </div>
         `;
       }

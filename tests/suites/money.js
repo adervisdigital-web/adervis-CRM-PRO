@@ -2104,6 +2104,73 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  await test("в карточке клиента идущие сделки выше сданных, свежие сверху", async () => {
+    /* Пара к проверке выше: тот же дефект, другое место. У постоянного клиента
+       сданных сделок в разы больше, чем идущих, а список шёл плоским и БЕЗ
+       порядка — в каком лежат в состоянии, в таком и рисовались. Работающая
+       сделка оказывалась где придётся.
+
+       Прятать сданные нельзя: к ним возвращаются за документами и суммами.
+       Поэтому проверяем ТРИ вещи — порядок групп, порядок внутри группы и то,
+       что ни одна сделка не пропала. */
+    const ВСЕГО = 18, ЖИВЫХ = 3;
+    const ctx = await browser.newContext({ viewport: { width: 1400, height: 950 } });
+    const p = await ctx.newPage();
+    const ошибки = [];
+    p.on("pageerror", e => ошибки.push(String(e.message || e)));
+    await p.addInitScript(({ key, всего }) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      const deals = [];
+      for (let i = 0; i < всего; i++) {
+        // Идущие ВПЕРЕМЕШКУ со сданными и с разными датами: положи их подряд —
+        // и тест пройдёт без правки, просто потому что фикстура отсортирована.
+        deals.push({
+          id: "p" + i,
+          name: (i % 6 === 1 ? "ЖИВАЯ " : "СДАНА ") + i,
+          client: "Постоянный клиент", clientId: "c1",
+          crmStatus: (i % 6 === 1) ? "В работе" : "Завершённые",
+          total: 10000 + i, paid: 0,
+          updatedAt: new Date(2026, 0, 1 + i).toISOString(),
+          snapshot: { project: { name: "П" + i }, payments: [], expenses: [], tasks: [], selected: {} },
+        });
+      }
+      localStorage.setItem(key, JSON.stringify({
+        view: "clients", clientDetailId: "c1",
+        clients: [{ id: "c1", name: "Постоянный клиент", status: "active" }],
+        savedProjects: deals,
+      }));
+    }, { key: STORAGE_KEY, всего: ВСЕГО });
+
+    await p.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await p.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+    await p.evaluate(() => { window.app.go("clients"); window.app.openClientDetail("c1"); });
+    await p.waitForTimeout(400);
+
+    const строки = await p.evaluate(() =>
+      [...document.querySelectorAll(".client-project-row h4")].map(h => h.textContent.trim()));
+    assertEqual(строки.length, ВСЕГО,
+      `в карточке ${строки.length} сделок вместо ${ВСЕГО} — сданные прятать нельзя`);
+
+    const живые = строки.map((t, i) => ({ t, i })).filter(x => x.t.startsWith("ЖИВАЯ")).map(x => x.i);
+    const сданные = строки.map((t, i) => ({ t, i })).filter(x => x.t.startsWith("СДАНА")).map(x => x.i);
+    assertEqual(живые.length, ЖИВЫХ, "не столько идущих сделок, сколько посеяно: " + JSON.stringify(живые));
+    assert(Math.max(...живые) < Math.min(...сданные),
+      `идущие не выше сданных: последняя идущая на ${Math.max(...живые)}, первая сданная на ${Math.min(...сданные)}`);
+
+    // Внутри группы — свежие сверху: у фикстуры дата растёт с номером.
+    const номера = строки.slice(0, ЖИВЫХ).map(t => Number(t.replace(/\D+/g, "")));
+    assert(номера.every((n, i) => i === 0 || n < номера[i - 1]),
+      "внутри группы порядок не по свежести: " + номера.join(", "));
+
+    assertEqual(ошибки.length, 0, "исключения на странице: " + ошибки.join(" | "));
+    await ctx.close();
+  });
+
   await test("«Данные»: плитки называют настоящий объём базы, а не круглые нули", async () => {
     /* Экран выгрузок показывал только кнопки — ни слова о том, что именно лежит
        в базе. Человек приходит сюда перед необратимым (импорт поверх, сброс), и
