@@ -1657,6 +1657,62 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  await test("редактор пакета: панель справа на десктопе, окно на телефоне", async () => {
+    /* Просьба владельца 04.09.2026: править пакет справа, как правая колонка в
+       «Услугах», а не окном по центру — правя состав, человек смотрит на список
+       слева, и окно по центру его закрывает. На телефоне решено оставить окно:
+       панели справа негде развернуться.
+
+       Сделано КЛАССОМ поверх существующей модалки, а не вторым путём отрисовки,
+       поэтому тест меряет РАСКЛАДКУ на двух ширинах: одна разметка, два вида. */
+    for (const [ширина, высота, touch, режим] of [[1440, 900, false, "панель"], [390, 844, true, "окно"]]) {
+      const { context, page } = await bootLocal(browser, baseUrl,
+        { width: ширина, height: высота, touch, seedDemo: true });
+      try {
+        await page.evaluate(() => window.app.go("packages"));
+        await page.waitForTimeout(300);
+        const открыт = await page.evaluate(() => {
+          const el = document.querySelector("[onclick*='openPackageEditModal']");
+          const m = el && el.getAttribute("onclick").match(/openPackageEditModal\('([^']+)'/);
+          if (!m) return false;
+          window.app.openPackageEditModal(m[1]);
+          return true;
+        });
+        assert(открыт, `${ширина}px: не нашлось пакета, у которого можно открыть редактор`);
+        await page.waitForTimeout(350);
+
+        const r = await page.evaluate(() => {
+          const ov = document.querySelector(".modal-overlay");
+          const box = ov && ov.querySelector(".modal-box");
+          if (!box) return null;
+          const b = box.getBoundingClientRect();
+          return {
+            side: ov.classList.contains("modal-side"),
+            справа: Math.round(document.documentElement.clientWidth - b.right),
+            высотаКоробки: Math.round(b.height),
+            экран: Math.round(document.documentElement.clientHeight),
+            заКраем: Math.round(b.right) > document.documentElement.clientWidth + 1 || b.left < -1,
+          };
+        });
+        assert(r, `${ширина}px: редактор пакета не открылся`);
+        assert(r.side, `${ширина}px: у наложения нет класса modal-side — раскладкой управлять нечем`);
+        assert(!r.заКраем, `${ширина}px: окно редактора вылезло за край экрана`);
+
+        if (режим === "панель") {
+          assert(r.справа <= 1, `на десктопе редактор не прижат к правому краю (отступ ${r.справа}px)`);
+          assert(r.высотаКоробки >= r.экран - 1,
+            `на десктопе панель не во всю высоту: ${r.высотаКоробки} из ${r.экран}`);
+        } else {
+          // На телефоне правил боковой панели нет вовсе — окно остаётся ниже экрана.
+          assert(r.высотаКоробки < r.экран,
+            `на телефоне редактор растянулся во всю высоту — там должно остаться окно (${r.высотаКоробки} из ${r.экран})`);
+        }
+      } finally {
+        await context.close();
+      }
+    }
+  });
+
   for (const [ширина, touch] of [[1440, false], [390, true]]) {
     await test(`ничего не обрезано без возможности прокрутить · ${ширина}px`, async () => {
       /* Отличие настоящего дефекта от ложного, на котором я ошибался дважды за

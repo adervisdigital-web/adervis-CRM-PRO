@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 433;
+      const APP_BUILD = 434;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -18850,7 +18850,9 @@
         const pkgItems = pkg ? getPackageItems(pkg) : [];
 
         return `
-          <div class="modal-overlay" onclick="event.target===this&&app.closePackageEditModal()">
+          ${/* modal-side: на широком экране это панель справа, на телефоне —
+                обычное окно (см. style.css). Один и тот же путь отрисовки. */""}
+          <div class="modal-overlay modal-side" onclick="event.target===this&&app.closePackageEditModal()">
             <div class="modal-box" style="max-width:520px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                 <h2 style="margin:0;font-size:18px">Редактировать пакет</h2>
