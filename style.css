@@ -3359,7 +3359,13 @@
     }
 
     .pkg-note { font-size: 12px; color: var(--muted); font-style: italic; background: var(--panel2); padding: 6px 10px; border-radius: var(--r-sm); margin: 0 0 12px; line-height: 1.4; }
-    .pkg-card-actions { display: flex; gap: 8px; margin-top: auto; }
+    /* wrap обязателен: в ряду четыре элемента — «В смету», «Ссылка клиенту» и две
+       иконки (звезда, скрыть). На 320px они перестали помещаться, и подпись
+       вылезала за край карточки на 3px — поймал сторож «подпись не наезжает на
+       соседа». Переносим, а не ужимаем: ужатая кнопка теряет цель касания. */
+    .pkg-card-actions { display: flex; gap: 8px; margin-top: auto; flex-wrap: wrap; }
+    /* Иконки не тянутся при переносе — растянутая звезда выглядит поломкой. */
+    .pkg-card-actions .catalog-action-btn { flex: 0 0 auto; }
 
     .pkg-cat-badge {
       display: inline-flex; align-items: center; gap: 4px;
@@ -4121,6 +4127,9 @@
     }
     .deal-card {
       position: relative;
+      /* Колонка — чтобы полоса оплаты прижималась к низу (margin-top:auto) и
+         выравнивала низ ряда сама, без подгонки высот. */
+      display: flex; flex-direction: column;
       min-width: 0; /* grid-элемент по умолчанию min-width:auto — без этого nowrap-текст
                        в .deal-card-name раздувал бы колонку грида шире вьюпорта */
       padding: 13px 15px 13px 18px; cursor: pointer;
@@ -4242,6 +4251,10 @@
        смыслом внутри карточки — два одинаковых по весу акцента. Полоска остаётся
        единственным цветовым сигналом, текст статуса — просто подпись без капсулы. */
     .deal-card-status-plain { font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+    /* --line — цвет РАМОК, на карточке он практически невидим: первая версия
+       разделителя просто не читалась. Берём цвет текста второго плана и гасим
+       прозрачностью — разделитель должен отделять, а не исчезать. */
+    .deal-card-dot { color: var(--muted); opacity: .6; font-size: 11px; flex: 0 0 auto; }
     .deal-card-pills { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
     .deal-card-menu-wrap { flex: 0 0 auto; position: relative; }
 
@@ -4259,13 +4272,38 @@
     .deal-card-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .deal-card-stat:nth-child(odd) { padding-right: 13px; }
     .deal-card-stat:nth-child(even) { padding-left: 13px; border-left: 1px solid var(--line); }
-    /* 11px, а не 10: это КАПС вразрядку — самая тяжёлая для чтения комбинация, и
-       именно ею подписаны деньги на карточке сделки («Бюджет», «Долг», «Оплачено»).
-       Замер по живому DOM нашёл ровно четыре подписи мельче 11px во всём
-       приложении, и все четыре — здесь. Плюс полпункта веса: капс на 11px при 600
-       выглядит бледнее строчного текста рядом. */
-    .deal-card-stat .lbl { font-size: 11px; color: var(--muted); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+    /* Капс вразрядку убран 04.09.2026 (вопрос владельца: «нужно ли писать текст
+       заглавными?»). Не нужно: КАПС + разрядка — самая тяжёлая для чтения
+       комбинация, и прошлая правка это уже знала — она поднимала кегль и вес
+       ИМЕННО чтобы капс не проваливался. Сняли капс — компенсировать нечего:
+       подпись возвращается к обычному весу и уходит на второй план, а вперёд
+       выходит число, ради которого карточку и читают. Это и есть «иерархия
+       через типографику, а не через декор» (PRODUCT.md). */
+    .deal-card-stat .lbl { font-size: 11.5px; color: var(--muted); font-weight: 550; letter-spacing: 0; }
     .deal-card-stat .val { font-size: 15.5px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; line-height: 1.15; }
+
+    /* ── Полоса оплаты ────────────────────────────────────────────────────────
+       Замер 04.09.2026: в ряду карточки тянутся до высоты самой высокой, и у той,
+       что без дедлайна, снизу оставалось 39px пустоты против 14px у соседки.
+       Пустоту владелец и назвал: «когда карточка не выделена, там всегда пустота».
+
+       Заполняем не воздухом и не «нет дедлайна», а ДЕЛОМ: доля оплаты есть у
+       каждой сделки, читается мгновенно и отвечает на главный вопрос к карточке —
+       сколько денег уже пришло. Полоса одинаковой высоты на всех карточках,
+       поэтому низ ряда выравнивается сам, без подгонки высот. */
+    .deal-card-progress {
+      margin-top: auto; padding-top: 11px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .deal-card-progress-track {
+      flex: 1; height: 4px; border-radius: var(--r-pill);
+      background: var(--line); overflow: hidden;
+    }
+    .deal-card-progress-fill { display: block; height: 100%; border-radius: var(--r-pill); }
+    .deal-card-progress-num {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      font-variant-numeric: tabular-nums; flex: 0 0 auto; min-width: 30px; text-align: right;
+    }
 
     .deal-card-meta { display: flex; flex-direction: column; gap: 4px; }
     .deal-card-deadline { font-size: 11.5px; font-weight: 650; display: flex; align-items: center; gap: 5px; }

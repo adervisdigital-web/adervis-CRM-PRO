@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 432;
+      const APP_BUILD = 433;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -18299,6 +18299,12 @@
                       <div class="deal-card-statusline">
                         <div class="health-dot ${healthClass}" title="Маржа ${margin}% — зелёный ≥40%, жёлтый 20–39%, красный <20%"></div>
                         <span class="deal-card-status-plain" title="Статус сделки — тот же цвет, что и полоска слева">${escapeHtml(project.crmStatus || "Лид")}</span>
+                        ${/* Точка-разделитель между статусом и клиентом: без неё
+                              «Оплата Арина Черемных» читается одной фразой — на это
+                              и указал владелец. Отдельным элементом, а не в тексте
+                              клиента: при переносе строки разделитель не должен
+                              уезжать в начало новой строки. */""}
+                        <span class="deal-card-dot" aria-hidden="true">·</span>
                         ${project.clientId
                           ? `<span class="deal-card-sub">${escapeHtml(project.client)}${clientObj && clientObj.phone ? ` · ${escapeHtml(clientObj.phone)}` : ""}</span>`
                           : `<span class="deal-card-sub unlinked" style="font-size:11px" title="Сделка не привязана к карточке клиента — портал и история клиента могут работать некорректно. Привяжите клиента в «Ред. сделку».">${icon("warning", 10)} ${project.client ? escapeHtml(project.client) : "Не привязан"}</span>`}
@@ -18333,6 +18339,31 @@
                           Удалить
                         </button>
                       </div>` : ""}
+
+                      ${(() => {
+                        /* Полоса оплаты — последним элементом карточки и прижата к
+                           низу. Она есть у КАЖДОЙ сделки, поэтому низ ряда
+                           выравнивается сам: раньше у карточки без дедлайна снизу
+                           оставалось 39px пустоты против 14px у соседки.
+
+                           У сделки без бюджета доли нет — показываем пустую дорожку
+                           и говорим об этом в подсказке, а не рисуем «0%», будто
+                           не заплатили: бюджет просто не указан. */
+                        const бюджет = numberValue(project.total, 0);
+                        const оплачено = numberValue(project.paid, 0);
+                        const доля = бюджет > 0 ? Math.min(100, Math.round(оплачено / бюджет * 100)) : 0;
+                        const цвет = доля >= 100 ? "var(--green)" : доля > 0 ? "var(--primary)" : "transparent";
+                        const подсказка = бюджет > 0
+                          ? `Оплачено ${доля}% — ${money(оплачено)} из ${money(бюджет)}`
+                          : "Бюджет сделки не указан — долю оплаты посчитать не из чего";
+                        return `
+                      <div class="deal-card-progress" title="${escapeHtml(подсказка)}">
+                        <span class="deal-card-progress-track">
+                          <span class="deal-card-progress-fill" style="width:${доля}%;background:${цвет}"></span>
+                        </span>
+                        <span class="deal-card-progress-num">${бюджет > 0 ? доля + "%" : "—"}</span>
+                      </div>`;
+                      })()}
                     </div>
                   `;
                 }).join("")}
@@ -19002,10 +19033,10 @@
 
               <div class="pkg-card-actions">
                 ${isPkgHidden(pkg) ? `
-                  <button class="btn green" style="flex:1" onclick="event.stopPropagation();app.restorePkg('${pkg.id}')">Восстановить</button>
+                  <button class="btn green small" style="flex:1" onclick="event.stopPropagation();app.restorePkg('${pkg.id}')">Восстановить</button>
                 ` : `
-                  <button class="btn primary" style="flex:1" onclick="event.stopPropagation();app.applyPackage('${pkg.id}')">В смету</button>
-                  <button class="btn" onclick="event.stopPropagation();app.copyPackageCalcLink('${pkg.id}')"
+                  <button class="btn primary small" style="flex:1" onclick="event.stopPropagation();app.applyPackage('${pkg.id}')">В смету</button>
+                  <button class="btn small" onclick="event.stopPropagation();app.copyPackageCalcLink('${pkg.id}')"
                           title="Скопировать ссылку на публичный расчёт по этому пакету — её можно отправить клиенту">Ссылка клиенту</button>
                 `}
                 ${/* Звезда и «скрыть» — иконками, как на карточке каталога: они
@@ -19080,7 +19111,7 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Пакеты услуг</h1>
+                <h1>${h1Icon("gift")}Пакеты услуг</h1>
                 <p>Готовые наборы по категориям. Три уровня: Старт / Профи / Премиум.</p>
               </div>
               ${/* «Свой пакет» — главное действие раздела, поэтому в панели шапки, как
