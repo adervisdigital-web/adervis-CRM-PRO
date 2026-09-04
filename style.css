@@ -5742,6 +5742,34 @@
     }
     .pkg-editor-inner { padding: 20px; overflow-y: auto; }
 
+    /* ── Состав пакета ────────────────────────────────────────────────────────
+       Владелец (04.09.2026): «сейчас состав не понятно что написано». Причина в
+       строении: имя, поле объёма, подпись, сумма и корзина стояли ОДНОЙ строкой,
+       и в панели 360px имени оставалось около 120px — «Монтаж короткого Reels /
+       Shorts» превращался в «Монтаж короткого Reels / …». Название позиции — самое
+       важное в строке, и именно оно обрезалось.
+
+       Разносим на два этажа: сверху имя во всю ширину (до двух строк), снизу
+       объём слева и сумма справа. Имени достаётся втрое больше места, а числа
+       выстраиваются в колонку и читаются сверху вниз. */
+    .pkg-item-row {
+      display: flex; flex-direction: column; gap: 5px;
+      padding: 9px 0; border-bottom: 1px solid var(--line);
+    }
+    .pkg-item-row:last-child { border-bottom: none; }
+    .pkg-item-name {
+      font-size: 13px; line-height: 1.35; color: var(--text);
+      /* Две строки — потолок: третья превращает список в простыню, а названий
+         длиннее двух строк в каталоге нет. */
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .pkg-item-meta { display: flex; align-items: center; gap: 8px; }
+    .pkg-item-meta input[type="number"] { width: 54px; padding: 4px 6px; font-size: 12px; text-align: center; }
+    .pkg-item-sum {
+      margin-left: auto; font-size: 12.5px; font-weight: 700;
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+
     @media (max-width: 1160px) {
       /* Ниже этого порога .layout уже в одну колонку — редактор становится окном
          поверх, иначе он уехал бы ПОД список, и после нажатия «Редактировать»
@@ -8293,9 +8321,10 @@ button.is-busy::before {
    за край — под списком появлялась полоса прокрутки вбок. Ужимаем ровно те
    колонки, которые от этого не теряют смысла. */
 @media (max-width: 640px) {
-  .pkg-item-row { gap: 6px !important; }
-  .pkg-item-row input[type="number"] { width: 46px !important; }
-  .pkg-item-row > span[style*="width:74px"] { width: 66px !important; }
+  /* Прежние правила подрезали ширины полей: строка состава была ОДНОЙ линией
+     (имя + объём + сумма + корзина) и на 390px выходила за край на 6px. С
+     04.09.2026 строка двухэтажная — имя своей строкой, объём и сумма под ним, —
+     и подрезать больше нечего: ужимать нечему, всё помещается. */
 }
 
 /* Пояснение к разделу на телефоне: читается один раз, а места занимает три строки

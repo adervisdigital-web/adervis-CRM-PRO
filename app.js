@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 436;
+      const APP_BUILD = 437;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -18929,19 +18929,21 @@
                   const qty = packageEntryQty(entry, itemData);
                   const qtyLabel = itemData.calcModel === "fixed+qty" ? "шт" : "дн.";
                   return `
-                    ${/* Класс нужен для мобильного правила: колонки заданы жёсткой
-                          шириной (поле 58 + подпись 20 + сумма 74 + кнопка), и на
-                          390px строка выходила на 6px за край — под составом
-                          появлялась полоса прокрутки вбок. */""}
-                    <div class="pkg-item-row" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">
-                      <span style="flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(itemData.name)}">${escapeHtml(itemData.name)}</span>
-                      ${qty !== null ? `
-                        <input type="number" min="1" value="${qty}" onchange="app.setPackageItemQty(${i}, this.value)"
-                          style="width:58px;padding:4px 6px;font-size:12px;text-align:center" title="Объём: ${qtyLabel}">
-                        <span class="mini-note" style="width:20px">${qtyLabel}</span>
-                      ` : `<span style="width:82px"></span>`}
-                      <span style="font-size:12px;font-weight:700;width:74px;text-align:right;font-variant-numeric:tabular-nums">${money(sum)}</span>
-                      <button class="icon-del-btn" onclick="app.removePackageItem(${i})" title="Убрать из пакета" aria-label="Убрать ${escapeHtml(itemData.name)}">${TRASH_SVG}</button>
+                    ${/* Два этажа вместо одной строки: имя во всю ширину, объём и
+                          сумма под ним. Раскладка целиком в style.css
+                          (.pkg-item-row) — жёсткие ширины инлайном и породили ту
+                          обрезку названий, на которую указал владелец. */""}
+                    <div class="pkg-item-row">
+                      <div class="pkg-item-name" title="${escapeHtml(itemData.name)}">${escapeHtml(itemData.name)}</div>
+                      <div class="pkg-item-meta">
+                        ${qty !== null ? `
+                          <input type="number" min="1" value="${qty}" onchange="app.setPackageItemQty(${i}, this.value)"
+                            aria-label="Объём: ${qtyLabel}" title="Объём: ${qtyLabel}">
+                          <span class="mini-note">${qtyLabel}</span>
+                        ` : ""}
+                        <span class="pkg-item-sum">${money(sum)}</span>
+                        <button class="icon-del-btn" onclick="app.removePackageItem(${i})" title="Убрать из пакета" aria-label="Убрать ${escapeHtml(itemData.name)}">${TRASH_SVG}</button>
+                      </div>
                     </div>`;
                 }).join("");
                 const inPkg = new Set((m.items || []).map(e => (typeof e === "string" ? e : e.id)));
@@ -18952,7 +18954,9 @@
                       <span style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Состав (${(m.items || []).length})</span>
                       <span style="font-size:15px;font-weight:900">${money(packagePrice(m))}</span>
                     </div>
-                    <div style="max-height:230px;overflow-y:auto">${entries || `<div class="mini-note">Пусто — добавьте позиции ниже</div>`}</div>
+                    ${/* Раньше 230px — потолок от времён окна по центру. В колонке во всю
+                          высоту список может дышать: режем только на очень длинных пакетах. */""}
+                    <div style="max-height:min(46vh, 420px);overflow-y:auto">${entries || `<div class="mini-note">Пусто — добавьте позиции ниже</div>`}</div>
                     <div style="margin-top:10px">
                       <select onchange="app.addPackageItem(this.value);this.value=''" title="Добавить позицию в пакет">
                         <option value="">добавить позицию из каталога…</option>
@@ -19258,7 +19262,7 @@
                     ${/* Две колонки, а не три (решение владельца 04.09.2026). Карточка пакета
        несёт цену, состав из 5–7 строк и два действия — на трети ширины всё это
        жмётся, а с открытым редактором справа колонка становится совсем узкой. */""}
-                    <div class="grid two pkg-cards-grid" style="margin-bottom:24px">
+                    <div class="grid ${редактор ? "two" : "three"} pkg-cards-grid" style="margin-bottom:24px">
                       ${catPkgs.map(renderPkgCard).join("")}
                     </div>
                   `;
@@ -19266,7 +19270,7 @@
 
                 ${(pkgCatFilter === "all" || pkgCatFilter === "own") && ungrouped.length ? `
                   <div class="pkg-group-header">Мои пакеты</div>
-                  <div class="grid two pkg-cards-grid">
+                  <div class="grid ${редактор ? "two" : "three"} pkg-cards-grid">
                     ${ungrouped.map(renderPkgCard).join("")}
                   </div>
                 ` : ""}

@@ -1693,11 +1693,31 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
             заКраем: Math.round(b.right) > document.documentElement.clientWidth + 1 || b.left < -1,
             роль: ed.getAttribute("role"),
             модальна: ed.getAttribute("aria-modal"),
+            /* Имя позиции — самое важное в строке состава, и именно оно
+               обрезалось: «Монтаж короткого Reels / Shorts» превращался в
+               «Монтаж короткого Reels / …». Считаем, у скольких имён текст не
+               помещается в отведённую высоту. */
+            имён: document.querySelectorAll(".pkg-item-name").length,
+            обрезано: [...document.querySelectorAll(".pkg-item-name")]
+              .filter(e => e.scrollHeight > e.clientHeight + 1).length,
+            вРяду: (() => {
+              const g = document.querySelector(".pkg-cards-grid");
+              if (!g) return 0;
+              const t = [...g.children].map(c => Math.round(c.getBoundingClientRect().top));
+              return t.filter(x => x === t[0]).length;
+            })(),
           };
         });
         assert(r, `${ширина}px: редактор пакета не открылся`);
         assert(!r.заКраем, `${ширина}px: редактор вылез за край экрана`);
         assert(r.списокЖив, `${ширина}px: список пакетов исчез, пока открыт редактор`);
+        assert(r.имён > 0, `${ширина}px: в составе пакета нет ни одной позиции — проверять нечего`);
+        assertEqual(r.обрезано, 0,
+          `${ширина}px: у ${r.обрезано} из ${r.имён} позиций состава название не помещается — ` +
+          "оно и есть главное в строке, обрезать его нельзя");
+        assertEqual(r.вРяду, режим === "панель" ? 2 : 1,
+          `${ширина}px: карточек в ряду ${r.вРяду} — с открытым редактором их должно быть ` +
+          (режим === "панель" ? "два" : "одна"));
 
         if (режим === "панель") {
           /* Главное отличие от прежнего окна: НЕ position:fixed. Наложение гасит
