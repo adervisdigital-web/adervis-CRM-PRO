@@ -1682,30 +1682,41 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
         await page.waitForTimeout(350);
 
         const r = await page.evaluate(() => {
-          const ov = document.querySelector(".modal-overlay");
-          const box = ov && ov.querySelector(".modal-box");
+          const ed = document.querySelector(".pkg-editor");
+          const box = ed && ed.querySelector(".pkg-editor-inner");
           if (!box) return null;
           const b = box.getBoundingClientRect();
           return {
-            side: ov.classList.contains("modal-side"),
-            справа: Math.round(document.documentElement.clientWidth - b.right),
-            высотаКоробки: Math.round(b.height),
-            экран: Math.round(document.documentElement.clientHeight),
+            наложение: getComputedStyle(ed).position === "fixed",
+            // Список пакетов должен остаться на экране: ради этого всё и делалось.
+            списокЖив: !!document.querySelector(".pkg-cards-grid"),
             заКраем: Math.round(b.right) > document.documentElement.clientWidth + 1 || b.left < -1,
+            роль: ed.getAttribute("role"),
+            модальна: ed.getAttribute("aria-modal"),
           };
         });
         assert(r, `${ширина}px: редактор пакета не открылся`);
-        assert(r.side, `${ширина}px: у наложения нет класса modal-side — раскладкой управлять нечем`);
-        assert(!r.заКраем, `${ширина}px: окно редактора вылезло за край экрана`);
+        assert(!r.заКраем, `${ширина}px: редактор вылез за край экрана`);
+        assert(r.списокЖив, `${ширина}px: список пакетов исчез, пока открыт редактор`);
 
         if (режим === "панель") {
-          assert(r.справа <= 1, `на десктопе редактор не прижат к правому краю (отступ ${r.справа}px)`);
-          assert(r.высотаКоробки >= r.экран - 1,
-            `на десктопе панель не во всю высоту: ${r.высотаКоробки} из ${r.экран}`);
+          /* Главное отличие от прежнего окна: НЕ position:fixed. Наложение гасит
+             страницу и перехватывает клики, колонка — нет, и список слева
+             остаётся рабочим. Это и просил владелец: «не поверх открытое окно, а
+             сбоку как меню». */
+          assert(!r.наложение,
+            "на широком экране редактор всё ещё наложение (position:fixed), а должен быть колонкой раздела");
+          assertEqual(r.роль, "region",
+            "колонка объявлена диалогом — читалка запрёт человека в ней, хотя список рядом рабочий");
         } else {
-          // На телефоне правил боковой панели нет вовсе — окно остаётся ниже экрана.
-          assert(r.высотаКоробки < r.экран,
-            `на телефоне редактор растянулся во всю высоту — там должно остаться окно (${r.высотаКоробки} из ${r.экран})`);
+          assert(r.наложение,
+            "на телефоне редактор не стал окном поверх — колонке там негде развернуться, он уехал бы под список");
+          /* На узком экране панель закрывает собой всё — там она честно диалог.
+             Без aria-modal читалка увела бы человека в список ЗА панелью. Эта
+             проверка переехала сюда из общего обхода модалок (tests/suites/
+             modals.js), где редактор пакета больше не участвует. */
+          assertEqual(r.роль, "dialog", "на телефоне редактор не объявлен диалогом");
+          assertEqual(r.модальна, "true", "на телефоне у редактора нет aria-modal");
         }
       } finally {
         await context.close();

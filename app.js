@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 434;
+      const APP_BUILD = 436;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -13019,7 +13019,9 @@
         else if (state.taskModal) { el.innerHTML = renderTaskModalHtml(); }
         else if (state.editTransactionModal) { el.innerHTML = renderEditTransactionModal(); }
         else if (state.financeModal) { el.innerHTML = renderFinanceModal(); }
-        else if (state.packageEditModal) { el.innerHTML = renderPackageEditModal(); }
+        /* packageEditModal сюда НЕ попадает: редактор пакета живёт колонкой в
+           самом разделе (renderPackages), а не наложением. Если вернуть его сюда,
+           он отрисуется дважды — и в разделе, и поверх. */
         else if (state.catalogEditId) { el.innerHTML = renderCatalogEditModal(); }
         else if (state.briefEditorType) { el.innerHTML = renderBriefEditorModal(); }
         else if (state.proposalModal) { el.innerHTML = renderProposalModal(); }
@@ -18549,13 +18551,15 @@
           items:      deepClone(pkg.items || [])
         };
         _armDirtyCheck(state.packageEditModal);
-        renderModal();
+        // render(), а не renderModal(): редактор теперь колонка раздела, и
+        // перерисовка одних модалок его не покажет.
+        render();
       }
 
       async function closePackageEditModal() {
         if (!(await _confirmDiscardIfDirty(state.packageEditModal))) return;
         state.packageEditModal = null;
-        renderModal();
+        render();
       }
 
       function setPackageEditField(key, val) {
@@ -18813,14 +18817,14 @@
         const n = Math.max(1, Math.round(numberValue(value, 1)));
         const line = { ...((typeof entry === "object" && entry.line) || {}), [key]: n };
         m.items[index] = { id, line };
-        renderModal();
+        render();
       }
 
       function removePackageItem(index) {
         const m = state.packageEditModal;
         if (!m) return;
         m.items.splice(index, 1);
-        renderModal();
+        render();
       }
 
       function addPackageItem(itemId) {
@@ -18829,7 +18833,7 @@
         const already = m.items.some(e => (typeof e === "string" ? e : e.id) === itemId);
         if (already) { toast("Эта позиция уже в пакете"); return; }
         m.items.push(itemId);
-        renderModal();
+        render();
       }
 
       function renderPackageEditModal() {
@@ -18850,10 +18854,25 @@
         const pkgItems = pkg ? getPackageItems(pkg) : [];
 
         return `
-          ${/* modal-side: на широком экране это панель справа, на телефоне —
-                обычное окно (см. style.css). Один и тот же путь отрисовки. */""}
-          <div class="modal-overlay modal-side" onclick="event.target===this&&app.closePackageEditModal()">
-            <div class="modal-box" style="max-width:520px">
+          ${/* Не наложение, а КОЛОНКА раздела (просьба владельца 04.09.2026:
+                «не поверх открытое окно, а сбоку как меню»). На широком экране
+                панель стоит справа от списка, и список остаётся живым: можно
+                листать категории и открывать другой пакет, не закрывая редактор.
+                На телефоне колонки нет — там та же разметка становится окном
+                поверх (см. .pkg-editor в style.css). Путь отрисовки один. */""}
+          ${/* Роль зависит от того, ЧЕМ панель сейчас является, а не от того, чем
+                мы её называем. На широком экране это область раздела — рядом с
+                живым списком, никого не блокирует. На узком та же разметка
+                становится окном поверх всего, и там она честно диалог: без
+                aria-modal читалка увела бы человека в спрятанный за ней список.
+
+                Порог 1160px тот же, что в CSS. Ширину берём в момент отрисовки:
+                если растянуть окно с открытым редактором, роль догонит на
+                следующей перерисовке — цена мала, а альтернатива (следить за
+                resize) добавляет обработчик ради редчайшего случая. */""}
+          <aside class="pkg-editor" aria-label="Редактирование пакета"
+            ${window.innerWidth <= 1160 ? 'role="dialog" aria-modal="true"' : 'role="region"'}>
+            <div class="pkg-editor-inner">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                 <h2 style="margin:0;font-size:18px">Редактировать пакет</h2>
                 <button onclick="app.closePackageEditModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
@@ -18949,7 +18968,7 @@
                 <button class="btn green" onclick="app.savePackageEdit()">Сохранить</button>
               </div>
             </div>
-          </div>
+          </aside>
         `;
       }
 
@@ -19109,7 +19128,11 @@
         // Скрыли все категории — на экране осталась бы пустота без объяснения.
         const allHiddenAway = !pkgQuery && !filteredGroups.length && !ungrouped.length && hiddenCatCount > 0;
 
+        const редактор = state.packageEditModal ? renderPackageEditModal() : "";
+        /* Две колонки ТОЛЬКО когда есть что показать справа: пустая колонка в
+           360px всё остальное время отъедала бы место у списка пакетов. */
         return `
+          <div class="${редактор ? "layout" : ""}">
           <div class="panel">
             <div class="section-title">
               <div>
@@ -19232,7 +19255,10 @@
                   if (!catPkgs.length) return "";
                   return `
                     <div class="pkg-group-header" style="display:flex;align-items:center;gap:7px">${catIcon(CAT_META[cat])} ${escapeHtml(CAT_META[cat].label)}</div>
-                    <div class="grid three pkg-cards-grid" style="margin-bottom:24px">
+                    ${/* Две колонки, а не три (решение владельца 04.09.2026). Карточка пакета
+       несёт цену, состав из 5–7 строк и два действия — на трети ширины всё это
+       жмётся, а с открытым редактором справа колонка становится совсем узкой. */""}
+                    <div class="grid two pkg-cards-grid" style="margin-bottom:24px">
                       ${catPkgs.map(renderPkgCard).join("")}
                     </div>
                   `;
@@ -19240,13 +19266,15 @@
 
                 ${(pkgCatFilter === "all" || pkgCatFilter === "own") && ungrouped.length ? `
                   <div class="pkg-group-header">Мои пакеты</div>
-                  <div class="grid three pkg-cards-grid">
+                  <div class="grid two pkg-cards-grid">
                     ${ungrouped.map(renderPkgCard).join("")}
                   </div>
                 ` : ""}
                 `}
               </div>
             </div>
+          </div>
+          ${редактор}
           </div>
         `;
       }

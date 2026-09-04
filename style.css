@@ -5717,35 +5717,50 @@
       .modal-box { padding: 20px 16px; border-radius: var(--r-xl); }
     }
 
-    /* ── Боковая панель вместо окна по центру ─────────────────────────────────
-       Просьба владельца 04.09.2026: редактирование пакета открывать справа, как
-       правая колонка в «Услугах», а не окном по центру. Причина простая — правя
-       состав пакета, человек смотрит на список пакетов слева; окно по центру его
-       закрывает, и после каждого сохранения приходится вспоминать, где ты был.
+    /* ── Редактор пакета: колонка раздела, а не наложение ─────────────────────
+       Владелец (04.09.2026): «не поверх открытое окно, а сбоку как меню». Разница
+       не косметическая: наложение ГАСИТ страницу и перехватывает клики, а колонка
+       оставляет список пакетов живым — можно листать категории и открыть другой
+       пакет, не закрывая редактор.
 
-       На телефоне остаётся окно (решение владельца там же): панели справа негде
-       развернуться, а лист снизу — уже другой механизм, заводить третий вид
-       незачем.
+       Поэтому редактор рисуется внутри renderPackages второй колонкой .layout, а
+       не через renderModal(). Разметка и обработчики те же — просто другое место
+       в дереве.
 
-       Сделано КЛАССОМ поверх существующей модалки, а не вторым путём отрисовки:
-       разметка и обработчики те же, отличается только раскладка. Второй путь
-       разошёлся бы с первым молча — ровно то, что мы весь день чиним. */
-    @media (min-width: 769px) {
-      .modal-overlay.modal-side { justify-content: flex-end; align-items: stretch; }
-      .modal-overlay.modal-side .modal-box {
-        width: min(560px, 46vw);
-        max-height: none;
-        height: 100dvh;
-        border-radius: var(--r-xl) 0 0 var(--r-xl);
-        border-right: none;
-        animation: sideIn var(--dur-3) var(--ease-out);
-      }
-      @keyframes sideIn { from { transform: translateX(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+       На телефоне колонки нет (там .layout схлопывается в одну), и та же панель
+       становится окном поверх: решение владельца — на узком экране колонке негде
+       развернуться. */
+    .pkg-editor {
+      position: sticky; top: 16px;
+      max-height: calc(100dvh - 32px);
+      display: flex; flex-direction: column;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--r-xl);
+      box-shadow: var(--elev-2);
+      overflow: hidden;
     }
-    /* Уважаем системную настройку: выезд — это движение, и для тех, кто просил
-       его убрать, панель просто появляется. */
-    @media (prefers-reduced-motion: reduce) {
-      .modal-overlay.modal-side .modal-box { animation: none; }
+    .pkg-editor-inner { padding: 20px; overflow-y: auto; }
+
+    @media (max-width: 1160px) {
+      /* Ниже этого порога .layout уже в одну колонку — редактор становится окном
+         поверх, иначе он уехал бы ПОД список, и после нажатия «Редактировать»
+         ничего бы не произошло на видимом экране. */
+      .pkg-editor {
+        position: fixed; inset: 0; z-index: var(--z-modal);
+        top: 0; max-height: none; border-radius: 0; border: none;
+        background: rgba(0, 0, 0, .55);
+        -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+        align-items: center; justify-content: center;
+        padding: 16px;
+      }
+      .pkg-editor-inner {
+        width: min(520px, 100%); max-height: calc(100dvh - 32px);
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--r-xl);
+        box-shadow: var(--elev-3);
+      }
     }
     /* Прежний slideUp двигал окно на 16px вверх линейным ease. Лёгкий доворот
        масштаба (.97 → 1) читается как «окно вышло вперёд», а не «подъехало снизу»,

@@ -79,7 +79,16 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   if (taskId) modals.push({ key: "task", open: () => page.evaluate((id) => window.app.openGlobalTaskModal(id), taskId) });
   if (dealId) modals.push({ key: "deal", open: () => page.evaluate((id) => window.app.openDealModal(id), dealId) });
   if (catId) modals.push({ key: "catalog", open: () => page.evaluate((id) => window.app.openCatalogEdit(id), catId) });
-  if (pkgId) modals.push({ key: "package", open: () => page.evaluate((id) => window.app.openPackageEditModal(id), pkgId) });
+  /* Редактор пакета из этого обхода УБРАН 04.09.2026: на широком экране он
+     больше не модалка, а колонка раздела рядом с живым списком (просьба
+     владельца «не поверх открытое окно, а сбоку как меню»). Требовать от неё
+     role=dialog и ловушку Tab неправильно — она никого не блокирует, и ловушка
+     заперла бы человека в панели при работающем списке.
+
+     Модалкой она остаётся на узком экране, и ровно там её диалоговые свойства
+     проверяет тест «редактор пакета: панель справа на десктопе, окно на
+     телефоне» в наборе responsive. Прогон этот обход не потерял — проверка
+     переехала, а не исчезла. */
 
   // Демо-сделка обязана дать id — иначе обход неполон
   await test("демо-данные дают id для deal/catalog модалок", () => {

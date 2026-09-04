@@ -733,14 +733,15 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.evaluate(() => { window.app.go("packages"); window.app.openPackageEditModal("event_report_full"); });
     await page.waitForTimeout(300);
 
-    const state = () => page.$eval(".modal-box", (b) => {
+    // Редактор пакета — колонка раздела, а не модалка (SW v435): селектор за ним.
+    const state = () => page.$eval(".pkg-editor-inner", (b) => {
       const m = b.textContent.replace(/\s+/g, " ").match(/Состав \((\d+)\)\s*([\d\s]+)\s*₽/);
       return m ? { count: Number(m[1]), price: Number(m[2].replace(/\D/g, "")) } : null;
     });
 
-    const head = await page.$eval(".modal-box h2", (h) => h.textContent.trim());
+    const head = await page.$eval(".pkg-editor-inner h2", (h) => h.textContent.trim());
     assert(/Редактировать/.test(head), "готовый пакет открылся в режиме просмотра: " + head);
-    assert(await page.$$eval(".modal-box button", (bs) => bs.some((b) => /Сохранить/.test(b.textContent))),
+    assert(await page.$$eval(".pkg-editor-inner button", (bs) => bs.some((b) => /Сохранить/.test(b.textContent))),
       "у готового пакета нет кнопки «Сохранить»");
 
     const before = await state();
@@ -3239,7 +3240,8 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(opened, "в разделе пакетов не нашлось ни одного пакета для правки");
     await page.waitForTimeout(500);
     const res = await page.evaluate(() => {
-      const box = document.querySelector(".modal-box");
+      // Редактор пакета — колонка раздела, а не модалка (SW v435).
+      const box = document.querySelector(".pkg-editor-inner");
       if (!box) return null;
       const label = [...box.querySelectorAll("label")].find((l) => /Описание/.test(l.textContent || ""));
       const field = label && label.parentElement.querySelector("input, textarea");
@@ -3251,7 +3253,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
       };
     });
     await page.evaluate(() => window.app.closePackageEditModal && window.app.closePackageEditModal());
-    assert(res && !res.нет, "в модалке пакета не нашлось поля «Описание»");
+    assert(res && !res.нет, "в редакторе пакета не нашлось поля «Описание»");
     assertEqual(res.tag, "TEXTAREA", "поле описания снова однострочное — длинный текст не прочитать");
     assert(!res.clipped, "текст описания уходит вбок за край поля");
   });
