@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 431;
+      const APP_BUILD = 432;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -13675,6 +13675,8 @@
           deadline: localIso(d30),
           pkgFilter: "all",
           pkgSearch: "",
+          pkgFavorites: {},
+          pkgHidden: {},
         };
         state.view = "wizard";
         save();
@@ -18999,9 +19001,25 @@
               ${(pkg.notes || []).length ? `<p class="pkg-note">${escapeHtml(pkg.notes[0])}</p>` : ""}
 
               <div class="pkg-card-actions">
-                <button class="btn primary" style="flex:1" onclick="event.stopPropagation();app.applyPackage('${pkg.id}')">В смету</button>
-                <button class="btn" onclick="event.stopPropagation();app.copyPackageCalcLink('${pkg.id}')"
-                        title="Скопировать ссылку на публичный расчёт по этому пакету — её можно отправить клиенту">Ссылка клиенту</button>
+                ${isPkgHidden(pkg) ? `
+                  <button class="btn green" style="flex:1" onclick="event.stopPropagation();app.restorePkg('${pkg.id}')">Восстановить</button>
+                ` : `
+                  <button class="btn primary" style="flex:1" onclick="event.stopPropagation();app.applyPackage('${pkg.id}')">В смету</button>
+                  <button class="btn" onclick="event.stopPropagation();app.copyPackageCalcLink('${pkg.id}')"
+                          title="Скопировать ссылку на публичный расчёт по этому пакету — её можно отправить клиенту">Ссылка клиенту</button>
+                `}
+                ${/* Звезда и «скрыть» — иконками, как на карточке каталога: они
+                      повторяются на каждой из 45 карточек, и подписи съели бы ряд
+                      действий целиком. Подпись несут title и aria-label. */""}
+                <button class="catalog-action-btn ${isPkgFav(pkg) ? "active" : ""}" onclick="event.stopPropagation();app.togglePkgFavorite('${pkg.id}')"
+                        title="${isPkgFav(pkg) ? "Убрать из избранного" : "В избранное"}" aria-label="${isPkgFav(pkg) ? "Убрать из избранного" : "В избранное"}">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="${isPkgFav(pkg) ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </button>
+                ${isPkgHidden(pkg) ? "" : `
+                  <button class="catalog-action-btn danger" onclick="event.stopPropagation();app.hidePkg('${pkg.id}')"
+                          title="Скрыть пакет из списка" aria-label="Скрыть пакет">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  </button>`}
               </div>
             </article>
           `;
@@ -19016,7 +19034,23 @@
            пропадает: поиск идёт по всем пакетам, свои пакеты переезжают в «Мои
            пакеты» (см. группировку выше), внизу списка написано, сколько категорий
            скрыто, и вернуть их можно там же. */
-        const visiblePkgs = allPkgs.filter(p => !(p.cat && CAT_META[p.cat] && catIsHidden(p.cat) && !isOwnPkg(p)));
+        /* Избранное и скрытые у пакетов появились 04.09.2026 (просьба владельца:
+           «в пакетах не хватает ещё двух строчек в навигации»). У каталога они
+           были с самого начала, у пакетов — нет, хотя пакетов 45 и выбирают из
+           них так же. Храним отдельными наборами, а не общим с позициями:
+           id пакета и id позиции живут в разных пространствах, и один общий
+           словарь однажды пометит звёздочкой не то. */
+        const pkgFav = state.pkgFavorites || {};
+        const pkgHidden = state.pkgHidden || {};
+        const isPkgHidden = (p) => !!pkgHidden[p.id];
+        const isPkgFav = (p) => !!pkgFav[p.id];
+
+        const visiblePkgs = allPkgs
+          .filter(p => !(p.cat && CAT_META[p.cat] && catIsHidden(p.cat) && !isOwnPkg(p)))
+          // Скрытые уходят отовсюду, КРОМЕ своей вкладки — там их и возвращают.
+          .filter(p => !isPkgHidden(p) || state.pkgCatFilter === "hidden");
+        const favCount = allPkgs.filter(p => isPkgFav(p) && !isPkgHidden(p)).length;
+        const hiddenCount = allPkgs.filter(isPkgHidden).length;
         const hiddenCatCount = catOrder.filter(c => pkgCatsHidden[c]).length;
         const ownCount = visiblePkgs.filter(isOwnPkg).length;
 
@@ -19026,16 +19060,17 @@
         // Найденное может лежать в другой категории. Если оставить выбранную, человек
         // увидит пустоту и решит, что пакета нет вовсе — поэтому на время запроса
         // показываем все категории. Саму настройку не трогаем: очистил поиск — вернулась.
-        const catHasHits = savedCatFilter === "own"
-          ? allPkgs.some(isOwnPkg)
+        const ОСОБЫЕ = ["all", "own", "favorites", "hidden"];
+        const catHasHits = ОСОБЫЕ.includes(savedCatFilter)
+          ? true
           : !!(groups[savedCatFilter] || []).length;
         // Выбранная категория оказалась скрытой (скрыли в другой сессии, приехало
         // импортом) — показываем «Все», иначе экран пустой и без объяснения.
-        const pkgCatFilter = catIsHidden(savedCatFilter) ? "all"
+        const pkgCatFilter = (!ОСОБЫЕ.includes(savedCatFilter) && catIsHidden(savedCatFilter)) ? "all"
           : (pkgQuery && savedCatFilter !== "all" && !catHasHits) ? "all"
           : savedCatFilter;
 
-        const filteredGroups = pkgCatFilter === "all" || pkgCatFilter === "own"
+        const filteredGroups = ОСОБЫЕ.includes(pkgCatFilter)
           ? allCatsWithData
           : allCatsWithData.filter(c => c === pkgCatFilter);
         // Скрыли все категории — на экране осталась бы пустота без объяснения.
@@ -19085,10 +19120,24 @@
                     <span>Все</span>
                     ${visiblePkgs.length ? `<span class="catalog-cat-count">${visiblePkgs.length}</span>` : ""}
                   </button>
+                  ${/* Порядок и подписи те же, что у каталога: человек ходит между
+                        «Услугами» и «Пакетами» по одной кнопке, и два разных списка
+                        слева читались бы как два разных раздела продукта. */""}
+                  <button class="catalog-cat-item ${pkgCatFilter==="favorites"?"active":""}" onclick="app.setPkgCatFilter('favorites')">
+                    <span>Избранное</span>
+                    ${favCount ? `<span class="catalog-cat-count">${favCount}</span>` : ""}
+                  </button>
                   <button class="catalog-cat-item ${pkgCatFilter==="own"?"active":""}" onclick="app.setPkgCatFilter('own')">
                     <span>Свои</span>
                     ${ownCount ? `<span class="catalog-cat-count">${ownCount}</span>` : ""}
                   </button>
+                  ${/* «Скрытые» показываем только когда есть что показать — пустая
+                        строчка вела бы в пустоту и занимала место навсегда. */""}
+                  ${hiddenCount ? `
+                    <button class="catalog-cat-item ${pkgCatFilter==="hidden"?"active":""}" onclick="app.setPkgCatFilter('hidden')">
+                      <span>Скрытые</span>
+                      <span class="catalog-cat-count">${hiddenCount}</span>
+                    </button>` : ""}
                 </div>
 
                 <div class="catalog-cat-divider"></div>
@@ -19132,9 +19181,21 @@
                   icon: "box",
                   title: "Своих пакетов пока нет",
                   text: "Соберите нужные позиции в смете, затем нажмите «+ Свой пакет» в списке категорий."
+                }) : pkgCatFilter === "favorites" && !favCount ? emptyState({
+                  icon: "star",
+                  title: "В избранном пусто",
+                  text: "Отмечайте звёздочкой пакеты, которые предлагаете чаще других — они соберутся здесь, и не придётся искать их в списке из сорока пяти.",
+                  cta: { label: "Ко всем пакетам", onclick: "app.setPkgCatFilter('all')" }
                 }) : `
                 ${filteredGroups.map(cat => {
-                  const catPkgs = pkgCatFilter === "own" ? groups[cat].filter(isOwnPkg) : groups[cat];
+                  /* groups собран из ВСЕХ пакетов, скрытые там тоже есть — значит
+                     отсекать их надо здесь, на каждой вкладке кроме «Скрытых»,
+                     иначе спрятанный пакет остался бы на виду. */
+                  const catPkgs =
+                    pkgCatFilter === "hidden"      ? groups[cat].filter(isPkgHidden)
+                    : pkgCatFilter === "own"       ? groups[cat].filter(p => isOwnPkg(p) && !isPkgHidden(p))
+                    : pkgCatFilter === "favorites" ? groups[cat].filter(p => isPkgFav(p) && !isPkgHidden(p))
+                    : groups[cat].filter(p => !isPkgHidden(p));
                   if (!catPkgs.length) return "";
                   return `
                     <div class="pkg-group-header" style="display:flex;align-items:center;gap:7px">${catIcon(CAT_META[cat])} ${escapeHtml(CAT_META[cat].label)}</div>
@@ -20193,8 +20254,14 @@
       }
 
       // То же для пакетов: у них своя ось фильтра (pkgCatFilter), а не state.tab.
+      /* Подпись кнопки, которая на телефоне заменяет весь список слева. Каждая
+         новая вкладка обязана быть НАЗВАНА здесь: неназванная показывается как
+         «Все», и человек видит подпись «Все» над отфильтрованным списком. Ровно
+         это и поймал существующий тест, когда я добавил «Избранное». */
       function pkgNavCurrentLabel(filter) {
         if (filter === "own") return "Свои";
+        if (filter === "favorites") return "Избранное";
+        if (filter === "hidden") return "Скрытые";
         if (filter && filter !== "all" && CAT_META[filter]) return CAT_META[filter].label;
         return "Все";
       }
@@ -30390,6 +30457,30 @@ Email: _____________________              Email: _____________________
         // Как и setTab: выбрал категорию — лист закрывается сам, иначе на телефоне
         // он остаётся поверх результата, ради которого его и открывали.
         setPkgCatFilter: (cat) => { state.pkgCatFilter = cat; state.catalogNavOpen = false; render(); },
+        /* Избранное и скрытые у пакетов — отдельные наборы, а не общие с позициями
+           каталога: id пакета и id позиции живут в разных пространствах, и один
+           словарь однажды пометил бы звёздочкой не то. */
+        togglePkgFavorite: (id) => {
+          if (!id) return;
+          state.pkgFavorites = state.pkgFavorites || {};
+          if (state.pkgFavorites[id]) delete state.pkgFavorites[id];
+          else state.pkgFavorites[id] = true;
+          save(); render();
+        },
+        hidePkg: (id) => {
+          if (!id) return;
+          state.pkgHidden = state.pkgHidden || {};
+          state.pkgHidden[id] = true;
+          save(); render();
+          // Скрытие похоже на удаление, а свой пакет собирали руками — откат обязателен.
+          toastUndo("Пакет скрыт", () => { delete state.pkgHidden[id]; save(); render(); });
+        },
+        restorePkg: (id) => {
+          if (!id || !state.pkgHidden) return;
+          delete state.pkgHidden[id];
+          save(); render();
+          toast("Пакет возвращён в список");
+        },
         // Как у каталога: полный render() на каждый символ — лишняя работа, тем более
         // что поиск разворачивает состав пакетов. Текст в поле от этого не теряется.
         setPkgSearch: (v) => { state.pkgSearch = v; _debouncedSearchSave(); _debouncedSearchRender(); },

@@ -339,10 +339,15 @@ module.exports = async function ({ browser, baseUrl, test }) {
           label: ((document.querySelector(".catalog-nav-trigger-label strong") || {}).textContent || "").trim(),
         };
       });
-      // «Свои» на демо-данных пусты штатно: там пустое состояние вместо карточек.
+      /* «Свои» и «Избранное» на демо-данных пусты ШТАТНО: это не категории, а
+         состояния, и на свежем аккаунте в них честно ничего нет. Пустой экран им
+         при этом всё равно запрещён — каждая показывает пустое состояние с
+         объяснением, и это проверяется отдельно (смоук «ни один раздел не
+         показывает пустой экран»). Здесь снимаем только требование карточек. */
+      const состояния = ["own", "favorites", "hidden"];
       if (st.crashed) broken.push(`${c.id}: экран ошибки вместо раздела`);
       else if (st.label !== c.label) broken.push(`${c.id}: подпись «${st.label}» вместо «${c.label}»`);
-      else if (c.id !== "own" && !st.cards) broken.push(`${c.id}: ни одной карточки`);
+      else if (!состояния.includes(c.id) && !st.cards) broken.push(`${c.id}: ни одной карточки`);
     }
     await page.evaluate(() => window.app.setPkgCatFilter("all"));
     assertEqual(broken.length, 0, "категории пакетов не открываются:\n  " + broken.join("\n  "));
@@ -5042,6 +5047,72 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(нашлась, "на главной нет плитки «Долг клиентов»");
     assertEqual(вкладка, "Задолженность",
       "плитка долга открыла не список должников, а «" + вкладка + "»");
+  });
+
+  await test("пакеты: избранное и скрытые работают, как в каталоге", async () => {
+    /* Просьба владельца 04.09.2026: «в пакетах не хватает ещё двух строчек в
+       навигации». У каталога «Избранное» и «Скрытые» были с самого начала, у
+       пакетов — нет, хотя пакетов 45 и выбирают из них так же часто.
+
+       Свой контекст, а не общая страница набора: тест метит и прячет пакеты,
+       и эти следы поехали бы в соседние проверки.
+
+       Проверяем ЦЕПОЧКУ целиком: звезда → пакет в «Избранном»; скрытие → ушёл
+       из «Всех», появился в «Скрытых»; возврат → вернулся, звезда цела. Прятать
+       насовсем нельзя — за скрытым пакетом приходят, чтобы его вернуть. */
+    const { context: ctx, page: p, errors } =
+      await bootLocal(browser, baseUrl, { width: 1400, height: 950, seedDemo: true });
+    try {
+      await p.evaluate(() => window.app.go("packages"));
+      await p.waitForTimeout(350);
+
+      const нав = () => p.evaluate(() =>
+        [...document.querySelectorAll(".catalog-cat-group .catalog-cat-item")]
+          .map(b => b.textContent.replace(/\s+/g, " ").trim()));
+      const карточек = () => p.evaluate(() => document.querySelectorAll(".pkg-cards-grid > *").length);
+
+      const первая = await нав();
+      assert(первая.some(x => /^Избранное/.test(x)), "в навигации пакетов нет «Избранного»: " + первая.join(" · "));
+      assert(!первая.some(x => /^Скрытые/.test(x)),
+        "«Скрытые» показаны, хотя ничего не скрыто — пустая строчка ведёт в пустоту: " + первая.join(" · "));
+
+      const всего = await карточек();
+      assert(всего > 1, "пакетов слишком мало для проверки: " + всего);
+
+      const id = await p.evaluate(() => {
+        const b = document.querySelector(".pkg-card-actions [onclick*='togglePkgFavorite']");
+        return b ? (b.getAttribute("onclick").match(/togglePkgFavorite\('([^']+)'/) || [])[1] : null;
+      });
+      assert(id, "на карточке пакета нет кнопки «в избранное»");
+
+      await p.evaluate((x) => window.app.togglePkgFavorite(x), id);
+      await p.evaluate(() => window.app.setPkgCatFilter("favorites"));
+      await p.waitForTimeout(300);
+      assertEqual(await карточек(), 1, "во вкладке «Избранное» не тот набор пакетов");
+
+      await p.evaluate(() => window.app.setPkgCatFilter("all"));
+      await p.evaluate((x) => window.app.hidePkg(x), id);
+      await p.waitForTimeout(300);
+      assertEqual(await карточек(), всего - 1, "скрытый пакет остался в общем списке");
+      assert((await нав()).some(x => /^Скрытые/.test(x)), "после скрытия не появилась строчка «Скрытые»");
+
+      await p.evaluate(() => window.app.setPkgCatFilter("hidden"));
+      await p.waitForTimeout(300);
+      assertEqual(await карточек(), 1, "во вкладке «Скрытые» не тот набор");
+      assert(await p.evaluate(() => !!document.querySelector(".pkg-card-actions [onclick*='restorePkg']")),
+        "у скрытого пакета нет кнопки «Восстановить» — вернуть его нечем");
+
+      await p.evaluate((x) => window.app.restorePkg(x), id);
+      await p.evaluate(() => window.app.setPkgCatFilter("all"));
+      await p.waitForTimeout(300);
+      assertEqual(await карточек(), всего, "после восстановления пакет не вернулся в список");
+      assert((await нав()).some(x => /^Избранное\s*1$/.test(x)),
+        "восстановление сбросило звёздочку: " + (await нав()).join(" · "));
+
+      assertEqual(errors.length, 0, "исключения на странице: " + errors.join(" | "));
+    } finally {
+      await ctx.close();
+    }
   });
 
   await context.close();
