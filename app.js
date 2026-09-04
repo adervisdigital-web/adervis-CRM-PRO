@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 430;
+      const APP_BUILD = 431;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -27448,7 +27448,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const byManual = (a, b) => (railPos.get(a.id) ?? 1e9) - (railPos.get(b.id) ?? 1e9);
         const byUpdated = (a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "");
         const active = projects
-          .filter(p => (p.crmStatus || "Лид") !== "Завершённые" && (p.crmStatus || "Лид") !== CRM_ARCHIVED)
+          .filter(p => !isDealInactive(p.crmStatus || "Лид"))
           .sort(manual ? byManual : (a, b) => {
             const d = crmOrder(a.crmStatus || "Лид") - crmOrder(b.crmStatus || "Лид");
             return d !== 0 ? d : byUpdated(a, b);
@@ -30426,7 +30426,10 @@ Email: _____________________              Email: _____________________
         const projects = state.savedProjects || [];
         const tgLines = [];
         projects.forEach(proj => {
-          if (!proj.deadline || ["Сдано", "Оплата", "Завершённые", CRM_ARCHIVED].includes(proj.crmStatus || "")) return;
+          /* Ни списка статусов, ни проверки дедлайна тут не нужно:
+             dealDeadlineUrgency() строкой ниже возвращает null и без дедлайна, и
+             у доведённой сделки (DEAL_DELIVERED). Копия списка здесь была пятой
+             в файле и разъехалась бы с остальными молча. */
           const u = dealDeadlineUrgency(proj);
           if (!u || u.level === "ok") return;
      const icon = u.level === "overdue" ? "" : "";
