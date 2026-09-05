@@ -1657,6 +1657,48 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  await test("капсом не пишут целые фразы", async () => {
+    /* Владелец спросил 04.09.2026: «нужно ли писать текст заглавными?» — и был
+       прав. КАПС убивает различие букв по высоте: слово-разделитель так читается
+       нормально, а ФРАЗА — по слогам.
+
+       На карточках пакетов капсом шла строка из поля «кому подходит», до 62
+       знаков: «ДЛЯ: АКТИВНЫЕ БРЕНДЫ, ПРОДАКШН-АГЕНТСТВА, МАРКЕТИНГОВЫЕ ОТДЕЛЫ».
+       Это пользовательский текст, он растёт — сегодня 62 знака, завтра больше.
+
+       Сторож меряет ЖИВОЙ DOM, а не CSS: в стилях два десятка правил с uppercase,
+       и почти все законны — важно не правило, а то, что под ним оказалось. */
+    const ПОРОГ = 24; // длиннее — уже фраза, а не подпись
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1440, height: 950, seedDemo: true });
+    try {
+      const плохо = [];
+      for (const view of ["home", "crm", "clients", "services", "packages", "global-finances",
+        "global-tasks", "contracts", "knowledge", "proposals", "briefs", "company-team"]) {
+        await page.evaluate((v) => window.app.go(v), view);
+        await page.waitForTimeout(180);
+        const found = await page.evaluate((порог) => {
+          const out = [];
+          document.querySelectorAll("#appContent *").forEach((el) => {
+            if (el.children.length) return;             // только листья с текстом
+            const t = (el.textContent || "").trim();
+            if (t.length <= порог) return;
+            const b = el.getBoundingClientRect();
+            if (b.width < 2 || b.height < 2) return;
+            if (getComputedStyle(el).textTransform !== "uppercase") return;
+            out.push(`${(el.className || el.tagName).toString().split(/\s+/)[0].slice(0, 26)}: «${t.slice(0, 40)}»`);
+          });
+          return [...new Set(out)].slice(0, 4);
+        }, ПОРОГ);
+        found.forEach(x => плохо.push(`${view} → ${x}`));
+      }
+      assert(плохо.length === 0,
+        `капсом написана целая фраза (длиннее ${ПОРОГ} знаков) — она читается по слогам:\n  ` +
+        плохо.join("\n  ") + "\n  Капс оставляем словам-разделителям, не предложениям.");
+    } finally {
+      await context.close();
+    }
+  });
+
   await test("редактор пакета: панель справа на десктопе, окно на телефоне", async () => {
     /* Просьба владельца 04.09.2026: править пакет справа, как правая колонка в
        «Услугах», а не окном по центру — правя состав, человек смотрит на список
