@@ -5051,6 +5051,59 @@ module.exports = async function ({ browser, baseUrl, test }) {
       "плитка долга открыла не список должников, а «" + вкладка + "»");
   });
 
+  await test("каталог: правая колонка показывает, что именно добавлено в смету", async () => {
+    /* Просьба владельца 04.09.2026: «я добавил две позиции, хочу чтобы справа
+       отображалось всё, что я добавил». Раньше панель показывала только сумму, и
+       проверить СОСТАВ можно было лишь уйдя в «Смету» — то есть покинув каталог
+       на середине набора.
+
+       Проверяем три вещи: строк столько же, сколько добавлено; названия не
+       обрезаны (та же жалоба, что была на состав пакета); панель не разъезжается
+       вширь от длинных имён. */
+    const { context: ctx, page: p, errors } =
+      await bootLocal(browser, baseUrl, { width: 1400, height: 900, seedDemo: true });
+    try {
+      await p.evaluate(() => { window.app.go("catalog"); if (window.app.clearEstimate) window.app.clearEstimate(); });
+      await p.waitForTimeout(400);
+      assertEqual(await p.$$eval(".summary-line-row", (r) => r.length), 0,
+        "на пустой смете в панели уже есть строки состава");
+
+      const добавлено = await p.evaluate(() => {
+        const ids = [];
+        document.querySelectorAll(".catalog-grid .item [onclick*='catalogAddOne']").forEach((b, i) => {
+          if (i > 1) return;
+          const m = b.getAttribute("onclick").match(/catalogAddOne\('([^']+)'/);
+          if (m) { window.app.catalogAddOne(m[1]); ids.push(m[1]); }
+        });
+        return ids.length;
+      });
+      assertEqual(добавлено, 2, "не удалось добавить две позиции из каталога");
+      await p.waitForTimeout(450);
+
+      const r = await p.evaluate(() => {
+        const rows = [...document.querySelectorAll(".summary-line-row")];
+        const a = document.querySelector(".summary");
+        return {
+          строк: rows.length,
+          безСуммы: rows.filter(x => !/\d/.test((x.querySelector(".summary-line-sum") || {}).textContent || "")).length,
+          обрезано: rows.filter(x => {
+            const n = x.querySelector(".summary-line-name");
+            return n && n.scrollHeight > n.clientHeight + 1;
+          }).length,
+          разъехалась: a ? a.scrollWidth > a.clientWidth + 1 : null,
+        };
+      });
+      assertEqual(r.строк, добавлено, `в панели ${r.строк} строк вместо ${добавлено} добавленных`);
+      assertEqual(r.безСуммы, 0, "у строки состава нет суммы — панель обязана называть цену каждой позиции");
+      assertEqual(r.обрезано, 0, "название позиции в панели обрезано — это была прямая жалоба владельца");
+      assert(!r.разъехалась, "панель разъехалась вширь от длинных названий");
+
+      assertEqual(errors.length, 0, "исключения на странице: " + errors.join(" | "));
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("пакеты: избранное и скрытые работают, как в каталоге", async () => {
     /* Просьба владельца 04.09.2026: «в пакетах не хватает ещё двух строчек в
        навигации». У каталога «Избранное» и «Скрытые» были с самого начала, у

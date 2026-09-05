@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 437;
+      const APP_BUILD = 438;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -317,6 +317,8 @@
         team:     `<path d="M5.3 7.2a2.1 2.1 0 100-4.2 2.1 2.1 0 000 4.2zm5.4 0a2.1 2.1 0 100-4.2 2.1 2.1 0 000 4.2zM1 12.6c0-2.1 1.9-3.7 4.3-3.7s4.3 1.6 4.3 3.7v.6H1v-.6zm9.9-3.6c2 .2 3.5 1.7 3.5 3.6v.6h-3.2v-.6c0-1.3-.5-2.5-1.3-3.4.3-.1.6-.2 1-.2z"/>`,
         film:     `<path d="M2 2.2h12c.7 0 1.2.5 1.2 1.2v9.2c0 .7-.5 1.2-1.2 1.2H2c-.7 0-1.2-.5-1.2-1.2V3.4c0-.7.5-1.2 1.2-1.2zm.3 1.7v1.6h1.8V3.9H2.3zm0 3.3v1.6h1.8V7.2H2.3zm0 3.3v1.6h1.8v-1.6H2.3zm9.6-6.6v1.6h1.8V3.9h-1.8zm0 3.3v1.6h1.8V7.2h-1.8zm0 3.3v1.6h1.8v-1.6h-1.8zM5.6 3.9v8.2h4.8V3.9H5.6z"/>`,
         bulb:     `<path d="M8 1a5 5 0 00-2.9 9.1c.3.2.4.5.4.8v.6c0 .6.5 1 1 1h3c.6 0 1-.4 1-1v-.6c0-.3.2-.6.4-.8A5 5 0 008 1zM6.4 13.9c0-.3.2-.5.5-.5h2.2c.3 0 .5.2.5.5s-.2.6-.5.6H6.9a.6.6 0 01-.5-.6z"/>`,
+        // Пояснение, которое читают один раз: значок вместо абзаца, текст — в title.
+        info:     `<path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zM7 4.5a1 1 0 112 0 1 1 0 01-2 0zM7.2 7h1.6v4.5H7.2V7z"/>`,
         megaphone:`<path d="M13.6 2.1a.9.9 0 00-1.2-.7L6.1 4.2H3.2A2.2 2.2 0 001 6.4v1.3c0 1.2 1 2.2 2.2 2.2h.3l.9 3.5c.1.5.5.8 1 .8h.9c.7 0 1.2-.6 1-1.3l-.7-3h.5l6 2.7a.9.9 0 001.2-.8V2.1z"/>`,
         coins:    `<path d="M8 1.6c3 0 5.4 1 5.4 2.3S11 6.2 8 6.2 2.6 5.2 2.6 3.9 5 1.6 8 1.6zM2.6 6c1.3.8 3.3 1.2 5.4 1.2S12.1 6.8 13.4 6v1.9c0 1.3-2.4 2.3-5.4 2.3S2.6 9.2 2.6 7.9V6zm0 3.9c1.3.8 3.3 1.2 5.4 1.2s4.1-.4 5.4-1.2v1.9c0 1.3-2.4 2.3-5.4 2.3s-5.4-1-5.4-2.3V9.9z"/>`,
         check:    `<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm3.7 5.3l-4.4 4.4a.7.7 0 01-1 0L4.3 8.7a.7.7 0 111-1l1.6 1.6 3.9-3.9a.7.7 0 111 1z"/>`,
@@ -18401,12 +18403,38 @@
         const t = totals();
         const d = displayTotal(t);
         const hasLines = Object.keys(state.selected || {}).length > 0;
+        /* Список добавленного (просьба владельца 04.09.2026: «я добавил две
+           позиции, хочу чтобы справа отображалось всё, что я добавил»). Раньше
+           панель показывала только сумму, и проверить СОСТАВ можно было лишь уйдя
+           в «Смету» — то есть покинув каталог на середине набора.
+
+           Это по-прежнему НЕ второй экран сметы: строки только читаются, править
+           и удалять — там же, где и раньше. Дублировать действия смысла нет, а
+           видеть, что набрал, нужно прямо здесь. */
+        const строки = hasLines ? selectedIds().map(id => {
+          const itemData = findItem(id, true);
+          if (!itemData) return null;
+          const line = state.selected[id] || {};
+          const sum = numberValue(lineBreakdown(id, line).total, 0);
+          const qty = Math.max(1, Math.round(numberValue(line.qty, 1)));
+          return { name: itemData.name || "Позиция", qty, sum };
+        }).filter(Boolean) : [];
+
         return `
           <aside class="summary">
             <div class="summary-total">
               <span>${d.budgetOnly ? "Бюджет сделки" : "Итого в смете"}</span>
               <strong>${money(d.total)}</strong>
             </div>
+            ${строки.length ? `
+              <div class="summary-lines">
+                ${строки.map(r => `
+                  <div class="summary-line-row">
+                    <span class="summary-line-name">${escapeHtml(r.name)}${r.qty > 1 ? ` <span class="u-meta">× ${r.qty}</span>` : ""}</span>
+                    <span class="summary-line-sum">${money(r.sum)}</span>
+                  </div>`).join("")}
+              </div>
+            ` : ""}
             ${hasLines
               ? `<button class="btn primary full no-print" style="margin-top:14px" onclick="app.go('deal')">Перейти в смету</button>`
               : `<p style="margin-top:14px;font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5">Добавьте позиции — итог появится здесь</p>`}
@@ -18900,10 +18928,18 @@
                   </select>
                 </div>
                 <div class="field">
-                  <label>Цена пакета</label>
+                  ${/* Пояснение читают ОДИН раз, а место оно занимает всегда — в узкой
+                        колонке абзац в две строки отжимал само число вниз. Значок рядом
+                        с подписью: смысл доступен по наведению и с клавиатуры (tabindex),
+                        а строка остаётся строкой. */""}
+                  <label style="display:inline-flex;align-items:center;gap:5px">
+                    Цена пакета
+                    <span tabindex="0" role="img" style="color:var(--muted);display:inline-flex;cursor:help"
+                      aria-label="Считается по ценам каталога — правьте цены в разделе «Услуги»"
+                      title="Считается по ценам каталога — правьте цены в разделе «Услуги»">${icon("info", 13)}</span>
+                  </label>
                   <div style="padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);font-weight:800">
                     ${escapeHtml(money(packagePrice(m)))}
-                    <span class="mini-note" style="display:block;font-weight:400;margin-top:2px">считается по ценам каталога — правьте цены в «Услугах»</span>
                   </div>
                 </div>
               </div>
@@ -18967,7 +19003,9 @@
               })()}
 
               <div style="display:flex;gap:10px;justify-content:flex-end">
-                <button class="btn" onclick="app.closePackageEditModal()">Закрыть</button>
+                ${/* Кнопки «Закрыть» внизу нет намеренно: крестик справа вверху уже
+                      закрывает панель, а две кнопки одного действия на одном экране
+                      заставляют выбирать между одинаковым. */""}
                 <button class="btn primary" onclick="app.applyPackage('${m.id}');app.closePackageEditModal()">В смету</button>
                 <button class="btn green" onclick="app.savePackageEdit()">Сохранить</button>
               </div>

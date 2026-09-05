@@ -5763,6 +5763,22 @@
          длиннее двух строк в каталоге нет. */
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
+    /* Состав сметы в правой колонке каталога: только чтение, поэтому строка
+       проще, чем в редакторе пакета — имя и сумма. Имени разрешено переноситься:
+       обрезка названия и была главной жалобой на соседний список. */
+    .summary-lines {
+      margin-top: 12px; padding-top: 10px;
+      border-top: 1px solid var(--line);
+      display: flex; flex-direction: column; gap: 7px;
+      max-height: min(38vh, 320px); overflow-y: auto;
+    }
+    .summary-line-row { display: flex; align-items: baseline; gap: 10px; }
+    .summary-line-name { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.35; }
+    .summary-line-sum {
+      flex: 0 0 auto; font-size: 12.5px; font-weight: 700;
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+
     .pkg-item-meta { display: flex; align-items: center; gap: 8px; }
     .pkg-item-meta input[type="number"] { width: 54px; padding: 4px 6px; font-size: 12px; text-align: center; }
     .pkg-item-sum {
