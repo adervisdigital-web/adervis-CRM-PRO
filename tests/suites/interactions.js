@@ -3258,6 +3258,72 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(!res.clipped, "текст описания уходит вбок за край поля");
   });
 
+  /* Крестик — ЕДИНСТВЕННЫЙ способ закрыть редактор пакета: кнопку «Закрыть» внизу
+     убрали сознательно (две кнопки одного действия на одном экране). Пока шапка
+     лежала внутри прокручиваемой области, уход к «Составу» уносил её за верхний
+     край вместе с крестиком — замер 05.09.2026 показал его на top −31px. Человек
+     оказывался в панели, которую нечем закрыть.
+
+     Вторая половина того же дефекта — вложенная прокрутка у списка состава: она
+     резала строку пополам, и наверху оставалась голая сумма без названия («5 000 ₽»
+     само по себе на скриншоте владельца). Отсюда и жалоба «состав непонятно что
+     написано»: непонятно было не написание, а то, к ЧЕМУ относится число.
+
+     Меряем результат, а не строение: видны ли заголовок с крестиком и кнопкой
+     «Сохранить», когда форма прокручена до самого низа. Своё окно 1280px — общая
+     страница набора шириной 1000px, там редактор ещё окно поверх, а не колонка. */
+  await test("редактор пакета: шапка с крестиком и «Сохранить» не уезжают при прокрутке", async () => {
+    const own = await bootLocal(browser, baseUrl, { width: 1280, height: 900, seedDemo: true });
+    try {
+      await own.page.evaluate(() => window.app.go("packages"));
+      await own.page.waitForTimeout(600);
+      const opened = await own.page.evaluate(() => {
+        const b = document.querySelector("[onclick*='openPackageEditModal']");
+        const m = b && (b.getAttribute("onclick") || "").match(/openPackageEditModal\('([^']+)'/);
+        if (!m) return false;
+        window.app.openPackageEditModal(m[1]);
+        return true;
+      });
+      assert(opened, "в разделе пакетов не нашлось ни одного пакета для правки");
+      await own.page.waitForTimeout(600);
+
+      const res = await own.page.evaluate(() => {
+        const inner = document.querySelector(".pkg-editor-inner");
+        if (!inner) return null;
+        // Прокручиваем ТО, что прокручивается: при верном строении это форма между
+        // закреплёнными шапкой и кнопками, при прежнем — весь блок целиком. Иначе
+        // на старой разметке прокрутки бы не случилось и проверка прошла бы зря.
+        const body = inner.querySelector(".pkg-editor-body") || inner;
+        body.scrollTop = body.scrollHeight;   // уводим форму до самого низа
+        const виден = (el) => {
+          if (!el) return null;
+          const b = el.getBoundingClientRect();
+          return b.height > 2 && b.top >= -1 && b.bottom <= window.innerHeight + 1;
+        };
+        // Любая прокручиваемая область ВНУТРИ формы — это вторая прокрутка, от
+        // которой и брались обрезанные пополам строки состава.
+        const вложенные = [...inner.querySelectorAll("*")].filter((el) => {
+          if (el.classList.contains("pkg-editor-body")) return false;
+          const st = getComputedStyle(el);
+          return /auto|scroll/.test(st.overflowY) && el.scrollHeight > el.clientHeight + 2;
+        }).length;
+        return {
+          заголовок: виден(inner.querySelector("h2")),
+          крестик: виден(inner.querySelector(".u-modal-close")),
+          сохранить: виден([...inner.querySelectorAll("button")].find((b) => /Сохранить/.test(b.textContent || ""))),
+          вложенные,
+        };
+      });
+      assert(res, "редактор пакета не открылся колонкой раздела");
+      assert(res.заголовок, "заголовок редактора уехал за край при прокрутке формы");
+      assert(res.крестик, "крестик уехал за край — закрыть панель стало нечем");
+      assert(res.сохранить, "кнопка «Сохранить» не помещается на экране");
+      assertEqual(res.вложенные, 0, "внутри формы завелась вторая прокрутка — она режет строки состава пополам");
+    } finally {
+      await own.context.close();
+    }
+  });
+
   await test("«Обновить» на «Все КП» отвечает на нажатие даже без связи", async () => {
     /* Найдено обходом «нажми каждую кнопку и посмотри, изменилось ли хоть что-то».
        Без связи (местный режим, не выполнен вход) загрузка списка выходит первой

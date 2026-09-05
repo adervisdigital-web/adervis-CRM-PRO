@@ -5763,7 +5763,24 @@
       box-shadow: var(--elev-2);
       overflow: hidden;
     }
-    .pkg-editor-inner { padding: 20px; overflow-y: auto; }
+    /* Три яруса: шапка и кнопки закреплены, прокручивается только форма между
+       ними. Раньше прокручивался весь блок целиком — и уход к «Составу» уносил
+       за верхний край заголовок вместе с крестиком, единственным способом
+       закрыть панель (замер 05.09.2026: крестик на top −31px). */
+    .pkg-editor-inner { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+    .pkg-editor-head {
+      flex: 0 0 auto;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 10px; padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    .pkg-editor-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 20px; }
+    .pkg-editor-foot {
+      flex: 0 0 auto;
+      display: flex; gap: 10px; justify-content: flex-end;
+      padding: 12px 20px;
+      border-top: 1px solid var(--line);
+    }
 
     /* ── Состав пакета ────────────────────────────────────────────────────────
        Владелец (04.09.2026): «сейчас состав не понятно что написано». Причина в
@@ -5780,6 +5797,14 @@
       padding: 9px 0; border-bottom: 1px solid var(--line);
     }
     .pkg-item-row:last-child { border-bottom: none; }
+    /* Без поля объёма строке хватает одного этажа. Два завели ради длинных
+       названий, но теснило их именно поле объёма: там, где его нет, имени
+       остаётся почти вся ширина панели. У «Идеи ролика» второй этаж занимала
+       одна сумма — пустая трата высоты, из-за которой список выглядел вдвое
+       длиннее, чем есть. */
+    .pkg-item-row-flat { flex-direction: row; align-items: center; gap: 10px; }
+    .pkg-item-row-flat .pkg-item-name { flex: 1; min-width: 0; }
+    .pkg-item-row-flat .pkg-item-meta { flex: 0 0 auto; }
     .pkg-item-name {
       font-size: 13px; line-height: 1.35; color: var(--text);
       /* Две строки — потолок: третья превращает список в простыню, а названий

@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 440;
+      const APP_BUILD = 441;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -18582,6 +18582,20 @@
         // render(), а не renderModal(): редактор теперь колонка раздела, и
         // перерисовка одних модалок его не покажет.
         render();
+
+        // Панель прилипает на 16px от верха, но открывается там, где стоит список
+        // — а это ~154px ниже. Пока страницу не прокрутили, панель свисает за
+        // нижний край экрана вместе с «Сохранить» (замер 05.09.2026: низ кнопки
+        // 1009px при экране 900). block:"nearest" доводит ровно на недостающее и
+        // ничего не двигает, если панель и так помещается.
+        // Только на широком экране: ниже 1160px это окно поверх, ему прокрутка
+        // страницы не нужна и сдвинула бы список за ним.
+        if (window.innerWidth > 1160) {
+          requestAnimationFrame(() => {
+            const el = document.querySelector(".pkg-editor");
+            if (el) el.scrollIntoView({ block: "nearest" });
+          });
+        }
       }
 
       async function closePackageEditModal() {
@@ -18901,11 +18915,18 @@
           <aside class="pkg-editor" aria-label="Редактирование пакета"
             ${window.innerWidth <= 1160 ? 'role="dialog" aria-modal="true"' : 'role="region"'}>
             <div class="pkg-editor-inner">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+              ${/* Шапка и кнопки СНАРУЖИ прокрутки, форма внутри. Пока всё лежало
+                    в одном прокручиваемом блоке, прокрутка к «Составу» уносила за
+                    верх заголовок вместе с крестиком — а другого способа закрыть
+                    панель нет (кнопку «Закрыть» внизу убрали сознательно, см.
+                    ниже). Замер 05.09.2026: при прокрутке до низа крестик уходил
+                    на top −31px, то есть исчезал ровно тогда, когда нужен. */""}
+              <div class="pkg-editor-head">
                 <h2 style="margin:0;font-size:18px">Редактировать пакет</h2>
                 <button onclick="app.closePackageEditModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
 
+              <div class="pkg-editor-body">
               <div class="field" style="margin-bottom:12px">
                 <label>Название</label>
                 <input value="${escapeHtml(m.name)}" oninput="app.setPackageEditField('name',this.value)" placeholder="Название пакета">
@@ -18969,7 +18990,7 @@
                           сумма под ним. Раскладка целиком в style.css
                           (.pkg-item-row) — жёсткие ширины инлайном и породили ту
                           обрезку названий, на которую указал владелец. */""}
-                    <div class="pkg-item-row">
+                    <div class="pkg-item-row${qty !== null ? "" : " pkg-item-row-flat"}">
                       <div class="pkg-item-name" title="${escapeHtml(itemData.name)}">${escapeHtml(itemData.name)}</div>
                       <div class="pkg-item-meta">
                         ${qty !== null ? `
@@ -18990,9 +19011,14 @@
                       <span style="font-size:12px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Состав (${(m.items || []).length})</span>
                       <span style="font-size:15px;font-weight:900">${money(packagePrice(m))}</span>
                     </div>
-                    ${/* Раньше 230px — потолок от времён окна по центру. В колонке во всю
-                          высоту список может дышать: режем только на очень длинных пакетах. */""}
-                    <div style="max-height:min(46vh, 420px);overflow-y:auto">${entries || `<div class="mini-note">Пусто — добавьте позиции ниже</div>`}</div>
+                    ${/* Своей прокрутки у списка НЕТ — она была здесь до 05.09.2026 и
+                          ломала ровно то, на что жаловался владелец («состав непонятно
+                          что написано»). Внутри уже прокручиваемой панели это была
+                          вторая, вложенная область: она резала строку пополам, и сверху
+                          оставалась голая сумма без названия — на скриншоте владельца
+                          «5 000 ₽» само по себе. Одна прокрутка на панель: строки
+                          обрезаться посередине больше нечем. */""}
+                    <div>${entries || `<div class="mini-note">Пусто — добавьте позиции ниже</div>`}</div>
                     <div style="margin-top:10px">
                       <select onchange="app.addPackageItem(this.value);this.value=''" title="Добавить позицию в пакет">
                         <option value="">добавить позицию из каталога…</option>
@@ -19002,10 +19028,14 @@
                   </div>`;
               })()}
 
-              <div style="display:flex;gap:10px;justify-content:flex-end">
+              </div>
+
+              <div class="pkg-editor-foot">
                 ${/* Кнопки «Закрыть» внизу нет намеренно: крестик справа вверху уже
                       закрывает панель, а две кнопки одного действия на одном экране
-                      заставляют выбирать между одинаковым. */""}
+                      заставляют выбирать между одинаковым. Крестик за это отвечает
+                      по-настоящему только теперь, когда шапка не уезжает вместе с
+                      прокруткой. */""}
                 <button class="btn primary" onclick="app.applyPackage('${m.id}');app.closePackageEditModal()">В смету</button>
                 <button class="btn green" onclick="app.savePackageEdit()">Сохранить</button>
               </div>
