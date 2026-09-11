@@ -7356,6 +7356,28 @@ body.portal-mode .nav { display: none !important; }
 }
 .offline-banner svg { vertical-align: -2px; margin-right: 4px; }
 
+/* «Вышла новая версия». Не красная, как «нет сети»: это новость, а не беда.
+   На широком экране — снизу по центру (правый нижний угол занимает тост), на
+   телефоне — сверху, сразу ПОД верхней панелью (63px, липкая): снизу там тост
+   во всю ширину над нижним меню, а поверх панели плашка закрывала поиск.
+   Поправки на вырез экрана нет намеренно — у самой панели её тоже нет. */
+.update-banner {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+  z-index: var(--z-toast);
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 6px 6px 16px;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: var(--r-pill);
+  box-shadow: var(--elev-3);
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  max-width: calc(100vw - 32px);
+}
+/* display:flex выше перебил бы атрибут hidden — возвращаем ему силу. */
+.update-banner[hidden] { display: none; }
+@media (max-width: 768px) {
+  .update-banner { top: 72px; bottom: auto; }
+}
+
 /* ── Mobile UX — touch targets & table overflow ─────── */
 @media (max-width: 640px) {
   .btn { min-height: 44px; }

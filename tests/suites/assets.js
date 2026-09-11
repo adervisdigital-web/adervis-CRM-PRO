@@ -1890,6 +1890,18 @@ module.exports = async function ({ test }) {
       bad.join("\n  ") + "\n  Класть в data-* и читать через this.dataset.");
   });
 
+  await test("новая версия берёт файлы с сервера, а не из HTTP-кэша браузера", () => {
+    /* GitHub Pages отдаёт app.js с max-age=600. Без cache:"reload" установка новой
+       версии складывала в свой кэш то, что браузер помнил с прошлого захода, — в
+       первые 10 минут после выпуска это СТАРЫЙ app.js. Выглядело как «обновление
+       не приходит»: номер версии на экране не менялся (11.09.2026). */
+    const sw = readSrc("sw.js");
+    const install = sw.slice(sw.indexOf('addEventListener("install"'), sw.indexOf('addEventListener("activate"'));
+    assert(install.length > 50, "не нашёлся обработчик install в sw.js");
+    assert(/cache:\s*["']reload["']/.test(install),
+      "install кладёт в кэш файлы без cache:\"reload\" — новая версия может сохранить старый app.js из HTTP-кэша");
+  });
+
   await test("цвета в компонентах — только токенами, #hex лишь в названных исключениях", () => {
     /* Правило CLAUDE.md §3 «новые цвета — только через переменную» держалось на
        честном слове. Аудит 03.09 нашёл четыре нарушения; прожили они до 11.09, и

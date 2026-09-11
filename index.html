@@ -249,6 +249,13 @@
   <div id="offlineBanner" class="offline-banner">
     <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22"/><path d="M8.5 16.4a5 5 0 016.4-.6"/><path d="M5 12.5a10 10 0 015.2-2.7"/><path d="M16.6 12.9a10 10 0 012.4 1.7"/><path d="M12 20h.01"/></svg>Нет соединения с интернетом — изменения сохраняются локально</span>
   </div>
+  <div id="updateBanner" class="update-banner" role="status" hidden>
+    <span>Вышла новая версия</span>
+    <button type="button" class="btn small primary" onclick="app.applyAppUpdate()">Обновить</button>
+    <button type="button" class="u-modal-close" onclick="app.dismissAppUpdate()" aria-label="Скрыть — обновится при следующем сворачивании">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
   <input type="file" id="importJsonInput" accept="application/json" hidden>
   <input type="file" id="importCatalogInput" accept="application/json" hidden>
   <input type="file" id="importCatalogXlsxInput" accept=".xlsx,.xls" hidden>

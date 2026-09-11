@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 443;
+      const APP_BUILD = 444;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -30618,6 +30618,10 @@ Email: _____________________              Email: _____________________
         // что поиск разворачивает состав пакетов. Текст в поле от этого не теряется.
         setPkgSearch: (v) => { state.pkgSearch = v; _debouncedSearchSave(); _debouncedSearchRender(); },
         setServicesTab: (tab) => { state.servicesTab = (tab === "packages" ? "packages" : "catalog"); render(); },
+        // Плашка «Вышла новая версия» (см. ОБНОВЛЕНИЕ УСТАНОВЛЕННОГО ПРИЛОЖЕНИЯ).
+        // Скрыть — не отказаться: обновление всё равно случится при уходе в фон.
+        applyAppUpdate: () => location.reload(),
+        dismissAppUpdate: () => _showUpdateBanner(false),
         setCrmView,
         setClientsView,
         setCrmSort,
@@ -30750,6 +30754,79 @@ Email: _____________________              Email: _____________________
         if (_cloudDirty) saveToCloud(); // ретрай несохранённого облачного стейта после реконнекта
       });
       _syncOfflineBanner();
+
+      /* ═══ ОБНОВЛЕНИЕ УСТАНОВЛЕННОГО ПРИЛОЖЕНИЯ ═══
+         Владелец 11.09.2026: «когда установил приложение на телефон или комп, нет
+         автообновления». Причин было три, и каждая по отдельности держала человека
+         на старой версии:
+         1. Новый sw.js ставился и брал страницу под себя (skipWaiting + claim), но
+            ОТКРЫТАЯ страница продолжала исполнять старый app.js из памяти: её никто
+            не перезагружал. Вкладку люди закрывают, а установленное приложение —
+            почти никогда: его сворачивают и разворачивают.
+         2. Браузер проверяет sw.js на новизну, когда загружает страницу. Развёрнутое
+            из фона приложение страницу не загружает — проверки не было вовсе.
+         3. Новая версия клала в кэш СТАРЫЕ файлы из HTTP-кэша — см. install в sw.js.
+
+         Правило перезагрузки — не выдёргивать экран из-под рук:
+           - первое взятие страницы под контроль (первая установка) — не обновление;
+           - в фоне или в первые 15 с после запуска/возврата — сразу: человек ещё
+             ничего не начал;
+           - иначе — плашка «Вышла новая версия», а само обновление при следующем
+             уходе в фон;
+           - и НИКОГДА, пока открыто окно, курсор стоит в поле или изменения не ушли
+             в облако: форма потерялась бы, а несинхронизированное повисло бы.
+         Бриф, портал клиента и публичный калькулятор не трогаем: там посторонний
+         человек заполняет форму, и перезагрузка в фоне стёрла бы его ответы. */
+      const UPDATE_FRESH_MS = 15000;
+      const UPDATE_CHECK_EVERY_MS = 30 * 60 * 1000;
+      let _updateReady = false;
+      let _shownAt = Date.now();
+
+      function _updateBusy() {
+        if (_cloudDirty) return true;
+        // .modal-overlay — и модалки, и confirmDialog; .pkg-editor — колонка
+        // редактора пакета на широком экране, она не оверлей, но форма с правками.
+        if (document.querySelector(".modal-overlay, .task-modal-overlay, .pkg-editor")) return true;
+        const a = document.activeElement;
+        return !!a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+      }
+
+      function _showUpdateBanner(show) {
+        const b = document.getElementById("updateBanner");
+        if (b) b.hidden = !show;
+      }
+
+      function _tryApplyUpdate() {
+        if (!_updateReady) return;
+        if (_updateBusy()) {
+          if (document.visibilityState === "visible") _showUpdateBanner(true);
+          return;
+        }
+        const fresh = Date.now() - _shownAt < UPDATE_FRESH_MS;
+        if (document.visibilityState === "hidden" || fresh) { location.reload(); return; }
+        _showUpdateBanner(true);
+      }
+
+      function _checkForUpdate() {
+        if (!navigator.onLine) return;
+        navigator.serviceWorker.getRegistration()
+          .then((reg) => reg && reg.update())
+          .catch(() => {});   // проверка — фоновая любезность, её отказ не беда
+      }
+
+      if ("serviceWorker" in navigator && !_briefAgencyId && !_portalId && !_calcMode) {
+        let hadController = !!navigator.serviceWorker.controller;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (!hadController) { hadController = true; return; }
+          _updateReady = true;
+          _tryApplyUpdate();
+        });
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") { _shownAt = Date.now(); _checkForUpdate(); }
+          else _tryApplyUpdate();
+        });
+        setInterval(() => { if (document.visibilityState === "visible") _checkForUpdate(); }, UPDATE_CHECK_EVERY_MS);
+      }
 
       // Принудительное localStorage-сохранение перед закрытием вкладки
       // (pagehide надёжнее beforeunload на мобиле/iOS).

@@ -1,4 +1,4 @@
-const CACHE_NAME = "adervis-crm-v443";
+const CACHE_NAME = "adervis-crm-v444";
 // Только то, без чего приложение не поднимется. Скриншоты онбординга (onboarding/*.webp)
 // сюда СОЗНАТЕЛЬНО не входят: это был 1 МБ из 3,5 МБ установки, который скачивали все,
 // включая тех, кто онбординг ни разу не открывал. Обработчик fetch ниже кэширует любой
@@ -24,8 +24,16 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener("install", event => {
+  // cache: "reload" — мимо HTTP-кэша браузера, прямо с сервера. Без этого новая
+  // версия складывала в СВОЙ кэш файлы, которые браузер помнил с прошлого захода:
+  // GitHub Pages отдаёт их с max-age=600, и в первые 10 минут после выпуска —
+  // ровно когда владелец проверяет правку на телефоне — в «новый» кэш ложился
+  // СТАРЫЙ app.js. Номер версии на экране при этом оставался прежним, и выглядело
+  // это как «обновление не приходит» (11.09.2026).
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then(cache =>
+      cache.addAll(STATIC_ASSETS.map(url => new Request(url, { cache: "reload" })))
+    )
   );
   self.skipWaiting();
 });

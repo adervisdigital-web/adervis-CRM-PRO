@@ -266,4 +266,75 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
     await context.close();
   });
+
+  /* Владелец 11.09.2026: «установил приложение на телефон или комп — нет
+     автообновления». Открытая страница продолжала исполнять старый app.js, пока
+     её не закроют, а установленное приложение не закрывают — его сворачивают.
+     Теперь новая версия подхватывается сама, но так, чтобы не выдернуть экран
+     из-под рук. Проверяем все четыре ветки правила по результату — жива ли
+     страница и есть ли плашка:
+       - первое взятие под контроль (первая установка) — НЕ обновление;
+       - обновление при открытом окне — плашка, форма цела;
+       - окно закрыто, приложение ушло в фон — перезагрузка;
+       - обновление в первые секунды после запуска — перезагрузка сразу.
+     Обновление изображаем событием controllerchange: настоящий выпуск новой
+     версии в офлайновом стенде не устроить, а приложение слушает именно его. */
+  await test("установленное приложение подхватывает новую версию, не выдёргивая экран", async () => {
+    // 1. Первая установка — в чистом контексте: ни кэша, ни воркера.
+    const fresh = await browser.newContext({ viewport: { width: 1200, height: 800 } });
+    try {
+      const p = await fresh.newPage();
+      let loads = 0;
+      p.on("load", () => loads++);
+      await p.goto(baseUrl + "/", { waitUntil: "load" });
+      const r = await p.evaluate(async () => {
+        window.__mark = 1;
+        const before = !!navigator.serviceWorker.controller;
+        for (let i = 0; i < 80 && !navigator.serviceWorker.controller; i++) await new Promise((res) => setTimeout(res, 100));
+        await new Promise((res) => setTimeout(res, 1200));
+        return { before, after: !!navigator.serviceWorker.controller, alive: window.__mark === 1 };
+      });
+      assert(!r.before, "у чистого контекста уже был воркер — первая установка не проверена");
+      assert(r.after, "воркер так и не взял страницу под контроль — проверять нечего");
+      assert(r.alive && loads === 1, "первая установка перезагрузила страницу — её приняли за обновление");
+    } finally {
+      await fresh.close();
+    }
+
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1200, height: 800, seedDemo: true });
+    try {
+      await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 8000 });
+      const update = () => page.evaluate(() => navigator.serviceWorker.dispatchEvent(new Event("controllerchange")));
+
+      // 2. Открыто окно — плашка, страница жива
+      await page.evaluate(() => { window.__mark = 1; window.app.openClientModal(); });
+      await page.waitForTimeout(250);
+      await update();
+      await page.waitForTimeout(400);
+      const busy = await page.evaluate(() => ({
+        alive: window.__mark === 1,
+        banner: !document.getElementById("updateBanner").hidden,
+      }));
+      assert(busy.alive, "обновление перезагрузило страницу при открытом окне — форма потеряна");
+      assert(busy.banner, "при открытом окне не показана плашка «Вышла новая версия»");
+
+      // 3. Окно закрыли, приложение ушло в фон — перезагрузка
+      await page.evaluate(() => { window.app.closeClientModal(); document.activeElement && document.activeElement.blur(); });
+      await page.waitForTimeout(250);
+      const reloaded = page.waitForEvent("load", { timeout: 6000 }).then(() => true).catch(() => false);
+      await page.evaluate(() => {
+        Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      assert(await reloaded, "приложение ушло в фон, а новая версия так и не подхватилась");
+
+      // 4. Обновление в первые секунды после запуска — перезагрузка сразу
+      await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 8000 });
+      const again = page.waitForEvent("load", { timeout: 6000 }).then(() => true).catch(() => false);
+      await update();
+      assert(await again, "обновление пришло сразу после запуска, а страница осталась на старой версии");
+    } finally {
+      await context.close();
+    }
+  });
 };
