@@ -101,6 +101,13 @@
   --blue:   #2563eb;   --text-info:    #57a5ff;
   --cyan:   #0891b2;   --orange: #ea580c;  --violet: #8b5cf6;
 
+  /* Бренд Premium Stock — чужая палитра, только для карточки продукта в
+     боковом меню (.side-promo). Одинакова в обеих темах: у продукта своя
+     тёмная айдентика. */
+  --stock-ink:       #141414;
+  --stock-gold:      #f6bd3a;
+  --stock-gold-deep: #c8901f;
+
   /* Структура */
   --line:   rgba(255, 255, 255, .08);
   --elev-1: 0 2px 8px rgba(0,0,0,.28), 0 1px 3px rgba(0,0,0,.18);

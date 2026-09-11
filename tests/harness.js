@@ -147,6 +147,59 @@ async function bootLocal(browser, baseUrl, opts = {}) {
   return { context, page, errors };
 }
 
+/* Запуск «с входом»: подкладываем в localStorage сессию Supabase, как её хранит
+   supabase-js v2. Пока срок не вышел, клиент берёт её оттуда БЕЗ сети, и
+   приложение считает человека вошедшим — отрисовывает боковое меню.
+
+   Зачем: bootLocal идёт без сессии, и боковое меню в наборе было ПУСТЫМ всегда
+   (см. «слепое пятно» в responsive.js). Всё, что живёт в меню, — подвал с
+   «Выйти», карточка своего продукта — до 11.09.2026 не проверялось вовсе; так
+   и прожил срез подвала на невысоком экране.
+
+   Облако при этом недоступно (внешняя сеть отвечает пустым 204), и загрузка
+   состояния тихо не удаётся. Для проверок меню и раскладки этого достаточно;
+   для проверок синхронизации — нет, там это не подделка, а неправда.
+   Ключ хранения выводим из адреса проекта в app.js — сменится проект, не
+   сломается молча. */
+function _supabaseStorageKey() {
+  const src = fs.readFileSync(path.join(REPO_ROOT, "app.js"), "utf8");
+  const m = src.match(/https:\/\/([a-z0-9]+)\.supabase\.co/);
+  if (!m) throw new Error("не нашёл адрес проекта Supabase в app.js — ключ сессии не вывести");
+  return `sb-${m[1]}-auth-token`;
+}
+async function bootWithSession(browser, baseUrl, opts = {}) {
+  const { width = 1440, height = 900, theme = "", collapsed = false, name = "Test Owner" } = opts;
+  const context = await browser.newContext({ viewport: { width, height } });
+  await blockExternalRequests(context, baseUrl);
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message || e)));
+  const now = Math.floor(Date.now() / 1000);
+  const session = JSON.stringify({
+    access_token: "test.eyJzdWIiOiJ0ZXN0In0.test", token_type: "bearer",
+    expires_in: 31536000, expires_at: now + 31536000, refresh_token: "test",
+    user: {
+      id: "00000000-0000-0000-0000-000000000001", aud: "authenticated", role: "authenticated",
+      email: "owner@example.com", user_metadata: { name }, app_metadata: {},
+    },
+  });
+  await page.addInitScript(([key, s, theme, collapsed]) => {
+    try {
+      localStorage.setItem(key, s);
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      if (theme) localStorage.setItem("adervis_pro_theme_mode", theme);
+      if (collapsed) localStorage.setItem("sidebar_collapsed", "1");
+    } catch (e) {}
+  }, [_supabaseStorageKey(), session, theme, collapsed]);
+  await page.goto(baseUrl + "/index.html", { waitUntil: "load" });
+  await page.waitForFunction(() => {
+    const s = document.getElementById("appSidebar");
+    return s && s.innerHTML.trim().length > 0;
+  }, null, { timeout: 10000 });
+  return { context, page, errors };
+}
+
 // ── Мини-фреймворк (без зависимостей) ────────────────────────────────────────
 class Suite {
   constructor(name) {
@@ -184,4 +237,4 @@ function assertEqual(actual, expected, msg) {
   }
 }
 
-module.exports = { loadPlaywright, bootLocal, blockExternalRequests, Suite, assert, assertEqual, REPO_ROOT };
+module.exports = { loadPlaywright, bootLocal, bootWithSession, blockExternalRequests, Suite, assert, assertEqual, REPO_ROOT };

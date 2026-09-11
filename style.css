@@ -96,6 +96,14 @@
       --green-strong:  #15803d;
       --blue-strong:   #1d4ed8;
       --yellow-strong: #e6af2e;
+      /* Бренд Premium Stock (stock.adervis.ru) — ЧУЖАЯ палитра: живёт только в
+         карточке продукта в боковом меню (.side-promo) и одинакова в обеих темах.
+         У продукта своя тёмная айдентика, и карточка несёт её, а не нашу. Золото
+         совпадает с --yellow тёмной темы, но в светлой --yellow темнее — отсюда
+         отдельные токены, не зависящие от темы. */
+      --stock-ink:       #141414;
+      --stock-gold:      #f6bd3a;
+      --stock-gold-deep: #c8901f;
       /* Красной ступени в семье НЕ БЫЛО — и ровно поэтому три места держали свой
          #b91c1c / #d41e18 мимо токенов: затемнить красную кнопку было нечем.
          Значение то же, что уже стояло в двух из трёх. */
@@ -602,7 +610,17 @@
       flex-direction: column;
       gap: 1px;
       transition: padding var(--dur-3) var(--ease-out);
+      /* Список может прокручиваться, а шапка и подвал (профиль, «Выйти») — нет.
+         Меню высотой ровно в экран с overflow:hidden, и без этих двух строк
+         на невысоком экране НИЗ МЕНЮ СРЕЗАЛСЯ: замер 11.09.2026 — на 700px
+         «Выйти» уходил за край на 9px, на 600px на 109px, а у суперадмина
+         подвал ещё выше на строку «Admin Panel». Ноутбук 1366×768 даёт в
+         браузере как раз 650–700px. Полоса прокрутки скрыта, как у самого меню. */
+      min-height: 0;
+      overflow-y: auto;
+      scrollbar-width: none;
     }
+    .sidebar-nav::-webkit-scrollbar { display: none; }
 
     .sidebar-nav-config {
       position: fixed;
@@ -747,6 +765,105 @@
       padding: 12px 10px;
       flex-shrink: 0;
       transition: padding var(--dur-3) var(--ease-out);
+    }
+
+    /* ── Карточка своего продукта в боковом меню ─────────────────────────────
+       Просьба владельца 11.09.2026: рекламировать в пустом месте меню свои
+       другие продукты. Сейчас один — Premium Stock (stock.adervis.ru).
+
+       Меню высотой ровно в экран и с overflow:hidden — прокрутки в нём НЕТ.
+       Карточка, которой не хватило места, вытолкнула бы за край «Выйти» и
+       профиль. Поэтому слот занимает только ОСТАВШЕЕСЯ место (flex 1 1 0), а
+       сама карточка решает по его высоте: полная, короткая или никакой.
+
+       Тон — тон самого продукта: «надёжный, прямой, быстрый», без кислотных
+       градиентов и мигания (PRODUCT.md Premium Stock). Своя тёмная айдентика
+       в обеих темах: это карточка продукта, а не наш интерфейс. */
+    .side-promo-slot {
+      flex: 1 1 0; min-height: 0;
+      container: sidepromo / size;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      /* Без своих отступов: слот обязан сжиматься ДО НУЛЯ. Первая версия держала
+         padding-top: 12px — сжаться ниже он не давал и сдвигал «Выйти» на 13px
+         вниз как раз там, где места и так нет. Отступ сверху — у обёртки, и
+         исчезает вместе с ней. -1px гасит зазор gap:1px, который списку
+         достаётся от лишнего ребёнка. */
+      margin-top: -1px;
+    }
+    .app-sidebar.collapsed .side-promo-slot { display: none; }
+    /* Крестик привязан к обёртке карточки, а не к слоту: карточка прижата к низу
+       слота, и при высоком слоте крестик висел бы далеко над ней. */
+    .side-promo-wrap { position: relative; margin-top: 12px; }
+    .side-promo {
+      display: flex; flex-direction: column; gap: 8px;
+      padding: 14px;
+      border-radius: var(--r-xl);
+      /* Сплошной фон ОТДЕЛЬНОЙ строкой: браузер без color-mix отбросит
+         следующее объявление целиком, вместе с --stock-ink внутри, — и белый
+         текст остался бы на светлом меню невидимым. */
+      background: var(--stock-ink);
+      background:
+        radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--stock-gold) 16%, transparent), transparent 62%),
+        var(--stock-ink);
+      border: 1px solid color-mix(in srgb, var(--stock-gold) 22%, transparent);
+      color: var(--on-color);
+      text-decoration: none;
+      transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+    }
+    .side-promo:hover {
+      border-color: color-mix(in srgb, var(--stock-gold) 50%, transparent);
+      box-shadow: 0 8px 24px color-mix(in srgb, var(--stock-gold) 14%, transparent);
+    }
+    /* Фокус — наш, а не золотой: кольцо одно на всё приложение (сторож в assets),
+       иначе при переходе табом подсветка меняла бы оттенок на этой карточке. */
+    .side-promo:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
+    .side-promo-logo { height: 26px; width: auto; align-self: flex-start; display: block; }
+    .side-promo-title {
+      font-family: "Space Grotesk", "DM Sans", system-ui, sans-serif;
+      font-size: 15px; font-weight: 700; line-height: 1.25;
+      text-wrap: balance;
+    }
+    .side-promo-text {
+      font-size: 12px; line-height: 1.4;
+      color: color-mix(in srgb, var(--on-color) 62%, transparent);
+    }
+    .side-promo-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+    .side-promo-price {
+      font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums;
+      color: var(--stock-gold); white-space: nowrap;
+    }
+    /* Кнопка — того же роста и формы, что все .btn.small (правило владельца
+       «стилистика кнопок одинаковая»), только в цветах продукта. Это span, а не
+       button: вся карточка уже ссылка, кнопка внутри ссылки — невалидная разметка.
+       Селектор на класс сильнее, чем кажется нужным: .btn.small той же силы
+       стоит в файле НИЖЕ и перекрашивал кнопку в серый (снимок 11.09.2026). */
+    .side-promo .btn.side-promo-cta,
+    .side-promo:hover .btn.side-promo-cta {
+      background: linear-gradient(90deg, var(--stock-gold), var(--stock-gold-deep));
+      border-color: transparent;
+      color: var(--stock-ink);
+      font-weight: 700;
+    }
+    .side-promo-close {
+      position: absolute; top: 8px; right: 8px;
+      width: 26px; height: 26px; border: none; border-radius: var(--r-sm);
+      display: grid; place-items: center;
+      background: none; cursor: pointer;
+      color: color-mix(in srgb, var(--on-color) 50%, transparent);
+    }
+    .side-promo-close:hover {
+      color: var(--on-color);
+      background: color-mix(in srgb, var(--on-color) 10%, transparent);
+    }
+    /* Места мало — короткая карточка: знак, цена, кнопка. Меньше — никакой:
+       обрезанная реклама хуже отсутствующей. Пороги из замера 11.09.2026:
+       полная карточка 204px + 12px отступа = 216 (берём 224, с запасом на
+       перенос строки), короткая 100 + 12 = 112. Сменится текст — перемерить. */
+    @container sidepromo (max-height: 223px) {
+      .side-promo-title, .side-promo-text { display: none; }
+    }
+    @container sidepromo (max-height: 111px) {
+      .side-promo-wrap { display: none; }
     }
     .sidebar-user-btn {
       display: flex;

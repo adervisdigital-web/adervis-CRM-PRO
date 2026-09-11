@@ -1845,4 +1845,94 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     });
   }
 
+  /* Боковое меню — высотой ровно в экран и с overflow:hidden, прокрутки в нём не
+     было. Две вещи, проверенные на живой сессии (bootWithSession — без неё меню
+     в наборе пустое, и всё ниже до 11.09.2026 не проверялось никогда):
+
+     1. Подвал с «Выйти» ДОЛЖЕН помещаться. Замер 11.09: на 700px он уходил за
+        край на 9px, на 600px — на 109px; ноутбук 1366×768 даёт в браузере как раз
+        650–700px. Теперь прокручивается список разделов, подвал на месте.
+     2. Карточка своего продукта (Premium Stock) берёт только ОСТАВШЕЕСЯ место:
+        полная, короткая или никакой — но никогда не обрезанная и никогда не
+        выталкивающая подвал. Первая версия держала отступ, который не сжимался,
+        и сдвигала «Выйти» на 13px как раз там, где места нет. */
+  await test("боковое меню: подвал с «Выйти» не срезается, карточка продукта — по месту", async () => {
+    const { bootWithSession } = require("../harness");
+    const measure = (page) => page.evaluate(() => {
+      const side = document.getElementById("appSidebar");
+      const out = [...side.querySelectorAll(".sidebar-nav-item")].find((b) => /Выйти/.test(b.textContent || ""));
+      const ob = out && out.getBoundingClientRect();
+      const wrap = document.querySelector(".side-promo-wrap");
+      const shown = (el) => !!el && getComputedStyle(el).display !== "none" && el.getBoundingClientRect().height > 2;
+      let mode = "none";
+      if (shown(wrap)) mode = shown(document.querySelector(".side-promo-title")) ? "full" : "short";
+      let clipped = false;
+      if (mode !== "none") {
+        const cb = document.querySelector(".side-promo").getBoundingClientRect();
+        const sb = document.querySelector(".side-promo-slot").getBoundingClientRect();
+        clipped = cb.top < sb.top - 1 || cb.bottom > sb.bottom + 1 || cb.bottom > innerHeight + 1;
+      }
+      return { logoutFull: !!ob && ob.top >= 0 && ob.bottom <= innerHeight + 1, mode, clipped };
+    });
+
+    const cases = [
+      { h: 1300, want: "full" },
+      { h: 900, want: "short" },
+      { h: 700, want: "none" },
+      { h: 600, want: "none" },
+    ];
+    for (const c of cases) {
+      const { context, page } = await bootWithSession(browser, baseUrl, { width: 1440, height: c.h });
+      try {
+        await page.waitForTimeout(300);
+        const r = await measure(page);
+        assert(r.logoutFull, `${c.h}px: «Выйти» не помещается в меню — подвал срезан`);
+        assertEqual(r.mode, c.want, `${c.h}px: карточка продукта`);
+        assert(!r.clipped, `${c.h}px: карточка продукта обрезана краем`);
+      } finally {
+        await context.close();
+      }
+    }
+
+    // Свёрнутое меню: 64px, карточке там не место
+    {
+      const { context, page } = await bootWithSession(browser, baseUrl, { width: 1440, height: 1300, collapsed: true });
+      try {
+        await page.waitForTimeout(300);
+        assertEqual((await measure(page)).mode, "none", "в свёрнутом меню карточка продукта видна");
+      } finally {
+        await context.close();
+      }
+    }
+
+    // Ссылка и крестик
+    const { context, page } = await bootWithSession(browser, baseUrl, { width: 1440, height: 1300 });
+    try {
+      await page.waitForTimeout(300);
+      const link = await page.evaluate(() => {
+        const a = document.querySelector(".side-promo");
+        return a && { href: a.getAttribute("href"), target: a.getAttribute("target"), rel: a.getAttribute("rel") };
+      });
+      assert(link, "карточки продукта нет в меню");
+      assert(/^https:\/\/stock\.adervis\.ru\//.test(link.href), "ссылка ведёт не на stock.adervis.ru: " + link.href);
+      assert(/utm_source=crm/.test(link.href), "в ссылке нет utm_source=crm — переходы не отличить в Метрике");
+      assertEqual(link.target, "_blank", "продукт должен открываться в новой вкладке, CRM остаётся");
+      assert(/noopener/.test(link.rel || ""), "у внешней ссылки нет rel=noopener");
+
+      await page.evaluate(() => document.querySelector(".side-promo-close").click());
+      await page.waitForTimeout(200);
+      await page.evaluate(() => window.app.go("clients"));   // перерисовка меню
+      await page.waitForTimeout(300);
+      const after = await page.evaluate(() => ({
+        card: !!document.querySelector(".side-promo"),
+        until: Number(localStorage.getItem("side_promo_hidden_until") || 0),
+      }));
+      assert(!after.card, "после «скрыть» карточка вернулась при перерисовке меню");
+      const days = (after.until - Date.now()) / 864e5;
+      assert(days > 13 && days <= 14.01, `скрыта не на две недели: ${days.toFixed(1)} дн.`);
+    } finally {
+      await context.close();
+    }
+  });
+
 };

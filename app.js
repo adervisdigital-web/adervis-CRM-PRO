@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 444;
+      const APP_BUILD = 445;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -2589,6 +2589,64 @@
         el.innerHTML = `<h2 class="topbar-page-title-h2">${escapeHtml(title)}</h2>${sub ? `<p class="topbar-page-title-sub">${sub}</p>` : ""}`;
       }
 
+      /* ═══ СВОИ ПРОДУКТЫ В БОКОВОМ МЕНЮ ═══
+         Просьба владельца 11.09.2026: в пустом месте меню рекламировать свои
+         другие продукты. Сейчас один — Premium Stock. ЗАГАДКИНО сюда НЕ ставить:
+         это клиент владельца, а не его продукт (его слова).
+
+         Новый продукт — новая запись в списке; при нескольких карточка меняется
+         раз в день, чтобы не мигать от перерисовки к перерисовке.
+
+         ЦЕНА — копия тарифа из config.js самого Premium Stock (trial.price = 149).
+         Поменяли там — править здесь: витрина, обещающая не ту цену, хуже
+         витрины без цены. Ссылка с UTM — переходы видно в Метрике сайта.
+
+         Скрыть можно на 14 дней: реклама в платном продукте без крестика
+         раздражает тех, кто за него платит. */
+      const SIDE_PROMOS = [
+        {
+          id: "stock",
+          href: "https://stock.adervis.ru/?utm_source=crm&utm_medium=sidebar&utm_campaign=premium_stock",
+          logo: "promo/stock-logo.svg",
+          name: "Adervis Stock",
+          title: "Файл с Envato — по вашей ссылке",
+          text: "Видео, шаблоны, музыка и графика — без своей подписки и водяных знаков",
+          price: "от 149 ₽",
+          cta: "Открыть",
+        },
+      ];
+      const SIDE_PROMO_HIDE_DAYS = 14;
+
+      function renderSidePromoHtml() {
+        if (!SIDE_PROMOS.length) return "";
+        if (Number(lsGet("side_promo_hidden_until") || 0) > Date.now()) return "";
+        const day = Math.floor(Date.now() / 864e5);
+        const p = SIDE_PROMOS[day % SIDE_PROMOS.length];
+        return `
+          <div class="side-promo-slot no-print">
+            <div class="side-promo-wrap">
+              <a class="side-promo" href="${escapeHtml(p.href)}" target="_blank" rel="noopener"
+                onclick="app.sidePromoClick('${p.id}')">
+                <img class="side-promo-logo" src="${escapeHtml(p.logo)}" alt="${escapeHtml(p.name)}">
+                <span class="side-promo-title">${escapeHtml(p.title)}</span>
+                <span class="side-promo-text">${escapeHtml(p.text)}</span>
+                <span class="side-promo-foot">
+                  <span class="side-promo-price">${escapeHtml(p.price)}</span>
+                  <span class="btn small side-promo-cta">${escapeHtml(p.cta)}</span>
+                </span>
+              </a>
+              <button type="button" class="side-promo-close" onclick="app.hideSidePromo()"
+                aria-label="Скрыть на ${SIDE_PROMO_HIDE_DAYS} дней" title="Скрыть на ${SIDE_PROMO_HIDE_DAYS} дней">${icon("close", 13)}</button>
+            </div>
+          </div>`;
+      }
+
+      function hideSidePromo() {
+        lsSet("side_promo_hidden_until", String(Date.now() + SIDE_PROMO_HIDE_DAYS * 864e5));
+        trackGoal("side_promo_hide");
+        renderSidebar();
+      }
+
       function renderSidebar() {
         const el = document.getElementById("appSidebar");
         if (!el) return;
@@ -2622,6 +2680,7 @@
 
           <nav class="sidebar-nav">
             ${navItemsHtml}
+            ${renderSidePromoHtml()}
           </nav>
 
           <div class="sidebar-footer">
@@ -30622,6 +30681,9 @@ Email: _____________________              Email: _____________________
         // Скрыть — не отказаться: обновление всё равно случится при уходе в фон.
         applyAppUpdate: () => location.reload(),
         dismissAppUpdate: () => _showUpdateBanner(false),
+        // Карточка своего продукта в боковом меню (см. СВОИ ПРОДУКТЫ В БОКОВОМ МЕНЮ).
+        sidePromoClick: (id) => trackGoal("side_promo_click", { product: id }),
+        hideSidePromo,
         setCrmView,
         setClientsView,
         setCrmSort,
