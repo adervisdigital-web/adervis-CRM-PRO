@@ -1890,6 +1890,50 @@ module.exports = async function ({ test }) {
       bad.join("\n  ") + "\n  Класть в data-* и читать через this.dataset.");
   });
 
+  await test("цвета в компонентах — только токенами, #hex лишь в названных исключениях", () => {
+    /* Правило CLAUDE.md §3 «новые цвета — только через переменную» держалось на
+       честном слове. Аудит 03.09 нашёл четыре нарушения; прожили они до 11.09, и
+       одно стояло ровно рядом с правильным соседом:
+         .calc-step.on   b { color: var(--on-color); }
+         .calc-step.done b { color: #fff; }
+       Токен меняется в одном месте — такой #fff остаётся старым цветом и тихо
+       выпадает из темы.
+
+       Исключения — СЕМЬИ, а не строки: там белый и чёрный нужны по смыслу, а не
+       по привычке. Маска (mask-image) исключена по свойству: #000 в ней — это
+       непрозрачность, а не цвет. */
+    const css = readSrc("style.css").replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, " "));
+    const СЕМЬИ = [
+      /\[data-theme/,          // фон и цвета, прописанные под конкретную тему
+      /select option/,         // обход Firefox/Chromium для выпадающих списков
+      /\.proposal-preview/,    // превью КП — бумажный лист, белый в любой теме
+      /@media print/,          // печать
+    ];
+    // Разбор по вложенности: для каждого объявления знаем цепочку селекторов над ним.
+    const stack = [];
+    let buf = "", line = 1, declLine = 1;
+    const bad = [];
+    for (const ch of css) {
+      if (ch === "{") { stack.push(buf.trim()); buf = ""; continue; }
+      if (ch === "}") { stack.pop(); buf = ""; continue; }
+      if (ch === ";") {
+        const d = buf.trim();
+        if (/#[0-9a-fA-F]{3,8}\b/.test(d) && !/^--[\w-]+\s*:/.test(d) && !/^(-webkit-)?mask(-image)?\s*:/.test(d)) {
+          const ctx = stack.join(" › ");
+          if (!СЕМЬИ.some((r) => r.test(ctx))) bad.push(`строка ${declLine}: ${ctx} { ${d} }`);
+        }
+        buf = "";
+        continue;
+      }
+      if (ch === "\n") line++;
+      if (!buf.trim() && ch.trim()) declLine = line;
+      buf += ch;
+    }
+    assert(!bad.length,
+      "цвет записан #hex в компоненте — при смене темы или токена он останется старым:\n  " +
+      bad.join("\n  ") + "\n  Взять токен из :root (--on-color, --text, --muted…) или завести новый.");
+  });
+
   await test("нет мёртвых ссылок: поля состояния и вызовы app.*", () => {
     /* `state.items` читался в печати счёта, хотя такого поля на состоянии нет вовсе:
        ветка молча уходила в запасную, и клиент получал счёт без единой позиции. То же
