@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 441;
+      const APP_BUILD = 442;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -4369,7 +4369,7 @@
               <strong>Уведомления</strong>
               <div style="display:flex;gap:8px;align-items:center">
                 ${notifs.length ? `<button style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer" onclick="app.clearNotifs()">Очистить</button>` : ""}
-                <button onclick="app.toggleNotifPopup()" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1;padding:0 2px">${icon("close", 16)}</button>
+                <button onclick="app.toggleNotifPopup()" class="u-modal-close" aria-label="Закрыть уведомления">${icon("close", 15)}</button>
               </div>
             </div>
             <div class="notif-list">
@@ -5165,7 +5165,7 @@
                             <button class="btn small" onclick="app.adminExtendTrial('${aid}')" title="+14 дней к триалу">+14д</button>
                             <button class="btn small" onclick="app.adminSetUserTag('${aid}')" title="${a.admin_tag ? "Метка: " + escapeHtml(a.admin_tag) + " — изменить" : "Пометить аккаунт: амбассадор, партнёр, тест…"}" aria-label="Метка аккаунта">${icon("star", 13)}</button>
                             <button class="btn small" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Изменить подписку" aria-label="Изменить подписку">${icon("pencil")}</button>
-                            ${ast === "active" ? `<button class="btn small adm-act-wide" onclick="app.adminRefund('${aid}','${escapeHtml(a.email||"")}')" title="Оформить возврат: закрыть подписку и вернуть деньги в ЮKassa">Возврат</button>` : ""}
+                            ${ast === "active" ? `<button class="btn small adm-act-wide" data-email="${escapeHtml(a.email||"")}" onclick="app.adminRefund('${aid}',this.dataset.email)" title="Оформить возврат: закрыть подписку и вернуть деньги в ЮKassa">Возврат</button>` : ""}
                             <button class="btn small ${isBlocked?"green":"danger-quiet"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}" aria-label="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?icon("unlock"):icon("lock")}</button>
                           ` : `
                             <button class="btn small" onclick="app._closeEditSub()" style="opacity:.6">Отмена</button>
@@ -7080,7 +7080,7 @@
                   <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Шаг ${idx + 1} из ${total}</div>
                   <h2 style="margin:4px 0 0;font-size:19px">Знакомство с ADERVIS</h2>
                 </div>
-                <button onclick="app.closeHelpModal()" style="background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto">${icon("close", 16)}</button>
+                <button onclick="app.closeHelpModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
 
               <div class="ob-slider-wrap">
@@ -7590,7 +7590,7 @@
             <div class="admin-modal-box">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
         <h2 class="u-title-20"> Вход для администратора</h2>
-                <button onclick="app.closeAdminModal()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px">${icon("close", 16)}</button>
+                <button onclick="app.closeAdminModal()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
               <p style="margin:0 0 18px;font-size:13px">Войдите через Supabase Auth для совместного редактирования.</p>
               ${m.error ? `<div style="background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--text-danger);font-size:13px;margin-bottom:14px">${escapeHtml(m.error)}</div>` : ""}
@@ -18151,12 +18151,12 @@
                 ${allTags.length ? `
                 <div class="deal-toolbar-tags">
                   ${tagFilter ? `<button class="deal-tag-chip active" onclick="app.setCrmTagFilter('')">× ${escapeHtml(tagFilter)}</button>` : ""}
-                  ${visibleTags.map(t => `<button class="deal-tag-chip" onclick="app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</button>`).join("")}
+                  ${visibleTags.map(t => `<button class="deal-tag-chip" data-tag="${escapeHtml(t)}" onclick="app.setCrmTagFilter(this.dataset.tag)">${escapeHtml(t)}</button>`).join("")}
                   ${overflowTags.length ? `
                   <div class="tag-overflow-wrap">
                     <button class="deal-tag-chip tag-overflow-btn" onclick="app.toggleTagOverflow(event)">+${overflowTags.length}</button>
                     <div class="tag-overflow-panel" id="tagOverflowPanel" style="display:none">
-                      ${overflowTags.map(t => `<button class="tag-overflow-row" onclick="event.stopPropagation();app.closeTagOverflow();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</button>`).join("")}
+                      ${overflowTags.map(t => `<button class="tag-overflow-row" data-tag="${escapeHtml(t)}" onclick="event.stopPropagation();app.closeTagOverflow();app.setCrmTagFilter(this.dataset.tag)">${escapeHtml(t)}</button>`).join("")}
                     </div>
                   </div>
                   ` : ""}
@@ -18331,7 +18331,7 @@
                               строки; когда срок горит, рядом встаёт и слово. */""}
                         ${project.deadline ? `<div class="deal-card-deadline" title="Дедлайн сделки" style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}">${icon("calendar", 11)} ${escapeHtml(formatDate(project.deadline))}${u && u.level !== "ok" ? ` · ${escapeHtml(u.label)}` : ""}</div>` : ""}
             ${note ? `<div class="deal-card-note" title="${escapeHtml(note)}"> ${escapeHtml(note)}</div>` : ""}
-                        ${tags.length ? `<div class="deal-card-tags">${tags.map(t=>`<span class="deal-card-tag" onclick="event.stopPropagation();app.setCrmTagFilter('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
+                        ${tags.length ? `<div class="deal-card-tags">${tags.map(t=>`<span class="deal-card-tag" data-tag="${escapeHtml(t)}" onclick="event.stopPropagation();app.setCrmTagFilter(this.dataset.tag)">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
                       </div>`;
                       })()}
 
@@ -27990,7 +27990,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
               <div class="field" style="margin-bottom:14px">
                 <label style="font-size:12px;color:var(--muted);font-weight:750;margin-bottom:6px;display:block">Теги</label>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-                  ${(m.tags||[]).map(t => `<span style="display:inline-flex;align-items:center;gap:4px;background:rgb(var(--primary-rgb) / .12);border:1px solid rgb(var(--primary-rgb) / .3);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--primary-text)">${escapeHtml(t)}<button onclick="app._removeDealTag('${escapeHtml(t)}')" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0;line-height:1;font-size:14px">${icon("close", 13)}</button></span>`).join("")}
+                  ${(m.tags||[]).map(t => `<span style="display:inline-flex;align-items:center;gap:4px;background:rgb(var(--primary-rgb) / .12);border:1px solid rgb(var(--primary-rgb) / .3);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--primary-text)">${escapeHtml(t)}<button data-tag="${escapeHtml(t)}" onclick="app._removeDealTag(this.dataset.tag)" aria-label="Убрать тег ${escapeHtml(t)}" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0;line-height:1;font-size:14px">${icon("close", 13)}</button></span>`).join("")}
                 </div>
                 <div style="display:flex;gap:6px">
                   <input id="dealTagInput" placeholder="Новый тег..." style="flex:1;padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--text);font-size:13px"
@@ -29771,7 +29771,7 @@ Email: _____________________              Email: _____________________
                   <input id="contractSearchInput" class="catalog-search-input" type="search" aria-label="Поиск по договорам" value="${escapeHtml(state.contractSearch || "")}" oninput="app.setContractSearch(this.value)" placeholder="Поиск: номер, клиент, условие…">
                 </div>
                 <div style="display:flex;gap:4px;flex-wrap:wrap">
-                  ${cats.map(cat => `<button class="badge${activeCat===cat?" active-filter":""}" onclick="app.setContractCatFilter('${escapeHtml(cat)}')"
+                  ${cats.map(cat => `<button class="badge${activeCat===cat?" active-filter":""}" data-cat="${escapeHtml(cat)}" onclick="app.setContractCatFilter(this.dataset.cat)"
                     style="cursor:pointer;padding:4px 10px;border-radius:99px;border:1px solid ${activeCat===cat?"var(--primary)":"var(--line)"};background:${activeCat===cat?"var(--primary)":"transparent"};color:${activeCat===cat?"#fff":"var(--muted)"};font-size:12px;font-weight:600">${escapeHtml(cat)}</button>`).join("")}
                 </div>
               </div>

@@ -3324,6 +3324,80 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Текст тега шёл прямо в обработчик: onclick="app._removeDealTag('${escapeHtml(t)}')".
+     escapeHtml делает из апострофа &#39; — для АТРИБУТА это верно, но HTML-разборщик
+     возвращает апостроф ДО того, как строка попадёт в JS. Итог (замер 11.09.2026):
+       - «л'этуаль» не удалялась — крестик мёртвый, в консоли «missing ) after argument list»;
+       - тег x');window.__pwn=1;(' ИСПОЛНЯЛСЯ как код.
+     Тег пишет любой в команде агентства, а жмёт на него в «Проектах» владелец — то есть
+     это был путь исполнить свой код в чужой сессии. Бренды с апострофом у видео-
+     агентства обычное дело (O'STIN, Л'Этуаль).
+     Теперь текст лежит в data-tag и читается как данные: this.dataset.tag.
+     Проверяем оба входа — крестик в окне сделки и тег на карточке в «Проектах».
+     Без правки тест падает уже на первой половине, поэтому вторая при проверке
+     «падает ли без фикса» не выполняется. Её надо прогонять отдельно, иначе она
+     не выполнится ни разу — так 11.09 и вышло: она искала теги не в том разделе,
+     и это всплыло только на полном прогоне С правкой. */
+  await test("тег с апострофом удаляется и фильтрует, а тег-ловушка не исполняется", async () => {
+    const own = await bootLocal(browser, baseUrl, { width: 1280, height: 900, seedDemo: true });
+    const errors = [];
+    own.page.on("pageerror", (e) => errors.push(e.message));
+    try {
+      const dealId = await own.page.evaluate(async () => {
+        window.app.go("home");
+        await new Promise((r) => setTimeout(r, 250));
+        for (const el of document.querySelectorAll("[onclick]")) {
+          const m = el.getAttribute("onclick").match(/openDeal[(](?:event,)?[ ]*'([^']+)'/);
+          if (m) return m[1];
+        }
+        return null;
+      });
+      assert(dealId, "не нашлось демо-сделки");
+      await own.page.evaluate((id) => window.app.openDealModal(id), dealId);
+      await own.page.waitForTimeout(300);
+
+      const APOS = "л'этуаль";
+      const TRAP = "x');window.__pwn=1;('";
+      const chip = (t) => own.page.evaluate((t) =>
+        [...document.querySelectorAll(".modal-overlay span")].some((s) => s.firstChild && s.firstChild.textContent === t), t);
+
+      // 1. Крестик в окне сделки
+      for (const t of [APOS, TRAP]) {
+        await own.page.evaluate((t) => window.app._addDealTag(t), t);
+        await own.page.waitForTimeout(150);
+        assert(await chip(t), `тег «${t}» не появился в окне сделки`);
+        await own.page.evaluate((t) => {
+          const s = [...document.querySelectorAll(".modal-overlay span")].find((x) => x.firstChild && x.firstChild.textContent === t);
+          s.querySelector("button").click();
+        }, t);
+        await own.page.waitForTimeout(150);
+        assert(!(await chip(t)), `крестик не удалил тег «${t}» — обработчик сломан содержимым`);
+      }
+      assert(!(await own.page.evaluate(() => window.__pwn === 1)), "текст тега исполнился как код");
+
+      // 2. Тег на карточке сделки → фильтр. Карточки с тегами и сам фильтр рисует
+      // renderHome (раздел «Проекты»), а НЕ канбан crm: там тегов на карточках нет
+      // вовсе — первая версия теста искала их на канбане и не находила.
+      await own.page.evaluate((t) => { window.app._addDealTag(t); window.app.saveDealModal(); }, APOS);
+      await own.page.waitForTimeout(400);
+      await own.page.evaluate(() => window.app.go("home"));
+      await own.page.waitForTimeout(400);
+      const filtered = await own.page.evaluate(async (t) => {
+        const tag = [...document.querySelectorAll(".deal-card-tag")].find((e) => e.textContent.trim() === t);
+        if (!tag) return { нетТега: true };
+        tag.click();
+        await new Promise((r) => setTimeout(r, 300));
+        const active = document.querySelector(".deal-tag-chip.active");
+        return { активный: active ? active.textContent.replace(/^×\s*/, "").trim() : null };
+      }, APOS);
+      assert(!filtered.нетТега, "тег не показался на карточке сделки в «Проектах»");
+      assertEqual(filtered.активный, APOS, "нажатие на тег с апострофом не включило фильтр по нему");
+      assert(!errors.some((m) => /missing \)|Unexpected/.test(m)), "обработчик тега падает с ошибкой разбора: " + errors.join(" | "));
+    } finally {
+      await own.context.close();
+    }
+  });
+
   await test("«Обновить» на «Все КП» отвечает на нажатие даже без связи", async () => {
     /* Найдено обходом «нажми каждую кнопку и посмотри, изменилось ли хоть что-то».
        Без связи (местный режим, не выполнен вход) загрузка списка выходит первой
