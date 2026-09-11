@@ -1859,8 +1859,8 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   await test("боковое меню: подвал с «Выйти» не срезается, карточка продукта — по месту", async () => {
     const { bootWithSession } = require("../harness");
     const measure = (page) => page.evaluate(() => {
-      const side = document.getElementById("appSidebar");
-      const out = [...side.querySelectorAll(".sidebar-nav-item")].find((b) => /Выйти/.test(b.textContent || ""));
+      // «Выйти» с 11.09.2026 — значок в строке профиля, а не отдельная строка меню.
+      const out = document.querySelector("#appSidebar .sidebar-logout");
       const ob = out && out.getBoundingClientRect();
       const wrap = document.querySelector(".side-promo-wrap");
       const shown = (el) => !!el && getComputedStyle(el).display !== "none" && el.getBoundingClientRect().height > 2;
@@ -1930,6 +1930,65 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
       assert(!after.card, "после «скрыть» карточка вернулась при перерисовке меню");
       const days = (after.until - Date.now()) / 864e5;
       assert(days > 13 && days <= 14.01, `скрыта не на две недели: ${days.toFixed(1)} дн.`);
+    } finally {
+      await context.close();
+    }
+  });
+
+  /* Просьба владельца 11.09.2026: «Выйти» — не отдельной строкой, а сбоку от
+     профиля, красиво и с продуманной анимацией. Значок стоит вплотную к имени, а
+     adminLogout не переспрашивает — промах мимо своего профиля выкидывал бы из
+     аккаунта. Поэтому выход в два нажатия: первое раскрывает «Выйти?», второе
+     выходит, через 3 с — назад.
+
+     И то, что нашёл снимок: значок забрал ширину у подписи тарифа, и она
+     резалась ровно на смысле — «Пробный · остало» (без числа дней). Подпись
+     обязана помещаться целиком. */
+  await test("боковое меню: выход сбоку от профиля и в два нажатия, подпись тарифа цела", async () => {
+    const { bootWithSession } = require("../harness");
+    const { context, page } = await bootWithSession(browser, baseUrl, { width: 1440, height: 900 });
+    try {
+      await page.waitForTimeout(300);
+      const geo = await page.evaluate(() => {
+        const main = document.querySelector(".sidebar-user-main");
+        const lo = document.querySelector(".sidebar-logout");
+        const sub = main && main.querySelector(".u-meta");
+        if (!main || !lo) return null;
+        const m = main.getBoundingClientRect(), l = lo.getBoundingClientRect();
+        return {
+          sameRow: Math.abs((m.top + m.height / 2) - (l.top + l.height / 2)) <= 2,
+          right: l.left >= m.right - 1,
+          subText: sub ? sub.textContent : "",
+          subFits: !!sub && sub.scrollWidth <= sub.clientWidth,
+          separateRow: [...document.querySelectorAll("#appSidebar .sidebar-nav-item")].some((b) => /Выйти/.test(b.textContent || "")),
+        };
+      });
+      assert(geo, "в меню нет строки профиля с кнопкой выхода");
+      assert(!geo.separateRow, "«Выйти» снова отдельной строкой меню");
+      assert(geo.sameRow && geo.right, "кнопка выхода не справа в строке профиля");
+      assert(geo.subFits, `подпись тарифа не помещается рядом с кнопкой выхода: «${geo.subText}»`);
+
+      const state = () => page.evaluate(() => ({
+        armed: !!document.querySelector(".sidebar-logout.armed"),
+        loggedIn: !!document.getElementById("appSidebar").innerHTML.trim(),
+      }));
+      await page.click(".sidebar-logout");
+      await page.waitForTimeout(300);
+      let s = await state();
+      assert(s.loggedIn, "первое же нажатие выкинуло из аккаунта — промах не прощается");
+      assert(s.armed, "первое нажатие не раскрыло «Выйти?»");
+
+      await page.waitForTimeout(3200);
+      s = await state();
+      assert(!s.armed, "«Выйти?» не схлопнулось само через 3 секунды");
+
+      await page.click(".sidebar-logout");
+      await page.waitForTimeout(200);
+      await page.click(".sidebar-logout");
+      await page.waitForFunction(() => !document.getElementById("appSidebar").innerHTML.trim(), null, { timeout: 5000 })
+        .catch(() => {});
+      s = await state();
+      assert(!s.loggedIn, "два нажатия подряд не вывели из аккаунта");
     } finally {
       await context.close();
     }

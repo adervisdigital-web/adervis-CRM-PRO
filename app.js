@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 445;
+      const APP_BUILD = 446;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -2396,6 +2396,25 @@
         return s;
       }
 
+      /* Для строки профиля в боковом меню: там справа от имени теперь значок выхода,
+         и на подпись остаётся 89px (замер 11.09.2026). Полные формы резались
+         ровно на смысле: «Пробный · остало» — без числа дней, «Подписка ист…» —
+         без того, что пора платить. Короткие формы проверены на ту же ширину;
+         «Про ✓», «Команда ✓», «Super Admin ∞» помещаются и так. */
+      function getSubscriptionShortLabel() {
+        if (!_isSuperAdmin() && _userProfile) {
+          const s = _userProfile.subscription_status;
+          if (s === "trial") {
+            const exp = _userProfile.subscription_expires_at;
+            const days = exp ? Math.max(0, Math.round((new Date(exp) - new Date()) / 86400000)) : 0;
+            return `Пробный · ${days} дн.`;
+          }
+          if (s === "expired") return "Тариф истёк";
+          if (s === "cancelled") return "Тариф отменён";
+        }
+        return getSubscriptionLabel();
+      }
+
       // Короткое название плана без счётчика дней — для использования в dropdown
       function getSubscriptionPlanName() {
         if (_isSuperAdmin()) return "Super Admin";
@@ -2656,7 +2675,7 @@
         const email = _adminSession.user.email || "";
         const name = _adminSession.user.user_metadata?.name || _adminSession.user.user_metadata?.full_name || email.split("@")[0] || "A";
         const initials = (name[0] || "A").toUpperCase();
-        const subLabel = getSubscriptionLabel();
+        const subLabel = getSubscriptionShortLabel();
 
         const collapsed = lsGet("sidebar_collapsed") === "1";
         if (collapsed) el.classList.add("collapsed"); else el.classList.remove("collapsed");
@@ -2693,17 +2712,32 @@
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
               <span class="sidebar-label">Admin Panel</span>
             </button>` : ""}
-            <button class="sidebar-nav-item" onclick="app.go('profile')" title="${escapeHtml(name)}">
-              <div class="sidebar-user-avatar" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff">${initials}</div>
-              <span class="sidebar-label" style="min-width:0;overflow:hidden;text-align:left">
-                <div style="font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">${escapeHtml(name)}</div>
-                <div class="u-meta">${escapeHtml(subLabel || "Активна")}</div>
-              </span>
-            </button>
-            <button class="sidebar-nav-item" onclick="app.adminLogout()" title="Выйти">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-              <span class="sidebar-label">Выйти</span>
-            </button>
+            ${/* Профиль и выход — одна строка (просьба владельца 11.09.2026:
+                  «Выйти» отдельной строкой занимал место, которого в меню и так
+                  мало). Две соседние кнопки, а не одна в другой: строка профиля
+                  сама кнопка, вложенная кнопка — невалидная разметка.
+                  Выход в два нажатия: значок стоит вплотную к имени, и промах
+                  мимо своего профиля выкидывал бы из аккаунта — adminLogout не
+                  переспрашивает. Первое нажатие раскрывает «Выйти?», второе
+                  выходит; через 3 с или по уходу фокуса — назад. */""}
+            <div class="sidebar-user-row">
+              <button class="sidebar-nav-item sidebar-user-main" onclick="app.go('profile')" title="${escapeHtml(name)}">
+                <div class="sidebar-user-avatar" style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--primary);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff">${initials}</div>
+                <span class="sidebar-label" style="min-width:0;overflow:hidden;text-align:left">
+                  <div style="font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">${escapeHtml(name)}</div>
+                  <div class="u-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(subLabel || "Активна")}</div>
+                </span>
+              </button>
+              <button type="button" class="sidebar-logout" onclick="app.sidebarLogoutClick(this)"
+                onblur="app.sidebarLogoutDisarm(this)" onkeydown="if(event.key==='Escape')app.sidebarLogoutDisarm(this)"
+                aria-label="Выйти из аккаунта" title="Выйти">
+                <span class="sidebar-logout-text" aria-hidden="true">Выйти?</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                  <g class="sidebar-logout-arrow"><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></g>
+                </svg>
+              </button>
+            </div>
           </div>
           <div id="estimateNavTooltip" class="estimate-nav-tooltip-fixed"></div>
         `;
@@ -3247,6 +3281,28 @@
           state.adminModal.error = "Не удалось подключиться к серверу. Проверьте интернет-соединение и попробуйте ещё раз.";
           render();
         }
+      }
+
+      /* Выход из строки профиля в боковом меню — в два нажатия (см. renderSidebar).
+         Взведённое состояние живёт на самой кнопке (.armed), а не в state: оно
+         длится 3 секунды и не должно ни сохраняться, ни переживать перерисовку. */
+      let _logoutArmTimer = null;
+      function sidebarLogoutClick(btn) {
+        if (btn.classList.contains("armed")) {
+          clearTimeout(_logoutArmTimer);
+          adminLogout();
+          return;
+        }
+        btn.classList.add("armed");
+        btn.setAttribute("aria-label", "Нажмите ещё раз, чтобы выйти");
+        clearTimeout(_logoutArmTimer);
+        _logoutArmTimer = setTimeout(() => sidebarLogoutDisarm(btn), 3000);
+      }
+      function sidebarLogoutDisarm(btn) {
+        if (!btn || !btn.classList.contains("armed")) return;
+        clearTimeout(_logoutArmTimer);
+        btn.classList.remove("armed");
+        btn.setAttribute("aria-label", "Выйти из аккаунта");
       }
 
       async function adminLogout() {
@@ -30684,6 +30740,8 @@ Email: _____________________              Email: _____________________
         // Карточка своего продукта в боковом меню (см. СВОИ ПРОДУКТЫ В БОКОВОМ МЕНЮ).
         sidePromoClick: (id) => trackGoal("side_promo_click", { product: id }),
         hideSidePromo,
+        sidebarLogoutClick,
+        sidebarLogoutDisarm,
         setCrmView,
         setClientsView,
         setCrmSort,

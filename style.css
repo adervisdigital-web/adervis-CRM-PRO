@@ -767,6 +767,52 @@
       transition: padding var(--dur-3) var(--ease-out);
     }
 
+    /* ── Профиль + выход одной строкой ───────────────────────────────────────
+       Просьба владельца 11.09.2026: «Выйти» отдельной строкой занимал место.
+       Теперь это значок справа от профиля. Вплотную к имени промахнуться легко,
+       а выход не переспрашивает — поэтому два нажатия, и оба видны глазом:
+         покой   — приглушённый значок двери;
+         наведение — краснеет, стрелка «выходит» из двери на 2px;
+         1-е нажатие — раскрывается в красную пилюлю «Выйти?» (ширина текста
+           едет от 0, имя слева уступает место и уходит в многоточие);
+         2-е нажатие — выход. Через 3 с или по уходу фокуса — схлопывается. */
+    .sidebar-user-row { display: flex; align-items: center; gap: 4px; }
+    .sidebar-user-row .sidebar-user-main { flex: 1 1 auto; min-width: 0; }
+    .sidebar-logout {
+      flex: 0 0 auto;
+      height: 32px; min-width: 32px; padding: 0 8px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 0;
+      border: none; border-radius: var(--r-md);
+      background: transparent; color: var(--muted);
+      font: inherit; cursor: pointer;
+      transition: background var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out),
+                  gap var(--dur-3) var(--ease-out);
+    }
+    .sidebar-logout-text {
+      max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap;
+      font-size: 12.5px; font-weight: 700;
+      transition: max-width var(--dur-3) var(--ease-out), opacity var(--dur-2) var(--ease-out);
+    }
+    .sidebar-logout-arrow { transition: transform var(--dur-2) var(--ease-out); }
+    .sidebar-logout:hover {
+      color: var(--text-danger);
+      background: color-mix(in srgb, var(--red) 12%, transparent);
+    }
+    .sidebar-logout:hover .sidebar-logout-arrow { transform: translateX(2px); }
+    .sidebar-logout.armed {
+      gap: 6px;
+      background: var(--red); color: var(--on-color);
+    }
+    .sidebar-logout.armed .sidebar-logout-text { max-width: 64px; opacity: 1; }
+    .sidebar-logout.armed .sidebar-logout-arrow { transform: translateX(2px); }
+    /* Свёрнутое меню — 64px: строка встаёт столбиком, пилюле раскрыться некуда,
+       поэтому взведённое состояние там — просто красный значок. */
+    .app-sidebar.collapsed .sidebar-user-row { flex-direction: column; gap: 2px; }
+    .app-sidebar.collapsed .sidebar-logout-text { display: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .sidebar-logout, .sidebar-logout-text, .sidebar-logout-arrow { transition: none; }
+    }
+
     /* ── Карточка своего продукта в боковом меню ─────────────────────────────
        Просьба владельца 11.09.2026: рекламировать в пустом месте меню свои
        другие продукты. Сейчас один — Premium Stock (stock.adervis.ru).
