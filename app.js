@@ -18613,7 +18613,6 @@
                 state.crmView === "list" ? `
               <div class="panel" style="padding:0;overflow:hidden">
                 ${pagedItems.map(project => {
-                  const payPct = project.total > 0 ? Math.min(100, Math.round((project.paid||0)/project.total*100)) : 0;
                   const isCurrent = project.id === state.activeProjectId;
                   const u = dealDeadlineUrgency(project);
                   const nextLabel = CRM_NEXT[project.crmStatus || "Лид"];
@@ -18644,7 +18643,6 @@
                   const margin = project.revenue > 0 ? Math.round((project.profit || 0) / project.revenue * 100) : 0;
                   const healthClass = margin >= 40 ? "green" : margin >= 20 ? "yellow" : margin > 0 ? "red" : "grey";
                   const isCurrent = project.id === state.activeProjectId;
-                  const payPct = project.total > 0 ? Math.min(100, Math.round((project.paid || 0) / project.total * 100)) : 0;
                   const isSelected = !!(state.crmSelected || {})[project.id];
 
                   const clientObj = project.clientId ? state.clients.find(c => c.id === project.clientId) : null;
@@ -18687,7 +18685,12 @@
                           <span class="val">${money(project.total)}</span>
                         </div>
                         <div class="deal-card-stat">
-                          <span class="lbl">Оплачено${payPct > 0 ? ` · ${payPct}%` : ""}</span>
+                          ${/* Без «· 100%»: ту же долю показывает полоса оплаты внизу
+                                карточки — она есть у КАЖДОЙ сделки и подписана процентом.
+                                Одно число дважды на площади в три сантиметра не добавляет
+                                сведений, зато удлиняет подпись и на узкой карточке
+                                выталкивает её в многоточие. */""}
+                          <span class="lbl">Оплачено</span>
                           <span class="val" style="color:${project.paid > 0 ? "var(--text-success)" : "var(--muted)"}">${money(project.paid || 0)}</span>
                         </div>
                         <div class="deal-card-stat">

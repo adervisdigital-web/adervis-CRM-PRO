@@ -4733,6 +4733,22 @@
     /* В карточке (не в компактной строке списка) — только на hover, меньше шума */
     .deal-card .next-action-btn { opacity: 0; transition: opacity var(--dur-1), background var(--dur-1), transform var(--dur-1); }
     .deal-card:hover .next-action-btn { opacity: 1; }
+    /* В СПИСКЕ кнопка тихая: контур и акцентный текст, заливка приходит вместе с
+       наведением на строку. Шесть сделок подряд — шесть залитых фиолетовых
+       кнопок, и правило «акцент на один главный элемент экрана» (DESIGN.md §3)
+       переставало работать: кричали все, значит никто. Прятать кнопку совсем,
+       как на карточке, здесь нельзя — список читают с клавиатуры и на планшете,
+       где hover может не наступить вовсе. */
+    .deal-list-row .next-action-btn {
+      background: transparent; color: var(--primary-text);
+      border: 1px solid rgb(var(--primary-rgb) / .45);
+      transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1);
+    }
+    .deal-list-row:hover .next-action-btn,
+    .deal-list-row .next-action-btn:hover,
+    .deal-list-row .next-action-btn:focus-visible {
+      background: var(--primary); color: var(--on-color); border-color: var(--primary);
+    }
     .health-dot {
       width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto;
     }
