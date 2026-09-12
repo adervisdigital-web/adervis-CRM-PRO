@@ -625,5 +625,84 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await c2.close();
   });
 
+  /* Что нажимается — должно отзываться на наведение. Без отклика элемент читается
+     как надпись: человек не понимает, кликабельно ли это, и проверяет мышью
+     наугад. Обход 11.09.2026 нашёл четыре таких вида: строки операций в финансах,
+     вкладки тем в базе знаний, фильтры типов в календаре (они были целиком
+     инлайном, а инлайн перебивает любое :hover) и крестик чеклиста первых шагов.
+
+     Отклик засчитываем ЛЮБОЙ и где угодно в цепочке: у строк КП подсвечивается
+     вся строка, а нажимается её середина — сравнение только по самому элементу
+     объявило бы это дефектом (так и вышло в первой версии обхода).
+     Активные пункты пропускаем: им меняться на наведении не обязано. */
+  await test("кликабельное отзывается на наведение во всех разделах", async () => {
+    const VIEWS = ["home", "crm", "clients", "catalog", "packages", "estimate", "global-finances",
+      "global-tasks", "contracts", "knowledge", "proposals", "briefs", "company-team", "global-calendar", "settings"];
+    const own = await bootLocal(browser, baseUrl, { width: 1440, height: 900, seedDemo: true });
+    const dead = [];
+    let checked = 0;
+    try {
+      for (const v of VIEWS) {
+        await own.page.evaluate((view) => { window.app.go(view); window.scrollTo(0, 0); }, v);
+        await own.page.waitForTimeout(280);
+        const targets = await own.page.evaluate(() => {
+          const seen = new Set(), out = [];
+          document.querySelectorAll("#appContent [onclick]").forEach((el, i) => {
+            const r = el.getBoundingClientRect();
+            // Только то, что целиком на экране и не под шапкой: иначе курсор попадёт не туда.
+            if (r.width < 24 || r.height < 18 || r.top < 80 || r.bottom > window.innerHeight - 10) return;
+            const st = getComputedStyle(el);
+            if (st.cursor !== "pointer" && el.tagName !== "BUTTON" && el.tagName !== "A") return;
+            const cn = typeof el.className === "string" ? el.className.trim() : "";
+            if (/(^|\s)(active|on|selected|current|is-active|active-filter)(\s|$)/.test(cn)
+              || el.getAttribute("aria-pressed") === "true" || el.getAttribute("aria-current")) return;
+            if (el.disabled) return;
+            const parentCls = el.parentElement && typeof el.parentElement.className === "string"
+              ? el.parentElement.className.split(/\s+/)[0] : "";
+            const key = (cn.split(/\s+/)[0] || el.tagName) + "@" + parentCls;
+            if (seen.has(key)) return;
+            seen.add(key);
+            const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            if (!(top === el || el.contains(top))) return;   // перекрыт — не мерим
+            el.setAttribute("data-hv", String(i));
+            out.push({ id: String(i), key, cx: r.left + r.width / 2, cy: r.top + r.height / 2,
+              txt: (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 24) });
+          });
+          return out;
+        });
+        for (const t of targets) {
+          const snap = () => own.page.evaluate((id) => {
+            const el = document.querySelector(`[data-hv="${id}"]`);
+            if (!el) return null;
+            const chain = [el, el.parentElement, el.parentElement && el.parentElement.parentElement].filter(Boolean);
+            const own_ = chain.map((e) => {
+              const st = getComputedStyle(e);
+              return [st.backgroundColor, st.backgroundImage, st.borderColor, st.boxShadow, st.transform, st.color, st.opacity, st.textDecorationLine].join("|");
+            }).join("#");
+            const kids = [...el.querySelectorAll("*")].slice(0, 6).map((c) => {
+              const st = getComputedStyle(c);
+              return st.color + st.backgroundColor + st.transform + st.opacity;
+            }).join("");
+            return own_ + "#" + kids;
+          }, t.id);
+          await own.page.mouse.move(2, 2);
+          await own.page.waitForTimeout(100);
+          const before = await snap();
+          if (!before) continue;
+          await own.page.mouse.move(t.cx, t.cy);
+          await own.page.waitForTimeout(320);
+          const after = await snap();
+          checked++;
+          if (before === after) dead.push(`${v} · ${t.key} «${t.txt}»`);
+        }
+      }
+    } finally {
+      await own.context.close();
+    }
+    assert(checked > 30, `проверено всего ${checked} видов — обход смотрит мимо`);
+    assert(dead.length === 0,
+      "нажимается, но на наведение не отзывается — читается как надпись:\n  " + dead.join("\n  "));
+  });
+
   await context.close();
 };

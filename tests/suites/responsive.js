@@ -1935,6 +1935,48 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  /* На телефоне бокового меню нет вовсе, а владелец и его клиенты сидят в CRM в
+     основном с телефона — карточки своего продукта там не видел никто. Второе
+     место для той же карточки — низ листа «Разделы», после «Настроить меню».
+     В листе вариант компактный: без абзаца описания, лист и так длинный. */
+  await test("карточка продукта видна и на телефоне — в листе «Разделы»", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 390, height: 844, touch: true, seedDemo: true });
+    try {
+      await page.evaluate(() => window.app.go("home"));
+      await page.waitForTimeout(300);
+      await page.evaluate(() => document.getElementById("mbnMore").click());
+      await page.waitForTimeout(450);
+      const r = await page.evaluate(() => {
+        const sheet = document.querySelector(".mobile-nav-sheet");
+        if (!sheet) return { лист: false };
+        sheet.scrollTop = sheet.scrollHeight;
+        const card = sheet.querySelector(".side-promo");
+        if (!card) return { лист: true, карточка: false };
+        const b = card.getBoundingClientRect(), s = sheet.getBoundingClientRect();
+        const text = sheet.querySelector(".side-promo-text");
+        return {
+          лист: true, карточка: true,
+          видна: b.top >= s.top - 1 && b.bottom <= s.bottom + 1,
+          абзацСкрыт: !text || getComputedStyle(text).display === "none",
+          ширинаДок: document.documentElement.scrollWidth,
+        };
+      });
+      assert(r.лист, "лист «Разделы» не открылся");
+      assert(r.карточка, "карточки продукта нет в листе «Разделы» — на телефоне её не видит никто");
+      assert(r.видна, "карточка в листе не помещается даже после прокрутки до низа");
+      assert(r.абзацСкрыт, "в листе показан полный абзац описания — лист и так длинный");
+      assertEqual(r.ширинаДок, 390, "карточка растянула страницу вбок");
+
+      // Крестик прячет её сразу, не дожидаясь следующего открытия листа.
+      await page.tap(".mobile-nav-sheet .side-promo-close");
+      await page.waitForTimeout(300);
+      const ещёТут = await page.evaluate(() => !!document.querySelector(".mobile-nav-sheet .side-promo"));
+      assert(!ещёТут, "после крестика карточка осталась в листе — выглядит как несработавшая кнопка");
+    } finally {
+      await context.close();
+    }
+  });
+
   /* Просьба владельца 11.09.2026: «Выйти» — не отдельной строкой, а сбоку от
      профиля, красиво и с продуманной анимацией. Значок стоит вплотную к имени, а
      adminLogout не переспрашивает — промах мимо своего профиля выкидывал бы из

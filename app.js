@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 446;
+      const APP_BUILD = 447;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -2636,14 +2636,20 @@
       ];
       const SIDE_PROMO_HIDE_DAYS = 14;
 
-      function renderSidePromoHtml() {
+      /* Одна карточка на два места: боковое меню (десктоп) и лист «Разделы» на
+         телефоне. На телефоне бокового меню нет вовсе, а владелец и его клиенты
+         сидят в CRM в основном с телефона — без второго места карточку там не
+         видел никто (дополнено 12.09.2026). В листе вариант компактный: без
+         абзаца описания, лист и так длинный. */
+      function renderSidePromoHtml(opts = {}) {
         if (!SIDE_PROMOS.length) return "";
         if (Number(lsGet("side_promo_hidden_until") || 0) > Date.now()) return "";
         const day = Math.floor(Date.now() / 864e5);
         const p = SIDE_PROMOS[day % SIDE_PROMOS.length];
+        const sheet = !!opts.sheet;
         return `
-          <div class="side-promo-slot no-print">
-            <div class="side-promo-wrap">
+          ${sheet ? "" : `<div class="side-promo-slot no-print">`}
+            <div class="side-promo-wrap${sheet ? " side-promo-wrap--sheet" : ""}">
               <a class="side-promo" href="${escapeHtml(p.href)}" target="_blank" rel="noopener"
                 onclick="app.sidePromoClick('${p.id}')">
                 <img class="side-promo-logo" src="${escapeHtml(p.logo)}" alt="${escapeHtml(p.name)}">
@@ -2657,13 +2663,16 @@
               <button type="button" class="side-promo-close" onclick="app.hideSidePromo()"
                 aria-label="Скрыть на ${SIDE_PROMO_HIDE_DAYS} дней" title="Скрыть на ${SIDE_PROMO_HIDE_DAYS} дней">${icon("close", 13)}</button>
             </div>
-          </div>`;
+          ${sheet ? "" : `</div>`}`;
       }
 
       function hideSidePromo() {
         lsSet("side_promo_hidden_until", String(Date.now() + SIDE_PROMO_HIDE_DAYS * 864e5));
         trackGoal("side_promo_hide");
         renderSidebar();
+        // Скрыли из листа на телефоне — лист должен перерисоваться сразу, иначе
+        // карточка висит до следующего открытия, будто крестик не сработал.
+        if (_mobileSheet) renderMobileSheet();
       }
 
       function renderSidebar() {
@@ -2940,7 +2949,8 @@
                 переход читался как скачок. */""}
           <button class="mobile-nav-sheet-config" onclick="app.openMobileSheet('config', event)">
             ${icon("gear", 15)} Настроить меню
-          </button>`;
+          </button>
+          ${renderSidePromoHtml({ sheet: true })}`;
       }
 
       function renderMobileSheet() {
@@ -17749,7 +17759,9 @@
         // 36×36 — тач-таргет чуть ниже рекомендованных 44px, но это редкое разовое
         // действие («скрыть раз и навсегда»), а не то, что нажимают постоянно;
         // прежние 18×18 (только сам глиф) не проходили даже мягкий порог.
-        const hideBtn = `<button onclick="try{localStorage.setItem('_onboardingDismissed','1')}catch(e){};app.render()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;width:44px;height:44px;flex-shrink:0;display:grid;place-items:center;line-height:1" title="Скрыть" aria-label="Скрыть чеклист первых шагов">${icon("close", 13)}</button>`;
+        // Общий крестик (.u-modal-close), а не свой инлайн: свой никак не отзывался
+        // на наведение и выглядел не как остальные крестики (замер 11.09.2026).
+        const hideBtn = `<button class="u-modal-close onb-hide-btn" onclick="try{localStorage.setItem('_onboardingDismissed','1')}catch(e){};app.render()" title="Скрыть" aria-label="Скрыть чеклист первых шагов">${icon("close", 13)}</button>`;
 
         // Пройдено всё — говорим об этом прямо, а не прячем панель молча. Скрывается
         // по крестику: следующий заход начнётся уже без неё.
@@ -24002,7 +24014,10 @@
                     ${/* Класс нужен, чтобы до кнопок дотягивался CSS: целиком на
                           инлайновых стилях они оставались 27px высотой на телефоне,
                           и ни одно правило про цели касания их не видело. */""}
-                    ${typeFilters.map(f => `<button class="cal-type-chip" style="padding:4px 10px;font-size:12px;font-weight:750;border-radius:99px;border:1px solid ${calTypeFilter===f.id?"var(--primary)":"var(--line)"};background:${calTypeFilter===f.id?"rgb(var(--primary-rgb) / .15)":"transparent"};color:${calTypeFilter===f.id?"var(--primary-on-tint)":"var(--muted)"};cursor:pointer" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
+                    ${/* Вид — в классах .cal-type-chip / .active (style.css), а не инлайном:
+                          инлайн-рамка и фон перебивали любое :hover, и фильтр
+                          никак не отзывался на наведение (замер 11.09.2026). */""}
+                    ${typeFilters.map(f => `<button class="cal-type-chip${calTypeFilter===f.id?" active":""}" aria-pressed="${calTypeFilter===f.id}" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
                   </div>
                   <span style="font-size:12px;color:var(--muted);margin-left:auto">${listEvents.length} ${plural(listEvents.length, "событие", "события", "событий")}</span>
                 </div>

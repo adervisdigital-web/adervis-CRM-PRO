@@ -905,6 +905,10 @@
        обрезанная реклама хуже отсутствующей. Пороги из замера 11.09.2026:
        полная карточка 204px + 12px отступа = 216 (берём 224, с запасом на
        перенос строки), короткая 100 + 12 = 112. Сменится текст — перемерить. */
+    /* Та же карточка в листе «Разделы» на телефоне — в самом низу, после
+       «Настроить меню». Компактно: без абзаца описания (лист и так длинный). */
+    .side-promo-wrap--sheet { margin: 14px 4px 4px; }
+    .side-promo-wrap--sheet .side-promo-text { display: none; }
     @container sidepromo (max-height: 223px) {
       .side-promo-title, .side-promo-text { display: none; }
     }
@@ -1839,6 +1843,31 @@
       color: var(--on-color);
       border-color: transparent;
     }
+    /* Отклик на наведение у неактивной вкладки. Его не было вовсе — вкладки
+       «Базы знаний» и мастера сделки выглядели надписями, а не кнопками
+       (обход 11.09.2026: «кликается, но не отзывается»). */
+    .tab { transition: background var(--dur-1), border-color var(--dur-1); }
+    .tab:not(.active):hover { border-color: rgb(var(--primary-rgb) / .45); background: var(--primary-bg); }
+
+    /* Фильтры типов в календаре — раньше целиком инлайном, и инлайн перебивал
+       любое :hover. Вид прежний, плюс отклик. */
+    .cal-type-chip {
+      padding: 4px 10px; font-size: 12px; font-weight: 750;
+      border-radius: var(--r-pill); border: 1px solid var(--line);
+      background: transparent; color: var(--muted); cursor: pointer;
+      transition: border-color var(--dur-1), color var(--dur-1), background var(--dur-1);
+    }
+    .cal-type-chip:not(.active):hover { border-color: rgb(var(--primary-rgb) / .45); color: var(--text); }
+    .cal-type-chip.active {
+      border-color: var(--primary);
+      background: rgb(var(--primary-rgb) / .15);
+      color: var(--primary-on-tint);
+    }
+
+    /* Строка таблицы, которая открывает запись по нажатию (операции в финансах):
+       подсветка строки, как у строк клиентов в дашборде. */
+    tr.u-pointer td { transition: background var(--dur-1); }
+    tr.u-pointer:hover td { background: var(--primary-bg); }
 
     .list {
       display: grid;
@@ -7885,9 +7914,15 @@ body.portal-mode .nav { display: none !important; }
   .line-collapse-btn,
   .catalog-action-btn,
   .db-chart-nav-btn,
-  .icon-del-btn {
+  .icon-del-btn,
+  .u-modal-close {
     position: relative;
   }
+  /* .u-modal-close — общий крестик ВСЕХ окон — в этом списке не было: на телефоне
+     его зона касания была 32×32, меньше 44. Всплыло 11.09.2026, когда крестик
+     онбординга (он был 44×44 своим инлайном) переводили на общий класс. */
+  .u-modal-close::after,
+  .side-promo-close::after,
   .topbar-icon-btn::after,
   .profile-avatar-btn::after,
   .logo::after,
@@ -7967,6 +8002,10 @@ body.portal-mode .nav { display: none !important; }
   transition: background var(--dur-1), color var(--dur-1);
 }
 .u-modal-close:hover { background: var(--panel2); color: var(--text); }
+/* Крестик чеклиста «первые шаги» — тот же вид, но крупнее: он стоит не в шапке
+   окна, а на карточке среди контента, и по нему целятся пальцем. Размер держит
+   тест в наборе a11y (не меньше 36×36); общий крестик 32×32 его бы уронил. */
+.u-modal-close.onb-hide-btn { width: 44px; height: 44px; }
 .u-subpanel { margin-top: 18px; box-shadow: none; background: var(--panel2); }
 .u-label-strong { font-weight: 700; font-size: 14px; color: var(--text); }
 .fs-20 { font-size: 20px; }
