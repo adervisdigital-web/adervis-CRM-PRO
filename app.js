@@ -19531,7 +19531,7 @@
                 ${isPkgHidden(pkg) ? `
                   <button class="btn green small" style="flex:1" onclick="event.stopPropagation();app.restorePkg('${pkg.id}')">Восстановить</button>
                 ` : `
-                  <button class="btn primary small" style="flex:1" onclick="event.stopPropagation();app.applyPackage('${pkg.id}')">В смету</button>
+                  <button class="btn primary small pkg-apply-btn" style="flex:1" onclick="event.stopPropagation();app.applyPackage('${pkg.id}')">В смету</button>
                   <button class="btn small" onclick="event.stopPropagation();app.copyPackageCalcLink('${pkg.id}')"
                           title="Скопировать ссылку на публичный расчёт по этому пакету — её можно отправить клиенту">Ссылка клиенту</button>
                 `}

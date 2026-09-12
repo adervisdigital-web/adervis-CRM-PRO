@@ -4464,9 +4464,17 @@
       font-size: 10.5px; font-weight: 700; letter-spacing: .01em; color: var(--text-success);
     }
     .deal-card-client { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+    /* Название — до ДВУХ строк, а не одна с многоточием. Сделки здесь зовутся
+       «Клиент — что делаем» («Антон Патокин — Магазин спойлеров»), и в колонке
+       шириной 330px одна строка обрывалась ровно на второй половине, то есть на
+       предмете работы: карточка показывала, чей это проект, и умалчивала, какой.
+       Ряд от этого не «пляшет»: карточки лежат в grid и тянутся до общей высоты,
+       а полоса оплаты прижата к низу (margin-top:auto). */
     .deal-card-name {
       font-size: 15px; font-weight: 750; line-height: 1.3; letter-spacing: -.01em;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+      display: -webkit-box; -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2; line-clamp: 2;
+      overflow: hidden; min-width: 0;
     }
 
     /* ── DEAL CARD (redesign 04.07.2026 — воздух, мягче вес, чёткая иерархия) ── */
@@ -4497,13 +4505,16 @@
 
     /* Смета/Оплачено (+Расходы/Прибыль) сгруппированы в мягкую вставку с
        вертикальным разделителем — числа читаются как единый финансовый блок. */
+    /* Вставку держит ФОН, а не рамка: рамка внутри рамки карточки давала два
+       контура в двух миллиметрах друг от друга — на четырёх карточках в ряду это
+       восемь линий на экран, и блок с деньгами выглядел вставленной таблицей, а
+       не частью карточки. Подложка --panel2 отделяет его сама. */
     .deal-card-stats {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 7px 0;
       padding: 9px 12px;
       background: var(--panel2);
-      border: 1px solid var(--line);
       border-radius: var(--r-lg);
     }
     .deal-card-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -7896,6 +7907,31 @@ body.portal-mode .nav { display: none !important; }
   padding: 0 18px;
   min-height: 32px;
 }
+
+/* Главное действие карточки — тихое; заливку оно получает вместе с наведением
+   на свою карточку. В каталоге таких карточек два десятка на экран, в пакетах —
+   сорок пять: залитая кнопка в каждой превращала сетку в фиолетовую стену, и
+   правило «акцент — на один главный элемент экрана» (DESIGN.md §3) переставало
+   работать. Акцентом на этих страницах остаётся кнопка вверху («Своя позиция»,
+   «Свой пакет») — то есть ровно одна.
+   Прятать до наведения, как кнопку шага на карточке сделки, здесь нельзя: сюда
+   приходят именно нажимать, а на телефоне наведения не бывает вовсе. */
+.item--catalog .btn.catalog-add-btn.primary,
+.package-card .btn.pkg-apply-btn.primary {
+  background: transparent;
+  color: var(--primary-text);
+  border: 1px solid rgb(var(--primary-rgb) / .45);
+}
+.item--catalog:hover .btn.catalog-add-btn.primary,
+.item--catalog .btn.catalog-add-btn.primary:hover,
+.item--catalog .btn.catalog-add-btn.primary:focus-visible,
+.package-card:hover .btn.pkg-apply-btn.primary,
+.package-card .btn.pkg-apply-btn.primary:hover,
+.package-card .btn.pkg-apply-btn.primary:focus-visible {
+  background: var(--primary);
+  color: var(--on-color);
+  border-color: var(--primary);
+}
 .catalog-action-btn:hover {
   background: var(--panel3, rgb(var(--primary-rgb) / .08));
   color: var(--text);
@@ -8712,6 +8748,17 @@ button.is-busy::before {
     width: auto !important;
     min-width: 110px;
   }
+  /* Счётчик уходит на свою строку. 110px на выпадашку — та ширина, при которой
+     подпись «ещё читается» в теории; замером на 390px (12.09.2026) вышло «Без
+     фил…» и «По назв…»: шеврон и внутренние отступы съедают из этих 110 около
+     сорока. Счётчик — справочное число, ему отдельная строка стоит дешевле, чем
+     две обрезанные подписи, а выпадашки получают по ~170px и помещаются целиком. */
+  /* Своя строка — и без капсулы: растянутая на всю ширину пилюля читалась как
+     пустая плашка с числом в углу. Тут это просто подпись под фильтрами. */
+  .catalog-toolbar .catalog-found-count {
+    flex: 1 1 100%; text-align: right;
+    background: none; border: none; padding: 2px 2px 0;
+  }
 }
 
 /* ── Карточка каталога: одна высота в ряду и внятное наведение ──────────────
@@ -8738,6 +8785,23 @@ button.is-busy::before {
 .item--catalog .price-editor { flex: 0 0 118px; width: 118px; }
 .item--catalog .item-top > div:first-child { flex: 1 1 auto; min-width: 0; }
 .item--catalog .catalog-price-input { width: 100%; }
+/* Цена в карточке каталога — сперва число, и только потом поле ввода. Рамка с
+   подложкой стояли вокруг каждой цены, а карточек на экране два десятка: сетка
+   получала два десятка тяжёлых прямоугольников, которые спорили с названием
+   позиции. Читают эту сетку ради названия и цены, правят цену редко — поэтому
+   оправа приходит при наведении на карточку и при фокусе, ровно тогда, когда
+   полем собираются пользоваться. Габариты поля не меняются: цель касания
+   остаётся прежней, ничего не «прыгает». */
+.item--catalog .catalog-price-input {
+  background: transparent; border-color: transparent;
+  font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums;
+  transition: background var(--dur-1), border-color var(--dur-1);
+}
+.item--catalog:hover .catalog-price-input,
+.item--catalog .catalog-price-input:hover,
+.item--catalog .catalog-price-input:focus {
+  background: var(--input); border-color: var(--line);
+}
 /* Заголовок держит две строки всегда. Иначе у соседей по ряду («Аватар
    сообщества» в одну строку, «Адаптация в вертикальный формат» в две) описание
    и бейджи начинались на разной высоте: низ карточек уже выровнен, а середина
