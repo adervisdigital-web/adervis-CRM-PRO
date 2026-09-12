@@ -6055,6 +6055,12 @@
     /* Состав сметы в правой колонке каталога: только чтение, поэтому строка
        проще, чем в редакторе пакета — имя и сумма. Имени разрешено переноситься:
        обрезка названия и была главной жалобой на соседний список. */
+    .summary-count {
+      margin-top: 10px; text-align: right;
+      font-size: 12px; font-weight: 600; color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .summary-count + .summary-lines { margin-top: 6px; }
     .summary-lines {
       margin-top: 12px; padding-top: 10px;
       border-top: 1px solid var(--line);
