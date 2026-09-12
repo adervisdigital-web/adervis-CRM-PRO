@@ -9548,7 +9548,7 @@
              onclick="app.drillIntoMonth('${m.key}')"`;
           return `
             <g class="db-chart-col" ${hooks}>
-              <rect class="db-chart-hit-bg" x="${gx + 2}" y="${PADT}" width="${gw - 4}" height="${plotH}" rx="8"/>
+              <rect class="db-chart-hit-bg" x="${gx + 2}" y="${PADT}" width="${gw - 4}" height="${plotH}" rx="8" fill="url(#${id}Hl)"/>
               <rect class="db-chart-hit" x="${gx}" y="0" width="${gw}" height="${H}" fill="transparent"/>
               ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, 3)}" fill="url(#${id}Rev)" filter="url(#${id}Glow)"/>` : ""}
               ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, 3)}" fill="url(#${id}Exp)"/>` : ""}
@@ -9556,7 +9556,7 @@
               ${/* Месяц без движения денег: колонка пустая, и подпись под ней
                     приглушена — иначе пустое место читается как обрыв графика, а
                     не как «в этом месяце ничего не было». */""}
-              <text x="${gx + gw / 2}" y="${H - 13}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="inherit" letter-spacing=".2"${inc === 0 && exp === 0 ? ' opacity=".45"' : ''}>${escapeHtml(m.short || m.label)}</text>
+              <text class="db-chart-mlabel" x="${gx + gw / 2}" y="${H - 13}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="inherit" letter-spacing=".2"${inc === 0 && exp === 0 ? ' opacity=".45"' : ''}>${escapeHtml(m.short || m.label)}</text>
             </g>`;
         }).join("");
 
@@ -9602,6 +9602,15 @@
               </linearGradient>
               ${/* Свечение столбцов дохода. Радиус маленький: на большем столбцы
                     «плывут» и перестают читаться как точная величина, а это деньги. */""}
+              ${/* Подсветка колонки под курсором: свет от основания, гаснущий
+                    к верху поля. Прозрачность держим здесь, а не в CSS: заливка
+                    градиентом и переключение видимости через opacity — разные
+                    вещи, и смешивать их в одном свойстве значило бы гасить свет
+                    вместе с самим градиентом. */""}
+              <linearGradient id="${id}Hl" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stop-color="var(--primary)" stop-opacity="0"/>
+                <stop offset="1" stop-color="var(--primary)" stop-opacity="0.11"/>
+              </linearGradient>
               <filter id="${id}Glow" x="-60%" y="-40%" width="220%" height="200%">
                 <feGaussianBlur stdDeviation="1.5" result="b"/>
                 <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
@@ -17888,25 +17897,60 @@
 
       // Кастомный тултип графика вместо нативного SVG <title> (тот не стилизуется
       // и всплывает с задержкой ОС). Один переиспользуемый div, position:fixed.
+      /* Слова те же, что в шапке панели: «Доход · Расход · Прибыль». Подсказка
+         говорила «Выручка», а в пяти сантиметрах над ней та же величина
+         называлась «Доход» — читателю приходится решать, одно это или разное.
+         Прибыль здесь третьей строкой не для симметрии: панель даёт три числа за
+         полгода, а по месяцу до сих пор давала два, и главное из них — сколько
+         месяц оставил — приходилось считать в уме. */
       function showChartTip(evt, label, rev, exp) {
         const el = document.getElementById('dbChartTooltip');
         if (!el) return;
+        const profit = (rev || 0) - (exp || 0);
+        const row = (color, name, value, bold) => `
+          <div class="db-tip-row"><span class="db-tip-dot" style="background:${color}"></span>${name}<b${bold ? ` style="color:${bold}"` : ''}>${value}</b></div>`;
         el.innerHTML = `
-          <div style="font-weight:700;margin-bottom:5px">${escapeHtml(label)}</div>
-          <div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:var(--green);flex:0 0 auto"></span>Выручка: <b style="margin-left:auto">${money(rev)}</b></div>
-          <div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:var(--red);flex:0 0 auto"></span>Расходы: <b style="margin-left:auto">${money(exp)}</b></div>
+          <div class="db-tip-title">${escapeHtml(label)}</div>
+          ${row('var(--green)', 'Доход', money(rev))}
+          ${row('var(--red)', 'Расход', money(exp))}
+          <div class="db-tip-sep"></div>
+          ${row('transparent', 'Прибыль', money(profit), profit >= 0 ? 'var(--text-success)' : 'var(--text-danger)')}
         `;
         el.style.display = 'block';
         positionChartTip(evt);
       }
+      /* Подсказка встаёт НАД ВЕРШИНОЙ столбца и по центру колонки, а не у курсора.
+         Справа-снизу от курсора она ложилась ровно на соседний месяц: наводишь на
+         июнь — июль закрыт, а сравнить два месяца это первое, зачем в график
+         смотрят. Над курсором — не лучше: курсор гуляет по всей высоте колонки, и
+         подсказка то и дело накрывала верхушку того самого столбца, о котором
+         рассказывает.
+         Считаем от геометрии самих столбцов (их <path> внутри группы), поэтому
+         подсказка ещё и стоит на месте, пока мышь ходит по колонке, — раньше она
+         ездила следом и мешала прицелиться. */
       function positionChartTip(evt) {
         const el = document.getElementById('dbChartTooltip');
         if (!el || el.style.display === 'none') return;
         const pad = 14;
         const rect = el.getBoundingClientRect();
-        let x = evt.clientX + pad, y = evt.clientY + pad;
-        if (x + rect.width > window.innerWidth - 8) x = evt.clientX - rect.width - pad;
-        if (y + rect.height > window.innerHeight - 8) y = evt.clientY - rect.height - pad;
+        const bars = evt.currentTarget && evt.currentTarget.querySelectorAll
+          ? evt.currentTarget.querySelectorAll('path') : [];
+        let cx = evt.clientX, topY = evt.clientY;
+        if (bars.length) {
+          let minTop = Infinity, left = Infinity, right = -Infinity;
+          bars.forEach(b => {
+            const r = b.getBoundingClientRect();
+            minTop = Math.min(minTop, r.top); left = Math.min(left, r.left); right = Math.max(right, r.right);
+          });
+          // Запас под подписью значения («208к»), она стоит над столбцом.
+          cx = (left + right) / 2; topY = minTop - 16;
+        }
+        let x = cx - rect.width / 2;
+        let y = topY - rect.height - pad;
+        // Столбец под самым верхом поля — опускаем подсказку под его вершину.
+        if (y < 8) y = topY + pad + 16;
+        if (x < 8) x = 8;
+        if (x + rect.width > window.innerWidth - 8) x = window.innerWidth - 8 - rect.width;
         el.style.left = x + 'px';
         el.style.top = y + 'px';
       }

@@ -4121,9 +4121,18 @@
     .db-chart-nav-btn:disabled { opacity: .35; cursor: default; }
 
     /* Наведение/тап по колонке месяца — hover-подсветка + курсор, клик уводит в «Финансы» */
+    /* Подсветка — вертикальный градиент от основания к нулю вверху (заливка
+       задаётся в разметке, `url(#…Hl)`), а не ровная фиолетовая плашка на всю
+       высоту поля. Плашка поднималась выше самого высокого столбца и читалась
+       отдельным блоком, будто в графике что-то выделено насовсем; свет от базы
+       поднимает колонку и заканчивается там же, где данные. */
     .db-chart-col { cursor: pointer; }
-    .db-chart-hit-bg { fill: var(--primary); opacity: 0; transition: opacity var(--dur-1); }
-    .db-chart-col:hover .db-chart-hit-bg { opacity: .07; }
+    .db-chart-hit-bg { opacity: 0; transition: opacity var(--dur-1); }
+    .db-chart-col:hover .db-chart-hit-bg { opacity: 1; }
+    /* Подпись месяца под курсором выходит из полутени: колонка подсвечена, а её
+       имя оставалось таким же тусклым, как у соседей. */
+    .db-chart-mlabel { transition: fill var(--dur-1); }
+    .db-chart-col:hover .db-chart-mlabel { fill: var(--text); }
 
     /* Кастомный тултип графика — вместо нативного SVG <title> */
     .db-chart-tooltip {
@@ -4132,6 +4141,14 @@
       box-shadow: var(--elev-2); padding: 10px 12px; font-size: 12.5px;
       min-width: 170px;
     }
+    .db-tip-title { font-weight: 700; margin-bottom: 6px; }
+    .db-tip-row {
+      display: flex; align-items: center; gap: 6px; line-height: 1.7;
+      font-variant-numeric: tabular-nums;
+    }
+    .db-tip-row b { margin-left: auto; }
+    .db-tip-dot { width: 8px; height: 8px; border-radius: var(--r-xs); flex: 0 0 auto; }
+    .db-tip-sep { height: 1px; background: var(--line); margin: 5px 0; }
 
     @media (max-width: 768px) {
       .db-stat { min-width: 45%; padding: 10px 12px; }

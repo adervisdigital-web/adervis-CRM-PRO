@@ -869,6 +869,55 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(await dbStat(page, "Долг клиентов"), debtBefore, "сделка в «Оплате» выпала из долга — деньги ведь ещё не пришли");
   });
 
+  /* «Прогноз 30 дн» и «Воронка» стоят на дашборде рядом и отвечают на один
+     вопрос — сколько принесёт незакрытая работа. До 12.09.2026 они считались по
+     РАЗНЫМ множествам сделок: воронка по «не сданным», прогноз по «не закрытым»
+     (то есть всё, кроме «Завершённых» и «Архива»). Сделки в «Сдано» и «Оплате»
+     шли в прогноз с весом 1,0 — и на боевом счёте владельца рядом стояли
+     54 000 ₽ и 2 325 325 ₽, где вторая цифра почти целиком состояла из уже
+     полученных денег.
+     Проверяем результатом: прогноз не должен превышать воронку — веса этапов
+     всегда ≤ 1, поэтому любая лишняя сделка в числителе видна сразу. */
+  await test("«Прогноз 30 дн» считает ту же воронку, а не уже полученные деньги", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const pg = await ctx.newPage();
+    await pg.addInitScript((key) => {
+      localStorage.setItem("adervis_local_mode", "1");
+      localStorage.setItem("adervis_tour_done", "1");
+      localStorage.setItem("adervis_onboarded", "1");
+      const mk = (id, total, crmStatus) => ({
+        id, name: "Сделка " + id, client: "Клиент " + id, clientId: "cl_" + id,
+        total, paid: crmStatus === "Оплата" ? total : 0, crmStatus,
+        snapshot: { payments: [], expenses: [], tasks: [] },
+      });
+      localStorage.setItem(key, JSON.stringify({
+        view: "home",
+        savedProjects: [mk("f_work", 100000, "В работе"), mk("f_paid", 900000, "Оплата")],
+      }));
+    }, STORAGE_KEY);
+    await pg.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await pg.waitForFunction(() => {
+      const el = document.getElementById("appContent");
+      return el && el.innerHTML.trim().length > 0;
+    }, { timeout: 20000 });
+
+    const tile = async (label) => pg.evaluate((l) => {
+      const t = [...document.querySelectorAll("#appContent .db-stat")].find(
+        (el) => ((el.querySelector(".db-stat-label") || {}).textContent || "").trim() === l);
+      return t ? Number((t.querySelector(".db-stat-value").textContent || "").replace(/[^\d-]/g, "")) : null;
+    }, label);
+
+    await pg.evaluate(() => window.app.go("home"));
+    await pg.waitForTimeout(200);
+    const pipeline = await tile("Воронка");
+    const forecast = await tile("Прогноз 30 дн");
+    assertEqual(pipeline, 100000, "воронка должна считать только сделку «В работе»");
+    assert(forecast !== null && forecast <= pipeline,
+      `прогноз ${forecast} ₽ больше воронки ${pipeline} ₽ — в него попали деньги закрытых этапов`);
+    assertEqual(forecast, 95000, "вес этапа «В работе» — 0,95 от суммы сделки");
+    await ctx.close();
+  });
+
   // Названный клиентом бюджет хранится отдельно от total сделки (тот при первой же
   // позиции пересчитывается по смете) — иначе сравнивать «просили уложиться» с
   // «получилось» просто не с чем.
