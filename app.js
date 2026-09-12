@@ -5037,6 +5037,21 @@
       function _adminPlanLabel(plan) {
         return { month1: "1 мес", month3: "3 мес", month6: "6 мес", year: "Год", pro: "PRO", "": "—" }[plan || ""] || plan;
       }
+      /* «Сколько прошло» словами. Рядом уже живёт _adminDaysLeft («через 4 дн.»),
+         но он про БУДУЩЕЕ — срок подписки, — а здесь нужно прошедшее время, и
+         одной функцией на оба случая выйдет «через -40 дн.». */
+      function _adminAgoLabel(iso) {
+        const d = Math.floor((Date.now() - new Date(iso)) / 86400000);
+        if (!isFinite(d)) return "—";
+        if (d <= 0) return "сегодня";
+        if (d === 1) return "вчера";
+        if (d < 30) return `${d} ${plural(d, "день", "дня", "дней")} назад`;
+        const m = Math.floor(d / 30);
+        if (m < 12) return `${m} ${plural(m, "месяц", "месяца", "месяцев")} назад`;
+        const y = Math.floor(d / 365);
+        return `${y} ${plural(y, "год", "года", "лет")} назад`;
+      }
+
       function _adminDaysLeft(expiresAt) {
         if (!expiresAt) return null;
         const d = Math.round((new Date(expiresAt) - new Date()) / 86400000);
@@ -5234,9 +5249,18 @@
                         <!-- Info -->
                         <div class="u-flex1-min0 adm-who">
                           <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.email||"—")}</div>
+                          ${/* «Вход: 08.09.2026» приходилось вычитать календарём:
+                                чтобы понять, живой аккаунт или брошенный, нужно
+                                вычесть дату из сегодняшнего дня — и так семнадцать
+                                раз подряд. Показываем срок словами («заходил 4 дн.
+                                назад»), точная дата остаётся в подсказке. Тот, кто
+                                не заходил ни разу, назван прямо: это не пропуск
+                                данных, а состояние аккаунта. */""}
                           <div style="font-size:12px;color:var(--muted);margin-top:2px">
                             Зарег.: ${a.created_at ? new Date(a.created_at).toLocaleDateString("ru-RU") : "—"}
-                            ${a.last_sign_in_at ? ` · Вход: ${new Date(a.last_sign_in_at).toLocaleDateString("ru-RU")}` : ""}
+                            ${a.last_sign_in_at
+                              ? ` · <span title="Последний вход: ${new Date(a.last_sign_in_at).toLocaleDateString("ru-RU")}">заходил ${escapeHtml(_adminAgoLabel(a.last_sign_in_at))}</span>`
+                              : ` · <span style="color:var(--text-warning)" title="Аккаунт создан, но в приложение ни разу не входили">ни разу не заходил</span>`}
                           </div>
                         </div>
                         <!-- Status + plan + expiry -->
@@ -9562,8 +9586,16 @@
           const gx = PADL + i * gw;
           const pairX = gx + (gw - (bw * 2 + gap)) / 2;
           const rx = pairX, ex = pairX + bw + gap;
-          const rh = inc > 0 ? Math.max(3, inc / scaleMax * plotH) : 0;
-          const eh = exp > 0 ? Math.max(3, exp / scaleMax * plotH) : 0;
+          /* Минимум видимой высоты — 7 единиц, а не 3. Расход в 5 000 ₽ против
+             дохода в 226 000 ₽ честно занимает три пикселя, и столбец
+             превращался в чёрточку на оси: было не отличить «потратили мало» от
+             «не потратили вовсе», а разница между 5к и 22к пропадала совсем.
+             Семь единиц — та высота, на которой скруглённая вершина ещё видна и
+             столбик читается столбиком. Масштаб при этом не врёт: подпись над
+             ним называет точную сумму, а сами величины сравнивают по подписям —
+             на таком порядке разницы форма всё равно бессильна. */
+          const rh = inc > 0 ? Math.max(7, inc / scaleMax * plotH) : 0;
+          const eh = exp > 0 ? Math.max(7, exp / scaleMax * plotH) : 0;
           const revLabel = showValues && inc > 0
             ? `<text x="${rx + bw / 2}" y="${baseY - rh - 5}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)" font-family="inherit">${shortNum(inc)}</text>` : "";
           /* Столбец расхода при доходе в разы больше — обрубок в три пикселя:
