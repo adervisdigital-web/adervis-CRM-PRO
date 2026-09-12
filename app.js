@@ -5063,37 +5063,6 @@
             ${chip("", "Все")}${chip("active", "Активные")}${chip("trial", "Триал")}${chip("expired", "Истёкшие")}${chip("blocked", "Заблокированные")}${chip("none", "Без профиля")}
           </div>
 
-          ${(() => {
-            /* Метки — ВТОРАЯ лента, а не продолжение первой: статус подписки и
-               метка отвечают на разные вопросы («платит ли» и «кто это»), и в
-               одном ряду человек читал бы их как один список.
-
-               Лента строится по ФАКТИЧЕСКИМ меткам, а не по ADMIN_USER_TAGS:
-               набор подсказок — это то, что предлагаем ввести, а фильтровать
-               можно только по тому, что реально проставлено. Иначе половина
-               кнопок всегда даёт пустой список. */
-            const метки = _adminTagList();
-            const безМетки = (_adminAgencies || []).filter(a => !(a.admin_tag || "").trim()).length;
-            if (!метки.length && !безМетки) return "";
-            /* В обработчик уходит ПОЗИЦИЯ, а не текст метки. Метка — свободный
-               ввод, а `escapeHtml` превращает апостроф в `&#039;`, который HTML-
-               разборщик вернёт в `'` ДО того, как выполнится JS: обработчик
-               `app._setAdminUsersTag('Свой'аккаунт')` — синтаксическая ошибка, и
-               кнопка молча мертва. Индекс не содержит ничего, что можно сломать;
-               список у кнопки и у обработчика один — _adminTagList(). */
-            const tchip = (key, label, n) => {
-              const active = (_adminUsersFilter.tag || "") === key;
-              const arg = key === "" ? "-1" : key === "__none" ? "-2" : String(метки.indexOf(key));
-              return `<button class="fin-subtab ${active ? "active" : ""}" onclick="app._setAdminUsersTag(${arg})">${escapeHtml(label)} · ${n}</button>`;
-            };
-            return `
-              <div class="fin-subtab-bar adm-strip" style="margin-bottom:10px">
-                <span class="u-meta" style="font-size:12px;align-self:center;padding:0 6px;white-space:nowrap">Метка:</span>
-                ${tchip("", "Любая", (_adminAgencies || []).length)}
-                ${безМетки ? tchip("__none", "Без метки", безМетки) : ""}
-                ${метки.map(t => tchip(t, t, (_adminAgencies || []).filter(a => (a.admin_tag || "").trim() === t).length)).join("")}
-              </div>`;
-          })()}
           <div class="kp-toolbar">
             <div class="kp-search">
               <span class="kp-search-icon" aria-hidden="true">${icon("search", 14)}</span>
@@ -5101,6 +5070,39 @@
                 aria-label="Поиск по пользователям" value="${escapeHtml(_adminUsersFilter.q)}"
                 oninput="app._setAdminUsersQuery(this.value)">
             </div>
+            ${(() => {
+              /* Метка — выпадашкой в ряду поиска, а не третьей лентой кнопок.
+                 Управления над списком было ЧЕТЫРЕ этажа подряд (вкладки, статусы,
+                 метки, поиск) — до первого пользователя уходило 190px, и два
+                 соседних ряда одинаковых на вид таблеток отвечали на разные
+                 вопросы («платит ли» и «кто это»), которые в таком виде читались
+                 как один список. Отбор по статусу остаётся лентой: им пользуются
+                 постоянно; метка — реже и точечно, ей хватает списка.
+
+                 Список строится по ФАКТИЧЕСКИМ меткам, а не по ADMIN_USER_TAGS:
+                 подсказки для ввода — это одно, а фильтровать можно лишь по тому,
+                 что реально проставлено, иначе половина пунктов даёт пустоту.
+
+                 В обработчик уходит ПОЗИЦИЯ, а не текст: метка — свободный ввод,
+                 и апостроф в ней («Свой'аккаунт») сломал бы инлайновый обработчик
+                 ещё на разборе HTML. */
+              const метки = _adminTagList();
+              const безМетки = (_adminAgencies || []).filter(a => !(a.admin_tag || "").trim()).length;
+              if (!метки.length && !безМетки) return "";
+              const cur = _adminUsersFilter.tag || "";
+              const opt = (val, label, n, selected) =>
+                `<option value="${val}"${selected ? " selected" : ""}>${escapeHtml(label)} · ${n}</option>`;
+              return `
+                <label class="kp-tag-filter">
+                  <span class="u-meta">Метка</span>
+                  <select aria-label="Отбор по метке аккаунта" onchange="app._setAdminUsersTag(this.value)">
+                    ${opt("-1", "Любая", (_adminAgencies || []).length, cur === "")}
+                    ${безМетки ? opt("-2", "Без метки", безМетки, cur === "__none") : ""}
+                    ${метки.map((t, i) => opt(String(i), t,
+                      (_adminAgencies || []).filter(a => (a.admin_tag || "").trim() === t).length, cur === t)).join("")}
+                  </select>
+                </label>`;
+            })()}
             <div class="kp-sort" role="group" aria-label="Сортировка пользователей">
               <span class="u-meta" style="font-size:12px">Сначала:</span>
               <button class="fin-subtab ${_adminUsersSort === "created" ? "active" : ""}" onclick="app._setAdminUsersSort('created')">новые</button>
@@ -5270,19 +5272,33 @@
                               «Активировать» — она обещала то, чего сделать не
                               может: активировать нечего, профиля нет. Вместо
                               ряда — объяснение. */""}
+                        ${/* Действия разложены по ДВУМ зонам постоянной ширины:
+                              «главное действие» и постоянные инструменты. Раньше
+                              ряд собирался подряд, а набор зависел от состояния
+                              («Активировать» у истёкшего, «Возврат» у активного) —
+                              и на семнадцати строках ряд начинался с четырёх
+                              разных вертикалей (замер 12.09: 1035 / 1092 / 1129 /
+                              1171 px). Глазу не за что зацепиться: одна и та же
+                              «+14д» у соседних строк стояла со сдвигом в сорок
+                              пикселей. Пустая зона у строки без главного действия
+                              — не дыра, а колонка, которая держит ряд. */""}
                         <div class="adm-actions">
                           ${!aid ? `
                             <span class="adm-no-profile" title="Пользователь зарегистрировался, но запись агентства не создалась — активировать нечего. Профиль появляется при первом входе в приложение.">${icon("warning", 13)} Профиля нет — действия недоступны</span>
                           ` : !isEditing ? `
-                            ${(isExpired || ast === "") ? `<button class="btn small green adm-act-wide" onclick="app.adminActivate('${aid}')" title="Активировать на 30 дней">${icon("check")} Активировать</button>` : ""}
-                            ${/* Активность — первым действием: чаще всего нужно понять,
-                                  пользуется человек или нет, а не править ему подписку. */""}
-                            <button class="btn small ${_adminActivity && _adminActivity.agencyId === (a.agency_id||"") ? "primary" : ""}" onclick="app.adminToggleActivity('${aid}')" title="Что человек делает внутри: сделки, сметы, КП" aria-label="Активность аккаунта">${icon("chart", 13)}</button>
-                            <button class="btn small" onclick="app.adminExtendTrial('${aid}')" title="+14 дней к триалу">+14д</button>
-                            <button class="btn small" onclick="app.adminSetUserTag('${aid}')" title="${a.admin_tag ? "Метка: " + escapeHtml(a.admin_tag) + " — изменить" : "Пометить аккаунт: амбассадор, партнёр, тест…"}" aria-label="Метка аккаунта">${icon("star", 13)}</button>
-                            <button class="btn small" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Изменить подписку" aria-label="Изменить подписку">${icon("pencil")}</button>
-                            ${ast === "active" ? `<button class="btn small adm-act-wide" data-email="${escapeHtml(a.email||"")}" onclick="app.adminRefund('${aid}',this.dataset.email)" title="Оформить возврат: закрыть подписку и вернуть деньги в ЮKassa">Возврат</button>` : ""}
-                            <button class="btn small ${isBlocked?"green":"danger-quiet"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}" aria-label="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?icon("unlock"):icon("lock")}</button>
+                            <div class="adm-act-main">
+                              ${(isExpired || ast === "") ? `<button class="btn small green adm-act-wide" onclick="app.adminActivate('${aid}')" title="Активировать на 30 дней">${icon("check")} Активировать</button>` : ""}
+                              ${ast === "active" ? `<button class="btn small adm-act-wide" data-email="${escapeHtml(a.email||"")}" onclick="app.adminRefund('${aid}',this.dataset.email)" title="Оформить возврат: закрыть подписку и вернуть деньги в ЮKassa">Возврат</button>` : ""}
+                            </div>
+                            <div class="adm-act-tools">
+                              ${/* Активность — первым инструментом: чаще всего нужно понять,
+                                    пользуется человек или нет, а не править ему подписку. */""}
+                              <button class="btn small ${_adminActivity && _adminActivity.agencyId === (a.agency_id||"") ? "primary" : ""}" onclick="app.adminToggleActivity('${aid}')" title="Что человек делает внутри: сделки, сметы, КП" aria-label="Активность аккаунта">${icon("chart", 13)}</button>
+                              <button class="btn small" onclick="app.adminExtendTrial('${aid}')" title="+14 дней к триалу">+14д</button>
+                              <button class="btn small" onclick="app.adminSetUserTag('${aid}')" title="${a.admin_tag ? "Метка: " + escapeHtml(a.admin_tag) + " — изменить" : "Пометить аккаунт: амбассадор, партнёр, тест…"}" aria-label="Метка аккаунта">${icon("star", 13)}</button>
+                              <button class="btn small" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Изменить подписку" aria-label="Изменить подписку">${icon("pencil")}</button>
+                              <button class="btn small ${isBlocked?"green":"danger-quiet"}" onclick="app.adminToggleBlock('${aid}','${escapeHtml(ast)}')" title="${isBlocked?"Разблокировать":"Заблокировать"}" aria-label="${isBlocked?"Разблокировать":"Заблокировать"}">${isBlocked?icon("unlock"):icon("lock")}</button>
+                            </div>
                           ` : `
                             <button class="btn small" onclick="app._closeEditSub()" style="opacity:.6">Отмена</button>
                           `}
@@ -6022,7 +6038,9 @@
                 <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#dc2626,#7c3aed);display:grid;place-items:center;color:#fff">${icon("lock", 20)}</div>
                 <div>
                   <h1 class="u-title-20">Admin Panel</h1>
-                  <p style="margin:0;font-size:12px;color:var(--muted)">adervis.digital@gmail.com</p>
+                  ${/* Почта — из сессии, а не строкой в коде: подпись под
+                        заголовком должна называть того, кто сейчас в панели. */""}
+                  <p style="margin:0;font-size:12px;color:var(--muted)">${escapeHtml(_adminSession?.user?.email || "")}</p>
                 </div>
               </div>
               <button class="btn small" onclick="app.loadAdminPanel()" style="display:flex;align-items:center;gap:6px">
@@ -6035,21 +6053,33 @@
                   активная подписка бывает выдана руками, поэтому рядом с «активных»
                   стоит «платят», а MRR подписан «по оплатам». См. _adminStatsFrom. */""}
             <!-- KPI strip -->
+            ${/* Плитки — не только цифры, но и вход в список. Прямо под ними
+                  стоит лента отборов с ТЕМИ ЖЕ словами («Активные», «Триал»), и
+                  человек, ткнув в «На триале», ожидал увидеть этот триал — а
+                  плитка молчала, и приходилось искать глазами одноимённую кнопку
+                  строкой ниже. Денежные плитки ведут на «Платежи»: MRR и ARR
+                  считаются по оплатам, там они и разложены по строкам. */""}
             <div class="adm-kpi-grid">
               ${[
-                ["Всего", s.total||0, "", s.own ? `+ ${s.own} свои` : "аккаунтов"],
-                ["Активных", s.active||0, "var(--text-success)", `платят: ${s.paying||0}`],
-                ["На триале", s.trial||0, "var(--text-warning)", "идёт пробный"],
-                ["Новых / мес", s.newThisMonth||0, "var(--text-info)", "в этом месяце"],
-                ["MRR", (s.mrr||0).toLocaleString("ru-RU")+" ₽", "var(--primary-text)", "по оплатам"],
+                ["Всего", s.total||0, "", s.own ? `+ ${s.own} свои` : "аккаунтов",
+                  `app._setAdminTab('users');app._setAdminUsersStatus('')`, "Показать всех"],
+                ["Активных", s.active||0, "var(--text-success)", `платят: ${s.paying||0}`,
+                  `app._setAdminTab('users');app._setAdminUsersStatus('active')`, "Показать активные подписки"],
+                ["На триале", s.trial||0, "var(--text-warning)", "идёт пробный",
+                  `app._setAdminTab('users');app._setAdminUsersStatus('trial')`, "Показать тех, у кого идёт пробный"],
+                ["Новых / мес", s.newThisMonth||0, "var(--text-info)", "в этом месяце",
+                  `app._setAdminTab('users');app._setAdminUsersStatus('');app._setAdminUsersSort('created')`, "Показать всех, начиная с новых"],
+                ["MRR", (s.mrr||0).toLocaleString("ru-RU")+" ₽", "var(--primary-text)", "по оплатам",
+                  `app._setAdminTab('payments')`, "Открыть платежи"],
                 ["ARR", ((s.mrr||0)*12).toLocaleString("ru-RU")+" ₽", "var(--primary-text)",
-                  `за 30 дней: ${(s.revenue30||0).toLocaleString("ru-RU")} ₽`]
-              ].map(([label, val, color, hint]) => `
-                <div class="adm-kpi">
+                  `за 30 дней: ${(s.revenue30||0).toLocaleString("ru-RU")} ₽`,
+                  `app._setAdminTab('payments')`, "Открыть платежи"]
+              ].map(([label, val, color, hint, action, title]) => `
+                <button type="button" class="adm-kpi" onclick="${action}" title="${escapeHtml(title)}">
                   <div class="adm-kpi-val" style="${color ? `color:${color}` : ""}">${val}</div>
                   <div class="adm-kpi-label">${label}</div>
                   <div class="adm-kpi-hint">${escapeHtml(hint)}</div>
-                </div>`).join("")}
+                </button>`).join("")}
             </div>
 
             <!-- Tabs -->

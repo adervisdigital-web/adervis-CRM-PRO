@@ -5816,6 +5816,12 @@
     }
     .kp-search input { width: 100%; padding-left: 30px; }
     .kp-sort { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    /* Отбор по метке в ряду поиска (админка). Подпись слева, чтобы список не
+       читался как «ещё одна сортировка»; ширина по содержимому — меток обычно
+       две-три, и растягивать поле не на что. */
+    .kp-tag-filter { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .kp-tag-filter .u-meta { font-size: 12px; white-space: nowrap; }
+    .kp-tag-filter select, .kp-tag-filter .uu-select-wrap { width: auto; min-width: 150px; }
 
     /* На телефоне четыре действия в один ряд с названием не помещаются —
        строка переносит их вниз, под сумму, вместо горизонтальной прокрутки
@@ -8094,13 +8100,42 @@ body.portal-mode .nav { display: none !important; }
   display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 10px; margin-bottom: 24px;
 }
+/* Плитка — кнопка: она ведёт в список с этим же отбором. Значит и вести себя
+   должна как кнопка (курсор, отклик на наведение, фокус с клавиатуры), иначе
+   получится «кликабельное без признаков кликабельного» — ровно то, что сметали
+   по всем разделам 12.09. Текст выравниваем влево: у <button> он по центру. */
 .adm-kpi {
   background: var(--panel2); border: 1px solid var(--line);
   border-radius: var(--r-lg); padding: 14px 16px;
+  text-align: left; font: inherit; color: inherit; cursor: pointer;
+  transition: border-color var(--dur-1), background var(--dur-1), transform var(--dur-1);
 }
+.adm-kpi:hover {
+  border-color: rgb(var(--primary-rgb) / .5);
+  background: var(--panel);
+  transform: translateY(-1px);
+}
+.adm-kpi:active { transform: none; }
 .adm-kpi-val { font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .adm-kpi-label { font-size: 12px; color: var(--muted); margin-top: 3px; font-weight: 600; }
 .adm-kpi-hint { font-size: 11px; color: var(--muted); opacity: .75; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Телефон: до первого пользователя уходил ЦЕЛЫЙ экран — 846px на 390×844
+   (замер 12.09.2026). Шесть плиток по две в ряд занимали 280px, а под ними
+   ещё три ряда управления. Уплотняем плитки и снимаем подпись «Сначала:» —
+   сами кнопки сортировки говорят за себя, а ряд перестаёт переноситься.
+   Подписи плиток («платят: 0», «за 30 дней: …») НЕ прячем: ради них плитки и
+   читают, а место экономится отступами. */
+@media (max-width: 560px) {
+  /* Три колонки, а не две: шесть плиток вставали тремя рядами. Замер на 390px —
+     подписи в плитку шириной 115px помещаются целиком («за 30 дней: 0 ₽» —
+     самая длинная), поэтому ряд экономится без потери смысла. */
+  .adm-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .adm-kpi { padding: 10px 12px; }
+  .adm-kpi-val { font-size: 18px; }
+  .adm-kpi-label { margin-top: 2px; }
+  .kp-sort > .u-meta { display: none; }
+}
 /* ── Контент-план по сетям ──────────────────────────────────────────────────
    Семь колонок на телефон не влезут никогда, поэтому таблица живёт в СВОЕЙ
    прокрутке: страница от неё вбок не едет. Первые три колонки — опора взгляда
@@ -8665,7 +8700,32 @@ button.is-busy::before {
   display: grid; place-items: center; font-size: 14px; font-weight: 900;
 }
 .adm-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
-.adm-actions { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.adm-actions { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; align-items: center; }
+/* Колонки правой части. Зона статуса растёт по содержимому (у кого-то метка, у
+   кого-то только «Истекла»), поэтому без фиксированных ширин ряд действий
+   начинался у каждой строки на своей вертикали. Ширины: 300px хватает на самый
+   длинный набор состояния («Истекла · PRO · 22 дн. назад · Амбассадор»), 132px —
+   на самую длинную главную кнопку («Активировать»). */
+@media (min-width: 721px) {
+  .adm-status { width: 300px; justify-content: flex-end; }
+  .adm-actions { flex-wrap: nowrap; }
+  .adm-act-main { flex: 0 0 132px; display: flex; justify-content: flex-end; }
+  .adm-act-main .btn { width: 100%; justify-content: center; }
+  .adm-act-tools { display: flex; gap: 6px; flex: 0 0 auto; }
+}
+/* Зелёная «Активировать» была залита в тринадцати строках из семнадцати — экран
+   светился одинаково важными кнопками, и глаз не находил ни одной. Контур
+   называет действие не тише, а заливку кнопка получает, когда работают с её
+   строкой. Тот же приём, что в списке сделок и в каталоге. */
+.adm-card-row .btn.green {
+  background: transparent; color: var(--text-success); border: 1px solid var(--green);
+  transition: background var(--dur-1), color var(--dur-1);
+}
+.adm-card:hover .adm-card-row .btn.green,
+.adm-card-row .btn.green:hover,
+.adm-card-row .btn.green:focus-visible {
+  background: var(--green); color: var(--on-color);
+}
 /* Аккаунт без записи агентства: действий нет, и вместо ряда кнопок стоит
    объяснение — почему. Приглушённое, но с предупреждающим знаком: это не
    ошибка интерфейса, а состояние аккаунта. */
@@ -8693,6 +8753,9 @@ button.is-busy::before {
     order: 3; flex: 1 1 100%; display: grid; gap: 6px;
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+  /* На телефоне зоны растворяются: кнопки должны лечь прямо в эту сетку из
+     четырёх колонок, а не двумя блоками внутри неё. */
+  .adm-act-main, .adm-act-tools { display: contents; }
   .adm-actions .btn { min-height: 44px; padding-left: 6px; padding-right: 6px; justify-content: center; }
   /* Две колонки — только кнопкам с длинной подписью («Активировать»,
      «Возврат»); они помечены классом в разметке. Правило «всё, что не значок»

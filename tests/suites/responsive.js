@@ -2036,4 +2036,52 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  /* Админка: ряд действий у всех строк начинается на ОДНОЙ вертикали.
+
+     Набор кнопок зависит от состояния аккаунта («Активировать» у истёкшего,
+     «Возврат» у активного, у триала — ни того, ни другого), и пока кнопки шли
+     подряд, ряд стартовал у каждой строки со своего места: замер 12.09.2026 на
+     семнадцати аккаунтах дал четыре разные вертикали (1035 / 1092 / 1129 /
+     1171 px) — одна и та же «+14д» у соседних строк стояла со сдвигом в сорок
+     пикселей. Правая часть разложена по зонам постоянной ширины; проверяем это
+     результатом (координатой), а не наличием классов.
+
+     Данные админки приходят из Supabase RPC, поэтому ответ подделываем
+     маршрутом Playwright: наружу запрос всё равно не уходит (харнесс глушит
+     сеть), зато панель получает ровно тот набор состояний, который нужен. */
+  await test("админка: кнопки в строках стоят колонкой, а не вразнобой", async () => {
+    const дней = (n) => new Date(Date.now() + n * 86400000).toISOString();
+    const users = [
+      { id: "1", agency_id: "a1", email: "expired@studio.ru", subscription_status: "expired",
+        subscription_plan: "pro", subscription_expires_at: дней(-3), created_at: дней(-40),
+        last_sign_in_at: дней(-40), email_confirmed: true, admin_tag: "" },
+      { id: "2", agency_id: "a2", email: "active@studio.ru", subscription_status: "active",
+        subscription_plan: "year", subscription_expires_at: дней(300), created_at: дней(-60),
+        last_sign_in_at: дней(-1), email_confirmed: true, admin_tag: "Амбассадор" },
+      { id: "3", agency_id: "a3", email: "trial@studio.ru", subscription_status: "trial",
+        subscription_plan: "trial", subscription_expires_at: дней(4), created_at: дней(-2),
+        last_sign_in_at: дней(-1), email_confirmed: false, admin_tag: "" },
+    ];
+    const { bootWithSession: boot } = require("../harness");
+    const { context, page } = await boot(browser, baseUrl,
+      { width: 1440, height: 950, email: "adervis.digital@gmail.com" });
+    try {
+      await context.route("**/rest/v1/rpc/*", (route) => {
+        const name = route.request().url().split("/rpc/")[1].split("?")[0];
+        const body = name === "admin_get_all_users" ? users : [];
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+      });
+      await page.evaluate(() => window.app.go("admin"));
+      await page.waitForSelector("#appContent .adm-card .adm-act-tools", { timeout: 15000 });
+      const левые = await page.evaluate(() => [...document.querySelectorAll("#appContent .adm-card")]
+        .filter((c) => c.querySelector(".adm-act-tools"))
+        .map((c) => Math.round(c.querySelector(".adm-actions").getBoundingClientRect().left)));
+      assertEqual(левые.length, 3, "в панели не три строки с действиями");
+      assertEqual(new Set(левые).size, 1,
+        "ряды действий начинаются на разных вертикалях: " + левые.join(", "));
+    } finally {
+      await context.close();
+    }
+  });
+
 };
