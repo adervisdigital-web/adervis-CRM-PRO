@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 447;
+      const APP_BUILD = 448;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -15520,6 +15520,16 @@
           if (sel.style.marginLeft) wrap.style.marginLeft = sel.style.marginLeft;
           sel.parentNode.insertBefore(wrap, sel);
           wrap.appendChild(sel);
+          /* Родной <select> остаётся держателем значения, но из обхода табом
+             уходит: он скрыт (1×1, opacity 0), и фокус на нём НЕ ВИДЕН НИГДЕ.
+             Замер 12.09.2026 на экране сметы: 62 селекта из 63 — невидимые
+             остановки, то есть шесть десятков нажатий Tab в пустоту.
+             Клавиатура при этом ничего не теряет: видимая кнопка открывает
+             список по Enter/Пробелу, дальше стрелки, Escape и поиск.
+             aria-hidden ставим только вместе с tabindex=-1: скрывать от читалки
+             то, на что можно попасть табом, нельзя. */
+          sel.tabIndex = -1;
+          sel.setAttribute("aria-hidden", "true");
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className = "uu-select-btn";

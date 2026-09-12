@@ -625,6 +625,67 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await c2.close();
   });
 
+  /* Обход табом не должен останавливаться на невидимом. Свои выпадающие списки
+     оставляют в разметке родной <select> держателем значения — скрытый (1×1,
+     opacity 0), но он ЛОВИЛ ТАБ: замер 12.09.2026 на экране сметы — 62 таких
+     остановки из 63 селектов, то есть шесть десятков нажатий Tab в пустоту, где
+     фокус не виден нигде. Клавиатура при этом ничего не теряет: видимая кнопка
+     открывает список по Enter, дальше стрелки, Escape и поиск.
+
+     Заодно проверяем, что там, где фокус остановился, его ВИДНО. Сравнение
+     «сфокусировал / снял фокус» тут не годится: programmatic focus после blur не
+     возвращает :focus-visible, и живое поле даты выглядело дефектом, хотя обводка
+     у него есть (ложная тревога первой версии обхода). */
+  await test("таб не останавливается на невидимом и фокус всегда видно", async () => {
+    const VIEWS = ["home", "crm", "clients", "catalog", "packages", "estimate", "global-finances",
+      "global-tasks", "contracts", "knowledge", "proposals", "briefs", "company-team", "settings"];
+    const own = await bootLocal(browser, baseUrl, { width: 1440, height: 900, seedDemo: true });
+    const bad = new Map();
+    let stops = 0;
+    try {
+      for (const v of VIEWS) {
+        await own.page.evaluate((view) => { window.app.go(view); window.scrollTo(0, 0); document.body.focus(); }, v);
+        await own.page.waitForTimeout(280);
+        for (let i = 0; i < 25; i++) {
+          await own.page.keyboard.press("Tab");
+          const r = await own.page.evaluate(() => {
+            const el = document.activeElement;
+            if (!el || el === document.body || !el.closest("#appContent")) return null;
+            const st = getComputedStyle(el);
+            const b = el.getBoundingClientRect();
+            const cls = (typeof el.className === "string" ? el.className.trim().split(/\s+/)[0] : "") || "";
+            return {
+              key: el.tagName.toLowerCase() + (cls ? "." + cls : ""),
+              txt: (el.textContent || el.value || el.getAttribute("aria-label") || "").trim().replace(/\s+/g, " ").slice(0, 24),
+              видим: b.width > 1 && b.height > 1 && st.visibility !== "hidden" && parseFloat(st.opacity) > 0.01,
+              focusVisible: el.matches(":focus-visible"),
+              обводка: parseFloat(st.outlineWidth) > 0 && st.outlineStyle !== "none",
+              тень: st.boxShadow !== "none",
+            };
+          });
+          if (!r) continue;
+          stops++;
+          if (!r.видим) bad.set("h" + r.key, `${v} · ${r.key} «${r.txt}» — остановка на НЕВИДИМОМ`);
+          else if (r.focusVisible && !r.обводка && !r.тень) bad.set("f" + r.key, `${v} · ${r.key} «${r.txt}» — фокус не видно`);
+        }
+      }
+
+      // Прямая проверка там, где селектов больше всего.
+      await own.page.evaluate(() => window.app.go("estimate"));
+      await own.page.waitForTimeout(350);
+      const sel = await own.page.evaluate(() => {
+        const all = [...document.querySelectorAll("select")];
+        return { всего: all.length, вТабе: all.filter((s) => s.tabIndex >= 0 && s.getBoundingClientRect().width <= 2).length };
+      });
+      assert(sel.всего > 5, `на экране сметы нашлось всего ${sel.всего} селектов — проверка смотрит мимо`);
+      assertEqual(sel.вТабе, 0, "скрытые <select> снова ловят таб — остановки в пустоте");
+    } finally {
+      await own.context.close();
+    }
+    assert(stops > 50, `остановок под табом всего ${stops} — обход смотрит мимо`);
+    assert(bad.size === 0, "обход табом:\n  " + [...bad.values()].join("\n  "));
+  });
+
   /* Что нажимается — должно отзываться на наведение. Без отклика элемент читается
      как надпись: человек не понимает, кликабельно ли это, и проверяет мышью
      наугад. Обход 11.09.2026 нашёл четыре таких вида: строки операций в финансах,
