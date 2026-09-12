@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 449;
+      const APP_BUILD = 450;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -9498,7 +9498,19 @@
            теряются в промежутках, график читается пустым; больше (0,62) —
            сливаются в стену. Зазор внутри пары фиксированный: он разделяет
            доход и расход, а не масштабируется вместе с ними. */
-        const bw = Math.max(narrow ? 7 : 11, Math.round((gw * 0.46 - (narrow ? 5 : 8)) / 2)), gap = narrow ? 5 : 8;
+        /* Зазор внутри пары сведён к 3 единицам, а ширина столбца ограничена
+           сверху. Причина — как читается месяц: при зазоре 8 и столбце 34 (шесть
+           месяцев на десктопе) доход и расход стояли друг от друга почти так же
+           далеко, как соседние месяцы, и глаз видел двенадцать отдельных палок
+           вместо шести пар. Теперь пара стоит вплотную и воздух остаётся МЕЖДУ
+           месяцами — группировка читается формой, а не подписью.
+           Потолок ширины нужен из-за самой перегруппировки: доля пары выросла до
+           половины шага, и на шести месяцах столбец без потолка раздулся бы с 34
+           до 39 единиц — при высоте поля 196 это уже кирпич. На узком экране и на
+           двенадцати месяцах потолок не достигается, там работает доля. */
+        const gap = narrow ? 2 : 3;
+        const bw = Math.min(narrow ? 17 : 32,
+          Math.max(narrow ? 7 : 11, Math.round((gw * 0.5 - gap) / 2)));
         const maxVal = Math.max(...list.map(m => Math.max(numberValue(m.income, 0), numberValue(m.expense, 0))), 1);
         const scaleMax = maxVal * 1.06;
 
@@ -9548,13 +9560,24 @@
             </g>`;
         }).join("");
 
-        /* Три линии вместо двух: с двумя глаз мерил высоту столбца «на глазок»
-           между далеко отстоящими уровнями. Линии тоньше — сетка это опора, а не
-           рисунок. Верхнего уровня (1,0) нет намеренно: он совпадал с вершиной
-           самого высокого столбца, и подпись оси дублировала его собственную —
-           одно и то же число дважды в двух сантиметрах. */
-        const gridLines = [0.25, 0.5, 0.75].map(f => {
-          const val = maxVal * f;
+        /* Уровни сетки — КРУГЛЫЕ числа, а не доли максимума. Доли давали ось
+           «59к · 119к · 178к»: такую шкалу нельзя прочитать, её можно только
+           разглядывать — чтобы прикинуть высоту столбца, глаз сначала должен
+           понять, что за странное число написано слева. Круглый шаг (1 / 2 / 2,5
+           / 5 × 10ⁿ, как в любой чертёжной шкале) даёт «100к · 200к», и высота
+           читается сама. Заодно ось перестала прыгать при каждом новом платеже:
+           деления привязаны к величине, а не к текущему максимуму.
+           Верхнего уровня, совпадающего с вершиной столбца, здесь больше быть не
+           может — по той же причине: уровни от максимума не зависят. */
+        const niceStep = rough => {
+          const mag = Math.pow(10, Math.floor(Math.log10(Math.max(1, rough))));
+          const n = rough / mag;
+          return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
+        };
+        const gridStep = Math.max(1, niceStep(maxVal / 3));
+        const gridVals = [];
+        for (let v = gridStep; v < scaleMax && gridVals.length < 6; v += gridStep) gridVals.push(v);
+        const gridLines = gridVals.map(val => {
           const y = baseY - (val / scaleMax) * plotH;
           return `<line x1="${PADL}" y1="${y}" x2="${W - PADR}" y2="${y}" stroke="var(--line)" stroke-width="0.8" stroke-dasharray="2,6" opacity=".7"/>
                   <text x="${PADL - 7}" y="${y + 3}" text-anchor="end" font-size="10" fill="var(--muted)" font-family="inherit" opacity="0.7">${shortNum(val)}</text>`;
@@ -9563,13 +9586,19 @@
         return `
           <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-height:${o.maxH || 320}px">
             <defs>
+              ${/* Градиент идёт от ЛЁГКОЙ вершины к плотному основанию, а не
+                    наоборот. Прежний (плотно сверху, прозрачно снизу) размывал
+                    столбец там, где он стоит на оси: линия базы просвечивала
+                    сквозь заливку, и шесть столбцов выглядели висящими в
+                    воздухе. Опора должна быть тяжелее верхушки — тогда высота
+                    считывается от базовой линии, а она и есть ноль. */""}
               <linearGradient id="${id}Rev" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0" stop-color="var(--green)" stop-opacity="0.95"/>
-                <stop offset="1" stop-color="var(--green)" stop-opacity="0.4"/>
+                <stop offset="0" stop-color="var(--green)" stop-opacity="0.72"/>
+                <stop offset="1" stop-color="var(--green)" stop-opacity="1"/>
               </linearGradient>
               <linearGradient id="${id}Exp" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0" stop-color="var(--red)" stop-opacity="0.7"/>
-                <stop offset="1" stop-color="var(--red)" stop-opacity="0.3"/>
+                <stop offset="0" stop-color="var(--red)" stop-opacity="0.5"/>
+                <stop offset="1" stop-color="var(--red)" stop-opacity="0.85"/>
               </linearGradient>
               ${/* Свечение столбцов дохода. Радиус маленький: на большем столбцы
                     «плывут» и перестают читаться как точная величина, а это деньги. */""}
@@ -18370,8 +18399,18 @@
                 <div class="db-stat-delta neu">${closedCount>0?`по ${closedCount} ${plural(closedCount, "сделке", "сделкам", "сделкам")}`:"нет закрытых"}</div>
               </div>
               ${(() => {
-                const weights = { "Лид":0.10, "Бриф":0.20, "КП отправлено":0.30, "Согласование":0.50, "Договор":0.70, "Предоплата":0.90, "В работе":0.95, "Сдано":1.0, "Оплата":1.0 };
-                const forecast30 = projects.filter(p => !isDealInactive(p.crmStatus||"Лид")).reduce((s,p) => s + (p.total||0)*(weights[p.crmStatus||"Лид"]||0.10), 0);
+                /* Считаем по ТЕМ ЖЕ сделкам, что и «Воронка» рядом (всё, кроме
+                   DEAL_DELIVERED), а не по «не закрытым» (isDealInactive — это
+                   только «Завершённые» и «Архив»). Разница видна на боевом счёте
+                   владельца: пять сделок в «Оплате» шли с весом 1,0, и рядом
+                   стояли «Воронка 54 000 ₽» и «Прогноз 30 дн 2 325 325 ₽» — два
+                   числа об одном и том же, различающиеся в сорок раз. Прогноз
+                   складывал в будущие поступления деньги, которые уже получены.
+                   Весов «Сдано» и «Оплата» в таблице больше нет: эти статусы
+                   сюда не доходят, и висящая единица только сбивала бы с толку
+                   следующего читателя. */
+                const weights = { "Лид":0.10, "Бриф":0.20, "КП отправлено":0.30, "Согласование":0.50, "Договор":0.70, "Предоплата":0.90, "В работе":0.95 };
+                const forecast30 = projects.filter(p => !DEAL_DELIVERED.has(p.crmStatus||"Лид")).reduce((s,p) => s + (p.total||0)*(weights[p.crmStatus||"Лид"]||0.10), 0);
                 return `<div class="db-stat" onclick="app.dashFilterDeals('all')" title="Взвешенная вероятность закрытия сделок из воронки (30 дней) — открыть эти сделки">
                   <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.target}</svg></span><span class="db-stat-label">Прогноз 30 дн</span></div>
                   <div class="db-stat-value">${money(Math.round(forecast30))}</div>
