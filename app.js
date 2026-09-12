@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 448;
+      const APP_BUILD = 449;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -4744,18 +4744,7 @@
           _adminErrors = errRes.data || [];
           _adminPayments = (payRes && !payRes.error && Array.isArray(payRes.data)) ? payRes.data : [];
           _adminActivation = (actRes && !actRes.error && Array.isArray(actRes.data)) ? actRes.data : [];
-          const now = new Date();
-          const month1 = new Date(now.getFullYear(), now.getMonth(), 1);
-          _adminStats = {
-            total: _adminAgencies.length,
-            active: _adminAgencies.filter(a => a.subscription_status === "active").length,
-            trial: _adminAgencies.filter(a => a.subscription_status === "trial").length,
-            newThisMonth: _adminAgencies.filter(a => a.created_at && new Date(a.created_at) >= month1).length,
-            mrr: _adminAgencies.filter(a => a.subscription_status === "active").reduce((s, a) => {
-              const plan = PLANS.find(p => p.id === a.subscription_plan);
-              return s + (plan ? plan.price : PLANS.find(p => p.id === "month1").price);
-            }, 0)
-          };
+          _adminStats = _adminStatsFrom(_adminAgencies, _adminPayments);
         } catch(e) {
           console.warn("Admin load error:", e);
           toast("Ошибка: " + e.message);
@@ -5118,9 +5107,11 @@
               <button class="fin-subtab ${_adminUsersSort === "expires" ? "active" : ""}" onclick="app._setAdminUsersSort('expires')">срок ближе</button>
               <button class="fin-subtab ${_adminUsersSort === "signin" ? "active" : ""}" onclick="app._setAdminUsersSort('signin')">заходили</button>
             </div>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-            <span class="u-meta" style="font-size:12px">Показано ${shown} из ${all.length}</span>
+            ${/* «Показано N из M» и «Выбрать» стояли ОТДЕЛЬНОЙ строкой — пятым рядом
+                  управления подряд (вкладки, статусы, метки, поиск, эта). Счётчик
+                  относится к тому же поиску и фильтрам, поэтому живёт в их ряду.
+                  Просьба владельца 12.09.2026 про навигацию в админке. */""}
+            <span class="u-meta adm-shown">Показано ${shown} из ${all.length}</span>
             ${shown ? `<button class="btn small ${_adminUsersSelectMode ? "primary" : ""}" onclick="app.toggleAdminUsersSelect()"
               title="Отметить несколько аккаунтов и пометить их разом">Выбрать</button>` : ""}
           </div>
@@ -5329,6 +5320,89 @@
         }).join("");
       }
 
+      /* ═══ СЧЁТ В ШАПКЕ АДМИНКИ ═══
+         Верхняя полоса — первое, что видит владелец, и до 12.09.2026 она врала в
+         лучшую сторону. MRR складывался из СТАТУСОВ подписки, а не из денег:
+         в 1 380 ₽ на снимке входили собственный аккаунт владельца (активирован
+         руками) и амбассадор с бесплатным годом. Никто из них не платит. Ту же
+         ошибку однажды уже допустила воронка активации — она мерила владельца,
+         пока аккаунты не пометили.
+
+         Теперь:
+           - помеченные как свои/тестовые в счёт не идут вовсе (метка admin_tag);
+           - MRR — только по агентствам, у которых ЕСТЬ оплата в payments и не
+             оформлен возврат; сумма — помесячная цена тарифа (в PLANS цены уже
+             приведены к месяцу: год — 490 ₽/мес);
+           - «платят» показываем рядом с «активных», потому что это разные числа:
+             активная подписка бывает выдана руками и подарена.
+         Функция чистая и вынесена наружу (app._adminStatsFrom) — иначе её не
+         проверить: данные админки приходят по сети, а не из состояния. */
+      const ADMIN_OWN_TAG_RE = /(свой|сво[её]|тест|internal|мой)/i;
+
+      function _adminStatsFrom(agencies, payments) {
+        const all = Array.isArray(agencies) ? agencies : [];
+        const pays = (Array.isArray(payments) ? payments : []).filter(p => !p.refunded_at);
+        const paidAgencies = new Set(pays.map(p => p.agency_id).filter(Boolean));
+        const monthStart = new Date();
+        monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+        const now = Date.now();
+
+        const свои = all.filter(a => ADMIN_OWN_TAG_RE.test(String(a.admin_tag || "")));
+        const рынок = all.filter(a => !ADMIN_OWN_TAG_RE.test(String(a.admin_tag || "")));
+        const активные = рынок.filter(a => a.subscription_status === "active");
+        const платящие = активные.filter(a => a.agency_id && paidAgencies.has(a.agency_id));
+        const цена = (a) => {
+          const plan = PLANS.find(p => p.id === a.subscription_plan);
+          return plan ? plan.price : PLANS.find(p => p.id === "month1").price;
+        };
+        return {
+          total: рынок.length,
+          own: свои.length,
+          active: активные.length,
+          paying: платящие.length,
+          trial: рынок.filter(a => a.subscription_status === "trial").length,
+          newThisMonth: рынок.filter(a => a.created_at && new Date(a.created_at) >= monthStart).length,
+          mrr: платящие.reduce((s, a) => s + цена(a), 0),
+          revenue30: pays
+            .filter(p => p.paid_at && (now - new Date(p.paid_at).getTime()) <= 30 * 86400000)
+            .reduce((s, p) => s + numberValue(p.amount, 0), 0),
+        };
+      }
+
+      /* Таблица «тема × сеть» одним массивом строк — один источник и для экрана,
+         и для буфера, и для файла. Разъедутся, если собирать их по отдельности. */
+      function _promoMatrixRows() {
+        const head = ["Неделя", "День", "Тема", ...PROMO_NETWORKS.map(n => n.label)];
+        const rows = PROMO_CONTENT_MATRIX.map(r =>
+          [String(r.week), r.day, r.theme, ...PROMO_NETWORKS.map(n => r[n.id] || "")]);
+        return [head, ...rows];
+      }
+
+      /* В буфер — ТАБАМИ, а не запятыми: Google Таблицы и Excel разбирают
+         вставку из буфера по табу и раскладывают по колонкам сами, без диалога
+         «как разделены поля». Отсюда и формулировка кнопки. */
+      function copyPromoMatrix() {
+        const tsv = _promoMatrixRows().map(r => r.join("\t")).join("\n");
+        copyToClipboard(tsv, "Скопировано. В Google Таблицах: Ctrl+V — ляжет по колонкам");
+        trackGoal("promo_matrix_copy");
+      }
+
+      function downloadPromoMatrix() {
+        // Кавычки удваиваем, всё поле берём в кавычки: в темах есть запятые и
+        // двоеточия. BOM в начале — иначе Excel открывает кириллицу кракозябрами.
+        const csv = _promoMatrixRows()
+          .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(","))
+          .join("\r\n");
+        const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "adervis-content-plan.csv";
+        link.click();
+        URL.revokeObjectURL(url);
+        trackGoal("promo_matrix_csv");
+      }
+
       /* Продажи считаем по ДЕНЬГАМ (таблица payments), а не по статусам подписок.
          В KPI-полосе выше MRR выводится из subscription_status — и туда попадают
          собственные аккаунты владельца и амбассадор с бесплатным годом. Для
@@ -5404,6 +5478,72 @@
       ];
 
       const PROMO_POST_STATUS = ["Идея", "Пишется", "Опубликовано"];
+
+      /* ═══ КОНТЕНТ-ПЛАН ПО СЕТЯМ ═══
+         Просьба владельца 12.09.2026: готовая таблица «тема × сеть», чтобы вести
+         соцсети и собирать клиентов на CRM. Список записей выше — то, что он
+         заполняет сам; эта таблица — заготовка на месяц, которую можно забрать в
+         Google Таблицы и править там.
+
+         Instagram и Threads здесь ПО ЕГО ПРЯМОМУ РЕШЕНИЮ (12.09.2026, вариант
+         «добавить без пометок»). Для протокола: это площадки Meta, её
+         деятельность в РФ признана экстремистской, реклама там вне закона, вход
+         только через VPN. До этого дня их сознательно держали вне списка каналов
+         (PROMO_CHANNEL_SEED) — там они и не появились, решение касается только
+         этой таблицы. Риски владелец берёт на себя.
+
+         Темы — из его же работы: деньги продакшна, сметы, договоры, маржа. Это
+         то, что болит у видеографов, и то, что закрывает CRM. */
+      const PROMO_NETWORKS = [
+        { id: "vk",      label: "ВКонтакте" },
+        { id: "tg",      label: "Telegram" },
+        { id: "inst",    label: "Instagram" },
+        { id: "threads", label: "Threads" },
+        { id: "clips",   label: "Клипы / Shorts" },
+        { id: "dzen",    label: "Дзен" },
+      ];
+
+      const PROMO_CONTENT_MATRIX = [
+        { week: 1, day: "Пн", theme: "Сколько на самом деле стоит съёмочный день",
+          vk: "Пост 1200 зн. + скрин сметы", tg: "Разбор с цифрами, 900 зн.", inst: "Карусель 6 слайдов: строки сметы",
+          threads: "Тред 4 сообщения: «а вы считали трансфер?»", clips: "45 сек: смета на экране, голос за кадром", dzen: "Статья 4000 зн. с примером" },
+        { week: 1, day: "Ср", theme: "Забытый трансфер: как теряется 15% проекта",
+          vk: "История из практики, 900 зн.", tg: "Короткий пост + опрос", inst: "Reels 30 сек: «что забыли»",
+          threads: "Вопрос подписчикам: что чаще всего забываете", clips: "30 сек, текст крупно", dzen: "Разбор с таблицей расходов" },
+        { week: 1, day: "Пт", theme: "Договор на съёмку: 5 пунктов, без которых не начинаю",
+          vk: "Пост + файл-чеклист", tg: "Чеклист списком, закреп", inst: "Карусель 5 слайдов = 5 пунктов",
+          threads: "Тред 5 сообщений, по пункту", clips: "50 сек: пункты на экране", dzen: "Статья + шаблон договора" },
+
+        { week: 2, day: "Пн", theme: "Клиент просит скидку: три ответа, которые не роняют цену",
+          vk: "Пост 1000 зн., три реплики", tg: "Три ответа + почему работают", inst: "Карусель 4 слайда",
+          threads: "Тред: «а как отвечаете вы?»", clips: "40 сек: диалог с клиентом", dzen: "Статья с разбором переговоров" },
+        { week: 2, day: "Ср", theme: "Предоплата 50%: формулировка, из-за которой не спорят",
+          vk: "Пост + скрин переписки", tg: "Готовая формулировка, копируемая", inst: "Слайд с текстом + подпись",
+          threads: "Короткий тред 3 сообщения", clips: "30 сек: текст на экране", dzen: "Статья про деньги вперёд" },
+        { week: 2, day: "Пт", theme: "КП, которое согласовывают с первого раза",
+          vk: "Пост + пример КП", tg: "Структура КП по пунктам", inst: "Карусель: было / стало",
+          threads: "Тред про структуру", clips: "60 сек: листаем КП", dzen: "Разбор + ссылка на калькулятор" },
+
+        { week: 3, day: "Пн", theme: "Считаем маржу проекта: выручка минус то, о чём забывают",
+          vk: "Пост с арифметикой", tg: "Разбор на цифрах одного проекта", inst: "Карусель: расчёт по шагам",
+          threads: "Тред: «какая у вас маржа?»", clips: "45 сек: считаем на экране", dzen: "Длинная статья с таблицей" },
+        { week: 3, day: "Ср", theme: "Себестоимость своей камеры: почему «своё» не бесплатно",
+          vk: "Пост + расчёт амортизации", tg: "Короткий расчёт", inst: "Карусель 5 слайдов",
+          threads: "Тред 4 сообщения", clips: "40 сек: камера и цифра", dzen: "Статья про амортизацию техники" },
+        { week: 3, day: "Пт", theme: "Пакеты услуг: старт / профи / премиум",
+          vk: "Пост + три пакета", tg: "Три пакета списком", inst: "Карусель: три пакета",
+          threads: "Тред: как упаковать услуги", clips: "50 сек: пакеты на экране", dzen: "Статья с примерами цен" },
+
+        { week: 4, day: "Пн", theme: "Три причины, по которым проект уходит в минус",
+          vk: "Пост 1100 зн.", tg: "Три причины + как поймать", inst: "Карусель 3 слайда",
+          threads: "Тред: «а у вас какая?»", clips: "45 сек: три причины", dzen: "Разбор с примерами" },
+        { week: 4, day: "Ср", theme: "Что показывать клиенту в смете, а что нет",
+          vk: "Пост + два варианта сметы", tg: "Сравнение двух смет", inst: "Карусель: клиентский вид",
+          threads: "Тред про прозрачность", clips: "40 сек: два экрана", dzen: "Статья про клиентскую смету" },
+        { week: 4, day: "Пт", theme: "Итоги месяца студии: цифры, которые смотрю сам",
+          vk: "Пост со скринами отчёта", tg: "Отчёт месяца, честные цифры", inst: "Карусель: 4 цифры месяца",
+          threads: "Тред с выводами", clips: "60 сек: отчёт на экране", dzen: "Статья-итоги месяца" },
+      ];
 
       const PROMO_MILESTONES = [
         { n: 1,  label: "Первая продажа",  why: "продукт вообще покупают" },
@@ -5658,6 +5798,41 @@
             </div>`;
             })()}
 
+            ${/* Готовая таблица на месяц: тема × сеть. Список выше владелец ведёт
+                  сам, а это заготовка, которую он забирает в Google Таблицы и
+                  правит там (его решение 12.09.2026). Таблица в своей прокрутке:
+                  семь колонок на телефон не влезут никогда, а страница от этого
+                  ехать вбок не должна. */""}
+            <div class="panel" style="box-shadow:none;background:var(--panel2)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                <h2 style="margin:0;display:flex;align-items:center;gap:9px">${iconBadge("grid", "var(--tint-cyan)")} Контент-план по сетям</h2>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="btn small primary" onclick="app.copyPromoMatrix()" title="Вставится в Google Таблицы готовой таблицей">${icon("copy", 13)} Скопировать для Google Таблиц</button>
+                  <button class="btn small" onclick="app.downloadPromoMatrix()" title="Файл для Excel и Google Таблиц">${icon("download", 13)} CSV</button>
+                </div>
+              </div>
+              <p class="mini-note" style="margin-top:6px">Месяц, ${PROMO_CONTENT_MATRIX.length} тем по ${PROMO_NETWORKS.length} сетям: три выхода в неделю. Копия вставляется в таблицу как есть — дальше правьте там.</p>
+              <div class="promo-matrix-wrap">
+                <table class="promo-matrix">
+                  <thead>
+                    <tr>
+                      <th>Нед.</th><th>День</th><th>Тема</th>
+                      ${PROMO_NETWORKS.map(n => `<th>${escapeHtml(n.label)}</th>`).join("")}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${PROMO_CONTENT_MATRIX.map(r => `
+                      <tr>
+                        <td class="promo-matrix-num">${r.week}</td>
+                        <td class="promo-matrix-num">${escapeHtml(r.day)}</td>
+                        <td class="promo-matrix-theme">${escapeHtml(r.theme)}</td>
+                        ${PROMO_NETWORKS.map(n => `<td>${escapeHtml(r[n.id] || "")}</td>`).join("")}
+                      </tr>`).join("")}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <div class="panel" style="box-shadow:none;background:var(--panel2)">
               <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("megaphone", "var(--primary)")} Описание продукта</h2>
               <p class="mini-note" style="margin-top:0">Одна формулировка на все площадки. Как только их станет две, в соцсетях будут жить обе.</p>
@@ -5856,19 +6031,24 @@
               </button>
             </div>
 
+            ${/* Под числом — вторая строка, которая не даёт прочитать его неправильно:
+                  активная подписка бывает выдана руками, поэтому рядом с «активных»
+                  стоит «платят», а MRR подписан «по оплатам». См. _adminStatsFrom. */""}
             <!-- KPI strip -->
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:24px">
+            <div class="adm-kpi-grid">
               ${[
-                ["Всего", s.total||0, ""],
-                ["Активных", s.active||0, "var(--text-success)"],
-                ["На триале", s.trial||0, "#f59e0b"],
-                ["Новых / мес", s.newThisMonth||0, "#60a5fa"],
-                ["MRR", (s.mrr||0).toLocaleString("ru-RU")+" ₽", "#a78bfa"],
-                ["ARR", ((s.mrr||0)*12).toLocaleString("ru-RU")+" ₽", "#a78bfa"]
-              ].map(([label, val, color]) => `
-                <div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
-                  <div style="font-size:22px;font-weight:900;color:${color||"var(--text)"};font-variant-numeric:tabular-nums">${val}</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:3px;font-weight:600">${label}</div>
+                ["Всего", s.total||0, "", s.own ? `+ ${s.own} свои` : "аккаунтов"],
+                ["Активных", s.active||0, "var(--text-success)", `платят: ${s.paying||0}`],
+                ["На триале", s.trial||0, "var(--text-warning)", "идёт пробный"],
+                ["Новых / мес", s.newThisMonth||0, "var(--text-info)", "в этом месяце"],
+                ["MRR", (s.mrr||0).toLocaleString("ru-RU")+" ₽", "var(--primary-text)", "по оплатам"],
+                ["ARR", ((s.mrr||0)*12).toLocaleString("ru-RU")+" ₽", "var(--primary-text)",
+                  `за 30 дней: ${(s.revenue30||0).toLocaleString("ru-RU")} ₽`]
+              ].map(([label, val, color, hint]) => `
+                <div class="adm-kpi">
+                  <div class="adm-kpi-val" style="${color ? `color:${color}` : ""}">${val}</div>
+                  <div class="adm-kpi-label">${label}</div>
+                  <div class="adm-kpi-hint">${escapeHtml(hint)}</div>
                 </div>`).join("")}
             </div>
 
@@ -30767,6 +30947,12 @@ Email: _____________________              Email: _____________________
         hideSidePromo,
         sidebarLogoutClick,
         sidebarLogoutDisarm,
+        // Счёт в шапке админки — чистая функция наружу: данные админки приходят
+        // по сети, и иначе арифметику не проверить (тест в money).
+        _adminStatsFrom,
+        copyPromoMatrix,
+        downloadPromoMatrix,
+        _promoMatrixRows,
         setCrmView,
         setClientsView,
         setCrmSort,

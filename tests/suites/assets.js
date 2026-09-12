@@ -1582,7 +1582,15 @@ module.exports = async function ({ test }) {
     const price = (code.match(/\{\s*id:\s*"month1",[^}]*price:\s*(\d+)/) || [])[1];
     assert(price, "не нашёл цену month1 в PLANS");
 
-    const блок = code.slice(code.indexOf("const PROMO_PITCH"), code.indexOf("const PROMO_MILESTONES"));
+    /* Комментарии вырезаем: сторож про ТЕКСТЫ, которые уходят наружу, а в
+       пояснениях цены других тарифов упоминаются законно. 12.09.2026 он упал на
+       комментарии «год — 490 ₽/мес» рядом со счётом MRR — тот комментарий прав,
+       а сторож смотрел не туда. Оговорка про «/*» после буквы — как в соседних
+       сторожах: accept="image/*" иначе съедает код. */
+    const чистый = code
+      .replace(/(?<![\w"'/])\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, " "))
+      .replace(/^[ \t]*\/\/[^\n]*$/gm, "");
+    const блок = чистый.slice(чистый.indexOf("const PROMO_PITCH"), чистый.indexOf("const PROMO_MILESTONES"));
     assert(блок.length > 500, "блоки PROMO_PITCH / PROMO_PROMPTS пропали");
 
     // Цена в текстах — та же, что в PLANS. Ищем любое число рядом с «₽/мес».
@@ -1888,6 +1896,35 @@ module.exports = async function ({ test }) {
     assert(!bad.length,
       "текст подставлен прямо в код обработчика — апостроф убьёт кнопку, а ловушка исполнится:\n  " +
       bad.join("\n  ") + "\n  Класть в data-* и читать через this.dataset.");
+  });
+
+  await test("контент-план по сетям: строки одни и те же на экране, в буфере и в файле", () => {
+    /* Просьба владельца 12.09.2026: готовая таблица «тема × сеть» и кнопка, чтобы
+       забрать её в Google Таблицы. Три потребителя (экран, буфер, CSV) обязаны
+       брать строки ИЗ ОДНОГО места — иначе они разъедутся, и в таблицу уедет не
+       то, что человек видел. Держим это структурно: _promoMatrixRows().
+
+       Instagram и Threads тут по прямому решению владельца (вариант «без
+       пометок»). Для протокола: площадки Meta, в РФ запрещены. Сторож «каналы
+       продвижения не включают запрещённые площадки» это НЕ отменяет — он про
+       список каналов (PROMO_CHANNEL_SEED), там их по-прежнему нет. */
+    const code = readSrc("app.js");
+    const from = code.indexOf("const PROMO_NETWORKS");
+    const to = code.indexOf("const PROMO_MILESTONES");
+    assert(from !== -1 && to > from, "не нашёлся блок контент-плана по сетям");
+    const block = code.slice(from, to);
+    for (const сеть of ["ВКонтакте", "Telegram", "Instagram", "Threads", "Дзен"]) {
+      assert(block.includes(сеть), `в контент-плане нет сети «${сеть}»`);
+    }
+    // Один источник строк: и копирование, и CSV зовут _promoMatrixRows.
+    for (const fn of ["copyPromoMatrix", "downloadPromoMatrix"]) {
+      const i = code.indexOf("function " + fn);
+      assert(i !== -1, `нет функции ${fn}`);
+      assert(code.slice(i, i + 700).includes("_promoMatrixRows()"),
+        `${fn} собирает строки сама — экран, буфер и файл разъедутся`);
+    }
+    assert(/BOM|﻿/.test(code.slice(code.indexOf("function downloadPromoMatrix"), code.indexOf("function downloadPromoMatrix") + 900)),
+      "в CSV нет BOM — Excel откроет кириллицу кракозябрами");
   });
 
   await test("новая версия берёт файлы с сервера, а не из HTTP-кэша браузера", () => {

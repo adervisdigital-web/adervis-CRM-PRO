@@ -2485,5 +2485,47 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  /* Шапка админки до 12.09.2026 врала в лучшую сторону: MRR складывался из
+     СТАТУСОВ подписки, и в 1 380 ₽ на экране владельца входили его собственный
+     аккаунт (активирован руками) и амбассадор с бесплатным годом. Ту же ошибку
+     раньше сделала воронка активации — она мерила владельца.
+
+     Правило: деньги — только по таблице payments; помеченные своими/тестовыми
+     не идут в счёт вовсе. Проверяем чистой функцией: данные админки приходят по
+     сети, и через интерфейс эту арифметику в офлайновом наборе не достать. */
+  await test("шапка админки: MRR только по оплатам, свои аккаунты не в счёт", async () => {
+    const r = await page.evaluate(() => {
+      // Первое число ТЕКУЩЕГО месяца: «10 дней назад» в начале месяца уехало бы
+      // в прошлый, и «новых за месяц» падало бы по календарю, а не по коду.
+      const первоеЧисло = new Date(); первоеЧисло.setDate(1); первоеЧисло.setHours(12, 0, 0, 0);
+      const месяцНазад = первоеЧисло.toISOString();
+      const недавно = new Date(Date.now() - 3 * 86400000).toISOString();
+      const agencies = [
+        { agency_id: "own", admin_tag: "Свой аккаунт", subscription_status: "active", subscription_plan: "month1", created_at: месяцНазад },
+        { agency_id: "amb", admin_tag: "Амбассадор",  subscription_status: "active", subscription_plan: "year",   created_at: месяцНазад },
+        { agency_id: "pay", admin_tag: "",            subscription_status: "active", subscription_plan: "month1", created_at: месяцНазад },
+        { agency_id: "tri", admin_tag: "",            subscription_status: "trial",  subscription_plan: "trial",  created_at: месяцНазад },
+        { agency_id: "old", admin_tag: "",            subscription_status: "expired", subscription_plan: "month1", created_at: "2026-01-05T10:00:00Z" },
+        { agency_id: "ref", admin_tag: "",            subscription_status: "active", subscription_plan: "month1", created_at: месяцНазад },
+      ];
+      const payments = [
+        { agency_id: "pay", amount: 890, paid_at: недавно },
+        // возврат оформлен — деньги вернули, это не доход и не подписчик
+        { agency_id: "ref", amount: 890, paid_at: недавно, refunded_at: недавно, refund_amount: 890 },
+        // старая оплата: в MRR даёт подписчика, в «за 30 дней» — нет
+        { agency_id: "pay", amount: 890, paid_at: "2026-02-01T10:00:00Z" },
+      ];
+      return window.app._adminStatsFrom(agencies, payments);
+    });
+    assertEqual(r.total, 5, "«всего» считает и помеченные свои аккаунты");
+    assertEqual(r.own, 1, "не посчитаны помеченные свои");
+    assertEqual(r.active, 3, "«активных» считает свои аккаунты");
+    assertEqual(r.paying, 1, "«платят» считает тех, кто не платил (амбассадор, возврат)");
+    assertEqual(r.mrr, 890, `MRR ${r.mrr} ₽ вместо 890 — в счёт попали подарки или свои`);
+    assertEqual(r.trial, 1, "триал посчитан неверно");
+    assertEqual(r.newThisMonth, 4, "«новых за месяц» считает не тех");
+    assertEqual(r.revenue30, 890, "«за 30 дней» считает возвраты или старые оплаты");
+  });
+
   await context.close();
 };

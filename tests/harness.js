@@ -168,7 +168,10 @@ function _supabaseStorageKey() {
   return `sb-${m[1]}-auth-token`;
 }
 async function bootWithSession(browser, baseUrl, opts = {}) {
-  const { width = 1440, height = 900, theme = "", collapsed = false, name = "Test Owner" } = opts;
+  const { width = 1440, height = 900, theme = "", collapsed = false, name = "Test Owner",
+    // Суперадмин опознаётся по почте (её проверяет _isSuperAdmin в app.js),
+    // поэтому админку в наборе открывает только этот адрес.
+    email = "owner@example.com" } = opts;
   const context = await browser.newContext({ viewport: { width, height } });
   await blockExternalRequests(context, baseUrl);
   const page = await context.newPage();
@@ -180,7 +183,7 @@ async function bootWithSession(browser, baseUrl, opts = {}) {
     expires_in: 31536000, expires_at: now + 31536000, refresh_token: "test",
     user: {
       id: "00000000-0000-0000-0000-000000000001", aud: "authenticated", role: "authenticated",
-      email: "owner@example.com", user_metadata: { name }, app_metadata: {},
+      email, user_metadata: { name }, app_metadata: {},
     },
   });
   await page.addInitScript(([key, s, theme, collapsed]) => {
