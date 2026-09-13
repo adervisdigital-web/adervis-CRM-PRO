@@ -5351,6 +5351,58 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Служебные слова языка на экране: «undefined», «null», «NaN»,
+     «[object Object]». Каждое означает одно и то же — вывели поле, которого в
+     данных нет, и не подставили запасной вариант. Именно так календарь месяцами
+     подписывал платежи словом «undefined» (13.09.2026).
+
+     Данные НАРОЧНО дырявые: сделка вообще без полей, сделка с пустым именем и
+     `total: null`, клиент без имени, задача без заголовка. Такие записи не
+     выдумка — их приносят импорт (113 сделок из o!task), бот и старые версии
+     формата, а нормализаторы до вложенных `snapshot` доходят не всегда.
+
+     Обход по разделам в одном тесте: переход стоит около полусекунды, и
+     отдельный тест на каждый экран сделал бы набор вдвое длиннее без выигрыша
+     в точности — имя раздела всё равно приезжает в сообщение об ошибке. */
+  await test("ни на одном экране нет «undefined», «NaN» и прочих слов из кода", async () => {
+    const { ctx, p } = await bootWithState(`
+      const сег = new Date().toISOString().slice(0, 10);
+      st.savedProjects = [
+        { id: "x1", snapshot: { payments: [{ id: "p1", date: сег, amount: 5000 }],
+                                expenses: [{ id: "e1", date: сег, amount: 300 }],
+                                tasks: [{ id: "t1", deadline: сег }] } },
+        { id: "x2", name: "", client: "", total: null, crmStatus: "В работе",
+          snapshot: { payments: [], expenses: [], tasks: [{ id: "t2", title: "", deadline: сег, status: "Новая" }] } },
+        { id: "x3", name: "Сделка без клиента", crmStatus: "Лид", total: 10000, deadline: сег, snapshot: {} }
+      ];
+      st.clients = [{ id: "c1" }, { id: "c2", name: "Клиент без телефона" }];
+      st.globalTasks = [{ id: "g1", deadline: сег }];
+      st.payments = []; st.expenses = []; st.tasks = []; st.activeProjectId = "";
+    `, { width: 1440, height: 950 });
+    try {
+      const разделы = ["home", "clients", "global-tasks", "proposals", "global-finances",
+        "global-calendar", "calendar", "crm", "contracts", "company-team"];
+      const найдено = [];
+      for (const v of разделы) {
+        await p.evaluate((x) => window.app.go(x), v);
+        await p.waitForTimeout(450);
+        const слова = await p.evaluate(() => {
+          const t = document.getElementById("appContent").innerText;
+          const out = [];
+          [/undefined/g, /\bnull\b/g, /NaN/g, /\[object Object\]/g].forEach((re) => {
+            const m = t.match(re);
+            if (m) out.push(`${m[0]} ×${m.length}`);
+          });
+          return out;
+        });
+        if (слова.length) найдено.push(`${v}: ${слова.join(", ")}`);
+      }
+      assertEqual(найдено.length, 0, "служебные слова в интерфейсе — " + найдено.join(" | "));
+    } finally {
+      await ctx.close();
+    }
+  });
+
   /* Календарь: у денежного события в ячейке стояло «+11 323 ₽ · undefined».
 
      Поле `title` платежу проставляет normalizePayment, но платежи внутри
