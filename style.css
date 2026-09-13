@@ -4003,14 +4003,27 @@
        панелей аналитики, — чтобы значки на странице читались как одна семья, а
        не как случайные картинки. inline-flex и выравнивание по центру: без них
        svg садится на базовую линию и заголовок «подпрыгивает». */
+    /* Заголовок со значком — флекс по БАЗОВОЙ линии, а значку отдельно центр.
+       Текст и счётчик рядом («Клиенты 18») остаются на общей строке, как в
+       обычном тексте, а квадрат значка совмещается с серединой строки.
+
+       Замер 13.09.2026 по трём скриншотам владельца: при «vertical-align: -6px»
+       значок стоял на 9px НИЖЕ центра текста — и одинаково во всех девяти
+       разделах. Подгонка числом обречена: inline-flex ставит на базовую линию
+       свой нижний край, поэтому каждый новый кегль заголовка ломает её заново.
+       Общий флекс по центру чинил значок, но поднимал счётчик на 10px над
+       строкой; этот вариант даёт 1px по значку и −5px по счётчику, то есть оба
+       элемента там, где им место. */
+    h1:has(> .h1-ico) { display: flex; align-items: baseline; flex-wrap: wrap; }
+    h1:has(> .h1-ico) > .h1-ico { align-self: center; }
     .h1-ico {
       width: 28px; height: 28px; border-radius: var(--r-sm); flex: 0 0 auto;
       background: var(--primary-bg); color: var(--primary-text);
       display: inline-flex; align-items: center; justify-content: center;
-      margin-right: 10px; vertical-align: -6px;
+      margin-right: 10px;
     }
     @media (max-width: 640px) {
-      .h1-ico { width: 24px; height: 24px; margin-right: 8px; vertical-align: -5px; }
+      .h1-ico { width: 24px; height: 24px; margin-right: 8px; }
     }
 
     .db-panel-ico {

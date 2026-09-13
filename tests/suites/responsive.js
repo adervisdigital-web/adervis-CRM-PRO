@@ -2036,6 +2036,48 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  /* Значок у заголовка раздела стоит по центру строки, а не «примерно там».
+
+     Владелец прислал три кропа (13.09.2026) — «Договоры», «Клиенты», «Финансы»,
+     и на всех значок сидел ниже текста. Замер подтвердил: 9px вниз во ВСЕХ
+     разделах. Причина — подгонка `vertical-align: -6px`: inline-flex ставит на
+     базовую линию свой нижний край, и любой новый кегль ломает подгонку заново.
+
+     Меряем расстояние между центром значка и центром текста заголовка на обеих
+     ширинах. Допуск 3px — на глаз столько не видно, а метрики шрифта дают
+     погрешность в пиксель-другой сами по себе. */
+  await test("значок заголовка выровнен по центру строки во всех разделах", async () => {
+    const разделы = ["clients", "contracts", "global-finances", "knowledge",
+      "settings", "company-team", "services", "proposals", "global-tasks"];
+    for (const width of [1440, 390]) {
+      const b = await bootLocal(browser, baseUrl, { width, height: 900, seedDemo: true, touch: width < 700 });
+      try {
+        const плохие = [];
+        for (const v of разделы) {
+          await b.page.evaluate((x) => window.app.go(x), v);
+          await b.page.waitForTimeout(320);
+          const сдвиг = await b.page.evaluate(() => {
+            const ico = document.querySelector("#appContent h1 .h1-ico");
+            if (!ico) return null;
+            const h1 = ico.closest("h1");
+            const tn = [...h1.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim());
+            if (!tn) return null;
+            const rg = document.createRange();
+            rg.selectNodeContents(tn);
+            const tb = rg.getBoundingClientRect();
+            const ib = ico.getBoundingClientRect();
+            return Math.round((ib.top + ib.height / 2) - (tb.top + tb.height / 2));
+          });
+          if (сдвиг !== null && Math.abs(сдвиг) > 3) плохие.push(`${v}: ${сдвиг}px`);
+        }
+        assertEqual(плохие.length, 0,
+          `значок съехал от центра заголовка (${width}px): ` + плохие.join(", "));
+      } finally {
+        await b.context.close();
+      }
+    }
+  });
+
   /* Админка: ряд действий у всех строк начинается на ОДНОЙ вертикали.
 
      Набор кнопок зависит от состояния аккаунта («Активировать» у истёкшего,
