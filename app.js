@@ -16872,7 +16872,12 @@
                               её позиция в воронке, а не ссылка, ушедшая клиенту. */""}
                         <div class="kp-row-sub">${money(d.total || 0)}${d.client ? ` · ${escapeHtml(d.client)}` : ''} · этап «${escapeHtml(d.crmStatus || 'Лид')}»</div>
                       </div>
-                      <button class="btn small primary no-print" onclick="event.stopPropagation();app.createClientPortal('${d.id}')" title="Создать и скопировать ссылку КП">Отправить КП</button>
+                      ${/* Кнопка тихая, заливку берёт у строки под курсором.
+                            Шесть залитых акцентом кнопок подряд — тот же случай,
+                            что в списке сделок, каталоге и админке: если кричат
+                            все строки, глазу не за что зацепиться (DESIGN.md §3
+                            про один акцент на экран). */""}
+                      <button class="btn small primary no-print kp-send-btn" onclick="event.stopPropagation();app.createClientPortal('${d.id}')" title="Создать и скопировать ссылку КП">Отправить КП</button>
                     </div>`).join('')}
                 </div>
               </div>
@@ -21289,6 +21294,17 @@
           };
         };
         const statusLabel = s => ({ new: "Новый", active: "Активный", vip: "VIP", paused: "Пауза", lost: "Потерян" })[s] || "Новый";
+        /* «Новый» у клиента с семнадцатью сделками и оплатами на 160 000 ₽ —
+           именно это и стояло на карточках. Причина не в интерфейсе:
+           normalizeClient пишет `status: "new"` каждому, у кого поле пустое, а
+           пустое оно у всех, кого завела сама сделка (то есть у большинства).
+           Отличить «человек выбрал Новый» от «поле не заполнено» после этого
+           нельзя, поэтому «new» здесь читается как «не выставлен».
+           Правило проверяемое: есть сделки — «Активный», нет — «Новый». Больше
+           ничего не выводим: «Пауза», «VIP» и «Потерян» — решение человека, по
+           данным о нём догадаться нельзя, и эти три статуса мы не трогаем. */
+        const effectiveStatus = (client, m) =>
+          (!client.status || client.status === "new") && m.count > 0 ? "active" : (client.status || "new");
         /* Все пять статусов рисовались ОДНОЙ капсулой: «Новый», «Пауза» и
            «Активный» в списке выглядели одинаково, и колонка статуса ничего не
            сообщала — приходилось читать каждое слово. Даём каждому свой тон.
@@ -21369,7 +21385,7 @@
                   const m = clientMoney(client);
                   return `
                   <div class="client-list-row" onclick="app.openClientModal('${client.id}')" title="Открыть карточку клиента">
-                    <span class="status-pill ${statusTone(client.status)}">${statusLabel(client.status)}</span>
+                    <span class="status-pill ${statusTone(effectiveStatus(client, m))}">${statusLabel(effectiveStatus(client, m))}</span>
                     <div class="client-list-name">${escapeHtml(client.name)}</div>
                     <div class="client-list-company">${escapeHtml(client.company || client.city || "—")}</div>
                     <div class="client-list-deals" title="Сделок с клиентом">${m.count ? `${m.count} ${plural(m.count, "сделка", "сделки", "сделок")}` : ""}</div>
@@ -21397,7 +21413,7 @@
                         <h3>${escapeHtml(client.name)}</h3>
                         ${clientSubtitle(client) ? `<p>${escapeHtml(clientSubtitle(client))}</p>` : ""}
                       </div>
-                      <span class="status-pill ${statusTone(client.status)}">${statusLabel(client.status)}</span>
+                      <span class="status-pill ${statusTone(effectiveStatus(client, m))}">${statusLabel(effectiveStatus(client, m))}</span>
                     </div>
                     <div class="client-card-stats">
                       <span title="Сделок с клиентом">${m.count} ${plural(m.count, "сделка", "сделки", "сделок")}</span>
@@ -21769,11 +21785,19 @@
 
             </div>
 
+            ${/* Пока задач нет ВООБЩЕ, счётчики не показываем: три нуля в ряд
+                  над экраном, где и так написано «Задач пока нет», ничего не
+                  сообщают, а место до первого действия занимают.
+                  Условие именно «нет ни одной» (allRows), а не «список пуст»:
+                  когда задачи есть, но все спрятаны фильтром (например, все
+                  принадлежат закрытым сделкам), «Просрочено 0» — это ответ, а
+                  не пустота. На нём стоит тест про закрытые сделки. */""}
+            ${allRows.length > 0 ? `
             <div class="gtask-stats">
               <div class="gtask-stat"><span class="lbl">Всего</span><span class="val">${total}</span></div>
               <div class="gtask-stat"><span class="lbl">Просрочено</span><span class="val" style="color:${overdue ? "var(--text-danger)" : "var(--muted)"}">${overdue}</span></div>
               <div class="gtask-stat"><span class="lbl">Готово</span><span class="val" style="color:${done ? "var(--text-success)" : "var(--muted)"}">${done}</span></div>
-            </div>
+            </div>` : ""}
 
             <div class="gtask-filters no-print">
               <div class="catalog-search-wrap gtask-search">

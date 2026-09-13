@@ -5098,7 +5098,11 @@ module.exports = async function ({ browser, baseUrl, test }) {
         { id: "s4", name: "Важный клиент", status: "vip" },
         { id: "s5", name: "Ушедший клиент", status: "lost" }
       ];
-      st.savedProjects = st.clients.map((c, i) => ({
+      /* «Новому» сделку НЕ заводим: с 13.09.2026 статус «new» считается
+         невыставленным (его пишет normalizeClient всем подряд), и у клиента со
+         сделками список показывает «Активный». Здесь проверяются цвета пяти
+         РАЗНЫХ статусов, поэтому «Новый» должен остаться новым. */
+      st.savedProjects = st.clients.filter(c => c.id !== "s2").map((c, i) => ({
         id: "cp" + i, name: "Сделка " + i, client: c.name, clientId: c.id,
         total: 100000, paid: 60000, debt: 40000, crmStatus: "В работе", status: "В работе",
         updatedAt: new Date().toISOString(),
@@ -5117,6 +5121,43 @@ module.exports = async function ({ browser, baseUrl, test }) {
     const цветов = new Set(тона.map((x) => x.c));
     assertEqual(цветов.size, тона.length,
       "у статусов повторяются цвета — колонка не отличает их друг от друга: " + JSON.stringify(тона));
+  });
+
+  /* «Новый» у клиента с семнадцатью сделками — именно это стояло на карточках
+     владельца. Статус «new» проставляет normalizeClient каждому, у кого поле
+     пустое (а пустое оно у всех, кого завела сама сделка), поэтому «new»
+     читается как «не выставлен»: есть сделки — «Активный», нет — «Новый».
+     Выставленные вручную «Пауза», «VIP», «Потерян» правило не трогает. */
+  await test("клиенты: клиент со сделками не показан «Новым»", async () => {
+    const { ctx, p } = await bootWithState(`
+      st.clients = [
+        { id: "n1", name: "Со сделками", status: "new" },
+        { id: "n2", name: "Без сделок", status: "new" },
+        { id: "n3", name: "На паузе", status: "paused" }
+      ];
+      st.savedProjects = [
+        { id: "np1", name: "Съёмка", client: "Со сделками", clientId: "n1", total: 100000, paid: 0,
+          crmStatus: "В работе", snapshot: { payments: [], expenses: [], tasks: [] } },
+        { id: "np3", name: "Ролик", client: "На паузе", clientId: "n3", total: 50000, paid: 0,
+          crmStatus: "В работе", snapshot: { payments: [], expenses: [], tasks: [] } }
+      ];
+      st.activeProjectId = ""; st.clientsView = "list";
+    `, { width: 1440, height: 950 });
+    try {
+      await p.evaluate(() => { window.app.setClientsView("list"); window.app.go("clients"); });
+      await p.waitForTimeout(600);
+      const строки = await p.evaluate(() =>
+        [...document.querySelectorAll("#appContent .client-list-row")].map((r) => ({
+          имя: (r.querySelector(".client-list-name") || {}).textContent.trim(),
+          статус: (r.querySelector(".status-pill") || {}).textContent.trim(),
+        })));
+      const по = (имя) => (строки.find((x) => x.имя === имя) || {}).статус;
+      assertEqual(по("Со сделками"), "Активный", "клиент со сделками всё ещё «Новый»: " + JSON.stringify(строки));
+      assertEqual(по("Без сделок"), "Новый", "клиент без сделок перестал быть новым: " + JSON.stringify(строки));
+      assertEqual(по("На паузе"), "Пауза", "выставленный вручную статус подменён: " + JSON.stringify(строки));
+    } finally {
+      await ctx.close();
+    }
   });
 
   /* Меню «три точки» на карточке каталога открывалось ПОД соседние карточки:

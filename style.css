@@ -5797,6 +5797,19 @@
       background: var(--panel); transition: border-color var(--dur-1);
     }
     .kp-row:hover { border-color: var(--primary); }
+    /* «Отправить КП» — тихая, пока строку не тронули. Шесть залитых акцентом
+       кнопок подряд гасят друг друга; тот же приём уже стоит в списке сделок,
+       каталоге, пакетах и админке. */
+    .kp-row .btn.kp-send-btn.primary {
+      background: transparent; color: var(--primary-text);
+      border: 1px solid rgb(var(--primary-rgb) / .45);
+      transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1);
+    }
+    .kp-row:hover .btn.kp-send-btn.primary,
+    .kp-row .btn.kp-send-btn.primary:hover,
+    .kp-row .btn.kp-send-btn.primary:focus-visible {
+      background: var(--primary); color: var(--on-color); border-color: var(--primary);
+    }
     .kp-row-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
     .kp-row-dot.green { background: var(--green); }
     .kp-row-main { flex: 1; min-width: 0; }
