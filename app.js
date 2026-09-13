@@ -9649,11 +9649,41 @@
         const gridStep = Math.max(1, niceStep(maxVal / 3));
         const gridVals = [];
         for (let v = gridStep; v < scaleMax && gridVals.length < 6; v += gridStep) gridVals.push(v);
-        const gridLines = gridVals.map(val => {
+        /* Уровень сетки, на который легла линия среднего, не рисуем: две линии в
+           трёх пикселях друг от друга и две подписи по краям («200к» слева,
+           «средн. 200к» справа) читаются как ошибка, а не как две величины.
+           Побеждает среднее — оно про эти данные, а деление шкалы взаимозаменяемо
+           с соседними. Порог 4% высоты поля: ниже этого линии зрительно сливаются. */
+        const _срДоход = (() => {
+          const m = list.filter(x => numberValue(x.income, 0) > 0);
+          return m.length >= 3 ? m.reduce((s, x) => s + numberValue(x.income, 0), 0) / m.length : 0;
+        })();
+        const gridShown = _срДоход > 0
+          ? gridVals.filter(v => Math.abs(v - _срДоход) / scaleMax > 0.04)
+          : gridVals;
+        const gridLines = gridShown.map(val => {
           const y = baseY - (val / scaleMax) * plotH;
           return `<line x1="${PADL}" y1="${y}" x2="${W - PADR}" y2="${y}" stroke="var(--line)" stroke-width="0.8" stroke-dasharray="2,6" opacity=".7"/>
                   <text x="${PADL - 7}" y="${y + 3}" text-anchor="end" font-size="10" fill="var(--muted)" font-family="inherit" opacity="0.7">${shortNum(val)}</text>`;
         }).join("");
+
+        /* Линия среднего дохода по месяцам С ДВИЖЕНИЕМ денег. Столбцы отвечают
+           «сколько было в марте», но не отвечают на вопрос, ради которого график
+           и смотрят: месяц был обычный или выбился. Линия делает это без единой
+           цифры — видно, что три месяца выше нормы, а два ниже.
+           Пустые месяцы в среднее не идут: с ними «норма» падает вдвое и линия
+           начинает хвалить любой рабочий месяц. По той же причине рисуем её
+           только с трёх месяцев — на двух точках «среднее» это просто середина
+           между ними, отдельного смысла в нём нет. */
+        const среднее = _срДоход;
+        const avgLine = среднее > 0 && среднее < scaleMax ? (() => {
+          const y = baseY - (среднее / scaleMax) * plotH;
+          return `
+            <line x1="${PADL}" y1="${y}" x2="${W - PADR}" y2="${y}"
+              stroke="var(--text-success)" stroke-width="1" stroke-dasharray="7,5" opacity=".45"/>
+            <text x="${W - PADR - 2}" y="${y - 5}" text-anchor="end" font-size="10"
+              fill="var(--text-success)" font-family="inherit" opacity=".7">средн. ${shortNum(среднее)}</text>`;
+        })() : "";
 
         return `
           <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-height:${o.maxH || 320}px">
@@ -9691,6 +9721,9 @@
             ${gridLines}
             <line x1="${PADL}" y1="${baseY}" x2="${W - PADR}" y2="${baseY}" stroke="var(--line)" stroke-width="1.4"/>
             ${cols}
+            ${/* Линия среднего идёт ПОВЕРХ столбцов: под ними её не видно у
+                  высоких месяцев, а сравнивать нужно именно с ними. */""}
+            ${avgLine}
           </svg>`;
       }
 
