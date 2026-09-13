@@ -22754,7 +22754,11 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Команда ${allTeam.length ? `<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:4px">${teamQuery ? `${team.length} из ${allTeam.length}` : allTeam.length}</span>` : ""}</h1>
+                ${/* Значок у заголовка — как в остальных разделах: он повторяет
+                      значок пункта меню и связывает страницу с тем, откуда на неё
+                      пришли. «Команда» и «Настройки» были единственными двумя
+                      разделами без него. */""}
+                <h1>${h1Icon("team")}Команда ${allTeam.length ? `<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:4px">${teamQuery ? `${team.length} из ${allTeam.length}` : allTeam.length}</span>` : ""}</h1>
                 <p>Сотрудники и фрилансеры агентства — назначаются «Ответственным» на строках сметы.</p>
               </div>
               <div class="toolbar no-print">
@@ -25133,7 +25137,15 @@
               ${field("Телефон", `<input data-autosave data-scope="company" data-key="phone" value="${escapeHtml(state.company.phone)}">`)}
               ${field("Email", `<input data-autosave data-scope="company" data-key="email" value="${escapeHtml(state.company.email)}">`)}
               ${field("Сайт", `<input data-autosave data-scope="company" data-key="site" value="${escapeHtml(state.company.site)}">`)}
-              ${field("Логотип: путь или URL", `<input data-autosave data-scope="company" data-key="logoUrl" value="${escapeHtml(state.company.logoUrl || "logo-icon.svg")}" placeholder="logo-icon.svg">`)}
+              ${/* Значение — только своё, без подстановки «logo-icon.svg». Это файл
+                    логотипа САМОГО СЕРВИСА, и поле показывало его как значение
+                    профиля чужой студии: в данных после чистки
+                    (_stripServiceIdentity) пусто, а настройки уверяли, что логотип
+                    выбран. Отсюда два вреда сразу — человек не понимает, что
+                    логотипа у него нет, и любое сохранение поля записывало чужой
+                    файл обратно в профиль, откуда он попадает в КП и договоры.
+                    Подсказка тоже нейтральная: пример адреса, а не наш файл. */""}
+              ${field("Логотип: путь или URL", `<input data-autosave data-scope="company" data-key="logoUrl" value="${escapeHtml(state.company.logoUrl || "")}" placeholder="https://ваш-сайт.ru/logo.png">`)}
               ${field("Загрузить логотип", `
                 <label class="btn small" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;width:fit-content">
                   <span style="color:var(--primary);display:inline-flex">${icon("upload")}</span> Выбрать файл
@@ -25667,7 +25679,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>Настройки</h1>
+                <h1>${h1Icon("gear")}Настройки</h1>
                 <p>Тема и цветовая схема — на вкладке «Оформление», режим клиента — в шапке.</p>
               </div>
             </div>

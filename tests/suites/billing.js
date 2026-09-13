@@ -247,6 +247,21 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assertEqual(String(co[key] || ""), "",
         "поле company." + key + " приходит заполненным данными сервиса: «" + co[key] + "»");
     }
+
+    /* Мало держать данные чистыми — ЭКРАН тоже не должен предлагать чужое.
+       13.09.2026: в данных логотип пуст, а поле «Логотип» в настройках
+       показывало «logo-icon.svg» (файл сервиса) как своё значение. Человек
+       видел, что логотип у него уже есть, а сохранение поля возвращало чужой
+       файл в профиль — и оттуда в КП и договоры. Меряем ЗНАЧЕНИЕ поля на
+       экране, а не только состояние. */
+    await page.evaluate(() => window.app.go("settings"));
+    await page.waitForTimeout(500);
+    const наЭкране = await page.evaluate(() => {
+      const el = document.querySelector('#appContent input[data-key="logoUrl"]');
+      return el ? el.value : "(поля нет)";
+    });
+    assertEqual(наЭкране, "",
+      "поле «Логотип» в настройках подставляет файл сервиса: «" + наЭкране + "»");
     await context.close();
   });
 
