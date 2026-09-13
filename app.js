@@ -18489,7 +18489,16 @@
               <div class="db-stat ${totalDebt>0?"db-stat-warn":""}" onclick="app.setGFinSubTab('receivables');app.go('global-finances')" title="Долг клиентов">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${totalDebt>0?"rgba(234,88,12,.15);color:var(--text-warning)":"rgba(22,163,74,.15);color:var(--text-success)"}"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Долг клиентов</span></div>
                 <div class="db-stat-value" style="${totalDebt>0?"color:var(--text-warning)":"color:var(--text-success)"}">${money(totalDebt)}</div>
-        <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}">${totalDebt>0?"ожидаем оплату":"всё оплачено ✓"}</div>
+        ${/* Подпись называет МНОЖЕСТВО, а не настроение. Рядом в той же полосе
+              стоит «Собираемость», и она считает по ВСЕМ неархивным сделкам,
+              включая завершённые: на боевом счёте выходило «долг 554 025 ₽» и
+              тут же «оплачено 6 781 391 из 6 999 225» — то есть недобор
+              217 834 ₽. Два числа про недополученные деньги, которые не
+              сходятся, потому что множества разные (здесь — только активные
+              сделки, там — все) и потому что переплата по одной сделке гасит
+              там долг по другой. Формулы верны обе, врало молчание: ни одна
+              подпись не говорила, о каких сделках речь. */""}
+        <div class="db-stat-delta ${totalDebt>0?"neg":"pos"}" title="Считаем только по активным сделкам: «Завершённые» и «Архив» в долг не идут">${totalDebt>0?"по активным сделкам":"всё оплачено ✓"}</div>
               </div>
               <div class="db-stat" onclick="app.dashFilterDeals('all')" title="Сумма сделок в работе — открыть список">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.funnel}</svg></span><span class="db-stat-label">Воронка</span></div>
@@ -18553,12 +18562,17 @@
                 const cls = billed <= 0 ? "neu" : pct >= 90 ? "pos" : pct >= 60 ? "neu" : "neg";
                 return `
               <div class="db-stat" onclick="app.go('global-finances')" title="Собираемость: какая доля выставленных сумм уже оплачена">
-                <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span><span class="db-stat-label">Собираемость</span></div>
+                <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.money}</svg></span>${/* «Собрано всего», а не «Собираемость»: слово «всего» отделяет эту
+                      плитку от соседнего «Долга клиентов», который считает только
+                      активные сделки. В подпись его не убрать — на 390px строка
+                      «1 198 460 ₽ из 3 472 485 ₽» помещается ровно впритык
+                      (162px из 162), и любое лишнее слово режется многоточием. */""}
+                <span class="db-stat-label">Собрано всего</span></div>
                 <div class="db-stat-value-row">
                   <span class="db-stat-value">${billed > 0 ? pct + "%" : "—"}</span>
                   ${billed > 0 ? gaugeSvg(pct, pct >= 80 ? "var(--text-success)" : pct >= 50 ? "var(--text-warning)" : "var(--text-danger)") : ""}
                 </div>
-                <div class="db-stat-delta ${cls}">${billed > 0 ? money(got) + " из " + money(billed) : "нет сумм"}</div>
+                <div class="db-stat-delta ${cls}" title="Все сделки, кроме архивных, за всё время: сколько выставлено и сколько из этого получено">${billed > 0 ? money(got) + " из " + money(billed) : "нет сумм"}</div>
               </div>`;
               })()}
             </div>
