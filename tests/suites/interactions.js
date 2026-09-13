@@ -5351,6 +5351,45 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Календарь: у денежного события в ячейке стояло «+11 323 ₽ · undefined».
+
+     Поле `title` платежу проставляет normalizePayment, но платежи внутри
+     `snapshot` сделки её проходят не всегда — так приходят импортированные и
+     созданные ботом. Подпись бралась как есть, и служебное слово JavaScript
+     оказывалось на экране у ВСЕХ денежных событий такой сделки.
+
+     Проверяем не поле, а результат: на экране календаря нет ни одного
+     «undefined», а подпись события называет сделку. */
+  await test("календарь: платёж без названия подписан сделкой, а не «undefined»", async () => {
+    const { ctx, p } = await bootWithState(`
+      const сегодня = new Date().toISOString().slice(0, 10);
+      st.savedProjects = [{
+        id: "cal1", name: "Лукойл — ролик", client: "Лукойл", total: 100000, paid: 50000,
+        crmStatus: "В работе",
+        snapshot: {
+          // Ни title, ни note — как у платежей из импорта и от бота.
+          payments: [{ id: "cpay1", date: сегодня, amount: 50000 }],
+          expenses: [{ id: "cexp1", date: сегодня, amount: 1200 }],
+          tasks: [],
+        },
+      }];
+      st.activeProjectId = ""; st.payments = []; st.expenses = []; st.tasks = [];
+    `, { width: 1440, height: 950 });
+    try {
+      await p.evaluate(() => window.app.go("global-calendar"));
+      await p.waitForTimeout(700);
+      const r = await p.evaluate(() => ({
+        undefinedНаЭкране: (document.getElementById("appContent").innerText.match(/undefined/g) || []).length,
+        подписи: [...document.querySelectorAll("#appContent .cal-event-label")].map((e) => e.textContent.trim()),
+      }));
+      assertEqual(r.undefinedНаЭкране, 0, "на экране календаря есть «undefined»");
+      assert(r.подписи.some((t) => t.includes("Лукойл — ролик")),
+        "подпись денежного события не называет сделку: " + JSON.stringify(r.подписи));
+    } finally {
+      await ctx.close();
+    }
+  });
+
   /* Смета: пояснение к модели расчёта — один раз на экран.
 
      Текст объясняет саму модель («стоимость считается от цены, уровня сложности

@@ -24205,6 +24205,17 @@
         const [yr, mo] = calMonth.split("-").map(Number);
         const monthNames = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 
+        /* Подпись денежного события в календаре. Раньше сюда шло `p.title` как
+           есть, и в ячейке стояло «+11 323 ₽ · undefined»: поле `title` ставит
+           normalizePayment, но платежи внутри `snapshot` сделки её проходят не
+           всегда — так приходят импортированные и созданные ботом. Пустое поле
+           и вовсе давало «+11 323 ₽ · ».
+           Порядок замен: своё название → название сделки (полезнее слова
+           «Платёж»: сумма и так видна, а вот ЧЬИ это деньги — нет) → родовое
+           слово, если нет и его. */
+        const _moneyEventTitle = (tx, projectName, fallback) =>
+          String(tx && tx.title || "").trim() || String(projectName || "").trim() || fallback;
+
         /* Собираем все события */
         const events = [];
         state.savedProjects.forEach(proj => {
@@ -24214,14 +24225,14 @@
           const snap = proj.snapshot || {};
           if (proj.deadline) events.push({ date: proj.deadline, title: `Дедлайн: ${proj.name}`, type: "deadline", project: proj.name, projectId: proj.id });
           (snap.tasks || []).filter(t => t.deadline).forEach(t => events.push({ date: t.deadline, title: t.title, type: "task", project: proj.name, projectId: proj.id }));
-          (snap.payments || []).filter(p => p.date).forEach(p => events.push({ date: p.date, title: p.title, type: "payment", project: proj.name, projectId: proj.id, amount: p.amount }));
-          (snap.expenses || []).filter(e => e.date).forEach(e => events.push({ date: e.date, title: e.title, type: "expense", project: proj.name, projectId: proj.id, amount: e.amount }));
+          (snap.payments || []).filter(p => p.date).forEach(p => events.push({ date: p.date, title: _moneyEventTitle(p, proj.name, "Поступление"), type: "payment", project: proj.name, projectId: proj.id, amount: p.amount }));
+          (snap.expenses || []).filter(e => e.date).forEach(e => events.push({ date: e.date, title: _moneyEventTitle(e, proj.name, "Расход"), type: "expense", project: proj.name, projectId: proj.id, amount: e.amount }));
         });
         if (state.activeProjectId) {
           if (state.project.deadline) events.push({ date: state.project.deadline, title: `Дедлайн: ${state.project.name}`, type: "deadline", project: state.project.name, projectId: state.activeProjectId });
           state.tasks.filter(t => t.deadline).forEach(t => { if (!events.find(e => e.title === t.title && e.date === t.deadline)) events.push({ date: t.deadline, title: t.title, type: "task", project: state.project.name, projectId: state.activeProjectId }); });
-          state.payments.filter(p => p.date).forEach(p => events.push({ date: p.date, title: p.title, type: "payment", project: state.project.name, projectId: state.activeProjectId, amount: p.amount }));
-          state.expenses.filter(e => e.date).forEach(e => events.push({ date: e.date, title: e.title, type: "expense", project: state.project.name, projectId: state.activeProjectId, amount: e.amount }));
+          state.payments.filter(p => p.date).forEach(p => events.push({ date: p.date, title: _moneyEventTitle(p, state.project.name, "Поступление"), type: "payment", project: state.project.name, projectId: state.activeProjectId, amount: p.amount }));
+          state.expenses.filter(e => e.date).forEach(e => events.push({ date: e.date, title: _moneyEventTitle(e, state.project.name, "Расход"), type: "expense", project: state.project.name, projectId: state.activeProjectId, amount: e.amount }));
         }
         /* Личные задачи (не привязанные к проекту) — тоже события календаря.
            Их не было здесь ни разу: собирали только сделки, а пустой экран
@@ -24350,7 +24361,11 @@
                       const money$ = (ev.type === "payment" || ev.type === "expense") && numberValue(ev.amount, 0) > 0
                         ? (ev.type === "payment" ? "+" : "−") + money(ev.amount) : "";
                       const text = money$ ? `${money$} · ${ev.title}` : ev.title;
-                      return `<span class="cal-event-label ${ev.type}" title="${escapeHtml(ev.title)}${ev.project ? " · " + escapeHtml(ev.project) : ""}">${escapeHtml(text)}</span>`;
+                      /* Проект в подсказке — только если он не то же самое, что
+                         подпись: у денежного события без своего названия подписью
+                         служит имя сделки, и подсказка выходила бы «Лукойл — ролик
+                         · Лукойл — ролик». */
+                      return `<span class="cal-event-label ${ev.type}" title="${escapeHtml(ev.title)}${ev.project && ev.project !== ev.title ? " · " + escapeHtml(ev.project) : ""}">${escapeHtml(text)}</span>`;
                     }).join("")}
                     ${dayEvs.length > MAX_LABELS ? `<span style="font-size:12px;color:var(--muted);display:block;margin-top:1px">+${dayEvs.length - MAX_LABELS} ещё</span>` : ""}
                   </div>
