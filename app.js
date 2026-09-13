@@ -20324,6 +20324,9 @@
 
       function renderEstimate() {
         const inDeal = state.view === "deal";
+        // Пояснения к моделям расчёта показываются по одному разу на экран —
+        // счётчик обнуляется на каждый проход (см. calcHintOnce).
+        _calcHintShown = new Set();
 
         const stagesWithItems = state.stages
           .map(stage => ({ stage, ids: selectedIdsByStage(stage.id, true) }))
@@ -20540,7 +20543,12 @@
               ${state.stages.map(stage => optionValueHtml(stage.id, stage.name, stageId)).join("")}
             </select>
           `),
-          field("Цена", `<input type="number" data-autosave data-scope="line" data-id="${id}" data-key="price" value="${escapeHtml(line.price)}">`),
+          /* Единица переехала в подпись поля: «Цена за смену» вместо «Цена» и
+             отдельной капсулы «Ед.: смена» строкой выше. Капсула занимала на
+             карточке целый ряд, а говорила ровно то, что объясняет цену, — у
+             поля цены ей и место. */
+          field(itemData.unit ? `Цена за ${unitAccusative(itemData.unit)}` : "Цена",
+            `<input type="number" data-autosave data-scope="line" data-id="${id}" data-key="price" value="${escapeHtml(line.price)}">`),
           `<div class="field no-print"><label>Себестоимость</label><input type="number" data-autosave data-scope="line" data-id="${id}" data-key="cost" value="${escapeHtml(line.cost || 0)}" placeholder="0" title="Внутренняя себестоимость — клиенту не показывается"></div>`
         ];
 
@@ -20596,10 +20604,13 @@
 
                         Осталось то, что не сказано больше нигде: единица (за что
                         цена) и «Расходы» — редкая и важная пометка про деньги. */""}
-                  <div class="badges">
-                    <span class="badge">Ед.: ${escapeHtml(itemData.unit)}</span>
-                    ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--text-danger);border-color:rgba(220,38,38,.3)" title="Расход агентства — по умолчанию не приносит прибыль, себестоимость = цене">Расходы</span>` : ""}
-                  </div>
+                  ${/* Ряд капсул остаётся только ради «Расходов» — редкой и
+                        важной пометки про деньги. Единица уехала в подпись поля
+                        «Цена за …»: там она объясняет цену, а здесь занимала на
+                        каждой из двадцати с лишним карточек отдельный ряд. */""}
+                  ${isPassthroughCostItem(itemData) ? `<div class="badges">
+                    <span class="badge" style="background:rgba(220,38,38,.12);color:var(--text-danger);border-color:rgba(220,38,38,.3)" title="Расход агентства — по умолчанию не приносит прибыль, себестоимость = цене">Расходы</span>
+                  </div>` : ""}
                 </div>
               </div>
 
@@ -21011,6 +21022,23 @@
         render();
       }
 
+      /* Пояснение к модели расчёта — ОДИН раз на экран, а не на каждой строке.
+         Текст объясняет саму модель («стоимость считается от цены, уровня
+         сложности и итераций»), а не эту позицию, и в смете из двадцати одной
+         строки он повторялся дословно у каждой креативной — двадцать одна
+         одинаковая фраза подряд. Место при этом не бесплатное: страница сметы
+         на 21 позиции — 11 600px, и такие абзацы её и делают.
+
+         Считаем в момент ОТРИСОВКИ, а не по порядку строк: у свёрнутой позиции
+         блока расчёта нет вовсе, и пояснение достаётся первой развёрнутой.
+         Набор сбрасывает renderEstimate в начале каждого прохода. */
+      let _calcHintShown = new Set();
+      function calcHintOnce(model, text) {
+        if (_calcHintShown.has(model)) return "";
+        _calcHintShown.add(model);
+        return `<p class="mini-note">${text}</p>`;
+      }
+
       function renderLineAdvancedControls(id, itemData, line) {
         if (itemData.id === "ai_sub_service") {
           const priceOptions = AI_SERVICES.map(s =>
@@ -21047,9 +21075,11 @@
           return `
             <div class="calc-box">
               <h3>Расчёт смены / часов</h3>
-              <p class="mini-note">${byHour
+              ${/* Ключ включает способ оплаты: почасовая и сменная — две разные
+                    формулы, и пояснение к одной ничего не говорит о другой. */""}
+              ${calcHintOnce("crewShift:" + (byHour ? "hour" : "shift"), byHour
                 ? "Почасовая оплата: итог = часы × ставка × людей."
-                : "Оплата сменой: итог = «Цена» из строки сметы × дни × людей, плюс сверхурочные."}</p>
+                : "Оплата сменой: итог = «Цена» из строки сметы × дни × людей, плюс сверхурочные.")}
 
               <div class="grid ${byHour ? "four" : "four"}">
                 ${field("Тип оплаты", `
@@ -21104,7 +21134,7 @@
           return `
             <div class="calc-box">
               <h3>Монтаж</h3>
-              <p class="mini-note">Стоимость считается от базы, длительности, камер, исходников, версий, правок, сложности и срочности.</p>
+              ${calcHintOnce("videoEdit", "Стоимость считается от базы, длительности, камер, исходников, версий, правок, сложности и срочности.")}
 
               <div class="grid four">
                 ${field("Тип видео", `
@@ -21184,7 +21214,7 @@
           return `
             <div class="calc-box">
               <h3>Креативная работа</h3>
-              <p class="mini-note">Для креатива дни не показываются: стоимость считается от цены, уровня сложности и дополнительных итераций.</p>
+              ${calcHintOnce("creativeWork", "Для креатива дни не показываются: стоимость считается от цены, уровня сложности и дополнительных итераций.")}
 
               <div class="grid two">
                 ${field("Уровень", `
@@ -21202,12 +21232,12 @@
         }
 
         if (itemData.calcModel === "perDay") {
-          return `
-            <div class="calc-box">
-              <h3>Расчёт по дням</h3>
-              <p class="mini-note">Стоимость считается как цена за день × количество дней.</p>
-            </div>
-          `;
+          /* Блок без единого поля: он есть только ради объяснения формулы —
+             само поле «Дней» стоит в основном ряду выше. Значит и рисовать его
+             стоит лишь там, где пояснение показывается: иначе у остальных
+             позиций осталась бы пустая рамка с заголовком. */
+          const hint = calcHintOnce("perDay", "Стоимость считается как цена за день × количество дней.");
+          return hint ? `<div class="calc-box"><h3>Расчёт по дням</h3>${hint}</div>` : "";
         }
 
         return "";

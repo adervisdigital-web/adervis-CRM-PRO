@@ -5310,5 +5310,36 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Смета: пояснение к модели расчёта — один раз на экран.
+
+     Текст объясняет саму модель («стоимость считается от цены, уровня сложности
+     и итераций»), а не конкретную позицию, и печатался у КАЖДОЙ строки: в
+     демо-смете из 21 позиции это 21 одинаковая фраза подряд, страница —
+     11 800px. Меряем результат: сколько на экране одинаковых пояснений. */
+  await test("смета: пояснение к модели расчёта не повторяется на каждой позиции", async () => {
+    // Свой контекст: общая страница набора к этому месту приходит с пустой
+    // сметой (её разбирают предыдущие тесты), а нам нужна демо-смета целиком.
+    const b = await bootLocal(browser, baseUrl, { width: 1280, height: 900, seedDemo: true });
+    try {
+      await b.page.evaluate(() => window.app.go("estimate"));
+      await b.page.waitForTimeout(600);
+      const r = await b.page.evaluate(() => {
+        const notes = [...document.querySelectorAll("#appContent .calc-box .mini-note")]
+          .map((n) => n.textContent.trim());
+        const счёт = {};
+        notes.forEach((t) => { счёт[t] = (счёт[t] || 0) + 1; });
+        return {
+          позиций: document.querySelectorAll("#appContent .item").length,
+          повторы: Object.entries(счёт).filter(([, n]) => n > 1),
+        };
+      });
+      assert(r.позиций >= 5, `в демо-смете всего ${r.позиций} позиций — проверять нечего`);
+      assertEqual(r.повторы.length, 0,
+        "одинаковые пояснения на экране: " + r.повторы.map(([t, n]) => `${n}× «${t.slice(0, 40)}…»`).join("; "));
+    } finally {
+      await b.context.close();
+    }
+  });
+
   await context.close();
 };
