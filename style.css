@@ -1932,6 +1932,14 @@
       margin-top: 6px; font-size: 12px; font-weight: 700;
       color: var(--muted); font-variant-numeric: tabular-nums;
     }
+    /* Доля оплаты у клиента: тонкая дорожка под суммами. 3px — столько же, что
+       у долей этапов в «Итогах сметы»: это фон-подсказка, а не элемент, за
+       которым идут глазами. */
+    .client-pay-track {
+      display: block; height: 3px; margin-top: 8px;
+      border-radius: var(--r-pill); background: var(--line); overflow: hidden;
+    }
+    .client-pay-fill { display: block; height: 100%; border-radius: var(--r-pill); }
 
     .item.selected {
       border-color: rgba(22, 163, 74, .55);
@@ -4949,6 +4957,14 @@
     }
     .stage-header h2 {
       margin: 0; font-size: 18px; letter-spacing: -.02em;
+      display: flex; align-items: center; gap: 8px;
+    }
+    /* Значок этапа — в его же цвете, подложка того же цвета на 16%. Размер
+       меньше значка раздела (24 против 28): это не заголовок страницы, а метка
+       группы внутри неё, и она не должна спорить с ним по весу. */
+    .stage-h2-ico {
+      width: 24px; height: 24px; border-radius: var(--r-sm); flex: 0 0 auto;
+      display: inline-flex; align-items: center; justify-content: center;
     }
     .stage-header-meta {
       font-size: 12px; color: var(--muted); margin-top: 3px;
@@ -6624,11 +6640,26 @@
     }
 
     /* ── IMPROVED SUMMARY ────────────────────────── */
+    /* Строка этапа в «Итогах сметы»: название — доля — сумма, и под ними
+       полоска доли во всю ширину. Сетка, а не flex: полоска должна лежать
+       ВТОРОЙ строкой на всю ширину, а три подписи — держать свои колонки, чтобы
+       проценты и суммы стояли столбиком у соседних этапов. */
     .summary-stage-row {
-      display: flex; justify-content: space-between;
-      gap: 10px; padding: 6px 0;
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      align-items: baseline;
+      column-gap: 10px; row-gap: 4px; padding: 6px 0;
       font-size: 13px;
     }
+    .summary-stage-pct {
+      font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+    }
+    .summary-stage-track {
+      grid-column: 1 / -1;
+      height: 3px; border-radius: var(--r-pill);
+      background: var(--line); overflow: hidden;
+    }
+    .summary-stage-fill { display: block; height: 100%; border-radius: var(--r-pill); }
     .margin-badge {
       display: inline-flex; align-items: center;
       padding: 3px 8px; border-radius: var(--r-pill); font-size: 12px; font-weight: 700;

@@ -392,6 +392,16 @@
       // приоритеты у уже заведённых задач молча обнулились бы.
       const PRIORITIES = ["Без приоритета", "Низкий", "Средний", "Высокий", "Срочно"];
 
+      /* Значки стандартных этапов сметы. Отдельной картой, а не полем в
+         DEFAULT_STAGES: этапы лежат в состоянии пользователя и заводятся свои —
+         новое поле досталось бы только тем, кто заведёт этап после этой правки,
+         а у всех остальных осталось бы пустым. Свой этап значка не получает:
+         угадывать его смысл нечем, цветная полоска у него и так есть. */
+      const STAGE_ICONS = {
+        pre: "bulb", shoot: "camera", post: "film",
+        management: "clipboard", marketing: "megaphone",
+      };
+
       const DEFAULT_STAGES = [
         { id: "pre", name: "Подготовка", color: "#8b5cf6", desc: "Идея, сценарий, планирование, подбор." },
         { id: "shoot", name: "Съёмка", color: "#2563eb", desc: "Команда, техника, площадка и съёмочный процесс." },
@@ -6677,7 +6687,7 @@
         return `
           <div class="panel">
             <div class="section-title" style="margin-bottom:24px">
-              <div><h1 class="m-0">Тарифный план</h1><p style="margin:4px 0 0;color:var(--muted)">Оплата через ЮKassa — карта, СБП, ЮМани</p></div>
+              <div><h1 class="m-0">${h1Icon("card")}Тарифный план</h1><p style="margin:4px 0 0;color:var(--muted)">Оплата через ЮKassa — карта, СБП, ЮМани</p></div>
               <button class="btn small" onclick="app.go('profile')">← Профиль</button>
             </div>
             <div class="grid five" style="gap:14px;margin-bottom:20px">
@@ -6860,7 +6870,7 @@
             })() : ''}
 
           <div class="panel" style="box-shadow:none;background:var(--panel2);margin-top:16px">
-            <h2 style="margin-top:0;font-size:15px;margin-bottom:14px">Что включено в подписку</h2>
+            <h2 style="margin-top:0;font-size:15px;margin-bottom:14px;display:flex;align-items:center;gap:8px">${iconBadge("check", "var(--text-success)", 22)} Что включено в подписку</h2>
             <div class="grid two" style="gap:10px">
               ${[
                 ["CRM и сделки", "Неограниченное число сделок и проектов по всем стадиям воронки"],
@@ -18962,14 +18972,30 @@
 
         return `
           <aside class="summary">
-            <h2>Итоги сметы</h2>
+            <h2>${iconBadge("coins", "var(--primary-text)", 22)} Итоги сметы</h2>
 
-            ${stagesWithItems.length > 1 ? stagesWithItems.map(x => `
-              <div class="summary-stage-row">
+            ${/* Доля этапа — полоской под строкой, в цвете самого этапа. Список
+                  сумм отвечал на «сколько стоит съёмка», но не на вопрос, ради
+                  которого в него смотрят перед разговором с клиентом: НА ЧТО
+                  уходит смета. Четыре числа в столбик глаз сравнивает поштучно,
+                  а полоски — сразу, и видно, что 96 000 ₽ съёмки это две трети
+                  проекта, а управление — шестая часть.
+                  Считаем от суммы этапов, а не от «Итого»: скидка и налог к
+                  этапам не относятся, и с ними доли не сложились бы в сто. */""}
+            ${stagesWithItems.length > 1 ? (() => {
+              const база = stagesWithItems.reduce((s, x) => s + numberValue(x.sum, 0), 0);
+              return stagesWithItems.map(x => {
+                const доля = база > 0 ? Math.round(numberValue(x.sum, 0) / база * 100) : 0;
+                const цвет = x.stage.color || "var(--primary)";
+                return `
+              <div class="summary-stage-row" title="${escapeHtml(x.stage.name)}: ${доля}% сметы">
                 <span>${escapeHtml(x.stage.name)}</span>
+                <span class="summary-stage-pct">${доля}%</span>
                 <strong>${money(x.sum)}</strong>
-              </div>
-            `).join("") : ""}
+                <span class="summary-stage-track"><span class="summary-stage-fill" style="width:${доля}%;background:${цвет}"></span></span>
+              </div>`;
+              }).join("");
+            })() : ""}
 
             ${t.discount ? `<div class="summary-line"><span>Скидка ${state.project.discount}%</span><strong>− ${money(t.discount)}</strong></div>` : ""}
             ${t.tax ? `<div class="summary-line"><span>Налог</span><strong>${money(t.tax)}</strong></div>` : ""}
@@ -20385,7 +20411,7 @@
               ${inDeal ? "" : `
                 <div class="section-title">
                   <div>
-                    <h1>Смета</h1>
+                    <h1>${h1Icon("receipt")}Смета</h1>
                     <p>${escapeHtml(state.project.name || "Проект")}${state.project.client ? " · " + escapeHtml(state.project.client) : ""}</p>
                   </div>
                   ${/* Выгрузка убрана отсюда: она переехала в панель самой сметы,
@@ -20507,7 +20533,14 @@
               <div class="stage-header-left">
                 <div class="stage-color-bar" style="background:${color}"></div>
                 <div class="stage-header-text">
-                  <h2 style="color:${color}">${escapeHtml(stage.name)}</h2>
+                  ${/* Значок этапа — по его id, в цвете самого этапа. Иконки нет в
+                        данных: этапы редактируются и заводятся свои, поэтому карта
+                        только для пяти стандартных, а у своих остаётся цветная
+                        полоска слева — она и так есть у всех. Значок не заменяет
+                        полоску, а даёт этапу узнаваемый знак: в длинной смете
+                        глаз ищет «где съёмка» и «где постпродакшн», а не читает
+                        подряд четыре заголовка. */""}
+                  <h2 style="color:${color}">${STAGE_ICONS[stage.id] ? `<span class="stage-h2-ico" style="background:color-mix(in srgb, ${color} 16%, transparent);color:${color}">${icon(STAGE_ICONS[stage.id], 14)}</span>` : ""}${escapeHtml(stage.name)}</h2>
                   <div class="stage-header-meta">
                     ${escapeHtml(stage.desc || "")}
                     · <strong>${mainCount}</strong> позиц.${optionalCount ? ` · <strong>${optionalCount}</strong> опц.` : ""}
@@ -21434,6 +21467,22 @@
                       ${m.paid ? `<span style="color:var(--text-success)" title="Всего оплачено клиентом">${money(m.paid)}</span>` : ""}
                       ${m.debt ? `<span style="color:var(--text-warning)" title="Долг клиента">долг ${money(m.debt)}</span>` : ""}
                     </div>
+                    ${/* Полоса «оплачено против долга». Два числа рядом словами
+                          («160 346 ₽» и «долг 40 000 ₽») требуют деления в уме,
+                          чтобы понять главное о клиенте: платит он или тянет.
+                          Полоска отвечает на это до чтения цифр, а цвет повторяет
+                          смысл — зелёный, когда закрыто всё.
+                          Рисуем только когда есть от чего считать: у клиента без
+                          денег пустая дорожка сообщала бы «ноль процентов», хотя
+                          верный ответ — «сделок ещё не было». */""}
+                    ${(() => {
+                      const выставлено = numberValue(m.paid, 0) + numberValue(m.debt, 0);
+                      if (выставлено <= 0) return "";
+                      const доля = Math.min(100, Math.round(numberValue(m.paid, 0) / выставлено * 100));
+                      return `<span class="client-pay-track" title="Оплачено ${доля}% — ${money(m.paid)} из ${money(выставлено)}">
+                        <span class="client-pay-fill" style="width:${доля}%;background:${доля >= 100 ? "var(--green)" : "var(--primary)"}"></span>
+                      </span>`;
+                    })()}
                     <div class="badges" style="margin-top:8px">
            ${client.phone ? `<span class="badge"> ${escapeHtml(client.phone)}</span>` : ""}
            ${client.email ? `<span class="badge"> ${escapeHtml(client.email)}</span>` : ""}
@@ -30312,7 +30361,7 @@ Email: _____________________              Email: _____________________
               </div>
             </div>
 
-            <h2 style="font-size:16px;margin:0 0 12px;color:var(--muted)">Шаблоны</h2>
+            <h2 style="font-size:16px;margin:0 0 12px;color:var(--muted);display:flex;align-items:center;gap:8px">${iconBadge("doc", "var(--muted)", 22)} Шаблоны</h2>
             <div class="grid four" style="margin-bottom:24px">
               ${/* Класс вместо инлайнового стиля с onmouseover: карточки были
                     разной высоты (имя шаблона в одну строку или в две), и бейдж
