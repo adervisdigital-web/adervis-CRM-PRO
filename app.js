@@ -20629,13 +20629,26 @@
 
               ${(() => {
                 const bd = lineBreakdown(id);
-                // Для простого фиксированного тарифа breakdown — это одна строка,
-                // повторяющая уже показанную "Цену" дословно. Показываем формулу
-                // только когда в ней реально есть расчёт (дни × ставка, часы и т.п.)
                 if (!bd.rows.length) return "";
-                if (bd.rows.length === 1 && bd.rows[0].label === "Фиксированная стоимость") return "";
+                /* Полоса должна отвечать, ОТКУДА сумма. Она этого не делала: у
+                   каждой строки расчёта есть пояснение («5 000 ₽ × 2 дн.»,
+                   «Коэффициент ×1.5»), и оно не выводилось никогда — печатались
+                   только название и число. На креативной позиции выходило
+                   «Креативная работа: 5 000 ₽ = 5 000 ₽», то есть одна и та же
+                   сумма трижды на карточке, считая шапку.
+                   Теперь пояснение показано, а прячем полосу не по названию
+                   строки («Фиксированная стоимость»), а когда объяснять нечего:
+                   строка одна, равна итогу и пояснения при ней нет. «Коэффициент
+                   ×1» — тоже «нечего»: множитель на единицу ничего не меняет. */
+                const пояснение = String(bd.rows[0].note || "").replace(/×\s*1(?![\d.,])/g, "");
+                if (bd.rows.length === 1
+                    && Math.round(bd.rows[0].value) === Math.round(bd.total)
+                    && !/\d/.test(пояснение)) return "";
                 return `<div style="background:rgb(var(--primary-rgb) / .06);border:1px solid rgb(var(--primary-rgb) / .15);border-radius:10px;padding:10px 14px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-                  <div class="u-meta">${bd.rows.map(r=>`<span>${escapeHtml(r.label)}: <strong>${money(r.value)}</strong></span>`).join(" · ")}</div>
+                  ${/* У единственной строки её сумма и есть итог — печатать её
+                        дважды в одной полосе («Смена …: 18 000 ₽   = 18 000 ₽»)
+                        незачем. Слева тогда остаётся только формула. */""}
+                  <div class="u-meta">${bd.rows.map(r=>`<span>${escapeHtml(r.label)}${r.note ? ` <span style="opacity:.75">(${escapeHtml(r.note)})</span>` : ""}${bd.rows.length > 1 ? `: <strong>${money(r.value)}</strong>` : ""}</span>`).join(" · ")}</div>
                   <div style="font-weight:900;font-size:14px;white-space:nowrap">= ${money(bd.total)}</div>
                 </div>`;
               })()}
