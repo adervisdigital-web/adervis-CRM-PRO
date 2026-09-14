@@ -1934,13 +1934,25 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assertEqual(a.unit, "день", "единица не как у соседей");
       assert(a.видна && a.первая, "новая позиция не видна первой в разделе: " + JSON.stringify(a));
 
-      // Переезд в другой раздел: вид едет следом, этап подстраивается.
-      await p.evaluate((id) => {
-        const sel = document.querySelector(`[data-scope="custom"][data-id="${id}"][data-key="place"]`);
-        sel.value = "grp:post";
-        sel.dispatchEvent(new Event("change"));
-      }, a.id);
-      await p.waitForTimeout(500);
+      // Переезд в другой раздел — плашками в окне позиции (с 15.09.2026 вместо
+      // длинного выпадающего списка): раздел, затем подраздел. Окно не
+      // закрывается, вид за ним едет следом, этап подстраивается.
+      await p.evaluate((id) => window.app.openCatalogEdit(id), a.id);
+      await p.waitForTimeout(400);
+      await p.click('.modal-box .place-chip[data-place="grp:post"]');
+      await p.waitForTimeout(400);
+      const подразделы = await p.evaluate(() => [...document.querySelectorAll(".modal-box .place-sub")].map((x) => x.dataset.place));
+      assert(подразделы.includes("cat:post:sound"), "у «Постпродакшна» в окне нет подраздела «Звук»: " + JSON.stringify(подразделы));
+      await p.click('.modal-box .place-sub[data-place="cat:post:sound"]');
+      await p.waitForTimeout(400);
+      const вОкне = await p.evaluate(() => ({
+        открыто: !!document.querySelector(".modal-box"),
+        выбран: (document.querySelector(".modal-box .place-sub.active") || {}).dataset?.place,
+      }));
+      assert(вОкне.открыто, "выбор раздела закрыл окно позиции");
+      assertEqual(вОкне.выбран, "cat:post:sound", "в окне не подсвечен выбранный подраздел");
+      await p.click(".modal-box .u-modal-close");
+      await p.waitForTimeout(400);
       const b = await снять();
       assertEqual(b.group, "post", "смена раздела не сохранилась");
       assertEqual(b.stage, "post", "этап не пошёл за разделом");

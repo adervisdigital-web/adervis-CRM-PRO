@@ -11959,8 +11959,12 @@
           state.filter = "all";
           save();
           render();
-          const stageName = ((state.stages || []).find(s => s.id === d.stage) || {}).name || d.stage;
-          toast(`Позиция в «${catalogPlaceLabel(place)}» · этап «${stageName}»`);
+          // В открытом окне тост не нужен: там подсвечена плашка, а под названием
+          // уже написано новое место. Тост нужен, только когда окна нет.
+          if (state.catalogEditId !== id) {
+            const stageName = ((state.stages || []).find(s => s.id === d.stage) || {}).name || d.stage;
+            toast(`Позиция в «${catalogPlaceLabel(place)}» · этап «${stageName}»`);
+          }
           return;
         }
 
@@ -19554,16 +19558,11 @@
           <div class="mb-14">
             ${field("Описание", `<textarea data-autosave data-scope="custom" data-id="${id}" data-key="desc" style="min-height:64px;resize:vertical">${escapeHtml(itemData.desc || "")}</textarea>`)}
           </div>
-          ${/* «Раздел» вместо «Категории» — как в карточке своей позиции: пара
-                «Категория» + «Этап» друг другу не соответствовала, и смена любого
-                поля уводила позицию из раздела. Раздел во всю ширину: в трети окна
-                «Оборудование · Камера и оптика» обрезалось бы на подгруппе. */""}
+          ${/* Место — плашками в два уровня (customItemPlacePicker): пара
+                «Категория» + «Этап» друг другу не соответствовала, а плоский
+                список «Раздел · Подраздел» был длинным и вылезал за окно. */""}
           <div class="mb-14">
-            ${field("Раздел", `
-              <select data-autosave data-scope="custom" data-id="${id}" data-key="place" aria-label="Раздел каталога">
-                ${customItemPlaceOptions(itemData)}
-              </select>
-            `)}
+            ${customItemPlacePicker(itemData)}
           </div>
           <div class="grid two">
             ${field("Этап в смете", `
@@ -20682,24 +20681,48 @@
         return "grp:" + g;
       }
 
-      /* Пункты выбора «Раздел». Плоским списком «Оборудование · Свет», а не через
-         <optgroup>: фирменная выпадашка (enhanceSelects) рисует только option, и
-         заголовки групп в ней пропали бы — осталась бы колонка «Свет», «Звук»,
-         «Прочее» без указания, чей это свет. */
-      function customItemPlaceOptions(itemData) {
+      /* Выбор места своей позиции — плашками в два уровня, а не выпадающим списком.
+
+         Список был плоским: «Оборудование · Движение», «Оборудование · Прочее»,
+         «Постпродакшн», «Постпродакшн · Фото»… — сорок пунктов, где имя раздела
+         повторяется в каждой строке, нужное ищется прокруткой, а сама выпадашка
+         в окне вылезала за его край (скриншот владельца 15.09.2026).
+
+         Теперь восемь разделов видны разом — со значками и в цветах левой колонки,
+         по которым их и узнают, — а под выбранным раскрываются только ЕГО
+         подразделы. Любое место — два касания, без прокрутки и без поиска.
+         Нажатие на раздел кладёт позицию в самый типичный для него подраздел
+         (catalogPlaceDefaults), так что подраздел можно и не трогать. */
+      function customItemPlacePicker(itemData) {
+        const id = escapeHtml(itemData.id);
         const all = allItems(false).filter(x => !isLineOnlyItem(x));
         const cur = customItemPlaceValue(itemData, all);
-        return CATALOG_GROUPS.map(g => {
-          const list = all.filter(x => itemGroup(x) === g.id);
-          const subs = catalogSubsOf(g.id, list, { includeEmpty: true });
-          const opts = [optionValueHtml("grp:" + g.id, g.label, cur)];
-          if (subs.length > 1) {
-            subs.forEach(s => opts.push(optionValueHtml(
-              s.kind === "cat" ? `cat:${g.id}:${s.id}` : s.id,
-              `${g.label} · ${s.label}`, cur)));
-          }
-          return opts.join("");
-        }).join("");
+        const g = CATALOG_GROUPS.find(x => x.id === catalogPlaceOf(cur).group) || CATALOG_GROUPS[0];
+        const btn = (cls, value, on, color, inner, title) => `
+          <button type="button" class="${cls} ${on ? "active" : ""}" style="--chip-c:${color}"
+            data-id="${id}" data-place="${escapeHtml(value)}" aria-pressed="${on}"${title ? ` title="${escapeHtml(title)}"` : ""}
+            onclick="app.setCustomItemPlace(this.dataset.id, this.dataset.place)">${inner}</button>`;
+        const groups = CATALOG_GROUPS.map(x =>
+          btn("place-chip", "grp:" + x.id, x.id === g.id, x.color, `${icon(x.ic, 14)}<span>${escapeHtml(x.label)}</span>`, x.hint)
+        ).join("");
+        const subs = catalogSubsOf(g.id, all.filter(x => itemGroup(x) === g.id), { includeEmpty: true });
+        const subsHtml = subs.length > 1 ? `
+          <div class="place-subs" role="group" aria-label="Подраздел в «${escapeHtml(g.label)}»" style="--chip-c:${g.color}">
+            ${subs.map(s => {
+              const value = s.kind === "cat" ? `cat:${g.id}:${s.id}` : s.id;
+              return btn("place-sub", value, value === cur, g.color, escapeHtml(s.label));
+            }).join("")}
+          </div>` : "";
+        return `
+          <div class="field place-field">
+            <span class="place-caption">Раздел каталога</span>
+            <div class="place-groups" role="group" aria-label="Раздел каталога">${groups}</div>
+            ${subsHtml}
+          </div>`;
+      }
+
+      function setCustomItemPlace(id, place) {
+        updateCustomItem(id, "place", place);
       }
 
       function renderCustomCatalogItem(itemData, selected, hidden) {
@@ -20724,15 +20747,21 @@
                 </div>
 
                 <div class="mt-12">
-                  ${/* «Раздел» — тот же список, что в левой колонке: позицию нельзя
-                        положить туда, чего в колонке нет. Этап подстраивается под
-                        раздел сам и правится отдельно — он решает только, в каком
-                        блоке сметы встанет строка. */""}
-                  ${field("Раздел", `
-                    <select data-autosave data-scope="custom" data-id="${itemData.id}" data-key="place" aria-label="Раздел каталога">
-                      ${customItemPlaceOptions(itemData)}
-                    </select>
-                  `)}
+                  ${/* В узкой карточке место не выбирается, а показывается: плашки
+                        восьми разделов в треть экрана встали бы в четыре ряда. Нажатие
+                        открывает окно позиции — там выбор в два касания. */""}
+                  ${(() => {
+                    const place = catalogPlaceOf(customItemPlaceValue(itemData));
+                    const g = CATALOG_GROUPS.find(x => x.id === place.group);
+                    return `
+                  <span class="place-caption">Раздел каталога</span>
+                  <button type="button" class="place-inline" data-id="${escapeHtml(itemData.id)}"
+                    onclick="app.openCatalogEdit(this.dataset.id)" title="Сменить раздел">
+                    ${g ? `<span style="color:${g.color};display:inline-flex">${icon(g.ic, 14)}</span>` : ""}
+                    <span class="place-inline-label">${escapeHtml(catalogPlaceLabel(place))}</span>
+                    <span class="place-inline-edit">сменить</span>
+                  </button>`;
+                  })()}
                 </div>
 
                 <div class="mt-12">
@@ -31122,6 +31151,7 @@ Email: _____________________              Email: _____________________
         createCustomItem,
         createCustomItemIn,
         keepCatalogDraft,
+        setCustomItemPlace,
         // Выставлено ради теста «КП: клиент видит свои услуги агентства»: сам состав
         // услуг уезжает в Supabase и локально нигде не наблюдаем.
         _proposalServicesList: proposalServicesList,

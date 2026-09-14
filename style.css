@@ -1714,6 +1714,73 @@
     .catalog-subgroups { margin: 2px 0 6px 10px; display: flex; flex-direction: column; gap: 2px; }
     .catalog-subgroup { font-size: 12px; min-height: 36px; opacity: .85; }
 
+    /* ── Выбор места своей позиции: разделы плашками, под выбранным — подразделы.
+       Цвет раздела приходит переменной --chip-c из CATALOG_GROUPS (те же токены,
+       что у значков левой колонки), поэтому «Оборудование» узнаётся по синему и в
+       колонке, и здесь. Подпись — как у полей формы (.field label), но не <label>:
+       связывать её не с чем, это группа кнопок. */
+    .place-caption { display: block; color: var(--muted); font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+    .place-groups { display: flex; flex-wrap: wrap; gap: 6px; }
+    .place-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      min-height: 34px; padding: 6px 12px 6px 10px;
+      border: 1px solid var(--line); border-radius: var(--r-pill);
+      background: var(--panel2); color: var(--muted);
+      font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background var(--dur-1), border-color var(--dur-1), color var(--dur-1);
+    }
+    .place-chip svg { color: var(--chip-c); flex: 0 0 auto; }
+    .place-chip:hover { color: var(--text); border-color: color-mix(in srgb, var(--chip-c) 55%, transparent); }
+    .place-chip.active {
+      color: var(--text);
+      border-color: var(--chip-c);
+      background: color-mix(in srgb, var(--chip-c) 16%, transparent);
+    }
+    /* Подразделы — вложенной подложкой в цвете выбранного раздела: читается как
+       «внутри раздела», а не как второй независимый выбор. */
+    .place-subs {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin-top: 10px; padding: 10px;
+      border-radius: var(--r-lg);
+      background: color-mix(in srgb, var(--chip-c) 7%, transparent);
+      border: 1px solid color-mix(in srgb, var(--chip-c) 22%, transparent);
+    }
+    .place-sub {
+      min-height: 30px; padding: 4px 12px;
+      border: 1px solid transparent; border-radius: var(--r-pill);
+      background: transparent; color: var(--muted);
+      font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+      transition: background var(--dur-1), color var(--dur-1);
+    }
+    .place-sub:hover { color: var(--text); background: color-mix(in srgb, var(--chip-c) 12%, transparent); }
+    /* Выбранный подраздел — подкрашенный фон с рамкой, а не сплошная заливка с
+       белым текстом: у «Подготовки» цвет раздела жёлтый, и белое на жёлтом не
+       прочитать. Текст остаётся цветом текста темы, контраст не зависит от того,
+       какой раздел выбран. */
+    .place-sub.active {
+      color: var(--text);
+      background: color-mix(in srgb, var(--chip-c) 26%, transparent);
+      border-color: var(--chip-c);
+    }
+    /* Палец: плашки и подразделы — не ниже 44px. */
+    @media (hover: none) and (pointer: coarse) {
+      .place-chip, .place-sub { min-height: 44px; }
+    }
+
+    /* Место своей позиции в узкой карточке каталога — строкой-кнопкой: выбор
+       плашками там не помещается, нажатие открывает окно позиции. */
+    .place-inline {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      min-height: 40px; padding: 8px 12px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--input); color: var(--text);
+      font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer;
+      transition: border-color var(--dur-1);
+    }
+    .place-inline:hover { border-color: rgb(var(--primary-rgb) / .5); }
+    .place-inline-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .place-inline-edit { flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--primary-text); }
+
     /* Строка раздела: сама кнопка раздела и плюс «своя позиция здесь» рядом.
        Плюс — отдельная кнопка, а не часть кнопки раздела: кнопка в кнопке
        недопустима. Специфичность у правила для кнопки внутри строки выше, чем у
@@ -1833,7 +1900,10 @@
         overflow-y: auto;
         overflow-x: hidden;
         padding: 0 14px calc(14px + env(safe-area-inset-bottom, 0px));
-        background: var(--panel);
+        /* Непрозрачная подложка под --panel — как у .modal-box: сквозь лист
+           тенью читался каталог за ним. */
+        background-color: var(--bg2);
+        background-image: linear-gradient(var(--panel), var(--panel));
         border-top: 1px solid var(--line);
         border-radius: var(--r-2xl) var(--r-2xl) 0 0;
         box-shadow: 0 -12px 40px rgba(0, 0, 0, .28);
@@ -6060,7 +6130,12 @@
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .modal-box {
-      background: var(--panel);
+      /* Под полупрозрачной --panel (.97) — непрозрачная --bg2. Одной --panel не
+         хватало: сквозь окно тенью читался каталог за ним («3D-визуализация
+         продукта» поверх описания позиции, снимок 15.09.2026). Цвет тот же —
+         панель лежит поверх своего же тона, — но насквозь больше не видно. */
+      background-color: var(--bg2);
+      background-image: linear-gradient(var(--panel), var(--panel));
       border: 1px solid var(--line);
       border-radius: var(--r-xl);
       padding: 28px;
