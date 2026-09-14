@@ -1740,6 +1740,10 @@
     }
     .catalog-cat-row:hover > .catalog-row-add,
     .catalog-cat-row:has(:focus-visible) > .catalog-row-add { opacity: 1; }
+    /* Сам плюс в фокусе с клавиатуры — виден СРАЗУ, без плавного проявления: в
+       миг, когда на него пришёл таб, он ещё прозрачный, и фокус на мгновение
+       стоит на невидимом. Сторож обхода табом в a11y это и поймал. */
+    .catalog-row-add:focus-visible { opacity: 1; transition: none; }
     .catalog-row-add:hover { opacity: 1; background: rgb(var(--primary-rgb) / .14); color: var(--primary-on-tint); }
     /* На пальце плюс сам 44×44, а не значок 26px с невидимой областью вокруг:
        строки в листе разделов и так 46px высотой, место есть, а честный размер
