@@ -11858,19 +11858,40 @@
         state.search = "";
         state.filter = "all";
         state.catalogNavOpen = false;
+        /* Плюс открывает ОКНО позиции (просьба владельца 14.09.2026), а не
+           вставляет редактируемую карточку в сетку: окно — то же, что по клику на
+           любую позицию, с ценой, себестоимостью и единицей, и в нём не нужно
+           искать глазами, куда встала новая карточка.
+           Позиция — черновик: закрыл окно, ничего не поменяв, — её нет. Иначе
+           каждый случайный плюс оставлял бы в каталоге «Новую позицию» за 1000 ₽. */
+        _catalogDraft = { id: custom.id, snap: _customItemSnap(custom.id) };
+        state.catalogEditId = custom.id;
         save();
         render();
 
         // Сразу в название: чтобы вбить список, не нужно ни одного лишнего клика.
         requestAnimationFrame(() => {
-          const el = document.querySelector(`[data-scope="custom"][data-id="${custom.id}"][data-key="name"]`);
+          const el = document.querySelector(`.modal-box [data-scope="custom"][data-id="${custom.id}"][data-key="name"]`);
           if (!el) return;
-          el.scrollIntoView({ block: "center" });
-          el.focus({ preventScroll: true });
+          el.focus();
           el.select();
         });
-        if (place.group || place.cg) toast(`Новая позиция — в «${catalogPlaceLabel(place)}»`);
         return custom.id;
+      }
+
+      // Черновик своей позиции, открытый плюсом (см. createCustomItemIn).
+      let _catalogDraft = null;
+      function _customItemSnap(id) {
+        const c = (state.customItems || []).find(x => x.id === id);
+        if (!c) return "";
+        return JSON.stringify([c.name, c.desc, c.price, c.defaultCost, c.unit, c.stage, c.group, c.sub, c.category,
+          (state.itemCustomGroup || {})[id] || "", !!state.selected[id], !!(state.favorites || {})[id]]);
+      }
+
+      // «Сохранить» у черновика: оставить позицию как есть, даже нетронутой.
+      function keepCatalogDraft() {
+        _catalogDraft = null;
+        closeCatalogEdit();
       }
 
       /* Старый вход без места (его зовут тесты и прежние обработчики): кладём туда,
@@ -19438,6 +19459,33 @@
       }
 
       function closeCatalogEdit() {
+        /* Сначала дописываем поле, в котором стоит курсор: автосохранение идёт по
+           «change», а он наступает только с уходом фокуса. Закрыли окно клавишей
+           Esc сразу после ввода названия — без этого набранное пропало бы, а
+           нетронутый с виду черновик ушёл бы в корзину. */
+        const active = document.activeElement;
+        if (active && active.closest && active.closest(".modal-box")) active.blur();
+
+        const id = state.catalogEditId;
+        if (_catalogDraft && _catalogDraft.id === id) {
+          const untouched = _customItemSnap(id) === _catalogDraft.snap;
+          _catalogDraft = null;
+          if (untouched) {
+            // Черновик так и не тронули — убираем молча, без «Позиция удалена»:
+            // человек ничего не удалял, он передумал добавлять.
+            state.customItems = (state.customItems || []).filter(x => x.id !== id);
+            _catalogFreshIds = _catalogFreshIds.filter(x => x !== id);
+            if (state.itemCustomGroup && state.itemCustomGroup[id]) {
+              const next = { ...state.itemCustomGroup };
+              delete next[id];
+              state.itemCustomGroup = next;
+            }
+            state.catalogEditId = "";
+            save();
+            render();
+            return;
+          }
+        }
         state.catalogEditId = "";
         renderModal();
       }
@@ -19480,6 +19528,11 @@
                 <button class="catalog-action-btn danger" onclick="app.hideCatalogItem('${id}');app.closeCatalogEdit()" title="Скрыть из каталога">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                 </button>
+              ` : _catalogDraft && _catalogDraft.id === id ? `
+                ${/* У черновика «Удалить» не нужно — закрыть окно и так значит
+                      отказаться. Нужно обратное: оставить позицию, даже если в
+                      ней пока ничего не поменяли. */""}
+                <button class="btn" onclick="app.keepCatalogDraft()" title="Оставить позицию в каталоге">Сохранить</button>
               ` : `
                 <button class="btn danger-quiet small" onclick="app.deleteCustomItem('${id}')" title="Удалить свою позицию">${TRASH_SVG} Удалить</button>
               `}
@@ -19501,13 +19554,19 @@
           <div class="mb-14">
             ${field("Описание", `<textarea data-autosave data-scope="custom" data-id="${id}" data-key="desc" style="min-height:64px;resize:vertical">${escapeHtml(itemData.desc || "")}</textarea>`)}
           </div>
-          <div class="grid three">
-            ${field("Категория", `
-              <select data-autosave data-scope="custom" data-id="${id}" data-key="category">
-                ${Object.keys(CAT).map(key => optionValueHtml(key, CAT[key], itemData.category)).join("")}
+          ${/* «Раздел» вместо «Категории» — как в карточке своей позиции: пара
+                «Категория» + «Этап» друг другу не соответствовала, и смена любого
+                поля уводила позицию из раздела. Раздел во всю ширину: в трети окна
+                «Оборудование · Камера и оптика» обрезалось бы на подгруппе. */""}
+          <div class="mb-14">
+            ${field("Раздел", `
+              <select data-autosave data-scope="custom" data-id="${id}" data-key="place" aria-label="Раздел каталога">
+                ${customItemPlaceOptions(itemData)}
               </select>
             `)}
-            ${field("Этап", `
+          </div>
+          <div class="grid two">
+            ${field("Этап в смете", `
               <select data-autosave data-scope="custom" data-id="${id}" data-key="stage">
                 ${state.stages.map(s => optionValueHtml(s.id, s.name, itemData.stage || "pre")).join("")}
               </select>
@@ -19612,7 +19671,11 @@
               <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:20px">
                 <div style="min-width:0">
                   <h2 style="margin:0 0 4px;font-size:18px;line-height:1.3">${escapeHtml(itemData.name)}</h2>
-                  ${custom ? `<span class="status-pill" style="font-size:12px">Своя позиция</span>` : `<span class="badge">${escapeHtml(itemData.section)}</span>`}
+                  ${/* У своей позиции под названием — ГДЕ она лежит («Своя ·
+                        Оборудование · Свет»): окно открывается сразу от плюса, и
+                        это единственное подтверждение, что позиция встала туда,
+                        куда нажимали. */""}
+                  ${custom ? `<span class="status-pill" style="font-size:12px">Своя · ${escapeHtml(catalogPlaceLabel(catalogPlaceOf(customItemPlaceValue(itemData))))}</span>` : `<span class="badge">${escapeHtml(itemData.section)}</span>`}
                 </div>
                 <button class="u-modal-close" onclick="app.closeCatalogEdit()" aria-label="Закрыть" style="flex-shrink:0">${icon("close", 15)}</button>
               </div>
@@ -30878,7 +30941,9 @@ Email: _____________________              Email: _____________________
             toggleHelpDd(false);
             if (state.financeModal) closeFinanceModal();
             else if (state.taskModal) closeTaskModal();
-            else if (state.catalogEditId) { state.catalogEditId = ""; renderModal(); }
+            // Через closeCatalogEdit, а не обнулением: там дописывается поле под
+            // курсором и убирается нетронутый черновик своей позиции.
+            else if (state.catalogEditId) { closeCatalogEdit(); }
             else if (state.clientModal) closeClientModal();
             else if (state.dealModal) closeDealModal();
             else if (state.editTransactionModal) closeEditTransactionModal();
@@ -31056,6 +31121,7 @@ Email: _____________________              Email: _____________________
 
         createCustomItem,
         createCustomItemIn,
+        keepCatalogDraft,
         // Выставлено ради теста «КП: клиент видит свои услуги агентства»: сам состав
         // услуг уезжает в Supabase и локально нигде не наблюдаем.
         _proposalServicesList: proposalServicesList,

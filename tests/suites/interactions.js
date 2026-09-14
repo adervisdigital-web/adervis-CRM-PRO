@@ -1880,37 +1880,59 @@ module.exports = async function ({ browser, baseUrl, test }) {
      завели (и заодно превратилась в стандартную карточку без полей для правки).
      Теперь позицию заводит плюс у раздела, место хранится явно, этап и способ
      расчёта берутся у соседей, а смена этапа место не меняет. */
-  await test("своя позиция: плюс у подгруппы, этап как у соседей, смена раздела и этапа её не теряет", async () => {
+  await test("своя позиция: плюс открывает окно, черновик без правок исчезает, этап как у соседей, место не теряется", async () => {
     const own = await bootLocal(browser, baseUrl, { width: 1280, height: 900 });
     try {
       const p = own.page;
       await p.evaluate(() => { window.app.go("services"); window.app.toggleCatalogGroup("gear"); });
       await p.waitForTimeout(400);
-      const plus = await p.$('.catalog-row-add[data-section="sub:gear:light"]');
-      assert(plus, "у подгруппы «Оборудование · Свет» нет плюса");
-      await plus.click();
+      const своих = () => p.evaluate(() => (JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}").customItems || []).length);
+      const было = await своих();
+      const plusSel = '.catalog-row-add[data-section="sub:gear:light"]';
+      assert(await p.$(plusSel), "у подгруппы «Оборудование · Свет» нет плюса");
+
+      // Плюс открывает окно позиции, курсор в названии. Закрыли, ничего не
+      // поменяв, — позиции нет: случайный плюс не мусорит в каталоге.
+      await p.click(plusSel);
       await p.waitForTimeout(500);
+      const окно = await p.evaluate(() => {
+        const box = document.querySelector(".modal-box");
+        const name = box && box.querySelector('[data-scope="custom"][data-key="name"]');
+        return { есть: !!name, фокус: !!name && document.activeElement === name };
+      });
+      assert(окно.есть, "плюс не открыл окно позиции");
+      assert(окно.фокус, "курсор не в названии новой позиции");
+      await p.click(".modal-box .u-modal-close");
+      await p.waitForTimeout(400);
+      assertEqual(await своих(), было, "нетронутый черновик остался в каталоге");
+
+      // Второй раз вводим название и закрываем Esc — позиция остаётся.
+      await p.click(plusSel);
+      await p.waitForTimeout(500);
+      await p.fill('.modal-box [data-scope="custom"][data-key="name"]', "Свой свет");
+      await p.keyboard.press("Escape");
+      await p.waitForTimeout(500);
+      assertEqual(await своих(), было + 1, "позиция с введённым названием пропала после Esc");
 
       const снять = () => p.evaluate(() => {
         const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
         const c = (st.customItems || [])[0] || {};
-        const card = document.querySelector(`[data-scope="custom"][data-id="${c.id}"][data-key="name"]`);
+        const card = document.querySelector(`.catalog-grid [data-scope="custom"][data-id="${c.id}"][data-key="name"]`);
         const first = document.querySelector(".catalog-grid .item--catalog");
         return {
-          id: c.id, group: c.group, sub: c.sub, stage: c.stage, calcModel: c.calcModel, unit: c.unit, tab: st.tab,
+          id: c.id, name: c.name, group: c.group, sub: c.sub, stage: c.stage, calcModel: c.calcModel, unit: c.unit, tab: st.tab,
           видна: !!card,
           первая: !!(first && card && first.contains(card)),
-          вФокусе: !!card && document.activeElement === card,
         };
       });
 
       const a = await снять();
+      assertEqual(a.name, "Свой свет", "название не сохранилось");
       assertEqual(a.group + "/" + a.sub, "gear/light", "позиция легла не в «Оборудование · Свет»");
       assertEqual(a.stage, "shoot", "этап не как у соседей по «Свету»");
       assertEqual(a.calcModel, "equipmentRental", "свет считается не арендой по дням, как соседи");
       assertEqual(a.unit, "день", "единица не как у соседей");
-      assert(a.видна && a.первая, "новая карточка не видна первой в разделе: " + JSON.stringify(a));
-      assert(a.вФокусе, "курсор не в названии новой позиции");
+      assert(a.видна && a.первая, "новая позиция не видна первой в разделе: " + JSON.stringify(a));
 
       // Переезд в другой раздел: вид едет следом, этап подстраивается.
       await p.evaluate((id) => {
