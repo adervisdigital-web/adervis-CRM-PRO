@@ -1721,24 +1721,31 @@
        занимал бы всю ширину и выталкивал плюс за край листа. */
     .catalog-cat-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
     .catalog-cat-row > .catalog-cat-item { flex: 1 1 auto; width: auto; min-width: 0; }
-    /* Плюс виден всегда, но тихо: двадцать ярких плюсов в колонке спорили бы с
-       самими разделами. Строка под курсором или в фокусе — плюс проявляется. */
+    /* Плюс появляется, только когда курсор над строкой (решение владельца
+       15.09.2026): двадцать плюсов в колонке спорили с самими разделами.
+       Прячем прозрачностью, а не display: место в строке остаётся за плюсом, и
+       счётчик не прыгает влево-вправо, пока курсор едет по списку. С клавиатуры
+       плюс проявляется, как только фокус попадает в строку, — иначе на невидимую
+       кнопку можно было бы попасть табом вслепую. Именно :focus-visible, а не
+       :focus-within: после клика мышью кнопка раздела держит фокус, и плюс
+       оставался бы висеть на строке, с которой курсор уже ушёл. */
     .catalog-row-add {
       flex: 0 0 auto;
       width: 26px; height: 26px; padding: 0;
       display: inline-flex; align-items: center; justify-content: center;
       border: none; border-radius: var(--r-sm);
       background: transparent; color: var(--muted);
-      opacity: .55; cursor: pointer;
+      opacity: 0; cursor: pointer;
       transition: opacity var(--dur-1), background var(--dur-1), color var(--dur-1);
     }
     .catalog-cat-row:hover > .catalog-row-add,
-    .catalog-row-add:focus-visible { opacity: 1; }
+    .catalog-cat-row:has(:focus-visible) > .catalog-row-add { opacity: 1; }
     .catalog-row-add:hover { opacity: 1; background: rgb(var(--primary-rgb) / .14); color: var(--primary-on-tint); }
     /* На пальце плюс сам 44×44, а не значок 26px с невидимой областью вокруг:
        строки в листе разделов и так 46px высотой, место есть, а честный размер
-       кнопки не перекрывает соседнюю строку своим ореолом. И в полутень плюс не
-       прячется — наведения на телефоне нет. */
+       кнопки не перекрывает соседнюю строку своим ореолом. И здесь плюс виден
+       ВСЕГДА: наведения на телефоне нет, и спрятанный до наведения плюс там не
+       появился бы никогда. */
     @media (hover: none) and (pointer: coarse) {
       .catalog-row-add { width: 44px; height: 44px; opacity: .8; }
     }
