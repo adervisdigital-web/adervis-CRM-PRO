@@ -144,6 +144,12 @@
       function itemSubGroup(itemData, groupId) {
         const defs = GROUP_SUBS[groupId];
         if (!defs || !itemData) return "";
+        // Своя позиция, заведённая плюсом у подгруппы, помнит её явно (поле sub):
+        // у неё нет тегов, по которым подгруппа угадывается, и без этого она
+        // уехала бы в «Прочее» сразу после создания.
+        if (itemData.sub && itemData.group === groupId && (itemData.sub === "other" || defs.some(d => d.id === itemData.sub))) {
+          return itemData.sub;
+        }
         const tags = (itemData.tags || []).map(t => String(t).toLowerCase());
         for (const d of defs) {
           if (d.tags.some(t => tags.includes(String(t).toLowerCase()))) return d.id;
@@ -155,6 +161,13 @@
       // способ расчёта надёжно отличает человека (смена/день) от аренды техники.
       function itemGroup(itemData) {
         if (!itemData) return "prep";
+        /* Раздел своей позиции задан ЯВНО (поле group) — и он главнее вывода.
+           Раньше раздел угадывался по категории, этапу и способу расчёта, и своя
+           позиция переезжала при каждой правке: поставил «Технику» или сменил этап
+           — и она пропадала из раздела, где её только что завели (скриншот
+           владельца 14.09.2026). Место в каталоге выбирает человек, а этап
+           отвечает только за то, в какой блок сметы встанет строка. */
+        if (itemData.group && CATALOG_GROUPS.some(g => g.id === itemData.group)) return itemData.group;
         const model = itemData.calcModel;
         const cat = itemData.category;
         const stage = itemData.stage || "pre";
@@ -172,6 +185,127 @@
         if (stage === "pre" || cat === "creative") return "prep";
         if (stage === "shoot") return "crew";
         return "prep";
+      }
+
+      /* Подписи подкатегорий, выводимых из `category`. На уровне модуля, а не внутри
+         renderCatalog: те же подписи нужны выбору «Раздел» в карточке своей
+         позиции, и два списка в двух местах разошлись бы молча. */
+      const CATALOG_CATEGORY_TABS = [
+        ["creative", "Креатив"],
+        ["pre", "Подготовка"],
+        ["shoot", "Съёмка"],
+        ["photo", "Фото"],
+        ["equipment", "Техника"],
+        ["post", "Пост"],
+        ["sound", "Звук"],
+        ["animation", "Графика"],
+        ["marketing", "Маркетинг"],
+        ["management", "Менеджмент"],
+        ["ai", "ИИ / AI"],
+        ["event", "Мероприятия"],
+        ["expenses", "Расходы"]
+      ];
+
+      /* Подгруппы раздела каталога. ОДНА функция на левую колонку и на выбор
+         «Раздел» в карточке своей позиции — иначе позицию можно было бы положить
+         туда, чего в колонке нет, и она «пропала» бы.
+         Сначала подкатегории из category; если их меньше двух — раздел сидит в
+         одной категории, и второй уровень берём из тегов (GROUP_SUBS).
+         includeEmpty — для выбора места: там нужны и пустые подгруппы по тегам,
+         чтобы в «Оборудование · Звук» можно было завести первую позицию. */
+      function catalogSubsOf(groupId, list, opts) {
+        const o = opts || {};
+        const catLabel = Object.fromEntries(CATALOG_CATEGORY_TABS);
+        let subs = [...new Set(list.map(x => x.category))]
+          .filter(c => catLabel[c])
+          .map(c => ({ id: c, kind: "cat", label: catLabel[c], n: list.filter(x => x.category === c).length }));
+        if (subs.length < 2 && GROUP_SUBS[groupId]) {
+          const defs = [...GROUP_SUBS[groupId], { id: "other", label: "Прочее" }];
+          subs = defs
+            .map(d => ({
+              id: "sub:" + groupId + ":" + d.id,
+              kind: "sub",
+              sub: d.id,
+              label: d.label,
+              n: list.filter(x => itemSubGroup(x, groupId) === d.id).length,
+            }))
+            .filter(s => o.includeEmpty || s.n > 0);
+        }
+        return subs;
+      }
+
+      /* Место в каталоге, закодированное строкой — так его несут плюсы в левой
+         колонке и выбор «Раздел»:
+           grp:<раздел> · sub:<раздел>:<подгруппа по тегам> ·
+           cat:<раздел>:<категория> · cg:<свой раздел> */
+      function catalogPlaceOf(section) {
+        const s = String(section || "");
+        if (s.startsWith("grp:")) return { group: s.slice(4) };
+        if (s.startsWith("sub:")) { const [, group, sub] = s.split(":"); return { group, sub }; }
+        if (s.startsWith("cat:")) { const [, group, category] = s.split(":"); return { group, category }; }
+        if (s.startsWith("cg:")) return { cg: s };
+        return {};
+      }
+
+      // Вкладка каталога, на которой это место видно.
+      function catalogTabOfPlace(place) {
+        if (place.cg) return place.cg;
+        if (place.sub) return `sub:${place.group}:${place.sub}`;
+        if (place.category) return place.category;
+        if (place.group) return "grp:" + place.group;
+        return "all";
+      }
+
+      function catalogPlaceLabel(place) {
+        if (place.cg) return ((state.customCatalogGroups || []).find(c => c.id === place.cg) || {}).label || "Свой раздел";
+        const g = CATALOG_GROUPS.find(x => x.id === place.group);
+        if (!g) return "Все";
+        let sub = "";
+        if (place.sub) sub = place.sub === "other" ? "Прочее" : ((GROUP_SUBS[g.id] || []).find(d => d.id === place.sub) || {}).label || "";
+        else if (place.category) sub = Object.fromEntries(CATALOG_CATEGORY_TABS)[place.category] || "";
+        return sub ? `${g.label} · ${sub}` : g.label;
+      }
+
+      /* Какой будет новая своя позиция в этом месте: этап, способ расчёта, единица
+         и категория — как у БОЛЬШИНСТВА стандартных позиций там же.
+
+         Раньше у своей позиции было два независимых поля — «Категория» и «Этап»,
+         — и они друг другу не соответствовали: «Техника» на этапе «Подготовка»,
+         камера по «шт». Соседи по разделу отвечают на вопрос точнее любой таблицы
+         соответствий: в «Оборудовании» все позиции на этапе «Съёмка», считаются
+         арендой по дням; в «Сайтах» — постпродакшн, по штукам. Новый раздел или
+         новая стандартная позиция не требуют править никакой карты.
+
+         Способ расчёта берём не любой: у «смены» и «монтажа» есть ставки и
+         лимиты, которых у пустой позиции нет, и строка посчиталась бы нулём.
+         Смена превращается в «за день», остальное сложное — в фиксированную цену. */
+      // Свои позиции, заведённые за время открытой страницы (см. filteredItems).
+      let _catalogFreshIds = [];
+      const SAFE_CUSTOM_MODELS = new Set(["fixed", "fixed+qty", "perDay", "equipmentRental", "creativeWork"]);
+      function catalogPlaceDefaults(place) {
+        const base = BASE_ITEMS.filter(x => !isLineOnlyItem(x));
+        const inGroup = place.group ? base.filter(x => itemGroup(x) === place.group) : [];
+        let pool = inGroup;
+        if (place.sub) pool = inGroup.filter(x => itemSubGroup(x, place.group) === place.sub);
+        else if (place.category) pool = inGroup.filter(x => x.category === place.category);
+        if (!pool.length) pool = inGroup;
+        const mode = (arr) => {
+          const seen = {}; let best = "", top = 0;
+          arr.forEach(v => { if (!v) return; seen[v] = (seen[v] || 0) + 1; if (seen[v] > top) { top = seen[v]; best = v; } });
+          return best;
+        };
+        const stageIds = (state.stages || []).map(s => s.id);
+        let stage = mode(pool.map(x => x.stage));
+        if (!stageIds.includes(stage)) stage = stageIds.includes("pre") ? "pre" : (stageIds[0] || "pre");
+        let calcModel = mode(pool.map(x => x.calcModel));
+        if (calcModel === "crewShift") calcModel = "perDay";
+        if (!SAFE_CUSTOM_MODELS.has(calcModel)) calcModel = "fixed";
+        return {
+          stage,
+          calcModel,
+          unit: mode(pool.map(x => x.unit)) || "шт",
+          category: place.category || mode(pool.map(x => x.category)) || "custom",
+        };
       }
 
       const EXPENSE_CATEGORIES = [
@@ -10276,9 +10410,11 @@
         let items = state.tab === "hidden" ? hiddenItemsList() : allItems(false);
         items = items.filter(x => !isLineOnlyItem(x));
 
-        if (state.tab !== "all") {
+        /* Вкладки «Свои» больше нет (решение владельца 14.09.2026): своя позиция
+           живёт в том разделе, где её завели, — плюсом у раздела. У кого вкладка
+           осталась выбранной с прошлого раза, видит «Все», а не пустоту. */
+        if (state.tab !== "all" && state.tab !== "custom") {
           if (state.tab === "favorites") items = items.filter(x => state.favorites[x.id]);
-          else if (state.tab === "custom") items = items.filter(x => x.category === "custom");
           // «Расходы» дополнительно показывает сквозные AI-подписки/кредиты из вкладки «ИИ» —
           // те же карточки, без дублирования данных, просто попадают в оба фильтра
           else if (state.tab === "expenses") items = items.filter(x => isPassthroughCostItem(x));
@@ -10312,6 +10448,23 @@
         if (state.sort === "priceAsc") items.sort((a, b) => getCatalogPrice(a) - getCatalogPrice(b));
         if (state.sort === "priceDesc") items.sort((a, b) => getCatalogPrice(b) - getCatalogPrice(a));
         if (state.sort === "category") items.sort((a, b) => String(a.category).localeCompare(String(b.category), "ru"));
+
+        /* Только что заведённые свои позиции — наверху раздела, новые первыми, и
+           остаются там, пока страница открыта. Иначе карточка «Новая позиция»
+           вставала бы по алфавиту в середину списка, а после переименования
+           уезжала бы из-под курсора — ровно когда в раздел быстро вбивают свой
+           список техники одну позицию за другой. sort стабилен: остальные
+           сохраняют выбранный порядок. */
+        if (_catalogFreshIds.length) {
+          const pos = (id) => _catalogFreshIds.indexOf(id);
+          items.sort((a, b) => {
+            const pa = pos(a.id), pb = pos(b.id);
+            if (pa < 0 && pb < 0) return 0;
+            if (pa < 0) return 1;
+            if (pb < 0) return -1;
+            return pa - pb;
+          });
+        }
 
         return items;
       }
@@ -10981,14 +11134,27 @@
         const copy = deepClone(itemData);
         copy.id = uid("custom");
         copy.name = `${copy.name} — копия`;
-        copy.category = "custom";
-        copy.section = CAT.custom;
+        /* Копия остаётся в разделе оригинала и с его категорией. Раньше она
+           получала категорию «Свои позиции» и уезжала во вкладку «Свои», которой
+           больше нет, — а копируют, чтобы поправить цену рядом с оригиналом. */
+        const group = itemGroup(itemData);
+        copy.group = group;
+        if (GROUP_SUBS[group]) copy.sub = itemSubGroup(itemData, group); else delete copy.sub;
         copy.tags = [...(copy.tags || []), "копия", "своя позиция"];
         copy.price = getCatalogPrice(itemData);
 
         state.customItems.unshift(copy);
-        state.tab = "custom";
-        toast("Позиция скопирована в свои");
+        _catalogFreshIds.unshift(copy.id);
+        const all = allItems(false).filter(x => !isLineOnlyItem(x) && itemGroup(x) === group);
+        const subs = catalogSubsOf(group, all);
+        const place = subs.length > 1 && subs[0].kind === "sub" ? { group, sub: copy.sub }
+          : subs.length > 1 && subs.some(s => s.id === copy.category) ? { group, category: copy.category }
+          : { group };
+        state.tab = catalogTabOfPlace(place);
+        state.catalogGroupsOpen = { ...(state.catalogGroupsOpen || {}), [group]: true };
+        state.search = "";
+        state.filter = "all";
+        toast(`Копия — в «${catalogPlaceLabel(place)}», рядом с оригиналом`);
         save();
         render();
       }
@@ -11655,25 +11821,70 @@
         toast("Данные сброшены");
       }
 
-      function createCustomItem() {
+      /* Своя позиция в КОНКРЕТНОМ месте каталога — её заводит плюс у раздела или
+         подгруппы в левой колонке (кнопки «Своя позиция» в шапке больше нет).
+         Позиция сразу получает место, этап, способ расчёта и единицу как у соседей
+         (catalogPlaceDefaults) и показывается там, где её завели: вкладка
+         переключается на это место, раздел раскрывается, поиск и фильтр
+         сбрасываются — иначе новая карточка могла бы родиться невидимой. */
+      function createCustomItemIn(section) {
+        const place = catalogPlaceOf(section);
+        const d = catalogPlaceDefaults(place);
         const custom = {
           id: uid("custom"),
-          category: "custom",
-          section: CAT.custom,
+          category: d.category,
+          section: CAT[d.category] || d.category,
           name: "Новая позиция",
-          desc: "Описание новой позиции.",
-          calcModel: "fixed",
+          // Пусто, а не «Описание новой позиции.»: описание уходит клиенту в КП,
+          // и заглушка оказывалась в документе у тех, кто её не стёр.
+          desc: "",
+          calcModel: d.calcModel,
           price: 1000,
-          unit: "шт",
+          unit: d.unit,
+          // Тег оставлен ради поиска: вкладки «Свои» нет, а «своя» в поиске
+          // по-прежнему находит все собственные позиции разом.
           tags: ["своя позиция"],
-          stage: "pre",
+          stage: d.stage,
           rates: {}
         };
+        if (place.group) custom.group = place.group;
+        if (place.sub) custom.sub = place.sub;
 
         state.customItems.unshift(custom);
-        state.tab = "custom";
+        if (place.cg) state.itemCustomGroup = { ...(state.itemCustomGroup || {}), [custom.id]: place.cg };
+        _catalogFreshIds.unshift(custom.id);
+        state.tab = catalogTabOfPlace(place);
+        if (place.group) state.catalogGroupsOpen = { ...(state.catalogGroupsOpen || {}), [place.group]: true };
+        state.search = "";
+        state.filter = "all";
+        state.catalogNavOpen = false;
         save();
         render();
+
+        // Сразу в название: чтобы вбить список, не нужно ни одного лишнего клика.
+        requestAnimationFrame(() => {
+          const el = document.querySelector(`[data-scope="custom"][data-id="${custom.id}"][data-key="name"]`);
+          if (!el) return;
+          el.scrollIntoView({ block: "center" });
+          el.focus({ preventScroll: true });
+          el.select();
+        });
+        if (place.group || place.cg) toast(`Новая позиция — в «${catalogPlaceLabel(place)}»`);
+        return custom.id;
+      }
+
+      /* Старый вход без места (его зовут тесты и прежние обработчики): кладём туда,
+         где человек сейчас стоит, если это раздел, — иначе позиция без раздела,
+         как было раньше. */
+      function createCustomItem() {
+        const t = String(state.tab || "");
+        let section = "";
+        if (t.startsWith("grp:") || t.startsWith("sub:") || t.startsWith("cg:")) section = t;
+        else if (CATALOG_CATEGORY_TABS.some(([id]) => id === t)) {
+          const sample = BASE_ITEMS.find(x => x.category === t);
+          if (sample) section = `cat:${itemGroup(sample)}:${t}`;
+        }
+        return createCustomItemIn(section);
       }
 
       function updateCustomItem(id, key, value) {
@@ -11703,6 +11914,35 @@
           render();
           return;
         }
+        /* «Раздел» вместо пары «Категория» + «Этап», которые не соответствовали друг
+           другу. Место задаётся явно (group/sub), категория и этап следуют за ним
+           — как у соседей по разделу. И вид переезжает вместе с позицией: раньше
+           смена категории на «Техника» уводила карточку из текущего списка, и она
+           выглядела удалённой (скриншот владельца 14.09.2026). Этап дальше можно
+           поправить руками — он влияет только на блок сметы, не на место в
+           каталоге. */
+        if (key === "place") {
+          const place = catalogPlaceOf(value);
+          if (!place.group) return;
+          const d = catalogPlaceDefaults(place);
+          custom.group = place.group;
+          if (place.sub) custom.sub = place.sub; else delete custom.sub;
+          custom.category = place.category || d.category;
+          custom.section = CAT[custom.category] || custom.category;
+          custom.stage = d.stage;
+          if (state.selected[id]) state.selected[id].stageId = d.stage;
+          if (!_catalogFreshIds.includes(id)) _catalogFreshIds.unshift(id);
+          state.tab = catalogTabOfPlace(place);
+          state.catalogGroupsOpen = { ...(state.catalogGroupsOpen || {}), [place.group]: true };
+          state.search = "";
+          state.filter = "all";
+          save();
+          render();
+          const stageName = ((state.stages || []).find(s => s.id === d.stage) || {}).name || d.stage;
+          toast(`Позиция в «${catalogPlaceLabel(place)}» · этап «${stageName}»`);
+          return;
+        }
+
         if (key === "price" || INCLUDED_KEYS.includes(key)) custom[key] = Math.max(0, Math.round(numberValue(value, 0)));
         else if (key === "tags") custom.tags = String(value || "").split(",").map(x => x.trim()).filter(Boolean);
         else if (key === "category") {
@@ -19934,29 +20174,19 @@
       }
 
       function renderCatalog() {
+        /* «Свои» убраны (решение владельца 14.09.2026): своя позиция живёт в
+           разделе, где её завели плюсом, а собрать их разом можно поиском «своя».
+           Отдельная вкладка делила каталог на «ваше» и «наше» там, где человек
+           ищет по смыслу — «оборудование», а не «кто это завёл». */
+        if (state.tab === "custom") state.tab = "all";
         const quickTabs = [
           ["all", "Все"],
           ["favorites", "Избранное"],
-          ["custom", "Свои"],
           ["hidden", "Скрытые"]
         ];
         // Подписи подкатегорий — без эмодзи: они лежат вложенным списком под группой,
         // у которой уже есть цветная SVG-иконка, и второй ряд картинок только рябит.
-        const categoryTabs = [
-          ["creative", "Креатив"],
-          ["pre", "Подготовка"],
-          ["shoot", "Съёмка"],
-          ["photo", "Фото"],
-          ["equipment", "Техника"],
-          ["post", "Пост"],
-          ["sound", "Звук"],
-          ["animation", "Графика"],
-          ["marketing", "Маркетинг"],
-          ["management", "Менеджмент"],
-          ["ai", "ИИ / AI"],
-          ["event", "Мероприятия"],
-          ["expenses", "Расходы"]
-        ];
+        const categoryTabs = CATALOG_CATEGORY_TABS;
 
         const hidden = hiddenItemsList();
 
@@ -19994,12 +20224,12 @@
                       она была иконкой. Иконка без подписи оправдана только там, где
                       действие повторяется на каждой строке и места нет. */""}
                 <div class="toolbar no-print">
-                  ${/* Переехали сюда из полосы навигации: это действия, а не разделы.
-                        «Своя позиция» — главное из них, поэтому primary. */""}
-                  <button class="btn small primary" onclick="app.createCustomItem()" title="Добавить свою услугу в каталог" style="display:inline-flex;align-items:center;gap:6px">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                    Своя позиция
-                  </button>
+                  ${/* Кнопки «Своя позиция» здесь больше нет (решение владельца
+                        14.09.2026): свою позицию заводит плюс у раздела или подгруппы
+                        в колонке слева. Общая кнопка создавала позицию «ни в каком
+                        разделе» с этапом наугад — отсюда и расхождение категорий с
+                        этапами. Плюс у раздела знает место, а значит и этап, и
+                        способ расчёта. */""}
                   ${/* Выгрузка и загрузка убраны под «⋮». На телефоне шапка съедала
                         весь первый экран: заголовок, описание в три строки, ТРИ кнопки,
                         выбор раздела, поиск, два фильтра и счётчик — и только потом
@@ -20087,7 +20317,6 @@
                       const catalogAll = allItems(false).filter(x => !isLineOnlyItem(x));
                       const byGroup = {};
                       catalogAll.forEach(x => { (byGroup[itemGroup(x)] = byGroup[itemGroup(x)] || []).push(x); });
-                      const catLabel = Object.fromEntries(categoryTabs);
                       return CATALOG_GROUPS.map((g, i) => {
                         const list = byGroup[g.id] || [];
                         if (!list.length) return "";
@@ -20105,41 +20334,45 @@
                         // сидит в одной категории, и второй уровень берём из тегов
                         // (Оборудование, ИИ, Расходы), иначе раздел остаётся
                         // сплошным списком на 9–14 позиций.
-                        let subs = [];
-                        if (open) {
-                          subs = [...new Set(list.map(x => x.category))]
-                            .filter(c => catLabel[c])
-                            .map(c => ({ id: c, label: catLabel[c], n: list.filter(x => x.category === c).length }));
-                          if (subs.length < 2 && GROUP_SUBS[g.id]) {
-                            const defs = [...GROUP_SUBS[g.id], { id: "other", label: "Прочее" }];
-                            subs = defs
-                              .map(d => ({
-                                id: "sub:" + g.id + ":" + d.id,
-                                label: d.label,
-                                n: list.filter(x => itemSubGroup(x, g.id) === d.id).length,
-                              }))
-                              .filter(s => s.n > 0);
-                          }
-                        }
+                        const subs = open ? catalogSubsOf(g.id, list) : [];
                         const picked = list.filter(x => state.selected[x.id]).length;
+                        /* Плюс у раздела и у каждой подгруппы заводит свою позицию
+                           ПРЯМО ТАМ (просьба владельца 14.09.2026): чтобы вбить свой
+                           список техники, открываешь «Оборудование → Свет» и жмёшь
+                           плюс, а позиция сразу получает этап «Съёмка» и расчёт
+                           арендой по дням, как соседи.
+                           Плюс — соседняя кнопка в строке, а не часть кнопки
+                           раздела: кнопка внутри кнопки недопустима и для
+                           разметки, и для экранного диктора. Место несёт
+                           data-section, а не текст в обработчике. */
+                        const addBtn = (section, where) => `
+                          <button type="button" class="catalog-row-add" data-section="${escapeHtml(section)}"
+                            onclick="event.stopPropagation();app.createCustomItemIn(this.dataset.section)"
+                            title="Своя позиция в «${escapeHtml(where)}»" aria-label="Добавить свою позицию в «${escapeHtml(where)}»">${icon("plus", 13)}</button>`;
                         return `
-                          <button class="catalog-cat-item ${g.id === "money" ? "danger" : ""} ${active ? "active" : ""}"
-                            data-group="${g.id}" data-group-size="${list.length}" data-open="${open ? "1" : "0"}"
-                            onclick="app.toggleCatalogGroup('${g.id}')" title="${escapeHtml(g.hint)}">
-                            <span style="display:flex;align-items:center;gap:7px;min-width:0">
-                              <span style="display:inline-block;width:9px;font-size:10px;opacity:.6;transform:rotate(${open ? "90" : "0"}deg);transition:transform .15s">▶</span>
-                              <span style="color:${g.color};display:inline-flex;flex-shrink:0">${icon(g.ic, 15)}</span>
-                              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(g.label)}</span>
-                            </span>
-                            <span class="catalog-cat-count" style="${picked ? "" : "opacity:.45"}">${picked || list.length}</span>
-                          </button>
-                          ${subs.length > 1 ? `<div class="catalog-subgroups">
+                          <div class="catalog-cat-row ${g.id === "money" ? "danger" : ""}">
+                            <button class="catalog-cat-item ${g.id === "money" ? "danger" : ""} ${active ? "active" : ""}"
+                              data-group="${g.id}" data-group-size="${list.length}" data-open="${open ? "1" : "0"}"
+                              onclick="app.toggleCatalogGroup('${g.id}')" title="${escapeHtml(g.hint)}">
+                              <span style="display:flex;align-items:center;gap:7px;min-width:0">
+                                <span style="display:inline-block;width:9px;font-size:10px;opacity:.6;transform:rotate(${open ? "90" : "0"}deg);transition:transform .15s">▶</span>
+                                <span style="color:${g.color};display:inline-flex;flex-shrink:0">${icon(g.ic, 15)}</span>
+                                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(g.label)}</span>
+                              </span>
+                              <span class="catalog-cat-count" style="${picked ? "" : "opacity:.45"}">${picked || list.length}</span>
+                            </button>
+                            ${addBtn("grp:" + g.id, g.label)}
+                          </div>
+                          ${subs.length > 1 ? `<div class="catalog-subgroups" data-subs-of="${g.id}">
                             ${subs.map(s => `
-                              <button class="catalog-cat-item catalog-subgroup ${state.tab === s.id ? "active" : ""}"
-                                onclick="event.stopPropagation();app.setTab('${s.id}')">
-                                <span>${escapeHtml(s.label)}</span>
-                                <span class="catalog-cat-count">${s.n}</span>
-                              </button>
+                              <div class="catalog-cat-row">
+                                <button class="catalog-cat-item catalog-subgroup ${state.tab === s.id ? "active" : ""}"
+                                  onclick="event.stopPropagation();app.setTab('${s.id}')">
+                                  <span>${escapeHtml(s.label)}</span>
+                                  <span class="catalog-cat-count">${s.n}</span>
+                                </button>
+                                ${addBtn(s.kind === "cat" ? `cat:${g.id}:${s.id}` : s.id, `${g.label} · ${s.label}`)}
+                              </div>
                             `).join("")}
                           </div>` : ""}
                         `;
@@ -20154,7 +20387,7 @@
                     return `<div class="catalog-cat-group" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
                       ${cgs.map(cg => {
                         const n = Object.keys(assigned).filter(k => assigned[k] === cg.id).length;
-                        return `<button class="catalog-cat-item ${state.tab === cg.id ? "active" : ""}"
+                        return `<div class="catalog-cat-row"><button class="catalog-cat-item ${state.tab === cg.id ? "active" : ""}"
                           onclick="app.setTab('${escapeHtml(cg.id)}')" title="Свой раздел">
                           <span style="display:flex;align-items:center;gap:7px;min-width:0">
                             <span style="display:inline-block;width:9px"></span>
@@ -20162,15 +20395,18 @@
                             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(cg.label)}</span>
                           </span>
                           <span class="catalog-cat-count" style="${n ? "" : "opacity:.45"}">${n}</span>
-                        </button>`;
+                        </button>
+                        <button type="button" class="catalog-row-add" data-section="${escapeHtml(cg.id)}"
+                          onclick="event.stopPropagation();app.createCustomItemIn(this.dataset.section)"
+                          title="Своя позиция в «${escapeHtml(cg.label)}»" aria-label="Добавить свою позицию в «${escapeHtml(cg.label)}»">${icon("plus", 13)}</button></div>`;
                       }).join("")}
                     </div>`;
                   })()}
 
-                  ${/* «Своя позиция» ушла в панель шапки: это главное действие раздела,
-                        ему место рядом с «Выгрузить/Загрузить», а не среди разделов.
+                  ${/* Свою позицию заводят плюсы у разделов выше (с 14.09.2026); общей
+                        кнопки ни здесь, ни в шапке нет.
 
-                        А вот настройка списка живёт ВНИЗУ САМОГО СПИСКА — там же, где
+                        Настройка списка живёт ВНИЗУ САМОГО СПИСКА — там же, где
                         «Настроить меню» у главного бокового меню: она настраивает то,
                         над чем стоит, и читается как служебная строка, а не как раздел.
                         Поэтому и цвет приглушённый, а не акцентный.
@@ -20273,7 +20509,11 @@
         const qty = catalogItemQty(itemData.id);
         const selected = qty > 0;
         const hidden = isHiddenItem(itemData.id);
-        const custom = itemData.category === "custom";
+        /* Своя — по принадлежности к своим позициям, а не по категории. Раньше
+           проверялась категория «custom», и стоило выбрать своей позиции «Технику»,
+           как карточка превращалась в стандартную: без названия и описания для
+           правки, без кнопки «Удалить». */
+        const custom = itemData.category === "custom" || (state.customItems || []).some(x => x.id === itemData.id);
 
         if (custom) return renderCustomCatalogItem(itemData, selected, hidden);
 
@@ -20368,25 +20608,66 @@
         `;
       }
 
+      // Текущее место своей позиции в кодировке catalogPlaceOf.
+      function customItemPlaceValue(itemData, all) {
+        const g = itemGroup(itemData);
+        if (itemData.sub && itemData.group === g) return `sub:${g}:${itemData.sub}`;
+        const list = (all || allItems(false).filter(x => !isLineOnlyItem(x))).filter(x => itemGroup(x) === g);
+        const subs = catalogSubsOf(g, list, { includeEmpty: true });
+        if (subs.length > 1 && subs.some(s => s.kind === "cat" && s.id === itemData.category)) return `cat:${g}:${itemData.category}`;
+        if (subs.some(s => s.kind === "sub")) return `sub:${g}:${itemSubGroup(itemData, g)}`;
+        return "grp:" + g;
+      }
+
+      /* Пункты выбора «Раздел». Плоским списком «Оборудование · Свет», а не через
+         <optgroup>: фирменная выпадашка (enhanceSelects) рисует только option, и
+         заголовки групп в ней пропали бы — осталась бы колонка «Свет», «Звук»,
+         «Прочее» без указания, чей это свет. */
+      function customItemPlaceOptions(itemData) {
+        const all = allItems(false).filter(x => !isLineOnlyItem(x));
+        const cur = customItemPlaceValue(itemData, all);
+        return CATALOG_GROUPS.map(g => {
+          const list = all.filter(x => itemGroup(x) === g.id);
+          const subs = catalogSubsOf(g.id, list, { includeEmpty: true });
+          const opts = [optionValueHtml("grp:" + g.id, g.label, cur)];
+          if (subs.length > 1) {
+            subs.forEach(s => opts.push(optionValueHtml(
+              s.kind === "cat" ? `cat:${g.id}:${s.id}` : s.id,
+              `${g.label} · ${s.label}`, cur)));
+          }
+          return opts.join("");
+        }).join("");
+      }
+
       function renderCustomCatalogItem(itemData, selected, hidden) {
         return `
           <article class="item item--catalog ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}" onclick="app._onCatalogCardClick(event,'${itemData.id}')" style="cursor:pointer">
             <div class="line-head">
               <div class="u-flex1">
-                <div class="grid two">
-                  ${field("Название", `<input data-autosave data-scope="custom" data-id="${itemData.id}" data-key="name" value="${escapeHtml(itemData.name)}">`)}
-                  ${field("Цена", `<input type="number" data-autosave data-scope="custom" data-id="${itemData.id}" data-key="price" value="${escapeHtml(itemData.price)}">`)}
-                </div>
+                ${/* Раскладка: название и раздел — во всю ширину, цена с этапом —
+                      парой. В половину карточки «Оборудование · Камера и оптика»
+                      обрезалось до «Оборудование ·…», то есть терялась именно
+                      подгруппа, ради которой выбор и делают; длинное название
+                      позиции обрезалось так же. */""}
+                ${field("Название", `<input data-autosave data-scope="custom" data-id="${itemData.id}" data-key="name" value="${escapeHtml(itemData.name)}">`)}
 
                 <div class="grid two" style="margin-top:12px">
-                  ${field("Категория", `
-                    <select data-autosave data-scope="custom" data-id="${itemData.id}" data-key="category">
-                      ${Object.keys(CAT).map(key => optionValueHtml(key, CAT[key], itemData.category)).join("")}
-                    </select>
-                  `)}
-                  ${field("Этап", `
+                  ${field(itemData.unit ? `Цена за ${unitAccusative(itemData.unit)}` : "Цена", `<input type="number" data-autosave data-scope="custom" data-id="${itemData.id}" data-key="price" value="${escapeHtml(itemData.price)}">`)}
+                  ${field("Этап в смете", `
                     <select data-autosave data-scope="custom" data-id="${itemData.id}" data-key="stage">
                       ${state.stages.map(stage => optionValueHtml(stage.id, stage.name, itemData.stage)).join("")}
+                    </select>
+                  `)}
+                </div>
+
+                <div class="mt-12">
+                  ${/* «Раздел» — тот же список, что в левой колонке: позицию нельзя
+                        положить туда, чего в колонке нет. Этап подстраивается под
+                        раздел сам и правится отдельно — он решает только, в каком
+                        блоке сметы встанет строка. */""}
+                  ${field("Раздел", `
+                    <select data-autosave data-scope="custom" data-id="${itemData.id}" data-key="place" aria-label="Раздел каталога">
+                      ${customItemPlaceOptions(itemData)}
                     </select>
                   `)}
                 </div>
@@ -30774,6 +31055,7 @@ Email: _____________________              Email: _____________________
         resetAllData,
 
         createCustomItem,
+        createCustomItemIn,
         // Выставлено ради теста «КП: клиент видит свои услуги агентства»: сам состав
         // услуг уезжает в Supabase и локально нигде не наблюдаем.
         _proposalServicesList: proposalServicesList,

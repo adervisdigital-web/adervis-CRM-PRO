@@ -106,17 +106,18 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
         `видно ${open.visible} из ${open.total} разделов — список снова не помещается`);
 
       // Выбор пункта закрывает лист: иначе он остаётся поверх результата, ради
-      // которого его и открывали. «Свои» есть в обеих вкладках.
+      // которого его и открывали. «Избранное» есть в обеих вкладках («Свои» в
+      // каталоге убраны 14.09.2026, в пакетах остались).
       const picked = await page.evaluate(() => {
         const bar = document.querySelector(".catalog-cat-sidebar.is-open");
         const btn = [...bar.querySelectorAll("button")]
           .filter(b => !b.closest(".catalog-nav-sheet-head"))
-          .find(b => /^Свои/.test(b.innerText.trim()));
+          .find(b => /^Избранное/.test(b.innerText.trim()));
         if (!btn) return false;
         btn.click();
         return true;
       });
-      assert(picked, "в листе не нашёлся пункт «Свои» — на нём проверяется закрытие");
+      assert(picked, "в листе не нашёлся пункт «Избранное» — на нём проверяется закрытие");
       await page.waitForTimeout(400);
       const afterPick = await page.evaluate(() => !!document.querySelector(".catalog-cat-sidebar.is-open"));
       assert(!afterPick, "после выбора пункта лист остался открытым");
@@ -283,12 +284,13 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   });
 
   // Два действия — два разных места, и это НЕ произвол:
-  //   «Своя позиция» добавляет услугу → главное действие раздела, ему место в
-  //     панели шапки рядом с «Выгрузить/Загрузить»;
+  //   своя позиция заводится ПЛЮСОМ у раздела в самом списке (с 14.09.2026,
+  //     решение владельца): общая кнопка в шапке создавала позицию «ни в каком
+  //     разделе» с этапом наугад, а плюс у раздела знает место — и этап;
   //   «Настроить разделы» настраивает САМ СПИСОК → стоит внизу этого списка, как
   //     «Настроить меню» у главного бокового меню, и приглушена, потому что не
   //     выбирает раздел и не должна спорить за внимание с теми, кто выбирает.
-  await test("каталог: «Своя позиция» в панели, «Настроить разделы» — внизу списка и приглушена", async () => {
+  await test("каталог: у каждого раздела плюс, «Настроить разделы» — внизу списка и приглушена", async () => {
     const { context, page } = await bootLocal(browser, baseUrl, { width: 1280, height: 900, seedDemo: true });
     try {
       await page.evaluate(() => window.app.go("catalog"));
@@ -314,18 +316,26 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
         };
         const plain = items.find(b => b.classList.contains("catalog-cat-item")
           && !b.classList.contains("active") && !b.classList.contains("catalog-cat-config"));
+        const разделы = nav ? [...nav.querySelectorAll(".catalog-cat-item[data-group]")] : [];
         return {
           acts,
-          ownInNav: /Своя позиция/.test(nav ? nav.innerText : ""),
+          quickTabs: nav ? [...nav.querySelector(".catalog-cat-group").querySelectorAll(".catalog-cat-item")].map(b => b.innerText.trim()) : [],
+          безПлюса: разделы.filter(b => {
+            const add = b.parentElement && b.parentElement.querySelector(":scope > .catalog-row-add");
+            return !add || add.dataset.section !== "grp:" + b.dataset.group;
+          }).map(b => b.dataset.group),
+          разделов: разделы.length,
           hasCfg: !!cfg,
           cfgIsLast: !!cfg && items.length > 0 && items[items.length - 1] === cfg,
           cfgRatio: cfg ? ratio(blend(cfg), bg) : null,
           plainRatio: plain ? ratio(blend(plain), bg) : null,
         };
       });
-      assert(r.acts.some(t => /Своя позиция/.test(t)), "«Своя позиция» пропала из панели раздела");
+      assert(!r.acts.some(t => /Своя позиция/.test(t)), "в шапке вернулась общая «Своя позиция» — позицию заводит плюс у раздела");
+      assert(!r.quickTabs.some(t => /^Свои/.test(t)), "вернулась вкладка «Свои»: " + r.quickTabs.join(", "));
+      assert(r.разделов > 3, "в списке почти нет разделов: " + r.разделов);
+      assertEqual(r.безПлюса.length, 0, "у разделов нет плюса «своя позиция здесь»: " + r.безПлюса.join(", "));
       assert(!r.acts.some(t => /Настроить разделы/.test(t)), "«Настроить разделы» снова в панели, а не внизу списка");
-      assert(!r.ownInNav, "«Своя позиция» снова подмешана в список разделов");
       assert(r.hasCfg, "внизу списка нет «Настроить разделы»");
       assert(r.cfgIsLast, "«Настроить разделы» стоит не последней в списке");
       assert(r.cfgRatio && r.plainRatio, "не удалось снять цвета");

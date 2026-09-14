@@ -955,9 +955,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
         const gid = b.dataset.group;
         const size = +b.dataset.groupSize;
         const subs = [];
-        let sib = b.nextElementSibling;
-        if (sib && sib.tagName === "DIV") {
-          sib.querySelectorAll("button").forEach((sb) => {
+        // По признаку, а не соседством: рядом с кнопкой раздела теперь плюс.
+        const box = document.querySelector(`[data-subs-of="${gid}"]`);
+        if (box) {
+          box.querySelectorAll(".catalog-subgroup").forEach((sb) => {
             const oc = sb.getAttribute("onclick") || "";
             const m = oc.match(/setTab\('([^']+)'\)/);
             const n = +(sb.querySelector(".catalog-cat-count")?.textContent || 0);
@@ -1856,9 +1857,11 @@ module.exports = async function ({ browser, baseUrl, test }) {
       const btn = document.querySelector('.catalog-cat-item[data-group="web"]');
       if (!btn) return null;
       const subs = [];
-      const sib = btn.nextElementSibling;
-      if (sib && sib.tagName === "DIV") {
-        sib.querySelectorAll("button").forEach((b) =>
+      // Подгруппы ищем по признаку, а не как соседа кнопки: с 14.09.2026 рядом с
+      // кнопкой раздела стоит плюс «своя позиция здесь».
+      const box = document.querySelector('[data-subs-of="web"]');
+      if (box) {
+        box.querySelectorAll(".catalog-subgroup").forEach((b) =>
           subs.push(+(b.querySelector(".catalog-cat-count") || {}).textContent || 0));
       }
       return { size: +btn.dataset.groupSize, subs };
@@ -1867,6 +1870,74 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(d.size >= 10, "в разделе меньше десяти позиций: " + d.size);
     assert(d.subs.length > 1, "у раздела нет подгрупп");
     assertEqual(d.subs.reduce((a, b) => a + b, 0), d.size, "сумма подгрупп не равна размеру раздела");
+  });
+
+  /* Своя позиция: место в каталоге и этап больше не спорят.
+
+     До 14.09.2026 у своей позиции были два независимых поля — «Категория» и
+     «Этап», — а раздел в левой колонке угадывался по ним обоим. Скриншот
+     владельца: выбрал «Технику» — позиция пропала из списка, где её только что
+     завели (и заодно превратилась в стандартную карточку без полей для правки).
+     Теперь позицию заводит плюс у раздела, место хранится явно, этап и способ
+     расчёта берутся у соседей, а смена этапа место не меняет. */
+  await test("своя позиция: плюс у подгруппы, этап как у соседей, смена раздела и этапа её не теряет", async () => {
+    const own = await bootLocal(browser, baseUrl, { width: 1280, height: 900 });
+    try {
+      const p = own.page;
+      await p.evaluate(() => { window.app.go("services"); window.app.toggleCatalogGroup("gear"); });
+      await p.waitForTimeout(400);
+      const plus = await p.$('.catalog-row-add[data-section="sub:gear:light"]');
+      assert(plus, "у подгруппы «Оборудование · Свет» нет плюса");
+      await plus.click();
+      await p.waitForTimeout(500);
+
+      const снять = () => p.evaluate(() => {
+        const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+        const c = (st.customItems || [])[0] || {};
+        const card = document.querySelector(`[data-scope="custom"][data-id="${c.id}"][data-key="name"]`);
+        const first = document.querySelector(".catalog-grid .item--catalog");
+        return {
+          id: c.id, group: c.group, sub: c.sub, stage: c.stage, calcModel: c.calcModel, unit: c.unit, tab: st.tab,
+          видна: !!card,
+          первая: !!(first && card && first.contains(card)),
+          вФокусе: !!card && document.activeElement === card,
+        };
+      });
+
+      const a = await снять();
+      assertEqual(a.group + "/" + a.sub, "gear/light", "позиция легла не в «Оборудование · Свет»");
+      assertEqual(a.stage, "shoot", "этап не как у соседей по «Свету»");
+      assertEqual(a.calcModel, "equipmentRental", "свет считается не арендой по дням, как соседи");
+      assertEqual(a.unit, "день", "единица не как у соседей");
+      assert(a.видна && a.первая, "новая карточка не видна первой в разделе: " + JSON.stringify(a));
+      assert(a.вФокусе, "курсор не в названии новой позиции");
+
+      // Переезд в другой раздел: вид едет следом, этап подстраивается.
+      await p.evaluate((id) => {
+        const sel = document.querySelector(`[data-scope="custom"][data-id="${id}"][data-key="place"]`);
+        sel.value = "grp:post";
+        sel.dispatchEvent(new Event("change"));
+      }, a.id);
+      await p.waitForTimeout(500);
+      const b = await снять();
+      assertEqual(b.group, "post", "смена раздела не сохранилась");
+      assertEqual(b.stage, "post", "этап не пошёл за разделом");
+      assert(b.видна, "после смены раздела карточка пропала с экрана: " + JSON.stringify(b));
+
+      // Этап руками — место в каталоге остаётся прежним.
+      await p.evaluate((id) => {
+        const sel = document.querySelector(`[data-scope="custom"][data-id="${id}"][data-key="stage"]`);
+        sel.value = "pre";
+        sel.dispatchEvent(new Event("change"));
+      }, a.id);
+      await p.waitForTimeout(500);
+      const c = await снять();
+      assertEqual(c.stage, "pre", "этап не сменился");
+      assertEqual(c.group, "post", "смена этапа увела позицию в другой раздел");
+      assert(c.видна, "после смены этапа карточка пропала: " + JSON.stringify(c));
+    } finally {
+      await own.context.close();
+    }
   });
 
   // ── Каталог не пополняется сам собой ────────────────────────────────────────
@@ -1885,12 +1956,18 @@ module.exports = async function ({ browser, baseUrl, test }) {
     });
     assert(ids && ids.length >= 2, "нужно минимум две сделки");
 
+    // Вкладки «Свои» нет с 14.09.2026 — свои позиции собирает поиск: у каждой
+    // есть тег «своя позиция».
     const свои = () => page.evaluate(() => {
-      window.app.setTab("custom");
+      window.app.setTab("all");
+      window.app.setSearch("своя позиция");
       window.app.go("services");
       return null;
-    }).then(() => page.waitForTimeout(300)).then(() => page.evaluate(() =>
-      +((document.querySelector(".catalog-found-count") || {}).textContent || "0").replace(/\D+/g, "")));
+    }).then(() => page.waitForTimeout(300)).then(() => page.evaluate(() => {
+      const n = +((document.querySelector(".catalog-found-count") || {}).textContent || "0").replace(/\D+/g, "");
+      window.app.setSearch("");
+      return n;
+    }));
 
     // Сделка A: своя позиция попадает в смету и в снимок
     await page.evaluate((id) => window.app.selectActiveDeal(id), ids[0]);
@@ -1909,7 +1986,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.waitForTimeout(300);
     await page.evaluate(() => {
       const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
-      window.app.deleteCustomItem((st.customItems.find((x) => x.category === "custom") || {}).id);
+      window.app.deleteCustomItem((st.customItems[0] || {}).id);
     });
     await page.waitForTimeout(300);
     assertEqual(await свои(), 0, "позиция не удалилась из каталога");

@@ -1714,6 +1714,40 @@
     .catalog-subgroups { margin: 2px 0 6px 10px; display: flex; flex-direction: column; gap: 2px; }
     .catalog-subgroup { font-size: 12px; min-height: 36px; opacity: .85; }
 
+    /* Строка раздела: сама кнопка раздела и плюс «своя позиция здесь» рядом.
+       Плюс — отдельная кнопка, а не часть кнопки раздела: кнопка в кнопке
+       недопустима. Специфичность у правила для кнопки внутри строки выше, чем у
+       мобильного `.catalog-cat-item { width: 100% }`, — иначе на телефоне раздел
+       занимал бы всю ширину и выталкивал плюс за край листа. */
+    .catalog-cat-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
+    .catalog-cat-row > .catalog-cat-item { flex: 1 1 auto; width: auto; min-width: 0; }
+    /* Плюс виден всегда, но тихо: двадцать ярких плюсов в колонке спорили бы с
+       самими разделами. Строка под курсором или в фокусе — плюс проявляется. */
+    .catalog-row-add {
+      flex: 0 0 auto;
+      width: 26px; height: 26px; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: none; border-radius: var(--r-sm);
+      background: transparent; color: var(--muted);
+      opacity: .55; cursor: pointer;
+      transition: opacity var(--dur-1), background var(--dur-1), color var(--dur-1);
+    }
+    .catalog-cat-row:hover > .catalog-row-add,
+    .catalog-row-add:focus-visible { opacity: 1; }
+    .catalog-row-add:hover { opacity: 1; background: rgb(var(--primary-rgb) / .14); color: var(--primary-on-tint); }
+    /* На пальце плюс сам 44×44, а не значок 26px с невидимой областью вокруг:
+       строки в листе разделов и так 46px высотой, место есть, а честный размер
+       кнопки не перекрывает соседнюю строку своим ореолом. И в полутень плюс не
+       прячется — наведения на телефоне нет. */
+    @media (hover: none) and (pointer: coarse) {
+      .catalog-row-add { width: 44px; height: 44px; opacity: .8; }
+    }
+    /* У «Расходов» линия-разделитель и отступ сверху переезжают с кнопки на всю
+       строку — иначе плюс центрировался бы по кнопке вместе с её отступом и
+       стоял ниже названия. */
+    .catalog-cat-row.danger { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+    .catalog-cat-row.danger > .catalog-cat-item.danger { margin-top: 0; padding-top: 8px; border-top: 0; border-radius: var(--r-sm); }
+
     /* Кнопка выбора раздела и шапка листа — только на телефоне: на десктопе
        список и так стоит слева целиком, открывать и закрывать нечего. */
     .catalog-nav-trigger { display: none; }
