@@ -1767,6 +1767,35 @@
       .place-chip, .place-sub { min-height: 44px; }
     }
 
+    /* Значок своего подраздела — маленькая звезда в цвете акцента, как у своих
+       разделов в колонке: «это завели вы», а не встроенное. */
+    .place-sub-own { display: inline-flex; color: var(--primary-text); margin-right: 4px; flex: 0 0 auto; }
+
+    /* ── «Настроить разделы»: раздел раскрывается и показывает свои подразделы.
+       Переключатели справа в одну колонку и у разделов, и у подразделов — их
+       сравнивают глазами сверху вниз. */
+    .cfg-group { border-bottom: 1px solid var(--line); }
+    .cfg-row { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+    .cfg-expand {
+      flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px;
+      min-height: 44px; padding: 0; border: none; background: none;
+      color: var(--text); font: inherit; text-align: left; cursor: pointer;
+    }
+    .cfg-expand:hover .cfg-label { color: var(--primary-text); }
+    .cfg-chev { display: inline-block; width: 10px; font-size: 9px; opacity: .55; transition: transform var(--dur-1); }
+    .cfg-chev.open { transform: rotate(90deg); }
+    .cfg-label { flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cfg-count { flex: 0 0 auto; font-size: 12px; }
+    .cfg-subs { margin: 0 0 10px 20px; padding-left: 12px; border-left: 2px solid var(--line); }
+    .cfg-sub-row .cfg-label { font-weight: 500; color: var(--muted); }
+    .cfg-remove {
+      flex: 0 0 auto; min-width: 44px; min-height: 44px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: none; border: none; color: var(--muted); cursor: pointer; border-radius: var(--r-sm);
+    }
+    .cfg-remove:hover { color: var(--text-danger); background: rgba(220,38,38,.08); }
+    .cfg-add-sub { margin-top: 6px; }
+
     /* Место своей позиции в узкой карточке каталога — строкой-кнопкой: выбор
        плашками там не помещается, нажатие открывает окно позиции. */
     .place-inline {

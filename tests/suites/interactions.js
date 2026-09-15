@@ -1974,6 +1974,79 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Подразделы настраиваются так же, как разделы (замечание владельца 15.09.2026:
+     «разделы можно редактировать, а подразделы нет»). Скрытый встроенный
+     подраздел уходит из колонки; свой подраздел появляется в колонке даже пустым,
+     с плюсом, и держит свои позиции; при удалении подраздела позиции остаются в
+     разделе. Проверяем результат в колонке и в состоянии. */
+  await test("подразделы: скрыть встроенный, завести свой, положить в него позицию, удалить", async () => {
+    const own = await bootLocal(browser, baseUrl, { width: 1280, height: 900 });
+    try {
+      const p = own.page;
+      const st = () => p.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}"));
+      const колонка = () => p.evaluate(() =>
+        [...document.querySelectorAll('[data-subs-of="gear"] .catalog-subgroup')].map((x) => x.innerText.replace(/\s+/g, " ").trim()));
+      await p.evaluate(() => { window.app.go("services"); window.app.toggleCatalogGroup("gear"); window.app.openCatalogGroupsConfig(); });
+      await p.waitForTimeout(400);
+
+      // Раздел в настройке раскрывается и показывает подразделы с переключателями.
+      await p.click('.cfg-expand[data-group="gear"]');
+      await p.waitForTimeout(250);
+      assert(await p.$('.cfg-sub-row .sidebar-nav-switch[data-key="light"]'), "у подраздела «Свет» нет переключателя");
+      await p.click('.cfg-sub-row .sidebar-nav-switch[data-key="light"]');
+      await p.waitForTimeout(250);
+
+      // Свой подраздел — через тот же диалог названия, что у своего раздела.
+      await p.click('.cfg-add-sub[data-group="gear"]');
+      await p.waitForTimeout(350);
+      const поле = await p.evaluate(() => {
+        const i = [...document.querySelectorAll("input")].filter((x) => x.offsetParent).pop();
+        if (!i) return null;
+        i.id = i.id || "subPrompt";
+        return i.id;
+      });
+      assert(поле, "не открылось поле названия подраздела");
+      await p.fill("#" + поле, "Мои объективы");
+      await p.keyboard.press("Enter");
+      await p.waitForTimeout(400);
+      await p.evaluate(() => window.app.closeCatalogGroupsConfig());
+      await p.waitForTimeout(300);
+
+      const s1 = await st();
+      const cs = (s1.customSubgroups || [])[0];
+      assert(cs && cs.group === "gear", "свой подраздел не сохранился: " + JSON.stringify(s1.customSubgroups));
+      const k1 = await колонка();
+      assert(!k1.some((t) => /^Свет\b/.test(t)), "скрытый «Свет» остался в колонке: " + JSON.stringify(k1));
+      assert(k1.some((t) => /^Мои объективы/.test(t)), "пустой свой подраздел не виден в колонке: " + JSON.stringify(k1));
+      assert(await p.$(`.catalog-row-add[data-section="sub:gear:${cs.id}"]`), "у своего подраздела нет плюса");
+
+      // Плюс у своего подраздела → окно → позиция лежит в нём.
+      await p.evaluate((id) => window.app.createCustomItemIn("sub:gear:" + id), cs.id);
+      await p.waitForTimeout(450);
+      await p.fill('.modal-box [data-scope="custom"][data-key="name"]', "Sigma 24-70");
+      await p.click(".modal-box .u-modal-close");
+      await p.waitForTimeout(400);
+      const item = (await st()).customItems[0];
+      assertEqual(item.sub, cs.id, "позиция легла не в свой подраздел");
+      assert((await колонка()).some((t) => /^Мои объективы 1$/.test(t)), "счётчик своего подраздела не посчитал позицию: " + JSON.stringify(await колонка()));
+
+      // Удаление подраздела: подтверждаем именно в диалоге — у своей позиции в
+      // сетке есть своя кнопка «Удалить», и поиск по тексту нажал бы её.
+      await p.evaluate((id) => { window.app.removeCustomSubgroup(id); }, cs.id);
+      await p.waitForSelector(".confirm-dialog-overlay .confirm-ok", { timeout: 3000 });
+      await p.click(".confirm-dialog-overlay .confirm-ok");
+      await p.waitForTimeout(400);
+      const s2 = await st();
+      assertEqual((s2.customSubgroups || []).length, 0, "подраздел не удалился");
+      const after = (s2.customItems || []).find((x) => x.id === item.id);
+      assert(after, "вместе с подразделом удалилась позиция");
+      assertEqual(after.group, "gear", "позиция ушла из раздела");
+      assert(!after.sub, "у позиции остался ссылка на удалённый подраздел");
+    } finally {
+      await own.context.close();
+    }
+  });
+
   // ── Каталог не пополняется сам собой ────────────────────────────────────────
   // Свои позиции лежат в state.customItems, а он целиком копируется в снимок
   // КАЖДОЙ сделки. Пока снимок вливался в каталог целиком, удалённая позиция

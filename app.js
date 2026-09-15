@@ -142,6 +142,10 @@
 
       // К какой подгруппе относится позиция. "" — если у группы подгрупп нет.
       function itemSubGroup(itemData, groupId) {
+        // Свой подраздел — главнее и тегов, и категорий: позицию туда положил
+        // человек, и у разделов без подгрупп по тегам он тоже должен работать.
+        const own = customSubOfItem(itemData, groupId);
+        if (own) return own;
         const defs = GROUP_SUBS[groupId];
         if (!defs || !itemData) return "";
         // Своя позиция, заведённая плюсом у подгруппы, помнит её явно (поле sub):
@@ -216,9 +220,12 @@
       function catalogSubsOf(groupId, list, opts) {
         const o = opts || {};
         const catLabel = Object.fromEntries(CATALOG_CATEGORY_TABS);
-        let subs = [...new Set(list.map(x => x.category))]
+        // Позиции своих подразделов в подгруппы по категориям не идут: иначе
+        // одна позиция считалась бы дважды — в «Фото» и в «Моих объективах».
+        const plain = list.filter(x => !customSubOfItem(x, groupId));
+        let subs = [...new Set(plain.map(x => x.category))]
           .filter(c => catLabel[c])
-          .map(c => ({ id: c, kind: "cat", label: catLabel[c], n: list.filter(x => x.category === c).length }));
+          .map(c => ({ id: c, kind: "cat", key: c, label: catLabel[c], n: plain.filter(x => x.category === c).length }));
         if (subs.length < 2 && GROUP_SUBS[groupId]) {
           const defs = [...GROUP_SUBS[groupId], { id: "other", label: "Прочее" }];
           subs = defs
@@ -226,12 +233,39 @@
               id: "sub:" + groupId + ":" + d.id,
               kind: "sub",
               sub: d.id,
+              key: d.id,
               label: d.label,
-              n: list.filter(x => itemSubGroup(x, groupId) === d.id).length,
+              n: plain.filter(x => itemSubGroup(x, groupId) === d.id).length,
             }))
             .filter(s => o.includeEmpty || s.n > 0);
         }
+        const hidden = state.catalogSubsHidden || {};
+        subs.forEach(s => { s.hidden = !!hidden[groupId + ":" + s.key]; });
+        if (!o.withHidden) subs = subs.filter(s => !s.hidden);
+        // Свои подразделы — в конце и ВСЕГДА, даже пустые: только что заведённый
+        // подраздел пуст, и спрятанный до первой позиции его было бы нечем
+        // наполнить — плюс живёт в его же строке.
+        customSubsOf(groupId).forEach(cs => subs.push({
+          id: "sub:" + groupId + ":" + cs.id,
+          kind: "sub",
+          sub: cs.id,
+          key: cs.id,
+          label: cs.label,
+          custom: true,
+          hidden: false,
+          n: list.filter(x => customSubOfItem(x, groupId) === cs.id).length,
+        }));
         return subs;
+      }
+
+      function customSubsOf(groupId) {
+        return (state.customSubgroups || []).filter(s => s.group === groupId);
+      }
+
+      // Свой подраздел, в котором лежит позиция в этом разделе, или "".
+      function customSubOfItem(itemData, groupId) {
+        if (!itemData || !itemData.sub || itemData.group !== groupId) return "";
+        return (state.customSubgroups || []).some(s => s.id === itemData.sub && s.group === groupId) ? itemData.sub : "";
       }
 
       /* Место в каталоге, закодированное строкой — так его несут плюсы в левой
@@ -261,7 +295,8 @@
         const g = CATALOG_GROUPS.find(x => x.id === place.group);
         if (!g) return "Все";
         let sub = "";
-        if (place.sub) sub = place.sub === "other" ? "Прочее" : ((GROUP_SUBS[g.id] || []).find(d => d.id === place.sub) || {}).label || "";
+        if (place.sub) sub = place.sub === "other" ? "Прочее"
+          : ((GROUP_SUBS[g.id] || []).find(d => d.id === place.sub) || customSubsOf(g.id).find(d => d.id === place.sub) || {}).label || "";
         else if (place.category) sub = Object.fromEntries(CATALOG_CATEGORY_TABS)[place.category] || "";
         return sub ? `${g.label} · ${sub}` : g.label;
       }
@@ -8493,6 +8528,11 @@
         // трогаем, поэтому позиция остаётся и в своей вычисленной группе.
         catalogGroupsHidden: {},
         customCatalogGroups: [],
+        // Подразделы — то же, что разделы (15.09.2026): встроенные скрываются
+        // ключом «раздел:подраздел», свои заводятся внутри раздела
+        // ({ id: "cs_…", group, label }) и держат только свои позиции (поле sub).
+        catalogSubsHidden: {},
+        customSubgroups: [],
         // То же для ПАКЕТОВ, но ось своя (CAT_META, а не CATALOG_GROUPS): студия,
         // которая не снимает фото и не делает ИИ-ролики, не должна каждый раз
         // пролистывать их категории. Своих разделов у пакетов нет: свой пакет
@@ -10432,7 +10472,9 @@
             const [, gid, sid] = String(state.tab).split(":");
             items = items.filter(x => itemGroup(x) === gid && itemSubGroup(x, gid) === sid);
           }
-          else if (state.tab !== "hidden") items = items.filter(x => x.category === state.tab);
+          // Позиция своего подраздела живёт там, а не в подгруппе по своей
+          // категории — как и в счётчиках колонки (catalogSubsOf).
+          else if (state.tab !== "hidden") items = items.filter(x => x.category === state.tab && !customSubOfItem(x, itemGroup(x)));
         }
 
         const query = String(state.search || "").trim().toLowerCase();
@@ -20425,12 +20467,15 @@
                             </button>
                             ${addBtn("grp:" + g.id, g.label)}
                           </div>
-                          ${subs.length > 1 ? `<div class="catalog-subgroups" data-subs-of="${g.id}">
+                          ${/* Единственный подраздел не показываем — он повторял бы
+                                сам раздел. Но свой подраздел показываем и один: его
+                                завели нарочно, и без строки в него не положить позицию. */""}
+                          ${subs.length > 1 || subs.some(s => s.custom) ? `<div class="catalog-subgroups" data-subs-of="${g.id}">
                             ${subs.map(s => `
                               <div class="catalog-cat-row">
                                 <button class="catalog-cat-item catalog-subgroup ${state.tab === s.id ? "active" : ""}"
-                                  onclick="event.stopPropagation();app.setTab('${s.id}')">
-                                  <span>${escapeHtml(s.label)}</span>
+                                  onclick="event.stopPropagation();app.setTab('${s.id}')"${s.custom ? ` title="Свой подраздел"` : ""}>
+                                  <span style="display:flex;align-items:center;gap:5px;min-width:0">${s.custom ? `<span class="place-sub-own" aria-hidden="true">${icon("star", 11)}</span>` : ""}<span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(s.label)}</span></span>
                                   <span class="catalog-cat-count">${s.n}</span>
                                 </button>
                                 ${addBtn(s.kind === "cat" ? `cat:${g.id}:${s.id}` : s.id, `${g.label} · ${s.label}`)}
@@ -20673,11 +20718,15 @@
       // Текущее место своей позиции в кодировке catalogPlaceOf.
       function customItemPlaceValue(itemData, all) {
         const g = itemGroup(itemData);
-        if (itemData.sub && itemData.group === g) return `sub:${g}:${itemData.sub}`;
+        // Явный подраздел — только если он ещё существует (свой могли удалить).
+        if (itemData.sub && itemData.group === g && itemSubGroup(itemData, g) === itemData.sub) return `sub:${g}:${itemData.sub}`;
         const list = (all || allItems(false).filter(x => !isLineOnlyItem(x))).filter(x => itemGroup(x) === g);
-        const subs = catalogSubsOf(g, list, { includeEmpty: true });
-        if (subs.length > 1 && subs.some(s => s.kind === "cat" && s.id === itemData.category)) return `cat:${g}:${itemData.category}`;
-        if (subs.some(s => s.kind === "sub")) return `sub:${g}:${itemSubGroup(itemData, g)}`;
+        // withHidden: место позиции не зависит от того, скрыт ли подраздел в колонке.
+        const subs = catalogSubsOf(g, list, { includeEmpty: true, withHidden: true });
+        if (subs.some(s => s.kind === "cat" && s.id === itemData.category)) return `cat:${g}:${itemData.category}`;
+        // Подгруппы по тегам — только встроенные: свои подразделы тоже kind "sub",
+        // но позиция без явного sub в свой подраздел не попадает.
+        if (subs.some(s => s.kind === "sub" && !s.custom)) return `sub:${g}:${itemSubGroup(itemData, g)}`;
         return "grp:" + g;
       }
 
@@ -20702,15 +20751,22 @@
           <button type="button" class="${cls} ${on ? "active" : ""}" style="--chip-c:${color}"
             data-id="${id}" data-place="${escapeHtml(value)}" aria-pressed="${on}"${title ? ` title="${escapeHtml(title)}"` : ""}
             onclick="app.setCustomItemPlace(this.dataset.id, this.dataset.place)">${inner}</button>`;
-        const groups = CATALOG_GROUPS.map(x =>
+        /* Скрытые в «Настроить разделы» разделы и подразделы здесь не предлагаем —
+           человек их убрал как ненужные. Исключение — то, где позиция УЖЕ лежит:
+           иначе в выборе не было бы подсвечено ничего. */
+        const groupsHidden = state.catalogGroupsHidden || {};
+        const groups = CATALOG_GROUPS.filter(x => !groupsHidden[x.id] || x.id === g.id).map(x =>
           btn("place-chip", "grp:" + x.id, x.id === g.id, x.color, `${icon(x.ic, 14)}<span>${escapeHtml(x.label)}</span>`, x.hint)
         ).join("");
-        const subs = catalogSubsOf(g.id, all.filter(x => itemGroup(x) === g.id), { includeEmpty: true });
-        const subsHtml = subs.length > 1 ? `
+        const subs = catalogSubsOf(g.id, all.filter(x => itemGroup(x) === g.id), { includeEmpty: true, withHidden: true })
+          .filter(s => !s.hidden || (s.kind === "cat" ? `cat:${g.id}:${s.id}` : s.id) === cur);
+        const subsHtml = subs.length > 1 || subs.some(s => s.custom) ? `
           <div class="place-subs" role="group" aria-label="Подраздел в «${escapeHtml(g.label)}»" style="--chip-c:${g.color}">
             ${subs.map(s => {
               const value = s.kind === "cat" ? `cat:${g.id}:${s.id}` : s.id;
-              return btn("place-sub", value, value === cur, g.color, escapeHtml(s.label));
+              return btn("place-sub", value, value === cur, g.color,
+                s.custom ? `<span class="place-sub-own" aria-hidden="true">${icon("star", 11)}</span>${escapeHtml(s.label)}` : escapeHtml(s.label),
+                s.custom ? "Свой подраздел" : "");
             }).join("")}
           </div>` : "";
         return `
@@ -21281,6 +21337,59 @@
         save();
         render();
       }
+      /* ── Подразделы: скрыть встроенный, завести и удалить свой ──────────────
+         До 15.09.2026 в «Настроить разделы» управлялись только разделы, а
+         подразделы — никак (замечание владельца). Правила те же, что у разделов:
+         скрытый подраздел пропадает из колонки, но его услуги остаются в разделе,
+         в «Все» и в поиске; свой подраздел держит только свои позиции. */
+      let _catalogConfigOpen = new Set();
+      function toggleCatalogConfigGroup(gid) {
+        if (_catalogConfigOpen.has(gid)) _catalogConfigOpen.delete(gid); else _catalogConfigOpen.add(gid);
+        renderModal();
+      }
+      function toggleCatalogSubHidden(gid, key) {
+        const k = gid + ":" + key;
+        const h = { ...(state.catalogSubsHidden || {}) };
+        if (h[k]) delete h[k]; else h[k] = true;
+        state.catalogSubsHidden = h;
+        // Скрыли подраздел, который сейчас открыт, — уводим на весь раздел, иначе
+        // список остался бы отфильтрованным по невидимому пункту.
+        if (h[k] && (state.tab === key || state.tab === `sub:${gid}:${key}`)) state.tab = "grp:" + gid;
+        save();
+        render();
+      }
+      async function addCustomSubgroup(gid) {
+        const g = CATALOG_GROUPS.find(x => x.id === gid);
+        if (!g) return;
+        const label = ((await promptDialog({ title: `Свой подраздел в «${g.label}»`, placeholder: "Например: Мои объективы" })) || "").trim();
+        if (!label) return;
+        const cs = { id: "cs_" + Date.now().toString(36), group: gid, label: label.slice(0, 32) };
+        state.customSubgroups = [...(state.customSubgroups || []), cs];
+        // Раздел раскрываем и в колонке, и здесь — новый подраздел сразу на виду.
+        state.catalogGroupsOpen = { ...(state.catalogGroupsOpen || {}), [gid]: true };
+        _catalogConfigOpen.add(gid);
+        save();
+        render();
+      }
+      async function removeCustomSubgroup(csId) {
+        const cs = (state.customSubgroups || []).find(x => x.id === csId);
+        if (!cs) return;
+        const n = (state.customItems || []).filter(x => x.sub === csId && x.group === cs.group).length;
+        if (!(await confirmDialog({
+          title: `Удалить подраздел «${cs.label}»?`,
+          message: n
+            ? `${n} ${plural(n, "позиция останется", "позиции останутся", "позиций останутся")} в разделе «${(CATALOG_GROUPS.find(g => g.id === cs.group) || {}).label || ""}».`
+            : "Подраздел пуст.",
+          okText: "Удалить", danger: true
+        }))) return;
+        state.customSubgroups = (state.customSubgroups || []).filter(x => x.id !== csId);
+        // Позиции не удаляем — они теряют только подраздел и остаются в разделе.
+        (state.customItems || []).forEach(x => { if (x.sub === csId) delete x.sub; });
+        if (state.tab === `sub:${cs.group}:${csId}`) state.tab = "grp:" + cs.group;
+        save();
+        render();
+      }
+
       function setItemCustomGroup(itemId, cgId) {
         const assigned = { ...(state.itemCustomGroup || {}) };
         if (cgId) assigned[itemId] = cgId; else delete assigned[itemId];
@@ -21403,17 +21512,56 @@
                 <button onclick="app.closeCatalogGroupsConfig()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
               </div>
               <p class="u-meta" style="margin:0 0 16px;line-height:1.5">
-                Скрытый раздел пропадает из списка слева, но его услуги остаются в «Все» и находятся поиском.
+                Скрытый раздел или подраздел пропадает из списка слева, но его услуги остаются в «Все» и находятся поиском.
+                Нажмите на раздел — откроются его подразделы.
               </p>
-              ${CATALOG_GROUPS.map(g => `
-                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
-                  <span style="color:${g.color};display:inline-flex;flex-shrink:0">${icon(g.ic, 15)}</span>
-                  <span style="flex:1 1 auto;font-size:13px;font-weight:600">${escapeHtml(g.label)}</span>
-                  <button class="sidebar-nav-switch ${hidden[g.id] ? "" : "on"}"
-                    onclick="app.toggleCatalogGroupHidden('${g.id}')"
-                    aria-label="${hidden[g.id] ? "Показать" : "Скрыть"} раздел «${escapeHtml(g.label)}»"></button>
-                </div>
-              `).join("")}
+              ${(() => {
+                const all = allItems(false).filter(x => !isLineOnlyItem(x));
+                return CATALOG_GROUPS.map(g => {
+                  const open = _catalogConfigOpen.has(g.id);
+                  const subs = catalogSubsOf(g.id, all.filter(x => itemGroup(x) === g.id), { includeEmpty: true, withHidden: true });
+                  const shownSubs = subs.filter(s => !s.hidden).length;
+                  /* Строка раздела — кнопка раскрытия плюс переключатель. Счётчик
+                     «4 из 5 подразделов» виден и в свёрнутом виде: так понятно,
+                     что внутри что-то скрыто, не раскрывая. */
+                  return `
+                <div class="cfg-group">
+                  <div class="cfg-row">
+                    <button type="button" class="cfg-expand" data-group="${g.id}" aria-expanded="${open}"
+                      onclick="app.toggleCatalogConfigGroup(this.dataset.group)">
+                      <span class="cfg-chev ${open ? "open" : ""}" aria-hidden="true">▶</span>
+                      <span style="color:${g.color};display:inline-flex;flex-shrink:0">${icon(g.ic, 15)}</span>
+                      <span class="cfg-label">${escapeHtml(g.label)}</span>
+                      <span class="u-meta cfg-count">${subs.length ? (shownSubs === subs.length ? `${subs.length} ${plural(subs.length, "подраздел", "подраздела", "подразделов")}` : `${shownSubs} из ${subs.length}`) : "без подразделов"}</span>
+                    </button>
+                    <button class="sidebar-nav-switch ${hidden[g.id] ? "" : "on"}"
+                      onclick="app.toggleCatalogGroupHidden('${g.id}')"
+                      aria-label="${hidden[g.id] ? "Показать" : "Скрыть"} раздел «${escapeHtml(g.label)}»"></button>
+                  </div>
+                  ${open ? `
+                  <div class="cfg-subs">
+                    ${subs.map(s => s.custom ? `
+                      <div class="cfg-row cfg-sub-row">
+                        <span class="place-sub-own" aria-hidden="true">${icon("star", 12)}</span>
+                        <span class="cfg-label">${escapeHtml(s.label)}</span>
+                        <span class="u-meta cfg-count">${s.n} поз.</span>
+                        <button class="cfg-remove" data-id="${escapeHtml(s.sub)}" onclick="app.removeCustomSubgroup(this.dataset.id)"
+                          title="Удалить подраздел" aria-label="Удалить подраздел «${escapeHtml(s.label)}»">${icon("close", 13)}</button>
+                      </div>` : `
+                      <div class="cfg-row cfg-sub-row">
+                        <span class="cfg-label">${escapeHtml(s.label)}</span>
+                        <span class="u-meta cfg-count">${s.n} поз.</span>
+                        <button class="sidebar-nav-switch ${s.hidden ? "" : "on"}" data-group="${g.id}" data-key="${escapeHtml(s.key)}"
+                          onclick="app.toggleCatalogSubHidden(this.dataset.group, this.dataset.key)"
+                          aria-label="${s.hidden ? "Показать" : "Скрыть"} подраздел «${escapeHtml(s.label)}»"></button>
+                      </div>`).join("")}
+                    <button type="button" class="btn small cfg-add-sub" data-group="${g.id}" onclick="app.addCustomSubgroup(this.dataset.group)">
+                      ${icon("plus", 13)} Свой подраздел
+                    </button>
+                  </div>` : ""}
+                </div>`;
+                }).join("");
+              })()}
 
               ${cgs.length ? `<div class="u-meta" style="margin:16px 0 6px;font-weight:700">Свои разделы</div>` : ""}
               ${cgs.map(cg => {
@@ -31100,6 +31248,10 @@ Email: _____________________              Email: _____________________
         addCustomCatalogGroup,
         removeCustomCatalogGroup,
         setItemCustomGroup,
+        toggleCatalogConfigGroup,
+        toggleCatalogSubHidden,
+        addCustomSubgroup,
+        removeCustomSubgroup,
         openPkgCatsConfig,
         closePkgCatsConfig,
         togglePkgCatHidden,
