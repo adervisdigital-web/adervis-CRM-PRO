@@ -22359,13 +22359,17 @@
         };
 
         let filtered = rows.filter(taskMatches);
+        const boardView = (state.globalTaskView || "list") === "board";
         // Запрос сильнее вкладки состояния: искомая задача чаще всего уже «Готово»,
         // а вкладка по умолчанию — «Активные», и человек получил бы пустой список
         // при живом совпадении. Настройку не трогаем, она вернётся с очисткой поиска.
         const hitsOutsideStatus = taskQuery && !filtered.some(r =>
           statusFilter === "active" ? r.task.status !== "Готово"
           : statusFilter === "all" ? true : r.task.status === statusFilter);
-        const effStatus = hitsOutsideStatus ? "all" : statusFilter;
+        /* На доске колонки и есть статусы, фильтр списка к ней не относится.
+           Раньше «Активные» (вкладка по умолчанию) действовал и тут — колонка
+           «Готово» была пуста всегда, а перенесённая в неё карточка исчезала. */
+        const effStatus = boardView || hitsOutsideStatus ? "all" : statusFilter;
         if (effStatus === "active") filtered = filtered.filter(r => r.task.status !== "Готово");
         else if (effStatus !== "all") filtered = filtered.filter(r => r.task.status === effStatus);
         if (projectFilter === "personal") filtered = filtered.filter(r => r.kind === "global");
@@ -22380,7 +22384,6 @@
 
         /* Доска и список — один и тот же набор задач, разная подача: список
            отвечает «что горит», доска — «где стоит работа». */
-        const boardView = (state.globalTaskView || "list") === "board";
         const statusChips = [{ id: "active", label: "Активные" }, { id: "all", label: "Все" }, ...TASK_STATUSES.map(s => ({ id: s, label: s }))];
 
         const _tKey = effStatus + "|" + projectFilter + "|" + taskQuery + "|" + (closedVisible ? "closed" : "");
@@ -22452,7 +22455,7 @@
               ${TASK_STATUSES.map(status => {
                 const inCol = filtered.filter(r => (r.task.status || "Новая") === status);
                 return `
-                  <div class="gtask-board-col">
+                  <div class="gtask-board-col" data-drop-status="${escapeHtml(status)}">
                     <h3>
                       <span><span class="kanban-col-name">${escapeHtml(status)}</span> <span class="pill-count">${inCol.length}</span></span>
                     </h3>
@@ -22515,7 +22518,8 @@
           ? `app.toggleGlobalTaskDone('${idSafe}')`
           : `app.toggleProjectTaskDone('${projSafe}','${idSafe}')`;
         return `
-          <article class="gtask-card ${done ? "done" : ""}" onclick="${clickAction}" title="${isGlobal ? "Открыть задачу" : "Открыть в проекте"}">
+          <article class="gtask-card ${done ? "done" : ""}" onclick="${clickAction}" title="${isGlobal ? "Открыть задачу" : "Открыть в проекте"} · перетащите в другую колонку, чтобы сменить статус"
+            data-drag-id="${escapeHtml(t.id)}" data-drag-kind="${row.kind}" data-drag-project="${escapeHtml(row.projectId || "")}">
             <div class="gtask-card-top">
               <button class="gtask-check ${done ? "checked" : ""}" onclick="event.stopPropagation();${toggleAction}"
                 title="${done ? "Вернуть в работу" : "Отметить готово"}" aria-label="Готово">${done ? "✓" : ""}</button>
@@ -22527,6 +22531,157 @@
               ${t.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"};font-weight:${u && u.level !== "ok" ? 700 : 400}">${formatDate(t.deadline)}</span>` : ""}
             </div>
           </article>`;
+      }
+
+      /* Сменить статус задачи с доски «Задачи» — личной или проектной.
+         Проектная лежит там же, где у toggleProjectTaskDone: у активной сделки в
+         живом state.tasks, у остальных — в снимке сохранённой. */
+      function setBoardTaskStatus(kind, projectId, taskId, newStatus) {
+        if (!TASK_STATUSES.includes(newStatus)) return false;
+        let list, persist;
+        if (kind === "global") {
+          list = state.globalTasks;
+          persist = () => { save(); render(); };
+        } else {
+          const isLive = !projectId || projectId === state.activeProjectId;
+          const proj = projectId ? (state.savedProjects || []).find(p => p.id === projectId) : null;
+          list = isLive ? state.tasks : ((proj && proj.snapshot && proj.snapshot.tasks) || null);
+          persist = () => {
+            if (isLive && state.activeProjectId) flushActiveProjectToSaved();
+            else if (proj) proj.updatedAt = new Date().toISOString();
+            save();
+            render();
+          };
+        }
+        if (!Array.isArray(list)) return false;
+        const task = list.find(t => t && t.id === taskId);
+        if (!task || (task.status || "Новая") === newStatus) return false;
+        task.status = newStatus;
+        task.updatedAt = new Date().toISOString();
+        if (newStatus === "Готово") _maybeRepeatTask(task, list);
+        persist();
+        return true;
+      }
+
+      /* Перетаскивание карточек по доске «Задачи».
+         На pointer-событиях, а не на HTML5 drag-and-drop: тот на телефоне не
+         работает вовсе, а владелец смотрит доску и там.
+         Мышь — тянешь, и карточка поехала (после 6px, иначе любой клик дрожащей
+         рукой становился бы переносом). Палец — ДОЛГОЕ нажатие: обычный свайп по
+         доске должен её прокручивать, а не хватать карточку. Палец поехал раньше
+         срока — это прокрутка, перенос отменяется.
+         Колонку под пальцем ищем по data-drop-status; у края доска и страница
+         прокручиваются сами, иначе на телефоне до «Готово» не дотянуться. */
+      let _tbDrag = null;
+      let _tbSwallowClickUntil = 0;
+      const TB_LONG_PRESS_MS = 350;
+
+      function _tbFinish(commit) {
+        const d = _tbDrag;
+        _tbDrag = null;
+        if (!d) return;
+        clearTimeout(d.timer);
+        if (!d.active) return;
+        cancelAnimationFrame(d.raf);
+        // Отпускание рождает click по карточке — он открыл бы задачу.
+        _tbSwallowClickUntil = Date.now() + 400;
+        if (d.ghost) d.ghost.remove();
+        d.card.classList.remove("is-drag-source");
+        if (d.overCol) d.overCol.classList.remove("dragover");
+        document.body.classList.remove("gtask-dragging");
+        const status = commit && d.overCol ? d.overCol.dataset.dropStatus : "";
+        if (status) {
+          const ds = d.card.dataset;
+          setBoardTaskStatus(ds.dragKind, ds.dragProject, ds.dragId, status);
+        }
+      }
+
+      function _tbTrack() {
+        const d = _tbDrag;
+        if (!d || !d.active) return;
+        d.ghost.style.transform = `translate(${d.x - d.offX}px, ${d.y - d.offY}px) rotate(2deg)`;
+        const under = document.elementFromPoint(d.x, d.y);
+        const col = under ? under.closest("[data-drop-status]") : null;
+        if (col !== d.overCol) {
+          if (d.overCol) d.overCol.classList.remove("dragover");
+          if (col) col.classList.add("dragover");
+          d.overCol = col;
+        }
+      }
+
+      function _tbStart() {
+        const d = _tbDrag;
+        if (!d || d.active || !document.body.contains(d.card)) return;
+        d.active = true;
+        const r = d.card.getBoundingClientRect();
+        d.offX = d.x0 - r.left;
+        d.offY = d.y0 - r.top;
+        const ghost = d.card.cloneNode(true);
+        ghost.classList.add("gtask-card-ghost");
+        ghost.removeAttribute("onclick");
+        ghost.setAttribute("aria-hidden", "true");
+        ghost.style.width = r.width + "px";
+        document.body.appendChild(ghost);
+        d.ghost = ghost;
+        d.card.classList.add("is-drag-source");
+        document.body.classList.add("gtask-dragging");
+        if (d.type !== "mouse" && navigator.vibrate) { try { navigator.vibrate(10); } catch (e) {} }
+        const board = d.card.closest(".gtask-board");
+        const EDGE = 48, SPEED = 14;
+        const loop = () => {
+          if (!_tbDrag || !_tbDrag.active) return;
+          if (board) {
+            const br = board.getBoundingClientRect();
+            if (d.x < br.left + EDGE) board.scrollLeft -= SPEED;
+            else if (d.x > br.right - EDGE) board.scrollLeft += SPEED;
+          }
+          if (d.y < EDGE) window.scrollBy(0, -SPEED);
+          else if (d.y > window.innerHeight - EDGE) window.scrollBy(0, SPEED);
+          _tbTrack();
+          d.raf = requestAnimationFrame(loop);
+        };
+        d.raf = requestAnimationFrame(loop);
+        _tbTrack();
+      }
+
+      function _initTaskBoardDrag() {
+        if (_initTaskBoardDrag.done) return;
+        _initTaskBoardDrag.done = true;
+        document.addEventListener("pointerdown", e => {
+          /* Отпускание над ДРУГОЙ колонкой click не рождает, и фильтр ниже съел
+             бы следующий настоящий клик. Новое нажатие — значит, click от
+             переноса уже не придёт. */
+          _tbSwallowClickUntil = 0;
+          if (e.button !== 0 || _tbDrag) return;
+          const card = e.target.closest(".gtask-card[data-drag-id]");
+          if (!card || e.target.closest("button, a, input, select, textarea")) return;
+          _tbDrag = {
+            card, pointerId: e.pointerId, type: e.pointerType,
+            x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY,
+            active: false, timer: 0, raf: 0, ghost: null, overCol: null,
+          };
+          if (e.pointerType !== "mouse") _tbDrag.timer = setTimeout(_tbStart, TB_LONG_PRESS_MS);
+        });
+        document.addEventListener("pointermove", e => {
+          const d = _tbDrag;
+          if (!d || e.pointerId !== d.pointerId) return;
+          d.x = e.clientX;
+          d.y = e.clientY;
+          if (d.active) { e.preventDefault(); return; }
+          const moved = Math.hypot(d.x - d.x0, d.y - d.y0);
+          if (d.type === "mouse") { if (moved > 6) _tbStart(); }
+          else if (moved > 10) _tbFinish(false);
+        });
+        document.addEventListener("pointerup", e => { if (_tbDrag && e.pointerId === _tbDrag.pointerId) _tbFinish(true); });
+        document.addEventListener("pointercancel", e => { if (_tbDrag && e.pointerId === _tbDrag.pointerId) _tbFinish(false); });
+        // Пока карточка в пальце, страница не должна ехать под ним.
+        document.addEventListener("touchmove", e => { if (_tbDrag && _tbDrag.active) e.preventDefault(); }, { passive: false });
+        // Долгое нажатие на Android открывает контекстное меню — оно сорвало бы перенос.
+        document.addEventListener("contextmenu", e => { if (_tbDrag && e.target.closest(".gtask-card")) e.preventDefault(); });
+        document.addEventListener("click", e => {
+          if (Date.now() < _tbSwallowClickUntil) { e.preventDefault(); e.stopPropagation(); _tbSwallowClickUntil = 0; }
+        }, true);
+        document.addEventListener("keydown", e => { if (e.key === "Escape" && _tbDrag && _tbDrag.active) _tbFinish(false); }, true);
       }
 
       function setGlobalTaskView(view) {
@@ -29243,6 +29398,20 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         state.taskModalSource = "project";
         renderModal();
       }
+      /* Удалить прямо из окна. Без вопроса «точно?»: удаление и в списке идёт
+         без него, а отменить можно из тоста (deleteGlobalTask/deleteTask).
+         Несохранённые правки в окне пропадают вместе с задачей — спрашивать
+         про них перед удалением бессмысленно. */
+      function deleteTaskFromModal() {
+        const m = state.taskModal;
+        if (!m || m._isNew) return;
+        const source = state.taskModalSource;
+        state.taskModal = null;
+        state.taskModalSource = "project";
+        renderModal();
+        if (source === "global") deleteGlobalTask(m.id);
+        else deleteTask(m.id);
+      }
       function setTaskModalField(key, value) {
         if (!state.taskModal) return;
         state.taskModal[key] = value;
@@ -29385,7 +29554,8 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 </div>
               </div>`}
 
-              <div style="display:flex;justify-content:flex-end;gap:8px">
+              <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
+                ${m._isNew ? "" : `<button class="btn danger-quiet" style="margin-right:auto" onclick="app.deleteTaskFromModal()">${TRASH_SVG} Удалить</button>`}
                 <button class="btn" onclick="app.closeTaskModal()">Отмена</button>
         ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn" class="btn" onclick="app.syncTaskModalToGoogle()">${_myGoogleEventId(m) ? "Обновить в Google Calendar" : "В Google Calendar"}</button>` : ""}
                 <button class="btn primary" onclick="app.saveTaskModal()">${m._isNew ? "Создать" : "Сохранить"}</button>
@@ -31597,6 +31767,8 @@ Email: _____________________              Email: _____________________
         toggleGlobalTaskDone,
         toggleProjectTaskDone,
         deleteGlobalTask,
+        deleteTaskFromModal,
+        setBoardTaskStatus,
         setGlobalTaskFilter,
         setGlobalTaskView,
         toggleTasksShowClosed,
@@ -31960,6 +32132,7 @@ Email: _____________________              Email: _____________________
         if (_portalId) loadPortalData();
       }
       setTimeout(initSwipeToDelete, 800);
+      _initTaskBoardDrag();
       setTimeout(checkDeadlineNotifications, 1200);
 
       // Плашку показывало только СОБЫТИЕ offline, а оно приходит лишь на переходе из

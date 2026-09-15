@@ -1257,6 +1257,123 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
   });
 
+  /* Удалить задачу из её окна. Раньше «Удалить» была только корзинкой в строке
+     списка: на доске и в самом окне задачу было не убрать (владелец 15.09.2026). */
+  await test("задача: «Удалить» в окне убирает её, отмена из тоста возвращает", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await bootWithState(`
+      st.globalTasks = [{ id: "gdel1", title: "Лишняя задача", status: "Новая", priority: "Средний", comments: [] }];
+    `);
+    // Смотрим на экран: запись в localStorage идёт не сразу, и чтение оттуда
+    // сразу после отмены показывало пустой список при живой задаче.
+    const shown = () => p.evaluate(() => [...document.querySelectorAll("#appContent .gtask-title")].map(t => t.textContent.trim()));
+    await p.evaluate(() => { window.app.go("global-tasks"); window.app.setGlobalTaskView("list"); });
+    await p.waitForTimeout(300);
+    assertEqual((await shown()).join("|"), "Лишняя задача", "задачи нет в списке до удаления");
+    await p.evaluate(() => window.app.openGlobalTaskModal("gdel1"));
+    await p.waitForTimeout(300);
+    await p.locator(".task-modal-box button", { hasText: "Удалить" }).click();
+    await p.waitForTimeout(300);
+    assert(!(await p.evaluate(() => !!document.querySelector(".task-modal-box"))), "окно не закрылось после удаления");
+    assertEqual((await shown()).length, 0, "задача не удалилась");
+    await p.locator("#toast .toast-undo").click();
+    await p.waitForTimeout(300);
+    assertEqual((await shown()).join("|"), "Лишняя задача", "отмена не вернула задачу");
+
+    // У черновика новой задачи удалять нечего — кнопки нет.
+    await p.evaluate(() => window.app.createGlobalTask());
+    await p.waitForTimeout(250);
+    const draftHasDelete = await p.evaluate(() => [...document.querySelectorAll(".task-modal-box button")].some(b => /Удалить/.test(b.textContent)));
+    assert(!draftHasDelete, "у черновика новой задачи есть «Удалить»");
+    await ctx.close();
+  });
+
+  /* Перетаскивание карточек по доске «Задачи» (владелец 15.09.2026 — «хочу
+     возможность перетаскивать задачи»). Мышь тянет сразу, палец — после долгого
+     нажатия; быстрый свайп пальцем — прокрутка доски, а не перенос. Проектная
+     задача пишется в снимок своей сделки. После переноса click не должен открыть
+     окно, а следующий обычный клик — должен. */
+  await test("доска задач: карточку можно перетащить мышью и пальцем", async () => {
+    await dismissStaleDialog(page);
+    const SEED = `
+      st.globalTasks = [
+        { id: "gd1", title: "Первая", status: "Новая", priority: "Средний", comments: [] },
+        { id: "gd2", title: "Вторая", status: "Новая", priority: "Средний", comments: [] },
+      ];
+      st.globalTaskView = "board";
+      st.savedProjects = [{ id: "gdp", name: "Сделка с задачей", client: "К", total: 1000, paid: 0, crmStatus: "В работе",
+        createdAt: "2026-09-01", updatedAt: "2026-09-01",
+        snapshot: { payments: [], expenses: [], tasks: [{ id: "gpt", title: "Проектная", status: "Новая", priority: "Средний", comments: [] }] } }];
+      st.activeProjectId = null; st.tasks = [];
+    `;
+    // Статус — по колонке, в которой карточка стоит на экране (см. тест выше:
+    // localStorage пишется с задержкой).
+    const statusOf = (p, id) => p.evaluate((id) => {
+      const card = document.querySelector(`.gtask-card[data-drag-id="${id}"]`);
+      const col = card && card.closest("[data-drop-status]");
+      return col ? col.dataset.dropStatus : null;
+    }, id);
+    const modalOpen = (p) => p.evaluate(() => !!document.querySelector(".task-modal-box"));
+    const drag = async (p, id, status) => {
+      const c = await p.locator(`.gtask-card[data-drag-id="${id}"]`).boundingBox();
+      const col = await p.locator(`[data-drop-status="${status}"]`).boundingBox();
+      await p.mouse.move(c.x + 40, c.y + 12);
+      await p.mouse.down();
+      await p.mouse.move(col.x + col.width / 2, col.y + 70, { steps: 12 });
+      await p.mouse.up();
+      await p.waitForTimeout(300);
+    };
+
+    {
+      const { ctx, p } = await bootWithState(SEED, { width: 1440, height: 900 });
+      await p.evaluate(() => window.app.go("global-tasks"));
+      await p.waitForTimeout(400);
+      await drag(p, "gd1", "В работе");
+      assertEqual(await statusOf(p, "gd1"), "В работе", "мышь: личная задача не сменила статус");
+      assert(!(await modalOpen(p)), "мышь: отпускание карточки открыло окно задачи");
+      await drag(p, "gpt", "Готово");
+      assertEqual(await statusOf(p, "gpt"), "Готово", "мышь: проектная задача не сменила статус в снимке сделки");
+      await p.locator('.gtask-card[data-drag-id="gd2"]').click();
+      await p.waitForTimeout(300);
+      assert(await modalOpen(p), "после переноса обычный клик по карточке перестал открывать задачу");
+      await ctx.close();
+    }
+
+    {
+      const { ctx, p } = await bootWithState(SEED, { width: 390, height: 850, touch: true });
+      await p.evaluate(() => window.app.go("global-tasks"));
+      await p.waitForTimeout(400);
+      const cdp = await ctx.newCDPSession(p);
+      const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
+      await p.locator('.gtask-card[data-drag-id="gd2"]').scrollIntoViewIfNeeded();
+
+      // Быстрый свайп — прокрутка, статус не трогаем.
+      const c = await p.locator('.gtask-card[data-drag-id="gd2"]').boundingBox();
+      await touch("touchStart", c.x + 150, c.y + 12);
+      for (let i = 1; i <= 8; i++) { await touch("touchMove", c.x + 150 - i * 15, c.y + 12); await p.waitForTimeout(16); }
+      await touch("touchEnd");
+      await p.waitForTimeout(400);
+      assertEqual(await statusOf(p, "gd2"), "Новая", "палец: быстрый свайп перенёс карточку вместо прокрутки");
+      await p.evaluate(() => { document.querySelector(".gtask-board").scrollLeft = 0; });
+      await p.waitForTimeout(100);
+
+      // Долгое нажатие, тянем к правому краю — доска доезжает до «Готово».
+      const c2 = await p.locator('.gtask-card[data-drag-id="gd2"]').boundingBox();
+      const sx = c2.x + 60, sy = c2.y + 12;
+      await touch("touchStart", sx, sy);
+      await p.waitForTimeout(500);
+      for (let i = 1; i <= 10; i++) { await touch("touchMove", sx + (370 - sx) * i / 10, sy); await p.waitForTimeout(20); }
+      await p.waitForTimeout(1200);
+      await touch("touchMove", 200, sy);
+      await p.waitForTimeout(150);
+      await touch("touchEnd");
+      await p.waitForTimeout(400);
+      assertEqual(await statusOf(p, "gd2"), "Готово", "палец: долгое нажатие и перенос к краю не довели задачу до «Готово»");
+      assert(!(await modalOpen(p)), "палец: отпускание карточки открыло окно задачи");
+      await ctx.close();
+    }
+  });
+
   /* Раздел «Задачи» умеет два вида: список (что горит) и доска по статусам (где
      стоит работа). Просьба владельца 29.08.2026 — «удобный задачник с
      переключением вида», как мини-канбан внутри сделки.
