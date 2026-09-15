@@ -19956,10 +19956,6 @@
       function renderPackages() {
         // CAT_META — на уровне модуля (см. рядом с CATALOG_GROUPS): её читает ещё и
         // подпись кнопки навигации, вынесенная из этой функции.
-        const catIcon = (meta) => meta && meta.ic
-          ? `<span style="color:${meta.color};display:inline-flex;vertical-align:-2px">${icon(meta.ic, 14)}</span>`
-          : "";
-
         const catOrder = Object.keys(CAT_META);
         const pkgQuery = (state.pkgSearch || "").trim().toLowerCase();
         // Отсеиваем ДО группировки: тогда и счётчики категорий сбоку показывают,
@@ -19990,6 +19986,17 @@
           }
         });
 
+        /* Заголовок группы — тем же строем, что шапка раздела в каталоге: значок
+           в плашке, название, число пакетов справа. Мелкие серые капсы «СОЦ. СЕТИ»
+           терялись между карточками, а число на телефоне было негде взять — колонка
+           категорий там свёрнута. */
+        const pkgGroupHeader = (ic, color, label, n) => `
+          <div class="pkg-group-header catalog-section-head">
+            <span class="catalog-section-ico" style="color:${color}" aria-hidden="true">${icon(ic, 16)}</span>
+            <div class="catalog-section-text"><h2 class="pkg-group-name">${escapeHtml(label)}</h2></div>
+            <span class="catalog-found-count">${n} ${plural(n, "пакет", "пакета", "пакетов")}</span>
+          </div>`;
+
         const TIER_COLORS = {
           1: { bg: "rgba(8,145,178,.12)", border: "rgba(8,145,178,.3)", text: "var(--tint-cyan)", label: "Старт" },
           2: { bg: "rgb(var(--primary-rgb) / .12)", border: "rgb(var(--primary-rgb) / .35)", text: "var(--tint-violet)", label: "Профи" },
@@ -19997,23 +20004,21 @@
         };
 
         function renderPkgCard(pkg) {
-          const cat = pkg.cat || "";
           const tier = pkg.tier || 0;
           const tc = TIER_COLORS[tier] || {};
-          const catMeta = CAT_META[cat] || {};
           const pkgItems = getPackageItems(pkg);
           // Цена считается по текущим ценам каталога — единственный её источник.
           const price = escapeHtml(money(packagePrice(pkg)));
           const borderStyle = tier ? `border-color:${tc.border}` : "";
           return `
             <article class="package-card pkg-tier-${tier}" data-pkg-id="${escapeHtml(pkg.id)}" style="${borderStyle};cursor:pointer" onclick="app.openPackageEditModal('${pkg.id}')">
-              <div class="pkg-card-top">
-                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                  ${cat ? `<span class="pkg-cat-badge" data-cat="${escapeHtml(cat)}" style="display:inline-flex;align-items:center;gap:5px">${catIcon(catMeta)} ${escapeHtml(catMeta.label || cat)}</span>` : ""}
-                  ${tier && tc.label ? `<span style="font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px;background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>` : ""}
-                </div>
-                ${pkg.id.startsWith("package_") ? `<button class="icon-del-btn" onclick="event.stopPropagation();app.deletePackage('${pkg.id}')" title="Удалить пакет" aria-label="Удалить пакет">${TRASH_SVG}</button>` : ""}
-              </div>
+              ${/* Бейджа категории на карточке больше нет: карточки и так лежат под
+                    заголовком своей категории, и «СОЦ. СЕТИ» повторялось на каждой
+                    из 45 — рядом с уровнем пакета, который как раз различает соседей.
+                    Корзина своего пакета ушла в «⋮» к «Скрыть». */""}
+              ${tier && tc.label ? `<div class="pkg-card-top">
+                <span style="font-size:12px;font-weight:700;padding:2px 9px;border-radius:var(--r-pill);background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>
+              </div>` : ""}
 
               <h3 class="pkg-card-name">${escapeHtml(pkg.name)}</h3>
               <p class="pkg-card-desc">${escapeHtml(pkg.desc)}</p>
@@ -20041,18 +20046,33 @@
                   <button class="btn small" onclick="event.stopPropagation();app.copyPackageCalcLink('${pkg.id}')"
                           title="Скопировать ссылку на публичный расчёт по этому пакету — её можно отправить клиенту">Ссылка клиенту</button>
                 `}
-                ${/* Звезда и «скрыть» — иконками, как на карточке каталога: они
-                      повторяются на каждой из 45 карточек, и подписи съели бы ряд
-                      действий целиком. Подпись несут title и aria-label. */""}
+                ${/* Звезда — иконкой, как на карточке каталога: повторяется на каждой
+                      из 45 карточек. Редкие действия («Скрыть», «Удалить») — в «⋮»
+                      С ПОДПИСЯМИ, тоже как в каталоге: перечёркнутый глаз вплотную
+                      к звезде угадывался только наведением, а на телефоне его нет. */""}
                 <button class="catalog-action-btn ${isPkgFav(pkg) ? "active" : ""}" onclick="event.stopPropagation();app.togglePkgFavorite('${pkg.id}')"
                         title="${isPkgFav(pkg) ? "Убрать из избранного" : "В избранное"}" aria-label="${isPkgFav(pkg) ? "Убрать из избранного" : "В избранное"}">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="${isPkgFav(pkg) ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 </button>
-                ${isPkgHidden(pkg) ? "" : `
-                  <button class="catalog-action-btn danger" onclick="event.stopPropagation();app.hidePkg('${pkg.id}')"
-                          title="Скрыть пакет из списка" aria-label="Скрыть пакет">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                  </button>`}
+                ${isPkgHidden(pkg) && !isOwnPkg(pkg) ? "" : `
+                <div class="deal-card-menu-wrap">
+                  <button class="catalog-action-btn" onclick="app.toggleDealMenu('pkg-${pkg.id}',event)" title="Ещё действия" aria-label="Ещё действия с пакетом" aria-haspopup="menu">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
+                  </button>
+                  <div class="deal-ctx-menu" id="dcm-pkg-${pkg.id}" style="display:none">
+                    ${isPkgHidden(pkg) ? "" : `
+                    <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.hidePkg('${pkg.id}')">
+                      ${icon("eyeOff", 14)}
+                      Скрыть из списка
+                    </button>`}
+                    ${isOwnPkg(pkg) ? `
+                    ${isPkgHidden(pkg) ? "" : `<div class="dcm-sep"></div>`}
+                    <button class="dcm-item dcm-danger" onclick="event.stopPropagation();app.closeDealMenu();app.deletePackage('${pkg.id}')">
+                      ${icon("trash", 14)}
+                      Удалить пакет
+                    </button>` : ""}
+                  </div>
+                </div>`}
               </div>
             </article>
           `;
@@ -20115,10 +20135,13 @@
         return `
           <div class="${редактор ? "layout" : ""}">
           <div class="panel">
-            <div class="section-title">
+            ${/* На телефоне описание скрыто, а «Свой пакет» встаёт в строку заголовка
+                  (section-title--inline): до первого пакета там было 510px из 844 —
+                  описание в две строки, кнопка отдельной строкой, счётчик ещё одной. */""}
+            <div class="section-title section-title--inline">
               <div>
                 <h1>${h1Icon("gift")}Пакеты услуг</h1>
-                <p>Готовые наборы по категориям. Три уровня: Старт / Профи / Премиум.</p>
+                <p class="hide-on-mobile">Готовые наборы по категориям. Три уровня: Старт / Профи / Премиум.</p>
               </div>
               ${/* «Свой пакет» — главное действие раздела, поэтому в панели шапки, как
                     «Своя позиция» в каталоге. Внутри списка категорий она на телефоне
@@ -20138,11 +20161,10 @@
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                 <input id="pkgSearchInput" class="catalog-search-input" type="search" aria-label="Поиск по пакетам" value="${escapeHtml(state.pkgSearch || "")}" oninput="app.setPkgSearch(this.value)" placeholder="Поиск по названию или составу: дрон, субтитры…">
               </div>
-              ${/* Без запроса считаем ПОКАЗАННЫЕ пакеты, а не все: после скрытия
-                    категории «45 пакетов» над лентой из 30 — прямая неправда. */""}
-              <span class="catalog-found-count">${pkgQuery
-                ? `найдено ${allPkgs.length} ${plural(allPkgs.length, "пакет", "пакета", "пакетов")}`
-                : `${visiblePkgs.length} ${plural(visiblePkgs.length, "пакет", "пакета", "пакетов")}`}</span>
+              ${/* Счётчик — только на время поиска: без запроса число каждой категории
+                    стоит в её заголовке, а общее — у «Все» слева. На телефоне капсула
+                    «45 пакетов» занимала отдельную строку перед лентой. */""}
+              ${pkgQuery ? `<span class="catalog-found-count">найдено ${allPkgs.length} ${plural(allPkgs.length, "пакет", "пакета", "пакетов")}</span>` : ""}
             </div>
 
             <div class="catalog-body">
@@ -20153,28 +20175,24 @@
                   <button class="u-modal-close" onclick="app.closeCatalogNav()" aria-label="Закрыть">${icon("close", 15)}</button>
                 </div>
                 <div class="catalog-cat-group">
-                  <button class="catalog-cat-item ${pkgCatFilter==="all"?"active":""}" onclick="app.setPkgCatFilter('all')">
-                    <span>Все</span>
-                    ${visiblePkgs.length ? `<span class="catalog-cat-count">${visiblePkgs.length}</span>` : ""}
-                  </button>
-                  ${/* Порядок и подписи те же, что у каталога: человек ходит между
-                        «Услугами» и «Пакетами» по одной кнопке, и два разных списка
-                        слева читались бы как два разных раздела продукта. */""}
-                  <button class="catalog-cat-item ${pkgCatFilter==="favorites"?"active":""}" onclick="app.setPkgCatFilter('favorites')">
-                    <span>Избранное</span>
-                    ${favCount ? `<span class="catalog-cat-count">${favCount}</span>` : ""}
-                  </button>
-                  <button class="catalog-cat-item ${pkgCatFilter==="own"?"active":""}" onclick="app.setPkgCatFilter('own')">
-                    <span>Свои</span>
-                    ${ownCount ? `<span class="catalog-cat-count">${ownCount}</span>` : ""}
-                  </button>
-                  ${/* «Скрытые» показываем только когда есть что показать — пустая
-                        строчка вела бы в пустоту и занимала место навсегда. */""}
-                  ${hiddenCount ? `
-                    <button class="catalog-cat-item ${pkgCatFilter==="hidden"?"active":""}" onclick="app.setPkgCatFilter('hidden')">
-                      <span>Скрытые</span>
-                      <span class="catalog-cat-count">${hiddenCount}</span>
-                    </button>` : ""}
+                  ${/* Порядок, подписи и значки те же, что у каталога: человек ходит
+                        между «Каталогом» и «Пакетами» по одной кнопке, и два разных
+                        списка слева читались бы как два разных раздела продукта. */""}
+                  ${[
+                    ["all", "grid", "Все", visiblePkgs.length, true],
+                    ["favorites", "star", "Избранное", favCount, true],
+                    ["own", "person", "Свои", ownCount, true],
+                    // «Скрытые» — только когда есть что показать: пустая строчка
+                    // вела бы в пустоту и занимала место навсегда.
+                    ["hidden", "eyeOff", "Скрытые", hiddenCount, hiddenCount > 0],
+                  ].filter(x => x[4]).map(([id, ic, label, n]) => `
+                    <button class="catalog-cat-item ${pkgCatFilter === id ? "active" : ""}" onclick="app.setPkgCatFilter('${id}')">
+                      <span class="catalog-cat-label">
+                        <span class="catalog-cat-ico" aria-hidden="true">${icon(ic, 14)}</span>
+                        <span>${label}</span>
+                      </span>
+                      ${n ? `<span class="catalog-cat-count">${n}</span>` : ""}
+                    </button>`).join("")}
                 </div>
 
                 <div class="catalog-cat-divider"></div>
@@ -20182,7 +20200,10 @@
                 <div class="catalog-cat-group">
                   ${allCatsWithData.map(cat => `
                     <button class="catalog-cat-item ${pkgCatFilter===cat?"active":""}" data-pkg-cat="${cat}" onclick="app.setPkgCatFilter('${cat}')">
-                      <span style="display:inline-flex;align-items:center;gap:6px">${catIcon(CAT_META[cat])} ${escapeHtml(CAT_META[cat].label)}</span>
+                      <span class="catalog-cat-label">
+                        <span class="catalog-cat-ico" style="color:${CAT_META[cat].color}" aria-hidden="true">${icon(CAT_META[cat].ic, 14)}</span>
+                        <span class="catalog-cat-name">${escapeHtml(CAT_META[cat].label)}</span>
+                      </span>
                       <span class="catalog-cat-count">${groups[cat].length}</span>
                     </button>
                   `).join("")}
@@ -20235,7 +20256,7 @@
                     : groups[cat].filter(p => !isPkgHidden(p));
                   if (!catPkgs.length) return "";
                   return `
-                    <div class="pkg-group-header" style="display:flex;align-items:center;gap:7px">${catIcon(CAT_META[cat])} ${escapeHtml(CAT_META[cat].label)}</div>
+                    ${pkgGroupHeader(CAT_META[cat].ic, CAT_META[cat].color, CAT_META[cat].label, catPkgs.length)}
                     ${/* Две колонки, а не три (решение владельца 04.09.2026). Карточка пакета
        несёт цену, состав из 5–7 строк и два действия — на трети ширины всё это
        жмётся, а с открытым редактором справа колонка становится совсем узкой. */""}
@@ -20246,7 +20267,7 @@
                 }).join("")}
 
                 ${(pkgCatFilter === "all" || pkgCatFilter === "own") && ungrouped.length ? `
-                  <div class="pkg-group-header">Мои пакеты</div>
+                  ${pkgGroupHeader("person", "var(--primary-text)", "Мои пакеты", ungrouped.length)}
                   <div class="grid ${редактор ? "two" : "three"} pkg-cards-grid">
                     ${ungrouped.map(renderPkgCard).join("")}
                   </div>

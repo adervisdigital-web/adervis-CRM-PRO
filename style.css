@@ -3593,6 +3593,10 @@
     /* Через токен, а не своей тенью: рукописная 0 12px 32px rgba(0,0,0,.22)
        не знала про светлую тему и ложилась там тёмным пятном. */
     .package-card:hover { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), var(--elev-2); transform: translateY(-2px); }
+    /* Открытое «⋮» не должно резаться краем карточки (overflow: hidden) и
+       прятаться под карточкой следующего ряда: подъём при наведении создаёт
+       свой слой, и соседи ниже по разметке рисуются поверх меню. */
+    .package-card:has(.deal-ctx-menu[style*="block"]) { overflow: visible; z-index: 5; }
 
     /* Category identity is carried by .pkg-cat-badge — no decorative stripe needed */
     .package-card[data-cat="social"]    { border-top-color: rgb(var(--primary-rgb) / .45); }
@@ -3781,11 +3785,13 @@
        остальными переменными). Прежние значения не проходили AA — business 4,29:1,
        events 4,47:1, photo 4,38:1 — и их было легко забыть при добавлении категории. */
 
+    /* Заголовок группы пакетов — строем шапки раздела каталога
+       (.catalog-section-head), см. pkgGroupHeader в app.js. */
     .pkg-group-header {
-      font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em;
-      color: var(--muted); padding: 6px 0 10px; margin-top: 18px; border-bottom: 1px solid var(--line);
-      margin-bottom: 14px; grid-column: 1 / -1;
+      grid-column: 1 / -1;
+      margin: 8px 0 12px;
     }
+    .pkg-group-header:first-child { margin-top: 0; }
 
     .client-select-search {
       position: relative; display: flex; align-items: center; gap: 8px;
@@ -9198,17 +9204,19 @@ button.is-busy::before {
   .item--catalog .cat-card-top > .price-editor { width: 100px; }
   /* На телефоне раздел уже назван кнопкой «Раздел» над поиском — от шапки
      остаются пояснение и число позиций, одной строкой. */
-  .catalog-section-head .catalog-section-ico,
-  .catalog-section-head h2 { display: none; }
-  .catalog-section-head { margin-bottom: 10px; }
+  .catalog-section-head:not(.pkg-group-header) .catalog-section-ico,
+  .catalog-section-head:not(.pkg-group-header) h2 { display: none; }
+  .catalog-section-head:not(.pkg-group-header) { margin-bottom: 10px; }
 }
 /* Шапка раздела, где из действий только «⋮»: на телефоне .section-title встаёт
    столбцом, и одинокая кнопка занимала под заголовком целую строку (60px до
    первого дела). Одна кнопка помещается рядом с заголовком. */
 @media (max-width: 768px) {
-  .section-title:has(> .toolbar > .deal-card-menu-wrap:only-child) {
-    flex-direction: row; align-items: flex-start;
+  .section-title:has(> .toolbar > .deal-card-menu-wrap:only-child),
+  .section-title.section-title--inline {
+    flex-direction: row; align-items: flex-start; justify-content: space-between;
   }
+  .section-title--inline > .toolbar { flex: 0 0 auto; }
 }
 .item--catalog .item-top p {
   display: -webkit-box;

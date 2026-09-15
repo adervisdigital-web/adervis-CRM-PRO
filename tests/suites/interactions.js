@@ -708,7 +708,8 @@ module.exports = async function ({ browser, baseUrl, test }) {
         if (!card) return "(карточки нет)";
         let n = card.closest(".pkg-cards-grid");
         while (n && !(n.classList && n.classList.contains("pkg-group-header"))) n = n.previousElementSibling;
-        return n ? n.innerText.trim().toUpperCase() : "(без заголовка)";
+        // Название группы — без числа пакетов, которое стоит в том же заголовке.
+        return n ? (n.querySelector(".pkg-group-name") || n).innerText.trim().toUpperCase() : "(без заголовка)";
       });
       assertEqual(await groupOf(), "ФОТО", "свой пакет не встал в свою категорию");
 
@@ -5866,6 +5867,74 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assertEqual(kept.replace(/ | /g, " "), "12 500", "пустое поле цены обнулило цену");
     } finally {
       await b.context.close();
+    }
+  });
+
+  /* Пакеты по образцу каталога (15.09.2026): бейдж категории повторял заголовок
+     группы на каждой из 45 карточек; «Скрыть» было перечёркнутым глазом вплотную
+     к звезде — теперь в «⋮» с подписью, и меню не режется краем карточки; на
+     телефоне до первого пакета было 510px из 844. */
+  await test("пакеты: заголовок группы с числом, «Скрыть» в меню, короткая шапка на телефоне", async () => {
+    const b = await bootLocal(browser, baseUrl, { width: 1440, height: 900, seedDemo: true });
+    const p = b.page;
+    try {
+      await p.evaluate(() => window.app.go("packages"));
+      await p.waitForTimeout(500);
+      const groups = await p.evaluate(() => [...document.querySelectorAll("#appContent .pkg-group-header")].map((h) => ({
+        name: h.querySelector(".pkg-group-name")?.textContent.trim(),
+        n: parseInt(h.querySelector(".catalog-found-count")?.textContent || "0", 10),
+        cards: h.nextElementSibling ? h.nextElementSibling.querySelectorAll(".package-card").length : 0,
+      })));
+      assert(groups.length >= 5, "групп пакетов меньше пяти: " + groups.length);
+      const off = groups.filter((g) => g.n !== g.cards);
+      assertEqual(off.length, 0, "число в заголовке группы не совпадает с карточками: " + JSON.stringify(off));
+      const badges = await p.evaluate(() => document.querySelectorAll("#appContent .package-card .pkg-cat-badge").length);
+      assertEqual(badges, 0, "на карточках снова бейдж категории, повторяющий заголовок группы");
+
+      // «⋮» не открывает редактор, меню видно целиком и не перекрыто соседом.
+      const firstId = await p.evaluate(() => document.querySelector("#appContent .package-card").dataset.pkgId);
+      const menuBtn = p.locator(`#appContent .package-card[data-pkg-id="${firstId}"] .deal-card-menu-wrap > button`);
+      await menuBtn.scrollIntoViewIfNeeded();
+      await menuBtn.click();
+      await p.waitForTimeout(250);
+      const menu = await p.evaluate((id) => {
+        const item = [...document.querySelectorAll(`#dcm-pkg-${CSS.escape(id)} .dcm-item`)].find((x) => /Скрыть/.test(x.textContent));
+        if (!item) return { item: false };
+        const r = item.getBoundingClientRect();
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        // Редактор пакета открывается колонкой: renderPackages оборачивает ленту в .layout.
+        return { item: true, onTop: !!(top && item.contains(top)), editor: !!document.querySelector("#appContent .services-page > .layout") };
+      }, firstId);
+      assert(menu.item, "в меню пакета нет «Скрыть из списка»");
+      assert(!menu.editor, "нажатие «⋮» открыло редактор пакета");
+      assert(menu.onTop, "меню пакета обрезано или перекрыто соседней карточкой");
+      await p.locator(`#dcm-pkg-${firstId} .dcm-item`, { hasText: "Скрыть" }).click();
+      await p.waitForTimeout(400);
+      const after = await p.evaluate((id) => ({
+        still: !!document.querySelector(`#appContent .package-card[data-pkg-id="${id}"]`),
+        hiddenTab: [...document.querySelectorAll("#appContent .catalog-cat-item")].some((b) => /Скрытые/.test(b.textContent)),
+      }), firstId);
+      assert(!after.still, "пакет не скрылся из ленты");
+      assert(after.hiddenTab, "после скрытия не появилась вкладка «Скрытые»");
+      await p.evaluate((id) => window.app.restorePkg(id), firstId);
+    } finally {
+      await b.context.close();
+    }
+
+    const m = await bootLocal(browser, baseUrl, { width: 390, height: 844, seedDemo: true, touch: true });
+    try {
+      await m.page.evaluate(() => window.app.go("packages"));
+      await m.page.waitForTimeout(500);
+      const r = await m.page.evaluate(() => {
+        const h1 = document.querySelector("#appContent .section-title h1").getBoundingClientRect();
+        const add = [...document.querySelectorAll("#appContent .section-title .btn")].find((x) => /Свой пакет/.test(x.textContent)).getBoundingClientRect();
+        const card = document.querySelector("#appContent .package-card").getBoundingClientRect();
+        return { sameRow: add.top < h1.bottom, cardTop: Math.round(card.top + window.scrollY) };
+      });
+      assert(r.sameRow, "на телефоне «Свой пакет» снова отдельной строкой под заголовком");
+      assert(r.cardTop < 460, "на телефоне первый пакет начинается слишком низко: " + r.cardTop + "px");
+    } finally {
+      await m.context.close();
     }
   });
 
