@@ -29246,7 +29246,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       function setTaskModalField(key, value) {
         if (!state.taskModal) return;
         state.taskModal[key] = value;
-        renderModal();
+        /* Без renderModal(), как у setClientModalField/setDealModalField: поля
+           зовут это на каждый символ, а перерисовка пересобирает окно заново —
+           поле теряло фокус после первой же буквы. Разметка окна от этих полей
+           не зависит, значения и так живут в самих полях. */
       }
       // Переносит черновик state.taskModal в нужную коллекцию (без save()/render()/
       // закрытия модалки) — общая часть для saveTaskModal() и syncTaskModalToGoogle(),

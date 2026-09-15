@@ -1234,12 +1234,22 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await dismissStaleDialog(p);
     assertEqual(await count(), 0, "после отмены в списке осталась болванка «Новая задача»");
 
-    // Создание — задача появляется с тем именем, что ввели.
-    await p.evaluate(() => {
-      window.app.createGlobalTask();
-      window.app.setTaskModalField("title", "Позвонить оператору");
-      window.app.saveTaskModal();
+    /* Создание — задача появляется с тем именем, что ввели. Название набираем
+       КЛАВИАТУРОЙ: раньше тест звал setTaskModalField напрямую и не видел, что
+       каждое нажатие пересобирало окно — в поле оставалась одна буква, фокус
+       улетал (скриншот владельца 15.09.2026). */
+    await p.evaluate(() => window.app.createGlobalTask());
+    await p.waitForTimeout(300);
+    const titleInput = p.locator('.task-modal-box input[placeholder="Что нужно сделать?"]');
+    await titleInput.click();
+    await p.keyboard.type("Позвонить оператору", { delay: 15 });
+    const typed = await p.evaluate(() => {
+      const el = document.querySelector('.task-modal-box input[placeholder="Что нужно сделать?"]');
+      return { value: el && el.value, focused: document.activeElement === el };
     });
+    assertEqual(typed.value, "Позвонить оператору", "набранное название обрезалось");
+    assert(typed.focused, "поле названия потеряло фокус во время ввода");
+    await p.evaluate(() => window.app.saveTaskModal());
     await p.waitForTimeout(400);
     assertEqual(await count(), 1, "задача не создалась по «Создать»");
     const title = await p.evaluate((k) => (JSON.parse(localStorage.getItem(k) || "{}").globalTasks || [])[0].title, KEY);
