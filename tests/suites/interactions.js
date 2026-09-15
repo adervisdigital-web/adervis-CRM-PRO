@@ -5948,6 +5948,49 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* «В команде должны быть люди» (владелец 16.09.2026): раздел выводился из
+     СПОСОБА РАСЧЁТА — всё, что считается за смену или день, падало в «Команду».
+     Там оказались аренда LED-экрана, звука, проектора, рации и десяток съёмочных
+     услуг. Аренда уехала в «Оборудование», съёмочные услуги — в новый раздел
+     «Съёмка», оформление зоны — в «Подготовку». */
+  await test("каталог: в «Команде» только люди, аренда — в «Оборудовании», съёмка — своим разделом", async () => {
+    const b = await bootLocal(browser, baseUrl, { width: 1440, height: 900, seedDemo: true });
+    const p = b.page;
+    try {
+      const names = async (tab) => {
+        await p.evaluate((t) => { window.app.go("services"); window.app.setTab(t); }, tab);
+        await p.waitForTimeout(300);
+        for (let i = 0; i < 4; i++) await p.evaluate(() => window.app.catalogShowMore());
+        await p.waitForTimeout(250);
+        return p.evaluate(() => [...document.querySelectorAll("#appContent .item--catalog h3")].map((h) => h.textContent.trim()));
+      };
+
+      const crew = await names("grp:crew");
+      assert(crew.length > 10, "в «Команде» подозрительно мало позиций: " + crew.length);
+      const чужие = crew.filter((n) => /^Аренда|рац|съёмка|трансляц|Печать фото/i.test(n));
+      assertEqual(чужие.length, 0, "в «Команде» не люди: " + чужие.join(", "));
+
+      const gear = await names("grp:gear");
+      ["Аренда LED-экрана", "Аренда звукового оборудования", "Аренда проектора и экрана", "Комплект раций"].forEach((n) =>
+        assert(gear.includes(n), `«${n}» не попала в «Оборудование»`));
+
+      const shoot = await names("grp:shoot");
+      ["Предметная съёмка", "Аэрофотосъёмка", "Прямая трансляция (стрим)", "Многокамерная съёмка (3 камеры)"].forEach((n) =>
+        assert(shoot.includes(n), `«${n}» не попала в раздел «Съёмка»`));
+
+      /* Ничего не потерялось: сумма разделов = весь каталог. Считаем по числу в
+         шапке, а не по карточкам: во «Все» они показываются порциями. */
+      await names("all");
+      const r = await p.evaluate(() => ({
+        sums: [...document.querySelectorAll("#appContent .catalog-cat-item[data-group]")].reduce((a, b) => a + (+b.dataset.groupSize || 0), 0),
+        total: parseInt(document.querySelector("#appContent .catalog-section-head .catalog-found-count").textContent, 10),
+      }));
+      assertEqual(r.sums, r.total, `по разделам ${r.sums} позиций, а в каталоге ${r.total} — что-то потерялось`);
+    } finally {
+      await b.context.close();
+    }
+  });
+
   /* Пакеты по образцу каталога (15.09.2026): бейдж категории повторял заголовок
      группы на каждой из 45 карточек; «Скрыть» было перечёркнутым глазом вплотную
      к звезде — теперь в «⋮» с подписью, и меню не режется краем карточки; на

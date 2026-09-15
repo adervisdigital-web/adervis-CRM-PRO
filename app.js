@@ -63,6 +63,11 @@
         // Подсказки перечисляют примеры и НЕ должны сужать раздел до съёмки: сюда же
         // идут дизайнер и монтажёр, когда заказывают графику без съёмочного дня.
         { id: "crew",  label: "Команда",      ic: "team",      color: "var(--primary2)", hint: "режиссёр, оператор, дизайнер, звук" },
+        /* «Съёмка» — съёмочные УСЛУГИ (предметка, аэро, трансляция), а не люди.
+           Своего раздела у них не было, и раздел выводился из способа расчёта:
+           всё «за смену/за день» падало в «Команду» — вместе с арендой экрана и
+           раций (замечание владельца 16.09.2026: «в команде должны быть люди»). */
+        { id: "shoot", label: "Съёмка",       ic: "live",      color: "var(--orange)",   hint: "фото- и видеосъёмка, трансляция" },
         { id: "gear",  label: "Оборудование", ic: "camera",    color: "var(--blue)",     hint: "камеры, свет, звук, аренда" },
         { id: "post",  label: "Постпродакшн", ic: "film",      color: "var(--green)",    hint: "монтаж, цвет, звук, графика" },
         { id: "dist",  label: "Дистрибуция",  ic: "megaphone", color: "var(--cyan)",     hint: "нарезки, обложки, публикация" },
@@ -113,6 +118,9 @@
           { id: "light", label: "Свет",            tags: ["свет"] },
           { id: "sound", label: "Звук",            tags: ["звук", "микрофон"] },
           { id: "move",  label: "Движение",        tags: ["дрон", "стабилизатор", "стедикам", "слайдер"] },
+          // Техника площадки: экран, проектор, рации — она приехала сюда из
+          // «Команды», где лежала вместе с людьми (16.09.2026).
+          { id: "stage", label: "Площадка и связь", tags: ["экран", "проектор", "рация", "связь"] },
         ],
         ai: [
           { id: "subs",  label: "Подписки и кредиты", tags: ["подписка", "кредиты", "токены"] },
@@ -521,6 +529,12 @@
         send:     `<path d="M14.7 1.3a.7.7 0 00-.74-.16L1.34 5.86a.7.7 0 00-.02 1.3l4.9 1.98 1.98 4.9a.7.7 0 001.3-.02l4.7-12.62a.7.7 0 00-.5-.9zM6.9 8.9L3.1 7.4l8.9-3.4-5 4.9zm1.06 1.06l4.9-5.1-3.4 8.9-1.5-3.8z"/>`,
         star:     `<path d="M8 1l2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L.8 6.2l5-.7L8 1z"/>`,
         chevron:  `<path d="M5.7 3.2a.8.8 0 011.1 0l4.2 4.2a.8.8 0 010 1.2l-4.2 4.2a.8.8 0 01-1.1-1.1L9.3 8 5.7 4.3a.8.8 0 010-1.1z"/>`,
+        // Раздел «Услуги» и вкладка «Каталог» — один значок: раньше он был
+        // нарисован отдельно в меню, отдельно в переключателе, а заголовок
+        // «Каталог услуг» носил значок «Проектов».
+        catalog:  `<path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/>`,
+        book:     `<path d="M3 1.5h9.4c.6 0 1.1.5 1.1 1.1v10.8c0 .6-.5 1.1-1.1 1.1H3c-.9 0-1.6-.7-1.6-1.6V3.1c0-.9.7-1.6 1.6-1.6zm0 1.4a.2.2 0 00-.2.2v9.9c.1 0 .1-.1.2-.1h9.1V2.9H3zm1.8 2.2h5.6v1.3H4.8V5.1zm0 2.6h5.6V9H4.8V7.7z"/>`,
+        contract: `<path d="M4 1h5l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.6 1.3V4.4H11L8.6 2.3zM5 6.5h6v1.1H5V6.5zm2.1 5.9L5 10.3l.8-.8 1.3 1.3 3-3 .8.8-3.8 3.8z"/>`,
         // Коробка с крышкой — «убрано на хранение». Заведена в базу, а не нарисована
         // по месту: иконка нужна и в меню сделки, и в заголовке секции списка, а две
         // копии одного рисунка неизбежно разъедутся.
@@ -534,7 +548,11 @@
       function icon(name, size) {
         const s = size || 15;
         const p = ICON_PATHS[name] || EMPTY_ICON_PATHS[name] || "";
-        return `<svg width="${s}" height="${s}" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">${p}</svg>`;
+        /* fill-rule="evenodd": внутренние подпути (строки текста в документе,
+           клетки календаря) становятся ПРОРЕЗЯМИ, а не заливаются вместе с
+           фигурой. Без него «Все КП», «Онлайн-брифы» и «Договоры» в меню
+           выглядели тремя одинаковыми белыми листами. */
+        return `<svg width="${s}" height="${s}" viewBox="0 0 16 16" fill="currentColor" fill-rule="evenodd" aria-hidden="true">${p}</svg>`;
       }
       /* Ручка перетаскивания — ОДНА на всё приложение.
 
@@ -661,6 +679,7 @@
         item("photo_retouch", "photo", "Базовая ретушь фото", "Лёгкая цветокоррекция и базовая обработка.", "fixed+qty", 150, "фото", { stage: "post", tags: ["ретушь"] }),
         item("photo_retouch_pro", "photo", "Глубокая ретушь фото", "Кожа, объём, чистка фона, замена неба или заднего плана — покадрово.", "fixed+qty", 450, "фото", { stage: "post", tags: ["ретушь", "обработка"] }),
         item("product_photo", "photo", "Предметная съёмка", "Съёмка товара на однотонном фоне или в интерьере, свет под фактуру.", "crewShift", 6000, "смена", {
+          group: "shoot",
           stage: "shoot", rates: { hour: 1000, half: 4000, full: 6000, long: 8000, premium: 11000, overtimeHour: 800 }, tags: ["фото", "предметная"]
         }),
 
@@ -755,18 +774,22 @@
 
         // ── Фото ───────────────────────────────────────────────────────────
         item("photo_report", "photo", "Репортажная фотосъёмка", "Съёмка процесса или события без постановки.", "crewShift", 5500, "смена", {
+          group: "shoot",
           stage: "shoot", rates: { hour: 950, half: 3800, full: 5500, long: 7500, premium: 10500, overtimeHour: 750 }, tags: ["фото", "репортаж"]
         }),
         item("photo_team", "photo", "Портреты команды", "Единый стиль портретов для сайта и презентаций.", "crewShift", 6000, "смена", {
+          group: "shoot",
           stage: "shoot", rates: { hour: 1000, half: 4000, full: 6000, long: 8000, premium: 11000, overtimeHour: 800 }, tags: ["фото", "портрет"]
         }),
         item("photo_interior", "photo", "Интерьерная съёмка", "Помещения со светом и правильной геометрией.", "crewShift", 7000, "смена", {
+          group: "shoot",
           stage: "shoot", rates: { hour: 1200, half: 4800, full: 7000, long: 9500, premium: 13000, overtimeHour: 950 }, tags: ["фото", "интерьер"]
         }),
         item("photo_aerial", "photo", "Аэрофотосъёмка", "Съёмка объекта с воздуха и обработка кадров.", "crewShift", 7000, "смена", {
+          group: "shoot",
           stage: "shoot", rates: { hour: 1200, half: 4800, full: 7000, long: 9500, premium: 13000, overtimeHour: 950 }, tags: ["фото", "дрон"]
         }),
-        item("photo_catalog", "photo", "Каталожная съёмка", "Товар на белом фоне по единому стандарту.", "fixed+qty", 350, "кадр", { stage: "shoot", tags: ["фото", "предметная"] }),
+        item("photo_catalog", "photo", "Каталожная съёмка", "Товар на белом фоне по единому стандарту.", "fixed+qty", 350, "кадр", { group: "shoot", stage: "shoot", tags: ["фото", "предметная"] }),
         item("photo_color", "photo", "Цветокоррекция фото", "Единый цвет и свет по всей серии.", "fixed+qty", 250, "фото", { stage: "post", tags: ["ретушь", "обработка"] }),
 
         // ── Постпродакшн и звук ────────────────────────────────────────────
@@ -787,11 +810,11 @@
         item("anim_countdown", "animation", "Заставка обратного отсчёта", "Отбивка для стрима или мероприятия.", "fixed", 5000, "заставка", { stage: "post", tags: ["графика", "анимация"] }),
 
         // ── Мероприятия ────────────────────────────────────────────────────
-        item("event_photo_print", "event", "Печать фото на площадке", "Мгновенная печать снимков для гостей.", "perDay", 18000, "день", { stage: "shoot", tags: ["мероприятие", "фото"] }),
+        item("event_photo_print", "event", "Печать фото на площадке", "Мгновенная печать снимков для гостей.", "perDay", 18000, "день", { group: "shoot", stage: "shoot", tags: ["мероприятие", "фото"] }),
         item("event_branding", "event", "Брендирование площадки", "Баннеры, пресс-вол, навигация — макеты и печать.", "fixed", 35000, "площадка", { stage: "pre", tags: ["мероприятие", "печать"] }),
         item("event_moderator", "event", "Модератор дискуссии", "Ведение секции или круглого стола.", "perDay", 20000, "день", { stage: "shoot", tags: ["мероприятие", "ведущий"] }),
-        item("event_led_screen", "event", "Аренда LED-экрана", "Экран с подключением и оператором.", "perDay", 45000, "день", { stage: "shoot", tags: ["мероприятие", "аренда"] }),
-        item("event_radio_set", "event", "Комплект раций", "Связь между площадками и группами на выезде.", "perDay", 4000, "день", { stage: "shoot", tags: ["мероприятие", "аренда"] }),
+        item("event_led_screen", "equipment", "Аренда LED-экрана", "Экран с подключением и оператором.", "perDay", 45000, "день", { group: "gear", stage: "shoot", tags: ["экран", "аренда", "мероприятие"] }),
+        item("event_radio_set", "equipment", "Комплект раций", "Связь между площадками и группами на выезде.", "perDay", 4000, "день", { group: "gear", stage: "shoot", tags: ["рация", "связь", "аренда"] }),
         item("event_photozone", "event", "Фотозона под ключ", "Конструкция, свет, оформление и монтаж на месте.", "fixed", 40000, "зона", { stage: "pre", tags: ["мероприятие", "печать"] }),
 
         // ── ИИ ─────────────────────────────────────────────────────────────
@@ -844,6 +867,7 @@
           stage: "shoot", rates: { hour: 1200, half: 4800, full: 7000, long: 9500, premium: 13000, overtimeHour: 950 }, tags: ["декорации", "художник"]
         }),
         item("bts_shooting", "shoot", "Backstage-съёмка (BTS)", "Съёмка процесса для соцсетей и отчёта заказчику параллельно основной работе.", "crewShift", 5000, "смена", {
+          group: "shoot",
           stage: "shoot", rates: { hour: 900, half: 3500, full: 5000, long: 7000, premium: 10000, overtimeHour: 700 }, tags: ["backstage", "bts"]
         }),
         item("actor_day", "shoot", "Актёр в кадре", "Съёмочный день актёра или модели по сценарию.", "perDay", 12000, "день", { stage: "shoot", tags: ["актёр", "модель"] }),
@@ -874,8 +898,8 @@
         item("event_photographer", "event", "Фотограф мероприятия", "Репортажная фотосъёмка, моментальная передача материала.", "crewShift", 5000, "смена", {
           stage: "shoot", rates: { hour: 900, half: 3500, full: 5000, long: 7000, premium: 10000, overtimeHour: 700 }, tags: ["мероприятие", "фото"]
         }),
-        item("event_stream", "event", "Прямая трансляция (стрим)", "Настройка стрима, кодирование, трансляция на платформу.", "perDay", 15000, "день", { stage: "shoot", tags: ["мероприятие", "стрим", "трансляция"] }),
-        item("event_multicam", "event", "Многокамерная съёмка (3 камеры)", "Многокамерная съёмка мероприятия с синхронизацией.", "fixed", 25000, "смена", { stage: "shoot", tags: ["мероприятие", "мультикам"] }),
+        item("event_stream", "event", "Прямая трансляция (стрим)", "Настройка стрима, кодирование, трансляция на платформу.", "perDay", 15000, "день", { group: "shoot", stage: "shoot", tags: ["мероприятие", "стрим", "трансляция"] }),
+        item("event_multicam", "event", "Многокамерная съёмка (3 камеры)", "Многокамерная съёмка мероприятия с синхронизацией.", "fixed", 25000, "смена", { group: "shoot", stage: "shoot", tags: ["мероприятие", "мультикам"] }),
         item("event_clip_edit", "event", "Монтаж ролика с мероприятия", "Итоговый ролик до 3 минут: нарезки, интервью, атмосфера.", "videoEdit", 8000, "ролик", {
           stage: "post", rates: { base: 8000, perMinute: 2000, extraVersion: 1200, extraRevision: 900, sourcePack: 800 }, tags: ["мероприятие", "монтаж"]
         }),
@@ -887,13 +911,13 @@
         item("event_teaser", "event", "Тизер / анонс мероприятия", "Короткий тизер или анонс до 60 секунд для продвижения события.", "videoEdit", 5000, "ролик", {
           stage: "post", rates: { base: 5000, perMinute: 2000, extraVersion: 1000, extraRevision: 700, sourcePack: 600 }, tags: ["мероприятие", "тизер"]
         }),
-        item("event_decoration_zone", "event", "Оформление видео/фотозоны", "Простое оформление зоны для съёмки: фон, подсветка, реквизит.", "fixed", 8000, "пакет", { stage: "shoot", tags: ["мероприятие", "декор"] }),
-        item("event_graphic_pack", "event", "Графический пакет мероприятия", "Афиши, баннеры, программа, брендинг события.", "fixed+qty", 1500, "шт", { stage: "marketing", tags: ["мероприятие", "графика", "баннер"] }),
+        item("event_decoration_zone", "event", "Оформление видео/фотозоны", "Простое оформление зоны для съёмки: фон, подсветка, реквизит.", "fixed", 8000, "пакет", { group: "prep", stage: "shoot", tags: ["мероприятие", "декор"] }),
+        item("event_graphic_pack", "event", "Графический пакет мероприятия", "Афиши, баннеры, программа, брендинг события.", "fixed+qty", 1500, "шт", { group: "web", stage: "marketing", tags: ["мероприятие", "графика", "баннер"] }),
         item("event_presenter_reel", "event", "Prezenter-ролик / спикер на камеру", "Запись спикера в зале или студии с телесуфлёром или шпаргалкой.", "crewShift", 7000, "смена", {
           stage: "shoot", rates: { hour: 1200, half: 5000, full: 7000, long: 10000, premium: 14000, overtimeHour: 1000 }, tags: ["мероприятие", "спикер"]
         }),
-        item("event_sound_system", "event", "Аренда звукового оборудования", "Аренда микшера, колонок, микрофонов для мероприятия.", "perDay", 8000, "день", { stage: "shoot", tags: ["мероприятие", "звук", "аренда"] }),
-        item("event_projector", "event", "Аренда проектора и экрана", "Проектор + экран для презентаций или выступлений.", "perDay", 5000, "день", { stage: "shoot", tags: ["мероприятие", "проектор"] })
+        item("event_sound_system", "equipment", "Аренда звукового оборудования", "Аренда микшера, колонок, микрофонов для мероприятия.", "perDay", 8000, "день", { group: "gear", stage: "shoot", tags: ["звук", "аренда", "мероприятие"] }),
+        item("event_projector", "equipment", "Аренда проектора и экрана", "Проектор + экран для презентаций или выступлений.", "perDay", 5000, "день", { group: "gear", stage: "shoot", tags: ["экран", "проектор", "аренда"] })
       ];
 
       const DEFAULT_PACKAGES = [
@@ -2976,7 +3000,7 @@
         })();
 
         const navRenderers = {
-          home: () => navItem("home",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>`,"Проекты"),
+          home: () => navItem("home", icon("grid", 15),"Проекты"),
           deal: () => `
             <button class="sidebar-nav-item ${v==="deal"?"active":""} estimate-nav-btn" id="navEstimateBtn"
               onclick="app.go('deal')" data-tour="deal" title="Смета${activeProject?" — "+activeProject:""}">
@@ -2986,16 +3010,16 @@
                 ${activeProject ? `<small class="sidebar-project-hint">${escapeHtml(activeProject)}</small>` : ""}
               </span>
             </button>`,
-          services: () => navItem("services",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>`,"Услуги"),
-          clients: () => navItem("clients",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 100 6A3 3 0 008 1zM2 13c0-3 2.7-5 6-5s6 2 6 5H2z"/></svg>`,"Клиенты"),
-          proposals: () => navItem("proposals",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h5l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.5 1.2V4.5H11L8.5 2.2zM5 7h6v1H5V7zm0 2.5h6v1H5v-1zM5 12h4v1H5v-1z"/></svg>`,"Все КП"),
-          briefs: () => navItem("briefs",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h6l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 1v3h3L9 2zM5 7h6v1H5V7zm0 3h6v1H5v-1z"/></svg>`,"Онлайн-брифы"),
-          "company-team": () => navItem("company-team",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm5-1a2 2 0 100-4 2 2 0 000 4zM1 13.5c0-2.5 2.2-4 4.5-4s4.5 1.5 4.5 4H1zm9-3.3c1.9.4 3 1.6 3 3.3h-2c0-1.2-.4-2.3-1-3.3z"/></svg>`,"Команда"),
+          services: () => navItem("services", icon("catalog", 15),"Услуги"),
+          clients: () => navItem("clients", icon("person", 15),"Клиенты"),
+          proposals: () => navItem("proposals", icon("doc", 15),"Все КП"),
+          briefs: () => navItem("briefs", icon("clipboard", 15),"Онлайн-брифы"),
+          "company-team": () => navItem("company-team", icon("team", 15),"Команда"),
           "global-finances": () => navItem("global-finances", icon("wallet", 15), "Финансы"),
-          "global-calendar": () => navItem("global-calendar",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1v1H2a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1h-3V1h-1v1H6V1H5zm8 3v2H3V4h10zm0 3v6H3V7h10z"/></svg>`,"Календарь","","","", overdueCount ? `badge${overdueCount}` : ""),
-          "global-tasks": () => navItem("global-tasks",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h2v2H2V3zm4 0h8v1.5H6V3zM2 7h2v2H2V7zm4 .25h8v1.5H6v-1.5zM2 11h2v2H2v-2zm4 .25h8v1.5H6v-1.5z"/></svg>`,"Задачи","","","", overdueCount ? `badge${overdueCount}` : ""),
-          contracts: () => navItem("contracts",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm1 3v1h6V4H5zm0 2v1h6V6H5zm0 2v1h4V8H5z"/></svg>`,"Договора"),
-          knowledge: () => navItem("knowledge",`<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>`,"База знаний")
+          "global-calendar": () => navItem("global-calendar", icon("calendar", 15),"Календарь","","","", overdueCount ? `badge${overdueCount}` : ""),
+          "global-tasks": () => navItem("global-tasks", icon("tasks", 15),"Задачи","","","", overdueCount ? `badge${overdueCount}` : ""),
+          contracts: () => navItem("contracts", icon("contract", 15),"Договора"),
+          knowledge: () => navItem("knowledge", icon("book", 15),"База знаний")
         };
 
         return getSidebarNavConfig()
@@ -7924,7 +7948,7 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>${h1Icon("clipboard")}База знаний</h1>
+                <h1>${h1Icon("book")}База знаний</h1>
                 <p>Полезные статьи о продажах, производстве и работе с клиентами.</p>
               </div>
               <div class="toolbar no-print">
@@ -17173,7 +17197,7 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>${h1Icon("receipt")}Коммерческие предложения</h1>
+                <h1>${h1Icon("doc")}Коммерческие предложения</h1>
                 <p>${_allPortalsError
                   ? 'Список не загрузился — суммы и счётчики показать не можем.'
                   : _allPortals.length
@@ -17717,7 +17741,7 @@
             <div class="panel" style="margin-bottom:14px">
               <div class="section-title">
                 <div>
-                  <h1>${h1Icon("list")}Онлайн-брифы</h1>
+                  <h1>${h1Icon("clipboard")}Онлайн-брифы</h1>
                   <p>Отдельная форма-бриф под каждый тип задач — видео, фото, дизайн, ИИ и общий. Отправьте клиенту ссылку нужного типа, заявка появится ниже.</p>
                 </div>
               </div>
@@ -20154,7 +20178,7 @@
                   описание в две строки, кнопка отдельной строкой, счётчик ещё одной. */""}
             <div class="section-title section-title--inline">
               <div>
-                <h1>${h1Icon("gift")}Пакеты услуг</h1>
+                <h1>${h1Icon("box")}Пакеты услуг</h1>
                 <p class="hide-on-mobile">Готовые наборы по категориям. Три уровня: Старт / Профи / Премиум.</p>
               </div>
               ${/* «Свой пакет» — главное действие раздела, поэтому в панели шапки, как
@@ -20301,12 +20325,15 @@
         const tab = state.servicesTab === "packages" ? "packages" : "catalog";
         const seg = `
           <div class="seg-switch" role="tablist" aria-label="Услуги">
+            ${/* Значки — из общей базы, те же, что у раздела в меню и у заголовка
+                  ниже: в переключателе «Пакеты» был куб, а в заголовке «Пакеты
+                  услуг» — подарок (скриншот владельца 15.09.2026). */""}
             <button type="button" role="tab" aria-selected="${tab === "catalog"}" class="${tab === "catalog" ? "active" : ""}" onclick="app.setServicesTab('catalog')">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/></svg>
+              ${icon("catalog", 15)}
               Каталог
             </button>
             <button type="button" role="tab" aria-selected="${tab === "packages"}" class="${tab === "packages" ? "active" : ""}" onclick="app.setServicesTab('packages')">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5v6l7 4 7-4V5L8 1zm0 2.2L13 6 8 8.8 3 6l5-2.8zM2 7.4l5 2.8v4.4L2 11.8V7.4zm7 7.2V10.2l5-2.8v4.4L9 14.6z"/></svg>
+              ${icon("box", 15)}
               Пакеты
             </button>
           </div>`;
@@ -20358,7 +20385,7 @@
             <section class="panel">
               <div class="section-title">
                 <div>
-                  <h1>${h1Icon("grid")}Каталог услуг</h1>
+                  <h1>${h1Icon("catalog")}Каталог услуг</h1>
                   ${/* На телефоне это описание скрыто (класс ниже): три строки текста,
                         который читают один раз, стояли между заголовком и работой —
                         до первой услуги приходилось прокручивать почти экран.
@@ -22089,7 +22116,7 @@
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>${h1Icon("users")}Клиенты ${clients.length ? `<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:4px">${clients.length}</span>` : ""}</h1>
+                <h1>${h1Icon("person")}Клиенты ${clients.length ? `<span style="font-size:16px;font-weight:500;color:var(--muted);margin-left:4px">${clients.length}</span>` : ""}</h1>
               </div>
               ${/* flex-wrap обязателен: поле поиска появляется от пяти клиентов, и тогда
                     в ряду оказываются поиск, переключатель вида и «Выгрузить». На
@@ -31237,7 +31264,7 @@ Email: _____________________              Email: _____________________
           <div class="panel">
             <div class="section-title">
               <div>
-                <h1>${h1Icon("doc")}Договоры</h1>
+                <h1>${h1Icon("contract")}Договоры</h1>
                 <p>База шаблонов и готовых договоров. Редактируй под каждый проект.</p>
                 <p class="mini-note" style="margin-top:4px">ℹ Шаблоны носят справочный характер и не являются юридической консультацией — перед использованием с клиентами рекомендуем проверить текст у юриста.</p>
               </div>
