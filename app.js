@@ -515,6 +515,7 @@
         mail:     `<path fill-rule="evenodd" d="M1 4.5A1.5 1.5 0 012.5 3h11A1.5 1.5 0 0115 4.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 11.5v-7zm1.5-.1L8 8.4l5.5-4v-.1h-11v.1zM14 5.6L8.4 9.8a.7.7 0 01-.8 0L2 5.6v5.9c0 .3.2.5.5.5h11a.5.5 0 00.5-.5V5.6z"/>`,
         send:     `<path d="M14.7 1.3a.7.7 0 00-.74-.16L1.34 5.86a.7.7 0 00-.02 1.3l4.9 1.98 1.98 4.9a.7.7 0 001.3-.02l4.7-12.62a.7.7 0 00-.5-.9zM6.9 8.9L3.1 7.4l8.9-3.4-5 4.9zm1.06 1.06l4.9-5.1-3.4 8.9-1.5-3.8z"/>`,
         star:     `<path d="M8 1l2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L.8 6.2l5-.7L8 1z"/>`,
+        chevron:  `<path d="M5.7 3.2a.8.8 0 011.1 0l4.2 4.2a.8.8 0 010 1.2l-4.2 4.2a.8.8 0 01-1.1-1.1L9.3 8 5.7 4.3a.8.8 0 010-1.1z"/>`,
         // Коробка с крышкой — «убрано на хранение». Заведена в базу, а не нарисована
         // по месту: иконка нужна и в меню сделки, и в заголовке секции списка, а две
         // копии одного рисунка неизбежно разъедутся.
@@ -20309,6 +20310,14 @@
           if (itemData) catCounts[itemData.category] = (catCounts[itemData.category] || 0) + 1;
         });
 
+        const catalogVisible = allItems(false).filter(x => !isLineOnlyItem(x));
+        const QUICK_ICONS = { all: "grid", favorites: "star", hidden: "eyeOff" };
+        const quickCounts = {
+          all: catalogVisible.length,
+          favorites: catalogVisible.filter(x => state.favorites[x.id]).length,
+          hidden: hidden.filter(x => !isLineOnlyItem(x)).length,
+        };
+
         return `
           <div class="layout">
             <section class="panel">
@@ -20382,7 +20391,7 @@
                   <input class="catalog-search-input" aria-label="Поиск по каталогу услуг" value="${escapeHtml(state.search)}" oninput="app.setSearch(this.value)" placeholder="Поиск: монтаж, дизайн, свет...">
                 </div>
                 <select class="catalog-toolbar-select" style="width:170px" onchange="app.setFilter(this.value)" title="Фильтр" aria-label="Фильтр каталога">
-                  ${optionValueHtml("all", "Без фильтра", state.filter)}
+                  ${optionValueHtml("all", "Все позиции", state.filter)}
                   ${optionValueHtml("selected", "В смете", state.filter)}
                   ${optionValueHtml("edited", "Изменённые цены", state.filter)}
                   ${optionValueHtml("hourly", "С почасовым расчётом", state.filter)}
@@ -20391,9 +20400,8 @@
                   ${optionValueHtml("name", "По названию", state.sort)}
                   ${optionValueHtml("priceAsc", "Цена ↑", state.sort)}
                   ${optionValueHtml("priceDesc", "Цена ↓", state.sort)}
-                  ${optionValueHtml("category", "Категория", state.sort)}
+                  ${optionValueHtml("category", "По разделу", state.sort)}
                 </select>
-                <span class="catalog-found-count">${allFiltered.length} найдено</span>
               </div>
 
               <div class="catalog-body">
@@ -20403,12 +20411,22 @@
                     <span>Разделы каталога</span>
                     <button class="u-modal-close" onclick="app.closeCatalogNav()" aria-label="Закрыть">${icon("close", 15)}</button>
                   </div>
+                  ${/* Значок и счётчик — как у разделов ниже: без них три пункта
+                        стояли голым текстом левее остальных строк и не говорили,
+                        есть ли там что-нибудь (пустое «Избранное» открывали зря). */""}
                   <div class="catalog-cat-group">
-                    ${quickTabs.map(([id, label]) => `
+                    ${quickTabs.map(([id, label]) => {
+                      const n = quickCounts[id];
+                      return `
                       <button class="catalog-cat-item ${state.tab === id ? "active" : ""}" onclick="app.setTab('${id}')">
-                        <span>${escapeHtml(label)}</span>
-                      </button>
-                    `).join("")}
+                        <span class="catalog-cat-label">
+                          <span class="catalog-cat-chev" aria-hidden="true"></span>
+                          <span class="catalog-cat-ico" aria-hidden="true">${icon(QUICK_ICONS[id], 14)}</span>
+                          <span>${escapeHtml(label)}</span>
+                        </span>
+                        ${n ? `<span class="catalog-cat-count">${n}</span>` : ""}
+                      </button>`;
+                    }).join("")}
                   </div>
 
                   <div class="catalog-cat-divider"></div>
@@ -20418,7 +20436,7 @@
                       // Позиции каждой группы считаем один раз: и для счётчика, и для
                       // списка подкатегорий — он выводится из фактического состава,
                       // поэтому новая позиция каталога не может из него выпасть.
-                      const catalogAll = allItems(false).filter(x => !isLineOnlyItem(x));
+                      const catalogAll = catalogVisible;
                       const byGroup = {};
                       catalogAll.forEach(x => { (byGroup[itemGroup(x)] = byGroup[itemGroup(x)] || []).push(x); });
                       return CATALOG_GROUPS.map((g, i) => {
@@ -20458,12 +20476,19 @@
                             <button class="catalog-cat-item ${g.id === "money" ? "danger" : ""} ${active ? "active" : ""}"
                               data-group="${g.id}" data-group-size="${list.length}" data-open="${open ? "1" : "0"}"
                               onclick="app.toggleCatalogGroup('${g.id}')" title="${escapeHtml(g.hint)}">
-                              <span style="display:flex;align-items:center;gap:7px;min-width:0">
-                                <span style="display:inline-block;width:9px;font-size:10px;opacity:.6;transform:rotate(${open ? "90" : "0"}deg);transition:transform .15s">▶</span>
-                                <span style="color:${g.color};display:inline-flex;flex-shrink:0">${icon(g.ic, 15)}</span>
-                                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(g.label)}</span>
+                              <span class="catalog-cat-label">
+                                <span class="catalog-cat-chev" aria-hidden="true">${icon("chevron", 12)}</span>
+                                <span class="catalog-cat-ico" style="color:${g.color}" aria-hidden="true">${icon(g.ic, 15)}</span>
+                                <span class="catalog-cat-name">${escapeHtml(g.label)}</span>
                               </span>
-                              <span class="catalog-cat-count" style="${picked ? "" : "opacity:.45"}">${picked || list.length}</span>
+                              ${/* Два числа — два смысла. Раньше в одном столбце стояло
+                                    то «сколько в смете» (яркое), то «сколько в разделе»
+                                    (бледное): «4» у Подготовки и «16» у Дистрибуции
+                                    выглядели как размеры разделов. */""}
+                              <span class="catalog-cat-nums">
+                                ${picked ? `<span class="catalog-cat-picked" title="${picked} ${plural(picked, "позиция", "позиции", "позиций")} уже в смете">${icon("check", 10)}${picked}</span>` : ""}
+                                <span class="catalog-cat-count">${list.length}</span>
+                              </span>
                             </button>
                             ${addBtn("grp:" + g.id, g.label)}
                           </div>
@@ -20496,10 +20521,10 @@
                         const n = Object.keys(assigned).filter(k => assigned[k] === cg.id).length;
                         return `<div class="catalog-cat-row"><button class="catalog-cat-item ${state.tab === cg.id ? "active" : ""}"
                           onclick="app.setTab('${escapeHtml(cg.id)}')" title="Свой раздел">
-                          <span style="display:flex;align-items:center;gap:7px;min-width:0">
-                            <span style="display:inline-block;width:9px"></span>
-                            <span style="color:var(--primary-text);display:inline-flex;flex-shrink:0">${icon("star", 15)}</span>
-                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(cg.label)}</span>
+                          <span class="catalog-cat-label">
+                            <span class="catalog-cat-chev" aria-hidden="true"></span>
+                            <span class="catalog-cat-ico" style="color:var(--primary-text)" aria-hidden="true">${icon("star", 15)}</span>
+                            <span class="catalog-cat-name">${escapeHtml(cg.label)}</span>
                           </span>
                           <span class="catalog-cat-count" style="${n ? "" : "opacity:.45"}">${n}</span>
                         </button>
@@ -20532,6 +20557,7 @@
                 </aside>
 
                 <div class="catalog-body-main">
+                  ${renderCatalogSectionHead(allFiltered.length, catalogVisible, quickTabs)}
                   ${state.tab === "hidden" && hidden.length ? `
                     <div class="hidden-bar">Скрытые позиции не показываются в общем каталоге. Их можно восстановить.</div>
                   ` : ""}
@@ -20587,6 +20613,59 @@
         `;
       }
 
+      /* Шапка над карточками: где я и сколько здесь позиций.
+         Над сеткой всегда стояло «Каталог услуг», что бы ни было выбрано слева,
+         — открытый раздел узнавался только по подсветке в колонке, а на
+         телефоне колонка вообще свёрнута. Число позиций переехало сюда из ряда
+         фильтров («11 найдено» там было подписью без предмета: чего найдено?). */
+      function renderCatalogSectionHead(found, visible, quickTabs) {
+        const tab = String(state.tab || "all");
+        let ic = "grid", color = "var(--primary-text)", title = "", crumb = "", hint = "";
+        const quick = {
+          all: ["grid", "Все услуги", "весь каталог, кроме скрытых позиций"],
+          favorites: ["star", "Избранное", "позиции, отмеченные звёздочкой"],
+          // Для «Скрытых» пояснение уже даёт полоса под шапкой.
+          hidden: ["eyeOff", "Скрытые", ""],
+        }[tab];
+        if (quick) {
+          [ic, title, hint] = quick;
+        } else if (tab.startsWith("cg:")) {
+          const own = (state.customCatalogGroups || []).find(x => x.id === tab);
+          ic = "star";
+          title = own ? own.label : "Свой раздел";
+          hint = "свой раздел";
+        } else {
+          let gid = "", subLabel = "";
+          if (tab.startsWith("grp:")) {
+            gid = tab.slice(4);
+          } else if (tab.startsWith("sub:")) {
+            gid = tab.split(":")[1];
+            const sub = catalogSubsOf(gid, visible.filter(x => itemGroup(x) === gid), { includeEmpty: true, withHidden: true })
+              .find(s => s.id === tab);
+            subLabel = sub ? sub.label : "";
+          } else {
+            const sample = visible.find(x => x.category === tab);
+            gid = sample ? itemGroup(sample) : "";
+            const cat = CATALOG_CATEGORY_TABS.find(([id]) => id === tab);
+            subLabel = cat ? cat[1] : "";
+          }
+          const g = CATALOG_GROUPS.find(x => x.id === gid);
+          if (g) { ic = g.ic; color = g.color; title = g.label; hint = g.hint; crumb = subLabel; }
+          else title = subLabel || catalogNavCurrentLabel(quickTabs, CATALOG_CATEGORY_TABS);
+        }
+        const narrowed = String(state.search || "").trim() || (state.filter && state.filter !== "all");
+        const count = narrowed ? `${found} найдено` : `${found} ${plural(found, "позиция", "позиции", "позиций")}`;
+        return `
+          <div class="catalog-section-head">
+            <span class="catalog-section-ico" style="color:${color}" aria-hidden="true">${icon(ic, 16)}</span>
+            <div class="catalog-section-text">
+              <h2>${escapeHtml(title)}${crumb ? `<span class="catalog-section-crumb">${icon("chevron", 12)}${escapeHtml(crumb)}</span>` : ""}</h2>
+              ${hint ? `<p>${escapeHtml(hint)}</p>` : ""}
+            </div>
+            <span class="catalog-found-count">${count}</span>
+          </div>`;
+      }
+
       // Вкладка «ИИ / AI» смешивает платные услуги (генерация, монтаж, консультации)
       // и сквозные расходы агентства (подписки, кредиты) — разделяем визуально,
       // чтобы не путать одно с другим при подборе позиций.
@@ -20605,8 +20684,12 @@
 
       // Винительный падеж для «за <единица>» — правило для существительных 1-го склонения
       // (смена→смену, версия→версию), остальные единицы (шт, фото, час...) не меняются.
+      /* Сокращения единиц в каталоге — полными словами: «за мес», «за чел» и
+         «за шт» в подписи цены читались как недописанные. */
+      const UNIT_ACCUSATIVE_FULL = { "мес": "месяц", "мес.": "месяц", "чел": "человека", "чел.": "человека", "шт": "штуку", "шт.": "штуку", "чел/день": "человека в день" };
       function unitAccusative(unit) {
         if (!unit) return unit;
+        if (UNIT_ACCUSATIVE_FULL[unit]) return UNIT_ACCUSATIVE_FULL[unit];
         if (unit.endsWith("я")) return unit.slice(0, -1) + "ю";
         if (unit.endsWith("а")) return unit.slice(0, -1) + "у";
         return unit;
@@ -20629,25 +20712,45 @@
                 раскладка у них на телефоне нужна разная. Без отдельного класса
                 правило для каталога чинило бы и ломало смету одновременно. */""}
           <article class="item item--catalog ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}" onclick="app._onCatalogCardClick(event,'${itemData.id}')" style="cursor:pointer">
-            <div class="item-top">
-              <div>
-                <h3>${highlightText(itemData.name)}</h3>
-                ${/* title обязателен: на телефоне описание обрезается двумя строками,
-                      и без подсказки полный текст взять негде. */""}
-                <p title="${escapeHtml(itemData.desc || "")}">${highlightText(itemData.desc)}</p>
+            ${/* Сетка вместо двух колонок: название и цена — первой строкой, описание
+                  и бейджи — во всю ширину под ними. Раньше колонка цены шла на всю
+                  высоту карточки, и описанию оставалась половина ширины: «Недорогая
+                  локация /» на одной строке, «помещение.» на второй. */""}
+            <div class="item-top cat-card-top">
+              <h3>${highlightText(itemData.name)}</h3>
 
-                ${isPassthroughCostItem(itemData) || state.favorites[itemData.id] ? `
-                <div class="badges">
-                  ${isPassthroughCostItem(itemData) ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--text-danger);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>` : ""}
-         ${state.favorites[itemData.id] ? `<span class="status-pill"> избранное</span>` : ""}
-                </div>
-                ` : ""}
-              </div>
-
+              ${/* Цена — с разрядами и знаком валюты, как в итоге сметы справа
+                    («15 000 ₽» там и «3000» здесь читались как разные величины).
+                    Поле текстовое ради пробелов в числе; при сохранении берём только
+                    цифры, пустое поле возвращает прежнюю цену, а не обнуляет её.
+                    Нулевая цена («Прочий расход» — сумма вписывается в смете)
+                    показывается подсказкой, а не нулём. */""}
               <div class="price-editor no-print">
-                <input class="catalog-price-input" type="number" value="${getCatalogPrice(itemData)}" onchange="app.updateCatalogPrice('${itemData.id}', this.value)" title="Цена" aria-label="Цена: ${escapeHtml(itemData.name)}, ₽ за ${escapeHtml(unitAccusative(itemData.unit))}">
-                <div class="u-meta" style="text-align:right">за ${escapeHtml(unitAccusative(itemData.unit))}</div>
+                <label class="cat-price">
+                  <input class="catalog-price-input" type="text" inputmode="numeric" autocomplete="off"
+                    value="${getCatalogPrice(itemData) ? new Intl.NumberFormat("ru-RU").format(getCatalogPrice(itemData)) : ""}" placeholder="сумма"
+                    onchange="app.updateCatalogPrice('${itemData.id}', this.value.replace(/\\D+/g, '') || this.defaultValue.replace(/\\D+/g, '') || '0')"
+                    title="Цена" aria-label="Цена: ${escapeHtml(itemData.name)}, ₽ за ${escapeHtml(unitAccusative(itemData.unit))}">
+                  <span class="cat-price-cur" aria-hidden="true">${escapeHtml(state.project?.currency || "₽")}</span>
+                </label>
+                <div class="u-meta cat-price-unit">за ${escapeHtml(unitAccusative(itemData.unit))}</div>
               </div>
+
+              ${/* title обязателен: на телефоне описание обрезается двумя строками,
+                    и без подсказки полный текст взять негде. */""}
+              <p title="${escapeHtml(itemData.desc || "")}">${highlightText(itemData.desc)}</p>
+
+              ${/* Бейдж «Расходы» внутри самого раздела «Расходы» стоял на каждой
+                    карточке и ничего не различал. Во «Все», в поиске и в «ИИ» он
+                    нужен: там расходы смешаны с услугами. */""}
+              ${(() => {
+                const costBadge = isPassthroughCostItem(itemData) && !/^(grp|sub):money(:|$)/.test(String(state.tab));
+                return costBadge || state.favorites[itemData.id] ? `
+                <div class="badges">
+                  ${costBadge ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--text-danger);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>` : ""}
+                  ${state.favorites[itemData.id] ? `<span class="status-pill"> избранное</span>` : ""}
+                </div>` : "";
+              })()}
             </div>
 
             <div class="no-print" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:8px">

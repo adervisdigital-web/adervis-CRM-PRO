@@ -254,7 +254,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
           const grp = oc.match(/app\.toggleCatalogGroup\('([^']+)'\)/);
           if (!tab && !grp) return null;
           const clone = b.cloneNode(true);
-          clone.querySelectorAll(".catalog-cat-count").forEach((c) => c.remove());
+          clone.querySelectorAll(".catalog-cat-count, .catalog-cat-picked").forEach((c) => c.remove());
           const label = clone.textContent.replace(/▶/g, "").replace(/\s+/g, " ").trim();
           return { id: tab ? tab[1] : "grp:" + grp[1], group: !tab, label };
         })
@@ -5779,6 +5779,91 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assert(r.позиций >= 5, `в демо-смете всего ${r.позиций} позиций — проверять нечего`);
       assertEqual(r.повторы.length, 0,
         "одинаковые пояснения на экране: " + r.повторы.map(([t, n]) => `${n}× «${t.slice(0, 40)}…»`).join("; "));
+    } finally {
+      await b.context.close();
+    }
+  });
+
+  /* Каталог по скриншоту владельца 15.09.2026 («что ещё улучшить — логику,
+     дизайн, навигацию»):
+     - над сеткой всегда стояло «Каталог услуг» — теперь шапка называет раздел
+       и подраздел, а число позиций в ней совпадает с карточками;
+     - в колонке одно число значило то «в смете», то «в разделе» — теперь число
+       раздела не зависит от сметы, выбранное — отдельной меткой;
+     - бейдж «Расходы» стоял на каждой карточке самого раздела «Расходы»;
+     - цена «3000» без разрядов и валюты: теперь «3 000», ввод с пробелами
+       сохраняется, пустое поле цену не обнуляет. */
+  await test("каталог: шапка раздела, честные счётчики, цена с разрядами", async () => {
+    const b = await bootLocal(browser, baseUrl, { width: 1440, height: 900, seedDemo: true });
+    const p = b.page;
+    try {
+      await p.evaluate(() => { window.app.go("catalog"); window.app.setTab("grp:money"); });
+      await p.waitForTimeout(500);
+      const money = await p.evaluate(() => ({
+        title: document.querySelector("#appContent .catalog-section-head h2")?.textContent.trim(),
+        count: parseInt(document.querySelector("#appContent .catalog-section-head .catalog-found-count")?.textContent || "0", 10),
+        cards: document.querySelectorAll("#appContent .item--catalog").length,
+        badges: [...document.querySelectorAll("#appContent .item--catalog .badge")].filter((x) => x.textContent.trim() === "Расходы").length,
+      }));
+      assertEqual(money.title, "Расходы", "шапка не называет открытый раздел");
+      assert(money.cards > 0, "в разделе «Расходы» нет карточек");
+      assertEqual(money.count, money.cards, "число в шапке не совпадает с карточками");
+      assertEqual(money.badges, 0, "внутри «Расходов» каждая карточка всё ещё подписана «Расходы»");
+
+      // Во «Все» расходы смешаны с услугами — там бейдж нужен.
+      await p.evaluate(() => { window.app.setTab("all"); window.app.setSearch("парковка"); });
+      await p.waitForTimeout(600);
+      const allBadge = await p.evaluate(() =>
+        [...document.querySelectorAll("#appContent .item--catalog .badge")].some((x) => x.textContent.trim() === "Расходы"));
+      assert(allBadge, "во «Все» у расхода пропал бейдж «Расходы»");
+      await p.evaluate(() => window.app.setSearch(""));
+      await p.waitForTimeout(400);
+
+      // Подраздел — «Раздел › Подраздел».
+      const sub = await p.evaluate(() => {
+        window.app.toggleCatalogGroup("gear");
+        const b = document.querySelector('[data-subs-of="gear"] .catalog-subgroup');
+        const tab = (b.getAttribute("onclick").match(/setTab\('([^']+)'\)/) || [])[1];
+        const label = b.querySelector("span span:last-child").textContent.trim();
+        window.app.setTab(tab);
+        return { label };
+      });
+      await p.waitForTimeout(400);
+      const subHead = await p.evaluate(() => document.querySelector("#appContent .catalog-section-head h2")?.textContent.replace(/\s+/g, " ").trim());
+      assertEqual(subHead, "Оборудование" + sub.label, "шапка подраздела не называет раздел и подраздел");
+
+      // Число у раздела — размер раздела, в смете — отдельной меткой.
+      const nav = await p.evaluate(() => [...document.querySelectorAll("#appContent .catalog-cat-item[data-group]")].map((b) => ({
+        g: b.dataset.group, size: +b.dataset.groupSize,
+        count: +(b.querySelector(".catalog-cat-count")?.textContent || -1),
+        picked: b.querySelector(".catalog-cat-picked")?.textContent.trim() || "",
+      })));
+      const off = nav.filter((x) => x.count !== x.size);
+      assertEqual(off.length, 0, "число у раздела не равно его размеру: " + JSON.stringify(off));
+      assert(nav.some((x) => x.picked), "в демо-смете есть позиции, но ни у одного раздела нет метки «в смете»");
+
+      // Цена: разряды на экране, ввод с пробелом, пустое поле не обнуляет.
+      await p.evaluate(() => { window.app.setTab("grp:money"); });
+      await p.waitForTimeout(400);
+      const shown = await p.evaluate(() => [...document.querySelectorAll("#appContent .item--catalog .catalog-price-input")].map((x) => x.value).find((v) => /\d/.test(v)));
+      assert(/^\d{1,3}( \d{3})+$|^\d{1,3}$/.test(shown.replace(/ | /g, " ")), "цена без разрядов: " + shown);
+
+      const priced = p.locator("#appContent .item--catalog", { hasText: "Аренда простой локации" }).locator(".catalog-price-input");
+      await priced.fill("12 500");
+      await priced.press("Tab");
+      const ok = p.locator(".confirm-dialog-overlay .confirm-ok");
+      await ok.waitFor({ timeout: 3000 });
+      await ok.click();
+      await p.waitForTimeout(400);
+      const after = await p.locator("#appContent .item--catalog", { hasText: "Аренда простой локации" }).locator(".catalog-price-input").inputValue();
+      assertEqual(after.replace(/ | /g, " "), "12 500", "ввод «12 500» не сохранился как 12 500");
+
+      const again = p.locator("#appContent .item--catalog", { hasText: "Аренда простой локации" }).locator(".catalog-price-input");
+      await again.fill("");
+      await again.press("Tab");
+      await p.waitForTimeout(400);
+      const kept = await p.locator("#appContent .item--catalog", { hasText: "Аренда простой локации" }).locator(".catalog-price-input").inputValue();
+      assertEqual(kept.replace(/ | /g, " "), "12 500", "пустое поле цены обнулило цену");
     } finally {
       await b.context.close();
     }

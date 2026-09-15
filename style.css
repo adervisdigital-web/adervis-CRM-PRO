@@ -1658,6 +1658,9 @@
       padding: 1px 7px;
     }
     .catalog-cat-item.active .catalog-cat-count { background: rgb(var(--primary-rgb) / .22); color: var(--primary-on-tint); }
+    /* «Расходы» отделены линией, но окрашены как все разделы. Красная строка с
+       красной подсветкой при выборе читалась как ошибка, а не как раздел; цвет
+       раздела и так несёт значок. */
     .catalog-cat-item.danger {
       margin-top: 10px;
       padding-top: 10px;
@@ -1665,12 +1668,42 @@
       /* Верх квадратный: пункт отделён линией и визуально к ней прижат. Низ — как у
          базового .catalog-cat-item (--r-sm), раньше стояло 9px без причины. */
       border-radius: 0 0 var(--r-sm) var(--r-sm);
-      color: var(--text-danger);
     }
-    .catalog-cat-item.danger:hover { background: rgba(220,38,38,.1); color: var(--text-danger); }
-    .catalog-cat-item.danger.active { background: rgba(220,38,38,.16); color: var(--tint-red); }
-    .catalog-cat-item.danger .catalog-cat-count { color: var(--tint-red); background: rgba(220,38,38,.12); }
-    .catalog-cat-item.danger.active .catalog-cat-count { background: rgba(220,38,38,.22); }
+    .catalog-cat-label { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .catalog-cat-chev { flex: 0 0 12px; width: 12px; display: inline-flex; opacity: .55; }
+    .catalog-cat-chev svg { transition: transform var(--dur-1); }
+    .catalog-cat-item[data-open="1"] .catalog-cat-chev svg { transform: rotate(90deg); }
+    .catalog-cat-ico { display: inline-flex; flex-shrink: 0; }
+    .catalog-cat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .catalog-cat-nums { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+    .catalog-cat-picked {
+      display: inline-flex; align-items: center; gap: 2px;
+      font-size: 11px; font-weight: 750; font-variant-numeric: tabular-nums;
+      color: var(--primary-on-tint); background: rgb(var(--primary-rgb) / .16);
+      border-radius: var(--r-pill); padding: 1px 6px 1px 4px;
+    }
+    .catalog-cat-item:not(.active) .catalog-cat-count { opacity: .7; }
+
+    /* Шапка над карточками (app.js renderCatalogSectionHead). */
+    .catalog-section-head {
+      display: flex; align-items: center; gap: 12px;
+      margin: 0 0 12px; min-width: 0;
+    }
+    .catalog-section-ico {
+      flex: 0 0 34px; width: 34px; height: 34px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: var(--r-md);
+      background: color-mix(in srgb, currentColor 14%, transparent);
+    }
+    .catalog-section-text { flex: 1 1 auto; min-width: 0; }
+    .catalog-section-text h2 {
+      margin: 0; font-size: 16px; line-height: 1.25;
+      display: flex; align-items: center; flex-wrap: wrap; gap: 2px 6px;
+    }
+    .catalog-section-crumb { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 600; }
+    .catalog-section-crumb svg { opacity: .6; }
+    .catalog-section-text p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+    .catalog-section-head .catalog-found-count { background: none; border: 0; padding: 0; }
     .catalog-cat-add {
       margin-top: 10px;
       padding-top: 10px;
@@ -9044,12 +9077,7 @@ button.is-busy::before {
      фил…» и «По назв…»: шеврон и внутренние отступы съедают из этих 110 около
      сорока. Счётчик — справочное число, ему отдельная строка стоит дешевле, чем
      две обрезанные подписи, а выпадашки получают по ~170px и помещаются целиком. */
-  /* Своя строка — и без капсулы: растянутая на всю ширину пилюля читалась как
-     пустая плашка с числом в углу. Тут это просто подпись под фильтрами. */
-  .catalog-toolbar .catalog-found-count {
-    flex: 1 1 100%; text-align: right;
-    background: none; border: none; padding: 2px 2px 0;
-  }
+  /* Счётчика в ряду фильтров больше нет — он в шапке раздела над карточками. */
 }
 
 /* ── Карточка каталога: одна высота в ряду и внятное наведение ──────────────
@@ -9134,6 +9162,54 @@ button.is-busy::before {
 }
 /* Ряд действий — всегда у нижнего края карточки. */
 .item--catalog > .no-print:last-child { margin-top: auto; }
+
+/* Верх карточки сеткой: название | цена первой строкой, описание и бейджи во
+   всю ширину. Правила выше для .item-top > div:first-child сюда не доходят —
+   обёртки у названия больше нет. */
+.item--catalog > .item-top.cat-card-top {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 12px; align-items: start; align-content: start;
+}
+.cat-card-top > h3 { grid-column: 1; grid-row: 1; margin: 0; }
+.cat-card-top > p,
+.cat-card-top > .badges { grid-column: 1 / -1; }
+.item--catalog .cat-card-top > .price-editor {
+  grid-column: 2; grid-row: 1;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 0;
+  width: 118px; text-align: right;
+}
+.cat-price { display: flex; align-items: center; justify-content: flex-end; gap: 4px; width: 100%; cursor: text; }
+/* Поле цены — высотой со строку названия (32px, а не 43): иначе первая строка
+   сетки выходила 58px при названии в 44, и между названием и описанием
+   зияла пустота. На пальце поле 44px — минимальная цель касания. */
+.item--catalog .cat-price .catalog-price-input {
+  flex: 1 1 auto; min-width: 0; width: 100%; height: 32px; min-height: 0;
+  padding: 2px 4px; text-align: right;
+}
+.cat-price-cur { font-size: 15px; font-weight: 700; color: var(--muted); }
+.cat-price-unit { padding-right: 4px; font-size: 12px; white-space: nowrap; }
+.item--catalog .cat-card-top > p { margin-top: 6px; }
+@media (hover: none) and (pointer: coarse) {
+  .item--catalog .cat-price .catalog-price-input { height: 44px; }
+}
+@media (max-width: 640px) {
+  /* 100px вмещают «1 200 000 ₽»; при 118 названию оставалось две строки по
+     слову («Аренда / простой…»). */
+  .item--catalog .cat-card-top > .price-editor { width: 100px; }
+  /* На телефоне раздел уже назван кнопкой «Раздел» над поиском — от шапки
+     остаются пояснение и число позиций, одной строкой. */
+  .catalog-section-head .catalog-section-ico,
+  .catalog-section-head h2 { display: none; }
+  .catalog-section-head { margin-bottom: 10px; }
+}
+/* Шапка раздела, где из действий только «⋮»: на телефоне .section-title встаёт
+   столбцом, и одинокая кнопка занимала под заголовком целую строку (60px до
+   первого дела). Одна кнопка помещается рядом с заголовком. */
+@media (max-width: 768px) {
+  .section-title:has(> .toolbar > .deal-card-menu-wrap:only-child) {
+    flex-direction: row; align-items: flex-start;
+  }
+}
 .item--catalog .item-top p {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -9168,7 +9244,6 @@ button.is-busy::before {
   .item--catalog .item-top { flex-direction: row; align-items: flex-start; gap: 10px; }
   .item--catalog .item-top > div:first-child { flex: 1 1 auto; min-width: 0; }
   .item--catalog .price-editor {
-    width: auto !important;
     flex: 0 0 118px;
     text-align: right;
   }
