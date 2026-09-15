@@ -285,7 +285,9 @@
       function catalogTabOfPlace(place) {
         if (place.cg) return place.cg;
         if (place.sub) return `sub:${place.group}:${place.sub}`;
-        if (place.category) return place.category;
+        // С разделом: одна и та же категория живёт в разных разделах («Фото» и в
+        // «Команде», и в «Постпродакшне»), голый id показывал бы оба сразу.
+        if (place.category) return `cat:${place.group}:${place.category}`;
         if (place.group) return "grp:" + place.group;
         return "all";
       }
@@ -316,6 +318,9 @@
          Смена превращается в «за день», остальное сложное — в фиксированную цену. */
       // Свои позиции, заведённые за время открытой страницы (см. filteredItems).
       let _catalogFreshIds = [];
+      // Какая своя позиция держит выбор места в окне раскрытым (customItemPlacePicker).
+      // Переживает перерисовку окна — выбор раздела его перерисовывает.
+      let _placePickerOpenId = "";
       const SAFE_CUSTOM_MODELS = new Set(["fixed", "fixed+qty", "perDay", "equipmentRental", "creativeWork"]);
       function catalogPlaceDefaults(place) {
         const base = BASE_ITEMS.filter(x => !isLineOnlyItem(x));
@@ -10469,6 +10474,14 @@
             const cg = String(state.tab);
             items = items.filter(x => (state.itemCustomGroup || {})[x.id] === cg);
           }
+          /* cat:<раздел>:<категория> — подраздел-категория ВНУТРИ раздела. Голый id
+             категории (он остался для старых сохранений и тестов) фильтрует по всему
+             каталогу: «Постпродакшн › Фото» со счётчиком 4 открывал 11 позиций,
+             захватывая фотографа и аэросъёмку из «Команды». */
+          else if (String(state.tab).startsWith("cat:")) {
+            const [, gid, cat] = String(state.tab).split(":");
+            items = items.filter(x => itemGroup(x) === gid && x.category === cat && !customSubOfItem(x, gid));
+          }
           else if (String(state.tab).startsWith("sub:")) {
             const [, gid, sid] = String(state.tab).split(":");
             items = items.filter(x => itemGroup(x) === gid && itemSubGroup(x, gid) === sid);
@@ -11943,7 +11956,7 @@
       function createCustomItem() {
         const t = String(state.tab || "");
         let section = "";
-        if (t.startsWith("grp:") || t.startsWith("sub:") || t.startsWith("cg:")) section = t;
+        if (t.startsWith("grp:") || t.startsWith("sub:") || t.startsWith("cat:") || t.startsWith("cg:")) section = t;
         else if (CATALOG_CATEGORY_TABS.some(([id]) => id === t)) {
           const sample = BASE_ITEMS.find(x => x.category === t);
           if (sample) section = `cat:${itemGroup(sample)}:${t}`;
@@ -19514,6 +19527,7 @@
         if (active && active.closest && active.closest(".modal-box")) active.blur();
 
         const id = state.catalogEditId;
+        _placePickerOpenId = "";
         if (_catalogDraft && _catalogDraft.id === id) {
           const untouched = _customItemSnap(id) === _catalogDraft.snap;
           _catalogDraft = null;
@@ -19717,7 +19731,7 @@
                         Оборудование · Свет»): окно открывается сразу от плюса, и
                         это единственное подтверждение, что позиция встала туда,
                         куда нажимали. */""}
-                  ${custom ? `<span class="status-pill" style="font-size:12px">Своя · ${escapeHtml(catalogPlaceLabel(catalogPlaceOf(customItemPlaceValue(itemData))))}</span>` : `<span class="badge">${escapeHtml(itemData.section)}</span>`}
+                  ${custom ? `<span class="status-pill cat-own-pill" style="font-size:12px">${icon("star", 11)} Своя позиция</span>` : `<span class="badge">${escapeHtml(itemData.section)}</span>`}
                 </div>
                 <button class="u-modal-close" onclick="app.closeCatalogEdit()" aria-label="Закрыть" style="flex-shrink:0">${icon("close", 15)}</button>
               </div>
@@ -20517,16 +20531,19 @@
                                 сам раздел. Но свой подраздел показываем и один: его
                                 завели нарочно, и без строки в него не положить позицию. */""}
                           ${subs.length > 1 || subs.some(s => s.custom) ? `<div class="catalog-subgroups" data-subs-of="${g.id}">
-                            ${subs.map(s => `
+                            ${subs.map(s => {
+                              const subTab = s.kind === "cat" ? `cat:${g.id}:${s.id}` : s.id;
+                              return `
                               <div class="catalog-cat-row">
-                                <button class="catalog-cat-item catalog-subgroup ${state.tab === s.id ? "active" : ""}"
-                                  onclick="event.stopPropagation();app.setTab('${s.id}')"${s.custom ? ` title="Свой подраздел"` : ""}>
+                                <button class="catalog-cat-item catalog-subgroup ${state.tab === subTab ? "active" : ""}"
+                                  onclick="event.stopPropagation();app.setTab('${subTab}')"${s.custom ? ` title="Свой подраздел"` : ""}>
                                   <span style="display:flex;align-items:center;gap:5px;min-width:0">${s.custom ? `<span class="place-sub-own" aria-hidden="true">${icon("star", 11)}</span>` : ""}<span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(s.label)}</span></span>
                                   <span class="catalog-cat-count">${s.n}</span>
                                 </button>
-                                ${addBtn(s.kind === "cat" ? `cat:${g.id}:${s.id}` : s.id, `${g.label} · ${s.label}`)}
+                                ${addBtn(subTab, `${g.label} · ${s.label}`)}
                               </div>
-                            `).join("")}
+                            `;
+                            }).join("")}
                           </div>` : ""}
                         `;
                       }).join("");
@@ -20664,9 +20681,14 @@
             const sub = catalogSubsOf(gid, visible.filter(x => itemGroup(x) === gid), { includeEmpty: true, withHidden: true })
               .find(s => s.id === tab);
             subLabel = sub ? sub.label : "";
+          } else if (tab.startsWith("cat:")) {
+            const [, g2, catId] = tab.split(":");
+            gid = g2;
+            const cat = CATALOG_CATEGORY_TABS.find(([id]) => id === catId);
+            subLabel = cat ? cat[1] : "";
           } else {
-            const sample = visible.find(x => x.category === tab);
-            gid = sample ? itemGroup(sample) : "";
+            // Голый id категории (старое сохранение) — показывает её во всём
+            // каталоге, поэтому раздел в шапку не ставим: он был бы неправдой.
             const cat = CATALOG_CATEGORY_TABS.find(([id]) => id === tab);
             subLabel = cat ? cat[1] : "";
           }
@@ -20726,13 +20748,17 @@
            правки, без кнопки «Удалить». */
         const custom = itemData.category === "custom" || (state.customItems || []).some(x => x.id === itemData.id);
 
-        if (custom) return renderCustomCatalogItem(itemData, selected, hidden);
-
+        /* Своя позиция — ТА ЖЕ карточка, что стандартная, с меткой «Своя».
+           Раньше она рисовалась формой прямо в сетке: название, цена, этап,
+           раздел, описание полями — карточка выходила вдвое выше соседей, и
+           стандартная рядом растягивалась до её высоты пустым низом (скриншот
+           владельца 15.09.2026). Все поля правятся в окне позиции — оно
+           открывается нажатием на карточку, как и у стандартной. */
         return `
           ${/* item--catalog: класс .item делят карточка каталога и СТРОКА СМЕТЫ, а
                 раскладка у них на телефоне нужна разная. Без отдельного класса
                 правило для каталога чинило бы и ломало смету одновременно. */""}
-          <article class="item item--catalog ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}" onclick="app._onCatalogCardClick(event,'${itemData.id}')" style="cursor:pointer">
+          <article class="item item--catalog ${custom ? "item--custom" : ""} ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}"${custom ? ` data-custom-id="${escapeHtml(itemData.id)}"` : ""} onclick="app._onCatalogCardClick(event,'${itemData.id}')" style="cursor:pointer">
             ${/* Сетка вместо двух колонок: название и цена — первой строкой, описание
                   и бейджи — во всю ширину под ними. Раньше колонка цены шла на всю
                   высоту карточки, и описанию оставалась половина ширины: «Недорогая
@@ -20750,7 +20776,7 @@
                 <label class="cat-price">
                   <input class="catalog-price-input" type="text" inputmode="numeric" autocomplete="off"
                     value="${getCatalogPrice(itemData) ? new Intl.NumberFormat("ru-RU").format(getCatalogPrice(itemData)) : ""}" placeholder="сумма"
-                    onchange="app.updateCatalogPrice('${itemData.id}', this.value.replace(/\\D+/g, '') || this.defaultValue.replace(/\\D+/g, '') || '0')"
+                    onchange="app.${custom ? "updateCustomItem" : "updateCatalogPrice"}('${itemData.id}', ${custom ? "'price', " : ""}this.value.replace(/\\D+/g, '') || this.defaultValue.replace(/\\D+/g, '') || '0')"
                     title="Цена" aria-label="Цена: ${escapeHtml(itemData.name)}, ₽ за ${escapeHtml(unitAccusative(itemData.unit))}">
                   <span class="cat-price-cur" aria-hidden="true">${escapeHtml(state.project?.currency || "₽")}</span>
                 </label>
@@ -20759,15 +20785,18 @@
 
               ${/* title обязателен: на телефоне описание обрезается двумя строками,
                     и без подсказки полный текст взять негде. */""}
-              <p title="${escapeHtml(itemData.desc || "")}">${highlightText(itemData.desc)}</p>
+              ${custom && !String(itemData.desc || "").trim()
+                ? `<p class="cat-desc-empty">Без описания — нажмите, чтобы добавить</p>`
+                : `<p title="${escapeHtml(itemData.desc || "")}">${highlightText(itemData.desc)}</p>`}
 
               ${/* Бейдж «Расходы» внутри самого раздела «Расходы» стоял на каждой
                     карточке и ничего не различал. Во «Все», в поиске и в «ИИ» он
                     нужен: там расходы смешаны с услугами. */""}
               ${(() => {
                 const costBadge = isPassthroughCostItem(itemData) && !/^(grp|sub):money(:|$)/.test(String(state.tab));
-                return costBadge || state.favorites[itemData.id] ? `
+                return custom || costBadge || state.favorites[itemData.id] ? `
                 <div class="badges">
+                  ${custom ? `<span class="status-pill cat-own-pill" title="Позицию завели вы">${icon("star", 11)} Своя</span>` : ""}
                   ${costBadge ? `<span class="badge" style="background:rgba(220,38,38,.12);color:var(--text-danger);border-color:rgba(220,38,38,.3)" title="Себестоимость по умолчанию = цене, маржа 0 — агентство не зарабатывает на перепродаже">Расходы</span>` : ""}
                   ${state.favorites[itemData.id] ? `<span class="status-pill"> избранное</span>` : ""}
                 </div>` : "";
@@ -20802,9 +20831,9 @@
                   <button class="catalog-action-btn ${state.favorites[itemData.id] ? 'active' : ''}" onclick="app.toggleFavorite('${itemData.id}')" title="${state.favorites[itemData.id] ? 'Убрать из избранного' : 'В избранное'}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="${state.favorites[itemData.id] ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                   </button>
-                  <button class="catalog-action-btn" onclick="app.duplicateToCustom('${itemData.id}')" title="Скопировать в свои позиции">
+                  ${custom ? "" : `<button class="catalog-action-btn" onclick="app.duplicateToCustom('${itemData.id}')" title="Скопировать в свои позиции">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                  </button>
+                  </button>`}
                   ${/* Редкие действия уехали под «⋯» С ПОДПИСЯМИ. В строке было
                         четыре неразличимые иконки подряд, и последняя — скрытие
                         позиции: на экране каталога таких рядов два десятка, то есть
@@ -20821,6 +20850,17 @@
                       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="2.5" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13.5" r="1.5"/></svg>
                     </button>
                     <div class="deal-ctx-menu" id="dcm-cat-${itemData.id}" style="display:none">
+                      ${custom ? `
+                      <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.openCatalogEdit('${itemData.id}')">
+                        ${icon("pencil", 14)}
+                        Изменить
+                      </button>
+                      <div class="dcm-sep"></div>
+                      <button class="dcm-item dcm-danger" onclick="event.stopPropagation();app.closeDealMenu();app.deleteCustomItem('${itemData.id}')">
+                        ${icon("trash", 14)}
+                        Удалить позицию
+                      </button>
+                    </div>` : `
                       <button class="dcm-item" onclick="event.stopPropagation();app.closeDealMenu();app.resetCatalogPrice('${itemData.id}')">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 101.77-5.5"/><path d="M3 3v4h4"/></svg>
                         Сбросить цену к базовой
@@ -20830,7 +20870,7 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                         Скрыть из каталога
                       </button>
-                    </div>
+                    </div>`}
                   </div>
                 </div>
               `}
@@ -20893,72 +20933,55 @@
                 s.custom ? "Свой подраздел" : "");
             }).join("")}
           </div>` : "";
+        /* Свёрнуто по умолчанию — одной строкой «Раздел › Подраздел» (просьба
+           владельца 15.09.2026: «удобнее и компактнее»). Восемь плашек в три ряда
+           и подложка подразделов занимали 200px окна, хотя место почти всегда уже
+           верное: позицию заводят плюсом прямо в нужном разделе. Меняют его редко
+           — тогда строка раскрывает те же плашки. */
+        const curSub = subs.find(s => (s.kind === "cat" ? `cat:${g.id}:${s.id}` : s.id) === cur);
+        const open = _placePickerOpenId === itemData.id;
         return `
-          <div class="field place-field">
+          <div class="field place-field ${open ? "is-open" : ""}">
             <span class="place-caption">Раздел каталога</span>
-            <div class="place-groups" role="group" aria-label="Раздел каталога">${groups}</div>
-            ${subsHtml}
+            <button type="button" class="place-summary" style="--chip-c:${g.color}" data-id="${id}"
+              aria-expanded="${open}" onclick="app.togglePlacePicker(this)">
+              <span class="place-summary-ico" aria-hidden="true">${icon(g.ic, 14)}</span>
+              <span class="place-summary-text" title="${escapeHtml(g.label + (curSub && subsHtml ? " › " + curSub.label : ""))}">
+                <span class="place-summary-group">${escapeHtml(g.label)}</span>
+                ${curSub && subsHtml ? `<span class="place-summary-sep" aria-hidden="true">${icon("chevron", 11)}</span><span class="place-summary-sub">${escapeHtml(curSub.label)}</span>` : ""}
+              </span>
+              <span class="place-summary-act"><span class="when-closed">Изменить</span><span class="when-open">Свернуть</span>${icon("chevron", 12)}</span>
+            </button>
+            <div class="place-panel">
+              <div class="place-groups" role="group" aria-label="Раздел каталога">${groups}</div>
+              ${subsHtml}
+            </div>
           </div>`;
       }
 
-      function setCustomItemPlace(id, place) {
-        updateCustomItem(id, "place", place);
+      // Раскрытие без перерисовки: окно не пересобирается, фокус и набранное
+      // в соседних полях остаются как были.
+      function togglePlacePicker(btn) {
+        const field = btn && btn.closest(".place-field");
+        if (!field) return;
+        const open = !field.classList.contains("is-open");
+        field.classList.toggle("is-open", open);
+        btn.setAttribute("aria-expanded", String(open));
+        _placePickerOpenId = open ? btn.dataset.id : "";
       }
 
-      function renderCustomCatalogItem(itemData, selected, hidden) {
-        return `
-          <article class="item item--catalog ${selected ? "selected" : ""} ${hidden ? "hidden-item" : ""}" onclick="app._onCatalogCardClick(event,'${itemData.id}')" style="cursor:pointer">
-            <div class="line-head">
-              <div class="u-flex1">
-                ${/* Раскладка: название и раздел — во всю ширину, цена с этапом —
-                      парой. В половину карточки «Оборудование · Камера и оптика»
-                      обрезалось до «Оборудование ·…», то есть терялась именно
-                      подгруппа, ради которой выбор и делают; длинное название
-                      позиции обрезалось так же. */""}
-                ${field("Название", `<input data-autosave data-scope="custom" data-id="${itemData.id}" data-key="name" value="${escapeHtml(itemData.name)}">`)}
-
-                <div class="grid two" style="margin-top:12px">
-                  ${field(itemData.unit ? `Цена за ${unitAccusative(itemData.unit)}` : "Цена", `<input type="number" data-autosave data-scope="custom" data-id="${itemData.id}" data-key="price" value="${escapeHtml(itemData.price)}">`)}
-                  ${field("Этап в смете", `
-                    <select data-autosave data-scope="custom" data-id="${itemData.id}" data-key="stage">
-                      ${state.stages.map(stage => optionValueHtml(stage.id, stage.name, itemData.stage)).join("")}
-                    </select>
-                  `)}
-                </div>
-
-                <div class="mt-12">
-                  ${/* В узкой карточке место не выбирается, а показывается: плашки
-                        восьми разделов в треть экрана встали бы в четыре ряда. Нажатие
-                        открывает окно позиции — там выбор в два касания. */""}
-                  ${(() => {
-                    const place = catalogPlaceOf(customItemPlaceValue(itemData));
-                    const g = CATALOG_GROUPS.find(x => x.id === place.group);
-                    return `
-                  <span class="place-caption">Раздел каталога</span>
-                  <button type="button" class="place-inline" data-id="${escapeHtml(itemData.id)}"
-                    onclick="app.openCatalogEdit(this.dataset.id)" title="Сменить раздел">
-                    ${g ? `<span style="color:${g.color};display:inline-flex">${icon(g.ic, 14)}</span>` : ""}
-                    <span class="place-inline-label">${escapeHtml(catalogPlaceLabel(place))}</span>
-                    <span class="place-inline-edit">сменить</span>
-                  </button>`;
-                  })()}
-                </div>
-
-                <div class="mt-12">
-                  ${field("Описание", `<textarea data-autosave data-scope="custom" data-id="${itemData.id}" data-key="desc">${escapeHtml(itemData.desc)}</textarea>`)}
-                </div>
-              </div>
-            </div>
-
-            <div class="toolbar no-print" style="margin-top:14px">
-              ${selected
-                ? `<button class="btn danger-quiet" onclick="app.removeItem('${itemData.id}')">Убрать из сметы</button>`
-                : `<button class="btn primary" onclick="app.addItem('${itemData.id}')">Добавить</button>`
-              }
-              <button class="btn danger-quiet" onclick="app.deleteCustomItem('${itemData.id}')">${TRASH_SVG} Удалить</button>
-            </div>
-          </article>
-        `;
+      /* После выбора раздела выбор остаётся раскрытым, если у раздела есть
+         подразделы — следующим касанием уточняют. Подраздел (или раздел без
+         подразделов) — выбор окончен, строка сворачивается и называет место. */
+      function setCustomItemPlace(id, place) {
+        const pl = catalogPlaceOf(place);
+        let keepOpen = false;
+        if (String(place).startsWith("grp:") && pl.group) {
+          const list = allItems(false).filter(x => !isLineOnlyItem(x) && itemGroup(x) === pl.group);
+          keepOpen = catalogSubsOf(pl.group, list, { includeEmpty: true }).length > 1 || customSubsOf(pl.group).length > 0;
+        }
+        _placePickerOpenId = keepOpen ? id : "";
+        updateCustomItem(id, "place", place);
       }
 
       function renderEstimate() {
@@ -21478,7 +21501,7 @@
         state.catalogSubsHidden = h;
         // Скрыли подраздел, который сейчас открыт, — уводим на весь раздел, иначе
         // список остался бы отфильтрованным по невидимому пункту.
-        if (h[k] && (state.tab === key || state.tab === `sub:${gid}:${key}`)) state.tab = "grp:" + gid;
+        if (h[k] && (state.tab === key || state.tab === `sub:${gid}:${key}` || state.tab === `cat:${gid}:${key}`)) state.tab = "grp:" + gid;
         save();
         render();
       }
@@ -21580,7 +21603,10 @@
           const g = CATALOG_GROUPS.find(x => x.id === tab.split(":")[1]);
           if (g) return g.label;
         }
-        const cat = (categoryTabs || []).find(([id]) => id === tab);
+        // Подраздел-категория внутри раздела — подписью самой категории, как и
+        // голый id категории раньше.
+        const catId = tab.startsWith("cat:") ? tab.split(":")[2] : tab;
+        const cat = (categoryTabs || []).find(([id]) => id === catId);
         if (cat) return cat[1];
         const own = (state.customCatalogGroups || []).find(x => x.id === tab);
         if (own) return own.label;
@@ -31601,6 +31627,7 @@ Email: _____________________              Email: _____________________
         createCustomItemIn,
         keepCatalogDraft,
         setCustomItemPlace,
+        togglePlacePicker,
         // Выставлено ради теста «КП: клиент видит свои услуги агентства»: сам состав
         // услуг уезжает в Supabase и локально нигде не наблюдаем.
         _proposalServicesList: proposalServicesList,

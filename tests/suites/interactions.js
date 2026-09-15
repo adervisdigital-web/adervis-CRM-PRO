@@ -2045,12 +2045,13 @@ module.exports = async function ({ browser, baseUrl, test }) {
       const снять = () => p.evaluate(() => {
         const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
         const c = (st.customItems || [])[0] || {};
-        const card = document.querySelector(`.catalog-grid [data-scope="custom"][data-id="${c.id}"][data-key="name"]`);
+        // С 15.09.2026 своя позиция в сетке — обычная карточка (без полей формы).
+        const card = document.querySelector(`.catalog-grid .item--custom[data-custom-id="${c.id}"]`);
         const first = document.querySelector(".catalog-grid .item--catalog");
         return {
           id: c.id, name: c.name, group: c.group, sub: c.sub, stage: c.stage, calcModel: c.calcModel, unit: c.unit, tab: st.tab,
           видна: !!card,
-          первая: !!(first && card && first.contains(card)),
+          первая: !!(first && card && first === card),
         };
       });
 
@@ -2067,18 +2068,33 @@ module.exports = async function ({ browser, baseUrl, test }) {
       // закрывается, вид за ним едет следом, этап подстраивается.
       await p.evaluate((id) => window.app.openCatalogEdit(id), a.id);
       await p.waitForTimeout(400);
+      // Выбор места свёрнут в строку «Раздел › Подраздел» (15.09.2026 —
+      // «удобнее и компактнее»): плашек не видно, пока строку не нажали.
+      const свёрнут = await p.evaluate(() => ({
+        строка: (document.querySelector(".modal-box .place-summary-text") || {}).textContent?.replace(/\s+/g, " ").trim(),
+        плашкиВидны: !!document.querySelector(".modal-box .place-chip")?.offsetParent,
+      }));
+      assertEqual(свёрнут.строка, "Оборудование Свет", "свёрнутая строка не называет место позиции");
+      assert(!свёрнут.плашкиВидны, "выбор места раскрыт сразу — окно снова длинное");
+      await p.click(".modal-box .place-summary");
+      await p.waitForTimeout(200);
       await p.click('.modal-box .place-chip[data-place="grp:post"]');
       await p.waitForTimeout(400);
       const подразделы = await p.evaluate(() => [...document.querySelectorAll(".modal-box .place-sub")].map((x) => x.dataset.place));
       assert(подразделы.includes("cat:post:sound"), "у «Постпродакшна» в окне нет подраздела «Звук»: " + JSON.stringify(подразделы));
+      assert(await p.evaluate(() => !!document.querySelector(".modal-box .place-sub")?.offsetParent), "после выбора раздела подразделы свернулись — уточнить нельзя");
       await p.click('.modal-box .place-sub[data-place="cat:post:sound"]');
       await p.waitForTimeout(400);
       const вОкне = await p.evaluate(() => ({
         открыто: !!document.querySelector(".modal-box"),
         выбран: (document.querySelector(".modal-box .place-sub.active") || {}).dataset?.place,
+        строка: (document.querySelector(".modal-box .place-summary-text") || {}).textContent?.replace(/\s+/g, " ").trim(),
+        свернулся: !document.querySelector(".modal-box .place-field.is-open"),
       }));
       assert(вОкне.открыто, "выбор раздела закрыл окно позиции");
       assertEqual(вОкне.выбран, "cat:post:sound", "в окне не подсвечен выбранный подраздел");
+      assert(вОкне.свернулся, "после выбора подраздела выбор места не свернулся");
+      assertEqual(вОкне.строка, "Постпродакшн Звук", "свёрнутая строка не показала новое место");
       await p.click(".modal-box .u-modal-close");
       await p.waitForTimeout(400);
       const b = await снять();
@@ -2086,13 +2102,17 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assertEqual(b.stage, "post", "этап не пошёл за разделом");
       assert(b.видна, "после смены раздела карточка пропала с экрана: " + JSON.stringify(b));
 
-      // Этап руками — место в каталоге остаётся прежним.
+      // Этап руками (в окне позиции) — место в каталоге остаётся прежним.
+      await p.evaluate((id) => window.app.openCatalogEdit(id), a.id);
+      await p.waitForTimeout(400);
       await p.evaluate((id) => {
-        const sel = document.querySelector(`[data-scope="custom"][data-id="${id}"][data-key="stage"]`);
+        const sel = document.querySelector(`.modal-box [data-scope="custom"][data-id="${id}"][data-key="stage"]`);
         sel.value = "pre";
         sel.dispatchEvent(new Event("change"));
       }, a.id);
       await p.waitForTimeout(500);
+      await p.click(".modal-box .u-modal-close");
+      await p.waitForTimeout(400);
       const c = await снять();
       assertEqual(c.stage, "pre", "этап не сменился");
       assertEqual(c.group, "post", "смена этапа увела позицию в другой раздел");
@@ -5865,6 +5885,64 @@ module.exports = async function ({ browser, baseUrl, test }) {
       await p.waitForTimeout(400);
       const kept = await p.locator("#appContent .item--catalog", { hasText: "Аренда простой локации" }).locator(".catalog-price-input").inputValue();
       assertEqual(kept.replace(/ | /g, " "), "12 500", "пустое поле цены обнулило цену");
+    } finally {
+      await b.context.close();
+    }
+  });
+
+  /* Своя позиция в сетке каталога рисовалась формой с полями — вдвое выше
+     соседей, и стандартная карточка рядом растягивалась пустым низом (скриншот
+     владельца 15.09.2026). Теперь это та же карточка с меткой «Своя».
+     Попутно: подраздел-категория («Постпродакшн › Фото», в колонке 4) открывал
+     11 позиций — фильтр шёл по категории во всём каталоге. */
+  await test("каталог: своя позиция — обычная карточка, подраздел-категория показывает своё число", async () => {
+    const b = await bootLocal(browser, baseUrl, { width: 1440, height: 900, seedDemo: true });
+    const p = b.page;
+    try {
+      await p.evaluate(() => { window.app.go("services"); window.app.createCustomItemIn("grp:prep"); });
+      await p.waitForTimeout(400);
+      await p.fill('.modal-box [data-scope="custom"][data-key="name"]', "Своя в ряду");
+      await p.click(".modal-box .u-modal-close");
+      await p.waitForTimeout(500);
+      const row = await p.evaluate(() => {
+        const own = [...document.querySelectorAll("#appContent .item--custom")].find((c) => /Своя в ряду/.test(c.textContent));
+        if (!own) return null;
+        const top = own.getBoundingClientRect().top;
+        const neighbours = [...document.querySelectorAll("#appContent .item--catalog")].filter((c) => c !== own && Math.abs(c.getBoundingClientRect().top - top) < 2);
+        return {
+          ownH: Math.round(own.getBoundingClientRect().height),
+          nH: neighbours.map((c) => Math.round(c.getBoundingClientRect().height)),
+          fields: own.querySelectorAll("input:not(.catalog-price-input), select, textarea").length,
+          pill: !!own.querySelector(".cat-own-pill"),
+        };
+      });
+      assert(row, "своей позиции нет в сетке");
+      assertEqual(row.fields, 0, "в карточке своей позиции снова поля формы");
+      assert(row.pill, "у своей позиции нет метки «Своя»");
+      assert(row.nH.length > 0, "у своей позиции нет соседа в ряду — проверять высоту не с чем");
+      const выше = Math.max(...row.nH.map((h) => Math.abs(h - row.ownH)));
+      assert(выше <= 2, `своя позиция и сосед разной высоты: ${row.ownH} против ${JSON.stringify(row.nH)}`);
+
+      // Подраздел-категория: число в колонке = число карточек = число в шапке.
+      await p.evaluate(() => { window.app.setTab("all"); window.app.toggleCatalogGroup("post"); });
+      await p.waitForTimeout(300);
+      const sub = await p.evaluate(() => {
+        const btn = [...document.querySelectorAll('[data-subs-of="post"] .catalog-subgroup')]
+          .find((x) => /setTab\('cat:post:photo'\)/.test(x.getAttribute("onclick") || ""));
+        return btn ? +btn.querySelector(".catalog-cat-count").textContent : null;
+      });
+      assert(sub !== null, "у «Постпродакшна» нет подраздела «Фото» с вкладкой cat:post:photo");
+      await p.evaluate(() => window.app.setTab("cat:post:photo"));
+      await p.waitForTimeout(400);
+      const shown = await p.evaluate(() => ({
+        cards: document.querySelectorAll("#appContent .item--catalog").length,
+        head: parseInt(document.querySelector("#appContent .catalog-section-head .catalog-found-count").textContent, 10),
+        // Между разделом и подразделом — значок-стрелка, текста там нет.
+        title: document.querySelector("#appContent .catalog-section-head h2").textContent.replace(/\s+/g, ""),
+      }));
+      assertEqual(shown.cards, sub, "подраздел «Фото» открыл не столько позиций, сколько обещает колонка");
+      assertEqual(shown.head, sub, "число в шапке не совпадает с колонкой");
+      assertEqual(shown.title, "ПостпродакшнФото", "шапка подписала подраздел чужим разделом");
     } finally {
       await b.context.close();
     }

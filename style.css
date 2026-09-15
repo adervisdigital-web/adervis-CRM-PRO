@@ -1753,13 +1753,44 @@
        колонке, и здесь. Подпись — как у полей формы (.field label), но не <label>:
        связывать её не с чем, это группа кнопок. */
     .place-caption { display: block; color: var(--muted); font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+
+    /* Свёрнутый выбор — строка размером с поле ввода: значок раздела в плашке
+       его цвета, «Раздел › Подраздел», справа «Изменить». Раскрывается без
+       перерисовки окна (togglePlacePicker). */
+    .place-summary {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      min-height: 42px; padding: 6px 12px 6px 6px;
+      border: 1px solid var(--line); border-radius: var(--r-md);
+      background: var(--input); color: var(--text);
+      font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer;
+      transition: border-color var(--dur-1);
+    }
+    .place-summary:hover,
+    .place-field.is-open .place-summary { border-color: color-mix(in srgb, var(--chip-c) 55%, transparent); }
+    .place-summary-ico {
+      flex: 0 0 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: var(--r-sm); color: var(--chip-c);
+      background: color-mix(in srgb, var(--chip-c) 16%, transparent);
+    }
+    .place-summary-text { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .place-summary-group { flex: 0 0 auto; }
+    .place-summary-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+    .place-summary-sep { display: inline-flex; flex: 0 0 auto; color: var(--muted); }
+    .place-summary-act { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--primary-text); }
+    .place-summary-act svg { transform: rotate(90deg); transition: transform var(--dur-1); }
+    .place-field.is-open .place-summary-act svg { transform: rotate(-90deg); }
+    .place-field:not(.is-open) .when-open,
+    .place-field.is-open .when-closed,
+    .place-field:not(.is-open) .place-panel { display: none; }
+    .place-panel { margin-top: 8px; }
+
     .place-groups { display: flex; flex-wrap: wrap; gap: 6px; }
     .place-chip {
       display: inline-flex; align-items: center; gap: 6px;
-      min-height: 34px; padding: 6px 12px 6px 10px;
+      min-height: 30px; padding: 4px 10px 4px 8px;
       border: 1px solid var(--line); border-radius: var(--r-pill);
       background: var(--panel2); color: var(--muted);
-      font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+      font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
       transition: background var(--dur-1), border-color var(--dur-1), color var(--dur-1);
     }
     .place-chip svg { color: var(--chip-c); flex: 0 0 auto; }
@@ -1772,14 +1803,14 @@
     /* Подразделы — вложенной подложкой в цвете выбранного раздела: читается как
        «внутри раздела», а не как второй независимый выбор. */
     .place-subs {
-      display: flex; flex-wrap: wrap; gap: 6px;
-      margin-top: 10px; padding: 10px;
+      display: flex; flex-wrap: wrap; gap: 4px;
+      margin-top: 8px; padding: 6px;
       border-radius: var(--r-lg);
       background: color-mix(in srgb, var(--chip-c) 7%, transparent);
       border: 1px solid color-mix(in srgb, var(--chip-c) 22%, transparent);
     }
     .place-sub {
-      min-height: 30px; padding: 4px 12px;
+      min-height: 28px; padding: 3px 10px;
       border: 1px solid transparent; border-radius: var(--r-pill);
       background: transparent; color: var(--muted);
       font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
@@ -1797,7 +1828,7 @@
     }
     /* Палец: плашки и подразделы — не ниже 44px. */
     @media (hover: none) and (pointer: coarse) {
-      .place-chip, .place-sub { min-height: 44px; }
+      .place-chip, .place-sub, .place-summary { min-height: 44px; }
     }
 
     /* Значок своего подраздела — маленькая звезда в цвете акцента, как у своих
@@ -1829,19 +1860,6 @@
     .cfg-remove:hover { color: var(--text-danger); background: rgba(220,38,38,.08); }
     .cfg-add-sub { margin-top: 6px; }
 
-    /* Место своей позиции в узкой карточке каталога — строкой-кнопкой: выбор
-       плашками там не помещается, нажатие открывает окно позиции. */
-    .place-inline {
-      display: flex; align-items: center; gap: 8px; width: 100%;
-      min-height: 40px; padding: 8px 12px;
-      border: 1px solid var(--line); border-radius: var(--r-sm);
-      background: var(--input); color: var(--text);
-      font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer;
-      transition: border-color var(--dur-1);
-    }
-    .place-inline:hover { border-color: rgb(var(--primary-rgb) / .5); }
-    .place-inline-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .place-inline-edit { flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--primary-text); }
 
     /* Строка раздела: сама кнопка раздела и плюс «своя позиция здесь» рядом.
        Плюс — отдельная кнопка, а не часть кнопки раздела: кнопка в кнопке
@@ -9195,6 +9213,10 @@ button.is-busy::before {
 .cat-price-cur { font-size: 15px; font-weight: 700; color: var(--muted); }
 .cat-price-unit { padding-right: 4px; font-size: 12px; white-space: nowrap; }
 .item--catalog .cat-card-top > p { margin-top: 6px; }
+/* Своя позиция: метка «Своя» в цвете акцента и подсказка вместо пустого
+   описания — строка на месте, карточка той же высоты, что соседние. */
+.cat-own-pill { display: inline-flex; align-items: center; gap: 4px; color: var(--primary-on-tint); background: rgb(var(--primary-rgb) / .12); border-color: rgb(var(--primary-rgb) / .3); }
+.item--catalog .cat-card-top > p.cat-desc-empty { color: var(--muted); font-style: italic; opacity: .8; }
 @media (hover: none) and (pointer: coarse) {
   .item--catalog .cat-price .catalog-price-input { height: 44px; }
 }
