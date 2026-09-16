@@ -112,6 +112,9 @@
          «подписка» проверяется раньше «производства». Всё, что не совпало ни с
          одним правилом, попадает в «Прочее» — новая позиция каталога не может
          выпасть молча, как и задумано в itemGroup(). */
+      // Разделы, где подразделы строятся по тегам ВСЕГДА, даже если позиции в
+      // них из разных категорий (иначе подписи категорий повторяли бы раздел).
+      const GROUP_SUBS_BY_TAGS = new Set(["shoot"]);
       const GROUP_SUBS = {
         gear: [
           { id: "cam",   label: "Камера и оптика", tags: ["камера", "оптика", "объектив"] },
@@ -121,6 +124,14 @@
           // Техника площадки: экран, проектор, рации — она приехала сюда из
           // «Команды», где лежала вместе с людьми (16.09.2026).
           { id: "stage", label: "Площадка и связь", tags: ["экран", "проектор", "рация", "связь"] },
+        ],
+        // «Съёмка» собрана из трёх категорий (фото, мероприятия, съёмка), и
+        // подразделы по ним выходили «Фото / Мероприятия / Съёмка» — то есть
+        // «Съёмка › Съёмка». Поэтому здесь подразделы по смыслу, всегда по тегам
+        // (см. GROUP_SUBS_BY_TAGS).
+        shoot: [
+          { id: "photo", label: "Фото",               tags: ["фото"] },
+          { id: "video", label: "Видео и трансляции", tags: ["стрим", "трансляция", "мультикам", "bts", "backstage", "видео"] },
         ],
         ai: [
           { id: "subs",  label: "Подписки и кредиты", tags: ["подписка", "кредиты", "токены"] },
@@ -234,7 +245,7 @@
         let subs = [...new Set(plain.map(x => x.category))]
           .filter(c => catLabel[c])
           .map(c => ({ id: c, kind: "cat", key: c, label: catLabel[c], n: plain.filter(x => x.category === c).length }));
-        if (subs.length < 2 && GROUP_SUBS[groupId]) {
+        if ((subs.length < 2 || GROUP_SUBS_BY_TAGS.has(groupId)) && GROUP_SUBS[groupId]) {
           const defs = [...GROUP_SUBS[groupId], { id: "other", label: "Прочее" }];
           subs = defs
             .map(d => ({
@@ -348,11 +359,18 @@
         let calcModel = mode(pool.map(x => x.calcModel));
         if (calcModel === "crewShift") calcModel = "perDay";
         if (!SAFE_CUSTOM_MODELS.has(calcModel)) calcModel = "fixed";
+        /* Подраздел по тегам — самый населённый в разделе. Без него позиция,
+           заведённая плюсом у САМОГО раздела («Съёмка», «Оборудование»), падала
+           в «Прочее»: тегов у своей позиции нет, угадывать подраздел не по чему. */
+        const sub = !place.sub && !place.category && GROUP_SUBS[place.group]
+          ? mode(inGroup.map(x => itemSubGroup(x, place.group)).filter(s => s && s !== "other"))
+          : "";
         return {
           stage,
           calcModel,
           unit: mode(pool.map(x => x.unit)) || "шт",
           category: place.category || mode(pool.map(x => x.category)) || "custom",
+          sub,
         };
       }
 
@@ -11928,7 +11946,7 @@
           rates: {}
         };
         if (place.group) custom.group = place.group;
-        if (place.sub) custom.sub = place.sub;
+        if (place.sub || d.sub) custom.sub = place.sub || d.sub;
 
         state.customItems.unshift(custom);
         if (place.cg) state.itemCustomGroup = { ...(state.itemCustomGroup || {}), [custom.id]: place.cg };
@@ -12027,7 +12045,7 @@
           if (!place.group) return;
           const d = catalogPlaceDefaults(place);
           custom.group = place.group;
-          if (place.sub) custom.sub = place.sub; else delete custom.sub;
+          if (place.sub || d.sub) custom.sub = place.sub || d.sub; else delete custom.sub;
           custom.category = place.category || d.category;
           custom.section = CAT[custom.category] || custom.category;
           custom.stage = d.stage;

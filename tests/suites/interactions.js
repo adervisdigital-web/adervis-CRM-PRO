@@ -5978,6 +5978,22 @@ module.exports = async function ({ browser, baseUrl, test }) {
       ["Предметная съёмка", "Аэрофотосъёмка", "Прямая трансляция (стрим)", "Многокамерная съёмка (3 камеры)"].forEach((n) =>
         assert(shoot.includes(n), `«${n}» не попала в раздел «Съёмка»`));
 
+      // Подразделы «Съёмки» — по смыслу, а не по внутренним категориям: иначе
+      // выходило «Съёмка › Съёмка».
+      await p.evaluate(() => { const o = document.querySelector('.catalog-cat-item[data-group="shoot"]'); if (o && o.dataset.open !== "1") window.app.toggleCatalogGroup("shoot"); });
+      await p.waitForTimeout(300);
+      const subs = await p.evaluate(() => [...document.querySelectorAll('[data-subs-of="shoot"] .catalog-subgroup')]
+        .map((x) => x.querySelector("span span:last-child").textContent.trim()));
+      assertEqual(subs.join("|"), "Фото|Видео и трансляции", "подразделы «Съёмки» не те");
+
+      // Плюс у самого раздела кладёт позицию в самый населённый подраздел, а не в «Прочее».
+      await p.evaluate(() => window.app.createCustomItemIn("grp:shoot"));
+      await p.waitForTimeout(400);
+      const место = await p.evaluate(() => document.querySelector(".modal-box .place-summary-text")?.textContent.replace(/\s+/g, " ").trim());
+      assertEqual(место, "Съёмка Фото", "новая позиция раздела упала не в типичный подраздел");
+      await p.click(".modal-box .u-modal-close");
+      await p.waitForTimeout(300);
+
       /* Ничего не потерялось: сумма разделов = весь каталог. Считаем по числу в
          шапке, а не по карточкам: во «Все» они показываются порциями. */
       await names("all");
