@@ -6415,12 +6415,16 @@
        мини-канбан внутри сделки должны читаться как одно место, а не как две
        разные программы. Колонки прокручиваются вбок на узком экране. */
     .gtask-board {
-      display: grid; grid-auto-flow: column; grid-auto-columns: minmax(230px, 1fr);
+      display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr);
+      /* Колонки — по высоте содержимого, как списки в Trello, а не вытянутые
+         до самой длинной: пустая колонка не рисует экран пустоты. */
+      align-items: start;
       gap: 12px; overflow-x: auto; padding-bottom: 4px;
     }
     .gtask-board-col {
+      display: flex; flex-direction: column;
       background: var(--panel2); border: 1px solid var(--line);
-      border-radius: var(--r-xl); padding: 12px; min-width: 0;
+      border-radius: var(--r-xl); padding: 10px; min-width: 0;
     }
     /* Колонка несёт цвет статуса (--st-c из TASK_STATUS_COLORS): полоса по
        верхнему краю, точка и счётчик в заголовке. */
@@ -6432,15 +6436,26 @@
     .gtask-col-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
     .gtask-col-dot { flex: 0 0 8px; width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--st-c, var(--muted)); }
     .gtask-board-col .pill-count { background: color-mix(in srgb, var(--st-c, var(--muted)) 20%, transparent); color: var(--text); }
-    /* На доске это единственный вход «новая задача» (общей кнопки там нет),
-       поэтому плюс — с рамкой, а не бледный значок: его должно быть видно. */
-    .gtask-col-add {
-      flex: 0 0 auto; width: 28px; height: 28px; display: grid; place-items: center;
-      border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); color: var(--text); cursor: pointer;
-      transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1);
+    /* Быстрое добавление внизу колонки (app.js openTaskQuickAdd) — «Добавить
+       карточку» из Trello: кнопка во всю ширину, по нажатию — поле в колонке. */
+    .gtask-quick-open {
+      display: flex; align-items: center; gap: 6px; width: 100%;
+      min-height: 36px; margin-top: 8px; padding: 6px 10px;
+      border: 0; border-radius: var(--r-md); background: transparent;
+      color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer;
+      transition: background var(--dur-1), color var(--dur-1);
     }
-    .gtask-col-add:hover, .gtask-col-add:focus-visible { color: var(--primary-text); border-color: rgb(var(--primary-rgb) / .5); background: rgb(var(--primary-rgb) / .12); }
-    @media (hover: none) and (pointer: coarse) { .gtask-col-add { width: 44px; height: 44px; margin: -8px -8px -8px 0; } }
+    .gtask-quick-open:hover, .gtask-quick-open:focus-visible { background: rgb(var(--primary-rgb) / .1); color: var(--primary-text); }
+    .gtask-quick { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+    .gtask-quick-input {
+      width: 100%; min-height: 60px; resize: vertical;
+      padding: 10px 12px; border-radius: var(--r-lg);
+      border: 1px solid rgb(var(--primary-rgb) / .55); background: var(--panel); color: var(--text);
+      font: inherit; font-size: 13px; line-height: 1.4; box-shadow: var(--elev-1);
+    }
+    .gtask-quick-input:focus { outline: var(--ring-w) solid var(--ring); outline-offset: 1px; }
+    .gtask-quick-actions { display: flex; align-items: center; gap: 6px; }
+    @media (hover: none) and (pointer: coarse) { .gtask-quick-open { min-height: 44px; } }
     .gtask-board-list { display: flex; flex-direction: column; gap: 8px; }
     .gtask-board-empty {
       display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -6451,8 +6466,21 @@
       position: relative;
       background: var(--panel); border: 1px solid var(--line);
       border-radius: var(--r-lg); padding: 10px 12px; cursor: pointer;
-      display: flex; flex-direction: column; gap: 10px;
+      display: flex; flex-direction: column; gap: 8px;
+      box-shadow: var(--elev-1);
       transition: border-color var(--dur-1), box-shadow var(--dur-1);
+    }
+    /* Метки над названием — как в Trello: проект, приоритет, «закрыта». */
+    .gtask-card-labels { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .gtask-card-labels .gtask-project, .gtask-card-labels .gtask-prio { font-size: 11px; padding: 1px 8px; }
+    /* Телефон: колонка почти во всю ширину и листается по одной — как в
+       мобильном Trello; край следующей колонки подсказывает, что там ещё есть. */
+    @media (max-width: 640px) {
+      .gtask-board { grid-auto-columns: 86%; scroll-snap-type: x mandatory; }
+      .gtask-board-col { scroll-snap-align: start; }
+      /* Во время переноса доска сама едет к краю (_tbStart) — прилипание к
+         колонкам возвращало бы её назад на каждом шаге. */
+      body.gtask-dragging .gtask-board { scroll-snap-type: none; }
     }
     .gtask-card:hover { border-color: rgb(var(--primary-rgb) / .55); box-shadow: 0 6px 18px -10px rgb(var(--primary-rgb) / .5); }
     /* Приоритет выше обычного — полосой по левому краю: на доске его видно,

@@ -340,6 +340,8 @@
       // Какая своя позиция держит выбор места в окне раскрытым (customItemPlacePicker).
       // Переживает перерисовку окна — выбор раздела его перерисовывает.
       let _placePickerOpenId = "";
+      // В какой колонке доски «Задачи» открыто быстрое добавление (как в Trello).
+      let _taskQuickAddStatus = "";
       const SAFE_CUSTOM_MODELS = new Set(["fixed", "fixed+qty", "perDay", "equipmentRental", "creativeWork"]);
       function catalogPlaceDefaults(place) {
         const base = BASE_ITEMS.filter(x => !isLineOnlyItem(x));
@@ -22670,20 +22672,32 @@
                 return `
                   ${/* Цвет статуса — тот же, что у капсулы статуса в списке
                         (TASK_STATUS_COLORS): колонку узнают по нему, не читая.
-                        «+» заводит задачу сразу в этот статус, а пустая колонка
-                        подсказывает, что сюда можно перетащить. */""}
+                        Добавление — внизу колонки, как в Trello (просьба владельца
+                        18.09.2026): поле прямо в колонке, Enter — задача встала в
+                        этот статус, поле осталось для следующей. Без окна. */""}
                   <div class="gtask-board-col" data-drop-status="${escapeHtml(status)}" style="--st-c:${TASK_STATUS_COLORS[status] || "var(--muted)"}">
                     <h3>
                       <span class="gtask-col-name"><span class="gtask-col-dot" aria-hidden="true"></span><span class="kanban-col-name">${escapeHtml(status)}</span> <span class="pill-count">${inCol.length}</span></span>
-                      <button type="button" class="gtask-col-add no-print" data-status="${escapeHtml(status)}"
-                        onclick="app.createGlobalTask('', this.dataset.status)"
-                        title="Своя задача в «${escapeHtml(status)}»" aria-label="Добавить задачу в «${escapeHtml(status)}»">${icon("plus", 13)}</button>
                     </h3>
                     <div class="gtask-board-list">
                       ${inCol.length
                         ? inCol.map(renderGlobalTaskCard).join("")
-                        : `<div class="gtask-board-empty">${icon("drag", 13)} Перетащите задачу сюда</div>`}
+                        : (_taskQuickAddStatus === status ? "" : `<div class="gtask-board-empty">${icon("drag", 13)} Перетащите задачу сюда</div>`)}
                     </div>
+                    ${_taskQuickAddStatus === status ? `
+                      <div class="gtask-quick no-print">
+                        <textarea class="gtask-quick-input" rows="2" data-status="${escapeHtml(status)}"
+                          placeholder="Что нужно сделать? Enter — добавить"
+                          aria-label="Название новой задачи в «${escapeHtml(status)}»"
+                          onkeydown="app.taskQuickAddKey(event, this)"></textarea>
+                        <div class="gtask-quick-actions">
+                          <button type="button" class="btn small primary" onclick="app.taskQuickAddSubmit(this.closest('.gtask-quick').querySelector('textarea'))">Добавить</button>
+                          <button type="button" class="u-modal-close" onclick="app.closeTaskQuickAdd()" aria-label="Отменить добавление">${icon("close", 14)}</button>
+                        </div>
+                      </div>` : `
+                      <button type="button" class="gtask-quick-open no-print" data-status="${escapeHtml(status)}"
+                        onclick="app.openTaskQuickAdd(this.dataset.status)"
+                        aria-label="Добавить задачу в «${escapeHtml(status)}»">${icon("plus", 13)} Задача</button>`}
                   </div>`;
               }).join("")}
             </div>` : `<div class="gtask-list">
@@ -22769,21 +22783,23 @@
         return `
           <article class="gtask-card ${done ? "done" : ""} ${prio && !done ? "prio-" + prio : ""}" onclick="${clickAction}" title="${isGlobal ? "Открыть задачу" : "Открыть в проекте"} · перетащите в другую колонку, чтобы сменить статус"
             data-drag-id="${escapeHtml(t.id)}" data-drag-kind="${row.kind}" data-drag-project="${escapeHtml(row.projectId || "")}">
+            ${/* Строй карточки Trello: метки — над названием, внизу значки
+                  (срок, комментарии), исполнитель — кружком справа. */""}
+            <div class="gtask-card-labels">
+              <span class="gtask-project ${isGlobal ? "personal" : ""}">${isGlobal ? "Личная" : escapeHtml(row.projectName)}</span>
+              ${row.dealClosed ? `<span class="gtask-closed-mark" title="Сделка закрыта">закрыта</span>` : ""}
+              ${prio && !done ? `<span class="gtask-prio is-${prio}">${escapeHtml(t.priority)}</span>` : ""}
+            </div>
             <div class="gtask-card-top">
               <button class="gtask-check ${done ? "checked" : ""}" onclick="event.stopPropagation();${toggleAction}"
                 title="${done ? "Вернуть в работу" : "Отметить готово"}" aria-label="Готово">${done ? "✓" : ""}</button>
               <div class="gtask-card-title">${escapeHtml(t.title)}</div>
             </div>
-            <div class="gtask-card-meta">
-              <span class="gtask-project ${isGlobal ? "personal" : ""}">${isGlobal ? "Личная" : escapeHtml(row.projectName)}</span>
-              ${row.dealClosed ? `<span class="gtask-closed-mark" title="Сделка закрыта">закрыта</span>` : ""}
-              ${prio && !done ? `<span class="gtask-prio is-${prio}">${escapeHtml(t.priority)}</span>` : ""}
+            ${t.deadline || comments || who ? `<div class="gtask-card-meta">
               ${taskDueChip(t)}
-              ${comments || who ? `<span class="gtask-card-end">
-                ${comments ? `<span class="gtask-comments" title="${comments} ${plural(comments, "комментарий", "комментария", "комментариев")}">${icon("chat", 11)}${comments}</span>` : ""}
-                ${who ? `<span class="gtask-assignee" title="Ответственный: ${escapeHtml(who)}">${escapeHtml(who.charAt(0).toUpperCase())}</span>` : ""}
-              </span>` : ""}
-            </div>
+              ${comments ? `<span class="gtask-comments" title="${comments} ${plural(comments, "комментарий", "комментария", "комментариев")}">${icon("chat", 11)}${comments}</span>` : ""}
+              ${who ? `<span class="gtask-card-end"><span class="gtask-assignee" title="Ответственный: ${escapeHtml(who)}">${escapeHtml(who.charAt(0).toUpperCase())}</span></span>` : ""}
+            </div>` : ""}
           </article>`;
       }
 
@@ -22938,7 +22954,53 @@
         document.addEventListener("keydown", e => { if (e.key === "Escape" && _tbDrag && _tbDrag.active) _tbFinish(false); }, true);
       }
 
+      /* Быстрое добавление в колонке доски — как «Добавить карточку» в Trello:
+         поле прямо в колонке, Enter создаёт личную задачу с этим статусом, и
+         поле остаётся открытым под следующую. Shift+Enter — перенос строки,
+         Esc — закрыть. Подробности (срок, исполнитель) — в окне задачи по
+         нажатию на карточку. */
+      function _focusTaskQuickAdd() {
+        const el = document.querySelector(".gtask-quick-input");
+        if (!el) return;
+        el.focus();
+        try { el.scrollIntoView({ block: "nearest" }); } catch (e) {}
+      }
+      function openTaskQuickAdd(status) {
+        if (!TASK_STATUSES.includes(status)) return;
+        _taskQuickAddStatus = status;
+        render();
+        _focusTaskQuickAdd();
+      }
+      function closeTaskQuickAdd() {
+        _taskQuickAddStatus = "";
+        render();
+      }
+      function taskQuickAddKey(e, el) {
+        if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+          e.preventDefault();
+          taskQuickAddSubmit(el);
+        } else if (e.key === "Escape") {
+          // Иначе Esc долетит до общего обработчика окон.
+          e.preventDefault();
+          e.stopPropagation();
+          closeTaskQuickAdd();
+        }
+      }
+      function taskQuickAddSubmit(el) {
+        const status = el && el.dataset.status;
+        const title = String((el && el.value) || "").trim();
+        if (!TASK_STATUSES.includes(status)) return;
+        // Пустой Enter ничего не создаёт и поле не закрывает — как в Trello.
+        if (!title) { el.focus(); return; }
+        if (!Array.isArray(state.globalTasks)) state.globalTasks = [];
+        state.globalTasks.unshift(normalizeTask({ title, status, priority: "Средний" }));
+        save();
+        render();
+        _focusTaskQuickAdd();
+      }
+
       function setGlobalTaskView(view) {
+        _taskQuickAddStatus = "";
         state.globalTaskView = view === "board" ? "board" : "list";
         save();
         render();
@@ -32027,6 +32089,10 @@ Email: _____________________              Email: _____________________
         toggleProjectTaskDone,
         deleteGlobalTask,
         deleteTaskFromModal,
+        openTaskQuickAdd,
+        closeTaskQuickAdd,
+        taskQuickAddKey,
+        taskQuickAddSubmit,
         setBoardTaskStatus,
         setGlobalTaskFilter,
         setGlobalTaskView,

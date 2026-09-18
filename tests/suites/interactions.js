@@ -6055,14 +6055,34 @@ module.exports = async function ({ browser, baseUrl, test }) {
       await p.evaluate(() => window.app.setGlobalTaskView("board"));
       await p.waitForTimeout(300);
 
-      // «+» в колонке «На согласовании» открывает новую задачу сразу в этом статусе.
-      await p.locator('.gtask-board-col[data-drop-status="На согласовании"] .gtask-col-add').click();
+      /* Быстрое добавление как в Trello (18.09.2026): поле прямо в колонке,
+         Enter — задача встала в ЭТОТ статус, поле осталось открытым и в фокусе
+         под следующую, окно не открывалось; Esc — поле закрыто. */
+      const col = '.gtask-board-col[data-drop-status="На согласовании"]';
+      await p.locator(`${col} .gtask-quick-open`).click();
+      await p.waitForTimeout(250);
+      assert(await p.evaluate(() => document.activeElement?.classList.contains("gtask-quick-input")), "поле быстрого добавления не получило фокус");
+      await p.keyboard.type("Согласовать смету", { delay: 10 });
+      await p.keyboard.press("Enter");
       await p.waitForTimeout(300);
-      const st = await p.evaluate(() => {
-        const sel = [...document.querySelectorAll(".task-modal-box select")].find((s) => [...s.options].some((o) => o.value === "На согласовании"));
-        return sel ? sel.value : null;
-      });
-      assertEqual(st, "На согласовании", "«+» в колонке завёл задачу не в её статус");
+      await p.keyboard.type("Второе дело", { delay: 10 });
+      await p.keyboard.press("Enter");
+      await p.waitForTimeout(300);
+      const q = await p.evaluate((sel) => {
+        const c = document.querySelector(sel);
+        const input = c.querySelector(".gtask-quick-input");
+        return {
+          titles: [...c.querySelectorAll(".gtask-card-title")].map((x) => x.textContent.trim()),
+          open: !!input, focused: document.activeElement === input, empty: input ? input.value === "" : null,
+          modal: !!document.querySelector(".task-modal-box"),
+        };
+      }, col);
+      assert(q.titles.includes("Согласовать смету") && q.titles.includes("Второе дело"), "быстрое добавление не положило задачи в свою колонку: " + JSON.stringify(q.titles));
+      assert(q.open && q.focused && q.empty, "после Enter поле не осталось открытым и пустым в фокусе: " + JSON.stringify(q));
+      assert(!q.modal, "быстрое добавление открыло окно задачи");
+      await p.keyboard.press("Escape");
+      await p.waitForTimeout(250);
+      assert(!(await p.$(`${col} .gtask-quick-input`)), "Esc не закрыл поле быстрого добавления");
     } finally {
       await ctx.close();
     }
