@@ -6527,6 +6527,11 @@
       box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / .2) inset;
     }
     .gtask-card.is-drag-source { opacity: .35; border-style: dashed; }
+    /* Сводка доски сделки (app.js renderTasks): прогресс и просроченное. */
+    .gtask-deal-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .gtask-deal-progress { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .gtask-deal-bar { width: 96px; height: 6px; border-radius: var(--r-pill); background: var(--panel2); border: 1px solid var(--line); overflow: hidden; }
+    .gtask-deal-bar > span { display: block; height: 100%; background: var(--green); border-radius: var(--r-pill); }
     /* Линия «встанет сюда» при переносе (app.js _tbTrack). Отрицательные поля
        гасят отступ списка, поэтому карточки под линией не прыгают. */
     .gtask-drop-marker {

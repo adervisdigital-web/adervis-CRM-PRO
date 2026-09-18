@@ -6014,7 +6014,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
      обычного виден меткой и полосой, у колонки «+» заводит задачу в свой статус. */
   await test("задачи: шкала сроков, приоритет на карточке, «+» в колонке, «На сегодня»", async () => {
     await dismissStaleDialog(page);
-    const day = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    // Местная дата, как у todayIso() в приложении: toISOString() даёт UTC, и
+    // после полуночи по Москве «сегодня» выходило вчерашним (упал 19.09.2026).
+    const day = (n) => { const x = new Date(); x.setDate(x.getDate() + n);
+      return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
     const { ctx, p } = await bootWithState(`
       st.globalTasks = [
         { id: "v1", title: "Просроченная", status: "Новая", priority: "Срочно", deadline: "${day(-2)}", comments: [] },
@@ -6165,6 +6168,70 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assertEqual((await col("В работе")).join("|"), before.w.join("|"), "порядок «В работе» не пережил перезагрузку");
     } finally {
       await ctx.close();
+    }
+  });
+
+  /* Вкладка «Задачи» в сделке — та же доска, что в разделе «Задачи» (владелец
+     18.09.2026: «тут задачи тоже переделать красивее в тему»). Раньше там был
+     свой канбан с полями ввода в карточках. Проверяем, что доска та же, что
+     быстрое добавление кладёт задачу в сделку, окно открывается на месте,
+     и ручной порядок переживает уход с вкладки. */
+  await test("задачи сделки: та же доска, быстрое добавление, окно на месте, порядок", async () => {
+    const b = await bootLocal(browser, baseUrl, { width: 1440, height: 900, seedDemo: true });
+    const p = b.page;
+    try {
+      const id = await p.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state")).savedProjects[0].id);
+      await p.evaluate((i) => { window.app.selectActiveDeal(i); window.app.setDealView("tasks"); }, id);
+      await p.waitForTimeout(500);
+      const col = (s) => p.evaluate((st) => [...document.querySelectorAll(`.gtask-board-col[data-drop-status="${st}"] .gtask-card-title`)].map((x) => x.textContent.trim()), s);
+      const before = await col("Новая");
+
+      await p.locator('.gtask-board-col[data-drop-status="Новая"] .gtask-quick-open').click();
+      await p.waitForTimeout(250);
+      await p.keyboard.type("Сценарий", { delay: 10 }); await p.keyboard.press("Enter"); await p.waitForTimeout(300);
+      await p.keyboard.type("Локация", { delay: 10 }); await p.keyboard.press("Enter"); await p.waitForTimeout(300);
+      await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+
+      const r = await p.evaluate(() => ({
+        old: document.querySelectorAll("#appContent .kanban-col, #appContent .task-card, #appContent .task-title-input").length,
+        labels: document.querySelectorAll("#appContent .gtask-card .gtask-project").length,
+        inState: window.app && null,
+      }));
+      assertEqual(r.old, 0, "на вкладке сделки остался старый канбан с полями в карточках");
+      assertEqual(r.labels, 0, "внутри сделки на карточках метка проекта — лишняя, все задачи тут её");
+      const after = await col("Новая");
+      assertEqual(after.slice(-2).join("|"), "Сценарий|Локация", "быстрое добавление не положило задачи вниз колонки: " + JSON.stringify(after));
+      assertEqual(after.length, before.length + 2, "задач в колонке не прибавилось на две");
+
+      // Задача принадлежит сделке: видна в общем разделе с меткой этой сделки.
+      await p.evaluate(() => window.app.go("global-tasks"));
+      await p.waitForTimeout(400);
+      const inGlobal = await p.evaluate(() => [...document.querySelectorAll(".gtask-row, .gtask-card")]
+        .some((c) => /Сценарий/.test(c.textContent) && !/Личная/.test(c.textContent)));
+      assert(inGlobal, "задача из быстрого добавления в сделке не появилась в общем разделе как задача сделки");
+      await p.evaluate(() => { window.app.go("deal"); window.app.setDealView("tasks"); });
+      await p.waitForTimeout(400);
+
+      // Нажатие на карточку открывает окно задачи здесь же.
+      await p.locator(".gtask-card", { hasText: "Локация" }).click();
+      await p.waitForTimeout(300);
+      const modal = await p.evaluate(() => document.querySelector(".task-modal-box input")?.value);
+      assertEqual(modal, "Локация", "нажатие на карточку не открыло окно этой задачи");
+      await p.evaluate(() => window.app.closeTaskModal());
+      await p.waitForTimeout(250);
+
+      // Перетащить «Локация» наверх колонки; порядок живёт после ухода с вкладки.
+      const from = await p.locator(".gtask-card", { hasText: "Локация" }).boundingBox();
+      const first = await p.locator('.gtask-board-col[data-drop-status="Новая"] .gtask-card').first().boundingBox();
+      await p.mouse.move(from.x + 40, from.y + from.height / 2); await p.mouse.down();
+      await p.mouse.move(first.x + first.width / 2, first.y + first.height * 0.2, { steps: 14 });
+      await p.waitForTimeout(80); await p.mouse.up(); await p.waitForTimeout(400);
+      assertEqual((await col("Новая"))[0], "Локация", "карточку сделки не переставить наверх");
+      await p.evaluate(() => { window.app.setDealView("estimate"); window.app.setDealView("tasks"); });
+      await p.waitForTimeout(400);
+      assertEqual((await col("Новая"))[0], "Локация", "порядок задач сделки сбился после ухода с вкладки");
+    } finally {
+      await b.context.close();
     }
   });
 

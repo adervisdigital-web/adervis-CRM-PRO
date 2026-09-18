@@ -7405,7 +7405,7 @@
         }
       }
 
-      // Для настоящей карточки задачи (renderTaskCard, мини-канбан внутри сделки) —
+      // Для задачи сделки по её id (раньше звалась из карточки мини-канбана) —
       // в отличие от syncTaskModalToGoogle(), тут нет черновика: task уже часть
       // state.tasks с автосохранением полей, коммитить нечего.
       async function syncTaskToGoogle(taskId) {
@@ -22669,49 +22669,7 @@
               </div>
             </div>
 
-            ${filtered.length ? (boardView ? `<div class="gtask-board">
-              ${TASK_STATUSES.map(status => {
-                /* Порядок в колонке — ручной (перетаскиванием, как в Trello):
-                   сначала расставленные по order, остальные — после них, в
-                   прежнем порядке по сроку (сортировка устойчивая). */
-                const inCol = filtered.filter(r => (r.task.status || "Новая") === status)
-                  .sort((a, b) => {
-                    const oa = Number.isFinite(a.task.order), ob = Number.isFinite(b.task.order);
-                    if (oa && ob) return a.task.order - b.task.order;
-                    return oa ? -1 : ob ? 1 : 0;
-                  });
-                return `
-                  ${/* Цвет статуса — тот же, что у капсулы статуса в списке
-                        (TASK_STATUS_COLORS): колонку узнают по нему, не читая.
-                        Добавление — внизу колонки, как в Trello (просьба владельца
-                        18.09.2026): поле прямо в колонке, Enter — задача встала в
-                        этот статус, поле осталось для следующей. Без окна. */""}
-                  <div class="gtask-board-col" data-drop-status="${escapeHtml(status)}" style="--st-c:${TASK_STATUS_COLORS[status] || "var(--muted)"}">
-                    <h3>
-                      <span class="gtask-col-name"><span class="gtask-col-dot" aria-hidden="true"></span><span class="kanban-col-name">${escapeHtml(status)}</span> <span class="pill-count">${inCol.length}</span></span>
-                    </h3>
-                    <div class="gtask-board-list">
-                      ${inCol.length
-                        ? inCol.map(renderGlobalTaskCard).join("")
-                        : (_taskQuickAddStatus === status ? "" : `<div class="gtask-board-empty">${icon("drag", 13)} Перетащите задачу сюда</div>`)}
-                    </div>
-                    ${_taskQuickAddStatus === status ? `
-                      <div class="gtask-quick no-print">
-                        <textarea class="gtask-quick-input" rows="2" data-status="${escapeHtml(status)}"
-                          placeholder="Что нужно сделать? Enter — добавить"
-                          aria-label="Название новой задачи в «${escapeHtml(status)}»"
-                          onkeydown="app.taskQuickAddKey(event, this)"></textarea>
-                        <div class="gtask-quick-actions">
-                          <button type="button" class="btn small primary" onclick="app.taskQuickAddSubmit(this.closest('.gtask-quick').querySelector('textarea'))">Добавить</button>
-                          <button type="button" class="u-modal-close" onclick="app.closeTaskQuickAdd()" aria-label="Отменить добавление">${icon("close", 14)}</button>
-                        </div>
-                      </div>` : `
-                      <button type="button" class="gtask-quick-open no-print" data-status="${escapeHtml(status)}"
-                        onclick="app.openTaskQuickAdd(this.dataset.status)"
-                        aria-label="Добавить задачу в «${escapeHtml(status)}»">${icon("plus", 13)} Задача</button>`}
-                  </div>`;
-              }).join("")}
-            </div>` : `<div class="gtask-list">
+            ${filtered.length ? (boardView ? renderTaskBoardHtml(filtered, "global") : `<div class="gtask-list">
               ${shownTasks.map(renderGlobalTaskRow).join("")}
             </div>
             ${tasksHidden > 0 ? `<div class="show-more-row no-print">
@@ -22759,7 +22717,10 @@
       function taskDueMeta(deadline, done) {
         if (!deadline) return null;
         const today = new Date(); today.setHours(0, 0, 0, 0);
-        const d = new Date(deadline); d.setHours(0, 0, 0, 0);
+        // «ГГГГ-ММ-ДД» — местной полночью: new Date("2026-09-19") читается как
+        // полночь UTC, и западнее Гринвича срок уехал бы на вчера.
+        const d = /^\d{4}-\d{2}-\d{2}$/.test(String(deadline)) ? new Date(deadline + "T00:00:00") : new Date(deadline);
+        d.setHours(0, 0, 0, 0);
         if (isNaN(d.getTime())) return null;
         const days = Math.round((d - today) / 86400000);
         const short = d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }).replace(".", "");
@@ -22778,7 +22739,62 @@
       // «Средний» на доске ничего не различают.
       const TASK_PRIO_CLASS = { "Срочно": "urgent", "Высокий": "high" };
 
-      function renderGlobalTaskCard(row) {
+      /* Доска задач — ОДНА на раздел «Задачи» и на вкладку «Задачи» в сделке
+         (владелец 18.09.2026: «тут тоже переделать красивее в тему»). Раньше у
+         сделки был свой канбан с полями ввода прямо в карточках, и две доски
+         одного продукта выглядели и вели себя по-разному.
+         scope: "global" — все задачи; "project" — задачи открытой сделки (у
+         них не нужна метка проекта, по нажатию открывается окно задачи).
+         Порядок в колонке — ручной (перетаскиванием, как в Trello): сначала
+         расставленные по order, остальные — после них, в том порядке, в каком
+         пришли (по сроку; сортировка устойчивая). */
+      function renderTaskBoardHtml(rows, scope) {
+        const qa = (status) => _taskQuickAddStatus === scope + "|" + status;
+        return `<div class="gtask-board" role="group" aria-label="Доска задач по статусам">
+          ${TASK_STATUSES.map(status => {
+            const inCol = rows.filter(r => (r.task.status || "Новая") === status)
+              .sort((a, b) => {
+                const oa = Number.isFinite(a.task.order), ob = Number.isFinite(b.task.order);
+                if (oa && ob) return a.task.order - b.task.order;
+                return oa ? -1 : ob ? 1 : 0;
+              });
+            return `
+              ${/* Цвет статуса — тот же, что у капсулы статуса в списке
+                    (TASK_STATUS_COLORS). Добавление — внизу колонки, как в
+                    Trello: поле прямо в колонке, Enter — задача встала в этот
+                    статус, поле осталось для следующей. Без окна. */""}
+              <div class="gtask-board-col" data-drop-status="${escapeHtml(status)}" role="group" aria-label="${escapeHtml(status)}: ${inCol.length}" style="--st-c:${TASK_STATUS_COLORS[status] || "var(--muted)"}">
+                <h3>
+                  <span class="gtask-col-name"><span class="gtask-col-dot" aria-hidden="true"></span><span class="kanban-col-name">${escapeHtml(status)}</span> <span class="pill-count">${inCol.length}</span></span>
+                </h3>
+                <div class="gtask-board-list">
+                  ${/* «Перетащите сюда» — только когда на доске есть что тащить:
+                        у новой сделки без задач это звало бы в пустоту. */""}
+                  ${inCol.length
+                    ? inCol.map(r => renderGlobalTaskCard(r, scope)).join("")
+                    : (qa(status) || !rows.length ? "" : `<div class="gtask-board-empty">${icon("drag", 13)} Перетащите задачу сюда</div>`)}
+                </div>
+                ${qa(status) ? `
+                  <div class="gtask-quick no-print">
+                    <textarea class="gtask-quick-input" rows="2" data-status="${escapeHtml(status)}" data-scope="${scope}"
+                      placeholder="Что нужно сделать? Enter — добавить"
+                      aria-label="Название новой задачи в «${escapeHtml(status)}»"
+                      onkeydown="app.taskQuickAddKey(event, this)"></textarea>
+                    <div class="gtask-quick-actions">
+                      <button type="button" class="btn small primary" onclick="app.taskQuickAddSubmit(this.closest('.gtask-quick').querySelector('textarea'))">Добавить</button>
+                      <button type="button" class="u-modal-close" onclick="app.closeTaskQuickAdd()" aria-label="Отменить добавление">${icon("close", 14)}</button>
+                    </div>
+                  </div>` : `
+                  <button type="button" class="gtask-quick-open no-print" data-status="${escapeHtml(status)}" data-scope="${scope}"
+                    onclick="app.openTaskQuickAdd(this.dataset.status, this.dataset.scope)"
+                    aria-label="Добавить задачу в «${escapeHtml(status)}»">${icon("plus", 13)} Задача</button>`}
+              </div>`;
+          }).join("")}
+        </div>`;
+      }
+
+      function renderGlobalTaskCard(row, scope) {
+        const inDeal = scope === "project";
         const t = row.task;
         const done = t.status === "Готово";
         const prio = TASK_PRIO_CLASS[t.priority] || "";
@@ -22787,20 +22803,26 @@
         const isGlobal = row.kind === "global";
         const idSafe = t.id.replace(/'/g, "");
         const projSafe = (row.projectId || "").replace(/'/g, "");
-        const clickAction = isGlobal ? `app.openGlobalTaskModal('${idSafe}')` : `app.openDealTasks('${projSafe}')`;
+        // Внутри сделки задача открывается окном на месте: openDealTasks увёл бы
+        // на эту же вкладку заново.
+        const clickAction = isGlobal ? `app.openGlobalTaskModal('${idSafe}')`
+          : inDeal ? `app.openTaskModal('${idSafe}')` : `app.openDealTasks('${projSafe}')`;
+        const labels = [
+          inDeal ? "" : `<span class="gtask-project ${isGlobal ? "personal" : ""}">${isGlobal ? "Личная" : escapeHtml(row.projectName)}</span>`,
+          row.dealClosed ? `<span class="gtask-closed-mark" title="Сделка закрыта">закрыта</span>` : "",
+          prio && !done ? `<span class="gtask-prio is-${prio}">${escapeHtml(t.priority)}</span>` : "",
+        ].join("").trim();
         const toggleAction = isGlobal
           ? `app.toggleGlobalTaskDone('${idSafe}')`
           : `app.toggleProjectTaskDone('${projSafe}','${idSafe}')`;
         return `
-          <article class="gtask-card ${done ? "done" : ""} ${prio && !done ? "prio-" + prio : ""}" onclick="${clickAction}" title="${isGlobal ? "Открыть задачу" : "Открыть в проекте"} · перетащите в другую колонку, чтобы сменить статус"
+          <article class="gtask-card ${done ? "done" : ""} ${prio && !done ? "prio-" + prio : ""}" onclick="${clickAction}" title="${isGlobal || inDeal ? "Открыть задачу" : "Открыть в проекте"} · перетащите, чтобы сменить статус или место"
             data-drag-id="${escapeHtml(t.id)}" data-drag-kind="${row.kind}" data-drag-project="${escapeHtml(row.projectId || "")}">
             ${/* Строй карточки Trello: метки — над названием, внизу значки
                   (срок, комментарии), исполнитель — кружком справа. */""}
-            <div class="gtask-card-labels">
-              <span class="gtask-project ${isGlobal ? "personal" : ""}">${isGlobal ? "Личная" : escapeHtml(row.projectName)}</span>
-              ${row.dealClosed ? `<span class="gtask-closed-mark" title="Сделка закрыта">закрыта</span>` : ""}
-              ${prio && !done ? `<span class="gtask-prio is-${prio}">${escapeHtml(t.priority)}</span>` : ""}
-            </div>
+            ${/* Внутри сделки метка проекта не нужна: все задачи тут — её.
+                  Нет меток — нет и пустой строки над названием. */""}
+            ${labels ? `<div class="gtask-card-labels">${labels}</div>` : ""}
             <div class="gtask-card-top">
               <button class="gtask-check ${done ? "checked" : ""}" onclick="event.stopPropagation();${toggleAction}"
                 title="${done ? "Вернуть в работу" : "Отметить готово"}" aria-label="Готово">${done ? "✓" : ""}</button>
@@ -23055,9 +23077,11 @@
         el.focus();
         try { el.scrollIntoView({ block: "nearest" }); } catch (e) {}
       }
-      function openTaskQuickAdd(status) {
+      // scope: "global" (раздел «Задачи») или "project" (вкладка сделки) —
+      // хранится вместе со статусом, чтобы поле не открывалось на чужой доске.
+      function openTaskQuickAdd(status, scope) {
         if (!TASK_STATUSES.includes(status)) return;
-        _taskQuickAddStatus = status;
+        _taskQuickAddStatus = (scope === "project" ? "project" : "global") + "|" + status;
         render();
         _focusTaskQuickAdd();
       }
@@ -23082,8 +23106,16 @@
         if (!TASK_STATUSES.includes(status)) return;
         // Пустой Enter ничего не создаёт и поле не закрывает — как в Trello.
         if (!title) { el.focus(); return; }
-        if (!Array.isArray(state.globalTasks)) state.globalTasks = [];
-        state.globalTasks.unshift(normalizeTask({ title, status, priority: "Средний" }));
+        if (el.dataset.scope === "project") {
+          /* Задача сделки — как у createTask: ответственный — менеджер сделки.
+             Срок НЕ ставим: быстрый ввод — это список дел, а срок сделки у
+             каждой строки поставил бы их в середину колонки, а не вниз. */
+          if (!Array.isArray(state.tasks)) state.tasks = [];
+          state.tasks.push(normalizeTask({ title, status, priority: "Средний", assignee: (state.project && state.project.manager) || "" }));
+        } else {
+          if (!Array.isArray(state.globalTasks)) state.globalTasks = [];
+          state.globalTasks.unshift(normalizeTask({ title, status, priority: "Средний" }));
+        }
         save();
         render();
         _focusTaskQuickAdd();
@@ -23313,105 +23345,44 @@
       }
 
       function renderTasks() {
-        const cols = TASK_STATUSES;
+        /* Та же доска, что в разделе «Задачи» (renderTaskBoardHtml): колонки в
+           цвете статуса, карточки в строе Trello, быстрое добавление внизу
+           колонки, перетаскивание с порядком. Раньше здесь был свой канбан с
+           полями ввода прямо в карточках (скриншот владельца 18.09.2026:
+           «тут задачи тоже переделать красивее в тему»). Всё, что правилось в
+           карточке, правится в окне задачи по нажатию.
+           Строки собраны так же, как _collectAllTasks собирает задачи открытой
+           сделки: тогда ключи карточек совпадают, и placeBoardTask находит их. */
+        const pid = state.activeProjectId || "";
+        const today = todayIso();
+        const tasks = state.tasks || [];
+        const rows = tasks
+          .map(t => ({ task: t, kind: "project", projectId: pid, projectName: (state.project && state.project.name) || "" }))
+          .sort((a, b) => (a.task.deadline || "9999-99-99") < (b.task.deadline || "9999-99-99") ? -1
+            : (a.task.deadline || "9999-99-99") > (b.task.deadline || "9999-99-99") ? 1 : 0);
+        const done = tasks.filter(t => t.status === "Готово").length;
+        const overdue = tasks.filter(t => t.deadline && t.deadline < today && t.status !== "Готово").length;
 
         return `
           <div class="panel">
             <div class="section-title">
               <div>
                 <h1>${h1Icon("tasks")}Задачи проекта</h1>
-                <p>Мини-канбан для текущего проекта: от подготовки до сдачи.</p>
+                <p class="hide-on-mobile">Доска проекта: перетаскивайте карточки между статусами, новая задача — «+ Задача» внизу колонки.</p>
               </div>
-              ${/* Кнопки «+ Задача» в шапке больше нет: «+» стоит в заголовке
-                    КАЖДОЙ колонки и там же говорит, куда именно попадёт задача
-                    («Добавить задачу в "В работе"»). Общая кнопка делала то же
-                    самое вслепую — задача падала в «Новую», и её приходилось
-                    перетаскивать. Два способа сделать одно, из которых один
-                    точнее, — это не выбор, а лишний шаг. */""}
+              ${/* Сводка — одной строкой справа: сколько сделано и что горит.
+                    Отдельные плитки, как в разделе «Задачи», тут лишние: задач у
+                    сделки обычно несколько, и доска видна целиком. */""}
+              ${tasks.length ? `<div class="gtask-deal-summary">
+                <span class="gtask-deal-progress" title="Готово ${done} из ${tasks.length}">
+                  <span class="gtask-deal-bar" aria-hidden="true"><span style="width:${Math.round(done / tasks.length * 100)}%"></span></span>
+                  ${done} из ${tasks.length} готово
+                </span>
+                ${overdue ? `<span class="gtask-due is-overdue">${icon("warning", 11)}<span>${overdue} ${plural(overdue, "просрочена", "просрочены", "просрочено")}</span></span>` : ""}
+              </div>` : ""}
             </div>
 
-            <div class="kanban">
-              ${cols.map(status => {
-                const tasks = state.tasks.filter(task => task.status === status);
-
-                return `
-                  <div class="kanban-col"
-                    ondragover="event.preventDefault();this.classList.add('dragover')"
-                    ondragleave="this.classList.remove('dragover')"
-                    ondrop="app.onKanbanDrop(event,'${status}','task');this.classList.remove('dragover')">
-                    <h3>
-                      ${/* Название в своём элементе: ужиматься должно ОНО, а не
-                            счётчик — иначе многоточие съедает число, ради
-                            которого в заголовок и смотрят. */""}
-                      <span><span class="kanban-col-name">${escapeHtml(status)}</span> <span class="pill-count">${tasks.length}</span></span>
-                      <button class="btn small no-print" onclick="app.createTask('${status}')" title="Добавить задачу в «${escapeHtml(status)}»" aria-label="Добавить задачу в «${escapeHtml(status)}»" style="padding:0 10px">+</button>
-                    </h3>
-
-                    <div class="list">
-                      ${tasks.length ? tasks.map(renderTaskCard).join("") : emptyState({ size: "sm", text: "Пусто", className: "kanban-drop-hint" })}
-                    </div>
-                  </div>
-                `;
-              }).join("")}
-            </div>
-          </div>
-        `;
-      }
-
-      function renderTaskCard(task) {
-        const priorityColor = { "Без приоритета": "var(--tint-slate)", "Низкий": "var(--tint-slate)", "Средний": "var(--tint-amber)", "Высокий": "var(--tint-orange)", "Срочно": "var(--tint-red)" };
-        const priorityBg   = { "Без приоритета": "rgba(148,163,184,.10)", "Низкий": "rgba(100,116,139,.12)", "Средний": "rgba(202,138,4,.12)", "Высокий": "rgba(234,88,12,.12)", "Срочно": "rgba(220,38,38,.12)" };
-        const pColor = priorityColor[task.priority] || "var(--tint-slate)";
-        const pBg    = priorityBg[task.priority]    || "rgba(100,116,139,.12)";
-        const isOverdue = task.deadline && task.deadline < todayIso() && task.status !== "Готово";
-
-        return `
-          <div class="swipe-wrap" data-task-id="${task.id}">
-            <div class="swipe-delete-bg"><svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 0h5v1.5h4V3h-1.25L12 15H4L2.75 3H1.5V1.5h4V0zm1.5 4.5v8h1V4.5H7zm2.5 0v8h1V4.5H9.5z"/></svg></div>
-          <article class="task-card" style="padding:12px 14px"
-            draggable="true"
-            ondragstart="app.onKanbanDragStart(event,'${task.id}','task')"
-            ondragend="document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('dragover'))">
-            ${dragHandleHtml({ className: "drag-handle--corner", title: "Потяните, чтобы перенести задачу" })}
-            <div style="display:flex;gap:8px;align-items:flex-start">
-              <input class="task-title-input"
-                data-autosave data-scope="task" data-id="${task.id}" data-key="title"
-                value="${escapeHtml(task.title)}" placeholder="Задача...">
-              <button onclick="app.deleteTask('${task.id}')"
-                style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 2px;flex:0 0 auto;line-height:1" title="Удалить">${icon("close", 13)}</button>
-            </div>
-
-            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
-              <span class="u-meta">Приоритет:</span>
-              <select class="task-mini-select" data-autosave data-scope="task" data-id="${task.id}" data-key="priority"
-                style="background:${pBg};border-color:${pColor}40;color:${pColor};font-weight:600">
-                ${PRIORITIES.map(p => `<option value="${p}" ${task.priority===p?"selected":""}>${p}</option>`).join("")}
-              </select>
-              <select class="task-mini-select" title="Переместить в колонку" aria-label="Переместить задачу в колонку"
-                onchange="app.setKanbanStatus('task','${task.id}',this.value)">
-                ${TASK_STATUSES.map(s => `<option value="${s}" ${task.status===s?"selected":""}>${s}</option>`).join("")}
-              </select>
-              ${task.deadline ? `<span class="badge" style="${isOverdue?"color:var(--text-danger);border-color:rgba(220,38,38,.4)":""}">${isOverdue?"!" : ""}${escapeHtml(formatDate(task.deadline))}</span>` : ""}
-              ${task.assignee ? `<span class="u-meta">${escapeHtml(task.assignee)}</span>` : ""}
-            </div>
-
-            <details style="margin-top:6px" ${(state.taskDetailsOpen||{})[task.id] ? "open" : ""} ontoggle="app.setTaskDetailsOpen('${task.id}', this.open)">
-              <summary style="font-size:12px;color:var(--muted);cursor:pointer;padding:4px 0">
-                ▸ Подробнее
-              </summary>
-              <div style="margin-top:10px;display:grid;gap:8px">
-                <div class="grid two">
-                  ${field("Ответственный", `<input data-autosave data-scope="task" data-id="${task.id}" data-key="assignee" value="${escapeHtml(task.assignee)}">`)}
-                  ${field("Дедлайн", `<input type="date" data-autosave data-scope="task" data-id="${task.id}" data-key="deadline" value="${escapeHtml(task.deadline)}">`)}
-                </div>
-                ${field("Повтор", `<select data-autosave data-scope="task" data-id="${task.id}" data-key="repeat" title="При переводе в «Готово» создаётся следующая копия со сдвинутым дедлайном">
-                  ${TASK_REPEAT_OPTIONS.map(r => `<option value="${r}" ${task.repeat===r?"selected":""}>${TASK_REPEAT_LABELS[r]}</option>`).join("")}
-                </select>`)}
-                ${field("Комментарий", `<textarea data-autosave data-scope="task" data-id="${task.id}" data-key="note" style="min-height:60px">${escapeHtml(task.note)}</textarea>`)}
-        ${_googleCalStatus && _googleCalStatus.connected ? `<button id="taskSyncGoogleBtn_${task.id}" class="btn small" onclick="app.syncTaskToGoogle('${task.id}')">${_myGoogleEventId(task) ? "Обновить в Google Calendar" : "В Google Calendar"}</button>` : ""}
-              </div>
-            </details>
-          </article>
+            ${renderTaskBoardHtml(rows, "project")}
           </div>
         `;
       }
