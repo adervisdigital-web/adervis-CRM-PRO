@@ -598,6 +598,43 @@ module.exports = async function ({ test }) {
     assert(bad.length === 0, "эмодзи вернулись в интерфейс — добавьте иконку в ICON_PATHS:\n" + bad.slice(0, 12).join("\n"));
   });
 
+  /* «Подготовка» в каталоге была жёлтой, а этап «Подготовка» в смете —
+     фиолетовым, при одном значке (скриншот владельца 19.09.2026). Раздел
+     каталога и этап сметы одного смысла обязаны совпадать значком и цветом;
+     разделы каталога не повторяют цвет друг друга. Цвет этапа — hex в
+     DEFAULT_STAGES, цвет раздела — токен; сверяем через значения токенов. */
+  await test("разделы каталога и этапы сметы: один смысл — один значок и цвет", () => {
+    const token = {};
+    const root = css.slice(0, css.indexOf("}", css.indexOf(":root")));
+    for (const m of root.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})/g)) token[m[1]] = m[2].toLowerCase();
+    const groups = {};
+    const gBlock = app.slice(app.indexOf("const CATALOG_GROUPS = ["), app.indexOf("];", app.indexOf("const CATALOG_GROUPS = [")));
+    for (const m of gBlock.matchAll(/\{ id: "(\w+)",\s*label: "[^"]+",\s*ic: "(\w+)",\s*color: "var\(--([\w-]+)\)"/g)) {
+      groups[m[1]] = { ic: m[2], color: token[m[3]] || m[3] };
+    }
+    const stages = {};
+    const sBlock = app.slice(app.indexOf("const DEFAULT_STAGES = ["), app.indexOf("];", app.indexOf("const DEFAULT_STAGES = [")));
+    for (const m of sBlock.matchAll(/\{ id: "(\w+)",\s*name: "[^"]+",\s*color: "(#[0-9a-fA-F]{6})"/g)) stages[m[1]] = m[2].toLowerCase();
+    const icons = {};
+    const iBlock = app.slice(app.indexOf("const STAGE_ICONS = {"), app.indexOf("};", app.indexOf("const STAGE_ICONS = {")));
+    for (const m of iBlock.matchAll(/(\w+):\s*"(\w+)"/g)) icons[m[1]] = m[2];
+    assert(Object.keys(groups).length >= 8, "не разобрал CATALOG_GROUPS: " + JSON.stringify(groups));
+    // раздел каталога → этап сметы того же смысла
+    const pairs = { prep: "pre", shoot: "shoot", post: "post", dist: "marketing" };
+    const bad = [];
+    for (const [g, s] of Object.entries(pairs)) {
+      if (!groups[g] || !stages[s]) { bad.push(`${g}/${s}: не найден`); continue; }
+      if (groups[g].color !== stages[s]) bad.push(`${g} ${groups[g].color} ≠ этап ${s} ${stages[s]}`);
+      if (groups[g].ic !== icons[s]) bad.push(`${g} значок ${groups[g].ic} ≠ этап ${s} ${icons[s]}`);
+    }
+    assertEqual(bad.length, 0, "раздел каталога и этап сметы разошлись: " + bad.join("; "));
+    const colors = Object.values(groups).map((x) => x.color);
+    const dup = colors.filter((c, i) => colors.indexOf(c) !== i);
+    assertEqual(dup.length, 0, "у разделов каталога повторяются цвета: " + JSON.stringify(groups));
+    const ics = Object.values(groups).map((x) => x.ic);
+    assertEqual(ics.filter((c, i) => ics.indexOf(c) !== i).length, 0, "у разделов каталога повторяются значки: " + JSON.stringify(groups));
+  });
+
   await test("иконки: база ICON_PATHS не пустеет и icon() ей пользуется", () => {
     const m = app.match(/const ICON_PATHS\s*=\s*\{([\s\S]*?)\n      \};/);
     assert(m, "не найден ICON_PATHS — база иконок пропала");

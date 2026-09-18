@@ -6352,6 +6352,52 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Итоги сметы и этап «Подготовка» (владелец 19.09.2026): «Подготовка» должна
+     быть жёлтой и в смете (была фиолетовой, а в каталоге — жёлтой). Цвет этапа
+     лежит в данных — старый цвет по умолчанию перекрашивается при загрузке, свой
+     цвет не трогается. Пустая смета — без столбика нулей и без скидки;
+     «Очистить смету» — тихой ссылкой, а не кнопкой во всю ширину. */
+  await test("итоги сметы: жёлтая «Подготовка» у старых данных, пустая смета без нулей", async () => {
+    const { ctx, p } = await bootWithState(`
+      st.stages = (st.stages || []).map(s => s.id === "pre" ? { ...s, color: "#8b5cf6" }
+        : s.id === "post" ? { ...s, color: "#123456" } : s);
+      st.savedProjects.push({ id: "emptyDeal", name: "Пустая", client: "К", total: 0, paid: 0, crmStatus: "Лид",
+        createdAt: "2026-09-01", updatedAt: "2026-09-01",
+        snapshot: { project: { name: "Пустая", crmStatus: "Лид" }, selected: {}, payments: [], expenses: [], tasks: [] } });
+    `, { width: 1440, height: 950 });
+    try {
+      const first = await p.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state")).savedProjects[0].id);
+      await p.evaluate((i) => { window.app.selectActiveDeal(i); window.app.setDealView("estimate"); }, first);
+      await p.waitForTimeout(500);
+      const colors = await p.evaluate(() => {
+        const bar = (id) => { const s = [...document.querySelectorAll(".estimate-stage")].find((x) => x.querySelector(`[onclick*="toggleStageCollapse('${id}')"]`));
+          return s ? getComputedStyle(s.querySelector(".stage-color-bar")).backgroundColor : null; };
+        return { pre: bar("pre"), post: bar("post") };
+      });
+      assertEqual(colors.pre, "rgb(246, 189, 58)", "этап «Подготовка» со старым фиолетовым не стал жёлтым");
+      assert(colors.post === null || colors.post === "rgb(18, 52, 86)", "свой цвет этапа перекрашен: " + colors.post);
+      const withLines = await p.evaluate(() => ({
+        clearLink: !!document.querySelector("aside.summary .summary-clear-link"),
+        clearBtnFull: !!document.querySelector("aside.summary .btn.full[onclick*='clearEstimate']"),
+        discountRow: !!document.querySelector("aside.summary .summary-discount-add"),
+      }));
+      assert(withLines.clearLink && !withLines.clearBtnFull, "«Очистить смету» снова кнопкой во всю ширину");
+      assert(withLines.discountRow, "у сметы с позициями нет строки «Скидка»");
+
+      await p.evaluate(() => window.app.selectActiveDeal("emptyDeal"));
+      await p.waitForTimeout(500);
+      const empty = await p.evaluate(() => {
+        const a = document.querySelector("aside.summary");
+        return { note: !!a.querySelector(".summary-empty-note"), zeros: /Прибыль|Расходы|Оплачено/.test(a.textContent), discount: !!a.querySelector(".summary-discount-add") };
+      });
+      assert(empty.note, "у пустой сметы нет подсказки вместо нулей");
+      assert(!empty.zeros, "у пустой сметы снова столбик «Оплачено / Расходы / Прибыль» из нулей");
+      assert(!empty.discount, "у пустой сметы предлагается скидка — ей не к чему применяться");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   /* Пакеты по образцу каталога (15.09.2026): бейдж категории повторял заголовок
      группы на каждой из 45 карточек; «Скрыть» было перечёркнутым глазом вплотную
      к звезде — теперь в «⋮» с подписью, и меню не режется краем карточки; на

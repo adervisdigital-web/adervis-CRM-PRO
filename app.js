@@ -57,22 +57,30 @@
          этом шаге»: сначала придумать, потом собрать людей, потом технику, потом
          смонтировать. Принадлежность считается ФУНКЦИЕЙ (см. itemGroup), а не
          списком категорий: 95 позиций иначе пришлось бы размечать руками, и первая
-         же новая позиция выпала бы из групп молча. */
+         же новая позиция выпала бы из групп молча.
+
+         Цвет и значок раздела совпадают с ЭТАПОМ сметы того же смысла
+         (DEFAULT_STAGES + STAGE_ICONS): «Подготовка» — жёлтая лампочка,
+         «Съёмка» — синий фотоаппарат, «Постпродакшн» — зелёная плёнка,
+         «Дистрибуция» = этап «Маркетинг» — бирюзовый рупор. Раньше «Подготовка»
+         в каталоге была жёлтой, а в смете фиолетовой (скриншот владельца
+         19.09.2026); по его решению жёлтой стала и в смете (см.
+         _migrateStageColors). Остальные разделы — каждый своим цветом. */
       const CATALOG_GROUPS = [
         { id: "prep",  label: "Подготовка",   ic: "bulb",      color: "var(--yellow)",   hint: "идея, сценарий, планирование" },
         // Подсказки перечисляют примеры и НЕ должны сужать раздел до съёмки: сюда же
         // идут дизайнер и монтажёр, когда заказывают графику без съёмочного дня.
-        { id: "crew",  label: "Команда",      ic: "team",      color: "var(--primary2)", hint: "режиссёр, оператор, дизайнер, звук" },
+        { id: "crew",  label: "Команда",      ic: "team",      color: "var(--tint-pink)", hint: "режиссёр, оператор, дизайнер, звук" },
         /* «Съёмка» — съёмочные УСЛУГИ (предметка, аэро, трансляция), а не люди.
            Своего раздела у них не было, и раздел выводился из способа расчёта:
            всё «за смену/за день» падало в «Команду» — вместе с арендой экрана и
            раций (замечание владельца 16.09.2026: «в команде должны быть люди»). */
-        { id: "shoot", label: "Съёмка",       ic: "live",      color: "var(--orange)",   hint: "фото- и видеосъёмка, трансляция" },
-        { id: "gear",  label: "Оборудование", ic: "camera",    color: "var(--blue)",     hint: "камеры, свет, звук, аренда" },
+        { id: "shoot", label: "Съёмка",       ic: "camera",    color: "var(--blue)",   hint: "фото- и видеосъёмка, трансляция" },
+        { id: "gear",  label: "Оборудование", ic: "video",     color: "var(--violet)",     hint: "камеры, свет, звук, аренда" },
         { id: "post",  label: "Постпродакшн", ic: "film",      color: "var(--green)",    hint: "монтаж, цвет, звук, графика" },
         { id: "dist",  label: "Дистрибуция",  ic: "megaphone", color: "var(--cyan)",     hint: "нарезки, обложки, публикация" },
-        { id: "ai",    label: "ИИ / AI",      ic: "robot",     color: "var(--primary)",  hint: "нейросети и подписки" },
-        { id: "web",   label: "Дизайн и сайты", ic: "palette", color: "var(--primary2)", hint: "сайты, лендинги, айдентика, презентации" },
+        { id: "ai",    label: "ИИ / AI",      ic: "robot",     color: "var(--tint-indigo)",  hint: "нейросети и подписки" },
+        { id: "web",   label: "Дизайн и сайты", ic: "palette", color: "var(--orange)", hint: "сайты, лендинги, айдентика, презентации" },
         { id: "money", label: "Расходы",      ic: "coins",     color: "var(--red)",      hint: "транспорт, питание, локация" }
       ];
 
@@ -93,7 +101,7 @@
         interview: { label: "Интервью",       ic: "mic",      color: "var(--primary2)" },
         business:  { label: "Бизнес-видео",   ic: "film",     color: "var(--blue)" },
         events:    { label: "Мероприятия",    ic: "stage",    color: "var(--yellow)" },
-        ai:        { label: "ИИ / AI",        ic: "robot",    color: "var(--primary)" },
+        ai:        { label: "ИИ / AI",        ic: "robot",    color: "var(--tint-indigo)" },
         graphic:   { label: "Графика",        ic: "star",     color: "var(--orange)" },
         photo:     { label: "Фото",           ic: "camera",   color: "var(--green)" },
         corporate: { label: "Корпоративный",  ic: "building", color: "var(--muted)" },
@@ -558,6 +566,9 @@
         // нарисован отдельно в меню, отдельно в переключателе, а заголовок
         // «Каталог услуг» носил значок «Проектов».
         catalog:  `<path d="M2 2h4v4H2zm5 0h4v4H7zm5 0h2v2h-2zm-5 5h4v4H7zm-5 0h4v4H2zm10 0h2v4h-2z"/>`,
+        // Видеокамера — раздел «Оборудование». Фотоаппарат (camera) занят
+        // «Съёмкой»: и этапом сметы, и разделом каталога.
+        video:    `<path d="M1.8 4h8c.9 0 1.7.8 1.7 1.7v.6l2.7-1.6c.4-.2.8.1.8.5v5.6c0 .4-.4.7-.8.5l-2.7-1.6v.6c0 .9-.8 1.7-1.7 1.7h-8C.8 12 0 11.2 0 10.3V5.7C0 4.8.8 4 1.8 4z"/>`,
         book:     `<path d="M3 1.5h9.4c.6 0 1.1.5 1.1 1.1v10.8c0 .6-.5 1.1-1.1 1.1H3c-.9 0-1.6-.7-1.6-1.6V3.1c0-.9.7-1.6 1.6-1.6zm0 1.4a.2.2 0 00-.2.2v9.9c.1 0 .1-.1.2-.1h9.1V2.9H3zm1.8 2.2h5.6v1.3H4.8V5.1zm0 2.6h5.6V9H4.8V7.7z"/>`,
         contract: `<path d="M4 1h5l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.6 1.3V4.4H11L8.6 2.3zM5 6.5h6v1.1H5V6.5zm2.1 5.9L5 10.3l.8-.8 1.3 1.3 3-3 .8.8-3.8 3.8z"/>`,
         // Коробка с крышкой — «убрано на хранение». Заведена в базу, а не нарисована
@@ -621,7 +632,7 @@
       };
 
       const DEFAULT_STAGES = [
-        { id: "pre", name: "Подготовка", color: "#8b5cf6", desc: "Идея, сценарий, планирование, подбор." },
+        { id: "pre", name: "Подготовка", color: "#f6bd3a", desc: "Идея, сценарий, планирование, подбор." },
         { id: "shoot", name: "Съёмка", color: "#2563eb", desc: "Команда, техника, площадка и съёмочный процесс." },
         { id: "post", name: "Постпродакшн", color: "#16a34a", desc: "Монтаж, цвет, звук, графика, версии." },
         { id: "management", name: "Управление", color: "#ea580c", desc: "Продюсирование, менеджмент, координация." },
@@ -8949,7 +8960,7 @@
           catalogPrices: deepClone(project?.catalogPrices || {}),
           catalogOverrides: deepClone(project?.catalogOverrides || {}),
           hiddenItems: deepClone(project?.hiddenItems || {}),
-          stages: deepClone(project?.stages || DEFAULT_STAGES),
+          stages: _migrateStageColors(deepClone(project?.stages || DEFAULT_STAGES)),
           versions: deepClone(project?.versions || []),
           tasks: deepClone(project?.tasks || []),
           payments: deepClone(project?.payments || []),
@@ -9028,7 +9039,7 @@
           activeProjectId: old.activeProjectId || old.project?.id || "",
           activeClientId: old.activeClientId || old.project?.clientId || "",
           packages: _withNewDefaults(old.packages, base.packages),
-          stages: _withNewDefaults(old.stages, base.stages),
+          stages: _migrateStageColors(_withNewDefaults(old.stages, base.stages)),
           contracts: Array.isArray(old.contracts) ? old.contracts : [],
           dealView: old.dealView || "estimate",
           wizard: null,
@@ -9099,6 +9110,23 @@
         return _mergeCatalogById(saved, defaults, defaults);
       }
 
+      /* Этап «Подготовка» — жёлтый, как раздел каталога «Подготовка» (решение
+         владельца 19.09.2026: «подготовка жёлтый цвет должен быть»). Раньше
+         по умолчанию он был фиолетовым, и этот цвет лежит в данных у каждого —
+         в общем списке этапов и копией в каждой сделке. Перекрашиваем только
+         СТАРЫЙ цвет по умолчанию: свой цвет, выбранный человеком, не трогаем. */
+      function _migrateStageColors(stages) {
+        // Карта внутри функции: загрузка состояния идёт раньше, чем константа
+        // ниже по файлу успела бы объявиться.
+        const STAGE_COLOR_MIGRATIONS = { pre: { from: "#8b5cf6", to: "#f6bd3a" } };
+        if (!Array.isArray(stages)) return stages;
+        stages.forEach(st => {
+          const m = st && STAGE_COLOR_MIGRATIONS[st.id];
+          if (m && String(st.color || "").toLowerCase() === m.from) st.color = m.to;
+        });
+        return stages;
+      }
+
       function _withNewKbDocs(saved) {
         const merged = _mergeCatalogById(saved, DEFAULT_KB_DOCS, DEFAULT_KB_DOCS);
         const removed = state && state.deletedKbDocs;
@@ -9133,7 +9161,7 @@
           expenses: Array.isArray(state.expenses) ? state.expenses.map(normalizeExpense) : [],
           team: Array.isArray(state.team) ? state.team.map(normalizeTeamMember) : [],
           versions: Array.isArray(state.versions) ? state.versions : [],
-          stages: _withNewDefaults(state.stages, base.stages),
+          stages: _migrateStageColors(_withNewDefaults(state.stages, base.stages)),
           packages: _withNewDefaults(state.packages, base.packages),
           contracts: Array.isArray(state.contracts) ? state.contracts : [],
           adminModal: null,
@@ -10874,7 +10902,7 @@
         // только свои позиции/этапы, которых уже нет в каталоге (удалены) — чтобы
         // строки старой сметы на них не осиротели. Цены/скрытые/overrides — глобальные.
         state.customItems = _mergeCustomItemsFromSnapshot(state.customItems, snapshot.customItems, snapshot.selected);
-        state.stages = _mergeCatalogById(state.stages, snapshot.stages, DEFAULT_STAGES);
+        state.stages = _migrateStageColors(_mergeCatalogById(state.stages, snapshot.stages, DEFAULT_STAGES));
         state.versions = deepClone(snapshot.versions || state.versions || []);
         state.tasks = deepClone(snapshot.tasks || []);
         state.payments = deepClone(snapshot.payments || []);
@@ -19469,9 +19497,10 @@
             })() : ""}
 
             ${/* Скидка клиенту — здесь, где её и обсуждают (см. setProjectDiscount).
-                  Пока скидки нет — одна тихая кнопка «+ Скидка»; у сделки «одной
-                  суммой» скидку не к чему применять. */""}
-            ${d.budgetOnly ? "" : (t.discount > 0 || _discountEditorOpen) ? (() => {
+                  Пока скидки нет — строкой «Скидка · Добавить», как налог рядом (была
+                  пунктирная капсула «+ Скидка» — владелец: «не видно и не красиво»).
+                  У пустой сметы и у сделки «одной суммой» скидку не к чему применять. */""}
+            ${d.budgetOnly || !(t.base > 0) ? "" : (t.discount > 0 || _discountEditorOpen) ? (() => {
               const isAmount = state.project.discountType === "amount";
               const v = numberValue(state.project.discount, 0);
               return `
@@ -19490,7 +19519,9 @@
                 <strong class="summary-discount-sum">${t.discount > 0 ? "− " + money(t.discount) : "—"}</strong>
                 <button type="button" class="summary-discount-clear no-print" onclick="app.clearProjectDiscount()" title="Убрать скидку" aria-label="Убрать скидку">${icon("close", 12)}</button>
               </div>`;
-            })() : `<button type="button" class="summary-discount-add no-print" onclick="app.openDiscountEditor()">${icon("plus", 12)} Скидка</button>`}
+            })() : `<button type="button" class="summary-discount-add no-print" onclick="app.openDiscountEditor()" title="Скидка клиенту — процентом или суммой">
+              <span>Скидка</span><span class="summary-discount-cta">Добавить${icon("chevron", 11)}</span>
+            </button>`}
             ${t.tax ? `<div class="summary-line"><span>Налог</span><strong>${money(t.tax)}</strong></div>` : ""}
 
             <div class="summary-total">
@@ -19501,6 +19532,12 @@
 
             ${t.optional ? `<div class="summary-line"><span>Опции (+)</span><strong>${money(t.optional)}</strong></div>` : ""}
 
+            ${/* Пустая смета: «Оплачено 0% · Расходы 0 ₽ · Прибыль 0 ₽» — столбик
+                  нулей, который ничего не сообщает (скриншот владельца 19.09.2026).
+                  Пока нет ни позиций, ни денег — одна строка о том, что здесь будет. */""}
+            ${!hasLines && !d.budgetOnly && !(d.total > 0) && !(fin.paid > 0) && !(fin.totalExpenses > 0) ? `
+              <p class="summary-empty-note">Добавьте позиции — здесь появятся оплата, расходы и прибыль.</p>
+            ` : `
             <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
               <div class="summary-line">
                 <span>Оплачено ${payPct}%</span>
@@ -19553,7 +19590,7 @@
                 ${!costsKnown && fin.revenue > 0 ? `<div class="u-meta" style="margin-top:6px">Себестоимость не заполнена — прибыль показана как вся сумма сметы</div>` : ""}
               </div>
               ${fin.profit < 0 ? `<div class="no-print" style="margin-top:10px;padding:9px 12px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;font-size:12px;font-weight:700;color:var(--text-danger)"> Смета в минусе: себестоимость и расходы превышают цену для клиента</div>` : ""}
-            </div>
+            </div>`}
 
             <div class="toolbar no-print" style="margin-top:16px">
               ${hasLines ? `<button class="btn primary full" onclick="app.go('deal');app.setDealView('proposal')">Сформировать КП</button>` : ""}
@@ -19564,8 +19601,11 @@
                     за первый взгляд — хотя одна ведёт сделку вперёд, а вторая
                     стирает работу. В окнах-подтверждениях заливка остаётся: там
                     удаление и есть главное действие. */""}
-              ${hasLines ? `<button class="btn danger-quiet full" onclick="app.clearEstimate()">Очистить смету</button>` : ""}
             </div>
+            ${/* «Очистить смету» — тихой ссылкой под кнопками, а не кнопкой во всю
+                  ширину сразу под «Сформировать КП»: редкое действие, стирающее
+                  работу, стояло наравне с главным (скриншот владельца 19.09.2026). */""}
+            ${hasLines ? `<button type="button" class="summary-clear-link no-print" onclick="app.clearEstimate()">${icon("trash", 12)} Очистить смету</button>` : ""}
           </aside>
         `;
       }
@@ -21294,7 +21334,9 @@
                         полоску, а даёт этапу узнаваемый знак: в длинной смете
                         глаз ищет «где съёмка» и «где постпродакшн», а не читает
                         подряд четыре заголовка. */""}
-                  <h2 style="color:${color}">${STAGE_ICONS[stage.id] ? `<span class="stage-h2-ico" style="background:color-mix(in srgb, ${color} 16%, transparent);color:${color}">${icon(STAGE_ICONS[stage.id], 14)}</span>` : ""}${escapeHtml(stage.name)}</h2>
+                  ${/* Название — цветом этапа, но с примесью цвета текста темы: жёлтая
+                        «Подготовка» чистым #f6bd3a на светлом фоне почти не читалась. */""}
+                  <h2 style="color:color-mix(in srgb, ${color} 72%, var(--text))">${STAGE_ICONS[stage.id] ? `<span class="stage-h2-ico" style="background:color-mix(in srgb, ${color} 16%, transparent);color:${color}">${icon(STAGE_ICONS[stage.id], 14)}</span>` : ""}${escapeHtml(stage.name)}</h2>
                   <div class="stage-header-meta">
                     ${escapeHtml(stage.desc || "")}
                     · <strong>${mainCount}</strong> позиц.${optionalCount ? ` · <strong>${optionalCount}</strong> опц.` : ""}
