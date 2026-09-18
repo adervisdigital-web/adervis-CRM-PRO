@@ -352,6 +352,9 @@
       let _taskQuickAddStatus = "";
       // Поле скидки в «Итогах сметы» раскрыто кнопкой «+ Скидка» (пока скидка 0).
       let _discountEditorOpen = false;
+      // Какие строки были в списке «В смете» при прошлой отрисовке каталога —
+      // чтобы подсветить только что добавленную (null = первая отрисовка).
+      let _summaryPrevIds = null;
       const SAFE_CUSTOM_MODELS = new Set(["fixed", "fixed+qty", "perDay", "equipmentRental", "creativeWork"]);
       function catalogPlaceDefaults(place) {
         const base = BASE_ITEMS.filter(x => !isLineOnlyItem(x));
@@ -11237,6 +11240,41 @@
         render();
       }
 
+      /* Из списка «В смете» справа в каталоге — к самой позиции: этап и
+         строка раскрываются, страница доезжает до карточки и подсвечивает её. */
+      function openEstimateLine(id) {
+        const line = state.selected[id];
+        if (!line) return;
+        const itemData = findItem(id, true);
+        const stageId = line.stageId || (itemData && itemData.stage);
+        if (stageId && state.stageCollapsed) delete state.stageCollapsed[stageId];
+        state.lineCollapsed[id] = false;
+        state.dealView = "estimate";
+        go("deal");
+        requestAnimationFrame(() => {
+          const el = document.querySelector(`article.item[data-line="${CSS.escape(id)}"]`);
+          if (!el) return;
+          el.scrollIntoView({ block: "start" });
+          el.classList.add("is-located");
+          setTimeout(() => el.classList.remove("is-located"), 1600);
+        });
+      }
+
+      function removeSummaryLine(id) {
+        const line = state.selected[id];
+        if (!line) return;
+        const itemData = findItem(id, true);
+        const saved = deepClone(line);
+        const index = state.estimateOrder.indexOf(id);
+        removeItem(id);
+        toastUndo(`«${(itemData && itemData.name) || "Позиция"}» убрана из сметы`, () => {
+          state.selected[id] = saved;
+          if (!state.estimateOrder.includes(id)) state.estimateOrder.splice(index >= 0 ? index : state.estimateOrder.length, 0, id);
+          save();
+          render();
+        });
+      }
+
       function duplicateEstimateLine(id) {
         const itemData = findItem(id, true);
         const line = state.selected[id];
@@ -19463,8 +19501,32 @@
           const line = state.selected[id] || {};
           const sum = numberValue(lineBreakdown(id, line).total, 0);
           const qty = Math.max(1, Math.round(numberValue(line.qty, 1)));
-          return { name: itemData.name || "Позиция", qty, sum };
+          return { id, name: itemData.name || "Позиция", qty, sum, optional: !!line.optional, stageId: line.stageId || itemData.stage || "" };
         }).filter(Boolean) : [];
+        /* 19.09.2026, владелец: «список сделать красивее, удобнее и
+           функциональнее». Сплошной столбик из пятнадцати строк не отвечал, из
+           чего смета состоит, — строки теперь собраны по этапам сметы (тот же
+           цвет, что у этапа и у раздела каталога) с подытогом. Название ведёт к
+           позиции в смете, крестик убирает её с отменой; править количество —
+           на карточке слева, там уже есть «− 1 +». */
+        const этапы = (state.stages || []).map(st => ({ ...st, rows: строки.filter(r => r.stageId === st.id) }));
+        const безЭтапа = строки.filter(r => !(state.stages || []).some(st => st.id === r.stageId));
+        if (безЭтапа.length) этапы.push({ id: "", name: "Без этапа", color: "var(--muted)", rows: безЭтапа });
+        /* Только что добавленная строка подсвечивается и доводится в видимую
+           часть списка: иначе новая позиция уходила под край прокрутки, и
+           «добавил ли?» приходилось проверять глазами по всему столбику. */
+        const newIds = _summaryPrevIds ? строки.filter(r => !_summaryPrevIds.has(r.id)).map(r => r.id) : [];
+        const flash = newIds.length && newIds.length <= 3 ? new Set(newIds) : new Set();
+        _summaryPrevIds = new Set(строки.map(r => r.id));
+        if (flash.size) requestAnimationFrame(() => {
+          const list = document.querySelector(".summary-lines");
+          const row = list && list.querySelector(".summary-line-row.is-new");
+          if (!list || !row) return;
+          const top = row.offsetTop - list.offsetTop;
+          if (top < list.scrollTop || top + row.offsetHeight > list.scrollTop + list.clientHeight) {
+            list.scrollTop = Math.max(0, top - list.clientHeight / 2);
+          }
+        });
 
         return `
           <aside class="summary">
@@ -19479,12 +19541,24 @@
                   строки под краем. Заодно это ответ на вопрос «сколько я уже
                   набрал», за которым иначе надо уходить в смету. */""}
             ${строки.length ? `
-              <div class="summary-count">${строки.length} ${plural(строки.length, "позиция", "позиции", "позиций")}</div>
+              <div class="summary-comp-head">
+                <span>Состав</span>
+                <span class="summary-count">${строки.length} ${plural(строки.length, "позиция", "позиции", "позиций")}</span>
+              </div>
               <div class="summary-lines">
-                ${строки.map(r => `
-                  <div class="summary-line-row">
-                    <span class="summary-line-name">${escapeHtml(r.name)}${r.qty > 1 ? ` <span class="u-meta">× ${r.qty}</span>` : ""}</span>
-                    <span class="summary-line-sum">${money(r.sum)}</span>
+                ${этапы.filter(st => st.rows.length).map(st => `
+                  <div class="summary-stage" style="--stage-c:${escapeHtml(st.color || "var(--primary)")}">
+                    <div class="summary-stage-head">
+                      <span class="summary-stage-dot" aria-hidden="true"></span>
+                      <span class="summary-stage-name">${escapeHtml(st.name || "Этап")}</span>
+                      <span class="summary-stage-sum">${money(st.rows.reduce((a, r) => a + (r.optional ? 0 : r.sum), 0))}</span>
+                    </div>
+                    ${st.rows.map(r => `
+                      <div class="summary-line-row${r.optional ? " is-optional" : ""}${flash.has(r.id) ? " is-new" : ""}">
+                        <button type="button" class="summary-line-name" onclick="app.openEstimateLine('${r.id}')" title="Открыть в смете">${escapeHtml(r.name)}${r.qty > 1 ? ` <span class="u-meta">× ${r.qty}</span>` : ""}${r.optional ? ` <span class="summary-line-opt">опция</span>` : ""}</button>
+                        <span class="summary-line-sum">${money(r.sum)}</span>
+                        <button type="button" class="summary-line-remove" onclick="app.removeSummaryLine('${r.id}')" title="Убрать из сметы" aria-label="Убрать «${escapeHtml(r.name)}» из сметы">${icon("close", 10)}</button>
+                      </div>`).join("")}
                   </div>`).join("")}
               </div>
             ` : ""}
@@ -21459,7 +21533,7 @@
         const gridClass = mainFields.length >= 4 ? "four" : mainFields.length === 3 ? "three" : "two";
 
         return `
-          <article class="item ${line.optional ? "optional" : ""}" ondragstart="app.dragStart(event,'${id}')" ondragover="app.dragOver(event,'${id}')" ondragleave="app.dragLeaveLine(event)" ondrop="app.dropOn(event,'${id}')" ondragend="app.dragEndLine(event)">
+          <article class="item ${line.optional ? "optional" : ""}" data-line="${escapeHtml(id)}" ondragstart="app.dragStart(event,'${id}')" ondragover="app.dragOver(event,'${id}')" ondragleave="app.dragLeaveLine(event)" ondrop="app.dropOn(event,'${id}')" ondragend="app.dragEndLine(event)">
             <div class="item-top">
               <div style="display:flex;gap:12px;flex:1;min-width:0">
         ${dragHandleHtml({ title: "Потяните, чтобы переставить позицию", attrs: `onmousedown="this.closest('.item').draggable=true" onmouseup="this.closest('.item').draggable=false"` })}
@@ -31999,6 +32073,8 @@ Email: _____________________              Email: _____________________
         catalogAddOne,
         catalogRemoveOne,
         removeItem,
+        removeSummaryLine,
+        openEstimateLine,
         duplicateEstimateLine,
         duplicateToCustom,
         hideCatalogItem,

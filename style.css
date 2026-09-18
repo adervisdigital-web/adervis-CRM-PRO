@@ -6445,26 +6445,92 @@
          длиннее двух строк в каталоге нет. */
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
-    /* Состав сметы в правой колонке каталога: только чтение, поэтому строка
-       проще, чем в редакторе пакета — имя и сумма. Имени разрешено переноситься:
-       обрезка названия и была главной жалобой на соседний список. */
-    .summary-count {
-      margin-top: 10px; text-align: right;
-      font-size: 12px; font-weight: 600; color: var(--muted);
-      font-variant-numeric: tabular-nums;
+    /* Состав сметы в правой колонке каталога (19.09.2026: «сделать красивее,
+       удобнее и функциональнее»). Строки собраны по этапам сметы — точка и
+       подпись цветом этапа, подытог справа. Название — кнопка «к позиции в
+       смете», крестик убирает строку (с отменой в тосте). Имени разрешено
+       переноситься: обрезка названия была главной жалобой на соседний список.
+       Место под крестик держится всегда — иначе суммы прыгали бы при наведении. */
+    .summary-comp-head {
+      margin-top: 14px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+      font-size: 12px; font-weight: 700; color: var(--muted);
     }
-    .summary-count + .summary-lines { margin-top: 6px; }
+    .summary-count { font-weight: 600; font-variant-numeric: tabular-nums; }
     .summary-lines {
-      margin-top: 12px; padding-top: 10px;
+      margin-top: 8px; padding-top: 6px;
       border-top: 1px solid var(--line);
-      display: flex; flex-direction: column; gap: 7px;
-      max-height: min(38vh, 320px); overflow-y: auto;
+      display: flex; flex-direction: column; gap: 12px;
+      max-height: min(56vh, 520px); overflow-y: auto; overscroll-behavior: contain;
     }
-    .summary-line-row { display: flex; align-items: baseline; gap: 10px; }
-    .summary-line-name { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.35; }
+    /* Строки вплотную: линия этапа слева — сплошная, а не пунктир. */
+    .summary-stage { display: flex; flex-direction: column; }
+    .summary-stage-head {
+      display: flex; align-items: center; gap: 8px; padding: 6px 4px 4px 6px;
+      font-size: 11.5px; font-weight: 700; letter-spacing: .02em;
+      /* Липкий: в прокрученном списке видно, чьи строки под глазами. Фон —
+         плотный двойник --panel колонки, иначе строки просвечивали бы.
+         top = минус отступ списка: липкость считается от его padding-box. */
+      position: sticky; top: -6px; z-index: 2; background: var(--bg2);
+      /* 50%, а не 72% как у заголовка этапа в смете: там кегль крупный, тут
+         11.5px — жёлтая «Подготовка» на белом при 72% давала ~2.9:1. */
+      color: color-mix(in srgb, var(--stage-c) 50%, var(--text));
+    }
+    .summary-stage-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--stage-c); }
+    .summary-stage-name { flex: 1; min-width: 0; }
+    .summary-stage-sum { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .summary-line-row {
+      display: flex; align-items: flex-start; gap: 6px;
+      padding: 4px 4px 4px 8px;
+      border-left: 2px solid color-mix(in srgb, var(--stage-c) 40%, transparent);
+      border-radius: 0 var(--r-sm) var(--r-sm) 0;
+      transition: background .15s;
+    }
+    .summary-line-row:hover, .summary-line-row:focus-within { background: rgb(var(--primary-rgb) / .06); }
+    .summary-line-row.is-new { animation: summary-line-in 1.6s ease-out; }
+    @keyframes summary-line-in {
+      0%, 35% { background: rgb(var(--primary-rgb) / .18); }
+      100% { background: transparent; }
+    }
+    .summary-line-name {
+      flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; background: none;
+      font: inherit; font-size: 12.5px; line-height: 1.35; text-align: left; color: var(--text);
+      cursor: pointer; transition: color .15s;
+    }
+    .summary-line-name:hover { color: var(--primary-text); }
+    .summary-line-opt {
+      display: inline-block; padding: 0 6px; border: 1px solid var(--line); border-radius: var(--r-pill);
+      font-size: 10.5px; font-weight: 700; color: var(--muted); vertical-align: 1px;
+    }
     .summary-line-sum {
-      flex: 0 0 auto; font-size: 12.5px; font-weight: 700;
+      flex: 0 0 auto; font-size: 12.5px; line-height: 1.35; font-weight: 700;
       font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .summary-line-row.is-optional .summary-line-sum { color: var(--muted); font-weight: 600; }
+    .summary-line-remove {
+      position: relative; flex: 0 0 auto; width: 18px; height: 18px;
+      display: inline-grid; place-items: center;
+      margin: 0; padding: 0; border: 0; border-radius: var(--r-sm); background: none;
+      color: var(--muted); cursor: pointer; opacity: 0;
+      transition: opacity .15s, color .15s, background .15s;
+    }
+    .summary-line-row:hover .summary-line-remove, .summary-line-remove:focus-visible { opacity: 1; }
+    .summary-line-remove:hover { color: var(--text-danger); background: color-mix(in srgb, var(--red) 12%, transparent); }
+    /* Палец: строка 44px, и вся она — цель «к позиции» (::after названия
+       растянут на строку). Крестик виден всегда и лежит слоем выше; его цель
+       44×44 уходит вправо, в пустые поля колонки, а не на сумму слева. */
+    @media (hover: none) and (pointer: coarse) {
+      .summary-line-row { position: relative; min-height: 44px; align-items: center; }
+      .summary-line-name::after { content: ""; position: absolute; inset: 0; }
+      .summary-line-remove { opacity: 1; z-index: 1; }
+      .summary-line-remove::after { content: ""; position: absolute; inset: -13px -20px -13px -6px; }
+    }
+    /* Позиция, к которой пришли из списка каталога, — короткая подсветка рамкой. */
+    /* scroll-margin — чтобы начало карточки не уходило под липкую шапку. */
+    .item[data-line] { scroll-margin-top: 96px; }
+    .item.is-located { animation: line-located 1.6s ease-out; }
+    @keyframes line-located {
+      0%, 40% { box-shadow: 0 0 0 2px var(--primary); }
+      100% { box-shadow: 0 0 0 2px transparent; }
     }
 
     .pkg-item-meta { display: flex; align-items: center; gap: 8px; }

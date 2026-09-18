@@ -5617,6 +5617,84 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("каталог: состав справа — по этапам, крестик с отменой, название ведёт к позиции", async () => {
+    /* Владелец 19.09.2026: «список сделать красивее, удобнее и функциональнее».
+       Сплошной столбик строк стал группами по этапам сметы с подытогом;
+       только что добавленная позиция подсвечивается и видна без прокрутки;
+       крестик убирает строку, «Отменить» возвращает её на то же место;
+       название ведёт к самой позиции в смете. */
+    const { context: ctx, page: p, errors } =
+      await bootLocal(browser, baseUrl, { width: 1400, height: 900, seedDemo: true });
+    const num = (x) => Number(String(x || "").replace(/[^\d]/g, ""));
+    const rows = () => p.$$eval(".summary-line-row", (r) => r.length);
+    const total = async () => num(await p.textContent(".summary-total strong"));
+    try {
+      const id = await p.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state")).savedProjects[0].id);
+      await p.evaluate((i) => { window.app.selectActiveDeal(i); window.app.go("catalog"); }, id);
+      await p.waitForTimeout(500);
+
+      const groups = await p.evaluate(() => [...document.querySelectorAll(".summary-stage")].map((g) => ({
+        name: g.querySelector(".summary-stage-name").textContent.trim(),
+        sum: g.querySelector(".summary-stage-sum").textContent,
+        rows: [...g.querySelectorAll(".summary-line-row:not(.is-optional) .summary-line-sum")].map((x) => x.textContent),
+      })));
+      assert(groups.length >= 2, "строки состава не разложены по этапам: групп " + groups.length);
+      for (const g of groups) {
+        assertEqual(num(g.sum), g.rows.reduce((a, x) => a + num(x), 0), `подытог этапа «${g.name}» не равен сумме его строк`);
+      }
+      const n0 = await rows();
+
+      await p.evaluate(() => {
+        const bt = document.querySelector(".catalog-grid .catalog-add-btn");
+        window.app.catalogAddOne(bt.getAttribute("onclick").match(/catalogAddOne\('([^']+)'/)[1]);
+      });
+      await p.waitForTimeout(300);
+      assertEqual(await rows(), n0 + 1, "добавленная позиция не появилась в составе");
+      const fresh = await p.evaluate(() => {
+        const r = document.querySelector(".summary-line-row.is-new");
+        const l = document.querySelector(".summary-lines");
+        if (!r) return null;
+        const a = r.getBoundingClientRect(), b = l.getBoundingClientRect();
+        return a.top >= b.top - 1 && a.bottom <= b.bottom + 1;
+      });
+      assert(fresh !== null, "только что добавленная позиция не подсвечена");
+      assert(fresh, "только что добавленная позиция осталась за краем прокрутки списка");
+
+      const t0 = await total();
+      const first = await p.evaluate(() => document.querySelector(".summary-line-row .summary-line-name").textContent.trim());
+      await p.hover(".summary-line-row >> nth=0");
+      await p.click(".summary-line-row >> nth=0 >> .summary-line-remove");
+      await p.waitForTimeout(300);
+      assertEqual(await rows(), n0, "крестик не убрал строку из сметы");
+      assert((await total()) < t0, "после крестика итог не уменьшился");
+      await p.click("#toast .toast-undo");
+      await p.waitForTimeout(300);
+      assertEqual(await rows(), n0 + 1, "«Отменить» не вернуло строку");
+      assertEqual(await total(), t0, "после отмены итог не тот, что был");
+      assertEqual(await p.evaluate(() => document.querySelector(".summary-line-row .summary-line-name").textContent.trim()), first,
+        "строка вернулась не на своё место");
+
+      // Сверяем по id строки: у раскрытой позиции название лежит в поле ввода.
+      const target = await p.evaluate(() => document.querySelectorAll(".summary-line-name")[3]
+        .getAttribute("onclick").match(/openEstimateLine\('([^']+)'/)[1]);
+      await p.click(".summary-line-name >> nth=3");
+      await p.waitForTimeout(500);
+      const loc = await p.evaluate(() => {
+        const el = document.querySelector("article.item.is-located");
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { inView: r.top >= 0 && r.top < innerHeight, id: el.dataset.line };
+      });
+      assert(loc, "нажатие на название не привело к позиции в смете");
+      assert(loc.inView, "позиция в смете осталась за краем экрана");
+      assertEqual(loc.id, target, "открылась не та позиция сметы");
+
+      assertEqual(errors.length, 0, "исключения на странице: " + errors.join(" | "));
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("пакеты: избранное и скрытые работают, как в каталоге", async () => {
     /* Просьба владельца 04.09.2026: «в пакетах не хватает ещё двух строчек в
        навигации». У каталога «Избранное» и «Скрытые» были с самого начала, у

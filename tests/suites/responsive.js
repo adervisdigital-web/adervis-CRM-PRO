@@ -1562,8 +1562,21 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
         if (!nav) return [];
         const navTop = nav.getBoundingClientRect().top;
         const root = document.getElementById("appContent");
+        /* Видимая часть, а не полный прямоугольник: строки внутри списка с
+           собственной прокруткой (состав сметы в каталоге, 19.09) лежат ниже его
+           края, но обрезаны им и на экране их нет — под панелью они не прячутся. */
+        const visible = (e) => {
+          const r = e.getBoundingClientRect();
+          let top = r.top, bottom = r.bottom;
+          for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) {
+            if (getComputedStyle(a).overflowY === "visible") continue;
+            const ar = a.getBoundingClientRect();
+            top = Math.max(top, ar.top); bottom = Math.min(bottom, ar.bottom);
+          }
+          return { top, bottom, height: bottom - top };
+        };
         return [...root.querySelectorAll("button, .btn, a[href], input, select, textarea")]
-          .map((e) => ({ e, r: e.getBoundingClientRect() }))
+          .map((e) => ({ e, r: visible(e) }))
           .filter((x) => x.r.height > 2 && x.r.bottom > navTop + 1 && x.r.top < window.innerHeight)
           .map((x) => ((x.e.textContent || "").trim().slice(0, 22) || x.e.tagName) + ` (${Math.round(x.r.top)}..${Math.round(x.r.bottom)})`)
           .slice(0, 3);
