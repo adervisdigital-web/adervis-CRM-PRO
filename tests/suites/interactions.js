@@ -6292,8 +6292,11 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
   /* Скидка клиенту — в «Итогах сметы» (владелец 19.09.2026: «сделай
      возможность делать скидку клиенту»). Поле «Скидка, %» было, но во вкладке
-     «Описание». Теперь «+ Скидка» в итогах, процент или рубли; переключение не
-     меняет скидку в рублях; крестик убирает. Попутно: свёрнутый этап — один
+     «Описание». Теперь кнопка «Скидка» в строке кнопок сметы рядом с «Свернуть
+     всё» (владелец: «скидку вынести ко всем кнопкам»), окошко — процент или
+     рубли; переключение не меняет скидку в рублях; «Убрать скидку» убирает;
+     щелчок мимо окошка сохраняет набранное. В итогах — только строка «Скидка»,
+     когда она задана. Налог в той же строке — коротким «НПД 7%». Попутно: свёрнутый этап — один
      заголовок без строки-повтора и сворачивается нажатием на заголовок; у
      сделки в архиве строка этапов говорит «В архиве». */
   await test("смета: скидка в итогах — % и ₽, переключение не меняет сумму, архив и свёрнутый этап", async () => {
@@ -6308,7 +6311,8 @@ module.exports = async function ({ browser, baseUrl, test }) {
       const t0 = await total();
       assert(t0 > 0, "в демо-смете нет итога");
 
-      await p.click(".summary-discount-add");
+      assert(!(await p.$("aside.summary .summary-discount-line")), "строка скидки в итогах без скидки");
+      await p.click(".estimate-discount-btn");
       await p.waitForTimeout(250);
       assert(await p.evaluate(() => document.activeElement?.classList.contains("summary-discount-input")), "поле скидки не получило фокус");
       await p.keyboard.type("10"); await p.keyboard.press("Enter");
@@ -6317,6 +6321,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assertEqual(t1, Math.round(t0 * 0.9), "скидка 10% не вычлась из итога (налог в демо не задан)");
       const off = num(await p.evaluate(() => document.querySelector(".summary-discount-sum")?.textContent));
       assertEqual(off, t0 - t1, "строка скидки показывает не ту сумму");
+      assert(await p.evaluate(() => { const bt = document.querySelector(".estimate-discount-btn"); return bt.classList.contains("is-set") && /10%/.test(bt.textContent); }), "кнопка не говорит «Скидка −10%»");
 
       await p.click('.summary-discount-unit button:has-text("₽")');
       await p.waitForTimeout(400);
@@ -6331,10 +6336,33 @@ module.exports = async function ({ browser, baseUrl, test }) {
       const head = num(await p.evaluate(() => document.querySelector(".deal-stat-item strong")?.textContent));
       assertEqual(head, t0 - 5000, "итог в шапке сделки не учёл скидку");
 
-      await p.click(".summary-discount-clear");
+      await p.click(".estimate-discount-clear");
       await p.waitForTimeout(400);
-      assertEqual(await total(), t0, "крестик не убрал скидку");
-      assert(await p.$(".summary-discount-add"), "после сброса не вернулась кнопка «+ Скидка»");
+      assertEqual(await total(), t0, "«Убрать скидку» не убрало скидку");
+      assert(!(await p.$(".summary-discount-line")), "после сброса в итогах осталась строка скидки");
+      assert(!(await p.$(".estimate-discount-btn.is-set")), "после сброса кнопка всё ещё показывает скидку");
+      assert(!(await p.$(".estimate-discount-pop")), "после сброса окошко скидки не закрылось");
+
+      // Набрал и щёлкнул мимо — набранное сохраняется, окошко закрывается.
+      // Единица после сброса запоминается: последней была «₽», значит 20 — рубли.
+      await p.click(".estimate-discount-btn");
+      await p.waitForTimeout(250);
+      await p.keyboard.type("20");
+      await p.click(".summary-total");
+      await p.waitForTimeout(400);
+      assert(!(await p.$(".estimate-discount-pop")), "щелчок мимо не закрыл окошко скидки");
+      assertEqual(await total(), t0 - 20, "щелчок мимо потерял набранную скидку");
+      await p.evaluate(() => window.app.clearProjectDiscount());
+      await p.waitForTimeout(300);
+
+      // Налог в строке кнопок — короткой подписью, полное название в списке.
+      await p.evaluate(() => window.app.updateProject("taxType", "npd7"));
+      await p.waitForTimeout(400);
+      const tax = await p.evaluate(() => { const bt = document.querySelector(".uu-select-btn[aria-label='Налог в смете'], .uu-select-btn[title='Налог в смете']");
+        return bt && { text: bt.textContent.trim(), w: Math.round(bt.getBoundingClientRect().width) }; });
+      assert(tax, "у выбора налога в смете нет подписи «Налог в смете»");
+      assertEqual(tax.text, "НПД 7%", "налог в строке кнопок не короткой подписью");
+      assert(tax.w <= 130, "кнопка налога снова широкая: " + tax.w + "px");
 
       // Свёрнутый этап: без строки-повтора, сворачивается нажатием на заголовок.
       const bodies = () => p.evaluate(() => document.querySelectorAll(".estimate-stage .stage-body").length);
@@ -6379,16 +6407,16 @@ module.exports = async function ({ browser, baseUrl, test }) {
       const withLines = await p.evaluate(() => ({
         clearLink: !!document.querySelector("aside.summary .summary-clear-link"),
         clearBtnFull: !!document.querySelector("aside.summary .btn.full[onclick*='clearEstimate']"),
-        discountRow: !!document.querySelector("aside.summary .summary-discount-add"),
+        discountBtn: !!document.querySelector(".estimate-discount-btn"),
       }));
       assert(withLines.clearLink && !withLines.clearBtnFull, "«Очистить смету» снова кнопкой во всю ширину");
-      assert(withLines.discountRow, "у сметы с позициями нет строки «Скидка»");
+      assert(withLines.discountBtn, "у сметы с позициями нет кнопки «Скидка»");
 
       await p.evaluate(() => window.app.selectActiveDeal("emptyDeal"));
       await p.waitForTimeout(500);
       const empty = await p.evaluate(() => {
         const a = document.querySelector("aside.summary");
-        return { note: !!a.querySelector(".summary-empty-note"), zeros: /Прибыль|Расходы|Оплачено/.test(a.textContent), discount: !!a.querySelector(".summary-discount-add") };
+        return { note: !!a.querySelector(".summary-empty-note"), zeros: /Прибыль|Расходы|Оплачено/.test(a.textContent), discount: !!document.querySelector(".estimate-discount-btn") };
       });
       assert(empty.note, "у пустой сметы нет подсказки вместо нулей");
       assert(!empty.zeros, "у пустой сметы снова столбик «Оплачено / Расходы / Прибыль» из нулей");

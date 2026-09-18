@@ -418,17 +418,17 @@
       // Реальные налоговые режимы РФ (не абстрактные проценты) — актуально для
       // видеопродакшн-агентства/самозанятого/ИП, для которых и считается смета.
       const TAX_OPTIONS = [
-        { id: "none", label: "Без налога", rate: 0 },
-        { id: "npd4", label: "Самозанятый (НПД), с физлицами — 4%", rate: 0.04 },
-        { id: "tax6", label: "Самозанятый (НПД), с юрлицами/ИП — 6%", rate: 0.06 },
+        { id: "none", label: "Без налога", short: "Без налога", rate: 0 },
+        { id: "npd4", label: "Самозанятый (НПД), с физлицами — 4%", short: "НПД 4%", rate: 0.04 },
+        { id: "tax6", label: "Самозанятый (НПД), с юрлицами/ИП — 6%", short: "НПД 6%", rate: 0.06 },
         // 7% — не налоговая ставка, а рабочая практика: налог платится со всего
         // годового дохода, а не с конкретного проекта, поэтому в смету закладывается
         // с запасом. Так считает владелец в своих реальных сметах.
-        { id: "npd7", label: "Самозанятый (НПД) — 7% с запасом", rate: 0.07 },
-        { id: "usn6", label: "УСН «Доходы» — 6%", rate: 0.06 },
-        { id: "ndfl13", label: "ИП на ОСНО (НДФЛ) — 13%", rate: 0.13 },
-        { id: "usn15", label: "УСН «Доходы минус расходы» — 15%", rate: 0.15 },
-        { id: "vat20", label: "НДС — 20%", rate: 0.20 }
+        { id: "npd7", label: "Самозанятый (НПД) — 7% с запасом", short: "НПД 7%", rate: 0.07 },
+        { id: "usn6", label: "УСН «Доходы» — 6%", short: "УСН 6%", rate: 0.06 },
+        { id: "ndfl13", label: "ИП на ОСНО (НДФЛ) — 13%", short: "НДФЛ 13%", rate: 0.13 },
+        { id: "usn15", label: "УСН «Доходы минус расходы» — 15%", short: "УСН 15%", rate: 0.15 },
+        { id: "vat20", label: "НДС — 20%", short: "НДС 20%", rate: 0.20 }
       ];
 
       // «Оплата» стоит между «Сдано» и «Завершённые» намеренно: по договору 50/50
@@ -543,6 +543,7 @@
         chart:    `<path d="M2.2 9.2h2.3v4.9H2.2V9.2zm4.7-5.4h2.3v10.3H6.9V3.8zm4.7 3.2h2.3v7.1h-2.3V7z"/>`,
         lock:     `<path d="M5 6V4.5a3 3 0 116 0V6h.5a1 1 0 011 1v6a1 1 0 01-1 1h-8a1 1 0 01-1-1V7a1 1 0 011-1H5zm1.5 0h3V4.5a1.5 1.5 0 00-3 0V6z"/>`,
         unlock:   `<path d="M11.5 6V4.3a3.3 3.3 0 00-6.5-.8l1.4.4a1.8 1.8 0 013.6.4V6H4.5a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V7a1 1 0 00-1-1h-1z"/>`,
+        percent:  `<path d="M4.5 2.3a2.2 2.2 0 110 4.4 2.2 2.2 0 010-4.4zm0 1.3a.9.9 0 100 1.8.9.9 0 000-1.8zM11.5 9.3a2.2 2.2 0 110 4.4 2.2 2.2 0 010-4.4zm0 1.3a.9.9 0 100 1.8.9.9 0 000-1.8zM12.2 2.8l1 1-9.4 9.4-1-1z"/>`,
         gift:     `<path d="M2 6h12v2H2V6zm1 3h4.25v5H3V9zm5.75 0H13v5H8.75V9zM6 2.5a1.5 1.5 0 011.5 1.5v1H6a1.5 1.5 0 010-3zM10 2.5a1.5 1.5 0 00-1.5 1.5v1H10a1.5 1.5 0 000-3z"/>`,
         camera:   `<path d="M5.5 3l-.8 1.5H2a1 1 0 00-1 1V13a1 1 0 001 1h12a1 1 0 001-1V5.5a1 1 0 00-1-1h-2.7L10.5 3h-5zM8 6a3.2 3.2 0 110 6.4A3.2 3.2 0 018 6z"/>`,
         key:      `<path d="M10 1a4 4 0 00-3.9 5L1 11.1V15h4l.9-.9v-1.4h1.4l.9-.9v-1.4h1.4l1-1A4 4 0 1010 1zm1.2 2.6a1 1 0 110 2 1 1 0 010-2z"/>`,
@@ -8366,7 +8367,8 @@
       }
 
       function taxOptionsHtml(selected) {
-        return TAX_OPTIONS.map(option => optionValueHtml(option.id, option.label, selected)).join("");
+        // data-short — короткая подпись в закрытой кнопке (см. enhanceSelects).
+        return TAX_OPTIONS.map(option => `<option value="${escapeHtml(option.id)}" data-short="${escapeHtml(option.short || option.label)}" ${option.id === selected ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("");
       }
 
       const DEFAULT_KB_DOCS = [
@@ -11798,8 +11800,57 @@
         _discountEditorOpen = true;
         render();
         const el = document.querySelector(".summary-discount-input");
-        if (el) el.focus();
+        if (el) { el.focus(); el.select(); }
       }
+      function toggleDiscountEditor() {
+        if (_discountEditorOpen) { _discountEditorOpen = false; render(); }
+        else openDiscountEditor();
+      }
+
+      /* Кнопка «Скидка» — в ряду кнопок сметы, рядом с «Свернуть всё / Услуги /
+         Пакет» (владелец 19.09.2026: «скидку вынести ко всем кнопкам»). По
+         нажатию под ней окошко: поле, %/₽, «Убрать». Когда скидка задана, кнопка
+         сама её называет («Скидка −10%»), а в «Итогах» — строка с суммой.
+         Окошко закрывается повторным нажатием, Esc или щелчком мимо. */
+      function renderEstimateDiscountButton(t) {
+        const isAmount = state.project.discountType === "amount";
+        const v = numberValue(state.project.discount, 0);
+        const set = t.discount > 0;
+        const label = !set ? "Скидка" : isAmount ? `Скидка −${money(t.discount)}` : `Скидка −${String(v).replace(".", ",")}%`;
+        return `
+          <div class="estimate-discount">
+            <button type="button" class="btn small estimate-discount-btn ${set ? "is-set" : ""}" aria-expanded="${_discountEditorOpen}"
+              onclick="app.toggleDiscountEditor()" title="Скидка клиенту — процентом или суммой">${icon("percent", 13)} ${label}</button>
+            ${_discountEditorOpen ? `
+            <div class="estimate-discount-pop" role="group" aria-label="Скидка клиенту">
+              <div class="estimate-discount-row">
+                <input class="summary-discount-input" type="text" inputmode="decimal" autocomplete="off"
+                  value="${v ? escapeHtml(isAmount ? groupDigits(v) : String(v).replace(".", ",")) : ""}" placeholder="0"
+                  aria-label="Скидка клиенту, ${isAmount ? "в рублях" : "в процентах"}"
+                  onchange="app.setProjectDiscount(this.value)"
+                  onkeydown="if(event.key==='Enter')this.blur();else if(event.key==='Escape'){event.stopPropagation();app.toggleDiscountEditor()}">
+                <span class="summary-discount-unit" role="group" aria-label="Скидка в процентах или в рублях">
+                  <button type="button" class="${isAmount ? "" : "active"}" aria-pressed="${!isAmount}" onclick="app.setProjectDiscountType('percent')">%</button>
+                  <button type="button" class="${isAmount ? "active" : ""}" aria-pressed="${isAmount}" onclick="app.setProjectDiscountType('amount')">₽</button>
+                </span>
+              </div>
+              <div class="estimate-discount-hint">${set ? `− ${money(t.discount)} от ${money(t.base)}` : `от суммы работ ${money(t.base)}`}</div>
+              ${set ? `<button type="button" class="estimate-discount-clear" onclick="app.clearProjectDiscount()">${icon("close", 11)} Убрать скидку</button>` : ""}
+            </div>` : ""}
+          </div>`;
+      }
+      // Щелчок мимо окошка скидки закрывает его — без перерисовки: окошко
+      // просто убираем, чтобы не перебить то, куда человек нажал.
+      document.addEventListener("pointerdown", e => {
+        if (!_discountEditorOpen || (e.target.closest && e.target.closest(".estimate-discount"))) return;
+        _discountEditorOpen = false;
+        // Вписали и сразу щёлкнули мимо: change у поля ещё не наступил, а поле
+        // сейчас исчезнет — сохраняем вписанное сами.
+        const inp = document.querySelector(".estimate-discount-pop .summary-discount-input");
+        if (inp && inp.value !== inp.defaultValue) { setProjectDiscount(inp.value); return; }
+        document.querySelectorAll(".estimate-discount-pop").forEach(el => el.remove());
+        document.querySelectorAll(".estimate-discount-btn").forEach(el => el.setAttribute("aria-expanded", "false"));
+      }, true);
       function setProjectDiscount(raw) {
         const base = totals().base;
         let v = numberValue(String(raw ?? "").replace(/[\s  ]/g, "").replace(",", "."), 0);
@@ -16335,7 +16386,9 @@
           if (sel.disabled) btn.disabled = true;
           const sync = () => {
             const o = sel.options[sel.selectedIndex];
-            btn.innerHTML = `<span class="uu-select-label">${escapeHtml(o ? o.text : "")}</span>${_UU_CHEV}`;
+            // data-short — короткая подпись для закрытой кнопки (налог в смете:
+            // «НПД 7%» вместо «Самозанятый (НПД) — 7% с запасом»); в списке — полная.
+            btn.innerHTML = `<span class="uu-select-label">${escapeHtml(o ? (o.dataset.short || o.text) : "")}</span>${_UU_CHEV}`;
           };
           sync();
           sel._uuSync = sync;
@@ -19496,32 +19549,10 @@
               }).join("");
             })() : ""}
 
-            ${/* Скидка клиенту — здесь, где её и обсуждают (см. setProjectDiscount).
-                  Пока скидки нет — строкой «Скидка · Добавить», как налог рядом (была
-                  пунктирная капсула «+ Скидка» — владелец: «не видно и не красиво»).
-                  У пустой сметы и у сделки «одной суммой» скидку не к чему применять. */""}
-            ${d.budgetOnly || !(t.base > 0) ? "" : (t.discount > 0 || _discountEditorOpen) ? (() => {
-              const isAmount = state.project.discountType === "amount";
-              const v = numberValue(state.project.discount, 0);
-              return `
-              <div class="summary-discount">
-                <span class="summary-discount-label">Скидка</span>
-                <span class="summary-discount-ctl no-print">
-                  <input class="summary-discount-input" type="text" inputmode="decimal" autocomplete="off"
-                    value="${v ? escapeHtml(isAmount ? groupDigits(v) : String(v).replace(".", ",")) : ""}" placeholder="0"
-                    aria-label="Скидка клиенту, ${isAmount ? "в рублях" : "в процентах"}"
-                    onchange="app.setProjectDiscount(this.value)" onkeydown="if(event.key==='Enter')this.blur()">
-                  <span class="summary-discount-unit" role="group" aria-label="Скидка в процентах или в рублях">
-                    <button type="button" class="${isAmount ? "" : "active"}" aria-pressed="${!isAmount}" onclick="app.setProjectDiscountType('percent')">%</button>
-                    <button type="button" class="${isAmount ? "active" : ""}" aria-pressed="${isAmount}" onclick="app.setProjectDiscountType('amount')">₽</button>
-                  </span>
-                </span>
-                <strong class="summary-discount-sum">${t.discount > 0 ? "− " + money(t.discount) : "—"}</strong>
-                <button type="button" class="summary-discount-clear no-print" onclick="app.clearProjectDiscount()" title="Убрать скидку" aria-label="Убрать скидку">${icon("close", 12)}</button>
-              </div>`;
-            })() : `<button type="button" class="summary-discount-add no-print" onclick="app.openDiscountEditor()" title="Скидка клиенту — процентом или суммой">
-              <span>Скидка</span><span class="summary-discount-cta">Добавить${icon("chevron", 11)}</span>
-            </button>`}
+            ${/* Скидка задаётся кнопкой «Скидка» в ряду кнопок сметы (владелец
+                  19.09.2026: «вынести ко всем кнопкам», см. renderEstimateDiscountButton).
+                  Здесь — только результат, строкой того же строя, что налог. */""}
+            ${t.discount > 0 && !d.budgetOnly ? `<div class="summary-line summary-discount-line"><span>Скидка${state.project.discountType === "amount" ? "" : ` ${String(numberValue(state.project.discount, 0)).replace(".", ",")}%`}</span><strong class="summary-discount-sum">− ${money(t.discount)}</strong></div>` : ""}
             ${t.tax ? `<div class="summary-line"><span>Налог</span><strong>${money(t.tax)}</strong></div>` : ""}
 
             <div class="summary-total">
@@ -21231,7 +21262,7 @@
                        самому длинному варианту («Самозанятый (НПД), с юрлицами/ИП — 6%»),
                        и на телефоне селект уезжал за край экрана, утаскивая страницу вбок
                        (замер на 390px: −63px). Та же грабля, что с тулбаром каталога. -->
-                  <select data-autosave data-scope="project" data-key="taxType" style="width:auto;max-width:100%;padding:5px 30px 5px 10px;font-size:12px;border-radius:10px;margin-left:4px">
+                  <select data-autosave data-scope="project" data-key="taxType" title="Налог в смете" aria-label="Налог в смете" style="width:auto;max-width:100%;padding:5px 30px 5px 10px;font-size:12px;border-radius:10px;margin-left:4px">
                     ${taxOptionsHtml(state.project.taxType)}
                   </select>
                   ${(() => {
@@ -21259,6 +21290,7 @@
                       вплотную и читались одной длинной подписью («Свернуть всё+
                       Услуги»). Зазор из шкалы DESIGN.md. */""}
                 <div class="toolbar no-print" style="gap:8px;flex-direction:row;flex-wrap:wrap">
+                  ${renderEstimateDiscountButton(t)}
                   <button class="btn small estimate-collapse-all-btn ${allStagesCollapsed ? "collapsed" : ""}" onclick="app.toggleAllEstimate()" title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
                     ${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}
@@ -31988,6 +32020,7 @@ Email: _____________________              Email: _____________________
 
         updateProject,
         openDiscountEditor,
+        toggleDiscountEditor,
         setProjectDiscount,
         setProjectDiscountType,
         clearProjectDiscount,
