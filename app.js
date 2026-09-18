@@ -342,6 +342,8 @@
       let _placePickerOpenId = "";
       // В какой колонке доски «Задачи» открыто быстрое добавление (как в Trello).
       let _taskQuickAddStatus = "";
+      // Поле скидки в «Итогах сметы» раскрыто кнопкой «+ Скидка» (пока скидка 0).
+      let _discountEditorOpen = false;
       const SAFE_CUSTOM_MODELS = new Set(["fixed", "fixed+qty", "perDay", "equipmentRental", "creativeWork"]);
       function catalogPlaceDefaults(place) {
         const base = BASE_ITEMS.filter(x => !isLineOnlyItem(x));
@@ -8708,6 +8710,8 @@
             days: 1,
             currency: "₽",
             discount: 0,
+            // "percent" — discount в процентах, "amount" — в рублях (totals()).
+            discountType: "percent",
             taxType: "none",
             deadline: "",
             manager: "",
@@ -10409,7 +10413,13 @@
           else base += sum;
         });
 
-        const discount = base * Math.min(100, Math.max(0, numberValue(state.project.discount, 0))) / 100;
+        /* Скидка клиенту — процентом или суммой (discountType "amount"): клиенту
+           чаще обещают круглую сумму («минус 10 000»), чем процент. Сумма не
+           больше сметы — иначе итог ушёл бы в минус. */
+        const discountValue = Math.max(0, numberValue(state.project.discount, 0));
+        const discount = state.project.discountType === "amount"
+          ? Math.min(base, discountValue)
+          : base * Math.min(100, discountValue) / 100;
         const afterDiscount = Math.max(0, base - discount);
         const taxRate = taxRateByType(state.project.taxType);
         const tax = afterDiscount * taxRate;
@@ -11748,6 +11758,51 @@
           ? `<optgroup label="${escapeHtml(title)}">${arr.map(p => optionValueHtml(p.id, label(p), selectedId)).join("")}</optgroup>`
           : "";
         return group("В работе", active) + group(`Завершённые · ${done.length}`, done);
+      }
+
+      /* Скидка клиенту — прямо в «Итогах сметы» (просьба владельца 19.09.2026).
+         Поле «Скидка, %» было, но во вкладке «Описание», среди данных проекта, —
+         из сметы, где о скидке и договариваются, его было не найти.
+         Процент или сумма: переключение не меняет саму скидку в рублях
+         (10% от 162 533 → 16 253 ₽ и обратно), чтобы щелчок по «₽» не
+         переписал договорённость. */
+      function openDiscountEditor() {
+        _discountEditorOpen = true;
+        render();
+        const el = document.querySelector(".summary-discount-input");
+        if (el) el.focus();
+      }
+      function setProjectDiscount(raw) {
+        const base = totals().base;
+        let v = numberValue(String(raw ?? "").replace(/[\s  ]/g, "").replace(",", "."), 0);
+        v = state.project.discountType === "amount"
+          ? Math.min(Math.round(v), Math.round(base))
+          : Math.min(100, Math.round(v * 10) / 10);
+        state.project.discount = Math.max(0, v);
+        if (!state.project.discount) _discountEditorOpen = false;
+        save();
+        render();
+      }
+      function setProjectDiscountType(type) {
+        if (type !== "percent" && type !== "amount") return;
+        const cur = state.project.discountType === "amount" ? "amount" : "percent";
+        if (cur !== type) {
+          const base = totals().base;
+          const v = numberValue(state.project.discount, 0);
+          state.project.discount = type === "amount"
+            ? Math.round(base * Math.min(100, v) / 100)
+            : (base > 0 ? Math.round(v / base * 1000) / 10 : 0);
+          state.project.discountType = type;
+        }
+        _discountEditorOpen = true;
+        save();
+        render();
+      }
+      function clearProjectDiscount() {
+        state.project.discount = 0;
+        _discountEditorOpen = false;
+        save();
+        render();
       }
 
       function updateProject(key, value) {
@@ -15904,7 +15959,11 @@
           <div class="grid four" style="margin-top:14px">
             ${field("Дедлайн", `<input type="date" data-autosave data-scope="project" data-key="deadline" value="${escapeHtml(state.project.deadline)}">`)}
             ${field("Менеджер", `<input data-autosave data-scope="project" data-key="manager" value="${escapeHtml(state.project.manager)}">`)}
-            ${field("Скидка, %", `<input type="number" min="0" max="100" data-autosave data-scope="project" data-key="discount" value="${escapeHtml(state.project.discount)}">`)}
+            ${/* Скидка бывает процентом или суммой (переключается в «Итогах сметы»),
+                  поэтому подпись поля — по её виду. */""}
+            ${state.project.discountType === "amount"
+              ? field("Скидка, ₽", `<input type="number" min="0" data-autosave data-scope="project" data-key="discount" value="${escapeHtml(state.project.discount)}">`)
+              : field("Скидка, %", `<input type="number" min="0" max="100" data-autosave data-scope="project" data-key="discount" value="${escapeHtml(state.project.discount)}">`)}
             ${field("Источник", `<input data-autosave data-scope="project" data-key="source" value="${escapeHtml(state.project.source)}">`)}
           </div>
 
@@ -19409,7 +19468,29 @@
               }).join("");
             })() : ""}
 
-            ${t.discount ? `<div class="summary-line"><span>Скидка ${state.project.discount}%</span><strong>− ${money(t.discount)}</strong></div>` : ""}
+            ${/* Скидка клиенту — здесь, где её и обсуждают (см. setProjectDiscount).
+                  Пока скидки нет — одна тихая кнопка «+ Скидка»; у сделки «одной
+                  суммой» скидку не к чему применять. */""}
+            ${d.budgetOnly ? "" : (t.discount > 0 || _discountEditorOpen) ? (() => {
+              const isAmount = state.project.discountType === "amount";
+              const v = numberValue(state.project.discount, 0);
+              return `
+              <div class="summary-discount">
+                <span class="summary-discount-label">Скидка</span>
+                <span class="summary-discount-ctl no-print">
+                  <input class="summary-discount-input" type="text" inputmode="decimal" autocomplete="off"
+                    value="${v ? escapeHtml(isAmount ? groupDigits(v) : String(v).replace(".", ",")) : ""}" placeholder="0"
+                    aria-label="Скидка клиенту, ${isAmount ? "в рублях" : "в процентах"}"
+                    onchange="app.setProjectDiscount(this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+                  <span class="summary-discount-unit" role="group" aria-label="Скидка в процентах или в рублях">
+                    <button type="button" class="${isAmount ? "" : "active"}" aria-pressed="${!isAmount}" onclick="app.setProjectDiscountType('percent')">%</button>
+                    <button type="button" class="${isAmount ? "active" : ""}" aria-pressed="${isAmount}" onclick="app.setProjectDiscountType('amount')">₽</button>
+                  </span>
+                </span>
+                <strong class="summary-discount-sum">${t.discount > 0 ? "− " + money(t.discount) : "—"}</strong>
+                <button type="button" class="summary-discount-clear no-print" onclick="app.clearProjectDiscount()" title="Убрать скидку" aria-label="Убрать скидку">${icon("close", 12)}</button>
+              </div>`;
+            })() : `<button type="button" class="summary-discount-add no-print" onclick="app.openDiscountEditor()">${icon("plus", 12)} Скидка</button>`}
             ${t.tax ? `<div class="summary-line"><span>Налог</span><strong>${money(t.tax)}</strong></div>` : ""}
 
             <div class="summary-total">
@@ -21199,7 +21280,10 @@
 
         return `
           <section class="estimate-stage">
-            <div class="stage-header">
+            ${/* Заголовок этапа сворачивает его по нажатию — целиком, а не только
+                  кнопкой «Свернуть» в углу: у свёрнутого этапа заголовок и есть весь
+                  этап. Кнопка остаётся для клавиатуры и экранного диктора. */""}
+            <div class="stage-header stage-header--toggle" onclick="if(!event.target.closest('button, a, input, select'))app.toggleStageCollapse('${stage.id}')">
               <div class="stage-header-left">
                 <div class="stage-color-bar" style="background:${color}"></div>
                 <div class="stage-header-text">
@@ -21229,11 +21313,11 @@
               </div>
             </div>
 
-            ${isCollapsed ? `
-              <div class="stage-collapsed-note">
-                Этап свернут — ${mainCount} позиц. на ${money(stageSum)}. Нажми «Развернуть».
-              </div>
-            ` : `
+            ${/* У свёрнутого этапа под заголовком стояла строка «Этап свернут — 2
+                  позиц. на 21 900 ₽. Нажми «Развернуть»» — повтор того, что уже
+                  написано в заголовке (число позиций и сумма). Свёрнутый этап —
+                  это просто заголовок. */""}
+            ${isCollapsed ? "" : `
               <div class="stage-body">
                 <div class="list">
                   ${ids.map(id => renderEstimateLine(id)).join("")}
@@ -26017,7 +26101,11 @@
               </div>
             </div>
 
-            <div class="deal-stage-progress no-print">
+            <div class="deal-stage-progress no-print ${state.project.crmStatus === CRM_ARCHIVED ? "is-archived" : ""}">
+              ${/* У сделки в архиве этапа в воронке нет, и строка этапов не
+                    подсвечивала ничего — непонятно, где сделка и почему. Метка
+                    говорит это прямо; нажатие на любой этап вернёт сделку в работу. */""}
+              ${state.project.crmStatus === CRM_ARCHIVED ? `<div class="dsp-archived" title="Сделка в архиве. Нажмите этап, чтобы вернуть её в воронку">${icon("archive", 12)} В архиве</div><div class="dsp-line"></div>` : ""}
               ${CRM_STATUSES.map((s, i) => {
                 const isDone = i < currentIdx;
                 const isActive = i === currentIdx;
@@ -31857,6 +31945,10 @@ Email: _____________________              Email: _____________________
         updateCatalogOverride,
 
         updateProject,
+        openDiscountEditor,
+        setProjectDiscount,
+        setProjectDiscountType,
+        clearProjectDiscount,
         updateCompany,
 
         createVersion,

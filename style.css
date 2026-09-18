@@ -2355,6 +2355,44 @@
       padding: 10px 0;
       border-bottom: 1px solid var(--line);
     }
+    /* Скидка клиенту в «Итогах сметы» (app.js setProjectDiscount): строкой
+       того же строя, что налог, — подпись, поле с %/₽, сумма, крестик. */
+    .summary-discount {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 0; border-bottom: 1px solid var(--line);
+    }
+    .summary-discount-label { flex: 0 0 auto; }
+    .summary-discount-ctl { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+    .summary-discount-input {
+      width: 76px; height: 30px; padding: 4px 8px; text-align: right;
+      font: inherit; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+      border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--input); color: var(--text);
+    }
+    .summary-discount-input:focus { outline: var(--ring-w) solid var(--ring); outline-offset: 1px; }
+    .summary-discount-unit { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; }
+    .summary-discount-unit button {
+      width: 28px; height: 28px; border: 0; background: transparent; color: var(--muted);
+      font: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
+    }
+    .summary-discount-unit button.active { background: rgb(var(--primary-rgb) / .18); color: var(--primary-on-tint); }
+    .summary-discount-sum { margin-left: auto; color: var(--text-success); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .summary-discount-clear {
+      flex: 0 0 auto; width: 24px; height: 24px; display: grid; place-items: center;
+      border: 0; border-radius: var(--r-sm); background: transparent; color: var(--muted); cursor: pointer;
+    }
+    .summary-discount-clear:hover { color: var(--text-danger); background: color-mix(in srgb, var(--red) 10%, transparent); }
+    .summary-discount-add {
+      display: inline-flex; align-items: center; gap: 6px; margin: 8px 0 2px;
+      padding: 4px 10px; border: 1px dashed var(--line); border-radius: var(--r-pill);
+      background: transparent; color: var(--muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .summary-discount-add:hover, .summary-discount-add:focus-visible { color: var(--primary-text); border-color: rgb(var(--primary-rgb) / .5); }
+    @media (hover: none) and (pointer: coarse) {
+      .summary-discount-unit button, .summary-discount-clear, .summary-discount-add { position: relative; }
+      .summary-discount-unit button::after, .summary-discount-clear::after, .summary-discount-add::after {
+        content: ""; position: absolute; inset: -10px -4px;
+      }
+    }
     /* Суммы в «Итогах сметы» — тем же строем, что и в плитках: правый край
        столбца не должен ездить от того, есть ли в числе единица. */
     .summary-line strong { font-variant-numeric: tabular-nums; }
@@ -5252,10 +5290,11 @@
     .stage-body {
       padding: 16px;
     }
-    .stage-collapsed-note {
-      padding: 12px 18px;
-      color: var(--muted); font-size: 13px;
-    }
+    /* Свёрнутый этап — один заголовок, он же переключатель (app.js).
+       Строки «Этап свернут — …» под ним больше нет. */
+    .stage-header--toggle { cursor: pointer; transition: background var(--dur-1); }
+    .stage-header--toggle:hover { background: rgb(var(--primary-rgb) / .05); }
+    .stage-header--toggle:hover .stage-collapse-btn { border-color: rgb(var(--primary-rgb) / .5); }
 
     /* ── CLIENT DETAIL ─────────────────────────────── */
     .client-detail-header {
@@ -6260,6 +6299,14 @@
       height: 2px; min-width: 14px; flex: 1 1 14px;
       background: var(--line); transition: background var(--dur-2);
     }
+    /* Сделка в архиве: метка в начале строки этапов, сами этапы приглушены. */
+    .dsp-archived {
+      flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: var(--r-pill); font-size: 12px; font-weight: 700; white-space: nowrap;
+      color: var(--text); background: var(--panel2); border: 1.5px dashed var(--muted);
+    }
+    .deal-stage-progress.is-archived .dsp-step { opacity: .55; }
+    .deal-stage-progress.is-archived .dsp-step:hover { opacity: 1; }
     .dsp-line.done { background: rgba(22,163,74,.5); }
 
     /* ── GLOBAL FINANCES ─────────────────────────── */

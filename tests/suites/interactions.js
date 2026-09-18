@@ -6290,6 +6290,68 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Скидка клиенту — в «Итогах сметы» (владелец 19.09.2026: «сделай
+     возможность делать скидку клиенту»). Поле «Скидка, %» было, но во вкладке
+     «Описание». Теперь «+ Скидка» в итогах, процент или рубли; переключение не
+     меняет скидку в рублях; крестик убирает. Попутно: свёрнутый этап — один
+     заголовок без строки-повтора и сворачивается нажатием на заголовок; у
+     сделки в архиве строка этапов говорит «В архиве». */
+  await test("смета: скидка в итогах — % и ₽, переключение не меняет сумму, архив и свёрнутый этап", async () => {
+    const b = await bootLocal(browser, baseUrl, { width: 1440, height: 950, seedDemo: true });
+    const p = b.page;
+    const num = (s) => Number(String(s || "").replace(/[^\d]/g, ""));
+    try {
+      const id = await p.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state")).savedProjects[0].id);
+      await p.evaluate((i) => { window.app.selectActiveDeal(i); window.app.setDealView("estimate"); }, id);
+      await p.waitForTimeout(500);
+      const total = async () => num(await p.evaluate(() => document.querySelector(".summary-total strong")?.textContent));
+      const t0 = await total();
+      assert(t0 > 0, "в демо-смете нет итога");
+
+      await p.click(".summary-discount-add");
+      await p.waitForTimeout(250);
+      assert(await p.evaluate(() => document.activeElement?.classList.contains("summary-discount-input")), "поле скидки не получило фокус");
+      await p.keyboard.type("10"); await p.keyboard.press("Enter");
+      await p.waitForTimeout(400);
+      const t1 = await total();
+      assertEqual(t1, Math.round(t0 * 0.9), "скидка 10% не вычлась из итога (налог в демо не задан)");
+      const off = num(await p.evaluate(() => document.querySelector(".summary-discount-sum")?.textContent));
+      assertEqual(off, t0 - t1, "строка скидки показывает не ту сумму");
+
+      await p.click('.summary-discount-unit button:has-text("₽")');
+      await p.waitForTimeout(400);
+      assertEqual(await total(), t1, "переключение на ₽ изменило итог");
+      assertEqual(num(await p.evaluate(() => document.querySelector(".summary-discount-input")?.value)), off, "в рублях не та же скидка");
+
+      // Сумма в рублях: 5 000 ₽.
+      await p.fill(".summary-discount-input", "5 000"); await p.press(".summary-discount-input", "Enter");
+      await p.waitForTimeout(400);
+      assertEqual(await total(), t0 - 5000, "скидка суммой не вычлась");
+      // Итог сделки в шапке идёт за скидкой.
+      const head = num(await p.evaluate(() => document.querySelector(".deal-stat-item strong")?.textContent));
+      assertEqual(head, t0 - 5000, "итог в шапке сделки не учёл скидку");
+
+      await p.click(".summary-discount-clear");
+      await p.waitForTimeout(400);
+      assertEqual(await total(), t0, "крестик не убрал скидку");
+      assert(await p.$(".summary-discount-add"), "после сброса не вернулась кнопка «+ Скидка»");
+
+      // Свёрнутый этап: без строки-повтора, сворачивается нажатием на заголовок.
+      const bodies = () => p.evaluate(() => document.querySelectorAll(".estimate-stage .stage-body").length);
+      const b0 = await bodies();
+      await p.locator(".estimate-stage .stage-header--toggle").first().click({ position: { x: 200, y: 16 } });
+      await p.waitForTimeout(300);
+      assertEqual(await bodies(), b0 - 1, "нажатие на заголовок этапа не свернуло его");
+      assert(!(await p.$(".stage-collapsed-note")), "под свёрнутым этапом снова строка «Этап свернут…»");
+
+      await p.evaluate(() => window.app.updateProject("crmStatus", "Архив"));
+      await p.waitForTimeout(400);
+      assert(await p.evaluate(() => /В архиве/.test(document.querySelector(".deal-stage-progress")?.textContent || "")), "у сделки в архиве строка этапов молчит");
+    } finally {
+      await b.context.close();
+    }
+  });
+
   /* Пакеты по образцу каталога (15.09.2026): бейдж категории повторял заголовок
      группы на каждой из 45 карточек; «Скрыть» было перечёркнутым глазом вплотную
      к звезде — теперь в «⋮» с подписью, и меню не режется краем карточки; на
