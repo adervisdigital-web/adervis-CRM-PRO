@@ -632,6 +632,10 @@ module.exports = async function ({ test }) {
       if (!/ADERVIS CRM|Adervis CRM/.test(line)) return;
       const pos = app.indexOf(line);
       if (offerStart > 0 && pos > offerStart && pos < offerEnd) return; // юр. тексты
+      // Подпись в боковом меню ВНУТРИ приложения — по прямой просьбе владельца
+      // 19.09.2026 («слева вверху должно быть ADERVIS CRM»). Её видит тот, кто
+      // уже вошёл; витрина (вкладка, OG, PWA, вход, КП у клиента) — без «CRM».
+      if (/class="sidebar-brand-name">ADERVIS CRM</.test(line)) return;
       bad.push(`app.js:${i + 1} ${line.trim().slice(0, 80)}`);
     });
     assert(bad.length === 0, "«ADERVIS CRM» вне юр. документов:\n" + bad.slice(0, 8).join("\n"));

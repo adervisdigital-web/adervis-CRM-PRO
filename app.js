@@ -2934,7 +2934,7 @@
                 <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:20px;height:20px;object-fit:contain">
               </div>
               <div class="sidebar-label">
-                <div class="sidebar-brand-name">ADERVIS</div>
+                <div class="sidebar-brand-name">ADERVIS CRM</div>
                 <div class="sidebar-brand-sub">v${APP_VERSION}</div>
               </div>
             </div>
