@@ -449,6 +449,9 @@
         [CRM_ARCHIVED]: "var(--muted)"
       };
       const TASK_STATUSES = ["Новая", "В работе", "На согласовании", "Готово"];
+      // Цвет статуса задачи — один на капсулу в списке и колонку доски. Токены
+      // --tint-*: ими пишут текст на подкрашенном фоне, читаются в обеих темах.
+      const TASK_STATUS_COLORS = { "Новая": "var(--tint-violet)", "В работе": "var(--tint-blue)", "На согласовании": "var(--tint-orange)", "Готово": "var(--tint-green)" };
       // Повтор задачи: при переводе в «Готово» создаётся новая копия со сдвинутым дедлайном —
       // удобно для регулярных вещей (ежемесячный отчёт клиенту, еженедельный чек-лист).
       const TASK_REPEAT_OPTIONS = ["none", "daily", "weekly", "monthly"];
@@ -22544,6 +22547,7 @@
         // Счётчики — по тому, что показано: иначе «Всего 12» над списком из трёх.
         const total = rows.length;
         const overdue = rows.filter(r => r.task.deadline && r.task.deadline < today && r.task.status !== "Готово").length;
+        const dueToday = rows.filter(r => r.task.deadline === today && r.task.status !== "Готово").length;
         const done = rows.filter(r => r.task.status === "Готово").length;
 
         const taskMatches = (r) => {
@@ -22603,7 +22607,7 @@
             <div class="section-title">
               <div>
                 <h1>${h1Icon("tasks")}Задачи</h1>
-                <p>Все задачи по проектам и свои личные — в одном месте.</p>
+                <p class="hide-on-mobile">Все задачи по проектам и свои личные — в одном месте.</p>
               </div>
 
             </div>
@@ -22616,10 +22620,21 @@
                   принадлежат закрытым сделкам), «Просрочено 0» — это ответ, а
                   не пустота. На нём стоит тест про закрытые сделки. */""}
             ${allRows.length > 0 ? `
+            ${/* Четыре плитки вместо трёх: «На сегодня» — первое, что ищут утром.
+                  Цвет плитка получает, только когда в ней что-то есть: ноль в
+                  красном «Просрочено» читался бы как тревога. Подпись идёт в
+                  разметке ДО числа — по ней читают плитку экранные дикторы. */""}
             <div class="gtask-stats">
-              <div class="gtask-stat"><span class="lbl">Всего</span><span class="val">${total}</span></div>
-              <div class="gtask-stat"><span class="lbl">Просрочено</span><span class="val" style="color:${overdue ? "var(--text-danger)" : "var(--muted)"}">${overdue}</span></div>
-              <div class="gtask-stat"><span class="lbl">Готово</span><span class="val" style="color:${done ? "var(--text-success)" : "var(--muted)"}">${done}</span></div>
+              ${[
+                ["tasks", "Всего", total, ""],
+                ["calendar", "На сегодня", dueToday, dueToday ? "warn" : ""],
+                ["warning", "Просрочено", overdue, overdue ? "danger" : ""],
+                ["check", "Готово", done, done ? "success" : ""],
+              ].map(([ic, lbl, n, tone]) => `
+                <div class="gtask-stat ${tone ? "is-" + tone : ""} ${n ? "" : "is-zero"} ${lbl === "Всего" ? "gtask-stat--total" : ""}">
+                  <span class="gtask-stat-ico" aria-hidden="true">${icon(ic, 14)}</span>
+                  <span class="gtask-stat-body"><span class="lbl">${lbl}</span><span class="val">${n}</span></span>
+                </div>`).join("")}
             </div>` : ""}
 
             <div class="gtask-filters no-print">
@@ -22639,7 +22654,10 @@
                 <option value="personal" ${projectFilter === "personal" ? "selected" : ""}>Личные задачи</option>
                 ${dealOptionGroups(projectFilter)}
               </select>
-              ${total ? `<button class="btn small gtask-add" onclick="app.createGlobalTask()" title="Личная задача, не привязанная к проекту">${icon("plus", 13)} Своя задача</button>` : ""}
+              ${/* На доске общей кнопки нет: у каждой колонки свой «+», и он сразу
+                    ставит нужный статус (вопрос владельца 18.09.2026 «куда её?»).
+                    В списке колонок нет — там кнопка остаётся единственным входом. */""}
+              ${total && !boardView ? `<button class="btn small gtask-add" onclick="app.createGlobalTask()" title="Личная задача, не привязанная к проекту">${icon("plus", 13)} Своя задача</button>` : ""}
               <div class="deal-view-toggle no-print" role="group" aria-label="Вид задач">
                 <button class="deal-view-btn ${boardView ? "" : "active"}" onclick="app.setGlobalTaskView('list')" title="Списком — плотно, по срокам" aria-label="Показать задачи списком">${icon("list", 14)}</button>
                 <button class="deal-view-btn ${boardView ? "active" : ""}" onclick="app.setGlobalTaskView('board')" title="Доской — по статусам" aria-label="Показать задачи доской">${icon("grid", 14) || icon("clipboard", 14)}</button>
@@ -22650,14 +22668,21 @@
               ${TASK_STATUSES.map(status => {
                 const inCol = filtered.filter(r => (r.task.status || "Новая") === status);
                 return `
-                  <div class="gtask-board-col" data-drop-status="${escapeHtml(status)}">
+                  ${/* Цвет статуса — тот же, что у капсулы статуса в списке
+                        (TASK_STATUS_COLORS): колонку узнают по нему, не читая.
+                        «+» заводит задачу сразу в этот статус, а пустая колонка
+                        подсказывает, что сюда можно перетащить. */""}
+                  <div class="gtask-board-col" data-drop-status="${escapeHtml(status)}" style="--st-c:${TASK_STATUS_COLORS[status] || "var(--muted)"}">
                     <h3>
-                      <span><span class="kanban-col-name">${escapeHtml(status)}</span> <span class="pill-count">${inCol.length}</span></span>
+                      <span class="gtask-col-name"><span class="gtask-col-dot" aria-hidden="true"></span><span class="kanban-col-name">${escapeHtml(status)}</span> <span class="pill-count">${inCol.length}</span></span>
+                      <button type="button" class="gtask-col-add no-print" data-status="${escapeHtml(status)}"
+                        onclick="app.createGlobalTask('', this.dataset.status)"
+                        title="Своя задача в «${escapeHtml(status)}»" aria-label="Добавить задачу в «${escapeHtml(status)}»">${icon("plus", 13)}</button>
                     </h3>
                     <div class="gtask-board-list">
                       ${inCol.length
                         ? inCol.map(renderGlobalTaskCard).join("")
-                        : `<div class="gtask-board-empty">Пусто</div>`}
+                        : `<div class="gtask-board-empty">${icon("drag", 13)} Перетащите задачу сюда</div>`}
                     </div>
                   </div>`;
               }).join("")}
@@ -22701,10 +22726,39 @@
          помещается. Оставлено то, по чему задачу узнают и решают, браться ли:
          название, чей это проект и срок. Действия ровно те же, что в списке —
          иначе два вида одного раздела вели бы себя по-разному. */
+      /* Срок задачи — своей шкалой. deadlineUrgency() писали для сделок: там
+         «неделя до сдачи» уже тревога, и на доске задач красным горело всё
+         подряд — и просроченная, и та, что через пять дней (скриншот владельца
+         18.09.2026). У задачи счёт на дни: просрочено — красным, сегодня и
+         завтра — оранжевым, дальше — спокойно. У сделанной срок не тревожит. */
+      function taskDueMeta(deadline, done) {
+        if (!deadline) return null;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const d = new Date(deadline); d.setHours(0, 0, 0, 0);
+        if (isNaN(d.getTime())) return null;
+        const days = Math.round((d - today) / 86400000);
+        const short = d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }).replace(".", "");
+        const full = formatDate(deadline);
+        if (done) return { level: "done", text: short, title: "Срок: " + full };
+        if (days < 0) return { level: "overdue", text: `Просрочено · ${short}`, title: `Просрочено на ${Math.abs(days)} ${plural(Math.abs(days), "день", "дня", "дней")} (${full})` };
+        if (days === 0) return { level: "today", text: "Сегодня", title: "Срок сегодня, " + full };
+        if (days === 1) return { level: "today", text: "Завтра", title: "Срок завтра, " + full };
+        return { level: days <= 3 ? "near" : "later", text: short, title: `Срок ${full} — через ${days} ${plural(days, "день", "дня", "дней")}` };
+      }
+      function taskDueChip(t) {
+        const m = taskDueMeta(t.deadline, t.status === "Готово");
+        return m ? `<span class="gtask-due is-${m.level}" title="${escapeHtml(m.title)}">${icon("calendar", 11)}<span>${escapeHtml(m.text)}</span></span>` : "";
+      }
+      // Приоритет показываем, только когда он выше обычного: пять одинаковых
+      // «Средний» на доске ничего не различают.
+      const TASK_PRIO_CLASS = { "Срочно": "urgent", "Высокий": "high" };
+
       function renderGlobalTaskCard(row) {
         const t = row.task;
-        const u = t.deadline ? deadlineUrgency(t.deadline) : null;
         const done = t.status === "Готово";
+        const prio = TASK_PRIO_CLASS[t.priority] || "";
+        const comments = (t.comments || []).length;
+        const who = String(t.assignee || "").trim();
         const isGlobal = row.kind === "global";
         const idSafe = t.id.replace(/'/g, "");
         const projSafe = (row.projectId || "").replace(/'/g, "");
@@ -22713,7 +22767,7 @@
           ? `app.toggleGlobalTaskDone('${idSafe}')`
           : `app.toggleProjectTaskDone('${projSafe}','${idSafe}')`;
         return `
-          <article class="gtask-card ${done ? "done" : ""}" onclick="${clickAction}" title="${isGlobal ? "Открыть задачу" : "Открыть в проекте"} · перетащите в другую колонку, чтобы сменить статус"
+          <article class="gtask-card ${done ? "done" : ""} ${prio && !done ? "prio-" + prio : ""}" onclick="${clickAction}" title="${isGlobal ? "Открыть задачу" : "Открыть в проекте"} · перетащите в другую колонку, чтобы сменить статус"
             data-drag-id="${escapeHtml(t.id)}" data-drag-kind="${row.kind}" data-drag-project="${escapeHtml(row.projectId || "")}">
             <div class="gtask-card-top">
               <button class="gtask-check ${done ? "checked" : ""}" onclick="event.stopPropagation();${toggleAction}"
@@ -22723,7 +22777,12 @@
             <div class="gtask-card-meta">
               <span class="gtask-project ${isGlobal ? "personal" : ""}">${isGlobal ? "Личная" : escapeHtml(row.projectName)}</span>
               ${row.dealClosed ? `<span class="gtask-closed-mark" title="Сделка закрыта">закрыта</span>` : ""}
-              ${t.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"};font-weight:${u && u.level !== "ok" ? 700 : 400}">${formatDate(t.deadline)}</span>` : ""}
+              ${prio && !done ? `<span class="gtask-prio is-${prio}">${escapeHtml(t.priority)}</span>` : ""}
+              ${taskDueChip(t)}
+              ${comments || who ? `<span class="gtask-card-end">
+                ${comments ? `<span class="gtask-comments" title="${comments} ${plural(comments, "комментарий", "комментария", "комментариев")}">${icon("chat", 11)}${comments}</span>` : ""}
+                ${who ? `<span class="gtask-assignee" title="Ответственный: ${escapeHtml(who)}">${escapeHtml(who.charAt(0).toUpperCase())}</span>` : ""}
+              </span>` : ""}
             </div>
           </article>`;
       }
@@ -22887,10 +22946,10 @@
 
       function renderGlobalTaskRow(row) {
         const t = row.task;
-        const u = t.deadline ? deadlineUrgency(t.deadline) : null;
         const done = t.status === "Готово";
         const isGlobal = row.kind === "global";
-        const statusColor = { "Новая": "var(--muted)", "В работе": "var(--blue)", "На согласовании": "var(--orange)", "Готово": "var(--green)" }[t.status] || "var(--muted)";
+        const statusColor = TASK_STATUS_COLORS[t.status] || "var(--muted)";
+        const prio = TASK_PRIO_CLASS[t.priority] || "";
         const idSafe = t.id.replace(/'/g, "");
         const clickAction = isGlobal ? `app.openGlobalTaskModal('${idSafe}')` : `app.openDealTasks('${(row.projectId||"").replace(/'/g,"")}')`;
         return `
@@ -22910,11 +22969,14 @@
                       (или нашли поиском) — и обязана называть себя: иначе она читается
                       как живая работа. */""}
                 ${row.dealClosed ? `<span class="gtask-project" style="opacity:.75">${escapeHtml(row.dealStatus || "Закрыта")}</span>` : ""}
-                ${t.deadline ? `<span style="color:${u && u.level !== "ok" ? u.color : "var(--muted)"}"> ${escapeHtml(formatDate(t.deadline))}${u && u.level !== "ok" ? " · " + escapeHtml(u.label) : ""}</span>` : ""}
-        ${t.assignee ? `<span> ${escapeHtml(t.assignee)}</span>` : ""}
+                ${prio && !done ? `<span class="gtask-prio is-${prio}">${escapeHtml(t.priority)}</span>` : ""}
+                ${taskDueChip(t)}
+                ${t.assignee ? `<span class="gtask-meta-who">${icon("person", 11)} ${escapeHtml(t.assignee)}</span>` : ""}
               </div>
             </div>
-            <span class="status-pill" style="font-size:12px;border-color:${statusColor}55;color:${statusColor}">${escapeHtml(t.status)}</span>
+            ${/* Раньше рамка была «${цвет}55» — к var(--…) так прозрачность не
+                  приписать, браузер отбрасывал значение, и рамки не было вовсе. */""}
+            <span class="status-pill gtask-status" style="--st-c:${statusColor}">${escapeHtml(t.status)}</span>
             ${isGlobal
               ? `<button class="icon-del-btn no-print" onclick="event.stopPropagation();app.deleteGlobalTask('${idSafe}')" title="Удалить задачу" aria-label="Удалить">${TRASH_SVG}</button>`
               : ""}
@@ -22949,10 +23011,11 @@
 
          Признак черновика — _isNew на модалке: по нему _commitTaskModal знает,
          что задачу нужно создать, а не искать в списке. */
-      function createGlobalTask(deadline) {
+      // status — «+» в колонке доски заводит задачу сразу в свой статус.
+      function createGlobalTask(deadline, status) {
         state.taskModalSource = "global";
         state.taskModal = normalizeTask({
-          title: "", status: "Новая", priority: "Средний", deadline: deadline || "",
+          title: "", status: TASK_STATUSES.includes(status) ? status : "Новая", priority: "Средний", deadline: deadline || "",
         });
         /* normalizeTask подставляет «Новая задача» вместо пустого названия — это
            нужно СОХРАНЁННОЙ задаче, чтобы она не осталась безымянной. В черновике

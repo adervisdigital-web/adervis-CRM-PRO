@@ -6007,6 +6007,67 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Доска задач (скриншот владельца 18.09.2026, «улучшать визуал»): срок красил
+     красным всё подряд — и просроченную задачу, и ту, что через пять дней
+     (шкала сделок: «неделя до сдачи» — уже тревога). Приоритет и исполнитель на
+     карточке не показывались. Теперь у задачи своя шкала сроков, приоритет выше
+     обычного виден меткой и полосой, у колонки «+» заводит задачу в свой статус. */
+  await test("задачи: шкала сроков, приоритет на карточке, «+» в колонке, «На сегодня»", async () => {
+    await dismissStaleDialog(page);
+    const day = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    const { ctx, p } = await bootWithState(`
+      st.globalTasks = [
+        { id: "v1", title: "Просроченная", status: "Новая", priority: "Срочно", deadline: "${day(-2)}", comments: [] },
+        { id: "v2", title: "На сегодня", status: "В работе", priority: "Средний", deadline: "${day(0)}", assignee: "Анна", comments: [{ id: "c", text: "ок", author: "Я", createdAt: "2026-09-10" }] },
+        { id: "v3", title: "Через пять дней", status: "Новая", priority: "Средний", deadline: "${day(5)}", comments: [] },
+      ];
+      st.globalTaskView = "board"; st.savedProjects = []; st.activeProjectId = null; st.tasks = [];
+    `, { width: 1440, height: 900 });
+    try {
+      await p.evaluate(() => window.app.go("global-tasks"));
+      await p.waitForTimeout(400);
+      const r = await p.evaluate(() => {
+        const card = (id) => document.querySelector(`.gtask-card[data-drag-id="${id}"]`);
+        const due = (id) => (card(id)?.querySelector(".gtask-due")?.className || "").replace("gtask-due", "").trim();
+        return {
+          v1: due("v1"), v2: due("v2"), v3: due("v3"),
+          v1prio: card("v1")?.classList.contains("prio-urgent") && !!card("v1")?.querySelector(".gtask-prio.is-urgent"),
+          v3prio: !!card("v3")?.querySelector(".gtask-prio"),
+          v2who: card("v2")?.querySelector(".gtask-assignee")?.textContent.trim(),
+          v2comments: card("v2")?.querySelector(".gtask-comments")?.textContent.trim(),
+          today: document.querySelector(".gtask-stats")?.innerText.replace(/\s+/g, " "),
+        };
+      });
+      assertEqual(r.v1, "is-overdue", "просроченный срок не выделен как просроченный");
+      assertEqual(r.v2, "is-today", "срок сегодня не выделен");
+      assertEqual(r.v3, "is-later", "срок через пять дней снова тревожный: " + r.v3);
+      assert(r.v1prio, "у срочной задачи нет метки и полосы приоритета");
+      assert(!r.v3prio, "у задачи с обычным приоритетом появилась метка приоритета");
+      assertEqual(r.v2who, "А", "исполнитель не показан инициалом на карточке");
+      assertEqual(r.v2comments, "1", "число комментариев не показано на карточке");
+      assert(/НА СЕГОДНЯ 1/i.test(r.today.toUpperCase()), "плитка «На сегодня» не посчитала задачу: " + r.today);
+
+      // Общая «Своя задача» — только в списке: на доске её заменяют «+» колонок.
+      assert(!(await p.$(".gtask-add")), "на доске осталась общая «Своя задача» рядом с плюсами колонок");
+      await p.evaluate(() => window.app.setGlobalTaskView("list"));
+      await p.waitForTimeout(300);
+      assert(await p.$(".gtask-add"), "в виде списком пропала «Своя задача» — завести задачу нечем");
+      await p.evaluate(() => window.app.setGlobalTaskView("board"));
+      await p.waitForTimeout(300);
+
+      // «+» в колонке «На согласовании» открывает новую задачу сразу в этом статусе.
+      await p.locator('.gtask-board-col[data-drop-status="На согласовании"] .gtask-col-add').click();
+      await p.waitForTimeout(300);
+      const st = await p.evaluate(() => {
+        const sel = [...document.querySelectorAll(".task-modal-box select")].find((s) => [...s.options].some((o) => o.value === "На согласовании"));
+        return sel ? sel.value : null;
+      });
+      assertEqual(st, "На согласовании", "«+» в колонке завёл задачу не в её статус");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   /* Пакеты по образцу каталога (15.09.2026): бейдж категории повторял заголовок
      группы на каждой из 45 карточек; «Скрыть» было перечёркнутым глазом вплотную
      к звезде — теперь в «⋮» с подписью, и меню не режется краем карточки; на

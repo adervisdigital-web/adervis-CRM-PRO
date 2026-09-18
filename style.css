@@ -4795,21 +4795,46 @@
        в полстраницы ради нуля. Ширину ограничиваем, остаток строки оставляем
        пустым; на телефоне 1fr-колонки те же, что и были. */
     .gtask-stats {
-      display: grid; grid-template-columns: repeat(3, minmax(0, 240px));
-      justify-content: start; gap: 12px; margin-bottom: 16px;
+      display: grid; grid-template-columns: repeat(4, minmax(0, 210px));
+      justify-content: start; gap: 10px; margin-bottom: 16px;
     }
-    @media (max-width: 820px) { .gtask-stats { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 820px) { .gtask-stats { grid-template-columns: repeat(4, 1fr); } }
+    /* Телефон: один ряд из трёх плиток, как раньше. «Всего» уходит — число
+       и так стоит у колонок и во вкладках, — значки тоже: на трети экрана
+       они съедали место у подписи. */
+    @media (max-width: 560px) {
+      .gtask-stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+      /* Через .gtask-stats: базовое `.gtask-stat { display:flex }` стоит в файле
+         НИЖЕ этого места и при равной силе перебивало бы скрытие. */
+      .gtask-stats .gtask-stat--total, .gtask-stats .gtask-stat-ico { display: none; }
+      .gtask-stats .gtask-stat { padding: 10px; }
+    }
 
     /* Тот же приём для рядов-счётчиков на общей сетке (.grid three): плитка с
        одним числом не должна занимать треть страницы. */
     .grid.three.tiles-compact { grid-template-columns: repeat(3, minmax(0, 240px)); justify-content: start; }
     @media (max-width: 820px) { .grid.three.tiles-compact { grid-template-columns: repeat(3, 1fr); } }
+    /* Плитка: значок в плашке своего тона, подпись и число. Тон приходит
+       модификатором только когда число не ноль (app.js renderGlobalTasks). */
     .gtask-stat {
-      display: flex; flex-direction: column; gap: 4px;
-      padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel2);
+      --tone: var(--primary-text);
+      display: flex; align-items: center; gap: 10px; min-width: 0;
+      padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel2);
     }
-    .gtask-stat .lbl { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-    .gtask-stat .val { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+    .gtask-stat.is-warn    { --tone: var(--text-warning); }
+    .gtask-stat.is-danger  { --tone: var(--text-danger); border-color: color-mix(in srgb, var(--red) 35%, var(--line)); }
+    .gtask-stat.is-success { --tone: var(--text-success); }
+    .gtask-stat.is-zero    { --tone: var(--muted); }
+    .gtask-stat-ico {
+      flex: 0 0 30px; height: 30px; display: grid; place-items: center;
+      border-radius: var(--r-md); color: var(--tone);
+      background: color-mix(in srgb, var(--tone) 14%, transparent);
+    }
+    .gtask-stat-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .gtask-stat .lbl { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gtask-stat .val { font-size: 20px; line-height: 1.1; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+    .gtask-stat:is(.is-warn, .is-danger, .is-success) .val { color: var(--tone); }
+    .gtask-stat.is-zero .val { color: var(--muted); }
 
     .gtask-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
     /* Раскладка строки фильтров: поиск гибкий, чипсы статусов уходят на свою
@@ -6397,21 +6422,68 @@
       background: var(--panel2); border: 1px solid var(--line);
       border-radius: var(--r-xl); padding: 12px; min-width: 0;
     }
+    /* Колонка несёт цвет статуса (--st-c из TASK_STATUS_COLORS): полоса по
+       верхнему краю, точка и счётчик в заголовке. */
+    .gtask-board-col { box-shadow: inset 0 3px 0 color-mix(in srgb, var(--st-c, var(--line)) 70%, transparent); }
     .gtask-board-col h3 {
-      display: flex; align-items: center; gap: 8px;
-      margin: 0 0 10px; font-size: 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      margin: 0 0 10px; font-size: 14px; min-height: 28px;
     }
+    .gtask-col-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+    .gtask-col-dot { flex: 0 0 8px; width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--st-c, var(--muted)); }
+    .gtask-board-col .pill-count { background: color-mix(in srgb, var(--st-c, var(--muted)) 20%, transparent); color: var(--text); }
+    /* На доске это единственный вход «новая задача» (общей кнопки там нет),
+       поэтому плюс — с рамкой, а не бледный значок: его должно быть видно. */
+    .gtask-col-add {
+      flex: 0 0 auto; width: 28px; height: 28px; display: grid; place-items: center;
+      border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); color: var(--text); cursor: pointer;
+      transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1);
+    }
+    .gtask-col-add:hover, .gtask-col-add:focus-visible { color: var(--primary-text); border-color: rgb(var(--primary-rgb) / .5); background: rgb(var(--primary-rgb) / .12); }
+    @media (hover: none) and (pointer: coarse) { .gtask-col-add { width: 44px; height: 44px; margin: -8px -8px -8px 0; } }
     .gtask-board-list { display: flex; flex-direction: column; gap: 8px; }
     .gtask-board-empty {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
       padding: 18px 8px; text-align: center; font-size: 12px; color: var(--muted);
       border: 1px dashed var(--line); border-radius: var(--r-lg);
     }
     .gtask-card {
+      position: relative;
       background: var(--panel); border: 1px solid var(--line);
       border-radius: var(--r-lg); padding: 10px 12px; cursor: pointer;
-      display: flex; flex-direction: column; gap: 8px;
+      display: flex; flex-direction: column; gap: 10px;
+      transition: border-color var(--dur-1), box-shadow var(--dur-1);
     }
-    .gtask-card:hover { border-color: var(--primary); }
+    .gtask-card:hover { border-color: rgb(var(--primary-rgb) / .55); box-shadow: 0 6px 18px -10px rgb(var(--primary-rgb) / .5); }
+    /* Приоритет выше обычного — полосой по левому краю: на доске его видно,
+       не читая меток. */
+    .gtask-card.prio-urgent::before,
+    .gtask-card.prio-high::before {
+      content: ""; position: absolute; left: -1px; top: 10px; bottom: 10px; width: 3px;
+      border-radius: var(--r-pill); background: var(--orange);
+    }
+    .gtask-card.prio-urgent::before { background: var(--red); }
+    .gtask-prio { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: var(--r-pill); }
+    .gtask-prio.is-urgent { color: var(--text-danger); background: color-mix(in srgb, var(--red) 12%, transparent); }
+    .gtask-prio.is-high { color: var(--text-warning); background: color-mix(in srgb, var(--orange) 12%, transparent); }
+    /* Срок — капсулой со значком; цвет по шкале задачи (taskDueMeta). */
+    .gtask-due {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid var(--line);
+      font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .gtask-due.is-overdue { color: var(--text-danger); border-color: color-mix(in srgb, var(--red) 35%, transparent); background: color-mix(in srgb, var(--red) 10%, transparent); }
+    .gtask-due.is-today { color: var(--text-warning); border-color: color-mix(in srgb, var(--orange) 35%, transparent); background: color-mix(in srgb, var(--orange) 10%, transparent); }
+    .gtask-due.is-near { color: var(--text); }
+    .gtask-card-end { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+    .gtask-comments { display: inline-flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; }
+    .gtask-assignee {
+      width: 22px; height: 22px; display: grid; place-items: center; flex: 0 0 auto;
+      border-radius: var(--r-pill); font-size: 11px; font-weight: 800;
+      color: var(--primary-on-tint); background: rgb(var(--primary-rgb) / .18);
+    }
+    .gtask-meta-who { display: inline-flex; align-items: center; gap: 4px; }
+    .gtask-status { font-size: 12px; color: var(--st-c); border-color: color-mix(in srgb, var(--st-c) 40%, transparent); }
     .gtask-card.done { opacity: .6; }
     .gtask-card.done .gtask-card-title { text-decoration: line-through; }
     .gtask-card-top { display: flex; align-items: flex-start; gap: 8px; }
