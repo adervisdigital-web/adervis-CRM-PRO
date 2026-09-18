@@ -2121,20 +2121,72 @@
       .calendar-card .line-head > div:last-child { flex: 0 0 auto; align-items: flex-end; }
     }
 
-    /* Строка ценности клиента на карточке: сделки · оплачено · долг */
+    /* Текст только для экранного диктора (статус «Активный» на карточке
+       клиента виден точкой, а озвучен словом). */
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+
+    /* ── Карточка клиента (app.js renderClients, плитка) — компактная:
+       кружок с инициалами, имя и компания, внизу сделки, деньги, контакты. */
+    .grid.clients-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+    .clients-grid .client-card { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    /* Строкой и на телефоне: общее мобильное правило ставит .line-head в
+       столбец, и кружок уезжал над именем (карточка 150–210px). */
+    .clients-grid .client-card .client-card-head { display: flex; flex-direction: row; align-items: center; gap: 10px; min-width: 0; }
+    .client-avatar {
+      position: relative; flex: 0 0 38px; width: 38px; height: 38px;
+      display: grid; place-items: center; border-radius: var(--r-pill);
+      font-size: 13px; font-weight: 800; letter-spacing: .02em;
+      color: var(--av); background: color-mix(in srgb, var(--av) 16%, transparent);
+    }
+    .client-avatar-dot {
+      position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px;
+      border-radius: var(--r-pill); background: var(--green); border: 2px solid var(--panel);
+    }
+    .client-card-id { flex: 1 1 auto; min-width: 0; }
+    .client-card-id h3 { margin: 0; font-size: 14px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .client-card-id p { margin: 2px 0 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .client-card-status { flex: 0 0 auto; font-size: 11px; padding: 2px 8px; }
+    /* Строка ценности клиента на карточке: сделки · оплачено · долг · контакты */
     .client-card-stats {
       display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
-      margin-top: 6px; font-size: 12px; font-weight: 700;
+      font-size: 12px; font-weight: 700;
       color: var(--muted); font-variant-numeric: tabular-nums;
     }
-    /* Доля оплаты у клиента: тонкая дорожка под суммами. 3px — столько же, что
-       у долей этапов в «Итогах сметы»: это фон-подсказка, а не элемент, за
-       которым идут глазами. */
+    .client-deals-link {
+      display: inline-flex; align-items: center; gap: 2px;
+      padding: 3px 8px; margin-left: -8px; border: 0; border-radius: var(--r-sm);
+      background: transparent; color: var(--text); font: inherit; font-weight: 700; cursor: pointer;
+      transition: background var(--dur-1), color var(--dur-1);
+    }
+    .client-deals-link:hover, .client-deals-link:focus-visible { background: rgb(var(--primary-rgb) / .12); color: var(--primary-text); }
+    .client-deals-link svg { opacity: .6; }
+    .client-card-none { font-weight: 600; }
+    .client-card-paid { color: var(--text-success); }
+    .client-card-debt { color: var(--text-warning); }
+    .client-card-contacts { margin-left: auto; display: inline-flex; gap: 4px; }
+    .client-contact {
+      width: 28px; height: 28px; display: grid; place-items: center;
+      border-radius: var(--r-pill); border: 1px solid var(--line); color: var(--muted);
+      transition: color var(--dur-1), border-color var(--dur-1), background var(--dur-1);
+    }
+    .client-contact:hover, .client-contact:focus-visible { color: var(--primary-text); border-color: rgb(var(--primary-rgb) / .5); background: rgb(var(--primary-rgb) / .1); }
+    /* Палец: значки и «N сделок» — с невидимой областью касания 44px, сама
+       карточка от этого не растёт. */
+    @media (hover: none) and (pointer: coarse) {
+      .client-contact, .client-deals-link { position: relative; }
+      .client-contact::after { content: ""; position: absolute; inset: -8px; }
+      .client-deals-link::after { content: ""; position: absolute; inset: -11px -4px; }
+    }
+    .client-card-note { margin: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Доля оплаты — только у должника (app.js): тонкая дорожка, фон-подсказка. */
     .client-pay-track {
-      display: block; height: 3px; margin-top: 8px;
+      display: block; height: 3px; margin-top: -4px;
       border-radius: var(--r-pill); background: var(--line); overflow: hidden;
     }
-    .client-pay-fill { display: block; height: 100%; border-radius: var(--r-pill); }
+    .client-pay-fill { display: block; height: 100%; border-radius: var(--r-pill); background: var(--primary); }
 
     .item.selected {
       border-color: rgba(22, 163, 74, .55);
@@ -8107,10 +8159,6 @@ body.portal-mode .nav { display: none !important; }
   }
   .tabs .tab, .gtask-chips .chip, .date-preset-row .date-preset-btn { flex: 0 0 auto; }
   .date-preset-row { flex: 1 1 100%; gap: 8px; }
-  /* В одну колонку большой квадратный «+ добавить» съедает экран — делаем его
-     компактной горизонтальной строкой над списком. */
-  .clients-grid .kb-new-card { min-height: unset; flex-direction: row; justify-content: center; padding: 13px; }
-  .clients-grid .kb-new-icon { width: 32px; height: 32px; font-size: 20px; }
   /* На тач-экране нет hover — кнопка меню сделки (⋮, единственный доступ к
      Редактировать/Дублировать/Удалить) должна быть видна всегда, а не по наведению. */
   .deal-menu-btn { opacity: 1; }

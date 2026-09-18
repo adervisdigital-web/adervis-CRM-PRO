@@ -22158,6 +22158,11 @@
                       шапки ищут глазами, а подсказка при наведении на телефоне
                       недоступна. */""}
                 ${clients.length ? `<button class="btn small no-print" onclick="app.exportClientsXlsx()" title="Скачать список клиентов таблицей Excel (.xlsx)"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.25 1v6.19L5.03 4.97 3.97 6.03 8 10.06l4.03-4.03-1.06-1.06-2.22 2.22V1h-1.5zM2.5 12.5h11V14h-11v-1.5z"/></svg> Выгрузить</button>` : ""}
+                ${/* «Новый клиент» — в шапке для обоих видов. В плитке он был
+                      пунктирной карточкой на целую ячейку (владелец 19.09.2026:
+                      «слишком большие карточки»), в списке — отдельной строкой
+                      над таблицей. */""}
+                <button class="btn small primary no-print" onclick="app.openClientModal('')">${icon("plus", 13)} Новый клиент</button>
               </div>
             </div>
 
@@ -22174,9 +22179,6 @@
               </div>` : ""}
 
             ${clientsView === "list" ? `
-            <div class="toolbar no-print" style="margin-bottom:10px">
-              <button class="btn small" onclick="app.openClientModal('')">${icon("plus", 13)} Новый клиент</button>
-            </div>
             <div class="panel" style="padding:0;overflow:hidden">
               ${/* Шапка таблицы. Без неё список читался как набор чисел: две суммы
                     подряд — зелёная и оранжевая — и догадайся, где оплачено, а где
@@ -22211,51 +22213,53 @@
             </div>
             ${clientsMoreHtml}
             ` : `
+            ${/* Карточка клиента — компактная (владелец 19.09.2026: «слишком
+                  большие карточки»): было 150–220px и три в ряд, из них одна
+                  ячейка — пунктирный «Новый клиент».
+                  Шапка: кружок с инициалами (цвет от имени — узнают по нему),
+                  имя, компания. Статус «Активный» — точкой на кружке: он у
+                  большинства, и одинаковая капсула на каждой карточке ничего не
+                  различала; «Пауза», «VIP», «Потерян», «Новый» — капсулой.
+                  Низ: «N сделок ›» ведёт в проекты клиента (была отдельная
+                  кнопка «Проекты»), оплачено и долг, телефон и почта значками —
+                  на телефоне по нажатию сразу звонок. Полоска оплаты — только у
+                  тех, кто должен: сплошь зелёная у всех ничего не сообщала. */""}
             <div class="grid three clients-grid">
-              <div class="kb-new-card" onclick="app.openClientModal('')">
-                <div class="kb-new-icon">+</div>
-                <div class="kb-new-label">Новый клиент</div>
-              </div>
               ${filteredClients.length ? filteredClients.map(client => {
                   const m = clientMoney(client);
+                  const st = effectiveStatus(client, m);
+                  const words = String(client.name || "").replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
+                  const initials = (words.slice(0, 2).map(w => w[0]).join("") || "?").toUpperCase();
+                  const tints = ["violet", "blue", "green", "orange", "pink", "cyan", "amber", "indigo"];
+                  const hue = tints[[...String(client.name || "")].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % tints.length];
+                  const tel = String(client.phone || "").replace(/[^\d+]/g, "");
+                  const выставлено = numberValue(m.paid, 0) + numberValue(m.debt, 0);
+                  const доля = выставлено > 0 ? Math.min(100, Math.round(numberValue(m.paid, 0) / выставлено * 100)) : 0;
                   return `
                   <article class="client-card" style="cursor:pointer" onclick="app.openClientModal('${client.id}')">
-                    <div class="line-head">
-                      <div>
-                        <h3>${escapeHtml(client.name)}</h3>
+                    <div class="line-head client-card-head">
+                      <span class="client-avatar" style="--av:var(--tint-${hue})" aria-hidden="true">${escapeHtml(initials)}${st === "active" ? `<span class="client-avatar-dot" title="Активный"></span>` : ""}</span>
+                      <div class="client-card-id">
+                        <h3 title="${escapeHtml(client.name)}">${escapeHtml(client.name)}</h3>
                         ${clientSubtitle(client) ? `<p>${escapeHtml(clientSubtitle(client))}</p>` : ""}
                       </div>
-                      <span class="status-pill ${statusTone(effectiveStatus(client, m))}">${statusLabel(effectiveStatus(client, m))}</span>
+                      ${st === "active" ? `<span class="sr-only">Активный</span>` : `<span class="status-pill client-card-status ${statusTone(st)}">${statusLabel(st)}</span>`}
                     </div>
                     <div class="client-card-stats">
-                      <span title="Сделок с клиентом">${m.count} ${plural(m.count, "сделка", "сделки", "сделок")}</span>
-                      ${m.paid ? `<span style="color:var(--text-success)" title="Всего оплачено клиентом">${money(m.paid)}</span>` : ""}
-                      ${m.debt ? `<span style="color:var(--text-warning)" title="Долг клиента">долг ${money(m.debt)}</span>` : ""}
+                      ${m.count
+                        ? `<button type="button" class="client-deals-link no-print" onclick="event.stopPropagation();app.openClientDetail('${client.id}')" title="Сделки клиента">${m.count} ${plural(m.count, "сделка", "сделки", "сделок")}${icon("chevron", 11)}</button>`
+                        : `<span class="client-card-none">Сделок нет</span>`}
+                      ${m.paid ? `<span class="client-card-paid" title="Всего оплачено клиентом">${money(m.paid)}</span>` : ""}
+                      ${m.debt ? `<span class="client-card-debt" title="Долг клиента">долг ${money(m.debt)}</span>` : ""}
+                      ${tel || client.email ? `<span class="client-card-contacts no-print">
+                        ${tel ? `<a class="client-contact" href="tel:${escapeHtml(tel)}" onclick="event.stopPropagation()" title="Позвонить: ${escapeHtml(client.phone)}" aria-label="Позвонить: ${escapeHtml(client.phone)}">${icon("phone", 13)}</a>` : ""}
+                        ${client.email ? `<a class="client-contact" href="mailto:${escapeHtml(client.email)}" onclick="event.stopPropagation()" title="Написать: ${escapeHtml(client.email)}" aria-label="Написать: ${escapeHtml(client.email)}">${icon("mail", 13)}</a>` : ""}
+                      </span>` : ""}
                     </div>
-                    ${/* Полоса «оплачено против долга». Два числа рядом словами
-                          («160 346 ₽» и «долг 40 000 ₽») требуют деления в уме,
-                          чтобы понять главное о клиенте: платит он или тянет.
-                          Полоска отвечает на это до чтения цифр, а цвет повторяет
-                          смысл — зелёный, когда закрыто всё.
-                          Рисуем только когда есть от чего считать: у клиента без
-                          денег пустая дорожка сообщала бы «ноль процентов», хотя
-                          верный ответ — «сделок ещё не было». */""}
-                    ${(() => {
-                      const выставлено = numberValue(m.paid, 0) + numberValue(m.debt, 0);
-                      if (выставлено <= 0) return "";
-                      const доля = Math.min(100, Math.round(numberValue(m.paid, 0) / выставлено * 100));
-                      return `<span class="client-pay-track" title="Оплачено ${доля}% — ${money(m.paid)} из ${money(выставлено)}">
-                        <span class="client-pay-fill" style="width:${доля}%;background:${доля >= 100 ? "var(--green)" : "var(--primary)"}"></span>
-                      </span>`;
-                    })()}
-                    <div class="badges" style="margin-top:8px">
-           ${client.phone ? `<span class="badge"> ${escapeHtml(client.phone)}</span>` : ""}
-           ${client.email ? `<span class="badge"> ${escapeHtml(client.email)}</span>` : ""}
-                    </div>
-                    ${client.note ? `<p style="font-size:12px;margin-top:8px">${escapeHtml(client.note.slice(0,80))}${client.note.length > 80 ? "…" : ""}</p>` : ""}
-                    ${m.count ? `<div class="toolbar no-print" style="margin-top:10px">
-                      <button class="btn small" onclick="event.stopPropagation();app.openClientDetail('${client.id}')">Проекты</button>
-                    </div>` : ""}
+                    ${m.debt > 0 && выставлено > 0 ? `<span class="client-pay-track" title="Оплачено ${доля}% — ${money(m.paid)} из ${money(выставлено)}">
+                      <span class="client-pay-fill" style="width:${доля}%"></span>
+                    </span>` : ""}
+                    ${client.note ? `<p class="client-card-note" title="${escapeHtml(client.note)}">${escapeHtml(client.note)}</p>` : ""}
                   </article>`;
                 }).join("") : clientsEmpty()}
             </div>

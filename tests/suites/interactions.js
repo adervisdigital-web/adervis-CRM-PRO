@@ -6235,6 +6235,53 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Карточки клиентов (владелец 19.09.2026: «слишком большие карточки»):
+     были 150–220px и три в ряд, одну ячейку занимал «Новый клиент». Теперь
+     компактные, «N сделок ›» ведёт в проекты, телефон — ссылкой для звонка,
+     «Новый клиент» — в шапке. */
+  await test("клиенты: компактные карточки, сделки ссылкой, звонок, «Новый клиент» в шапке", async () => {
+    const { ctx, p } = await bootWithState(`
+      st.clients = Array.from({ length: 10 }, (_, i) => ({ id: "cc" + i, name: "Клиент " + i, company: "Компания " + i,
+        phone: i === 0 ? "+7 912 499-89-42" : "", status: i === 1 ? "paused" : "new" }));
+      st.savedProjects = [{ id: "ccp", name: "Сделка", client: "Клиент 0", clientId: "cc0", total: 100000, paid: 60000,
+        crmStatus: "В работе", createdAt: "2026-09-01", updatedAt: "2026-09-01", snapshot: { payments: [], expenses: [], tasks: [] } }];
+      st.activeProjectId = ""; st.clientsView = "grid";
+    `, { width: 1440, height: 900 });
+    try {
+      await p.evaluate(() => { window.app.setClientsView("grid"); window.app.go("clients"); });
+      await p.waitForTimeout(500);
+      const r = await p.evaluate(() => {
+        const cards = [...document.querySelectorAll("#appContent .client-card")];
+        const top0 = cards[0].getBoundingClientRect().top;
+        const c0 = cards.find((c) => /Клиент 0/.test(c.textContent));
+        return {
+          maxH: Math.max(...cards.map((c) => Math.round(c.getBoundingClientRect().height))),
+          perRow: cards.filter((c) => Math.abs(c.getBoundingClientRect().top - top0) < 3).length,
+          tile: !!document.querySelector("#appContent .clients-grid .kb-new-card"),
+          headBtn: [...document.querySelectorAll("#appContent .section-title .btn")].some((b) => /Новый клиент/.test(b.textContent)),
+          tel: c0.querySelector('a[href^="tel:"]')?.getAttribute("href"),
+          deals: c0.querySelector(".client-deals-link")?.textContent.trim(),
+          debtTrack: !!c0.querySelector(".client-pay-track"),
+          paused: [...document.querySelectorAll("#appContent .client-card .status-pill")].map((x) => x.textContent.trim()),
+        };
+      });
+      assert(r.maxH <= 140, "карточка клиента снова высокая: " + r.maxH + "px");
+      assert(r.perRow >= 4, "в ряду меньше четырёх карточек клиентов: " + r.perRow);
+      assert(!r.tile, "в плитке снова ячейка «Новый клиент»");
+      assert(r.headBtn, "в шапке нет «Новый клиент»");
+      assertEqual(r.tel, "tel:+79124998942", "телефон клиента не стал ссылкой для звонка");
+      assert(/^1 сделка/.test(r.deals || ""), "число сделок не ссылка на проекты: " + r.deals);
+      assert(r.debtTrack, "у должника нет полоски оплаты");
+      assert(r.paused.includes("Пауза") && !r.paused.includes("Активный"), "капсулы статусов не те: " + JSON.stringify(r.paused));
+
+      await p.locator("#appContent .client-card", { hasText: "Клиент 0" }).locator(".client-deals-link").click();
+      await p.waitForTimeout(400);
+      assert(await p.evaluate(() => /Все клиенты/.test(document.querySelector("#appContent").textContent)), "«N сделок ›» не открыл проекты клиента");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   /* Пакеты по образцу каталога (15.09.2026): бейдж категории повторял заголовок
      группы на каждой из 45 карточек; «Скрыть» было перечёркнутым глазом вплотную
      к звезде — теперь в «⋮» с подписью, и меню не режется краем карточки; на
