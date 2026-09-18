@@ -2166,7 +2166,9 @@
     .client-card-none { font-weight: 600; }
     .client-card-paid { color: var(--text-success); }
     .client-card-debt { color: var(--text-warning); }
-    .client-card-contacts { margin-left: auto; display: inline-flex; gap: 4px; }
+    /* В шапке карточки, справа: шапку по высоте задаёт кружок (38px), поэтому
+       значок у всех карточек стоит в одной точке. */
+    .client-card-contacts { flex: 0 0 auto; display: inline-flex; gap: 4px; }
     .client-contact {
       width: 28px; height: 28px; display: grid; place-items: center;
       border-radius: var(--r-pill); border: 1px solid var(--line); color: var(--muted);

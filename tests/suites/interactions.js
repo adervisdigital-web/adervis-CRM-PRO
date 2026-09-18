@@ -6242,7 +6242,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
   await test("клиенты: компактные карточки, сделки ссылкой, звонок, «Новый клиент» в шапке", async () => {
     const { ctx, p } = await bootWithState(`
       st.clients = Array.from({ length: 10 }, (_, i) => ({ id: "cc" + i, name: "Клиент " + i, company: "Компания " + i,
-        phone: i === 0 ? "+7 912 499-89-42" : "", status: i === 1 ? "paused" : "new" }));
+        phone: i === 0 || i === 3 ? "+7 912 499-89-42" : "", email: i === 3 ? "a@b.ru" : "", status: i === 1 ? "paused" : "new" }));
       st.savedProjects = [{ id: "ccp", name: "Сделка", client: "Клиент 0", clientId: "cc0", total: 100000, paid: 60000,
         crmStatus: "В работе", createdAt: "2026-09-01", updatedAt: "2026-09-01", snapshot: { payments: [], expenses: [], tasks: [] } }];
       st.activeProjectId = ""; st.clientsView = "grid";
@@ -6263,8 +6263,16 @@ module.exports = async function ({ browser, baseUrl, test }) {
           deals: c0.querySelector(".client-deals-link")?.textContent.trim(),
           debtTrack: !!c0.querySelector(".client-pay-track"),
           paused: [...document.querySelectorAll("#appContent .client-card .status-pill")].map((x) => x.textContent.trim()),
+          // Значок телефона — в шапке и в одной точке у всех карточек (владелец
+          // 19.09.2026: «значок телефона везде стоит по-разному»; был в конце
+          // строки с суммами и переезжал при переносе).
+          phoneInHead: cards.every((c) => { const a = c.querySelector('a[href^="tel:"]'); return !a || !!a.closest(".client-card-head"); }),
+          phoneSpots: [...new Set(cards.map((c) => { const a = c.querySelector('a[href^="tel:"]'); if (!a) return null;
+            const cr = c.getBoundingClientRect(), ar = a.getBoundingClientRect(); return Math.round(ar.top - cr.top) + "/" + Math.round(cr.right - ar.right); }).filter(Boolean))],
         };
       });
+      assert(r.phoneInHead, "значок телефона не в шапке карточки");
+      assertEqual(r.phoneSpots.length, 1, "значок телефона стоит в разных местах: " + JSON.stringify(r.phoneSpots));
       assert(r.maxH <= 140, "карточка клиента снова высокая: " + r.maxH + "px");
       assert(r.perRow >= 4, "в ряду меньше четырёх карточек клиентов: " + r.perRow);
       assert(!r.tile, "в плитке снова ячейка «Новый клиент»");

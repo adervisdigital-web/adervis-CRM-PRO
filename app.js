@@ -22244,6 +22244,17 @@
                         ${clientSubtitle(client) ? `<p>${escapeHtml(clientSubtitle(client))}</p>` : ""}
                       </div>
                       ${st === "active" ? `<span class="sr-only">Активный</span>` : `<span class="status-pill client-card-status ${statusTone(st)}">${statusLabel(st)}</span>`}
+                      ${/* Контакты — в правом верхнем углу, на уровне имени. В строке
+                            с суммами они стояли в её конце и при длинных суммах
+                            уезжали на следующую строку: значок телефона у каждой
+                            карточки оказывался в своём месте (скриншот владельца
+                            19.09.2026). */""}
+                      ${/* Телефон — всегда крайним справа, почта — перед ним:
+                            иначе при наличии почты телефон сдвигался влево. */""}
+                      ${tel || client.email ? `<span class="client-card-contacts no-print">
+                        ${client.email ? `<a class="client-contact" href="mailto:${escapeHtml(client.email)}" onclick="event.stopPropagation()" title="Написать: ${escapeHtml(client.email)}" aria-label="Написать: ${escapeHtml(client.email)}">${icon("mail", 13)}</a>` : ""}
+                        ${tel ? `<a class="client-contact" href="tel:${escapeHtml(tel)}" onclick="event.stopPropagation()" title="Позвонить: ${escapeHtml(client.phone)}" aria-label="Позвонить: ${escapeHtml(client.phone)}">${icon("phone", 13)}</a>` : ""}
+                      </span>` : ""}
                     </div>
                     <div class="client-card-stats">
                       ${m.count
@@ -22251,10 +22262,6 @@
                         : `<span class="client-card-none">Сделок нет</span>`}
                       ${m.paid ? `<span class="client-card-paid" title="Всего оплачено клиентом">${money(m.paid)}</span>` : ""}
                       ${m.debt ? `<span class="client-card-debt" title="Долг клиента">долг ${money(m.debt)}</span>` : ""}
-                      ${tel || client.email ? `<span class="client-card-contacts no-print">
-                        ${tel ? `<a class="client-contact" href="tel:${escapeHtml(tel)}" onclick="event.stopPropagation()" title="Позвонить: ${escapeHtml(client.phone)}" aria-label="Позвонить: ${escapeHtml(client.phone)}">${icon("phone", 13)}</a>` : ""}
-                        ${client.email ? `<a class="client-contact" href="mailto:${escapeHtml(client.email)}" onclick="event.stopPropagation()" title="Написать: ${escapeHtml(client.email)}" aria-label="Написать: ${escapeHtml(client.email)}">${icon("mail", 13)}</a>` : ""}
-                      </span>` : ""}
                     </div>
                     ${m.debt > 0 && выставлено > 0 ? `<span class="client-pay-track" title="Оплачено ${доля}% — ${money(m.paid)} из ${money(выставлено)}">
                       <span class="client-pay-fill" style="width:${доля}%"></span>
