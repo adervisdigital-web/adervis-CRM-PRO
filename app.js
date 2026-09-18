@@ -8865,6 +8865,9 @@
           // пользователя свой личный Google Calendar, общее поле привело бы к тому,
           // что синхронизация одного перезаписывала бы ссылку другого.
           googleEventIds: (task?.googleEventIds && typeof task.googleEventIds === "object") ? task.googleEventIds : {},
+          // Место на доске «Задачи», заданное перетаскиванием (как в Trello).
+          // Нет числа — задача стоит после расставленных, по сроку.
+          order: Number.isFinite(task?.order) ? task.order : undefined,
           createdAt: task?.createdAt || new Date().toISOString(),
           updatedAt: task?.updatedAt || new Date().toISOString()
         };
@@ -22668,7 +22671,15 @@
 
             ${filtered.length ? (boardView ? `<div class="gtask-board">
               ${TASK_STATUSES.map(status => {
-                const inCol = filtered.filter(r => (r.task.status || "Новая") === status);
+                /* Порядок в колонке — ручной (перетаскиванием, как в Trello):
+                   сначала расставленные по order, остальные — после них, в
+                   прежнем порядке по сроку (сортировка устойчивая). */
+                const inCol = filtered.filter(r => (r.task.status || "Новая") === status)
+                  .sort((a, b) => {
+                    const oa = Number.isFinite(a.task.order), ob = Number.isFinite(b.task.order);
+                    if (oa && ob) return a.task.order - b.task.order;
+                    return oa ? -1 : ob ? 1 : 0;
+                  });
                 return `
                   ${/* Цвет статуса — тот же, что у капсулы статуса в списке
                         (TASK_STATUS_COLORS): колонку узнают по нему, не читая.
@@ -22833,6 +22844,52 @@
         return true;
       }
 
+      /* Поставить задачу на место — перетаскиванием внутри колонки и между
+         колонками (как в Trello, просьба владельца 18.09.2026).
+         keys — итоговый порядок карточек колонки, каким его видно после броска
+         (перенесённая включена). Номера order раздаются всем карточкам колонки
+         подряд: в одной колонке лежат и личные задачи, и задачи разных сделок,
+         и сравниваются они между собой. Ключ карточки: вид|сделка|id.
+         Задача сделки живёт в двух местах (живой state.tasks у активной, снимок
+         у остальных) — пишем туда же, где её взял _collectAllTasks, и так же
+         сохраняем, как setBoardTaskStatus. */
+      function placeBoardTask(dragKey, newStatus, keys) {
+        if (!TASK_STATUSES.includes(newStatus) || !Array.isArray(keys)) return false;
+        const keyOf = (r) => `${r.kind}|${r.projectId || ""}|${r.task.id}`;
+        const rows = _collectAllTasks();
+        const byKey = new Map(rows.map(r => [keyOf(r), r]));
+        const dragged = byKey.get(dragKey);
+        if (!dragged) return false;
+        const now = new Date().toISOString();
+        const touched = new Set();
+        let changed = false;
+        const mark = (r) => { changed = true; if (r.kind !== "global") touched.add(r.projectId || ""); };
+        const listOf = (r) => {
+          if (r.kind === "global") return state.globalTasks;
+          if (!r.projectId || r.projectId === state.activeProjectId) return state.tasks;
+          const proj = (state.savedProjects || []).find(p => p.id === r.projectId);
+          return (proj && proj.snapshot && proj.snapshot.tasks) || null;
+        };
+        if ((dragged.task.status || "Новая") !== newStatus) {
+          dragged.task.status = newStatus;
+          dragged.task.updatedAt = now;
+          if (newStatus === "Готово") { const l = listOf(dragged); if (Array.isArray(l)) _maybeRepeatTask(dragged.task, l); }
+          mark(dragged);
+        }
+        keys.forEach((k, i) => {
+          const r = byKey.get(k);
+          if (r && r.task.order !== i) { r.task.order = i; mark(r); }
+        });
+        if (!changed) return false;
+        touched.forEach(pid => {
+          if (!pid || pid === state.activeProjectId) { if (state.activeProjectId) flushActiveProjectToSaved(); }
+          else { const proj = (state.savedProjects || []).find(p => p.id === pid); if (proj) proj.updatedAt = now; }
+        });
+        save();
+        render();
+        return true;
+      }
+
       /* Перетаскивание карточек по доске «Задачи».
          На pointer-событиях, а не на HTML5 drag-and-drop: тот на телефоне не
          работает вовсе, а владелец смотрит доску и там.
@@ -22860,10 +22917,22 @@
         if (d.overCol) d.overCol.classList.remove("dragover");
         document.body.classList.remove("gtask-dragging");
         const status = commit && d.overCol ? d.overCol.dataset.dropStatus : "";
+        const keyOf = (el) => `${el.dataset.dragKind}|${el.dataset.dragProject || ""}|${el.dataset.dragId}`;
+        let keys = null;
         if (status) {
-          const ds = d.card.dataset;
-          setBoardTaskStatus(ds.dragKind, ds.dragProject, ds.dragId, status);
+          // Итоговый порядок колонки читаем с экрана: где стоит линия — туда
+          // встаёт перенесённая карточка, остальные — как их видно.
+          const list = d.overCol.querySelector(".gtask-board-list");
+          const dragKey = keyOf(d.card);
+          keys = [];
+          [...(list ? list.children : [])].forEach(el => {
+            if (el === d.marker) keys.push(dragKey);
+            else if (el !== d.card && el.matches && el.matches(".gtask-card[data-drag-id]")) keys.push(keyOf(el));
+          });
+          if (!keys.includes(dragKey)) keys.push(dragKey);
         }
+        if (d.marker) d.marker.remove();
+        if (status) placeBoardTask(keyOf(d.card), status, keys);
       }
 
       function _tbTrack() {
@@ -22876,6 +22945,27 @@
           if (d.overCol) d.overCol.classList.remove("dragover");
           if (col) col.classList.add("dragover");
           d.overCol = col;
+        }
+        /* Линия «встанет сюда» — перед первой карточкой, чья середина ниже
+           пальца; ниже всех — в конец колонки. Двигаем готовый элемент, а не
+           перерисовываем: это 60 раз в секунду. */
+        const list = col ? col.querySelector(".gtask-board-list") : null;
+        if (!list) { if (d.marker) d.marker.remove(); return; }
+        if (!d.marker) {
+          d.marker = document.createElement("div");
+          d.marker.className = "gtask-drop-marker";
+          d.marker.setAttribute("aria-hidden", "true");
+        }
+        let before = null;
+        for (const c of list.querySelectorAll(".gtask-card[data-drag-id]")) {
+          if (c === d.card) continue;
+          const r = c.getBoundingClientRect();
+          if (d.y < r.top + r.height / 2) { before = c; break; }
+        }
+        if (before) {
+          if (d.marker.parentNode !== list || d.marker.nextSibling !== before) list.insertBefore(d.marker, before);
+        } else if (d.marker.parentNode !== list || d.marker.nextSibling) {
+          list.appendChild(d.marker);
         }
       }
 
@@ -28619,7 +28709,8 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       function _maybeRepeatTask(task, list) {
         if (!task.repeat || task.repeat === "none") return;
         const next = normalizeTask({
-          ...task, id: uid("task"), status: "Новая",
+          // order не наследуем: копия встаёт в другую колонку, в её конец.
+          ...task, id: uid("task"), status: "Новая", order: undefined,
           deadline: _shiftDateByRepeat(task.deadline, task.repeat),
           comments: [], googleEventIds: {},
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()

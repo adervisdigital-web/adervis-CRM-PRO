@@ -6527,6 +6527,13 @@
       box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / .2) inset;
     }
     .gtask-card.is-drag-source { opacity: .35; border-style: dashed; }
+    /* Линия «встанет сюда» при переносе (app.js _tbTrack). Отрицательные поля
+       гасят отступ списка, поэтому карточки под линией не прыгают. */
+    .gtask-drop-marker {
+      height: 4px; margin: -6px 0; flex: 0 0 auto;
+      border-radius: var(--r-pill); background: var(--primary);
+      box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / .2);
+    }
     .gtask-card-ghost {
       position: fixed; left: 0; top: 0; z-index: var(--z-tooltip);
       margin: 0; pointer-events: none;

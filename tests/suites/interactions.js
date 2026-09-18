@@ -6088,6 +6088,86 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  /* Ручной порядок на доске задач, как в Trello (владелец 18.09.2026:
+     «перетаскивать между собой»). Раньше колонка всегда шла по сроку, и
+     переставить карточки было нельзя. Проверяем: внутри колонки вверх, между
+     колонками в конкретное место, задачу сделки вперемешку с личными, и что
+     порядок переживает перерисовку и перезагрузку. */
+  await test("доска задач: карточки переставляются внутри колонки и встают на место в другой", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await bootWithState(`
+      st.globalTasks = [
+        { id: "o1", title: "Первая", status: "Новая", priority: "Средний", comments: [] },
+        { id: "o2", title: "Вторая", status: "Новая", priority: "Средний", comments: [] },
+        { id: "o3", title: "Третья", status: "Новая", priority: "Средний", comments: [] },
+        { id: "o4", title: "Работа А", status: "В работе", priority: "Средний", comments: [] },
+        { id: "o5", title: "Работа Б", status: "В работе", priority: "Средний", comments: [] },
+      ];
+      st.globalTaskView = "board";
+      st.savedProjects = [{ id: "op1", name: "Сделка", client: "К", total: 1000, paid: 0, crmStatus: "В работе",
+        createdAt: "2026-09-01", updatedAt: "2026-09-01",
+        snapshot: { payments: [], expenses: [], tasks: [{ id: "opt", title: "Проектная", status: "Новая", priority: "Средний", comments: [] }] } }];
+      st.activeProjectId = null; st.tasks = [];
+    `, { width: 1440, height: 900 });
+    const col = (status) => p.evaluate((s) => [...document.querySelectorAll(`.gtask-board-col[data-drop-status="${s}"] .gtask-card-title`)]
+      .map((x) => x.textContent.trim()), status);
+    // Тянем карточку и бросаем в верхнюю четверть целевой (встать ПЕРЕД ней)
+    // или под последнюю карточку колонки (встать в конец).
+    const drag = async (title, targetStatus, beforeTitle) => {
+      const from = await p.locator(".gtask-card", { hasText: title }).first().boundingBox();
+      let tx, ty;
+      if (beforeTitle) {
+        const t = await p.locator(`.gtask-board-col[data-drop-status="${targetStatus}"] .gtask-card`, { hasText: beforeTitle }).first().boundingBox();
+        tx = t.x + t.width / 2; ty = t.y + t.height * 0.2;
+      } else {
+        const c = await p.locator(`.gtask-board-col[data-drop-status="${targetStatus}"] .gtask-board-list`).boundingBox();
+        tx = c.x + c.width / 2; ty = c.y + c.height - 4;
+      }
+      await p.mouse.move(from.x + 40, from.y + from.height / 2);
+      await p.mouse.down();
+      await p.mouse.move(tx, ty, { steps: 14 });
+      await p.waitForTimeout(80);
+      await p.mouse.up();
+      await p.waitForTimeout(350);
+    };
+    try {
+      await p.evaluate(() => window.app.go("global-tasks"));
+      await p.waitForTimeout(400);
+      const start = await col("Новая");
+      assert(start.length === 4 && start.includes("Проектная"), "в «Новой» не четыре карточки: " + JSON.stringify(start));
+      const last = start[start.length - 1];
+
+      // Внутри колонки: последнюю — наверх.
+      await drag(last, "Новая", start[0]);
+      const a = await col("Новая");
+      assertEqual(a[0], last, "карточка не встала наверх колонки: " + JSON.stringify(a));
+      assertEqual(a.length, 4, "перестановка потеряла или размножила карточки: " + JSON.stringify(a));
+
+      // Между колонками — в конкретное место: «Вторая» встаёт ПЕРЕД «Работа Б».
+      await drag("Вторая", "В работе", "Работа Б");
+      assertEqual((await col("В работе")).join("|"), "Работа А|Вторая|Работа Б", "карточка встала не туда в другой колонке");
+
+      // Задача сделки переставляется вместе с личными.
+      const n1 = await col("Новая");
+      await drag("Проектная", "Новая", n1[0]);
+      assertEqual((await col("Новая"))[0], "Проектная", "задачу сделки не переставить среди личных");
+
+      // Порядок живёт после перерисовки и после перезагрузки.
+      const before = { n: await col("Новая"), w: await col("В работе") };
+      await p.evaluate(() => { window.app.setGlobalTaskView("list"); window.app.setGlobalTaskView("board"); });
+      await p.waitForTimeout(300);
+      assertEqual((await col("Новая")).join("|"), before.n.join("|"), "порядок сбился после перерисовки");
+      await p.reload({ waitUntil: "load" });
+      await p.waitForTimeout(900);
+      await p.evaluate(() => window.app.go("global-tasks"));
+      await p.waitForTimeout(400);
+      assertEqual((await col("Новая")).join("|"), before.n.join("|"), "порядок «Новой» не пережил перезагрузку");
+      assertEqual((await col("В работе")).join("|"), before.w.join("|"), "порядок «В работе» не пережил перезагрузку");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   /* Пакеты по образцу каталога (15.09.2026): бейдж категории повторял заголовок
      группы на каждой из 45 карточек; «Скрыть» было перечёркнутым глазом вплотную
      к звезде — теперь в «⋮» с подписью, и меню не режется краем карточки; на
