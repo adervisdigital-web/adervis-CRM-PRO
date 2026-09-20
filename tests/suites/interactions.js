@@ -5695,6 +5695,98 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("смета: шапка не повторяет «Итоги», налог со ставкой, пустая — без нулей, шаги = разделы каталога", async () => {
+    /* Замер 21.09.2026 по скриншотам владельца: на экране сметы «Итого» стояло
+       ТРИЖДЫ (шапка сделки, шапка сметы, «Итоги»), «Оплачено» и «Долг» —
+       дважды, капсула маржи — дважды, а «— из них себестоимость позиций»
+       повторяла число «Расходы (план)». Копия в шапке сделки гаснет только
+       шире 1160px: ниже панель «Итогов» уезжает под смету. Налог назван
+       ставкой. У пустой сметы нулей нет вовсе. Карточки шагов сборки берут
+       значок и цвет у разделов каталога, куда ведут. */
+    const { ctx, p } = await bootWithState(`
+      st.savedProjects.push({ id: "emptyDeal", name: "Новая сделка", client: "Клиент", total: 0, paid: 0,
+        crmStatus: "Лид", createdAt: "2026-09-21", updatedAt: "2026-09-21",
+        snapshot: { project: { name: "Новая сделка", crmStatus: "Лид" }, selected: {}, payments: [], expenses: [], tasks: [] } });
+    `, { width: 1400, height: 950 });
+    const h = (sel) => p.evaluate((s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().height) : -1; }, sel);
+    try {
+      // Пустая смета: ни «Итого для клиента 0 ₽», ни столбика нулей.
+      await p.evaluate(() => { window.app.selectActiveDeal("emptyDeal"); window.app.setDealView("estimate"); window.app.go("deal"); });
+      await p.waitForTimeout(600);
+      const empty = await p.evaluate(() => {
+        const a = document.querySelector("aside.summary");
+        return { total: !!a.querySelector(".summary-total"), note: !!a.querySelector(".summary-empty-note"),
+          zeros: (a.textContent.match(/0 ₽/g) || []).length };
+      });
+      assert(empty.note, "у пустой сметы нет подсказки о том, что здесь появится");
+      assert(!empty.total, "у пустой сметы снова блок «Итого для клиента 0 ₽»");
+      assertEqual(empty.zeros, 0, "в «Итогах» пустой сметы остались нули");
+
+      // Шаги сборки говорят языком каталога: тот же значок и цвет.
+      const steps = await p.evaluate(() => [...document.querySelectorAll(".estimate-step-card")].map((c) => ({
+        g: ((c.getAttribute("onclick") || "").match(/goCatalogGroup\('(\w+)'/) || [])[1],
+        d: (c.querySelector("svg path") || {}).getAttribute ? c.querySelector("svg path").getAttribute("d").slice(0, 40) : "",
+        color: getComputedStyle(c.querySelector("svg").parentElement).color,
+        title: (c.textContent || "").replace(/\s+/g, " ").trim().slice(0, 40),
+      })));
+      assert(steps.length >= 3, "на пустой смете нет карточек шагов сборки");
+      await p.evaluate(() => window.app.go("catalog"));
+      await p.waitForTimeout(700);
+      const cat = await p.evaluate(() => {
+        const o = {};
+        document.querySelectorAll(".catalog-cat-item[data-group]").forEach((e) => {
+          const ico = e.querySelector(".catalog-cat-ico");
+          if (!ico) return;
+          o[e.dataset.group] = { d: (ico.querySelector("path") || {}).getAttribute ? ico.querySelector("path").getAttribute("d").slice(0, 40) : "",
+            color: getComputedStyle(ico).color };
+        });
+        return o;
+      });
+      for (const st of steps) {
+        const g = cat[st.g];
+        assert(g, `шаг ведёт в раздел «${st.g}», которого в каталоге нет`);
+        assertEqual(st.d, g.d, `у шага «${st.title}» значок не тот, что у раздела каталога`);
+        assertEqual(st.color, g.color, `у шага «${st.title}» цвет не тот, что у раздела каталога`);
+      }
+
+      // Смета с позициями: шапка сделки молчит, «Итоги» говорят.
+      const id = await p.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state"))
+        .savedProjects.find((x) => x.id !== "emptyDeal").id);
+      await p.evaluate((i) => { window.app.selectActiveDeal(i); window.app.setDealView("estimate");
+        window.app.updateProject("taxType", "npd7"); window.app.go("deal"); }, id);
+      await p.waitForTimeout(700);
+      assert((await h("aside.summary")) > 0, "на смете нет панели «Итогов»");
+      assertEqual(await h(".deal-stats-inline"), 0, "на широком экране шапка сделки снова повторяет числа «Итогов»");
+      assertEqual(await h(".margin-badge"), 0, "капсула маржи стоит и в шапке, и в «Итогах»");
+
+      const panel = await p.evaluate(() => {
+        const a = document.querySelector("aside.summary");
+        const lines = [...a.querySelectorAll(".summary-line")].map((x) => ({
+          t: (x.querySelector("span") || {}).textContent || "",
+          v: ((x.querySelector("strong") || {}).textContent || "").replace(/[^\d]/g, ""),
+        }));
+        const plan = lines.find((l) => /^Расходы \(план\)/.test(l.t.trim()));
+        return { tax: (lines.find((l) => /^Налог/.test(l.t.trim())) || {}).t,
+          dupSub: lines.filter((l) => /из них/.test(l.t) && plan && l.v === plan.v).map((l) => l.t.trim()) };
+      });
+      assert(/НПД 7%/.test(panel.tax || ""), "налог не назван ставкой: «" + panel.tax + "»");
+      assertEqual(panel.dupSub.length, 0, "подстрока повторяет «Расходы (план)» тем же числом: " + panel.dupSub.join(", "));
+
+      // На других вкладках панели «Итогов» нет — числа в шапке остаются.
+      await p.evaluate(() => window.app.setDealView("tasks"));
+      await p.waitForTimeout(500);
+      assert((await h(".deal-stats-inline")) > 0, "на вкладке «Задачи» пропали числа сделки");
+
+      // Узкий экран: «Итоги» уезжают под смету, копия в шапке снова нужна.
+      await p.setViewportSize({ width: 1100, height: 950 });
+      await p.evaluate(() => window.app.setDealView("estimate"));
+      await p.waitForTimeout(500);
+      assert((await h(".deal-stats-inline")) > 0, "на 1100px числа исчезли и из шапки, и из видимой части экрана");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("пакеты: избранное и скрытые работают, как в каталоге", async () => {
     /* Просьба владельца 04.09.2026: «в пакетах не хватает ещё двух строчек в
        навигации». У каталога «Избранное» и «Скрытые» были с самого начала, у

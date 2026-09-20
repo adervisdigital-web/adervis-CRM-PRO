@@ -5566,6 +5566,13 @@
       padding: 8px 14px; border-radius: var(--r-lg);
       background: var(--panel2); border: 1px solid var(--line);
     }
+    /* Вкладка «Смета» на широком экране: те же «Итого / Оплачено / Долг» и
+       маржа стоят в «Итогах сметы» справа, а итог — ещё и в шапке сметы.
+       Ниже 1161px панель уезжает под смету, и копия в шапке снова нужна. */
+    @media (min-width: 1161px) {
+      .deal-stats-inline.is-on-estimate,
+      .margin-badge.is-on-estimate { display: none; }
+    }
     .deal-stat-item { display: flex; flex-direction: column; align-items: flex-end; }
     .deal-stat-item span { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
     .deal-stat-item strong { font-size: 15px; font-weight: 900; }

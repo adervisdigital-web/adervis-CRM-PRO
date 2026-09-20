@@ -19591,6 +19591,10 @@
         const marginClass = marginBadgeClass(fin.revenue, margin, costsKnown);
         const marginTitle = marginBadgeTitle(fin.revenue, margin, costsKnown);
         const payPct = d.total > 0 ? Math.min(100, Math.round(fin.paid / d.total * 100)) : 0;
+        /* Смета пустая и денег по сделке нет: «Итого для клиента 0 ₽» крупным
+           блоком — тот же ноль, что уже стоит в шапке сметы. Оставляем одну
+           подсказку о том, что здесь появится. */
+        const пусто = !hasLines && !d.budgetOnly && !(d.total > 0) && !(fin.paid > 0) && !(fin.totalExpenses > 0);
 
         const stagesWithItems = state.stages
           .map(s => ({ stage: s, sum: stageTotal(s.id, false) }))
@@ -19627,12 +19631,18 @@
                   19.09.2026: «вынести ко всем кнопкам», см. renderEstimateDiscountButton).
                   Здесь — только результат, строкой того же строя, что налог. */""}
             ${t.discount > 0 && !d.budgetOnly ? `<div class="summary-line summary-discount-line"><span>Скидка${state.project.discountType === "amount" ? "" : ` ${String(numberValue(state.project.discount, 0)).replace(".", ",")}%`}</span><strong class="summary-discount-sum">− ${money(t.discount)}</strong></div>` : ""}
-            ${t.tax ? `<div class="summary-line"><span>Налог</span><strong>${money(t.tax)}</strong></div>` : ""}
+            ${/* С названием режима: «Налог 10 745 ₽» не отвечал, откуда число,
+                  а ставка выбрана тут же в шапке сметы. */""}
+            ${t.tax ? (() => {
+              const режим = TAX_OPTIONS.find(o => o.id === (state.project.taxType || "none"));
+              return `<div class="summary-line"><span>Налог${режим && режим.short ? ` · ${escapeHtml(режим.short)}` : ""}</span><strong>${money(t.tax)}</strong></div>`;
+            })() : ""}
 
+            ${пусто ? "" : `
             <div class="summary-total">
               <span>${d.budgetOnly ? "Бюджет сделки" : "Итого для клиента"}</span>
               <strong>${money(d.total)}</strong>
-            </div>
+            </div>`}
             ${d.budgetOnly ? `<div class="summary-line" style="font-size:12px"><span>Смета не разбита на позиции</span></div>` : ""}
 
             ${t.optional ? `<div class="summary-line"><span>Опции (+)</span><strong>${money(t.optional)}</strong></div>` : ""}
@@ -19640,8 +19650,8 @@
             ${/* Пустая смета: «Оплачено 0% · Расходы 0 ₽ · Прибыль 0 ₽» — столбик
                   нулей, который ничего не сообщает (скриншот владельца 19.09.2026).
                   Пока нет ни позиций, ни денег — одна строка о том, что здесь будет. */""}
-            ${!hasLines && !d.budgetOnly && !(d.total > 0) && !(fin.paid > 0) && !(fin.totalExpenses > 0) ? `
-              <p class="summary-empty-note">Добавьте позиции — здесь появятся оплата, расходы и прибыль.</p>
+            ${пусто ? `
+              <p class="summary-empty-note">Добавьте позиции — здесь появятся итог, оплата, расходы и прибыль.</p>
             ` : `
             <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
               <div class="summary-line">
@@ -19653,8 +19663,11 @@
               </div>
               ${fin.debt > 0 ? `<div class="summary-line"><span>Долг</span><strong style="color:var(--text-warning)">${money(fin.debt)}</strong></div>` : ""}
               <div class="summary-line"><span>Расходы (план)</span><strong>${money(fin.totalExpenses)}</strong></div>
-              ${fin.lineCosts > 0 ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них себестоимость позиций</span><strong>${money(fin.lineCosts)}</strong></div>` : ""}
-              ${fin.expenses > 0 ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них расходы</span><strong>${money(fin.expenses)}</strong></div>` : ""}
+              ${/* Подстроки «— из них …» нужны, когда расход сложен из разных
+                    источников. Когда себестоимость позиций и есть весь расход,
+                    строка повторяла то же число второй раз. */""}
+              ${fin.lineCosts > 0 && Math.round(fin.lineCosts) !== Math.round(fin.totalExpenses) ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них себестоимость позиций</span><strong>${money(fin.lineCosts)}</strong></div>` : ""}
+              ${fin.expenses > 0 && Math.round(fin.expenses) !== Math.round(fin.totalExpenses) ? `<div class="summary-line" style="font-size:12px;color:var(--muted)"><span>— из них расходы</span><strong>${money(fin.expenses)}</strong></div>` : ""}
               ${/* Пара «начислено / выплачено» осталась ровно в одном месте — в
                     гонорарах команды (member.payout / member.paidAmount). Расход в
                     «Финансах» выплачен по определению (решение владельца 29.08.2026),
@@ -21673,10 +21686,15 @@
          одно, попадал в другое. Плюс они описывали только съёмку: студия, заказавшая
          графику, дизайн или монтаж чужого материала, себя в них не находила, хотя
          каталог такие работы содержит. Меняешь label группы — поменяй и здесь. */
+      /* Значок, цвет и название шага берём из самого раздела каталога, куда шаг
+         ведёт (CATALOG_GROUPS). Свои у шагов были, и они разошлись: у
+         «Оборудования» стоял синий фотоаппарат — язык раздела «Съёмка», а
+         «Команда» была фиолетовой вместо розовой. Тот же дефект, что владелец
+         поймал 19.09.2026 на значках разделов: один смысл — один знак. */
       const ESTIMATE_START_STEPS = [
-        { g: "crew", ic: "team",   color: "var(--primary2)", title: "Команда",      text: "Режиссёр, оператор, дизайнер, звук, ассистенты — все, кто работает над проектом." },
-        { g: "gear", ic: "camera", color: "var(--blue)",     title: "Оборудование", text: "Камера, объективы, свет, стабилизатор, звуковой комплект, аренда." },
-        { g: "post", ic: "film",   color: "var(--green)",    title: "Постпродакшн", text: "Монтаж, цвет, графика, саунд-дизайн, версии и субтитры." }
+        { g: "crew", text: "Режиссёр, оператор, дизайнер, звук, ассистенты — все, кто работает над проектом." },
+        { g: "gear", text: "Камера, объективы, свет, стабилизатор, звуковой комплект, аренда." },
+        { g: "post", text: "Монтаж, цвет, графика, саунд-дизайн, версии и субтитры." }
       ];
 
       function renderEstimateStartSteps(canSetBudget) {
@@ -21685,17 +21703,19 @@
             <h2 style="margin:0 0 4px;font-size:16px">Соберите смету по шагам</h2>
             <p class="mini-note" style="margin:0 0 14px">Сначала люди, потом техника, потом работа над материалом. Каждый шаг открывает свой раздел каталога.</p>
             <div class="grid three" style="gap:10px">
-              ${ESTIMATE_START_STEPS.map((s, i) => `
+              ${ESTIMATE_START_STEPS.map((s, i) => {
+                const g = CATALOG_GROUPS.find(x => x.id === s.g) || {};
+                return `
                 <button onclick="app.goCatalogGroup('${s.g}')" class="estimate-step-card"
                   style="text-align:left;padding:16px;border-radius:16px;border:1px solid var(--line);background:var(--panel);cursor:pointer;color:var(--text);display:flex;flex-direction:column;gap:6px;transition:border-color .15s,transform .15s">
                   <span style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-                    ${iconBadge(s.ic, s.color, 44)}
+                    ${iconBadge(g.ic, g.color, 44)}
                     <span style="font-size:12px;color:var(--muted);font-weight:700">Шаг ${i + 1}</span>
                   </span>
-                  <span style="font-size:15px;font-weight:800;margin-top:2px">${escapeHtml(s.title)}</span>
+                  <span style="font-size:15px;font-weight:800;margin-top:2px">${escapeHtml(g.label || "")}</span>
                   <span style="font-size:12px;color:var(--muted);line-height:1.45">${escapeHtml(s.text)}</span>
-                </button>
-              `).join("")}
+                </button>`;
+              }).join("")}
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
               <span class="mini-note">Или сразу:</span>
@@ -26190,6 +26210,14 @@
 
         const dealTabs = dealTabDefs();
 
+        /* На вкладке «Смета» те же три числа стоят в «Итогах сметы» справа, а
+           общий итог — ещё и в шапке самой сметы: замер 21.09.2026 нашёл
+           «Итого» на экране трижды, «Оплачено» и «Долг» — дважды, капсулу
+           маржи — дважды. Метка гасит копию в шапке сделки, но только шире
+           1160px: ниже панель «Итогов» уезжает ПОД смету, и в шапке эти числа
+           остаются единственными сверху. На других вкладках панели нет вовсе. */
+        const наСмете = (state.dealView || "estimate") === "estimate";
+
         const tabContent = {
           estimate: renderEstimate,
           description: renderDescription,
@@ -26220,12 +26248,12 @@
                       дважды утверждала то, чего не знает. Тот же класс, что и
                       «100% маржа» на смете без себестоимости: при нуле выручки
                       капсулы просто нет. */""}
-                ${f.revenue > 0 ? `<span class="margin-badge ${marginClass}" style="font-size:12px" title="${escapeHtml(marginLabel)}">${margin}% маржа</span>` : ""}
+                ${f.revenue > 0 ? `<span class="margin-badge ${marginClass}${наСмете ? " is-on-estimate" : ""}" style="font-size:12px" title="${escapeHtml(marginLabel)}">${margin}% маржа</span>` : ""}
                 ${(() => { const u = dealDeadlineUrgency(state.project); if (!u || u.level === "ok") return ""; return `<span style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px"> ${escapeHtml(u.label)}</span>`; })()}
               </div>
 
               <div class="deal-actions-group">
-                <div class="deal-stats-inline">
+                <div class="deal-stats-inline${наСмете ? " is-on-estimate" : ""}">
                   ${(() => {
                     const d = displayTotal(t);
                     return `<div class="deal-stat-item"${d.budgetOnly ? ` title="Бюджет сделки. Смета не разбита на позиции."` : ""}>
