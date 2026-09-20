@@ -19654,14 +19654,21 @@
               <p class="summary-empty-note">Добавьте позиции — здесь появятся итог, оплата, расходы и прибыль.</p>
             ` : `
             <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
-              <div class="summary-line">
-                <span>Оплачено ${payPct}%</span>
-                <strong>${money(fin.paid)}</strong>
+              ${/* Оплата и долг живут в полосе наверху сделки — она видна на
+                    любой вкладке и с той же шкалой. Здесь эта пара нужна
+                    только там, где полосы нет: на телефоне (≤640px она
+                    скрыта). Прячет её CSS, а не условие: ширина меняется
+                    без перерисовки. */""}
+              <div class="summary-pay-block">
+                <div class="summary-line">
+                  <span>Оплачено ${payPct}%</span>
+                  <strong>${money(fin.paid)}</strong>
+                </div>
+                <div class="deal-pay-bar" style="margin:4px 0 10px">
+                  <div class="deal-pay-fill" style="width:${payPct}%"></div>
+                </div>
+                ${fin.debt > 0 ? `<div class="summary-line"><span>Долг</span><strong style="color:var(--text-warning)">${money(fin.debt)}</strong></div>` : ""}
               </div>
-              <div class="deal-pay-bar" style="margin:4px 0 10px">
-                <div class="deal-pay-fill" style="width:${payPct}%"></div>
-              </div>
-              ${fin.debt > 0 ? `<div class="summary-line"><span>Долг</span><strong style="color:var(--text-warning)">${money(fin.debt)}</strong></div>` : ""}
               <div class="summary-line"><span>Расходы (план)</span><strong>${money(fin.totalExpenses)}</strong></div>
               ${/* Подстроки «— из них …» нужны, когда расход сложен из разных
                     источников. Когда себестоимость позиций и есть весь расход,
@@ -26210,13 +26217,6 @@
 
         const dealTabs = dealTabDefs();
 
-        /* На вкладке «Смета» те же три числа стоят в «Итогах сметы» справа, а
-           общий итог — ещё и в шапке самой сметы: замер 21.09.2026 нашёл
-           «Итого» на экране трижды, «Оплачено» и «Долг» — дважды, капсулу
-           маржи — дважды. Метка гасит копию в шапке сделки, но только шире
-           1160px: ниже панель «Итогов» уезжает ПОД смету, и в шапке эти числа
-           остаются единственными сверху. На других вкладках панели нет вовсе. */
-        const наСмете = (state.dealView || "estimate") === "estimate";
 
         const tabContent = {
           estimate: renderEstimate,
@@ -26248,32 +26248,44 @@
                       дважды утверждала то, чего не знает. Тот же класс, что и
                       «100% маржа» на смете без себестоимости: при нуле выручки
                       капсулы просто нет. */""}
-                ${f.revenue > 0 ? `<span class="margin-badge ${marginClass}${наСмете ? " is-on-estimate" : ""}" style="font-size:12px" title="${escapeHtml(marginLabel)}">${margin}% маржа</span>` : ""}
+                ${f.revenue > 0 ? `<span class="margin-badge ${marginClass}" style="font-size:12px" title="${escapeHtml(marginLabel)}">${margin}% маржа</span>` : ""}
                 ${(() => { const u = dealDeadlineUrgency(state.project); if (!u || u.level === "ok") return ""; return `<span style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px"> ${escapeHtml(u.label)}</span>`; })()}
               </div>
 
               <div class="deal-actions-group">
-                <div class="deal-stats-inline${наСмете ? " is-on-estimate" : ""}">
+                ${/* Полоса с деньгами сделки — то, на что смотрят первым делом
+                      (владелец 21.09.2026: «эта часть вверху мне нравилась,
+                      очень красиво показывалось»). Под числами — шкала оплаты,
+                      нажатие ведёт в «Финансы», где эти деньги и заводят. */""}
+                <button type="button" class="deal-stats-inline" onclick="app.setDealView('finance')"
+                  title="Платежи и расходы сделки">
+                  <span class="deal-stats-row">
+                  ${/* Внутри кнопки — только строчные элементы: <div> там
+                        недопустим, поэтому строки полосы собраны на <span>. */""}
                   ${(() => {
                     const d = displayTotal(t);
-                    return `<div class="deal-stat-item"${d.budgetOnly ? ` title="Бюджет сделки. Смета не разбита на позиции."` : ""}>
+                    return `<span class="deal-stat-item"${d.budgetOnly ? ` title="Бюджет сделки. Смета не разбита на позиции."` : ""}>
                     <span>${d.budgetOnly ? "Бюджет" : "Итого"}</span>
                     <strong>${money(d.total)}</strong>
-                  </div>`;
+                  </span>`;
                   })()}
-                  <div class="deal-stat-sep"></div>
-                  <div class="deal-stat-item" title="${payPct}% оплачено">
+                  <span class="deal-stat-sep"></span>
+                  <span class="deal-stat-item" title="${payPct}% оплачено">
                     <span>Оплачено ${payPct}%</span>
                     <strong style="color:${f.paid > 0 ? "var(--text-success)" : "var(--muted)"}">${money(f.paid)}</strong>
-                  </div>
+                  </span>
                   ${f.debt > 0 ? `
-                    <div class="deal-stat-sep"></div>
-                    <div class="deal-stat-item">
+                    <span class="deal-stat-sep"></span>
+                    <span class="deal-stat-item">
                       <span>Долг</span>
                       <strong style="color:var(--text-warning)">${money(f.debt)}</strong>
-                    </div>
+                    </span>
                   ` : ""}
-                </div>
+                  </span>
+                  ${/* Шкала оплаты прямо под числами: «оплачено 47%» перестаёт
+                        быть только цифрой. Пока денег нет — шкалы нет. */""}
+                  ${f.paid > 0 ? `<span class="deal-pay-bar deal-stats-bar"><span class="deal-pay-fill" style="width:${payPct}%"></span></span>` : ""}
+                </button>
               </div>
             </div>
 

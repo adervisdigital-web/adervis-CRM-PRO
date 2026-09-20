@@ -5695,14 +5695,16 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
-  await test("смета: шапка не повторяет «Итоги», налог со ставкой, пустая — без нулей, шаги = разделы каталога", async () => {
+  await test("сделка: деньги полосой наверху и один раз на экране, налог со ставкой, пустая смета без нулей, шаги = разделы каталога", async () => {
     /* Замер 21.09.2026 по скриншотам владельца: на экране сметы «Итого» стояло
        ТРИЖДЫ (шапка сделки, шапка сметы, «Итоги»), «Оплачено» и «Долг» —
        дважды, капсула маржи — дважды, а «— из них себестоимость позиций»
-       повторяла число «Расходы (план)». Копия в шапке сделки гаснет только
-       шире 1160px: ниже панель «Итогов» уезжает под смету. Налог назван
-       ставкой. У пустой сметы нулей нет вовсе. Карточки шагов сборки берут
-       значок и цвет у разделов каталога, куда ведут. */
+       число «Расходы (план)». Владелец 21.09.2026: полоса наверху ему
+       нравится («очень красиво показывалось») — она осталась, получила шкалу
+       оплаты и ведёт в «Финансы», а пара «Оплачено / Долг» ушла из «Итогов»
+       там, где полоса видна (ниже 641px полосы нет — там пара нужна). Налог
+       назван ставкой. У пустой сметы нулей нет вовсе. Карточки шагов сборки
+       берут значок и цвет у разделов каталога, куда ведут. */
     const { ctx, p } = await bootWithState(`
       st.savedProjects.push({ id: "emptyDeal", name: "Новая сделка", client: "Клиент", total: 0, paid: 0,
         crmStatus: "Лид", createdAt: "2026-09-21", updatedAt: "2026-09-21",
@@ -5749,15 +5751,27 @@ module.exports = async function ({ browser, baseUrl, test }) {
         assertEqual(st.color, g.color, `у шага «${st.title}» цвет не тот, что у раздела каталога`);
       }
 
-      // Смета с позициями: шапка сделки молчит, «Итоги» говорят.
+      // Смета с позициями: деньги наверху, в «Итогах» их пары нет.
       const id = await p.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state"))
         .savedProjects.find((x) => x.id !== "emptyDeal").id);
       await p.evaluate((i) => { window.app.selectActiveDeal(i); window.app.setDealView("estimate");
         window.app.updateProject("taxType", "npd7"); window.app.go("deal"); }, id);
       await p.waitForTimeout(700);
       assert((await h("aside.summary")) > 0, "на смете нет панели «Итогов»");
-      assertEqual(await h(".deal-stats-inline"), 0, "на широком экране шапка сделки снова повторяет числа «Итогов»");
-      assertEqual(await h(".margin-badge"), 0, "капсула маржи стоит и в шапке, и в «Итогах»");
+      assert((await h(".deal-stats-inline")) > 0, "полоса с деньгами сделки пропала из шапки");
+      assertEqual(await h(".summary-pay-block"), 0, "«Оплачено / Долг» стоят и в полосе наверху, и в «Итогах»");
+
+      // Шкала оплаты в полосе показывает ту же долю, что и подпись.
+      const bar = await p.evaluate(() => {
+        const b = document.querySelector(".deal-stats-bar");
+        if (!b) return null;
+        const fill = b.querySelector(".deal-pay-fill");
+        const pct = (document.querySelector(".deal-stats-row").textContent.match(/Оплачено (\d+)%/) || [])[1];
+        return { доля: Math.round(fill.getBoundingClientRect().width / b.getBoundingClientRect().width * 100), подпись: Number(pct) };
+      });
+      assert(bar, "в полосе нет шкалы оплаты");
+      assert(bar.доля > 0 && Math.abs(bar.доля - bar.подпись) <= 2,
+        `шкала залита на ${bar.доля}%, а подпись говорит ${bar.подпись}%`);
 
       const panel = await p.evaluate(() => {
         const a = document.querySelector("aside.summary");
@@ -5772,16 +5786,23 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assert(/НПД 7%/.test(panel.tax || ""), "налог не назван ставкой: «" + panel.tax + "»");
       assertEqual(panel.dupSub.length, 0, "подстрока повторяет «Расходы (план)» тем же числом: " + panel.dupSub.join(", "));
 
-      // На других вкладках панели «Итогов» нет — числа в шапке остаются.
+      // Нажатие на полосу ведёт туда, где эти деньги заводят.
+      await p.click(".deal-stats-inline");
+      await p.waitForTimeout(500);
+      assertEqual(await p.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state")).dealView), "finance",
+        "полоса с деньгами не ведёт в «Финансы»");
+
+      // На других вкладках полоса тоже на месте.
       await p.evaluate(() => window.app.setDealView("tasks"));
       await p.waitForTimeout(500);
       assert((await h(".deal-stats-inline")) > 0, "на вкладке «Задачи» пропали числа сделки");
 
-      // Узкий экран: «Итоги» уезжают под смету, копия в шапке снова нужна.
-      await p.setViewportSize({ width: 1100, height: 950 });
+      // Телефон: полосы нет — пара «Оплачено / Долг» возвращается в «Итоги».
+      await p.setViewportSize({ width: 390, height: 844 });
       await p.evaluate(() => window.app.setDealView("estimate"));
-      await p.waitForTimeout(500);
-      assert((await h(".deal-stats-inline")) > 0, "на 1100px числа исчезли и из шапки, и из видимой части экрана");
+      await p.waitForTimeout(600);
+      assertEqual(await h(".deal-stats-inline"), 0, "на 390px полоса с деньгами занимает место в шапке");
+      assert((await h(".summary-pay-block")) > 0, "на телефоне «Оплачено / Долг» пропали совсем");
     } finally {
       await ctx.close();
     }

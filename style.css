@@ -3277,7 +3277,7 @@
 
       /* Deal bar compact */
       .deal-compact-row { flex-direction: column; gap: 8px; }
-      .deal-stats-inline { flex-wrap: wrap; gap: 6px; }
+      .deal-stats-row { flex-wrap: wrap; gap: 6px; }
       .deal-nav-group { flex-wrap: wrap; gap: 6px; }
       .next-action-btn { font-size: 12px; padding: 6px 10px; }
     }
@@ -5561,17 +5561,24 @@
     .deal-actions-group {
       display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 0 0 auto;
     }
+    /* Деньги сделки — кнопкой: числа ведут туда, где их заводят («Финансы»). */
     .deal-stats-inline {
-      display: flex; align-items: center; gap: 16px;
+      display: flex; flex-direction: column; align-items: stretch; gap: 6px;
       padding: 8px 14px; border-radius: var(--r-lg);
       background: var(--panel2); border: 1px solid var(--line);
+      font: inherit; color: inherit; text-align: inherit; cursor: pointer;
+      transition: border-color .15s, background .15s;
     }
-    /* Вкладка «Смета» на широком экране: те же «Итого / Оплачено / Долг» и
-       маржа стоят в «Итогах сметы» справа, а итог — ещё и в шапке сметы.
-       Ниже 1161px панель уезжает под смету, и копия в шапке снова нужна. */
-    @media (min-width: 1161px) {
-      .deal-stats-inline.is-on-estimate,
-      .margin-badge.is-on-estimate { display: none; }
+    .deal-stats-inline:hover { border-color: rgb(var(--primary-rgb) / .45); background: var(--panel); }
+    .deal-stats-row { display: flex; align-items: center; gap: 16px; }
+    /* Шкала внутри кнопки собрана на <span> — без display:block ширина заливки
+       не работает вовсе (строчный элемент её игнорирует). */
+    .deal-stats-bar { display: block; height: 4px; margin: 0; }
+    .deal-stats-bar > span { display: block; }
+    /* Пара «Оплачено / Долг» в «Итогах сметы» — только там, где полосы сверху
+       нет: ниже 641px она скрыта. Иначе те же числа стояли бы на экране дважды. */
+    @media (min-width: 641px) {
+      .summary-pay-block { display: none; }
     }
     .deal-stat-item { display: flex; flex-direction: column; align-items: flex-end; }
     .deal-stat-item span { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
