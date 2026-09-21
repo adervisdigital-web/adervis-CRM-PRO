@@ -4968,6 +4968,25 @@
         // Расходы
         "transfer_taxi", "location_rent",
       ]);
+      /* Пакеты «Старта» — те же тринадцать работ, которые одиночка и продаёт:
+         соцсети, репортаж, интервью, фото, предметка, частные съёмки. Остальные
+         32 пакета — про съёмочную группу и постпродакшн студии; держать их перед
+         человеком с двумя съёмками в месяц значит заставлять его выбирать не из
+         своего. Свои пакеты (id «package_…») видны всегда. */
+      const START_PACKAGE_IDS = new Set([
+        "social_start", "reels_series", "content_day",
+        "interview_base", "business_video",
+        "photo_content", "photo_content_pro", "photo_marketplace",
+        "event_photo_report", "event_report_half",
+        "wedding_mini", "love_story", "kids_photo",
+      ]);
+      function packageAllowedByTier(pkg) {
+        if (!pkg) return false;
+        if (tierRules(currentTier()).catalog !== "short") return true;
+        if (String(pkg.id || "").startsWith("package_")) return true;
+        return START_PACKAGE_IDS.has(pkg.id);
+      }
+
       // Позиция видна на текущем тарифе. Свои позиции человека — всегда видны:
       // он завёл их сам, прятать их за тариф было бы отъёмом его же работы.
       function itemAllowedByTier(it) {
@@ -19198,6 +19217,50 @@
         `;
       }
 
+      /* Главная «Старта». Дашборд с графиками там скрыт (это «Стандарт»), и на
+         его месте нужен ответ на два вопроса человека, у которого две съёмки в
+         месяц: когда ближайшая и сколько ему должны. Графики за полгода ему
+         нечем наполнить, а эти два числа — его рабочий день. */
+      function renderStartHomeStrip(projects) {
+        const today = todayIso();
+        const активные = (projects || []).filter(p => !isDealInactive(p.crmStatus || "Лид"));
+        const съёмки = активные
+          .filter(p => p.deadline && p.deadline >= today)
+          .sort((a, b) => String(a.deadline).localeCompare(String(b.deadline)))
+          .slice(0, 3);
+        const долг = активные.reduce((sum, p) => sum + Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), 0);
+        const ждут = активные.filter(p => numberValue(p.total, 0) - numberValue(p.paid, 0) > 0).length;
+        return `
+          <div class="start-home">
+            <button type="button" class="start-home-card" onclick="app.go('global-calendar')" title="Календарь">
+              <span class="start-home-label">${съёмки.length ? "Ближайшие съёмки" : "Съёмок в календаре нет"}</span>
+              ${съёмки.length ? `<span class="start-home-list">${съёмки.map(p => `
+                <span class="start-home-row">
+                  <span class="start-home-when">${escapeHtml(_startWhen(p.deadline))}</span>
+                  <span class="start-home-name">${escapeHtml(p.name || "Сделка")}</span>
+                  <span class="start-home-sum">${money(p.total)}</span>
+                </span>`).join("")}</span>`
+                : `<span class="start-home-empty">Поставьте дату съёмки в сделке — она появится здесь и в календаре</span>`}
+            </button>
+            <button type="button" class="start-home-card start-home-card--money" onclick="app.setGFinSubTab('receivables');app.go('global-finances')" title="Кто и сколько должен">
+              <span class="start-home-label">Мне должны</span>
+              <span class="start-home-debt ${долг > 0 ? "is-owed" : ""}">${money(долг)}</span>
+              <span class="start-home-empty">${долг > 0
+                ? `${ждут} ${plural(ждут, "сделка ждёт", "сделки ждут", "сделок ждут")} оплаты`
+                : "Всё оплачено"}</span>
+            </button>
+          </div>`;
+      }
+
+      // «Сегодня», «завтра», «через 4 дня» или дата — то, как о съёмке говорят.
+      function _startWhen(iso) {
+        const дней = Math.round((new Date(iso + "T00:00:00") - new Date(todayIso() + "T00:00:00")) / 86400000);
+        if (дней <= 0) return "сегодня";
+        if (дней === 1) return "завтра";
+        if (дней < 7) return `через ${дней} ${plural(дней, "день", "дня", "дней")}`;
+        return new Date(iso + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+      }
+
       function renderHome() {
         const projects = state.savedProjects || [];
 
@@ -19421,6 +19484,8 @@
             </div>
 
             ${introOnTop ? introBlock : ""}
+
+            ${isStartTier() ? renderStartHomeStrip(projects) : ""}
 
             <!-- ── STAT STRIP ─────────────────────────────── -->
             <div class="db-stat-row">
@@ -20641,9 +20706,12 @@
         const pkgQuery = (state.pkgSearch || "").trim().toLowerCase();
         // Отсеиваем ДО группировки: тогда и счётчики категорий сбоку показывают,
         // сколько там найдено, а не сколько лежит всего.
+        /* Тариф режет список ДО поиска: иначе поиск находил бы то, чего в
+           каталоге тарифа нет, и добавлял бы это в смету в обход правила. */
+        const tierPkgs = (state.packages || []).filter(packageAllowedByTier);
         const allPkgs = pkgQuery
-          ? (state.packages || []).filter(p => packageMatchesQuery(p, pkgQuery))
-          : (state.packages || []);
+          ? tierPkgs.filter(p => packageMatchesQuery(p, pkgQuery))
+          : tierPkgs;
 
         const isOwnPkg = (p) => p.id.startsWith("package_");
         const pkgCatsHidden = state.pkgCatsHidden || {};

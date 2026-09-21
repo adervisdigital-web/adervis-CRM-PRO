@@ -5567,6 +5567,37 @@
        CSS по признаку на <html>, а не условиями внутри renderHome. */
     [data-tier="start"] .db-stat-row,
     [data-tier="start"] .db-analytics-row { display: none; }
+    /* Главная тарифа «Старт»: ближайшие съёмки и долг вместо дашборда. Две
+       карточки в ряд, на телефоне — одна под другой. */
+    .start-home {
+      display: grid; grid-template-columns: 1.6fr 1fr; gap: 12px; margin-bottom: 16px;
+    }
+    .start-home-card {
+      display: flex; flex-direction: column; gap: 8px; align-items: stretch;
+      padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--r-xl);
+      background: var(--panel2); color: var(--text); font: inherit; text-align: left; cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .start-home-card:hover { border-color: rgb(var(--primary-rgb) / .45); background: var(--panel); }
+    .start-home-label {
+      font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+    }
+    .start-home-list { display: flex; flex-direction: column; gap: 8px; }
+    .start-home-row { display: flex; align-items: baseline; gap: 10px; }
+    .start-home-when {
+      flex: 0 0 auto; min-width: 86px; font-size: 13px; font-weight: 800; color: var(--primary-text);
+    }
+    .start-home-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; }
+    .start-home-sum { flex: 0 0 auto; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .start-home-empty { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+    .start-home-debt {
+      font-size: 26px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.1;
+    }
+    .start-home-debt.is-owed { color: var(--text-warning); }
+    @media (max-width: 900px) {
+      .start-home { grid-template-columns: 1fr; }
+    }
+
     /* Срок оплаты — один переключатель наверху витрины. Тарифов два, сроков
        четыре; восемь карточек в ряд читались бы как восемь продуктов. */
     /* Строка «Ещё N позиций» в каталоге младшего тарифа — приглушённая, как

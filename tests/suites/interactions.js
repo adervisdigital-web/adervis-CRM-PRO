@@ -5835,11 +5835,17 @@ module.exports = async function ({ browser, baseUrl, test }) {
       localStorage.setItem("adervis_pro_381_state", st);
       localStorage.setItem("adervis_ls_rev", "seeded_by_test_" + Date.now());
     }, JSON.stringify({
-      savedProjects: Array.from({ length: deals }, (_, i) => ({
-        id: "d" + i, name: "Сделка " + (i + 1), client: "Клиент", total: 50000, paid: 0,
-        crmStatus: "В работе", createdAt: "2026-09-01", updatedAt: "2026-09-01",
-        snapshot: { project: { name: "Сделка " + (i + 1), crmStatus: "В работе" }, selected: {}, payments: [], expenses: [], tasks: [] },
-      })),
+      savedProjects: Array.from({ length: deals }, (_, i) => {
+        // Первой сделке — дата съёмки на завтра: по ней проверяется блок
+        // «Ближайшие съёмки» на главной младшего тарифа.
+        const завтра = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+        const дата = i === 0 ? завтра : "";
+        return {
+          id: "d" + i, name: "Сделка " + (i + 1), client: "Клиент", total: 50000, paid: 0,
+          crmStatus: "В работе", deadline: дата, createdAt: "2026-09-01", updatedAt: "2026-09-01",
+          snapshot: { project: { name: "Сделка " + (i + 1), crmStatus: "В работе", deadline: дата }, selected: {}, payments: [], expenses: [], tasks: [] },
+        };
+      }),
       clients: [],
     }));
     const p = await b.context.newPage();
@@ -5865,6 +5871,25 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assert(await p.$(".sidebar-tier-card"), "в меню «Старта» нет карточки о старшем тарифе — расти некуда");
       assertEqual(await p.evaluate(() => (document.querySelector(".db-stat-row")?.getBoundingClientRect().height || 0)), 0,
         "на «Старте» показан дашборд с графиками");
+
+      /* На месте дашборда — два ответа для того, кто снимает один: когда
+         ближайшая съёмка и сколько ему должны. */
+      const дом = await p.evaluate(() => {
+        const el = document.querySelector(".start-home");
+        if (!el) return null;
+        return { текст: el.textContent.replace(/\s+/g, " ").trim(), высота: Math.round(el.getBoundingClientRect().height) };
+      });
+      assert(дом, "на главной «Старта» нет блока ближайших съёмок и долга");
+      assert(дом.высота > 40, "блок на главной «Старта» невидим");
+      assert(/завтра/.test(дом.текст), "ближайшая съёмка не названа словом «завтра»: " + дом.текст.slice(0, 80));
+      assert(/Сделка 1/.test(дом.текст), "в ближайших съёмках нет сделки с датой: " + дом.текст.slice(0, 80));
+      assert(/Мне должны/.test(дом.текст), "на главной «Старта» не сказано, сколько должны");
+
+      // Пакеты урезаны так же, как каталог.
+      await p.evaluate(() => window.app.go("packages"));
+      await p.waitForTimeout(700);
+      const пакетов = await p.evaluate(() => document.querySelectorAll(".package-card").length);
+      assert(пакетов > 5 && пакетов <= 20, "пакетов на «Старте» " + пакетов + " — список не короткий");
 
       // Прямой заход в закрытый раздел отвечает, а не молчит.
       await p.evaluate(() => window.app.go("contracts"));
@@ -5922,6 +5947,13 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assert(!(await p.$(".sidebar-tier-card")), "карточка младшего тарифа показана на «Стандарте»");
       assert((await p.evaluate(() => (document.querySelector(".db-stat-row")?.getBoundingClientRect().height || 0))) > 0,
         "на «Стандарте» пропал дашборд");
+      assert(!(await p.$(".start-home")), "блок младшего тарифа показан на «Стандарте»");
+      await p.evaluate(() => window.app.go("packages"));
+      await p.waitForTimeout(700);
+      const всеПакеты = await p.evaluate(() => document.querySelectorAll(".package-card").length);
+      assert(всеПакеты > 30, "на «Стандарте» пакетов всего " + всеПакеты + " — список урезан");
+      await p.evaluate(() => window.app.go("home"));
+      await p.waitForTimeout(400);
       // Восьмая сделка заводится без вопросов.
       await p.evaluate(() => window.app.startWizard());
       await p.waitForTimeout(500);
