@@ -5998,6 +5998,81 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("финансы сделки: карточки одного строя, состав чипами, пустой список — с действиями", async () => {
+    /* Владелец 21.09.2026 по скриншоту: «сделать блок красивее в нашем стиле».
+       Было: подписи карточек вразнобой, слово «план» мелким текстом в
+       заголовке, кнопка «+ Бюджет» внутри карточки, состав себестоимости —
+       строкой текста, «+ Поступление / − Расход» сплошной заливкой светофором,
+       фильтры с инлайновым белым цветом, пустой список — абзацем без действий.
+       Проверяем РЕЗУЛЬТАТ: строй подписей, метки, чипы, сегменты и пустое
+       состояние с кнопками. */
+    const { ctx, p } = await bootWithState(`
+      st.savedProjects.push({ id: "noMoneyDeal", name: "Без операций", client: "К", total: 0, paid: 0,
+        crmStatus: "Лид", createdAt: "2026-09-21", updatedAt: "2026-09-21",
+        snapshot: { project: { name: "Без операций", crmStatus: "Лид" }, selected: {}, payments: [], expenses: [], tasks: [] } });
+    `, { width: 1440, height: 1000 });
+    try {
+      const первый = await p.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state")).savedProjects[0].id);
+      await p.evaluate((i) => { window.app.selectActiveDeal(i); window.app.setDealView("finance"); window.app.go("deal"); }, первый);
+      await p.waitForTimeout(700);
+
+      const блок = await p.evaluate(() => {
+        const карточки = [...document.querySelectorAll(".fin-card")];
+        const h3 = карточки.map((c) => c.querySelector("h3")).filter(Boolean);
+        return {
+          карточек: карточки.length,
+          капсом: h3.filter((h) => getComputedStyle(h).textTransform === "uppercase").length,
+          метки: [...document.querySelectorAll(".fin-tag")].map((x) => x.textContent.trim()),
+          чипы: document.querySelectorAll(".fin-chips .fin-category-badge").length,
+          кнопки: [...document.querySelectorAll(".fin-quick-btn")].map((x) => ({
+            текст: x.textContent.replace(/\s+/g, " ").trim(),
+            фон: getComputedStyle(x).backgroundColor,
+            рамка: getComputedStyle(x).borderTopWidth,
+          })),
+          активных: document.querySelectorAll(".fin-seg-btn.active").length,
+          сегментов: document.querySelectorAll(".fin-seg-btn").length,
+          кнопкаВКарточке: !!document.querySelector(".fin-card .btn"),
+        };
+      });
+      assertEqual(блок.карточек, 5, "карточек финансов не пять: " + блок.карточек);
+      assertEqual(блок.капсом, 5, "подписи карточек разного строя — капсом только " + блок.капсом + " из 5");
+      assert(блок.метки.length >= 2 && блок.метки.every((x) => x === "план"),
+        "слово «план» не вынесено меткой: " + JSON.stringify(блок.метки));
+      assert(блок.чипы >= 3, "состав себестоимости не чипами: " + блок.чипы);
+      assert(!блок.кнопкаВКарточке, "внутри карточки снова стоит кнопка — ей там не место");
+      assertEqual(блок.кнопки.length, 2, "кнопок добавления не две");
+      for (const b of блок.кнопки) {
+        assert(/^(\+|−|-)?\s*(Поступление|Расход)$/.test(b.текст.replace(/^\s*[+−-]\s*/, "$&")),
+          "кнопка подписана иначе: " + b.текст);
+        assert(parseFloat(b.рамка) >= 1, `кнопка «${b.текст}» без рамки — снова сплошная заливка`);
+        const m = b.фон.match(/[\d.]+/g) || [];
+        assert(m.length === 4 ? Number(m[3]) < 1 : true, `кнопка «${b.текст}» залита сплошным цветом: ${b.фон}`);
+      }
+      assertEqual(блок.активных, 1, "у фильтра операций не ровно один выбранный сегмент");
+      assertEqual(блок.сегментов, 3, "сегментов фильтра не три");
+
+      // Сделка без операций: пустое состояние с двумя действиями, а не абзац.
+      await p.evaluate(() => { window.app.selectActiveDeal("noMoneyDeal"); window.app.setDealView("finance"); });
+      await p.waitForTimeout(600);
+      const пусто = await p.evaluate(() => {
+        const e = document.querySelector("#appContent .empty");
+        if (!e) return null;
+        return { текст: e.textContent.replace(/\s+/g, " ").trim(), кнопок: e.querySelectorAll("button").length };
+      });
+      assert(пусто, "у сделки без операций нет пустого состояния");
+      assert(/Операций пока нет/.test(пусто.текст), "пустое состояние молчит о том, что здесь будет: " + пусто.текст.slice(0, 60));
+      assertEqual(пусто.кнопок, 2, "в пустом состоянии не две кнопки действия");
+
+      // Кнопка из пустого состояния открывает окно операции.
+      await p.click("#appContent .empty button");
+      await p.waitForTimeout(400);
+      assert(await p.$(".modal-overlay"), "кнопка из пустого состояния не открыла окно операции");
+      await p.evaluate(() => window.app.closeFinanceModal());
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("пакеты: избранное и скрытые работают, как в каталоге", async () => {
     /* Просьба владельца 04.09.2026: «в пакетах не хватает ещё двух строчек в
        навигации». У каталога «Избранное» и «Скрытые» были с самого начала, у

@@ -518,6 +518,7 @@
         phone:    `<path d="M5.1 1.5c.5 0 1 .3 1.2.8l.9 2.1c.2.5.1 1-.3 1.4l-.9.9a8.4 8.4 0 003.3 3.3l.9-.9c.4-.4.9-.5 1.4-.3l2.1.9c.5.2.8.7.8 1.2v2.1c0 .8-.7 1.4-1.4 1.3C6.6 13.8 2.2 9.4 1.7 3c-.1-.7.5-1.4 1.3-1.4h2.1z"/>`,
         shield:   `<path d="M8 1.2l5.5 2.1v4.2c0 3.4-2.3 6.4-5.5 7.3-3.2-.9-5.5-3.9-5.5-7.3V3.3L8 1.2zm0 1.7L4.1 4.4v3.1c0 2.5 1.6 4.8 3.9 5.6 2.3-.8 3.9-3.1 3.9-5.6V4.4L8 2.9z"/>`,
         plus:     `<path d="M8 2.2c.5 0 .8.4.8.8v4.2H13a.8.8 0 010 1.6H8.8V13a.8.8 0 01-1.6 0V8.8H3a.8.8 0 010-1.6h4.2V3c0-.4.3-.8.8-.8z"/>`,
+        minus:    `<path d="M3 7.1h10v1.8H3z"/>`,
         // Крестик именно иконкой: символ × (U+00D7) не входит в сабсет DM Sans,
         // браузер подставлял его из системного шрифта — на части машин выходила
         // «коробочка» вместо крестика, и кнопка закрытия выглядела сломанной.
@@ -24322,13 +24323,13 @@
                   <div class="fin-sub">${noEstimate ? "Счёт ещё не выставлен" : f.debt > 0 ? "Ожидаем" : "Закрыто"}</div>
                 </div>
                 <div class="fin-card expense-card" title="План — начислено (себестоимость строк сметы + выплаты команде + расходы), факт — реально выплачено">
-                  <h3>Расход <span style="font-weight:400;font-size:11px;color:var(--muted)">план</span></h3>
+                  <h3>Расходы <span class="fin-tag">план</span></h3>
                   <div class="fin-amount">${money(f.totalExpenses)}</div>
                   <div class="fin-sub">
                     ${f.totalExpensesPaid !== f.totalExpenses ? `<span>факт (выплачено): ${money(f.totalExpensesPaid)}</span><br>` : ""}
                     ${(() => {
                       const budget = state.project.expenseBudget || 0;
-                      if (!budget) return `<button class="btn small no-print" style="margin-top:4px;font-size:12px" onclick="app._setExpenseBudget()">${icon("plus", 13)} Бюджет</button>`;
+                      if (!budget) return `<button class="u-linkbtn no-print" onclick="app._setExpenseBudget()">Бюджет расходов</button>`;
                       const over = f.totalExpenses - budget;
                       const pct = Math.round(f.totalExpenses / budget * 100);
                       return `<span style="color:${over>0?"var(--text-danger)":"var(--muted)"}">Бюджет: ${money(budget)} (${pct}%)</span>${over>0?` <span style="color:var(--text-danger);font-size:12px"> +${money(over)}</span>`:""}`;
@@ -24336,7 +24337,7 @@
                   </div>
                 </div>
                 <div class="fin-card ${noEstimate && noMoney ? "" : "profit-card"}" title="План — прибыль по начисленным затратам, факт — по реально выплаченным (пока команде/подрядчикам не всё выплачено, факт обычно выше плана)">
-                  <h3>Прибыль <span style="font-weight:400;font-size:11px;color:var(--muted)">план</span></h3>
+                  <h3>Прибыль <span class="fin-tag">план</span></h3>
                   <div class="fin-amount">${noEstimate && noMoney ? dash : money(f.profit)}</div>
                   ${/* «0 %» маржи при отсутствии и доходов, и расходов — не оценка
                         сделки, а деление нуля на ноль, показанное как результат. */""}
@@ -24361,27 +24362,33 @@
                   </div>`}
                 </div>
               </div>
+              ${/* Состав себестоимости — чипами, а не строкой текста: ниже теми же
+                    чипами показаны категории расходов, и это одна и та же мысль
+                    «из чего сложилась сумма». */""}
               ${(f.lineCosts || f.teamPayouts) ? `
-              <div class="u-meta-13" style="margin-top:-8px;margin-bottom:14px">
-                Из чего складывается себестоимость: смета ${money(f.lineCosts)} · команда ${money(f.teamPayouts)}${f.teamPayoutsPaid ? ` (выплачено ${money(f.teamPayoutsPaid)})` : ""} · расходы ${money(f.expenses)}${f.expensesPaid ? ` (оплачено ${money(f.expensesPaid)})` : ""}
+              <div class="fin-chips">
+                <span class="fin-chips-label">Себестоимость</span>
+                <span class="fin-category-badge">Смета: <strong>${money(f.lineCosts)}</strong></span>
+                <span class="fin-category-badge">Команда: <strong>${money(f.teamPayouts)}</strong>${f.teamPayoutsPaid ? ` <span class="u-meta">выплачено ${money(f.teamPayoutsPaid)}</span>` : ""}</span>
+                <span class="fin-category-badge">Расходы: <strong>${money(f.expenses)}</strong>${f.expensesPaid ? ` <span class="u-meta">оплачено ${money(f.expensesPaid)}</span>` : ""}</span>
               </div>` : ""}
 
+              ${/* Две кнопки одного строя со всеми остальными в продукте: тинт,
+                    рамка, тот же радиус. Сплошная заливка «светофором» выбивалась
+                    из экрана и читалась как предупреждение, а не как действие. */""}
               <div class="fin-quick-add no-print">
-                <div class="fin-quick-half income">
-                  <button class="fin-quick-btn income" onclick="app.openFinanceModal('payment')">+ Поступление</button>
-                </div>
-                <div class="fin-quick-half expense">
-                  <button class="fin-quick-btn expense" onclick="app.openFinanceModal('expense')">− Расход</button>
-                </div>
+                <button class="fin-quick-btn income" onclick="app.openFinanceModal('payment')">${icon("plus", 13)} Поступление</button>
+                <button class="fin-quick-btn expense" onclick="app.openFinanceModal('expense')">${icon("minus", 13)} Расход</button>
               </div>
 
               <div class="fin-action-bar no-print" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
                 <input type="search" placeholder="Поиск..." value="${escapeHtml(state.finSearch||"")}"
                   oninput="app.setFinSearch(this.value)"
                   style="padding:7px 12px;border-radius:10px;font-size:13px;border:1px solid var(--line);background:var(--panel2);color:var(--text);min-width:140px;flex:1">
-                <div style="display:flex;gap:4px">
+                <div class="fin-seg" role="group" aria-label="Какие операции показывать">
                   ${[["all","Все"],["income","Поступления"],["expense","Расходы"]].map(([v,l]) =>
-                    `<button onclick="app.setFinTypeFilter('${v}')" style="padding:7px 12px;border-radius:10px;font-size:12px;font-weight:750;border:1px solid var(--line);cursor:pointer;background:${_finTF===v?"var(--primary)":"var(--panel2)"};color:${_finTF===v?"#fff":"var(--text)"}">${l}</button>`
+                    `<button type="button" class="fin-seg-btn ${_finTF===v?"active":""}" aria-pressed="${_finTF===v}"
+                      onclick="app.setFinTypeFilter('${v}')">${l}</button>`
                   ).join("")}
                 </div>
                 <span style="font-size:12px;color:var(--muted);white-space:nowrap">${displayTxs.length}${displayTxs.length!==allTransactions.length?" из "+allTransactions.length:""} операц.</span>
@@ -24487,7 +24494,18 @@
                     }).join("") : `
                       <tr>
                         <td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">
-                          ${allTransactions.length ? "Ничего не найдено по фильтрам." : `Операций пока нет. Нажми «+ Поступление» или «− Расход».<br><small>Предоплата 50%: <strong>${money(half)}</strong></small>`}
+                          ${allTransactions.length
+                            ? emptyState({ icon: "search", size: "sm", title: "Ничего не найдено",
+                                text: "По фильтрам операций нет — сбросьте их или поищите иначе.",
+                                cta: { label: "Показать все", onclick: "app.setFinTypeFilter('all');app.setFinSearch('')", variant: "" } })
+                            : emptyState({ icon: "money", size: "sm", title: "Операций пока нет",
+                                text: f.estimateTotal > 0
+                                  ? `Первый платёж по этой сделке обычно аванс — 50% это ${money(half)}.`
+                                  : "Здесь появятся поступления и расходы по сделке.",
+                                cta: [
+                                  { label: "Поступление", ic: "plus", onclick: "app.openFinanceModal('payment')" },
+                                  { label: "Расход", onclick: "app.openFinanceModal('expense')", variant: "small" },
+                                ] })}
                         </td>
                       </tr>
                     `}

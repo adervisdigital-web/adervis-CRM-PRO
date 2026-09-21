@@ -5468,18 +5468,44 @@
     .fin-quick-half {
       display: contents; /* убираем блок-обёртку — кнопки теперь напрямую */
     }
+    /* Тинт и рамка — как у остальных кнопок продукта. Сплошная заливка зелёным
+       и красным читалась светофором: два самых ярких пятна на экране стояли на
+       обычных действиях, а не на том, что требует внимания. */
     .fin-quick-btn {
       display: inline-flex; align-items: center; gap: 6px;
-      padding: 7px 16px; border-radius: var(--r-pill); border: none;
-      font-weight: 700; font-size: 13px; color: var(--on-color);
-      cursor: pointer; transition: opacity var(--dur-1), transform var(--dur-1);
+      padding: 8px 16px; border-radius: var(--r-pill);
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      transition: background var(--dur-1), border-color var(--dur-1);
       white-space: nowrap; flex: 0 0 auto;
     }
-    .fin-quick-btn:hover { opacity: .85; transform: translateY(-1px); }
-    /* Белый текст на #16a34a даёт 3.3:1 — берём насыщенную ступень. */
-    .fin-quick-btn.income { background: var(--green-strong); }
-    /* Белый текст на #f22822 — 4.1:1, берём насыщенную ступень. */
-    .fin-quick-btn.expense { background: var(--red-strong); }
+    .fin-quick-btn.income {
+      background: var(--tint-green-bg); border: 1px solid color-mix(in srgb, var(--green) 35%, transparent);
+      color: var(--text-success);
+    }
+    .fin-quick-btn.income:hover { background: color-mix(in srgb, var(--green) 18%, transparent); border-color: var(--green); }
+    .fin-quick-btn.expense {
+      /* Смесью, а не токеном: --tint-red-bg в наборе нет, и объявление с ним
+         браузер отбросил бы молча вместе со всей строкой. */
+      background: color-mix(in srgb, var(--red) 9%, transparent); border: 1px solid color-mix(in srgb, var(--red) 30%, transparent);
+      color: var(--text-danger);
+    }
+    .fin-quick-btn.expense:hover { background: color-mix(in srgb, var(--red) 15%, transparent); border-color: var(--red); }
+    /* Строка чипов состава себестоимости. */
+    .fin-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -6px 0 14px; }
+    .fin-chips-label { font-size: 12px; font-weight: 700; color: var(--muted); }
+    /* Сегменты «Все / Поступления / Расходы» — тем же строем, что вкладки продукта. */
+    .fin-seg { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--panel2); }
+    .fin-seg-btn {
+      padding: 6px 12px; border: 0; border-radius: var(--r-pill); background: none;
+      font: inherit; font-size: 12px; font-weight: 750; color: var(--muted); cursor: pointer;
+      transition: background var(--dur-1), color var(--dur-1);
+    }
+    .fin-seg-btn:hover { color: var(--text); background: rgb(var(--primary-rgb) / .08); }
+    .fin-seg-btn.active { background: var(--primary); color: var(--on-color); }
+    @media (hover: none) and (pointer: coarse) {
+      .fin-seg-btn { min-height: 38px; }
+      .fin-quick-btn { min-height: 44px; }
+    }
     .fin-quick-extra { display: none; }
     .fin-quick-input, .fin-quick-amount { display: none; }
 
@@ -7127,20 +7153,43 @@
       .fin-summary-grid .fin-card { padding: 13px 14px; }
     }
 
-    .fin-card h3 { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+    .fin-card h3 {
+      display: flex; align-items: center; gap: 6px;
+      margin: 0 0 8px;
+      font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+    }
+    /* «план» — метка при заголовке, а не второй заголовок мелким кеглем. */
+    .fin-tag {
+      padding: 1px 7px; border-radius: var(--r-pill);
+      background: var(--panel); border: 1px solid var(--line);
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--muted);
+    }
     /* tabular-nums на суммах: без него цифры разной ширины, и в столбце плиток
        «24 300» и «35 000» стоят с разным правым краем — колонка «дышит» при
        каждом изменении суммы. Деньги в продукте всегда читают столбцом. */
     .fin-card .fin-amount { font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
     .fin-card .fin-sub { font-variant-numeric: tabular-nums; }
     .fin-card .fin-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
-    .fin-card.income-card { border-color: rgba(22,163,74,.35); }
-    .fin-card.expense-card { border-color: rgba(220,38,38,.2); }
+    /* Смысл карточки показывает ПОЛОСА слева — тот же приём, что у этапов сметы
+       и у строк состава. Рамка вокруг всей карточки спорила с рамкой панели и
+       давала на экране три вида обводок сразу. */
+    .fin-card.income-card,
+    .fin-card.expense-card,
+    .fin-card.profit-card { position: relative; overflow: hidden; }
+    .fin-card.income-card::before,
+    .fin-card.expense-card::before,
+    .fin-card.profit-card::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+    }
+    /* 55%, а не полный цвет: полоса метит карточку, а не кричит. Та же мера,
+       что у линии этапа в составе сметы. */
+    .fin-card.income-card::before { background: color-mix(in srgb, var(--green) 55%, transparent); }
+    .fin-card.expense-card::before { background: color-mix(in srgb, var(--red) 55%, transparent); }
     /* border-color через var(--primary2) вместо хардкода rgba(124,58,237) — та фиксированная
        "тёмная" фиолетовая не совпадает ни с --primary тёмной (108,0,255), ни светлой (91,78,232)
        темы и никогда не меняется вместе с темой. Без прозрачности — border-color не обязана
        быть полупрозрачной, а color-mix() не работает в Chrome < 111. */
-    .fin-card.profit-card { border-color: var(--primary-text); }
+    .fin-card.profit-card::before { background: color-mix(in srgb, var(--primary) 60%, transparent); }
     .fin-card.u-pointer { cursor: pointer; transition: border-color var(--dur-1), transform var(--dur-1), box-shadow var(--dur-1); }
     .fin-card.u-pointer:hover { border-color: var(--primary-text); transform: translateY(-2px); box-shadow: var(--elev-1); }
 
