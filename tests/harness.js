@@ -176,8 +176,14 @@ async function bootWithSession(browser, baseUrl, opts = {}) {
        облако молчит, _userProfile остаётся пустым, и приложение считает
        человека на полном тарифе. Нужно всему, что зависит от тарифа («Соло»).
        state — состояние в localStorage до загрузки страницы: сделки, клиенты. */
-    profile = null, state = null } = opts;
-  const context = await browser.newContext({ viewport: { width, height } });
+    profile = null, state = null,
+    /* touch — как в bootLocal: без hasTouch Chromium сообщает pointer:fine, и
+       мобильные правила (цели касания 44px) не применяются вовсе. Замер без
+       него врёт в обе стороны. */
+    touch = false } = opts;
+  const context = await browser.newContext(touch
+    ? { viewport: { width, height }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 }
+    : { viewport: { width, height } });
   await blockExternalRequests(context, baseUrl);
   // Регистрируем ПОСЛЕ блокировки внешней сети: Playwright проверяет обработчики
   // в обратном порядке, и наш ответ побеждает общий заглушающий.

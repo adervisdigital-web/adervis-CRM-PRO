@@ -1178,10 +1178,13 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
        часть мобильных правил вообще не применяется. Область касания часто
        расширена невидимым ::after, которого getBoundingClientRect() не видит,
        поэтому его учитываем отдельно. */
+    /* «plans» в списке с 21.09.2026: витрина тарифов обходилась стороной, и
+       переключатель срока приехал туда кнопками 34px — палец мимо. Экран, на
+       котором ПЛАТЯТ, обязан проверяться наравне с рабочими. */
     const VIEWS_TOUCH = [
       "home", "crm", "deal", "services", "catalog", "packages", "clients",
       "proposals", "briefs", "company-team", "global-finances", "global-calendar",
-      "global-tasks", "contracts", "knowledge", "settings", "profile",
+      "global-tasks", "contracts", "knowledge", "settings", "profile", "plans",
     ];
     const { context, page } = await bootLocal(browser, baseUrl, {
       width: 390, height: 844, touch: true, seedDemo: true,

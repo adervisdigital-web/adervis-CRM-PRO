@@ -5620,6 +5620,20 @@
     }
     .plan-period-btn:hover { color: var(--text); background: rgb(var(--primary-rgb) / .08); }
     .plan-period-btn.active { background: var(--primary); color: var(--on-color); }
+    /* Палец: экран, на котором платят, — не место для целей в 34px. Растим
+       саму кнопку, а не невидимый ::after: переключатель стоит в ряд, и
+       расширения налезали бы друг на друга. */
+    @media (hover: none) and (pointer: coarse) {
+      .plan-period-btn { min-height: 44px; padding: 10px 16px; }
+      .promo-apply-btn { min-height: 44px; }
+    }
+    /* На узком экране четыре срока в строку не помещаются, и капсула
+       переносилась в две строки, оставаясь капсулой — форма врала о строении.
+       Сетка 2×2 с обычными углами честнее и попадается пальцем. */
+    @media (max-width: 640px) {
+      .plan-period-switch { display: grid; grid-template-columns: 1fr 1fr; width: 100%; border-radius: var(--r-lg); }
+      .plan-period-btn { justify-content: center; }
+    }
     .plan-period-off { font-size: 11.5px; font-weight: 800; color: var(--text-success); }
     .plan-period-btn.active .plan-period-off { color: var(--on-color); opacity: .85; }
     .plans-tier-grid { max-width: 1040px; }
