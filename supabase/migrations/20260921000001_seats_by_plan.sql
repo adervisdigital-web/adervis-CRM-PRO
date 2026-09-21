@@ -52,7 +52,10 @@ begin
     limit_seats := 1;
   elsif coalesce(owner_plan, '') like 'start%' then
     limit_seats := 1;
-  elsif coalesce(owner_plan, '') like 'pro%' then
+  -- Именно 'pro1'/'pro3'/'pro6'/'pro12', а НЕ like 'pro%': старые подписки
+  -- записаны планом 'pro' — это полный продукт, который продавался как
+  -- «Стандарт», и десяти мест он не даёт. Приложение считает так же.
+  elsif coalesce(owner_plan, '') like 'pro_%' then
     limit_seats := 10;
   else
     limit_seats := 3;

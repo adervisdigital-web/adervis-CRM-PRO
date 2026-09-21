@@ -2051,6 +2051,10 @@
               id: userId, email,
               agency_id: agencyId,
               subscription_status: "trial",
+              /* Исторический идентификатор «полного продукта». На пробном период
+                 важнее плана: currentTier() для статуса trial всегда отдаёт
+                 «Стандарт». Менять значение не стали — им записаны все старые
+                 профили, а база следит за полями подписки (protect_subscription_fields). */
               subscription_plan: "pro",
               subscription_expires_at: trial_expires,
               /* Канал ставится ТОЛЬКО здесь, при создании профиля: дальше база
@@ -4867,15 +4871,17 @@
       /* ═══════════════════════════════════════════════════════
          ПРОФИЛЬ И ТАРИФЫ
       ═══════════════════════════════════════════════════════ */
-      // Планы = только периоды оплаты. Числа мест здесь СПЕЦИАЛЬНО больше нет:
-      // раньше maxUsers рос вместе с months (1/1/3/5/10), из-за чего команда из трёх
-      // человек была обязана купить сразу 3 месяца. Месяцы подписки и люди в команде —
-      // разные оси; связка блокировала покупку и ничего не давала взамен (27.07.2026).
-      // Теперь любой оплаченный период даёт одинаковые PAID_MAX_USERS мест.
-      /* Цены подняты 08.08.2026 (решение владельца): 490 ₽ были ниже одного часа
-         работы видеографа и не давали бизнес-модели — при таком чеке даже полсотни
-         студий не окупают поддержку. Якорь — 890 ₽ за месяц, дальше лесенка вниз за
-         длину периода: чем длиннее оплата, тем дешевле месяц.
+      /* Места НЕ зависят от срока оплаты: раньше maxUsers рос вместе с months
+         (1/1/3/5/10), и команда из трёх человек была обязана купить сразу три
+         месяца — связка блокировала покупку и ничего не давала взамен
+         (27.07.2026). Число мест задаёт ТАРИФ (TIER_RULES.seats: 1/3/10);
+         PAID_MAX_USERS остался как значение «Стандарта» — его же клиент шлёт в
+         agency_seat_info, а окончательный предел считает база по плану владельца
+         (миграция 20260921000001).
+
+         Цены 21.09.2026: 290 / 490 / 890 ₽ за месяц по трём тарифам. До этого
+         продукт был один, 890 ₽ за месяц (08.08.2026), и лесенка вниз за длину
+         периода: чем длиннее оплата, тем дешевле месяц.
 
          `price` — это ЦЕНА МЕСЯЦА для витрины, а не сумма платежа. Реальная сумма
          считается в Edge Function create-payment (price × months) и должна быть
@@ -4967,8 +4973,12 @@
       function itemAllowedByTier(it) {
         if (!it) return false;
         if (tierRules(currentTier()).catalog !== "short") return true;
-        if (it.lineOnly || it.custom || String(it.id || "").startsWith("custom")) return true;
-        return START_CATALOG_IDS.has(it.id);
+        if (START_CATALOG_IDS.has(it.id)) return true;
+        /* Свои позиции человека видны на любом тарифе: он завёл их сам, и прятать
+           их за тариф — отъём его же работы. Узнаём по списку customItems, а не
+           по началу id: id бывает и у импортированных, и у скопированных. */
+        if (it.lineOnly) return true;
+        return (state.customItems || []).some(ci => ci.id === it.id);
       }
 
       const tierRules = (tier) => TIER_RULES[tier] || TIER_RULES.std;
@@ -7172,7 +7182,7 @@
               <p class="mini-note" style="margin:0 0 20px">Идёт пробный период — весь «Стандарт» ${getSubscriptionDaysLeft() !== null ? `ещё ${getSubscriptionDaysLeft()} дн.` : ""}</p>` : ""}
             ${_promoCodeInputHtml()}
             <p style="font-size:12px;color:var(--muted);padding:10px 16px;background:rgb(var(--primary-rgb) / .06);border-radius:10px;margin:0;line-height:1.6">
-        Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Срок меняет только цену: состав тарифа от него не зависит · На «${escapeHtml(PLAN_TIERS[1].label)}» команда до ${PAID_MAX_USERS} человек, на «${escapeHtml(PLAN_TIERS[0].label)}» — один пользователь · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
+        Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Срок меняет только цену: состав тарифа от него не зависит · Людей в команде задаёт тариф: ${PLAN_TIERS.map(t => `«${escapeHtml(t.label)}» — ${TIER_RULES[t.id].seats}`).join(", ")} · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
             </p>
             ${compTable}
           </div>
@@ -14350,7 +14360,7 @@
           state.editTransactionModal ? "editTx" : state.financeModal ? "finance" :
           state.packageEditModal ? "package" : state.catalogEditId ? "catalog" :
           state.briefEditorType ? "briefEditor" : state.proposalModal ? "proposal" :
-          state.kbCatsModal ? "kbCats" : state.upsell ? "soloUpsell" : null;
+          state.kbCatsModal ? "kbCats" : state.upsell ? "upsell" : null;
         if (state.upsell) { el.innerHTML = renderUpsellModal(); }
         else
         if (state.helpModal) { el.innerHTML = renderHelpModal(); }
@@ -16446,6 +16456,10 @@
 
       function render() {
         if (_needsNormalize) { normalizeState(); _needsNormalize = false; }
+        /* Тариф — атрибутом на <html>, и ставим его ПЕРВЫМ делом: экраны-заслонки
+           (истёкшая подписка, ошибка профиля) уходят из render() раньше основной
+           ветки, и атрибут оставался от прошлой отрисовки — с чужого тарифа. */
+        document.documentElement.setAttribute("data-tier", currentTier());
         renderSidebar();
         renderPageTitle();
 
@@ -16600,11 +16614,6 @@
           // Сохраняем позицию и возвращаем её, если вид не менялся (при смене вида — наверх, естественно).
           const prevScrollY = viewChanged ? 0 : window.scrollY;
           if (viewChanged) root.classList.add("view-fade");
-          /* Тариф — атрибутом на <html>: то, что на «Соло» просто не показывают
-             (дашборд с графиками на главной), гасит CSS. Разбирать renderHome
-             на условия ради этого не нужно, а признак заодно пригодится
-             следующим тарифам. */
-          document.documentElement.setAttribute("data-tier", currentTier());
           // Раздел закрыт тарифом «Соло» — вместо него экран о «Стандарте».
           // Не молчаливый редирект: человек пришёл за договорами и должен
           // увидеть ответ на своё действие, а не оказаться на главной.
