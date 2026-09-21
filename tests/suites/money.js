@@ -2570,7 +2570,13 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(r.own, 1, "не посчитаны помеченные свои");
     assertEqual(r.active, 3, "«активных» считает свои аккаунты");
     assertEqual(r.paying, 1, "«платят» считает тех, кто не платил (амбассадор, возврат)");
-    assertEqual(r.mrr, 890, `MRR ${r.mrr} ₽ вместо 890 — в счёт попали подарки или свои`);
+    /* Ожидаемый MRR — цена ТОГО ЖЕ плана из PLANS, а не число: 21.09.2026
+       «Стандарт» подешевел с 890 до 490, и жёсткое число уронило тест, хотя
+       считалось верно. Тест обязан мерить правило, а не прайс. */
+    const ценаMonth1 = Number((require("fs")
+      .readFileSync(require("path").join(__dirname, "..", "..", "app.js"), "utf8")
+      .match(/\{\s*id:\s*"month1",[^}]*price:\s*(\d+)/) || [])[1]);
+    assertEqual(r.mrr, ценаMonth1, `MRR ${r.mrr} ₽ вместо ${ценаMonth1} — в счёт попали подарки или свои`);
     assertEqual(r.trial, 1, "триал посчитан неверно");
     assertEqual(r.newThisMonth, 4, "«новых за месяц» считает не тех");
     assertEqual(r.revenue30, 890, "«за 30 дней» считает возвраты или старые оплаты");

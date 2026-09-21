@@ -2,10 +2,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // How many days each plan adds to the subscription
 const PLAN_DAYS: Record<string, number> = {
-  month1: 30,
-  month3: 90,
-  month6: 180,
-  year:   365,
+  start1:  30,
+  start3:  90,
+  start6:  180,
+  start12: 365,
+  month1:  30,
+  month3:  90,
+  month6:  180,
+  year:    365,
+  pro1:    30,
+  pro3:    90,
+  pro6:    180,
+  pro12:   365,
 };
 
 Deno.serve(async (req) => {

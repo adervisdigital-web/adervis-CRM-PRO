@@ -13,10 +13,18 @@ const cors = {
    всегда парой (app.js PLANS ↔ этот список), и функцию после правки НУЖНО
    ЗАДЕПЛОИТЬ: без деплоя витрина покажет новую цену, а счёт придёт на старую. */
 const PLANS: Record<string, { amount: number; days: number; label: string }> = {
-  month1: { amount: 890,  days: 30,  label: "ADERVIS CRM — 1 месяц"   },
-  month3: { amount: 2070, days: 90,  label: "ADERVIS CRM — 3 месяца"  },
-  month6: { amount: 3540, days: 180, label: "ADERVIS CRM — 6 месяцев" },
-  year:   { amount: 5880, days: 365, label: "ADERVIS CRM — 1 год"     },
+  start1:  { amount: 290,  days: 30,  label: "ADERVIS Старт — 1 месяц"     },
+  start3:  { amount: 690,  days: 90,  label: "ADERVIS Старт — 3 месяца"    },
+  start6:  { amount: 1140, days: 180, label: "ADERVIS Старт — 6 месяцев"   },
+  start12: { amount: 1800, days: 365, label: "ADERVIS Старт — 1 год"       },
+  month1:  { amount: 490,  days: 30,  label: "ADERVIS Стандарт — 1 месяц"  },
+  month3:  { amount: 1170, days: 90,  label: "ADERVIS Стандарт — 3 месяца" },
+  month6:  { amount: 2040, days: 180, label: "ADERVIS Стандарт — 6 месяцев"},
+  year:    { amount: 3480, days: 365, label: "ADERVIS Стандарт — 1 год"    },
+  pro1:    { amount: 890,  days: 30,  label: "ADERVIS Про — 1 месяц"       },
+  pro3:    { amount: 2070, days: 90,  label: "ADERVIS Про — 3 месяца"      },
+  pro6:    { amount: 3540, days: 180, label: "ADERVIS Про — 6 месяцев"     },
+  pro12:   { amount: 5880, days: 365, label: "ADERVIS Про — 1 год"         },
 };
 
 Deno.serve(async (req) => {

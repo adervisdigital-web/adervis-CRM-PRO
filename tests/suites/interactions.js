@@ -1,6 +1,6 @@
 // Ключевые UX-паттерны Фаз I/H: undo-тост вместо confirm() и смена этапа
 // на канбан-карточке через нативный select (тач-фолбэк вместо HTML5 DnD).
-const { bootLocal, assert, assertEqual } = require("../harness");
+const { bootLocal, bootWithSession, assert, assertEqual } = require("../harness");
 
 async function homeDealCount(page) {
   await page.evaluate(() => window.app.go("home"));
@@ -34,6 +34,10 @@ async function dismissStaleDialog(page) {
 }
 
 module.exports = async function ({ browser, baseUrl, test }) {
+  /* Предел активных сделок младшего тарифа читаем из самого app.js (TIER_RULES):
+     разойдётся с кодом — тест соврёт, а не поймает. */
+  const START_DEALS = Number((require("fs").readFileSync(require("path").join(__dirname, "..", "..", "app.js"), "utf8")
+    .match(/start:\s*\{\s*deals:\s*(\d+)/) || [])[1] || 0);
 
   /* Ввод в СОБСТВЕННЫЙ диалог приложения. Раньше эти тесты подменяли window.prompt —
      системное окно заменили на свой диалог (оно чуждо в PWA, не держит фокус-ловушку и
@@ -5803,6 +5807,160 @@ module.exports = async function ({ browser, baseUrl, test }) {
       await p.waitForTimeout(600);
       assertEqual(await h(".deal-stats-inline"), 0, "на 390px полоса с деньгами занимает место в шапке");
       assert((await h(".summary-pay-block")) > 0, "на телефоне «Оплачено / Долг» пропали совсем");
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  /* Линейка тарифов (решение владельца 21.09.2026): «Старт» 290 ₽ для тех, кто
+     снимает один, «Стандарт» 890 ₽ для небольшой студии, «Про» 1 290 ₽ для
+     агентства. Проверяем РЕЗУЛЬТАТ на живой странице: чего нет в меню на
+     «Старте», что отвечает закрытый раздел, что происходит с шестой сделкой,
+     что на «Стандарте» ничего не пропало и что «Про» открывает свой бренд и
+     калькулятор на сайте. */
+  async function bootTier(plan, deals) {
+    const profile = {
+      id: "00000000-0000-0000-0000-000000000001",
+      agency_id: "00000000-0000-0000-0000-000000000001",
+      email: "owner@example.com",
+      subscription_status: "active",
+      subscription_plan: plan,
+      subscription_expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
+    };
+    const b = await bootWithSession(browser, baseUrl, { width: 1400, height: 950, profile });
+    await b.page.waitForTimeout(800);
+    /* Свои сделки — через вторую вкладку: первая на выгрузке пишет свой снимок
+       поверх подложенного (та же граблина, что у bootWithState). */
+    await b.page.evaluate((st) => {
+      localStorage.setItem("adervis_pro_381_state", st);
+      localStorage.setItem("adervis_ls_rev", "seeded_by_test_" + Date.now());
+    }, JSON.stringify({
+      savedProjects: Array.from({ length: deals }, (_, i) => ({
+        id: "d" + i, name: "Сделка " + (i + 1), client: "Клиент", total: 50000, paid: 0,
+        crmStatus: "В работе", createdAt: "2026-09-01", updatedAt: "2026-09-01",
+        snapshot: { project: { name: "Сделка " + (i + 1), crmStatus: "В работе" }, selected: {}, payments: [], expenses: [], tasks: [] },
+      })),
+      clients: [],
+    }));
+    const p = await b.context.newPage();
+    await p.goto(baseUrl + "/index.html", { waitUntil: "load" });
+    await p.waitForFunction(() => { const el = document.getElementById("appContent"); return el && el.innerHTML.trim().length > 0; }, { timeout: 15000 });
+    await p.waitForTimeout(900);
+    return { ctx: b.context, p };
+  }
+
+  await test("тариф «Старт»: урезанное меню, короткий каталог, пять активных сделок", async () => {
+    const { ctx, p } = await bootTier("start1", START_DEALS);
+    try {
+      const menu = () => p.evaluate(() => [...document.querySelectorAll(".sidebar-nav-item .sidebar-label")].map((x) => x.textContent.trim().split("\n")[0]));
+      assertEqual(await p.evaluate(() => document.documentElement.getAttribute("data-tier")), "start",
+        "приложение не узнало тариф «Старт» по оплаченному плану");
+      const m = await menu();
+      for (const gone of ["Договора", "Онлайн-брифы", "Команда"]) {
+        assert(!m.includes(gone), `раздел «${gone}» остался в меню на «Старте»: ${m.join(", ")}`);
+      }
+      for (const stay of ["Проекты", "Смета", "Клиенты", "Финансы"]) {
+        assert(m.includes(stay), `на «Старте» пропал нужный раздел «${stay}»: ${m.join(", ")}`);
+      }
+      assert(await p.$(".sidebar-tier-card"), "в меню «Старта» нет карточки о старшем тарифе — расти некуда");
+      assertEqual(await p.evaluate(() => (document.querySelector(".db-stat-row")?.getBoundingClientRect().height || 0)), 0,
+        "на «Старте» показан дашборд с графиками");
+
+      // Прямой заход в закрытый раздел отвечает, а не молчит.
+      await p.evaluate(() => window.app.go("contracts"));
+      await p.waitForTimeout(500);
+      const locked = await p.evaluate(() => document.getElementById("appContent").textContent.replace(/\s+/g, " "));
+      assert(/Стандарт/.test(locked), "закрытый раздел не объясняет, где он: " + locked.slice(0, 80));
+      assert(await p.$("[onclick*=\"go('plans')\"]"), "из закрытого раздела не попасть на тарифы");
+
+      // Вкладок «Договор» и «Команда» внутри сделки тоже нет.
+      await p.evaluate(() => { window.app.selectActiveDeal("d0"); window.app.go("deal"); });
+      await p.waitForTimeout(600);
+      const tabs = await p.evaluate(() => [...document.querySelectorAll(".deal-tabs button")].map((x) => x.textContent.trim()));
+      assert(!tabs.some((x) => /Договор|Команда/.test(x)), "во вкладках сделки на «Старте» остались договор или команда: " + tabs.join(", "));
+
+      // Каталог короткий: разделов меньше, и видно, где остальные позиции.
+      await p.evaluate(() => window.app.go("catalog"));
+      await p.waitForTimeout(700);
+      const cat = await p.evaluate(() => ({
+        разделы: [...document.querySelectorAll(".catalog-cat-item[data-group]")].map((x) => x.dataset.group),
+        размеры: [...document.querySelectorAll(".catalog-cat-item[data-group]")].map((x) => Number(x.dataset.groupSize || 0)),
+        ещё: !!document.querySelector(".catalog-cat-more"),
+      }));
+      const всего = cat.размеры.reduce((a, b) => a + b, 0);
+      assert(всего > 0 && всего <= 60, "короткий каталог оказался не коротким: " + всего + " позиций");
+      assert(!cat.разделы.includes("web") && !cat.разделы.includes("ai"),
+        "на «Старте» остались разделы, которые ему не нужны: " + cat.разделы.join(", "));
+      assert(cat.ещё, "не сказано, где взять остальные позиции каталога");
+
+      // Шестая активная сделка — окно про «Стандарт», а не молчаливый отказ.
+      await p.evaluate(() => { window.app.go("home"); });
+      await p.waitForTimeout(400);
+      await p.evaluate(() => window.app.startWizard());
+      await p.waitForTimeout(500);
+      const up = await p.evaluate(() => {
+        const o = document.querySelector(".modal-overlay");
+        return { есть: !!o, текст: o ? o.textContent.replace(/\s+/g, " ") : "", вид: JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}").view || "" };
+      });
+      assert(up.есть, "шестая сделка завелась молча — лимит «Старта» не работает");
+      assert(/Стандарт/.test(up.текст), "окно про лимит не говорит про «Стандарт»: " + up.текст.slice(0, 80));
+      assert(up.вид !== "wizard", "мастер новой сделки всё-таки открылся");
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  await test("тарифы «Стандарт» и «Про»: у студии всё на месте, у агентства — свой бренд", async () => {
+    const { ctx, p } = await bootTier("month1", START_DEALS + 3);
+    try {
+      assertEqual(await p.evaluate(() => document.documentElement.getAttribute("data-tier")), "std",
+        "оплаченный «Стандарт» приняли за другой тариф");
+      const m = await p.evaluate(() => [...document.querySelectorAll(".sidebar-nav-item .sidebar-label")].map((x) => x.textContent.trim().split("\n")[0]));
+      for (const stay of ["Договора", "Онлайн-брифы", "Команда"]) {
+        assert(m.includes(stay), `на «Стандарте» пропал раздел «${stay}»: ${m.join(", ")}`);
+      }
+      assert(!(await p.$(".sidebar-tier-card")), "карточка младшего тарифа показана на «Стандарте»");
+      assert((await p.evaluate(() => (document.querySelector(".db-stat-row")?.getBoundingClientRect().height || 0))) > 0,
+        "на «Стандарте» пропал дашборд");
+      // Восьмая сделка заводится без вопросов.
+      await p.evaluate(() => window.app.startWizard());
+      await p.waitForTimeout(500);
+      assert(!(await p.$(".modal-overlay")), "на «Стандарте» сделку не дали создать");
+
+      /* Возможности «Про» на «Стандарте» закрыты, но объяснены: подпись на КП
+         и публичный калькулятор — то, за что доплачивают агентства. */
+      await p.evaluate(() => { window.app.go("settings"); });
+      await p.waitForTimeout(700);
+      const std = await p.evaluate(() => {
+        const t = document.getElementById("appContent").textContent.replace(/\s+/g, " ");
+        const box = document.getElementById("hideProposalBranding");
+        return { бренд: !!box && box.disabled, про: /тарифе «Про»/.test(t) };
+      });
+      assert(std.бренд, "на «Стандарте» дают снять подпись «Сделано в ADERVIS» — это возможность «Про»");
+      assert(std.про, "не сказано, что подпись снимается на «Про»");
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  await test("тариф «Про»: свой бренд и калькулятор на сайте открыты", async () => {
+    const { ctx, p } = await bootTier("pro1", 3);
+    try {
+      assertEqual(await p.evaluate(() => document.documentElement.getAttribute("data-tier")), "pro",
+        "оплаченный «Про» приняли за другой тариф");
+      await p.evaluate(() => window.app.go("settings"));
+      await p.waitForTimeout(700);
+      const бренд = await p.evaluate(() => { const b = document.getElementById("hideProposalBranding"); return !!b && !b.disabled; });
+      // Публичный калькулятор живёт во вкладке «Интеграции», а не в «Компании».
+      await p.evaluate(() => window.app._setSettingsTab("integrations"));
+      await p.waitForTimeout(600);
+      const pro = await p.evaluate(() => {
+        const t = document.getElementById("appContent").textContent.replace(/\s+/g, " ");
+        return { калькулятор: /Публичный калькулятор/.test(t) && !/Открывается на тарифе/.test(t) };
+      });
+      pro.бренд = бренд;
+      assert(pro.бренд, "на «Про» подпись «Сделано в ADERVIS» всё ещё не снимается");
+      assert(pro.калькулятор, "на «Про» публичный калькулятор не открылся");
     } finally {
       await ctx.close();
     }

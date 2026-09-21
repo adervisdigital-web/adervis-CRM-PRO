@@ -2629,6 +2629,76 @@
         return !exp || new Date(exp) > new Date();
       }
 
+      /* Какой продукт открыт человеку: "start" | "std" | "pro". Тариф выводится
+         из оплаченного плана, а не хранится отдельным полем: в базе уже есть
+         profiles.subscription_plan, и новый тариф — это просто новые id. */
+      function currentTier() {
+        if (_isSuperAdmin()) return "pro";
+        if (!_adminSession) return "pro"; // локальный режим — ограничивать некого
+        if (!_userProfile) return "std";
+        // Пробный период даёт «Стандарт»: человек должен увидеть то, что мы
+        // советуем, и после оплаты у его клиентов ничего не должно пропасть.
+        if (_userProfile.subscription_status === "trial") return "std";
+        if (_userProfile.subscription_status !== "active") return "std";
+        const plan = PLANS.find(p => p.id === _userProfile.subscription_plan);
+        // Старые подписки записаны планом "pro" — это полный доступ, но без
+        // агентских возможностей: их продавали в составе «Стандарта».
+        return plan ? plan.tier : "std";
+      }
+
+      function isStartTier() { return currentTier() === "start"; }
+      // Возможность по тарифу: tierAllows("ai"), tierAllows("whiteLabel")…
+      function tierAllows(what) { return !!tierRules(currentTier())[what]; }
+      // Мест в команде на текущем тарифе.
+      function tierSeats() { return tierRules(currentTier()).seats; }
+
+      // Раздел или вкладка закрыты тарифом.
+      function tierLocked(id) {
+        if (tierAllows("sections")) return false;
+        return TIER_LOCKED_VIEWS.includes(id) || TIER_LOCKED_DEAL_TABS.includes(id);
+      }
+
+      // Активные сделки — те, что ещё в работе: завершённые и архив не в счёт.
+      function activeDealsCount() {
+        return (state.savedProjects || []).filter(p => !isDealInactive(p.crmStatus || "Лид")).length;
+      }
+
+      /* Упор в лимит: возвращает true, если создавать новую сделку нельзя.
+         Зовётся ПЕРЕД каждым входом в создание — мастер, окно, дубль, клиент. */
+      function dealLimitReached() {
+        const max = tierRules(currentTier()).deals;
+        if (!isFinite(max)) return false;
+        return activeDealsCount() >= max;
+      }
+
+      // Срок в витрине тарифов. Живёт в состоянии, а не в переменной модуля:
+      // человек ушёл в другой раздел и вернулся — выбранный срок на месте.
+      function setPlanPeriod(months) {
+        state.planPeriod = months;
+        save();
+        render();
+      }
+
+      function openUpsell(reason) {
+        state.upsell = reason || "section";
+        renderModal();
+      }
+
+      function closeUpsell() {
+        state.upsell = null;
+        renderModal();
+      }
+
+      /* Короткое имя оплаченного тарифа для подписи в меню и профиле. Раньше
+         любой платный план подписывался «Про» — с тремя тарифами подпись врала
+         бы человеку про его же тариф. */
+      function _planShortName(planId) {
+        const p = PLANS.find(x => x.id === planId);
+        if (p && p.id !== "trial") return p.label;
+        if (planId === "team") return "Команда";
+        return "Про";
+      }
+
       function getSubscriptionLabel() {
         if (_isSuperAdmin()) return "Super Admin ∞";
         if (!_userProfile) return "";
@@ -2639,7 +2709,7 @@
           const days = exp ? Math.max(0, Math.round((new Date(exp) - new Date()) / 86400000)) : 0;
           return `Пробный · осталось ${days} д.`;
         }
-    if (s === "active") return `${plan === "team" ? "Команда" : "Про"} ✓`;
+    if (s === "active") return `${_planShortName(plan)} ✓`;
         if (s === "expired") return "Подписка истекла";
         if (s === "cancelled") return "Подписка отменена";
         return s;
@@ -2671,7 +2741,7 @@
         const s = _userProfile.subscription_status;
         const plan = _userProfile.subscription_plan || "pro";
         if (s === "trial") return "Пробный период";
-        if (s === "active") return plan === "team" ? "Команда" : "Про";
+        if (s === "active") return _planShortName(plan);
         if (s === "expired") return "Подписка истекла";
         if (s === "cancelled") return "Подписка отменена";
         return s;
@@ -2957,6 +3027,14 @@
 
           <nav class="sidebar-nav">
             ${navItemsHtml}
+            ${/* На «Соло» закрытых разделов в меню нет — и одна карточка внизу
+                  говорит, что ещё бывает. Без неё урезанный продукт выглядел бы
+                  просто бедным, а не начальным. */""}
+            ${isStartTier() ? `
+              <button type="button" class="sidebar-tier-card no-print" onclick="app.go('plans')" title="Тарифы">
+                <b>Тариф «${escapeHtml(tierLabel(currentTier()))}»</b>
+                <span>${escapeHtml(upsellPoints().slice(0, 3).join(" · "))} — на тарифе «${escapeHtml(tierLabel(nextTier()))}»</span>
+              </button>` : ""}
             ${renderSidePromoHtml()}
           </nav>
 
@@ -3063,6 +3141,10 @@
         };
 
         return getSidebarNavConfig()
+          // На «Соло» закрытых разделов в меню нет вовсе: тариф продаёт простоту,
+          // а список из одиннадцати пунктов с замками ей противоречит. Куда расти —
+          // говорит одна карточка в подвале меню.
+          .filter(x => !tierLocked(x.id))
           .filter(x => !x.hidden && (navRenderers[x.id] || _isCustomNavId(x.id)))
           .map(x => {
             if (navRenderers[x.id]) return navRenderers[x.id]();
@@ -3114,7 +3196,7 @@
           { id: "contract",    label: `Договор${_dealContractCount() ? " (" + _dealContractCount() + ")" : ""}`,       hint: "Договор по сделке" },
           { id: "versions",    label: "Версии сметы",                                                                 hint: "Версии сметы" },
           { id: "activity",    label: "История",                                                                      hint: "История изменений" },
-        ];
+        ].filter(t => !tierLocked(t.id));
       }
 
       function dealTabListHtml() {
@@ -4473,7 +4555,7 @@
 
       /* ─── DUPLICATE DEAL ─── */
       function duplicateDeal(projectId) {
-        if (checkTrialDealLimit()) return;
+        if (checkDealLimit()) return;
         const proj = state.savedProjects.find(p => p.id === projectId);
         if (!proj) return;
         const copy = deepClone(proj);
@@ -4560,7 +4642,7 @@
               >
               ${promoValid
                 ? `<button onclick="app.clearPromo()" style="border:none;background:transparent;color:var(--muted);padding:9px 10px;cursor:pointer;display:grid;place-items:center" title="Убрать промокод" aria-label="Убрать промокод">${icon("close", 14)}</button>`
-                : `<button onclick="app.validatePromo()" style="border:none;background:var(--primary);color:#fff;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600" ${promoChecking ? "disabled" : ""}>${promoChecking ? "Проверяем…" : "Применить"}</button>`
+                : `<button id="promoApplyBtn" class="promo-apply-btn" onclick="app.validatePromo()" style="border:none;background:var(--primary);color:var(--on-color);padding:9px 14px;font-size:13px;font-weight:600" ${promoChecking || !String(_promoCode || "").trim() ? "disabled" : ""}>${promoChecking ? "Проверяем…" : "Применить"}</button>`
               }
             </div>
             ${statusHtml}
@@ -4799,13 +4881,104 @@
          считается в Edge Function create-payment (price × months) и должна быть
          изменена ВМЕСТЕ с этим списком: витрина и касса — два разных файла, и
          разъехаться они могут молча. */
+      /* tier — что человек получает, id — за какой срок платит. «Соло» (решение
+         владельца 21.09.2026, 290 ₽/мес) — для тех, кто работает один: смета,
+         КП с авансом, клиенты и сделки, без команды, договоров, брифов,
+         аналитики и ИИ. Цена лежит парой с кассой (create-payment), сроки — с
+         yookassa-webhook; сторож в assets сверяет. */
+      /* Два тарифа × четыре срока. tier — ЧТО человек получает, months — за
+         сколько платит. «Старт» (решение владельца 21.09.2026) для тех, кто
+         снимает один: смета, КП с авансом, клиенты, календарь съёмок. Цена
+         лежит парой с кассой (create-payment), сроки — с yookassa-webhook;
+         сторож в assets сверяет все три файла. */
       const PLANS = [
-        { id: "trial",  label: "Пробный",    price: 0,   period: "7 дней бесплатно", save: "",             months: 0  },
-        { id: "month1", label: "Месяц",       price: 890, period: "в месяц",            save: "",             months: 1  },
-        { id: "month3", label: "3 месяца",    price: 690, period: "в месяц",            save: "Экономия 22%", months: 3, popular: true },
-        { id: "month6", label: "6 месяцев",   price: 590, period: "в месяц",            save: "Экономия 34%", months: 6  },
-        { id: "year",   label: "Год",         price: 490, period: "в месяц",            save: "Экономия 45%", months: 12 }
+        { id: "trial",  tier: "std",   label: "Пробный",  price: 0,   period: "7 дней бесплатно", save: "",             months: 0  },
+
+        { id: "start1",  tier: "start", label: "Старт",    price: 290, period: "в месяц", save: "",             months: 1  },
+        { id: "start3",  tier: "start", label: "Старт",    price: 230, period: "в месяц", save: "Экономия 21%", months: 3  },
+        { id: "start6",  tier: "start", label: "Старт",    price: 190, period: "в месяц", save: "Экономия 34%", months: 6  },
+        { id: "start12", tier: "start", label: "Старт",    price: 150, period: "в месяц", save: "Экономия 48%", months: 12 },
+
+        /* Идентификаторы «Стандарта» остались прежними (month1/month3/month6/
+           year): ими записаны подписки, выданные до 21.09.2026 — переименование
+           сделало бы историю нечитаемой. Цена при этом снижена (решение
+           владельца 21.09: «всё ещё дорого, у нас нет аудитории»). */
+        { id: "month1", tier: "std",   label: "Стандарт", price: 490, period: "в месяц", save: "",             months: 1  },
+        { id: "month3", tier: "std",   label: "Стандарт", price: 390, period: "в месяц", save: "Экономия 20%", months: 3, popular: true },
+        { id: "month6", tier: "std",   label: "Стандарт", price: 340, period: "в месяц", save: "Экономия 31%", months: 6  },
+        { id: "year",   tier: "std",   label: "Стандарт", price: 290, period: "в месяц", save: "Экономия 41%", months: 12 },
+
+        { id: "pro1",   tier: "pro",   label: "Про",      price: 890, period: "в месяц", save: "",             months: 1  },
+        { id: "pro3",   tier: "pro",   label: "Про",      price: 690, period: "в месяц", save: "Экономия 22%", months: 3  },
+        { id: "pro6",   tier: "pro",   label: "Про",      price: 590, period: "в месяц", save: "Экономия 34%", months: 6  },
+        { id: "pro12",  tier: "pro",   label: "Про",      price: 490, period: "в месяц", save: "Экономия 45%", months: 12 }
       ];
+      // Сроки, между которыми переключается витрина. Подписи — в одном месте.
+      /* Цена входа для текстов наружу: самый дешёвый месячный тариф. Раньше в
+         пяти формулировках стояло «890 ₽» числом, и при смене цены они молча
+         уезжали в соцсети неправдой. */
+      const PLAN_ENTRY_PRICE = Math.min(...PLANS.filter(p => p.price > 0 && p.months === 1).map(p => p.price));
+      const PLAN_PERIODS = [
+        { months: 1,  label: "Месяц" },
+        { months: 3,  label: "3 месяца" },
+        { months: 6,  label: "6 месяцев" },
+        { months: 12, label: "Год" },
+      ];
+      /* Три тарифа — три размера дела, а не три пакета галочек: один человек,
+         небольшая студия, агентство. Подписи и «для кого» — в одном месте,
+         чтобы витрина, окна перехода и закрытые разделы говорили одно и то же. */
+      const PLAN_TIERS = [
+        { id: "start", label: "Старт",    note: "Снимаю один" },
+        { id: "std",   label: "Стандарт", note: "Небольшая студия" },
+        { id: "pro",   label: "Про",      note: "Агентство" },
+      ];
+      /* Что даёт каждый тариф. Одна таблица на всё приложение: меню, разделы,
+         лимиты, места и витрина читают её, а не повторяют условия по коду.
+         deals: Infinity — без ограничения. */
+      const TIER_RULES = {
+        start: { deals: 5,        seats: 1,  sections: false, dashboard: false, ai: false, whiteLabel: false, publicCalc: false, catalog: "short" },
+        std:   { deals: Infinity, seats: 3,  sections: true,  dashboard: true,  ai: true,  whiteLabel: false, publicCalc: false, catalog: "full"  },
+        pro:   { deals: Infinity, seats: 10, sections: true,  dashboard: true,  ai: true,  whiteLabel: true,  publicCalc: true,  catalog: "full"  },
+      };
+      /* Короткий каталог «Старта». Двести позиций для человека с двумя
+         съёмками в месяц — не богатство, а поиск своей услуги среди чужих:
+         LED-экраны, кастинг, сайты и нейросети ему не нужны. Здесь ровно то,
+         из чего фотограф и видеограф-одиночка собирает смету; полный каталог
+         открывается на «Стандарте». Список — id существующих позиций, чтобы
+         цены и расчёты у всех тарифов остались одни и те же. */
+      const START_CATALOG_IDS = new Set([
+        // Подготовка
+        "idea", "script_short", "shoot_plan", "content_day_plan", "location_scouting",
+        // Съёмка — фото
+        "photographer", "photo_report", "photo_team", "photo_interior", "photo_catalog",
+        "product_photo", "photo_aerial",
+        // Съёмка — видео
+        "camera_operator", "event_cameraman", "bts_shooting", "drone_pilot", "makeup",
+        // Оборудование
+        "camera_basic", "lens_set", "light_basic", "light_oncam", "stabilizer", "sound_kit", "drone",
+        // Постпродакшн
+        "photo_retouch", "photo_retouch_pro", "photo_color",
+        "edit", "edit_short", "color", "sound_post", "music", "subtitles", "vertical_adapt",
+        // Расходы
+        "transfer_taxi", "location_rent",
+      ]);
+      // Позиция видна на текущем тарифе. Свои позиции человека — всегда видны:
+      // он завёл их сам, прятать их за тариф было бы отъёмом его же работы.
+      function itemAllowedByTier(it) {
+        if (!it) return false;
+        if (tierRules(currentTier()).catalog !== "short") return true;
+        if (it.lineOnly || it.custom || String(it.id || "").startsWith("custom")) return true;
+        return START_CATALOG_IDS.has(it.id);
+      }
+
+      const tierRules = (tier) => TIER_RULES[tier] || TIER_RULES.std;
+      const tierLabel = (tier) => (PLAN_TIERS.find(t => t.id === tier) || {}).label || "Стандарт";
+
+      // Разделы приложения, которых нет у младшего тарифа. Их не рисуем в меню
+      // вовсе (интерфейс проще), а прямой заход показывает экран о старшем.
+      const TIER_LOCKED_VIEWS = ["contracts", "briefs", "company-team"];
+      // Вкладки внутри сделки из того же набора: договор и команда.
+      const TIER_LOCKED_DEAL_TABS = ["contract", "team"];
 
       // Мест в команде на любом оплаченном тарифе. Пробный период — как и раньше, один
       // пользователь: он про «посмотреть продукт», а не про работу командой.
@@ -4846,7 +5019,7 @@
             + "Каталог на 200 позиций с вашими ценами, готовые пакеты, расчёт съёмочных дней и техники. "
             + "Смета собирается за 15 минут, из неё сразу выходит КП по ссылке — клиент открывает его в браузере, "
             + "подписывает и вносит аванс. Дальше сделка живёт сама: воронка, финансы, договоры, задачи. "
-            + "890 ₽ в месяц, 7 дней бесплатно, без привязки карты.",
+            + `от ${PLAN_ENTRY_PRICE} ₽ в месяц, 7 дней бесплатно, без привязки карты.`,
         },
         {
           id: "long",
@@ -4861,7 +5034,7 @@
             + "Дальше сделка живёт сама: воронка, договоры по шаблонам, задачи, P&L по каждому проекту, "
             + "Telegram-бот. Сделано людьми из индустрии — это не универсальная CRM с настройкой под себя, "
             + "а готовый инструмент с уже заложенной логикой продакшна.\n\n"
-            + "890 ₽ в месяц. 7 дней бесплатно, карта не нужна.",
+            + `от ${PLAN_ENTRY_PRICE} ₽ в месяц. 7 дней бесплатно, карта не нужна.`,
         },
         {
           id: "audience",
@@ -4886,7 +5059,7 @@
             + "Дай одну мысль, которую можно применить сегодня. В конце — одна строка про то, что смету и КП "
             + "я считаю в ADERVIS (adervis.ru), без призыва «переходи по ссылке».\n\n"
             + "Про продукт, если упоминаешь: сервис смет и КП для видеопродакшна, каталог 200 позиций со своими "
-            + "ценами, КП уходит клиенту ссылкой с подписью и авансом, 890 ₽/мес, 7 дней бесплатно без карты.",
+            + `ценами, КП уходит клиенту ссылкой с подписью и авансом, от ${PLAN_ENTRY_PRICE} ₽/мес, 7 дней бесплатно без карты.`,
         },
         {
           id: "reels",
@@ -4913,7 +5086,7 @@
             + "«не хочу переносить данные», «а если сервис закроется»).\n\n"
             + "Напиши ответ в 3–4 предложениях. Правила: не спорь и не переубеждай, согласись с тем, что в возражении "
             + "правда, и покажи, чего человек не учёл. Никаких «на самом деле» и «вы просто не пробовали».\n\n"
-            + "Факты, на которые можно опираться: 890 ₽/мес; 7 дней бесплатно без карты; данные выгружаются одним "
+            + `Факты, на которые можно опираться: от ${PLAN_ENTRY_PRICE} ₽/мес; 7 дней бесплатно без карты; данные выгружаются одним `
             + "файлом JSON в любой момент; смета считается за 15 минут; КП уходит ссылкой с подписью и авансом.",
         },
         {
@@ -4932,7 +5105,7 @@
           text: "Напиши три варианта описания сообщества для [ПЛОЩАДКА] — 90, 200 и 500 знаков.\n\n"
             + "Продукт: ADERVIS, сервис смет и коммерческих предложений для видеопродакшна. "
             + "Каталог 200 позиций со своими ценами, готовые пакеты, расчёт съёмочных дней и техники. "
-            + "КП уходит клиенту ссылкой — он подписывает и вносит аванс. 890 ₽/мес, 7 дней бесплатно без карты. "
+            + `КП уходит клиенту ссылкой — он подписывает и вносит аванс. От ${PLAN_ENTRY_PRICE} ₽/мес, 7 дней бесплатно без карты. `
             + "Сайт adervis.ru, приложение app.adervis.ru.\n\n"
             + "Тон: точный, быстрый, свой. Без «инновационный», «уникальный», «команда профессионалов».",
         },
@@ -5284,7 +5457,11 @@
         return { trial: "Триал", active: "Активна", expired: "Истекла", blocked: "Заблок.", "": "Нет профиля" }[status || ""] || status;
       }
       function _adminPlanLabel(plan) {
-        return { month1: "1 мес", month3: "3 мес", month6: "6 мес", year: "Год", pro: "PRO", "": "—" }[plan || ""] || plan;
+        // Подпись плана в админке: тариф + срок. Раньше список знал только
+        // периоды «Стандарта», и «solo3» показывался сырым идентификатором.
+        const p = PLANS.find(x => x.id === plan);
+        if (p && p.id !== "trial") return `${p.label} · ${p.months === 12 ? "год" : p.months + " мес"}`;
+        return { trial: "Пробный", pro: "PRO", "": "—" }[plan || ""] || plan;
       }
       /* «Сколько прошло» словами. Рядом уже живёт _adminDaysLeft («через 4 дн.»),
          но он про БУДУЩЕЕ — срок подписки, — а здесь нужно прошедшее время, и
@@ -5590,7 +5767,7 @@
                             <div class="field" style="margin:0">
                               <label>Тариф</label>
                               <select onchange="app._setEditSub('plan',this.value)">
-                                ${["month1","month3","month6","year","pro"].map(pv => `<option value="${pv}" ${_adminEditSub.plan===pv?"selected":""}>${_adminPlanLabel(pv)}</option>`).join("")}
+                                ${[...PLANS.filter(x => x.id !== "trial").map(x => x.id), "pro"].map(pv => `<option value="${pv}" ${_adminEditSub.plan===pv?"selected":""}>${_adminPlanLabel(pv)}</option>`).join("")}
                               </select>
                             </div>
                             <div class="field" style="margin:0">
@@ -5724,7 +5901,7 @@
           pain: "«Не знаю, сколько брать». Считает в заметках или в голове, забывает технику и трансфер, "
             + "называет цену на глаз и потом работает в минус.",
           words: "полдня на смету · посчитал на глаз · забыл заложить · неудобно называть цену",
-          why: "Решает сам, за один вечер, 890 ₽ для него — цена одного обеда на площадке. **Целевой сегмент.**",
+          why: `Решает сам, за один вечер, ${PLAN_ENTRY_PRICE} ₽ для него — цена одного обеда на площадке. **Целевой сегмент.**`,
         },
         {
           id: "studio",
@@ -6791,35 +6968,42 @@
         // после подъёма цен 08.08 в списке преимуществ ещё висели старые «Экономия
         // 31%» и «41%» рядом с новыми 34% и 45% — на одной и той же карточке.
         const saveOf = (id) => ((PLANS.find(x => x.id === id) || {}).save) || "";
-        const planFeatures = {
-          trial:  ["Безлимитные сделки", "CRM и воронка продаж", "Калькулятор смет", "КП для клиентов", "Telegram-бот уведомления", `${AI_PROPOSAL_TRIAL_LIMIT} AI-генераций КП`, "Web Push", "1 пользователь"],
-          month1: ["Всё из пробного", "Безлимитная AI-генерация КП", `До ${PAID_MAX_USERS} пользователей`, "Финансы и аналитика", "Экспорт Excel", "Договоры"],
-          month3: ["Всё из «Месяца»", `До ${PAID_MAX_USERS} пользователей`, saveOf("month3"), "Один платёж на 3 месяца", "Поддержка"],
-          month6: ["Всё из «Месяца»", `До ${PAID_MAX_USERS} пользователей`, saveOf("month6"), "Один платёж на полгода", "Поддержка"],
-          year:   ["Всё из «Месяца»", `До ${PAID_MAX_USERS} пользователей`, saveOf("year"), "Лучшая цена за месяц", "Поддержка"]
+        /* Состав — по ТАРИФУ, а не по каждому сроку: срок меняет только цену.
+           Раньше список был у каждой карточки, и «3 месяца» обещали «Всё из
+           месяца» — строку, которая ничего не говорит о продукте. */
+        const tierFeatures = {
+          trial: ["Весь «Стандарт» на 7 дней", "Сделки без ограничения", "Калькулятор смет", "КП для клиентов", `${AI_PROPOSAL_TRIAL_LIMIT} AI-генераций КП`, "Один пользователь"],
+          start: [`До ${TIER_RULES.start.deals} съёмок в работе`, "Короткий каталог фото- и видеоуслуг", "КП по ссылке с авансом", "Клиенты и календарь съёмок", "Деньги: оплачено и сколько должны", "Один пользователь"],
+          std: ["Сделок без ограничения", `До ${TIER_RULES.std.seats} человек в команде`, "Полный каталог: 200 позиций", "Договоры и онлайн-брифы", "Аналитика и ИИ-помощник", "Экспорт в Excel"],
+          pro: ["Всё из «Стандарта»", `До ${TIER_RULES.pro.seats} человек в команде`, "Ваш бренд вместо нашего в КП", "Калькулятор на вашем сайте", "Приоритетная поддержка", "Помощь с переносом цен"],
         };
         const promoValid = _promoState && typeof _promoState === "object";
-        const cards = PLANS.map(p => {
+        const cardHtml = (p, tier) => {
           const isCurrent = sub && sub.subscription_plan === p.id && (sub.subscription_status === "active" || (sub.subscription_status === "trial" && p.id === "trial"));
           const isLoading = _buyingPlan === p.id;
           const discountedPrice = (promoValid && p.price > 0) ? Math.round(p.price * (1 - _promoState.discount / 100)) : null;
+          // «Советуем» — у среднего тарифа: это ответ на вопрос «а мне какой?».
+          const recommended = tier && tier.id === "std";
           const totalDisc = discountedPrice ? discountedPrice * Math.max(p.months, 1) : null;
           const payAmount = totalDisc !== null ? totalDisc : p.price * Math.max(p.months, 1);
-     const btnLabel = isCurrent ? "✓ Активен" : isLoading ? "⏳..." : p.price === 0 ? "Бесплатно" : `Оплатить ${payAmount} ₽${p.months > 1 ? ` за ${p.months} мес.` : ""}`;
+     const btnLabel = isCurrent ? "✓ Активен" : isLoading ? "⏳..." : p.price === 0 ? "Бесплатно" : `Оплатить ${money(payAmount)}${p.months > 1 ? ` за ${p.months} мес.` : ""}`;
           const btnOff = isCurrent || p.price === 0 || !!_buyingPlan;
-          const feats = planFeatures[p.id] || [];
-          const border = isCurrent ? "var(--green)" : p.popular ? "var(--primary)" : "var(--line)";
-          const bg = isCurrent ? "rgba(22,163,74,.06)" : p.popular ? "rgb(var(--primary-rgb) / .05)" : "var(--panel2)";
+          const feats = tierFeatures[p.id === "trial" ? "trial" : p.tier] || [];
+          const border = isCurrent ? "var(--green)" : recommended ? "var(--primary)" : "var(--line)";
+          const bg = isCurrent ? "rgba(22,163,74,.06)" : recommended ? "rgb(var(--primary-rgb) / .05)" : "var(--panel2)";
           const priceHtml = p.price === 0
             ? `<div style="font-size:28px;font-weight:900;color:var(--text-success);line-height:1">Бесплатно</div><div style="font-size:12px;color:var(--muted);margin-bottom:16px">${escapeHtml(p.period)}</div>`
             : discountedPrice !== null
               ? `<div style="font-size:13px;color:var(--muted);text-decoration:line-through;line-height:1">${p.price} ₽</div><div style="font-size:28px;font-weight:900;color:var(--text-success);line-height:1.1">${discountedPrice} ₽</div><div class="u-meta">${escapeHtml(p.period)}</div><div style="font-size:12px;color:var(--text-success);font-weight:700;margin-bottom:16px">−${_promoState.discount}% по промокоду</div>`
-              : `<div style="font-size:28px;font-weight:900;line-height:1">${p.price} ₽</div><div class="u-meta">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:12px;color:var(--primary-text);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)}</div>` : `<div class="mb-16"></div>`}`;
+              : `<div style="font-size:28px;font-weight:900;line-height:1">${money(p.price)}</div><div class="u-meta">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:12px;color:var(--primary-text);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)} · счёт ${money(p.price * p.months)}</div>` : `<div class="mb-16"></div>`}`;
           return `
           <div class="plan-card" style="border-radius:18px;border:2px solid ${border};background:${bg};padding:20px 16px;display:flex;flex-direction:column;position:relative;min-width:0">
-            ${p.popular && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap"> Популярный</div>` : ""}
+            ${recommended && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">Советуем</div>` : ""}
             ${isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">✓ Активен</div>` : ""}
-            <div style="font-size:14px;font-weight:900;margin-bottom:10px">${escapeHtml(p.label)}</div>
+            <div class="plan-card-head">
+              <span class="plan-card-name">${escapeHtml(p.label)}</span>
+              ${tier && tier.note ? `<span class="plan-card-note">${escapeHtml(tier.note)}</span>` : ""}
+            </div>
             ${priceHtml}
             <div style="flex:1;display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
               ${feats.map(f => `<div style="font-size:12px;display:flex;align-items:flex-start;gap:5px"><span style="color:${isCurrent ? "var(--text-success)" : "var(--primary-text)"};flex-shrink:0;font-size:12px;margin-top:1px">✓</span><span>${escapeHtml(f)}</span></div>`).join("")}
@@ -6827,18 +7011,51 @@
             ${/* Приглушение и курсор задаёт общее правило для :disabled в style.css —
                   раньше они дублировались здесь инлайном, и отключённая кнопка
                   выглядела в тарифах не так, как в остальном приложении. */""}
-            <button class="btn ${p.popular && !isCurrent ? "primary" : "small"}" style="width:100%;white-space:normal;line-height:1.25;text-align:center" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
+            <button class="btn ${recommended && !isCurrent ? "primary" : "small"}" style="width:100%;white-space:normal;line-height:1.25;text-align:center" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
               ${btnLabel}
             </button>
           </div>`;
+        };
+        /* Витрина: срок выбирается ОДИН раз наверху, а тарифы стоят рядом
+           двумя карточками. Восемь карточек в ряд (2 тарифа × 4 срока) читались
+           бы как восемь разных продуктов; на самом деле выбор тут два, и они
+           разного рода — что беру и на сколько. */
+        const months = PLAN_PERIODS.some(x => x.months === state.planPeriod) ? state.planPeriod : 1;
+        const planFor = (tier) => PLANS.find(p => p.tier === tier && p.months === months) || null;
+        const periodSwitch = `
+          <div class="plan-period-switch no-print" role="group" aria-label="Срок оплаты">
+            ${PLAN_PERIODS.map(x => {
+              const p = PLANS.find(y => y.tier === "pro" && y.months === x.months);
+              const off = p && p.save ? p.save.replace("Экономия ", "−") : "";
+              return `<button type="button" class="plan-period-btn ${x.months === months ? "active" : ""}"
+                aria-pressed="${x.months === months}" onclick="app.setPlanPeriod(${x.months})">
+                ${escapeHtml(x.label)}${off ? `<span class="plan-period-off">${escapeHtml(off)}</span>` : ""}
+              </button>`;
+            }).join("")}
+          </div>`;
+        const tierCards = PLAN_TIERS.map(t => {
+          const p = planFor(t.id);
+          return p ? cardHtml(p, t) : "";
         }).join("");
         const yes = `<span style="color:var(--text-success);font-size:16px;font-weight:700">✓</span>`;
         const no  = `<span style="color:var(--muted);font-size:15px">—</span>`;
-        const colStyle = (id) => id === "month3" ? "background:rgb(var(--primary-rgb) / .07);font-weight:600" : "";
-        const hdr = (label, id) => `<th style="text-align:center;padding:10px 8px;font-size:12px;font-weight:700;white-space:nowrap;${colStyle(id)}">${label}</th>`;
-        const cell = (val, id) => `<td style="text-align:center;padding:9px 8px;${colStyle(id)}">${val}</td>`;
-        const row = (label, vals) => `<tr><td style="padding:9px 12px;font-size:13px;color:var(--muted)">${label}</td>${PLANS.map((p,i) => cell(vals[i], p.id)).join("")}</tr>`;
-        const group = (title) => `<tr><td colspan="6" style="padding:10px 12px 4px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:var(--panel2);border-top:1px solid var(--line)">${title}</td></tr>`;
+        /* Колонок в таблице ТРИ, а не по числу планов: сроки отличаются только
+           ценой, и «Старт 230 ₽» рядом со «Старт 190 ₽» сравнивать нечего. */
+        const COLS = [
+          { key: "trial", label: "Пробный", sub: "7 дней" },
+          { key: "start", label: PLAN_TIERS[0].label, sub: `${money((planFor("start") || {}).price)}/мес` },
+          { key: "std", label: PLAN_TIERS[1].label, sub: `${money((planFor("std") || {}).price)}/мес`, hl: true },
+          { key: "pro", label: PLAN_TIERS[2].label, sub: `${money((planFor("pro") || {}).price)}/мес` },
+        ];
+        const colStyle = (key) => key === "std" ? "background:rgb(var(--primary-rgb) / .07);font-weight:600" : "";
+        const hdr = (label, key) => `<th style="text-align:center;padding:10px 8px;font-size:12px;font-weight:700;white-space:nowrap;${colStyle(key)}">${label}</th>`;
+        const cell = (val, key) => `<td style="text-align:center;padding:9px 8px;${colStyle(key)}">${val}</td>`;
+        const row = (label, vals) => `<tr><td style="padding:9px 12px;font-size:13px;color:var(--muted)">${label}</td>${COLS.map((c,i) => cell(vals[i], c.key)).join("")}</tr>`;
+        /* Значение задаётся один раз на тариф: `rowT("Договоры", { start: no, pro: yes })`.
+           Раньше список шёл по индексу PLANS — добавление тарифа молча сдвинуло
+           бы всю таблицу. */
+        const rowT = (label, v) => row(label, COLS.map(c => (typeof v === "string" ? v : (v[c.key] !== undefined ? v[c.key] : v.pro))));
+        const group = (title) => `<tr><td colspan="${COLS.length + 1}" style="padding:10px 12px 4px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:var(--panel2);border-top:1px solid var(--line)">${title}</td></tr>`;
 
         const compTable = `
           <div style="overflow-x:auto;margin-top:32px">
@@ -6851,9 +7068,9 @@
                         шапка таблицы, строка «Стоимость»), и при подъёме цен таблица
                         осталась бы показывать старые — расхождение, которое видит
                         только клиент. */""}
-                  ${PLANS.map(p => hdr(
-                    `${escapeHtml(p.label)}<br><span style='font-weight:400;color:var(--muted)'>${p.months === 0 ? "7 дней" : `${p.price} ₽${p.months > 1 ? "/мес" : ""}`}</span>`,
-                    p.id
+                  ${COLS.map(c => hdr(
+                    `${escapeHtml(c.label)}<br><span style='font-weight:400;color:var(--muted)'>${escapeHtml(c.sub)}</span>`,
+                    c.key
                   )).join("")}
                 </tr>
               </thead>
@@ -6863,60 +7080,78 @@
                       того же тарифа строкой выше обещала «Безлимитные сделки» — два
                       разных обещания на одном экране. В коде ограничения нет вовсе:
                       шестая сделка в пробном заводится молча. Пишем то, что есть. */""}
-                ${row("Активных сделок",
-                  [`<span style='color:var(--text-success);font-weight:700'>∞</span>`,
-                   `<span style='color:var(--text-success);font-weight:700'>∞</span>`,
-                   `<span style='color:var(--text-success);font-weight:700'>∞</span>`,
-                   `<span style='color:var(--text-success);font-weight:700'>∞</span>`,
-                   `<span style='color:var(--text-success);font-weight:700'>∞</span>`])}
-                ${row("Сделки и воронка (канбан)", [yes,yes,yes,yes,yes])}
-                ${row("Карточка сделки", [yes,yes,yes,yes,yes])}
-                ${row("База клиентов", [yes,yes,yes,yes,yes])}
-                ${row("Дублирование сделок", [yes,yes,yes,yes,yes])}
+                ${rowT("Активных сделок", {
+                  start: `<b>${TIER_RULES.start.deals}</b>`,
+                  pro: `<span style='color:var(--text-success);font-weight:700'>∞</span>`,
+                })}
+                ${rowT("Сделки и воронка (канбан)", yes)}
+                ${rowT("Карточка сделки", yes)}
+                ${rowT("База клиентов", yes)}
+                ${rowT("Дашборд: графики, воронка, прогноз", { start: no, pro: yes })}
+                ${rowT("Дублирование сделок", yes)}
 
                 ${group("Смета и калькулятор")}
-                ${row("Калькулятор смет", [yes,yes,yes,yes,yes])}
-                ${row("Каталог и пакеты услуг", [yes,yes,yes,yes,yes])}
-                ${row("Этапы производства", [yes,yes,yes,yes,yes])}
-                ${row("Версии смет", [yes,yes,yes,yes,yes])}
-                ${row("Экспорт Excel", [yes,yes,yes,yes,yes])}
+                ${rowT("Калькулятор смет", yes)}
+                ${rowT("Каталог и пакеты услуг", {
+                  start: "<span style='color:var(--muted)'>короткий</span>",
+                  pro: "<b>200 позиций</b>",
+                })}
+                ${rowT("Этапы производства", yes)}
+                ${rowT("Версии смет", yes)}
+                ${rowT("Экспорт Excel", yes)}
 
                 ${group("Клиентские инструменты")}
-                ${row("Коммерческое предложение (КП)", [yes,yes,yes,yes,yes])}
-                ${row("Клиентский портал (ссылка для клиента)", [yes,yes,yes,yes,yes])}
-                ${row("Онлайн-бриф от клиента", [yes,yes,yes,yes,yes])}
-                ${row("Email клиенту со ссылкой на КП", [yes,yes,yes,yes,yes])}
-                ${row("Печать / PDF КП", [yes,yes,yes,yes,yes])}
+                ${rowT("Коммерческое предложение (КП)", yes)}
+                ${rowT("Клиентский портал (ссылка для клиента)", yes)}
+                ${rowT("Онлайн-бриф от клиента", { start: no, pro: yes })}
+                ${rowT("Email клиенту со ссылкой на КП", yes)}
+                ${rowT("Печать / PDF КП", yes)}
 
                 ${group("Финансы")}
-                ${row("Транзакции по сделке", [yes,yes,yes,yes,yes])}
-                ${row("Глобальные финансы агентства", [yes,yes,yes,yes,yes])}
-                ${row("P&amp;L по проектам", [yes,yes,yes,yes,yes])}
+                ${rowT("Транзакции по сделке", yes)}
+                ${rowT("Глобальные финансы агентства", yes)}
+                ${rowT("P&amp;L по проектам", yes)}
 
                 ${group("Задачи и команда")}
-                ${row("Задачи (канбан)", [yes,yes,yes,yes,yes])}
-                ${row("Календарь дедлайнов", [yes,yes,yes,yes,yes])}
-                ${row("Договоры (шаблоны и редактор)", [yes,yes,yes,yes,yes])}
-                ${row("Telegram-уведомления", [yes,yes,yes,yes,yes])}
-                ${row("Пользователей в команде",
-                  ["<span style='color:var(--muted)'>1</span>",
-                   `<b>до ${PAID_MAX_USERS}</b>`, `<b>до ${PAID_MAX_USERS}</b>`,
-                   `<b>до ${PAID_MAX_USERS}</b>`, `<b>до ${PAID_MAX_USERS}</b>`])}
+                ${rowT("Раздел «Команда» и гонорары", { start: no, pro: yes })}
+                ${rowT("Задачи (канбан)", yes)}
+                ${rowT("Календарь дедлайнов", yes)}
+                ${rowT("Договоры (шаблоны и редактор)", { start: no, pro: yes })}
+                ${rowT("Telegram-уведомления", yes)}
+                ${rowT("Пользователей в команде", {
+                  trial: `<b>до ${TIER_RULES.std.seats}</b>`,
+                  start: "<span style='color:var(--muted)'>1</span>",
+                  std: `<b>до ${TIER_RULES.std.seats}</b>`,
+                  pro: `<b>до ${TIER_RULES.pro.seats}</b>`,
+                })}
 
                 ${group("AI и автоматизация")}
-                ${row("AI-генерация текста КП (Gemini)",
-                  [`<span style='color:var(--muted)'>5 запросов</span>`,yes,yes,yes,yes])}
-                ${row("Облачная синхронизация", [yes,yes,yes,yes,yes])}
-                ${row("PWA — работает как приложение", [yes,yes,yes,yes,yes])}
+                ${rowT("AI-генерация текста КП (Gemini)", {
+                  trial: `<span style='color:var(--muted)'>${AI_PROPOSAL_TRIAL_LIMIT} запросов</span>`,
+                  start: no, std: yes, pro: yes,
+                })}
+                ${rowT("Ваш бренд вместо нашего (КП, портал, бриф)", { trial: no, start: no, std: no, pro: yes })}
+                ${rowT("Калькулятор на вашем сайте", { trial: no, start: no, std: no, pro: yes })}
+                ${rowT("Приоритетная поддержка", { trial: no, start: no, std: no, pro: yes })}
+                ${rowT("Облачная синхронизация", yes)}
+                ${rowT("PWA — работает как приложение", yes)}
 
                 ${group("Цена")}
-                ${row("Стоимость в месяц", PLANS.map(p =>
-                  p.months === 0 ? `<span style='color:var(--text-success);font-weight:700'>0 ₽</span>`
-                  : p.popular ? `<b style='color:var(--tint-violet)'>${p.price} ₽</b>`
-                  : `${p.price} ₽`))}
-                ${row("Экономия vs месяца", PLANS.map(p => {
-                  const base = (PLANS.find(x => x.id === "month1") || {}).price || 0;
-                  if (p.months <= 1 || !base) return no;
+                ${row("Стоимость в месяц", COLS.map(c => {
+                  if (c.key === "trial") return `<span style='color:var(--text-success);font-weight:700'>0 ₽</span>`;
+                  const p = planFor(c.key);
+                  return c.key === "std" ? `<b style='color:var(--tint-violet)'>${money(p.price)}</b>` : money(p.price);
+                }))}
+                ${row(`Счёт за ${months === 12 ? "год" : months + " мес."}`, COLS.map(c => {
+                  if (c.key === "trial") return no;
+                  const p = planFor(c.key);
+                  return money(p.price * p.months);
+                }))}
+                ${row("Экономия к месяцу", COLS.map(c => {
+                  if (c.key === "trial") return no;
+                  const p = planFor(c.key);
+                  const base = (PLANS.find(x => x.tier === c.key && x.months === 1) || {}).price || 0;
+                  if (!base || p.months <= 1) return no;
                   return `<span style='color:var(--text-success);font-weight:700'>−${Math.round((1 - p.price / base) * 100)}%</span>`;
                 }))}
               </tbody>
@@ -6929,12 +7164,15 @@
               <div><h1 class="m-0">${h1Icon("card")}Тарифный план</h1><p style="margin:4px 0 0;color:var(--muted)">Оплата через ЮKassa — карта, СБП, ЮМани</p></div>
               <button class="btn small" onclick="app.go('profile')">← Профиль</button>
             </div>
-            <div class="grid five" style="gap:14px;margin-bottom:20px">
-              ${cards}
+            ${periodSwitch}
+            <div class="grid three plans-tier-grid" style="gap:14px;margin-bottom:16px">
+              ${tierCards}
             </div>
+            ${sub && sub.subscription_status === "trial" ? `
+              <p class="mini-note" style="margin:0 0 20px">Идёт пробный период — весь «Стандарт» ${getSubscriptionDaysLeft() !== null ? `ещё ${getSubscriptionDaysLeft()} дн.` : ""}</p>` : ""}
             ${_promoCodeInputHtml()}
             <p style="font-size:12px;color:var(--muted);padding:10px 16px;background:rgb(var(--primary-rgb) / .06);border-radius:10px;margin:0;line-height:1.6">
-        Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Тарифы отличаются только сроком: команда до ${PAID_MAX_USERS} человек входит в любой из них · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
+        Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Срок меняет только цену: состав тарифа от него не зависит · На «${escapeHtml(PLAN_TIERS[1].label)}» команда до ${PAID_MAX_USERS} человек, на «${escapeHtml(PLAN_TIERS[0].label)}» — один пользователь · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
             </p>
             ${compTable}
           </div>
@@ -6960,7 +7198,7 @@
           const daysLeft = exp ? Math.max(0, Math.round((exp - new Date()) / 86400000)) : null;
           const expStr = exp ? exp.toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" }) : "";
           const s = sub.subscription_status;
-          const planLabel = { trial: "Пробный период", month1: "Месяц", month3: "3 месяца", month6: "6 месяцев", year: "Год", pro: "PRO" }[sub.subscription_plan] || sub.subscription_plan || "PRO";
+          const planLabel = sub.subscription_status === "trial" ? "Пробный период" : _adminPlanLabel(sub.subscription_plan);
 
           if (s === "active") {
             subStatusBlock = `
@@ -8104,6 +8342,106 @@
       function openKbCatsModal() { state.kbCatsModal = true; renderModal(); }
       function closeKbCatsModal() { state.kbCatsModal = false; renderModal(); }
 
+      /* Окно перехода на «Стандарт». Показывается там, где человек на «Соло»
+         упёрся: шестая активная сделка, закрытый раздел, кнопка ИИ. Говорит
+         не «нельзя», а что именно даёт старший тариф и сколько он стоит. */
+      /* Тариф, на который зовём: со «Старта» — «Стандарт», со «Стандарта» —
+         «Про». Тексты не называют тариф словом «Стандарт» намертво: линейка
+         из трёх, и приглашение обязано вести на следующую ступень. */
+      function nextTier() {
+        const order = PLAN_TIERS.map(t => t.id);
+        const i = order.indexOf(currentTier());
+        return i >= 0 && i < order.length - 1 ? order[i + 1] : order[order.length - 1];
+      }
+
+      const UPSELL_REASONS = {
+        deals: () => ({
+          title: `Сейчас в работе ${tierRules(currentTier()).deals} ${plural(tierRules(currentTier()).deals, "сделка", "сделки", "сделок")}`,
+          text: `На столько активных сделок и рассчитан тариф «${tierLabel(currentTier())}». Закройте одну — или переходите на тариф «${tierLabel(nextTier())}»: там их сколько угодно, а уже заведённые никуда не денутся.`,
+        }),
+        section: () => ({
+          title: `Этот раздел — на тарифе «${tierLabel(nextTier())}»`,
+          text: `Тариф «${tierLabel(currentTier())}» оставляет главное: смету, КП и клиентов. Остальное открывается на старшем.`,
+        }),
+        ai: () => ({
+          title: `ИИ-помощник — на тарифе «${tierLabel(nextTier())}»`,
+          text: "Он пишет текст КП по вашей смете: что входит, что нет, сопроводительное письмо.",
+        }),
+        whiteLabel: () => ({
+          title: "Свой бренд вместо нашего — на тарифе «Про»",
+          text: "КП, портал и бриф клиент видит без подписи «Сделано в ADERVIS».",
+        }),
+        publicCalc: () => ({
+          title: "Калькулятор на вашем сайте — на тарифе «Про»",
+          text: "Страница, где клиент сам считает стоимость съёмки и оставляет заявку. Заявка приходит сделкой.",
+        }),
+      };
+
+      /* Что появится на следующем тарифе — списком. Считается из TIER_RULES,
+         поэтому не разойдётся с тем, что приложение делает на самом деле. */
+      function upsellPoints() {
+        const cur = tierRules(currentTier());
+        const next = tierRules(nextTier());
+        const out = [];
+        if (!isFinite(next.deals) && isFinite(cur.deals)) out.push("Сделок без ограничения");
+        if (next.seats > cur.seats) out.push(`До ${next.seats} ${plural(next.seats, "человека", "человек", "человек")} в команде`);
+        if (next.sections && !cur.sections) out.push("Договоры и онлайн-брифы", "Раздел «Команда» и гонорары");
+        if (next.dashboard && !cur.dashboard) out.push("Аналитика: доход, воронка, прогноз");
+        if (next.ai && !cur.ai) out.push("ИИ-помощник для КП");
+        if (next.whiteLabel && !cur.whiteLabel) out.push("Ваш бренд вместо нашего в КП и портале");
+        if (next.publicCalc && !cur.publicCalc) out.push("Калькулятор на вашем сайте");
+        if (next.catalog === "full" && cur.catalog !== "full") out.push("Полный каталог: 200 позиций и 45 пакетов");
+        return out;
+      }
+
+      /* Экран закрытого раздела. Не «доступ запрещён», а что здесь было бы и
+         сколько стоит: человек пришёл за договором — пусть увидит ответ. */
+      function renderLockedSection(view) {
+        const next = tierLabel(nextTier());
+        const о = {
+          contracts: { ic: "doc", title: "Договоры", text: `Шаблоны договоров, подстановка реквизитов обеих сторон и печать. Открывается на тарифе «${next}».` },
+          briefs: { ic: "doc", title: "Онлайн-брифы", text: `Ссылка, по которой клиент сам отвечает на вопросы о проекте, а ответы приходят в сделку. Открывается на тарифе «${next}».` },
+          "company-team": { ic: "users", title: "Команда", text: `Люди агентства, их ставки и гонорары по проектам, до ${tierRules(nextTier()).seats} человек в общем доступе. Открывается на тарифе «${next}».` },
+        }[view] || { ic: "box", title: `Раздел «${next}»`, text: `Этот раздел открывается на тарифе «${next}».` };
+        return `
+          <div class="section-title"><h1>${escapeHtml(о.title)}</h1></div>
+          <div class="panel">
+            ${emptyState({
+              icon: о.ic,
+              title: escapeHtml(о.title) + ` — на тарифе «${escapeHtml(next)}»`,
+              text: escapeHtml(о.text),
+              cta: { label: "Смотреть тарифы", onclick: "app.go('plans')" },
+            })}
+            <div class="upsell-list" style="max-width:520px;margin:0 auto">
+              ${upsellPoints().map(x => `<div class="upsell-point">${icon("check", 12)}<span>${escapeHtml(x)}</span></div>`).join("")}
+            </div>
+          </div>`;
+      }
+
+      function renderUpsellModal() {
+        if (!state.upsell) return "";
+        const make = UPSELL_REASONS[state.upsell] || UPSELL_REASONS.section;
+        const r = make();
+        const pro = PLANS.find(p => p.tier === nextTier() && p.months === 1);
+        return `
+          <div class="modal-overlay" onclick="event.target===this&&app.closeUpsell()">
+            <div class="modal-box" style="max-width:460px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <h2 class="u-title-20">${escapeHtml(r.title)}</h2>
+                <button onclick="app.closeUpsell()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
+              </div>
+              <p class="u-meta" style="margin:0 0 14px;line-height:1.5">${escapeHtml(r.text)}</p>
+              <div class="upsell-list">
+                ${upsellPoints().map(x => `<div class="upsell-point">${icon("check", 12)}<span>${escapeHtml(x)}</span></div>`).join("")}
+              </div>
+              <div class="upsell-foot">
+                <span class="u-meta">Тариф «${escapeHtml(tierLabel(nextTier()))}» — ${money(pro ? pro.price : 890)} в месяц</span>
+                <button class="btn primary" onclick="app.closeUpsell();app.go('plans')">Смотреть тарифы</button>
+              </div>
+            </div>
+          </div>`;
+      }
+
       function renderKbCatsModal() {
         if (!state.kbCatsModal) return "";
         const docs = state.knowledgeDocs || [];
@@ -8618,6 +8956,8 @@
           clientModal: null,
           taskModal: null,
           dealModal: null,
+          upsell: null,
+          planPeriod: 1,
           dealSwitcherOpen: false,
           editTransactionModal: null,
           proposalModal: null,
@@ -9069,6 +9409,8 @@
           clientModal: null,
           taskModal: null,
           dealModal: null,
+          upsell: null,
+          planPeriod: 1,
           dealSwitcherOpen: false,
           editTransactionModal: null,
           proposalModal: null,
@@ -10548,6 +10890,10 @@
       function filteredItems() {
         let items = state.tab === "hidden" ? hiddenItemsList() : allItems(false);
         items = items.filter(x => !isLineOnlyItem(x));
+        /* Короткий каталог младшего тарифа. Режем ЗДЕСЬ, в списке каталога, а не
+           в allItems(): тот же список ищет позиции для уже собранных смет, и
+           фильтр по тарифу стёр бы строки в старых сделках. */
+        items = items.filter(itemAllowedByTier);
 
         /* Вкладки «Свои» больше нет (решение владельца 14.09.2026): своя позиция
            живёт в том разделе, где её завели, — плюсом у раздела. У кого вкладка
@@ -10766,7 +11112,7 @@
           if (!hasName && !hasServices) { toast('Добавьте название или хотя бы одну услугу'); return; }
         }
         // Лимит проверяем только при создании НОВОЙ сделки (не при обновлении существующей)
-        if (!state.activeProjectId && checkTrialDealLimit()) return;
+        if (!state.activeProjectId && checkDealLimit()) return;
 
         const snapshot = currentProjectSnapshot();
         const now = new Date().toISOString();
@@ -14004,7 +14350,9 @@
           state.editTransactionModal ? "editTx" : state.financeModal ? "finance" :
           state.packageEditModal ? "package" : state.catalogEditId ? "catalog" :
           state.briefEditorType ? "briefEditor" : state.proposalModal ? "proposal" :
-          state.kbCatsModal ? "kbCats" : null;
+          state.kbCatsModal ? "kbCats" : state.upsell ? "soloUpsell" : null;
+        if (state.upsell) { el.innerHTML = renderUpsellModal(); }
+        else
         if (state.helpModal) { el.innerHTML = renderHelpModal(); }
         else if (state.docsModal) { el.innerHTML = renderDocsModal(); }
         else if (state.catalogGroupsConfigOpen) { el.innerHTML = renderCatalogGroupsConfigModal(); }
@@ -14462,6 +14810,7 @@
       }
 
       function startWizardForClient(clientId) {
+        if (checkDealLimit()) return;
         const client = (state.clients || []).find(c => c.id === clientId);
         if (!client) return;
         state.wizard = {
@@ -14480,11 +14829,14 @@
         render();
       }
 
-      // Лимит сделок на триале убран (решение 02.07.2026): барьер — только 7 дней,
-      // enforced в isSubscriptionActive()/save(). Функция оставлена как no-op, чтобы
-      // не трогать 4 места вызова; количество сделок в триале больше не ограничено.
-      function checkTrialDealLimit() {
-        return false;
+      /* Лимит сделок. На триале его нет (решение 02.07.2026): барьер — семь
+         дней. На «Старте» — пять активных: шестая сделка это уже не одиночка.
+         Предел берётся из TIER_RULES. Возвращает true, если создавать нельзя,
+         и сама объясняет почему — чтобы каждый вызов не повторял текст. */
+      function checkDealLimit() {
+        if (!dealLimitReached()) return false;
+        openUpsell("deals");
+        return true;
       }
 
       // Демо-сделка после регистрации: готовая смета + клиент + аванс, чтобы новый
@@ -14660,7 +15012,7 @@
       }
 
       function startWizard() {
-        if (checkTrialDealLimit()) return;
+        if (checkDealLimit()) return;
         const d30 = new Date(); d30.setDate(d30.getDate() + 30);
         state.wizard = {
           step: 1,
@@ -16248,7 +16600,17 @@
           // Сохраняем позицию и возвращаем её, если вид не менялся (при смене вида — наверх, естественно).
           const prevScrollY = viewChanged ? 0 : window.scrollY;
           if (viewChanged) root.classList.add("view-fade");
-          root.innerHTML = (views[state.view] || renderHome)();
+          /* Тариф — атрибутом на <html>: то, что на «Соло» просто не показывают
+             (дашборд с графиками на главной), гасит CSS. Разбирать renderHome
+             на условия ради этого не нужно, а признак заодно пригодится
+             следующим тарифам. */
+          document.documentElement.setAttribute("data-tier", currentTier());
+          // Раздел закрыт тарифом «Соло» — вместо него экран о «Стандарте».
+          // Не молчаливый редирект: человек пришёл за договорами и должен
+          // увидеть ответ на своё действие, а не оказаться на главной.
+          root.innerHTML = tierLocked(state.view)
+            ? renderLockedSection(state.view)
+            : (views[state.view] || renderHome)();
           if (!viewChanged && prevScrollY) window.scrollTo(0, prevScrollY);
           if (viewChanged) { cancelAnimationFrame(_fadeRaf); _fadeRaf = requestAnimationFrame(() => root.classList.remove("view-fade")); }
         } catch(err) {
@@ -17823,7 +18185,7 @@
       }
 
       async function _convertBriefToDealImpl(briefId) {
-        if (checkTrialDealLimit()) return;
+        if (checkDealLimit()) return;
         const brief = _briefs.find(b => b.id === briefId);
         if (!brief) return;
         let clientId = '';
@@ -20644,7 +21006,9 @@
           if (itemData) catCounts[itemData.category] = (catCounts[itemData.category] || 0) + 1;
         });
 
-        const catalogVisible = allItems(false).filter(x => !isLineOnlyItem(x));
+        // Счётчики разделов считают то же, что видно в списке: на младшем
+        // тарифе каталог короткий, и «Все 200» рядом с 36 карточками врали бы.
+        const catalogVisible = allItems(false).filter(x => !isLineOnlyItem(x)).filter(itemAllowedByTier);
         const QUICK_ICONS = { all: "grid", favorites: "star", hidden: "eyeOff" };
         const quickCounts = {
           all: catalogVisible.length,
@@ -20891,6 +21255,21 @@
                       <span>Настроить разделы</span>
                     </span>
                   </button>
+                  ${/* Короткий каталог — не поломка, а тариф: говорим это прямо и
+                        показываем, сколько позиций ждёт на «Стандарте». */""}
+                  ${tierRules(currentTier()).catalog === "short" ? (() => {
+                    const всего = allItems(false).filter(x => !isLineOnlyItem(x)).length;
+                    const открыто = catalogVisible.length;
+                    const ещё = Math.max(0, всего - открыто);
+                    return `<button type="button" class="catalog-cat-item catalog-cat-more" onclick="app.go('plans')"
+                      title="Полный каталог — на тарифе «${escapeHtml(tierLabel(nextTier()))}»">
+                      <span style="display:flex;align-items:center;gap:7px;min-width:0">
+                        ${icon("plus", 13)}
+                        <span>Ещё ${ещё} ${plural(ещё, "позиция", "позиции", "позиций")}</span>
+                      </span>
+                      <span class="catalog-cat-count">${escapeHtml(tierLabel(nextTier()))}</span>
+                    </button>`;
+                  })() : ""}
                 </aside>
 
                 <div class="catalog-body-main">
@@ -24551,7 +24930,9 @@
             <div class="no-print client-hidden" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px">
               <strong style="font-size:13px">Что входит и что нет</strong>
               <span class="u-meta" style="flex:1 1 auto;min-width:0">Текст для клиента — можно написать самому или сгенерировать по составу сметы</span>
-              <button class="btn small" id="aiProposalBtn" onclick="app.generateProposalAI()" title="Заполнить «Включено», «Не включено» и «Примечание» по составу сметы">
+              ${/* На «Соло» ИИ нет: кнопка остаётся видимой (это и есть повод
+                    перейти), но ведёт в окно «что даёт Стандарт». */""}
+              <button class="btn small" id="aiProposalBtn" onclick="${tierAllows("ai") ? "app.generateProposalAI()" : "app.openUpsell('ai')"}" title="${tierAllows("ai") ? "Заполнить «Включено», «Не включено» и «Примечание» по составу сметы" : `ИИ-помощник — на тарифе «${tierLabel(nextTier())}»`}">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1l1.1 3.4L12.5 5.5 9.1 6.6 8 10 6.9 6.6 3.5 5.5l3.4-1.1L8 1zM3 9.5l.6 1.9 1.9.6-1.9.6L3 14.5l-.6-1.9-1.9-.6 1.9-.6L3 9.5zm10 0l.55 1.7 1.7.55-1.7.55L13 14.5l-.55-1.7-1.7-.55 1.7-.55L13 9.5z"/></svg>
                 Сгенерировать с ИИ
               </button>
@@ -26529,6 +26910,22 @@
       function renderSettingsPublicCalc() {
         const on = !!state.publicCalcEnabled;
         const url = publicCalcUrl();
+        /* Калькулятор на своём сайте — возможность тарифа «Про»: это канал
+           привлечения, а не учёт. На младших тарифах показываем, что это такое,
+           и куда за ним идти, а не прячем совсем. */
+        if (!tierAllows("publicCalc")) {
+          return `
+          <div class="panel" style="box-shadow:none;background:var(--panel2)">
+            <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("receipt", "var(--primary)")} Публичный калькулятор</h2>
+            <p class="mini-note" style="margin:0 0 14px;max-width:640px">
+              Страница расчёта сметы без регистрации: посетитель сайта сам собирает смету по вашему
+              каталогу и оставляет заявку — она приходит к вам сделкой. Можно дать ссылкой или
+              встроить на свой сайт.
+            </p>
+            <p class="mini-note" style="margin:0 0 14px">Открывается на тарифе «${escapeHtml(tierLabel("pro"))}».</p>
+            <button class="btn small primary" onclick="app.go('plans')">Смотреть тарифы</button>
+          </div>`;
+        }
         return `
           <div class="panel" style="box-shadow:none;background:var(--panel2)">
             <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("receipt", "var(--primary)")} Публичный калькулятор</h2>
@@ -26627,18 +27024,22 @@
             </div>
 
             ${(() => {
-              // Подпись «Сделано в ADERVIS» внизу клиентского портала — бесплатный
-              // канал распространения: каждое КП видит заказчик студии. Убрать её можно,
-              // но только на оплаченном тарифе; флаг фиксируется в момент создания КП,
-              // уже отправленные ссылки не переписываются задним числом.
-              const paid = isPaidPlan();
+              /* Подпись «Сделано в ADERVIS» внизу клиентского портала — бесплатный
+                 канал распространения: каждое КП видит заказчик студии. Снять её —
+                 возможность тарифа «Про» (21.09.2026; раньше её давала любая
+                 оплата, платящих на тот момент не было). Флаг фиксируется в
+                 момент создания КП: уже отправленные ссылки не переписываются. */
+              // И оплата, и тариф: в локальном режиме (без входа) продукт
+              // открыт весь, но снимать подпись там нечему и незачем.
+              const paid = isPaidPlan() && tierAllows("whiteLabel");
               const hidden = !!state.company.hideProposalBranding;
               return `
               <div class="panel" style="box-shadow:none;background:var(--panel2);margin-top:14px">
                 <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("card", "var(--primary)")} Подпись на клиентском КП</h2>
                 <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.6">
                   Внизу страницы КП, которую открывает заказчик, стоит сдержанная строка
-                  «Сделано в ADERVIS» со ссылкой. На оплаченном тарифе её можно убрать.
+                  «Сделано в ADERVIS» со ссылкой. На тарифе «${escapeHtml(tierLabel("pro"))}» её можно убрать —
+                  клиент видит только ваш бренд.
                 </p>
                 <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.5;${paid ? "cursor:pointer" : "opacity:.6;cursor:not-allowed"}">
                   <input type="checkbox" id="hideProposalBranding" ${hidden ? "checked" : ""} ${paid ? "" : "disabled"}
@@ -26647,7 +27048,7 @@
                   <span>Скрывать подпись в новых КП</span>
                 </label>
                 ${paid ? "" : `<p style="font-size:12px;color:var(--muted);margin:10px 0 0">
-                  Доступно на платном тарифе — <button class="btn small" onclick="app.go('plans')" style="margin-left:4px">Тарифы</button>
+                  Доступно на тарифе «${escapeHtml(tierLabel("pro"))}» — <button class="btn small" onclick="app.go('plans')" style="margin-left:4px">Тарифы</button>
                 </p>`}
               </div>`;
             })()}
@@ -28846,7 +29247,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           services_list: selectedItems,
           advance_amount: advanceAmount,
           // Право убрать подпись даёт оплаченный тариф — и именно на момент отправки КП.
-          hide_branding: isPaidPlan() && !!state.company.hideProposalBranding,
+          // Свой бренд вместо нашего — возможность тарифа «Про» (21.09.2026).
+          // Раньше её давала любая оплата; платящих на тот момент не было.
+          hide_branding: isPaidPlan() && tierAllows("whiteLabel") && !!state.company.hideProposalBranding,
           // Способ оплаты копируется в КП: портал читает аноним, к настройкам
           // агентства у него доступа нет. Уже отправленные ссылки не меняются.
           pay_method: state.company.payMethod || 'none',
@@ -32567,6 +32970,12 @@ Email: _____________________              Email: _____________________
         kbRemoveCat,
         openKbCatsModal,
         closeKbCatsModal,
+        openUpsell,
+        closeUpsell,
+        setPlanPeriod,
+        currentTier,
+        isStartTier,
+        tierAllows,
         kbNew,
         kbSave,
         kbDuplicate,
@@ -32620,7 +33029,14 @@ Email: _____________________              Email: _____________________
         buyPlan,
         validatePromo,
         clearPromo,
-        _promoInput: (v) => { _promoCode = v; },
+        /* Кнопку включаем/выключаем прямо здесь: перерисовки на каждый символ
+           нет (и не надо — она бы сбивала курсор), а «Применить» при пустом
+           поле нечего применять. */
+        _promoInput: (v) => {
+          _promoCode = v;
+          const b = document.getElementById("promoApplyBtn");
+          if (b) b.disabled = !String(v).trim();
+        },
         gotoSubscription,
         dismissPayBanner,
 

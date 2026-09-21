@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     if (!isSuperAdmin) {
       const { data: profile, error: profileErr } = await admin
         .from("profiles")
-        .select("subscription_status, subscription_expires_at")
+        .select("subscription_status, subscription_expires_at, subscription_plan")
         .eq("id", user.id)
         .single();
       if (profileErr || !profile) return json({ error: "Профиль не найден" }, 403);
@@ -81,6 +81,12 @@ Deno.serve(async (req) => {
 
       if (!paid && !onTrial) {
         return json({ error: "Подписка неактивна — генерация КП недоступна" }, 403);
+      }
+
+      // Тариф «Старт» ИИ не включает. Решает СЕРВЕР: на клиенте кнопка ведёт в
+      // окно «Стандарта», но запрос можно отправить и мимо интерфейса.
+      if (paid && String((profile as { subscription_plan?: string }).subscription_plan || "").startsWith("start")) {
+        return json({ error: "ИИ-помощник доступен на тарифе «Стандарт»" }, 403);
       }
 
       if (onTrial) {

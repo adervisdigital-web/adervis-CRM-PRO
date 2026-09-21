@@ -171,9 +171,22 @@ async function bootWithSession(browser, baseUrl, opts = {}) {
   const { width = 1440, height = 900, theme = "", collapsed = false, name = "Test Owner",
     // Суперадмин опознаётся по почте (её проверяет _isSuperAdmin в app.js),
     // поэтому админку в наборе открывает только этот адрес.
-    email = "owner@example.com" } = opts;
+    email = "owner@example.com",
+    /* profile — что вернёт чтение profiles: тариф и срок подписки. Без него
+       облако молчит, _userProfile остаётся пустым, и приложение считает
+       человека на полном тарифе. Нужно всему, что зависит от тарифа («Соло»).
+       state — состояние в localStorage до загрузки страницы: сделки, клиенты. */
+    profile = null, state = null } = opts;
   const context = await browser.newContext({ viewport: { width, height } });
   await blockExternalRequests(context, baseUrl);
+  // Регистрируем ПОСЛЕ блокировки внешней сети: Playwright проверяет обработчики
+  // в обратном порядке, и наш ответ побеждает общий заглушающий.
+  if (profile) {
+    await context.route("**/rest/v1/profiles*", (route) => {
+      if (route.request().method() !== "GET") return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(profile) });
+    });
+  }
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e.message || e)));
@@ -186,15 +199,16 @@ async function bootWithSession(browser, baseUrl, opts = {}) {
       email, user_metadata: { name }, app_metadata: {},
     },
   });
-  await page.addInitScript(([key, s, theme, collapsed]) => {
+  await page.addInitScript(([key, s, theme, collapsed, st]) => {
     try {
       localStorage.setItem(key, s);
       localStorage.setItem("adervis_tour_done", "1");
       localStorage.setItem("adervis_onboarded", "1");
       if (theme) localStorage.setItem("adervis_pro_theme_mode", theme);
       if (collapsed) localStorage.setItem("sidebar_collapsed", "1");
+      if (st) localStorage.setItem("adervis_pro_381_state", st);
     } catch (e) {}
-  }, [_supabaseStorageKey(), session, theme, collapsed]);
+  }, [_supabaseStorageKey(), session, theme, collapsed, state ? JSON.stringify(state) : ""]);
   await page.goto(baseUrl + "/index.html", { waitUntil: "load" });
   await page.waitForFunction(() => {
     const s = document.getElementById("appSidebar");

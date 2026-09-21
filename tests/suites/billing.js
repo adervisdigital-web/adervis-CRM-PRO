@@ -76,31 +76,44 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.evaluate(() => window.app.go("plans"));
     await page.waitForSelector(".plan-card", { timeout: 5000 });
 
-    // Строка сравнения «Пользователей в команде»: первая ячейка — пробный (1),
-    // остальные четыре — платные периоды, и они обязаны совпадать между собой.
+    /* Места развязаны с ПЕРИОДОМ оплаты, но не с тарифом: с 21.09.2026 есть
+       «Соло» на одного человека. Поэтому сверяем колонки по их подписям, а не
+       по номеру: все периоды «Стандарта» обязаны обещать одно и то же, а
+       младший тариф — ровно одно место. */
     const cells = await page.evaluate(() => {
       const rows = [...document.querySelectorAll("#appContent table tr")];
       const row = rows.find((r) => /Пользователей в команде/.test(r.textContent || ""));
       if (!row) return null;
-      return [...row.querySelectorAll("td")].slice(1).map((td) => (td.textContent || "").trim());
+      const head = [...document.querySelectorAll("#appContent table thead th")].slice(1)
+        .map((th) => (th.textContent || "").trim());
+      return [...row.querySelectorAll("td")].slice(1).map((td, i) => ({ план: head[i] || "?", мест: (td.textContent || "").trim() }));
     });
+    /* Места зависят от ТАРИФА, а не от срока оплаты: младший — один человек,
+       средний и старший — больше, и старший не меньше среднего. */
     assert(cells, "нет строки «Пользователей в команде» в таблице сравнения");
-    assertEqual(cells.length, 5, "ожидалось 5 колонок тарифов");
-    const paid = cells.slice(1);
-    assert(
-      paid.every((c) => c === paid[0]),
-      "число мест различается по периодам оплаты: " + JSON.stringify(paid)
-    );
+    assert(cells.length >= 3, "в таблице сравнения меньше трёх тарифов: " + JSON.stringify(cells));
+    const мест = (re) => {
+      const c = cells.find((x) => re.test(x.план));
+      return c ? Number((c.мест.match(/(\d+)/) || [])[1] || 0) : null;
+    };
+    const младший = мест(/Старт/i), средний = мест(/Стандарт/i), старший = мест(/Про/i);
+    assertEqual(младший, 1, "младший тариф обещает не одного пользователя: " + JSON.stringify(cells));
+    assert(средний >= 2, "у среднего тарифа не указано число мест: " + JSON.stringify(cells));
+    assert(старший >= средний, "старший тариф даёт меньше мест, чем средний: " + старший + " против " + средний);
     await context.close();
   });
 
+  /* Цены, которые обязан показывать скриншот онбординга onboarding/plans.webp.
+     Слайд снимает scratchpad-скрипт shot-onboarding.js: тёмная тема, кадр от
+     переключателя срока до низа карточек, ширина 1600, webp q82 (в webp
+     переводит сам Chromium через canvas — сторонних библиотек в проекте нет). */
   // Цены, которые обязан показывать скриншот онбординга onboarding/plans.webp.
   // Меняете PLANS — пересоздайте картинку, иначе первое, что видит новый человек,
   // это старый прайс. Так уже было: 08.08 цены подняли до 890 ₽, а слайд онбординга
   // до 11.08 обещал 490/390/340/290 ₽ и «до 3/5/10 пользователей», которых нет
   // (PAID_MAX_USERS = 3 на любом оплаченном). Скриншот снимается локально:
   // Playwright → app.go("plans"), тёмная тема, кадр по .plan-card, 1600px, webp q82.
-  const ONBOARDING_SHOT_PRICES = [0, 890, 690, 590, 490];
+  const ONBOARDING_SHOT_PRICES = [0, 290, 230, 190, 150, 490, 390, 340, 290, 890, 690, 590, 490];
 
   await test("онбординг: скриншот тарифов не разошёлся с PLANS", async () => {
     const { context, page } = await bootLocal(browser, baseUrl);
@@ -122,18 +135,25 @@ module.exports = async function ({ browser, baseUrl, test }) {
     const { context, page } = await bootLocal(browser, baseUrl);
     await page.evaluate(() => window.app.go("plans"));
     await page.waitForSelector(".plan-card", { timeout: 5000 });
-    // Карточки периодов не должны обещать разное число людей.
-    const seatPromises = await page.$$eval(".plan-card", (cards) =>
-      cards.slice(1).map((c) => {
-        const m = (c.textContent || "").match(/До (\d+) пользовател/);
-        return m ? m[1] : null;
-      })
-    );
-    assert(seatPromises.every((s) => s !== null), "не у всех платных карточек указано число мест: " + JSON.stringify(seatPromises));
-    assert(
-      seatPromises.every((s) => s === seatPromises[0]),
-      "карточки обещают разное число мест: " + JSON.stringify(seatPromises)
-    );
+    /* Карточки периодов не должны обещать разное число людей. Младший тариф
+       (с 21.09.2026) обещает одного — его сверяем отдельно, по подписи. */
+    const cards = await page.$$eval(".plan-card", (list) =>
+      list.map((c) => ({
+        текст: (c.textContent || "").replace(/\s+/g, " ").trim(),
+        мест: ((c.textContent || "").match(/До (\d+) (?:человек|пользовател)/) || [])[1] || null,
+        один: /Один пользователь|1 пользователь/i.test(c.textContent || ""),
+      })));
+    const младшая = cards.find((c) => /Старт/i.test(c.текст));
+    assert(младшая, "на витрине нет карточки младшего тарифа");
+    assert(младшая.один, "младший тариф не говорит, что пользователь один: " + младшая.текст.slice(0, 80));
+    // У старших тарифов число людей названо, и оно растёт от тарифа к тарифу.
+    const людей = (re) => {
+      const c = cards.find((x) => re.test(x.текст));
+      return c ? Number((c.текст.match(/До (\d+) человек/) || [])[1] || 0) : 0;
+    };
+    const средний = людей(/Стандарт/i), старший = людей(/Про Агентство|Про /i);
+    assert(средний >= 2, "карточка «Стандарта» не называет число людей: " + JSON.stringify(cards.map((c) => c.текст.slice(0, 40))));
+    assert(старший >= средний, "«Про» обещает не больше людей, чем «Стандарт»: " + старший + " против " + средний);
     await context.close();
   });
 

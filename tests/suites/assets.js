@@ -1458,19 +1458,41 @@ module.exports = async function ({ test }) {
     const ef = readSrc("supabase/functions/create-payment/index.ts");
 
     const shop = {};
-    const planRe = /\{\s*id:\s*"(month\d+|year)",[^}]*?price:\s*(\d+)[^}]*?save:\s*"([^"]*)"[^}]*?months:\s*(\d+)/g;
+    // Тарифов стало больше одного семейства (с 21.09.2026 есть «Соло»), поэтому
+    // id не перечисляем списком: берём все платные из PLANS, кроме пробного.
+    const planRe = /\{\s*id:\s*"(\w+)",\s*tier:\s*"(\w+)",[^}]*?price:\s*(\d+)[^}]*?save:\s*"([^"]*)"[^}]*?months:\s*(\d+)/g;
     let m;
-    while ((m = planRe.exec(app))) shop[m[1]] = { price: Number(m[2]), save: m[3], months: Number(m[4]) };
+    while ((m = planRe.exec(app))) {
+      if (m[1] === "trial") continue;
+      shop[m[1]] = { tier: m[2], price: Number(m[3]), save: m[4], months: Number(m[5]) };
+    }
     // Если разметку PLANS изменят, тест обязан упасть здесь, а не «пройти на нуле».
-    assertEqual(Object.keys(shop).length, 4, "в PLANS (app.js) распознаны не все платные тарифы: " + JSON.stringify(shop));
+    assert(Object.keys(shop).length >= 5, "в PLANS (app.js) распознаны не все платные тарифы: " + JSON.stringify(shop));
 
     const cash = {};
-    const efRe = /(month\d+|year):\s*\{\s*amount:\s*(\d+),\s*days:\s*(\d+)/g;
+    const efRe = /(\w+):\s*\{\s*amount:\s*(\d+),\s*days:\s*(\d+)/g;
     while ((m = efRe.exec(ef))) cash[m[1]] = { amount: Number(m[2]), days: Number(m[3]) };
-    assertEqual(Object.keys(cash).length, 4, "в кассе (create-payment) распознаны не все тарифы: " + JSON.stringify(cash));
+    assertEqual(Object.keys(cash).length, Object.keys(shop).length,
+      "витрина и касса знают разное число тарифов: " + JSON.stringify(Object.keys(shop)) + " против " + JSON.stringify(Object.keys(cash)));
+    // Каждый тариф кассы должен открывать доступ на тот же срок и в вебхуке:
+    // без строки в PLAN_DAYS оплата пройдёт, а подписка не продлится.
+    const wh = readSrc("supabase/functions/yookassa-webhook/index.ts");
+    const days = {};
+    let w;
+    const whRe = /(\w+):\s*(\d+),/g;
+    const whBlock = wh.slice(wh.indexOf("PLAN_DAYS"), wh.indexOf("};", wh.indexOf("PLAN_DAYS")));
+    while ((w = whRe.exec(whBlock))) days[w[1]] = Number(w[2]);
+    const noDays = Object.keys(shop).filter((id) => !days[id]);
+    assertEqual(noDays.length, 0, "тариф есть в кассе, но вебхук не знает его срок — оплата пройдёт, подписка нет: " + noDays.join(", "));
 
-    const base = shop.month1 ? shop.month1.price : 0;
-    assert(base > 0, "в PLANS нет тарифа month1 — не от чего считать скидку");
+    /* База для скидки — цена МЕСЯЦА СВОЕГО тарифа: с 21.09.2026 тарифов три,
+       и считать «Экономию» годового «Старта» от месяца «Стандарта» бессмысленно. */
+    const baseOf = (tier) => {
+      const m = Object.values(shop).find((p) => p.tier === tier && p.months === 1);
+      return m ? m.price : 0;
+    };
+    const base = baseOf("std");
+    assert(base > 0, "в PLANS нет месячного тарифа «Стандарт» — не от чего считать цены");
 
     const bad = [];
     for (const id of Object.keys(shop)) {
@@ -1483,12 +1505,18 @@ module.exports = async function ({ test }) {
       }
       const wantDays = p.months === 12 ? 365 : p.months * 30;
       if (cash[id].days !== wantDays) bad.push(`${id}: касса открывает доступ на ${cash[id].days} дн. вместо ${wantDays}`);
+      if (days[id] !== wantDays) bad.push(`${id}: вебхук продлевает на ${days[id]} дн. вместо ${wantDays}`);
 
-      // Длинный период не может стоить дороже месяца — иначе лесенка перевёрнута.
-      if (p.months > 1 && p.price >= base) bad.push(`${id}: ${p.price} ₽/мес не дешевле месяца (${base} ₽)`);
+      const tierBase = baseOf(p.tier);
+      // Младший тариф обязан быть дешевле «Стандарта», старший — дороже:
+      // иначе витрина предлагает урезанный продукт за те же деньги.
+      if (p.tier === "start" && p.months === 1 && p.price >= base) bad.push(`${id}: «Старт» ${p.price} ₽ не дешевле «Стандарта» (${base} ₽)`);
+      if (p.tier === "pro" && p.months === 1 && p.price <= base) bad.push(`${id}: «Про» ${p.price} ₽ не дороже «Стандарта» (${base} ₽)`);
+      // Длинный период не может стоить дороже месяца СВОЕГО тарифа.
+      if (p.months > 1 && tierBase && p.price >= tierBase) bad.push(`${id}: ${p.price} ₽/мес не дешевле месяца тарифа (${tierBase} ₽)`);
 
-      if (p.months > 1) {
-        const wantPct = Math.round((1 - p.price / base) * 100);
+      if (p.months > 1 && tierBase) {
+        const wantPct = Math.round((1 - p.price / tierBase) * 100);
         const shown = p.save.match(/(\d+)/);
         if (!shown || Number(shown[1]) !== wantPct) bad.push(`${id}: подпись «${p.save}» вместо «Экономия ${wantPct}%»`);
       }
@@ -1620,8 +1648,13 @@ module.exports = async function ({ test }) {
        Сторож привязывает тексты к PLANS: поменяли цену — тексты обязаны
        поменяться в том же коммите. */
     const code = readSrc("app.js");
-    const price = (code.match(/\{\s*id:\s*"month1",[^}]*price:\s*(\d+)/) || [])[1];
-    assert(price, "не нашёл цену month1 в PLANS");
+    /* Наружу называют ЦЕНУ ВХОДА — самый дешёвый месячный тариф (с 21.09.2026
+       это «Старт»), а не цену среднего. Берём её из PLANS тем же способом, что
+       и приложение: минимальная цена среди месячных платных. */
+    const месячные = [...code.matchAll(/\{\s*id:\s*"\w+",\s*tier:\s*"\w+",[^}]*price:\s*(\d+)[^}]*months:\s*1\b/g)]
+      .map((m) => Number(m[1])).filter((x) => x > 0);
+    const price = месячные.length ? String(Math.min(...месячные)) : "";
+    assert(price, "не нашёл месячные цены в PLANS");
 
     /* Комментарии вырезаем: сторож про ТЕКСТЫ, которые уходят наружу, а в
        пояснениях цены других тарифов упоминаются законно. 12.09.2026 он упал на
@@ -1634,9 +1667,16 @@ module.exports = async function ({ test }) {
     const блок = чистый.slice(чистый.indexOf("const PROMO_PITCH"), чистый.indexOf("const PROMO_MILESTONES"));
     assert(блок.length > 500, "блоки PROMO_PITCH / PROMO_PROMPTS пропали");
 
-    // Цена в текстах — та же, что в PLANS. Ищем любое число рядом с «₽/мес».
+    /* Цена в текстах — та же, что в PLANS. Число либо подставляется из
+       PLAN_ENTRY_PRICE (тогда расходиться нечему — это и есть правильный
+       способ), либо написано словом и обязано совпасть с ценой входа. */
+    const подставляется = /\$\{PLAN_ENTRY_PRICE\}\s*₽/.test(блок);
+    if (подставляется) {
+      assert(/const PLAN_ENTRY_PRICE = Math\.min\([\s\S]{0,160}PLANS/.test(code),
+        "PLAN_ENTRY_PRICE больше не считается из PLANS — тексты снова могут разойтись с ценой");
+    }
     const цены = [...блок.matchAll(/(\d{3,5})\s*₽\s*(?:в месяц|\/мес)/g)].map(m => m[1]);
-    assert(цены.length, "в текстах продвижения не названа цена — продавать нечем");
+    assert(подставляется || цены.length, "в текстах продвижения не названа цена — продавать нечем");
     for (const c of цены) {
       assertEqual(c, price,
         `в тексте продвижения цена ${c} ₽, а в PLANS ${price} ₽ — наружу уйдёт неправда`);

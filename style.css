@@ -5561,6 +5561,67 @@
     .deal-actions-group {
       display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 0 0 auto;
     }
+    /* ─── ТАРИФЫ ───────────────────────────────────────────────────────
+       Тариф для тех, кто работает один: смета, КП и клиенты. Аналитика с
+       графиками на главной — часть «Стандарта», и здесь её просто нет: гасим
+       CSS по признаку на <html>, а не условиями внутри renderHome. */
+    [data-tier="start"] .db-stat-row,
+    [data-tier="start"] .db-analytics-row { display: none; }
+    /* Срок оплаты — один переключатель наверху витрины. Тарифов два, сроков
+       четыре; восемь карточек в ряд читались бы как восемь продуктов. */
+    /* Строка «Ещё N позиций» в каталоге младшего тарифа — приглушённая, как
+       «Настроить разделы»: это не раздел, а приглашение. */
+    .catalog-cat-more { color: var(--primary-text); }
+    .catalog-cat-more:hover { background: rgb(var(--primary-rgb) / .1); }
+    .catalog-cat-more .catalog-cat-count { color: var(--muted); font-weight: 600; }
+    /* Курсор НЕ inline: inline-стиль перебивает общее правило для :disabled,
+       и отключённая кнопка выглядела рабочей. */
+    .promo-apply-btn { cursor: pointer; }
+    .plan-period-switch {
+      display: inline-flex; flex-wrap: wrap; gap: 4px; margin: 0 0 18px;
+      padding: 4px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--panel2);
+    }
+    .plan-period-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border: 0; border-radius: var(--r-pill); background: none;
+      font: inherit; font-size: 13px; font-weight: 700; color: var(--muted); cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .plan-period-btn:hover { color: var(--text); background: rgb(var(--primary-rgb) / .08); }
+    .plan-period-btn.active { background: var(--primary); color: var(--on-color); }
+    .plan-period-off { font-size: 11.5px; font-weight: 800; color: var(--text-success); }
+    .plan-period-btn.active .plan-period-off { color: var(--on-color); opacity: .85; }
+    .plans-tier-grid { max-width: 1040px; }
+    .plan-card-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+    .plan-card-name { font-size: 15px; font-weight: 900; }
+    .plan-card-note { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+    .plans-tier-head {
+      margin: 0 0 10px; font-size: 12px; font-weight: 800;
+      letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+    }
+    .upsell-list { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; }
+    .upsell-point {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text);
+    }
+    .upsell-point svg { color: var(--text-success); flex: 0 0 auto; }
+    .upsell-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      padding-top: 12px; border-top: 1px solid var(--line);
+    }
+    /* Карточка в подвале меню: на «Соло» закрытых разделов в списке нет, и это
+       единственное место, которое говорит, куда расти. */
+    .sidebar-tier-card {
+      display: block; width: 100%; text-align: left;
+      margin: 8px 10px 0; padding: 12px; width: auto;
+      border: 1px solid rgb(var(--primary-rgb) / .3); border-radius: var(--r-lg);
+      background: rgb(var(--primary-rgb) / .07); color: var(--text); cursor: pointer;
+      font: inherit; transition: border-color .15s, background .15s;
+    }
+    .sidebar-tier-card:hover { border-color: rgb(var(--primary-rgb) / .55); background: rgb(var(--primary-rgb) / .12); }
+    .sidebar-tier-card b { display: block; font-size: 13px; font-weight: 800; margin-bottom: 2px; }
+    .sidebar-tier-card span { display: block; font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+
     /* Деньги сделки — кнопкой: числа ведут туда, где их заводят («Финансы»). */
     .deal-stats-inline {
       display: flex; flex-direction: column; align-items: stretch; gap: 6px;
