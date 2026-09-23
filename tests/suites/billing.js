@@ -157,6 +157,47 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  await test("портал КП: один главный шаг за раз — сначала подпись, потом оплата", async () => {
+    /* Страница, которую открывает ЗАКАЗЧИК. Было три ярких кнопки подряд —
+       «Подписать», «Оплатить», «Добавить в календарь», — и по виду они равны:
+       человек не понимает, с чего начать. Порядок в жизни один: сначала
+       согласовать КП, потом внести аванс; календарь — приятное дополнение.
+       Проверяем РЕЗУЛЬТАТ: до утверждения главная кнопка ровно одна и это
+       подпись, после утверждения — оплата. */
+    const главные = (page) => page.evaluate(() =>
+      [...document.querySelectorAll("#appContent button, #appContent .btn")]
+        .filter((b) => b.classList.contains("primary") && b.getBoundingClientRect().height > 1)
+        .map((b) => (b.textContent || "").replace(/\s+/g, " ").trim()));
+
+    {
+      // pay_method нужен явно: в PORTAL_ROW его нет, и блок оплаты не рисуется вовсе.
+      const { context, page, errors } = await bootPortal(browser, baseUrl, { ...PORTAL_ROW, pay_method: "yookassa" });
+      const p = await главные(page);
+      assertEqual(p.length, 1, "на неподписанном КП главных кнопок не одна: " + JSON.stringify(p));
+      assert(/Подписать/.test(p[0]), "главная кнопка не про подпись: " + p[0]);
+      const оплата = await page.evaluate(() => {
+        const b = document.getElementById("portalPayBtn");
+        return b ? { есть: true, главная: b.classList.contains("primary") } : { есть: false };
+      });
+      assert(оплата.есть, "блок оплаты пропал с портала");
+      assert(!оплата.главная, "оплата спорит с подписью за внимание — обе кнопки главные");
+      assertEqual(errors.length, 0, "исключения на портале: " + errors.join(" | "));
+      await context.close();
+    }
+
+    {
+      const { context, page, errors } = await bootPortal(browser, baseUrl,
+        { ...PORTAL_ROW, pay_method: "yookassa", approved_at: "2026-09-20T10:00:00Z", signer_name: "Иванов И. И." });
+      const p = await главные(page);
+      assertEqual(p.length, 1, "на утверждённом КП главных кнопок не одна: " + JSON.stringify(p));
+      assert(/Оплатить|оплате/i.test(p[0]), "после подписи главной стала не оплата: " + p[0]);
+      const текст = await page.evaluate(() => document.getElementById("appContent").textContent.replace(/\s+/g, " "));
+      assert(/КП утверждено/.test(текст), "утверждённое КП не подтверждено словами");
+      assertEqual(errors.length, 0, "исключения на портале: " + errors.join(" | "));
+      await context.close();
+    }
+  });
+
   await test("настройки: переключатель подписи КП заблокирован без оплаты", async () => {
     const { context, page } = await bootLocal(browser, baseUrl);
     await page.evaluate(() => window.app.go("settings"));

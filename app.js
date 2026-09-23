@@ -28981,7 +28981,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                         <div style="margin-left:auto;font-size:18px;font-weight:900;color:var(--text-success)">${money(d.advance_amount)}</div>
                       </div>
                     ` : `
-                      ${_portalPayBlockHtml(d)}
+                      ${_portalPayBlockHtml(d, isApproved)}
                     `}
                   </div>
                 ` : ''}
@@ -28996,7 +28996,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                       <div style="font-size:13px;font-weight:700;margin-bottom:6px"> Дедлайн в своём календаре</div>
                       <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5">Подпишитесь на ссылку — дедлайн проекта появится в вашем Google Calendar, iPhone или Outlook автоматически, без входа и паролей.</p>
                       <div style="display:flex;gap:8px;flex-wrap:wrap">
-                        <a class="btn small primary" href="${escapeHtml(webcalUrl)}" style="text-decoration:none;min-height:44px;display:inline-flex;align-items:center"> Добавить в календарь</a>
+                        ${/* Не primary: подписка на календарь — приятное
+                              дополнение, а не то, ради чего клиент открыл ссылку. */""}
+                        <a class="btn small" href="${escapeHtml(webcalUrl)}" style="text-decoration:none;min-height:44px;display:inline-flex;align-items:center"> Добавить в календарь</a>
                         <button class="btn small" onclick="app.copy('${escapeHtml(feedUrl)}','Ссылка скопирована!')" style="min-height:44px"> Копировать ссылку</button>
                       </div>
                     </div>
@@ -29118,9 +29120,16 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         return "Онлайн-оплата аванса";
       }
 
-      function _portalPayBlockHtml(d) {
+      /* На странице у клиента ОДИН главный шаг за раз. Пока КП не утверждено,
+         главная кнопка — подпись, а оплата и календарь второстепенные: три
+         одинаково ярких кнопки подряд не говорят, с чего начать. После подписи
+         главной становится оплата — следующий шаг по порядку. */
+      function _portalPayBlockHtml(d, isApproved) {
         const m = d.pay_method || "none";
         const sum = money(d.advance_amount);
+        const главная = isApproved ? "btn primary full" : "btn full";
+        const подсказка = isApproved ? "" :
+          `<p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5">Обычно сначала утверждают КП — но оплатить аванс можно и сразу.</p>`;
         const amountRow = `
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
             <span style="font-size:13px;color:var(--muted)">Сумма аванса</span>
@@ -29132,8 +29141,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           if (!/^https?:\/\//i.test(href)) return "";   // только http(s), чужие схемы не пускаем
           return `
             <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Оплатите аванс по ссылке от исполнителя</div>
+            ${подсказка}
             ${amountRow}
-            <a class="btn primary full" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
+            <a class="${главная}" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
                style="padding:14px;font-size:14px;font-weight:800;text-decoration:none;display:block;text-align:center">
               Перейти к оплате ${sum}
             </a>`;
@@ -29143,6 +29153,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           const details = (d.pay_details || "").trim();
           return `
             <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Оплатите аванс переводом по реквизитам ниже</div>
+            ${подсказка}
             ${amountRow}
             ${details ? `<div style="white-space:pre-wrap;font-size:13px;line-height:1.6;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)">${escapeHtml(details)}</div>` : ""}
             <p style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5">
@@ -29153,8 +29164,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         // yookassa
         return `
           <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Вы можете оплатить аванс онлайн прямо сейчас — картой, СБП или ЮMoney</div>
+          ${подсказка}
           ${amountRow}
-          <button class="btn primary full" id="portalPayBtn" onclick="app.payPortalAdvance()"
+          <button class="${главная}" id="portalPayBtn" onclick="app.payPortalAdvance()"
             style="padding:14px;font-size:14px;font-weight:800">
             Оплатить ${sum}
           </button>
