@@ -18363,12 +18363,20 @@
                     ${typeMeta.custom ? `<button class="btn danger-quiet small" onclick="app.removeCustomBriefType('${activeType}')" title="Удалить свой бриф" aria-label="Удалить бриф «${escapeHtml(typeMeta.label)}»" style="display:inline-flex;align-items:center;gap:6px">${icon('trash', 14)}</button>` : ''}
                   </div>
                 </div>
-                <div class="brief-link-box" style="margin-top:12px">
+                ${/* Ссылку не читают — её копируют и отправляют. Поэтому строка
+                      стала кнопкой «нажмите, чтобы скопировать», а из адреса
+                      показываем узнаваемое: домен и тип брифа. Целиком он всё
+                      равно не помещался и обрывался многоточием. */""}
+                <button type="button" class="brief-link-box" onclick="app.copyBriefLink('${activeType}')"
+                  title="Нажмите, чтобы скопировать ссылку для клиента">
                   <span style="flex-shrink:0;display:inline-flex;color:var(--muted)">${icon('link', 16)}</span>
-                  <span class="brief-link-url">${escapeHtml(link)}</span>
-                </div>
+                  <span class="brief-link-url">${escapeHtml(_briefLinkShort(link))}</span>
+                  <span class="brief-link-hint">${icon('copy', 13)} Копировать</span>
+                </button>
+                ${/* Отдельной кнопки «Копировать ссылку» больше нет: строка выше
+                      сама и есть кнопка копирования, а две одинаковые кнопки
+                      подряд только спорят друг с другом. */""}
                 <div class="toolbar no-print" style="margin-top:10px">
-                  <button class="btn primary small" onclick="app.copyBriefLink('${activeType}')">Копировать ссылку</button>
                   <button class="btn small" onclick="app.showBriefQR('${activeType}')" title="QR-код для ссылки">QR-код</button>
                   ${customized ? `<button class="btn danger-quiet small" onclick="app.resetBriefTemplate('${activeType}')" title="Вернуть стандартные вопросы">Сбросить вопросы</button>` : ''}
                 </div>
@@ -18410,7 +18418,7 @@
             ${done.length ? `
               <div>
                 <h2 style="font-size:14px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px">
-                  Конвертировано в сделки (${done.length})
+                  Стали сделками (${done.length})
                 </h2>
                 <div style="display:flex;flex-direction:column;gap:10px">
                   ${done.map(b => renderBriefCard(b)).join('')}
@@ -18462,22 +18470,40 @@
         );
       }
 
+      /* Короткий вид ссылки: домен и тип брифа. Полный адрес с uuid агентства
+         на экране не нужен — он уходит в буфер целиком по нажатию. */
+      function _briefLinkShort(link) {
+        try {
+          const u = new URL(link);
+          const type = u.searchParams.get("type") || "";
+          const meta = allBriefTypes().find(t => t.id === type);
+          return u.host + (meta ? ` · бриф «${meta.label}»` : "");
+        } catch (e) {
+          return String(link || "");
+        }
+      }
+
       function renderBriefCard(b) {
         const isConverted = b.status === 'converted';
         const date = b.submitted_at ? new Date(b.submitted_at).toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
         const expanded = !!_briefExpanded[b.id];
         const parsed = b.description ? _parseBriefDescription(b.description) : { free: "", fields: [] };
         const hasDetails = !!(parsed.free || parsed.fields.length);
-        const preview = parsed.free ? (parsed.free.length > 130 ? parsed.free.slice(0, 130) + "…" : parsed.free) : "";
+        /* Обрезает CSS (line-clamp), а не счёт символов: «…помим…» посреди слова
+           выглядело как потеря текста. */
+        const preview = parsed.free || "";
         return `
           <div class="brief-card-item ${expanded ? "expanded" : ""}" style="${isConverted ? 'opacity:.65' : ''}">
             <div class="brief-head" ${hasDetails ? `onclick="app.toggleBriefExpand('${b.id}')" style="cursor:pointer"` : ""}>
               <div style="min-width:0;flex:1">
                 <div style="font-size:15px;font-weight:800">${escapeHtml(b.client_name || 'Без имени')}</div>
-                <div style="font-size:12px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:8px">
-         ${b.client_email ? `<span> ${escapeHtml(b.client_email)}</span>` : ''}
-         ${b.client_phone ? `<span> ${escapeHtml(b.client_phone)}</span>` : ''}
-         ${date ? `<span> ${date}</span>` : ''}
+                ${/* Почта и телефон — ссылки: заявка живёт ровно до того момента,
+                      когда человеку ответили, и лишний шаг «выделить, скопировать»
+                      здесь дороже всего. */""}
+                <div style="font-size:12px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:10px" onclick="event.stopPropagation()">
+                  ${b.client_email ? `<a class="brief-contact" href="mailto:${escapeHtml(b.client_email)}" title="Написать письмо">${icon('mail', 12)} ${escapeHtml(b.client_email)}</a>` : ''}
+                  ${b.client_phone ? `<a class="brief-contact" href="tel:${escapeHtml(String(b.client_phone).replace(/[^\d+]/g, ''))}" title="Позвонить">${icon('phone', 12)} ${escapeHtml(b.client_phone)}</a>` : ''}
+                  ${date ? `<span>${date}</span>` : ''}
                 </div>
               </div>
               <div style="display:flex;gap:6px;flex-shrink:0;align-items:center" onclick="event.stopPropagation()">
@@ -18490,10 +18516,14 @@
                 </button>` : ""}
               </div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-top:10px">
-              ${b.project_type ? `<span style="background:rgb(var(--primary-rgb) / .1);color:var(--primary-text);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.project_type)}</span>` : ''}
-              ${b.budget ? `<span style="background:rgba(37,99,235,.1);color:var(--blue);border-radius:6px;padding:2px 8px;font-weight:700">${escapeHtml(b.budget)}</span>` : ''}
-              ${b.deadline ? `<span style="background:rgba(202,138,4,.1);color:var(--yellow);border-radius:6px;padding:2px 8px;font-weight:700"> ${escapeHtml(b.deadline)}</span>` : ''}
+            ${/* Метки ПОДПИСАНЫ. Раньше в ряд стояли «Другое» и «Обсудим» —
+                  ответы клиента без имени вопроса, и что это бюджет или срок,
+                  приходилось угадывать. Цвета из токенов, а не из трёх разных
+                  инлайновых rgba. */""}
+            <div class="brief-tags">
+              ${b.project_type ? `<span class="brief-tag brief-tag--type"><i>Тип</i>${escapeHtml(b.project_type)}</span>` : ''}
+              ${b.budget ? `<span class="brief-tag brief-tag--budget"><i>Бюджет</i>${escapeHtml(b.budget)}</span>` : ''}
+              ${b.deadline ? `<span class="brief-tag brief-tag--deadline"><i>Срок</i>${escapeHtml(b.deadline)}</span>` : ''}
             </div>
             ${!expanded && preview ? `<p class="brief-preview" onclick="app.toggleBriefExpand('${b.id}')" style="cursor:pointer">${escapeHtml(preview)}</p>` : ""}
             ${expanded ? (() => {

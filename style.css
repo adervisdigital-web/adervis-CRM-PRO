@@ -7970,9 +7970,36 @@ body.calc-mode #appContent { padding: 0; }
 .brief-success-wrap p { color: var(--muted); font-size: 15px; line-height: 1.55; margin: 0; }
 .brief-link-box {
   background: rgb(var(--primary-rgb) / .08); border: 1px solid rgb(var(--primary-rgb) / .3);
-  border-radius: var(--r-lg); padding: 12px 14px;
+  border-radius: var(--r-lg); padding: 12px 14px; min-height: 44px;
   display: flex; align-items: center; gap: 10px; margin-top: 16px;
+  width: 100%; font: inherit; color: inherit; text-align: left; cursor: pointer;
+  transition: background var(--dur-1), border-color var(--dur-1);
 }
+.brief-link-box:hover { background: rgb(var(--primary-rgb) / .14); border-color: rgb(var(--primary-rgb) / .5); }
+.brief-link-hint {
+  margin-left: auto; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 700; color: var(--primary-text);
+}
+/* Контакт заявки — ссылка: нажал и ответил. */
+.brief-contact {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--muted); text-decoration: none; border-bottom: 1px dashed transparent;
+}
+.brief-contact:hover { color: var(--primary-text); border-bottom-color: currentColor; }
+/* Метки заявки: подпись вопроса + ответ клиента. */
+.brief-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.brief-tag {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 3px 9px; border-radius: var(--r-pill);
+  font-size: 12px; font-weight: 700; border: 1px solid transparent;
+}
+.brief-tag i {
+  font-style: normal; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .03em; text-transform: uppercase; opacity: .75;
+}
+.brief-tag--type { background: rgb(var(--primary-rgb) / .1); color: var(--primary-text); }
+.brief-tag--budget { background: var(--tint-blue-bg); color: var(--text-info); border-color: color-mix(in srgb, var(--blue) 25%, transparent); }
+.brief-tag--deadline { background: var(--tint-amber-bg); color: var(--text-warning); border-color: color-mix(in srgb, var(--yellow) 30%, transparent); }
 .brief-link-url {
   flex: 1; min-width: 0; font-size: 12px; color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -7987,6 +8014,14 @@ body.calc-mode #appContent { padding: 0; }
 
 /* Раскрывающаяся заявка брифа */
 .brief-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-radius: var(--r-md); }
+/* На узком экране шапка заявки переносится: имя и контакты сверху, действия
+   строкой ниже. Иначе «Создать сделку» наезжала на почту клиента — а по ней
+   как раз и отвечают. */
+@media (max-width: 640px) {
+  .brief-head { flex-direction: column; align-items: stretch; gap: 10px; }
+  .brief-head > div:last-child { justify-content: flex-start; }
+  .brief-head .btn.primary { flex: 1; }
+}
 .brief-expand-btn {
   width: 30px; height: 30px; flex: 0 0 auto; border-radius: var(--r-sm);
   border: 1px solid var(--line); background: var(--panel); color: var(--muted);

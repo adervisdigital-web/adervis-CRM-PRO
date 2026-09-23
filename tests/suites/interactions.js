@@ -6136,6 +6136,64 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("онлайн-брифы: ссылка копируется нажатием, контакты кликабельны, ответы подписаны", async () => {
+    /* Владелец 23.09.2026: «проработаем дизайн и логику с оформлением».
+       Было: полный адрес со служебным uuid в монокорпусной строке (его не
+       читают — его копируют), отдельная кнопка «Копировать ссылку» рядом,
+       почта и телефон простым текстом, а ответы клиента метками БЕЗ подписи —
+       «Другое» и «Обсудим» рядом, и что из этого бюджет, приходилось гадать.
+       Превью резалось по счёту символов посреди слова. */
+    const ЗАЯВКИ = [{
+      id: "bx1", agency_id: "a", client_name: "Александр Хан",
+      client_email: "sahka2488@gmail.com", client_phone: "+7 912 345-67-89",
+      project_type: "Другое", budget: "Обсудим", deadline: "до 15 октября",
+      status: "new", submitted_at: "2026-07-04T13:59:00Z",
+      description: "Идея в том, чтобы снять игру в настольные игры за круглым столом и создать вайбовую атмосферу, помимо съёмки нужен монтаж и цветокоррекция, хочется тёплую картинку и живой звук.\nФормат: Ролик для соцсетей",
+    }];
+    const b = await bootWithSession(browser, baseUrl, { width: 1400, height: 1000 });
+    try {
+      await b.page.route("**/rest/v1/brief_submissions*", (r) =>
+        r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ЗАЯВКИ) }));
+      await b.page.waitForTimeout(600);
+      await b.page.evaluate(() => window.app.go("briefs"));
+      await b.page.waitForTimeout(1200);
+
+      const r = await b.page.evaluate(() => {
+        const строка = document.querySelector(".brief-link-box");
+        const url = (document.querySelector(".brief-link-url") || {}).textContent || "";
+        const prev = document.querySelector(".brief-preview");
+        return {
+          строкаКнопка: !!строка && строка.tagName === "BUTTON" && /copyBriefLink/.test(строка.getAttribute("onclick") || ""),
+          вСтрокеUuid: /[0-9a-f]{8}-[0-9a-f]{4}/i.test(url),
+          копироватьКнопок: [...document.querySelectorAll("#appContent button")]
+            .filter((x) => /копировать/i.test(x.textContent || "")).length,
+          контакты: [...document.querySelectorAll(".brief-contact")].map((x) => x.getAttribute("href") || ""),
+          метки: [...document.querySelectorAll(".brief-tag")].map((x) => ({
+            подпись: (x.querySelector("i") || {}).textContent || "",
+            текст: x.textContent.replace(/\s+/g, " ").trim(),
+          })),
+          превьюМноготочие: prev ? /…$/.test((prev.textContent || "").trim()) : null,
+          превьюСтрок: prev ? getComputedStyle(prev).webkitLineClamp : "",
+        };
+      });
+
+      assert(r.строкаКнопка, "строка со ссылкой не копирует по нажатию");
+      assert(!r.вСтрокеUuid, "в строке ссылки показан служебный uuid — читать его незачем");
+      assertEqual(r.копироватьКнопок, 1, "кнопок «Копировать» на экране не одна: " + r.копироватьКнопок);
+      assert(r.контакты.some((h) => h.startsWith("mailto:")), "почта заявки не ссылка");
+      assert(r.контакты.some((h) => h.startsWith("tel:")), "телефон заявки не ссылка");
+      const бюджет = r.метки.find((m) => /бюджет/i.test(m.подпись));
+      const срок = r.метки.find((m) => /срок/i.test(m.подпись));
+      assert(бюджет && /Обсудим/.test(бюджет.текст), "ответ про бюджет не подписан: " + JSON.stringify(r.метки));
+      assert(срок && /октября/.test(срок.текст), "ответ про срок не подписан: " + JSON.stringify(r.метки));
+      assert(r.превьюМноготочие === false, "превью снова режется по счёту символов");
+      assertEqual(r.превьюСтрок, "2", "превью заявки не ограничено двумя строками");
+      assertEqual(b.errors.length, 0, "исключения на странице: " + b.errors.join(" | "));
+    } finally {
+      await b.context.close();
+    }
+  });
+
   await test("пакеты: избранное и скрытые работают, как в каталоге", async () => {
     /* Просьба владельца 04.09.2026: «в пакетах не хватает ещё двух строчек в
        навигации». У каталога «Избранное» и «Скрытые» были с самого начала, у
