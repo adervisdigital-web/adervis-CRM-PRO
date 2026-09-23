@@ -7300,6 +7300,61 @@
     .contract-card:hover { border-color: rgb(var(--primary-rgb) / .5); transform: translateY(-2px); box-shadow: var(--elev-2); }
     .contract-card h3 { margin: 0 0 6px; }
     .contract-card p { margin: 0; font-size: 13px; }
+    /* С кем и на сколько — первая строка после названия. */
+    .contract-card-meta {
+      font-size: 12px; color: var(--muted); margin: 0 0 6px;
+    }
+    .contract-card-meta b { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 700; }
+    /* Незаполненные поля — не серая справка, а вход в мастер. */
+    .contract-left-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; border-radius: var(--r-pill);
+      font-size: 11px; font-weight: 700; cursor: pointer;
+      background: var(--tint-amber-bg); color: var(--text-warning);
+      border: 1px solid color-mix(in srgb, var(--yellow) 30%, transparent);
+      transition: background var(--dur-1), border-color var(--dur-1);
+    }
+    .contract-left-badge:hover {
+      background: color-mix(in srgb, var(--yellow) 18%, transparent);
+      border-color: color-mix(in srgb, var(--yellow) 55%, transparent);
+    }
+    .contract-sub-title {
+      font-size: 16px; margin: 0 0 12px; color: var(--muted);
+      display: flex; align-items: center; gap: 8px;
+    }
+    /* Блок шаблонов стоит ПОД своими договорами, когда они есть, — отделяем. */
+    .contract-tpl-block {
+      margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line);
+    }
+    /* Статус договора задаётся классом из CONTRACT_STATUSES (warn/green), но
+       таких правил в стилях НЕ БЫЛО: «На подписи» и «Подписан» выглядели ровно
+       как «Черновик» — серой меткой. Единственный признак, по которому в списке
+       ищут глазами, ничего не показывал. */
+    .badge.warn { background: var(--tint-amber-bg); color: var(--text-warning); }
+    .badge.green { background: var(--tint-green-bg); color: var(--tint-green); }
+    .contract-status-btn {
+      padding: 5px 12px; border-radius: var(--r-pill);
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      border: 1px solid var(--line); background: transparent; color: var(--muted);
+      transition: border-color var(--dur-1), background var(--dur-1), color var(--dur-1);
+    }
+    .contract-status-btn:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--text); }
+    .contract-status-btn.is-on { border-color: transparent; background: var(--panel2); color: var(--text); }
+    .contract-status-btn.is-on.warn { background: var(--tint-amber-bg); color: var(--text-warning); }
+    .contract-status-btn.is-on.green { background: var(--tint-green-bg); color: var(--tint-green); }
+    .contract-cat-filters { display: flex; gap: 4px; flex-wrap: wrap; }
+    /* Фильтр-чип: раньше вид задавался инлайново (включая хардкод #fff), а
+       класс `.active-filter` в стилях не существовал вовсе. */
+    .chip-filter {
+      padding: 4px 10px; border-radius: var(--r-pill);
+      border: 1px solid var(--line); background: transparent; color: var(--muted);
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      transition: border-color var(--dur-1), background var(--dur-1), color var(--dur-1);
+    }
+    .chip-filter:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--text); }
+    .chip-filter.is-on {
+      background: var(--primary); border-color: var(--primary); color: var(--on-color);
+    }
     .contract-editor {
       width: 100%;
       min-height: 420px;
@@ -8812,6 +8867,23 @@ body.portal-mode .nav { display: none !important; }
     top: 50%; left: 50%;
     width: 44px; height: 44px;
     transform: translate(-50%, -50%);
+  }
+
+  /* Чипы раздела «Договоры» — фильтр категории (27px) и метка «N полей не
+     заполнено» (23px): по ширине они и так больше 44, не хватало высоты.
+     Сторож целей касания их не ловил — в его аккаунте договоров нет вовсе,
+     а без них ни фильтров, ни меток на экране не появляется. */
+  .chip-filter,
+  .contract-status-btn,
+  .contract-left-badge { position: relative; }
+  .chip-filter::after,
+  .contract-status-btn::after,
+  .contract-left-badge::after {
+    content: "";
+    position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 
   /* Поля ввода не дотягивали до 44px ОДИН пиксель (43) — цена услуги, поиск по

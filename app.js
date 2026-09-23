@@ -31509,9 +31509,15 @@ Email: _____________________              Email: _____________________
         const matchedClient = clientName
           ? (state.clients || []).find(cl => cl.name === clientName || cl.company === clientName)
           : null;
+        // Описание договора — про ЭТОТ проект, а не про шаблон: в списке иначе
+        // у всех договоров из одного шаблона стояла одна и та же строка
+        // («Корпоратив, конференция, свадьба, торжество»), и отличить их было
+        // нечем. Нет привязки — остаётся описание шаблона, как было.
+        const dealName = (activeDeal && activeDeal.name)
+          || (activeDeal && state.project && state.project.name) || "";
         const contract = normalizeContract({
           name: (base.name || "Договор") + " — " + (clientName || state.company.name || "Новый"),
-          desc: base.desc || "",
+          desc: dealName || base.desc || "",
           category: base.category || "Прочее",
           number: nextContractNumber(),
           dealId: (activeDeal && activeDeal.id) || "",
@@ -31521,9 +31527,23 @@ Email: _____________________              Email: _____________________
              подставляет общий механизм `{{…}}` — автоматически ниже. */
           body: base.body || ""
         });
+        /* Что CRM уже знает — подставляем СРАЗУ, а не по отдельной кнопке.
+           Номер выдан строкой выше, сделка и клиент привязаны здесь же,
+           реквизиты студии лежат в настройках, дата — сегодня. Раньше всё это
+           оставалось {{токенами}}: карточка честно писала «8 полей не
+           заполнено», мастер спрашивал номер договора, который сам же и выдал,
+           а «Подставить из сделки» была обязательной второй кнопкой. Замер на
+           демо-сделке: из восьми полей три закрывались без единого вопроса. */
+        const filledDeal = (state.savedProjects || []).find(p => p.id === contract.dealId) || null;
+        const auto = applyContractMap(contract.body, contractFillMap(contract, filledDeal, matchedClient));
+        contract.body = auto.body;
         if (!state.contracts) state.contracts = [];
         state.contracts.unshift(contract);
-        toast("Договор создан — редактируй текст");
+        const leftVars = contractVars(contract.body).length;
+        toast(auto.filled
+          ? `Договор создан · заполнено ${auto.filled} ${plural(auto.filled, "поле", "поля", "полей")}` +
+            (leftVars ? `, осталось ${leftVars}` : "")
+          : "Договор создан — редактируй текст");
         save();
         render();
       }
@@ -32240,6 +32260,11 @@ Email: _____________________              Email: _____________________
         if (editId) {
           const c = contracts.find(x => x.id === editId);
           if (c) {
+            /* Сколько полей ещё спросят. От этого зависит, что здесь главное
+               действие: у недозаполненного договора печать — не «готово», а
+               способ отправить клиенту документ с {{токенами}}. Зелёная кнопка
+               стояла главной всегда, даже когда незаполненных полей было восемь. */
+            const varsLeft = contractVars(c.body).length;
             return `
               <div class="panel">
                 <div class="section-title" style="margin-bottom:16px">
@@ -32250,7 +32275,10 @@ Email: _____________________              Email: _____________________
                       onmouseover="this.style.borderColor='var(--line)'" onmouseout="this.style.borderColor='transparent'">
                   </div>
                   <div class="toolbar no-print">
-                    <button class="btn green" onclick="app.printContract('${c.id}')">Печать / PDF</button>
+                    ${varsLeft
+                      ? `<button class="btn primary" onclick="app.startContractWizard(0)">Заполнить ${varsLeft} ${plural(varsLeft, "поле", "поля", "полей")}</button>
+                         <button class="btn" onclick="app.printContract('${c.id}')">Печать / PDF</button>`
+                      : `<button class="btn green" onclick="app.printContract('${c.id}')">Печать / PDF</button>`}
                     <button class="btn small" onclick="app.copyContractText('${c.id}')">Копировать</button>
                     <button class="btn danger-quiet" onclick="app.deleteContract('${c.id}');app.closeContractEdit()">${TRASH_SVG} Удалить</button>
                   </div>
@@ -32260,9 +32288,8 @@ Email: _____________________              Email: _____________________
                   ${Object.keys(CONTRACT_STATUSES).map(k => {
                     const st = CONTRACT_STATUSES[k];
                     const on = (c.status || "draft") === k;
-                    return `<button class="badge${on ? " " + (st.cls || "") : ""}" onclick="app.setContractStatus('${c.id}','${k}')"
-                      title="${escapeHtml(st.hint)}" aria-pressed="${on}"
-                      style="cursor:pointer;padding:5px 12px;border-radius:99px;font-size:12px;font-weight:700;border:1px solid ${on ? "transparent" : "var(--line)"};${on ? "" : "background:transparent;color:var(--muted)"}">${escapeHtml(st.label)}</button>`;
+                    return `<button class="contract-status-btn${on ? " is-on " + (st.cls || "") : ""}" onclick="app.setContractStatus('${c.id}','${k}')"
+                      title="${escapeHtml(st.hint)}" aria-pressed="${on}">${escapeHtml(st.label)}</button>`;
                   }).join("")}
                   ${c.signedAt ? `<span class="mini-note" style="margin:0">Подписан ${formatDate(c.signedAt)}</span>` : ""}
                 </div>
@@ -32347,20 +32374,12 @@ Email: _____________________              Email: _____________________
           }
         }
 
-        return `
-          <div class="panel">
-            <div class="section-title">
-              <div>
-                <h1>${h1Icon("contract")}Договоры</h1>
-                <p>База шаблонов и готовых договоров. Редактируй под каждый проект.</p>
-                <p class="mini-note" style="margin-top:4px">ℹ Шаблоны носят справочный характер и не являются юридической консультацией — перед использованием с клиентами рекомендуем проверить текст у юриста.</p>
-              </div>
-              <div class="toolbar no-print">
-                ${contracts.length ? `<button class="btn primary" onclick="app.createBlankContract()">${icon("plus", 13)} Пустой договор</button>` : ""}
-              </div>
-            </div>
-
-            <h2 style="font-size:16px;margin:0 0 12px;color:var(--muted);display:flex;align-items:center;gap:8px">${iconBadge("doc", "var(--muted)", 22)} Шаблоны</h2>
+        /* Восемь карточек шаблонов занимали пол-экрана и стояли ПЕРВЫМИ всегда —
+           даже у того, кто пришёл к своему третьему договору. Шаблон выбирают
+           один раз, а к своим договорам возвращаются; поэтому у непустого
+           списка порядок обратный, и блок называется действием. */
+        const tplBlockHtml = `
+            <h2 class="contract-sub-title">${iconBadge("doc", "var(--muted)", 22)} ${contracts.length ? "Создать из шаблона" : "Шаблоны"}</h2>
             <div class="grid four" style="margin-bottom:24px">
               ${/* Класс вместо инлайнового стиля с onmouseover: карточки были
                     разной высоты (имя шаблона в одну строку или в две), и бейдж
@@ -32375,7 +32394,22 @@ Email: _____________________              Email: _____________________
                   <span class="badge">${escapeHtml(tpl.category)}</span>
                 </button>
               `).join("")}
+            </div>`;
+
+        return `
+          <div class="panel">
+            <div class="section-title">
+              <div>
+                <h1>${h1Icon("contract")}Договоры</h1>
+                <p>База шаблонов и готовых договоров. Редактируй под каждый проект.</p>
+                <p class="mini-note" style="margin-top:4px">ℹ Шаблоны носят справочный характер и не являются юридической консультацией — перед использованием с клиентами рекомендуем проверить текст у юриста.</p>
+              </div>
+              <div class="toolbar no-print">
+                ${contracts.length ? `<button class="btn primary" onclick="app.createBlankContract()">${icon("plus", 13)} Пустой договор</button>` : ""}
+              </div>
             </div>
+
+            ${contracts.length ? "" : tplBlockHtml}
 
             ${contracts.length ? (() => {
               const cats = ["Все", ...([...new Set(contracts.map(c => c.category || "Прочее"))].sort())];
@@ -32407,33 +32441,48 @@ Email: _____________________              Email: _____________________
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                   <input id="contractSearchInput" class="catalog-search-input" type="search" aria-label="Поиск по договорам" value="${escapeHtml(state.contractSearch || "")}" oninput="app.setContractSearch(this.value)" placeholder="Поиск: номер, клиент, условие…">
                 </div>
-                <div style="display:flex;gap:4px;flex-wrap:wrap">
-                  ${cats.map(cat => `<button class="badge${activeCat===cat?" active-filter":""}" data-cat="${escapeHtml(cat)}" onclick="app.setContractCatFilter(this.dataset.cat)"
-                    style="cursor:pointer;padding:4px 10px;border-radius:99px;border:1px solid ${activeCat===cat?"var(--primary)":"var(--line)"};background:${activeCat===cat?"var(--primary)":"transparent"};color:${activeCat===cat?"#fff":"var(--muted)"};font-size:12px;font-weight:600">${escapeHtml(cat)}</button>`).join("")}
+                <div class="contract-cat-filters">
+                  ${cats.map(cat => `<button class="chip-filter${activeCat===cat?" is-on":""}" data-cat="${escapeHtml(cat)}" onclick="app.setContractCatFilter(this.dataset.cat)">${escapeHtml(cat)}</button>`).join("")}
                 </div>
               </div>
               <div class="grid three">
-                ${filtered.map(c => `
+                ${filtered.map(c => {
+                  const st = CONTRACT_STATUSES[c.status] || CONTRACT_STATUSES.draft;
+                  const left = contractVars(c.body).length;
+                  /* Карточка отвечает на «с кем и о чём этот договор». Раньше под
+                     названием стояло описание ШАБЛОНА («Корпоратив, конференция,
+                     свадьба, торжество») — одинаковое у всех договоров из одного
+                     шаблона, то есть строка, которая ничего не различает. */
+                  const cl = (state.clients || []).find(x => x.id === c.clientId);
+                  const deal = (state.savedProjects || []).find(p => p.id === c.dealId);
+                  const клиентИмя = (cl && (cl.company || cl.name)) || (deal && deal.client) || "";
+                  // Договор из шаблона уже назван «… — Бренд «Вкус»»: повторять
+                  // клиента строкой ниже незачем.
+                  const клиент = клиентИмя && String(c.name || "").includes(клиентИмя) ? "" : клиентИмя;
+                  const сумма = deal && Number(deal.total) ? money(Number(deal.total)) : "";
+                  return `
                   <article class="contract-card" onclick="app.openContractEdit('${c.id}')">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px">
                       <h3 style="margin:0;font-size:15px">${escapeHtml(c.name)}</h3>
                       <span class="badge">${escapeHtml(c.category||"Прочее")}</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-                      ${(() => { const st = CONTRACT_STATUSES[c.status] || CONTRACT_STATUSES.draft;
-                        return `<span class="badge ${st.cls}" style="font-size:11px">${escapeHtml(st.label)}</span>`; })()}
+                      <span class="badge ${st.cls}" style="font-size:11px">${escapeHtml(st.label)}</span>
                       ${c.number ? `<span style="font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums">№ ${escapeHtml(c.number)}</span>` : ""}
-                      ${(() => { const left = contractVars(c.body).length;
-                        return left ? `<span class="badge" style="font-size:11px;opacity:.8">${left} ${plural(left, "поле", "поля", "полей")} не заполнено</span>` : ""; })()}
+                      ${left ? `<button class="contract-left-badge" onclick="event.stopPropagation();app.openContractWizard('${c.id}')"
+                        title="Заполнить по шагам">${icon("edit", 11)} ${left} ${plural(left, "поле", "поля", "полей")} не заполнено</button>` : ""}
                     </div>
+                    ${клиент || сумма ? `<p class="contract-card-meta">${escapeHtml(клиент)}${клиент && сумма ? " · " : ""}${сумма ? `<b>${сумма}</b>` : ""}</p>` : ""}
                     ${c.desc ? `<p style="font-size:12px;margin:0 0 8px">${escapeHtml(c.desc)}</p>` : ""}
                     <p style="font-size:12px;margin:0;color:var(--muted)">Обновлён: ${formatDate(c.updatedAt)}</p>
                     <div class="toolbar no-print" style="margin-top:10px">
-                      <button class="btn small" onclick="event.stopPropagation();app.printContract('${c.id}')">Печать / PDF</button>
+                      ${left
+                        ? `<button class="btn small primary" onclick="event.stopPropagation();app.openContractWizard('${c.id}')">Заполнить</button>`
+                        : `<button class="btn small" onclick="event.stopPropagation();app.printContract('${c.id}')">Печать / PDF</button>`}
                       <button class="btn danger-quiet small" onclick="event.stopPropagation();app.deleteContract('${c.id}')">${TRASH_SVG} Удалить</button>
                     </div>
                   </article>
-                `).join("")}
+                `; }).join("")}
               </div>
               ${contractsHidden > 0 ? `<div class="show-more-row no-print">
                 <button class="btn" onclick="app.contractsShowMore()">Показать ещё ${Math.min(CONTRACTS_PAGE_SIZE, contractsHidden)} · осталось ${contractsHidden}</button>
@@ -32448,6 +32497,7 @@ Email: _____________________              Email: _____________________
                 title: `Нет договоров в категории «${escapeHtml(activeCat)}»`,
                 cta: { label: "Показать все", onclick: "app.setContractCatFilter('Все')", variant: "" }
               }) : ""}
+              <div class="contract-tpl-block">${tplBlockHtml}</div>
             `;
             })() : emptyState({
               icon: "doc",
@@ -32484,6 +32534,18 @@ Email: _____________________              Email: _____________________
         state.contractWizardIdx = null;
         save();
         render();
+      }
+
+      /* Из списка — сразу к заполнению: метка «8 полей не заполнено» и кнопка
+         «Заполнить» на карточке открывают договор с уже запущенным мастером.
+         Раньше это был путь в три нажатия: открыть карточку, найти глазами
+         панель «Что осталось заполнить», нажать «Заполнить по шагам». */
+      function openContractWizard(id) {
+        state.contractEditId = id;
+        state.contractWizardIdx = 0;
+        save();
+        render();
+        _focusWizardInput();
       }
 
       function initEvents() {
@@ -33078,6 +33140,7 @@ Email: _____________________              Email: _____________________
         deleteContract,
         printContract,
         openContractEdit,
+        openContractWizard,
         closeContractEdit,
 
         openAdminModal,

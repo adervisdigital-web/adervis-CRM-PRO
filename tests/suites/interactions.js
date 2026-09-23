@@ -1678,19 +1678,23 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.waitForTimeout(300);
 
     const res = await page.evaluate(() => {
-      // Профиль компании у нового аккаунта пуст (имя сервиса больше не выдаётся за
-      // имя студии — правка 18.08), а {{исполнитель}} подставляется именно из него.
-      window.app.updateCompany("name", "Студия Пример");
+      /* Имя студии СНИМАЕМ перед созданием. С 23.09.2026 договор подставляет
+         всё известное сразу при создании, поэтому «появилось позже» нужно
+         устроить руками: иначе кнопке «Подставить из сделки» нечего делать и
+         тест проверял бы пустоту. Профиль компании у нового аккаунта и так
+         пуст (имя сервиса больше не выдаётся за имя студии — правка 18.08). */
+      window.app.updateCompany("name", "");
       window.app.go("contracts");
       window.app.createContractFromTemplate("tpl_act");
       const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
       const c = (st.contracts || [])[0];
       return { id: c.id, before: window.app.contractVars(c.body).length, dealId: c.dealId || "" };
     });
-    assert(res.before > 5, "в акте должно быть больше пяти именованных полей, найдено " + res.before);
+    assert(res.before >= 1, "в акте не осталось ни одного поля для подстановки, найдено " + res.before);
     assertEqual(res.dealId, dealId, "договор из шаблона не привязался к открытой сделке — подставлять будет нечего");
 
     const after = await page.evaluate((id) => {
+      window.app.updateCompany("name", "Студия Пример");
       window.app.autofillContract(id);
       const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
       const c = (st.contracts || []).find((x) => x.id === id);
@@ -1700,15 +1704,127 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(!/\{\{исполнитель\}\}/.test(after.body), "{{исполнитель}} остался незаполненным после подстановки");
   });
 
+  await test("договоры: CRM заполняет то, что знает, а список ведёт к остальному", async () => {
+    /* 23.09.2026. Договор создавался из шаблона с уже привязанной сделкой и
+       выданным номером — и всё равно печатал в тексте {{номер}}, {{дата}},
+       {{заказчик}}. Карточка честно писала «8 полей не заполнено», мастер
+       спрашивал номер, который система сама и выдала, а закрывала это
+       обязательная вторая кнопка «Подставить из сделки». Теперь известное
+       подставляется при создании, а незаполненное на карточке — не серая
+       справка, а вход в мастер. Статус договора в списке до этого был серым у
+       всех: правила .badge.warn/.badge.green в стилях не существовало. */
+    const dealId = await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const existing = ((st.savedProjects || [])[0] || {}).id;
+      if (existing) return existing;
+      window.app.seedDemoDeal();
+      const st2 = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      return ((st2.savedProjects || [])[0] || {}).id || "";
+    });
+    assert(dealId, "не удалось получить сделку");
+    await page.evaluate((id) => window.app.loadSavedProject(id), dealId);
+    await page.waitForTimeout(300);
+
+    const r = await page.evaluate(() => {
+      window.app.updateCompany("name", "Студия Пример");
+      window.app.go("contracts");
+      window.app.createContractFromTemplate("tpl_video");
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c = (st.contracts || [])[0];
+      return {
+        id: c.id,
+        номер: c.number || "",
+        номерВТексте: /\{\{\s*номер\s*\}\}/.test(c.body),
+        датаВТексте: /\{\{\s*дата\s*\}\}/.test(c.body),
+        исполнительВТексте: /\{\{\s*исполнитель\s*\}\}/.test(c.body),
+        номерВидноВТексте: c.number ? c.body.includes(c.number) : false,
+      };
+    });
+    assert(!r.номерВТексте, "{{номер}} остался в тексте, хотя номер договора система выдала сама");
+    assert(r.номерВидноВТексте, "номер договора " + r.номер + " не попал в текст");
+    assert(!r.датаВТексте, "{{дата}} осталась незаполненной при создании");
+    assert(!r.исполнительВТексте, "{{исполнитель}} остался, хотя имя студии заполнено");
+
+    // Шапка редактора: у недозаполненного договора печать — не главное действие.
+    await page.evaluate((id) => window.app.openContractEdit(id), r.id);
+    await page.waitForTimeout(500);
+    const шапка = await page.evaluate((id) => {
+      const btns = [...document.querySelectorAll(".section-title .btn")];
+      const печать = btns.find((b) => /Печать/.test(b.textContent || ""));
+      const заполнить = btns.find((b) => /Заполнить/.test(b.textContent || ""));
+      return {
+        естьЗаполнить: !!заполнить,
+        заполнитьГлавная: !!заполнить && заполнить.classList.contains("primary"),
+        печатьГлавная: !!печать && (печать.classList.contains("green") || печать.classList.contains("primary")),
+        осталось: window.app.contractVars(
+          (JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}").contracts || [])
+            .find((c) => c.id === id).body).length,
+      };
+    }, r.id);
+    assert(шапка.осталось > 0, "для проверки нужен договор с незаполненными полями");
+    assert(шапка.естьЗаполнить && шапка.заполнитьГлавная, "у недозаполненного договора нет главной кнопки «Заполнить»");
+    assert(!шапка.печатьГлавная, "«Печать / PDF» остаётся главной кнопкой у договора с незаполненными полями");
+
+    // Список: свои договоры выше шаблонов, метка ведёт в мастер.
+    await page.evaluate(() => window.app.closeContractEdit());
+    await page.waitForTimeout(600);
+    const список = await page.evaluate(() => {
+      const h2 = [...document.querySelectorAll("#appContent h2")].map((x) => x.textContent.replace(/\s+/g, " ").trim());
+      const метка = document.querySelector(".contract-left-badge");
+      return {
+        первыйЗаголовок: h2[0] || "",
+        заголовки: h2,
+        меткаТег: метка ? метка.tagName : "",
+      };
+    });
+    assert(/Мои договоры/.test(список.первыйЗаголовок),
+      "свои договоры не стоят выше шаблонов: " + JSON.stringify(список.заголовки));
+    assertEqual(список.меткаТег, "BUTTON", "«N полей не заполнено» не кнопка — с карточки не попасть в заполнение");
+
+    await page.click(".contract-left-badge");
+    await page.waitForTimeout(600);
+    assert(await page.$("#contractWizardInput"), "метка на карточке не открыла мастер заполнения");
+    await page.evaluate(() => window.app.closeContractEdit());
+    await page.waitForTimeout(400);
+
+    // Статус виден цветом, а не только словом.
+    const цвета = await page.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const id = (st.contracts || [])[0].id;
+      window.app.setContractStatus(id, "signed");
+      return new Promise((resolve) => setTimeout(() => {
+        const карточка = document.querySelector(".contract-card");
+        const метки = [...карточка.querySelectorAll(".badge")].map((x) => ({
+          текст: x.textContent.trim(),
+          фон: getComputedStyle(x).backgroundColor,
+          цвет: getComputedStyle(x).color,
+        }));
+        const подписан = метки.find((m) => /Подписан/.test(m.текст));
+        const категория = метки.find((m) => !/Подписан/.test(m.текст));
+        resolve({ подписан, категория });
+      }, 700));
+    });
+    assert(цвета.подписан, "в карточке нет метки статуса «Подписан»");
+    assert(цвета.категория && цвета.подписан.фон !== цвета.категория.фон,
+      "статус «Подписан» выглядит как обычная серая метка: " + JSON.stringify(цвета));
+  });
+
   await test("договоры: ручное заполнение подставляет значение во ВСЕ вхождения", async () => {
+    /* Текст задаём свой. С 23.09.2026 известные поля подставляются уже при
+       создании, и {{фио}} привязанного клиента в шаблоне не доживает до
+       проверки — а проверяем мы не шаблон, а fillContractVar: одно значение
+       должно встать во все вхождения сразу. */
     const r = await page.evaluate(() => {
       window.app.createContractFromTemplate("tpl_release");
       const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
       const c = (st.contracts || [])[0];
-      const occurrences = (c.body.match(/\{\{фио\}\}/g) || []).length;
-      return { id: c.id, occurrences };
+      window.app.updateContractField(c.id, "body",
+        "Я, {{фио}}, даю согласие.\nПодпись: {{фио}}\nРасшифровка: {{фио}}");
+      const st2 = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c2 = (st2.contracts || []).find((x) => x.id === c.id);
+      return { id: c.id, occurrences: (c2.body.match(/\{\{фио\}\}/g) || []).length };
     });
-    assert(r.occurrences >= 2, "в согласии {{фио}} должно встречаться минимум дважды, найдено " + r.occurrences);
+    assert(r.occurrences >= 2, "в тексте {{фио}} должно встречаться минимум дважды, найдено " + r.occurrences);
 
     const after = await page.evaluate((id) => {
       window.app.fillContractVar(id, "фио", "Иванов Иван Иванович");
@@ -2772,9 +2888,17 @@ module.exports = async function ({ browser, baseUrl, test }) {
       window.app.createContractFromTemplate("tpl_release");
       const raw = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
       const c = (raw.contracts || [])[0];
+      /* Свой текст с тремя полями: в шаблоне после автоподстановки при
+         создании их может остаться ровно два, и мастер закроется раньше, чем
+         тест проверит возврат фокуса — падение было бы про шаблон, а не про
+         мастер. */
+      window.app.updateContractField(c.id, "body",
+        "1.1. Первое: {{поле раз}}.\n2.1. Второе: {{поле два}}.\n3.1. Третье: {{поле три}}.");
       window.app.openContractEdit(c.id);
       window.app.startContractWizard(0);
-      return { id: c.id, vars: window.app.contractVars(c.body) };
+      const raw2 = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const c2 = (raw2.contracts || []).find((x) => x.id === c.id);
+      return { id: c.id, vars: window.app.contractVars(c2.body) };
     });
     assert(start.vars.length >= 2, "в шаблоне меньше двух полей — на нём мастер не проверить");
     await page.waitForTimeout(250);
@@ -5836,9 +5960,14 @@ module.exports = async function ({ browser, baseUrl, test }) {
       localStorage.setItem("adervis_ls_rev", "seeded_by_test_" + Date.now());
     }, JSON.stringify({
       savedProjects: Array.from({ length: deals }, (_, i) => {
-        // Первой сделке — дата съёмки на завтра: по ней проверяется блок
-        // «Ближайшие съёмки» на главной младшего тарифа.
-        const завтра = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+        /* Первой сделке — дата съёмки на завтра: по ней проверяется блок
+           «Ближайшие съёмки» на главной младшего тарифа.
+           Дату считаем в МЕСТНОМ времени, а не через toISOString: тот отдаёт
+           UTC, и после полуночи по Москве (UTC+3) «завтра» теста совпадало с
+           «сегодня» приложения — тест падал от часа прогона, а не от кода. */
+        const t = new Date(); t.setDate(t.getDate() + 1);
+        const pad = (n) => String(n).padStart(2, "0");
+        const завтра = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
         const дата = i === 0 ? завтра : "";
         return {
           id: "d" + i, name: "Сделка " + (i + 1), client: "Клиент", total: 50000, paid: 0,
