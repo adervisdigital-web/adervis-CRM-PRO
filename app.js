@@ -28994,7 +28994,9 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   return `
                     <div style="margin-top:20px;padding:18px;background:var(--panel2);border:1px solid var(--line);border-radius:14px">
                       <div style="font-size:13px;font-weight:700;margin-bottom:6px"> Дедлайн в своём календаре</div>
-                      <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5">Подпишитесь на ссылку — дедлайн проекта появится в вашем Google Calendar, iPhone или Outlook автоматически, без входа и паролей.</p>
+                      <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5">${d.deadline
+                        ? `Срок сдачи — <b style="color:var(--text)">${escapeHtml(formatDate(d.deadline))}</b>. Подпишитесь на ссылку, и дата появится в вашем Google Calendar, iPhone или Outlook — автоматически, без входа и паролей.`
+                        : "Подпишитесь на ссылку — дедлайн проекта появится в вашем Google Calendar, iPhone или Outlook автоматически, без входа и паролей."}</p>
                       <div style="display:flex;gap:8px;flex-wrap:wrap">
                         ${/* Не primary: подписка на календарь — приятное
                               дополнение, а не то, ради чего клиент открыл ссылку. */""}
@@ -29388,6 +29390,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           deal_name: project.name || '',
           deal_status: project.crmStatus || 'КП отправлено',
           total_price: project.total || 0,
+          /* Дата сдачи — то, о чём клиент спрашивает вторым вопросом после цены.
+             Блок «Дедлайн в своём календаре» предлагал подписаться на дату, а
+             саму дату не показывал: поля не было ни в портале, ни в RPC
+             (миграция 20260923000001). Пустая строка в date — ошибка, поэтому null. */
+          deadline: project.deadline || proj.deadline || null,
           included_text: texts.included,
           excluded_text: texts.excluded,
           proposal_note: texts.note,
@@ -29445,6 +29452,12 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         // накачена на прод, а КП важнее блока оплаты.
         if (error && /pay_method|pay_link|pay_details/.test(error.message || '')) {
           delete row.pay_method; delete row.pay_link; delete row.pay_details;
+          ({ data, error } = await runWrite());
+        }
+        // И для даты сдачи (миграция 20260923000001): ссылка клиенту важнее
+        // строки с дедлайном, поэтому при незнакомой колонке повторяем без неё.
+        if (error && /deadline/.test(error.message || '')) {
+          delete row.deadline;
           ({ data, error } = await runWrite());
         }
         // client_portals.project_id заведён колонкой UUID (миграция 20260704000002),

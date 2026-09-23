@@ -157,6 +157,39 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await context.close();
   });
 
+  await test("портал КП: дата сдачи названа, а без неё блок не обещает лишнего", async () => {
+    /* Блок «Дедлайн в своём календаре» предлагал подписаться на дату, которую
+       сам не показывал: поля deadline не было ни в client_portals, ни в
+       get_client_portal (миграция 20260923000001). Клиент читал «дедлайн
+       появится в вашем календаре» и не знал, о каком дне речь. */
+    {
+      const { context, page, errors } = await bootPortal(browser, baseUrl,
+        { ...PORTAL_ROW, deadline: "2026-10-07" });
+      const текст = await page.evaluate(() => {
+        const el = [...document.querySelectorAll("#appContent p")]
+          .find((x) => /Срок сдачи|дедлайн проекта/i.test(x.textContent));
+        return el ? el.textContent.replace(/\s+/g, " ").trim() : "";
+      });
+      assert(/Срок сдачи/.test(текст), "портал не называет дату сдачи: «" + текст + "»");
+      assert(/07\.10\.2026|7 октября/.test(текст), "дата сдачи показана не той: «" + текст + "»");
+      assertEqual(errors.length, 0, "исключения на портале: " + errors.join(" | "));
+      await context.close();
+    }
+    {
+      // Срока у сделки может не быть — тогда обещать дату нельзя.
+      const { context, page, errors } = await bootPortal(browser, baseUrl,
+        { ...PORTAL_ROW, deadline: null });
+      const текст = await page.evaluate(() => {
+        const el = [...document.querySelectorAll("#appContent p")]
+          .find((x) => /Срок сдачи|дедлайн проекта/i.test(x.textContent));
+        return el ? el.textContent.replace(/\s+/g, " ").trim() : "";
+      });
+      assert(текст && !/Срок сдачи/.test(текст), "без даты портал всё равно говорит «Срок сдачи»: «" + текст + "»");
+      assertEqual(errors.length, 0, "исключения на портале: " + errors.join(" | "));
+      await context.close();
+    }
+  });
+
   await test("портал КП: один главный шаг за раз — сначала подпись, потом оплата", async () => {
     /* Страница, которую открывает ЗАКАЗЧИК. Было три ярких кнопки подряд —
        «Подписать», «Оплатить», «Добавить в календарь», — и по виду они равны:
