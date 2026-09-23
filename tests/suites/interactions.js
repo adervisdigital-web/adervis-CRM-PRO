@@ -6073,6 +6073,69 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("КП клиенту: аванс назван суммой и совпадает с финансами, итог выделен, этапы в цвете", async () => {
+    /* Документ, который читает ЗАКАЗЧИК. Было: итог набран как обычная строка
+       таблицы (выделение жило только в печатной версии), заголовки колонок
+       повторялись у каждого этапа, этапы без цвета, а сумму аванса клиент
+       считал в уме — «50% предоплата» и всё. Хуже того, правило аванса жило в
+       трёх местах: ссылка клиенту округляла до сотни (76 800 ₽), а экран
+       студии писал половину (76 750 ₽) — одно число в двух видах.
+       Проверяем РЕЗУЛЬТАТ на живой странице. */
+    const { context: ctx, page: p, errors } =
+      await bootLocal(browser, baseUrl, { width: 1200, height: 1000, seedDemo: true });
+    try {
+      const id = await p.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state")).savedProjects[0].id);
+      await p.evaluate((i) => { window.app.selectActiveDeal(i); window.app.setDealView("proposal"); window.app.go("deal"); }, id);
+      await p.waitForTimeout(800);
+
+      const док = await p.evaluate(() => {
+        const doc = document.querySelector(".proposal-preview");
+        if (!doc) return null;
+        const total = doc.querySelector(".proposal-total td");
+        const adv = doc.querySelector(".proposal-advance");
+        const строка = (el) => (el ? el.textContent.replace(/\s+/g, " ").trim() : "");
+        return {
+          итогКегль: total ? parseFloat(getComputedStyle(total).fontSize) : 0,
+          итогЖирность: total ? Number(getComputedStyle(total).fontWeight) : 0,
+          итог: строка(total),
+          аванс: строка(adv),
+          авансЧисло: adv ? Number((строка(adv).match(/([\d\s ]+)₽\s*$/) || [])[1].replace(/[^\d]/g, "")) : 0,
+          шапокТаблиц: doc.querySelectorAll("table thead").length,
+          таблиц: doc.querySelectorAll("table").length,
+          этаповВЦвете: [...doc.querySelectorAll("h2.proposal-stage")]
+            .filter((h) => {
+              const c = getComputedStyle(h).borderLeftColor;
+              return c && c !== "rgba(0, 0, 0, 0)" && parseFloat(getComputedStyle(h).borderLeftWidth) > 0;
+            }).length,
+          цвета: [...new Set([...doc.querySelectorAll("h2.proposal-stage")].map((h) => getComputedStyle(h).borderLeftColor))].length,
+        };
+      });
+      assert(док, "на вкладке «КП» нет самого документа");
+      assert(док.итогКегль >= 16 && док.итогЖирность >= 700,
+        `итог документа не выделен: ${док.итогКегль}px, вес ${док.итогЖирность}`);
+      assert(/аванс/i.test(док.аванс), "в КП не названа сумма аванса: «" + док.аванс + "»");
+      assert(док.этаповВЦвете >= 3, "этапы в КП без цвета: " + док.этаповВЦвете);
+      assert(док.цвета >= 3, "этапы в КП одного цвета — язык документа не совпал с продуктом");
+      assert(док.таблиц > док.шапокТаблиц, "заголовки колонок повторяются у каждой таблицы: " + док.шапокТаблиц + " на " + док.таблиц);
+
+      // То же число, что видит студия в «Финансах», и то же — в договоре.
+      await p.evaluate(() => window.app.setDealView("finance"));
+      await p.waitForTimeout(600);
+      const вФинансах = await p.evaluate(() => {
+        const sub = [...document.querySelectorAll(".fin-card .fin-sub")].map((x) => x.textContent.replace(/\s+/g, " ").trim());
+        const s = sub.find((x) => /аванс/i.test(x)) || "";
+        return Number((s.match(/([\d\s ]+)₽/) || [])[1] ? (s.match(/([\d\s ]+)₽/) || [])[1].replace(/[^\d]/g, "") : 0);
+      });
+      assert(вФинансах > 0, "в «Финансах» не показан аванс");
+      assertEqual(вФинансах, док.авансЧисло,
+        "аванс в КП и в «Финансах» разный — клиент и студия видят разные числа");
+
+      assertEqual(errors.length, 0, "исключения на странице: " + errors.join(" | "));
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("пакеты: избранное и скрытые работают, как в каталоге", async () => {
     /* Просьба владельца 04.09.2026: «в пакетах не хватает ещё двух строчек в
        навигации». У каталога «Избранное» и «Скрытые» были с самого начала, у

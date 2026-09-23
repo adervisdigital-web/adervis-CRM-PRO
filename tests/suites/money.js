@@ -303,7 +303,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.waitForTimeout(400);
     const filled = (await cards()).join(" | ");
     assert(/120\s*000/.test(filled), "бюджет не доехал до финансов: " + filled);
-    assert(/50% =/.test(filled), "с появлением сметы не вернулась подсказка про аванс: " + filled);
+    /* Ищем СМЫСЛ, а не формулировку: 23.09.2026 подпись стала «аванс 50% —
+       76 800 ₽» (то же число, что в КП и договоре), и тест на «50% =» упал бы
+       на верном поведении. */
+    assert(/аванс\s*50%|50%\s*=/.test(filled), "с появлением сметы не вернулась подсказка про аванс: " + filled);
     assert(/Ожидаем/.test(filled), "долг по неоплаченной сделке снова не показан: " + filled);
   });
 

@@ -2654,6 +2654,20 @@
     .proposal-preview p {
       color: #374151;
     }
+    /* Итог документа — главное число для заказчика, а набран был как обычная
+       строка таблицы: на экране правило было только в печатной версии. */
+    .proposal-preview .proposal-total td {
+      font-size: 17px; font-weight: 800; color: #000;
+      padding-top: 12px; border-top: 2px solid #d1d5db;
+    }
+    .proposal-preview .proposal-total td:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    /* «К оплате сейчас» — следующий шаг клиента, поэтому подсвечен. */
+    .proposal-preview .proposal-advance td {
+      font-size: 14px; font-weight: 700; color: #111827; background: #f3f4f6;
+    }
+    .proposal-preview .proposal-advance td:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    /* Этап помечен своим цветом — как в смете и каталоге. */
+    .proposal-preview h2.proposal-stage { border-left: 3px solid #6b7280; padding-left: 10px; }
 
     .proposal-preview table,
     #printArea table {

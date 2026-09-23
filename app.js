@@ -16326,7 +16326,9 @@
           .proposal-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
           .proposal-brand img { width: 36px; height: 36px; object-fit: contain; }
           .proposal-brand p { font-size: 12px; color: #6b7280; margin: 0; }
-          .proposal-total td { font-size: 16px; font-weight: 700; color: #000; padding-top: 10px; border-top: 2px solid #d1d5db; }
+          .proposal-total td { font-size: 17px; font-weight: 800; color: #000; padding-top: 10px; border-top: 2px solid #d1d5db; }
+          .proposal-advance td { font-size: 14px; font-weight: 700; color: #111827; background: #f3f4f6; }
+          h2.proposal-stage { border-left: 3px solid #6b7280; padding-left: 10px; }
           .proposal-total td:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
           .proposal-date { margin-top: 28px; font-size: 12px; color: #6b7280; }
           .proposal-service-note { font-size: 11px; color: #9ca3af; margin: 2px 0 0; }
@@ -24242,7 +24244,10 @@
         // (f.estimateTotal), а не от суммы позиций: у сделки «одной суммой» позиций
         // нет, и раньше оба показателя молча обнулялись.
         const payPct = f.estimateTotal > 0 ? Math.min(100, Math.round(f.paid / f.estimateTotal * 100)) : 0;
-        const half = Math.round(f.estimateTotal / 2);
+        /* Аванс считаем ТОЙ ЖЕ функцией, что и КП с договором: клиент видел
+           «76 800 ₽» в предложении, а экран студии писал «76 750 ₽» — одно и то
+           же число в двух видах (21.09.2026). */
+        const half = defaultAdvance(f.estimateTotal);
 
         /* Пустая сделка не должна отчитываться как закрытая. На только что заведённой
            сделке экран говорил «Долг 0 ₽ · Закрыто» зелёным, «50% = 0 ₽» и «Прибыль
@@ -24303,7 +24308,7 @@
                   <div class="fin-amount">${noEstimate ? dash : money(f.estimateTotal)}</div>
                   ${noEstimate
                     ? `<div class="fin-sub">Сметы пока нет${inDeal ? ` · <button class="u-linkbtn no-print" onclick="app.setDealView('estimate')">собрать</button>` : ""}</div>`
-                    : `<div class="fin-sub">50% = ${money(half)}</div>`}
+                    : `<div class="fin-sub">аванс 50% — ${money(half)}</div>`}
                 </div>
                 <div class="fin-card ${noEstimate && !f.paid ? "" : "income-card"}">
                   <h3>Оплачено</h3>
@@ -25182,6 +25187,10 @@
                   ${t.discount ? `<tr><td>Скидка</td><td><strong>− ${money(t.discount)}</strong></td></tr>` : ""}
                   ${t.tax ? `<tr><td>Налог</td><td><strong>${money(t.tax)}</strong></td></tr>` : ""}
                   <tr class="proposal-total"><td>Итого</td><td>${money(t.total)}</td></tr>
+                  ${(() => {
+                    const a = advanceFromTerms(state.project.paymentTerms, t.total);
+                    return a ? `<tr class="proposal-advance"><td>К оплате сейчас · аванс ${a.pct}%</td><td>${money(a.сумма)}</td></tr>` : "";
+                  })()}
                   ${t.optional ? `
                     <tr><td>Опции</td><td><strong>${money(t.optional)}</strong></td></tr>
                     ${t.optionalTax ? `<tr><td>Налог на опции</td><td><strong>${money(t.optionalTax)}</strong></td></tr>` : ""}
@@ -25239,9 +25248,40 @@
         `;
       }
 
+      /* Аванс по умолчанию — половина суммы, округлённая до сотни (стандарт в
+         видеопродакшне). Правило жило ТОЛЬКО в создании ссылки клиенту, а сам
+         документ суммы аванса не называл: клиент читал «50% предоплата» и
+         считал в уме. Теперь одна функция на оба места — разойтись нечему. */
+      function defaultAdvance(total, pct = 50) {
+        const t = numberValue(total, 0);
+        /* Параметром по умолчанию, а НЕ numberValue(pct, 50): та на undefined
+           отдаёт ноль, потому что пустая строка — это «валидный» ноль, и аванс
+           молча превращался в 100 ₽ (минимум) вместо половины суммы. */
+        const доля = (Number(pct) > 0 ? Number(pct) : 50) / 100;
+        return t > 0 ? Math.max(100, Math.round(t * доля / 100) * 100) : 0;
+      }
+
+      /* Сколько платить сейчас — по тем же «Условиям оплаты», которые клиент
+         читает двумя строками ниже. Нет слова про аванс — нет и строки: у кого
+         оплата по факту, тому «к оплате сейчас» было бы неправдой. */
+      function advanceFromTerms(terms, total) {
+        const текст = String(terms || "");
+        if (!/предоплат|аванс/i.test(текст)) return null;
+        const m = текст.match(/(\d{1,3})\s*%/);
+        const pct = m ? Math.min(100, Math.max(1, Number(m[1]))) : 50;
+        const сумма = defaultAdvance(total, pct);
+        return сумма > 0 ? { pct, сумма } : null;
+      }
+
       function renderProposalStages(ids, showDetails) {
         if (!ids.length) return emptyState({ icon: "doc", size: "sm", text: "В смете пока нет основных позиций" });
 
+        /* Этап помечен своим цветом — тем же, что в смете и в каталоге: документ
+           говорит с клиентом тем же языком, что интерфейс со студией. Полосой
+           слева, а не фоном: фон в печати браузеры отбрасывают, рамку — нет.
+           Заголовки колонок печатаем ОДИН раз: четыре одинаковых «Позиция ·
+           Описание · Сумма» подряд читались как шум, а структура и так видна. */
+        let перваяТаблица = true;
         return state.stages.map(stage => {
           const stageIds = ids.filter(id => {
             const itemData = findItem(id, true);
@@ -25250,11 +25290,13 @@
           });
 
           if (!stageIds.length) return "";
+          const head = перваяТаблица;
+          перваяТаблица = false;
 
           return `
-            <h2>${escapeHtml(stage.name)}</h2>
+            <h2 class="proposal-stage" style="border-left-color:${escapeHtml(stage.color || "#6b7280")}">${escapeHtml(stage.name)}</h2>
             ${stage.desc ? `<p>${escapeHtml(stage.desc)}</p>` : ""}
-            ${renderProposalTable(stageIds, showDetails)}
+            ${renderProposalTable(stageIds, showDetails, head)}
           `;
         }).join("");
       }
@@ -25277,18 +25319,18 @@
         `;
       }
 
-      function renderProposalTable(ids, showDetails) {
+      function renderProposalTable(ids, showDetails, withHead = true) {
         if (!ids.length) return "";
 
         return `
           <table>
-            <thead>
+            ${withHead ? `<thead>
               <tr>
                 <th>Позиция</th>
                 ${showDetails ? `<th>Описание</th>` : ""}
                 <th>Сумма</th>
               </tr>
-            </thead>
+            </thead>` : ""}
             <tbody>
               ${ids.map(id => {
                 const itemData = findItem(id, true);
@@ -29325,9 +29367,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         if (!_supabase) { toast('Supabase не настроен'); return; }
         const selectedItems = proposalServicesList(snap);
         // Аванс 50% от суммы, округлён до 100 ₽ (стандарт в видеопродакшне)
-        const advanceAmount = project.total > 0
-          ? Math.max(100, Math.round(project.total * 0.5 / 100) * 100)
-          : null;
+        const advanceAmount = project.total > 0 ? defaultAdvance(project.total) : null;
 
         const texts = portalTextBlocks(proj);
         const row = {
@@ -31444,7 +31484,9 @@ Email: _____________________              Email: _____________________
         const totalPrice = proj
           ? (proj.total ? String(Math.round(Number(proj.total))) : "___")
           : String(Math.round(totals().total || 0));
-        const half = Math.round(Number(totalPrice) / 2) || 0;
+        // Тот же аванс, что в КП: договор подписывают на сумму, которую человек
+        // уже прочитал в предложении.
+        const half = defaultAdvance(Number(totalPrice)) || 0;
         const base = CONTRACT_TEMPLATES[0];
         /* Раньше здесь стоял ВТОРОЙ механизм подстановки — замены регулярками по
            тексту шаблона, — и половина его промахивалась молча: маркеров
