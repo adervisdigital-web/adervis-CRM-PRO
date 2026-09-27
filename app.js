@@ -26265,12 +26265,23 @@
         }));
         (_googleCalEvents || []).forEach(ev => events.push({ date: ev.date, title: ev.title, type: "google", project: "Google Calendar", projectId: "", htmlLink: ev.htmlLink }));
 
-        /* Индекс событий по дате */
+        /* Индекс событий по дате.
+           Внутри дня события идут ПО ВАЖНОСТИ, а не в порядке сбора. В ячейку
+           помещаются две подписи, остальное сворачивается в «+N ещё», и
+           27 сентября показывало задачу с авансом, а «Дедлайн: Свадьба, Пермь»
+           прятало под «+1 ещё» — ровно то, ради чего в календарь и заходят.
+           Порядок сбора шёл по спискам сделки (задачи → платежи → расходы), то
+           есть зависел от того, чего в сделке больше, а не от смысла. */
+        const _calEventRank = { deadline: 0, task: 1, google: 2, payment: 3, expense: 4 };
         const eventsByDay = {};
         events.forEach(ev => {
           if (!ev.date) return;
           if (!eventsByDay[ev.date]) eventsByDay[ev.date] = [];
           eventsByDay[ev.date].push(ev);
+        });
+        Object.keys(eventsByDay).forEach(d => {
+          eventsByDay[d].sort((a, b) =>
+            (_calEventRank[a.type] ?? 9) - (_calEventRank[b.type] ?? 9));
         });
 
         /* Строим сетку */
@@ -26449,7 +26460,10 @@
               ];
               const listEvents = (calAllMode ? [...events] : events.filter(ev => ev.date && ev.date.startsWith(`${yr}-${padZ(mo)}`)))
                 .filter(ev => calTypeFilter === "all" || ev.type === calTypeFilter)
-                .sort((a,b) => a.date.localeCompare(b.date));
+                // В пределах одного дня — та же важность, что в ячейках сетки:
+                // дедлайн выше задачи, задача выше денег.
+                .sort((a,b) => a.date.localeCompare(b.date)
+                  || (_calEventRank[a.type] ?? 9) - (_calEventRank[b.type] ?? 9));
               // Пагинация — как в каталоге и списках сделок. Лимит сбрасывается при
               // смене месяца, режима «весь год» и фильтра по типу: иначе после
               // сужения выборки кнопка осталась бы взведённой на прошлый набор.

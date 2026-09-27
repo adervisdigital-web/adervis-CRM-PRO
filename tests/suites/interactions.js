@@ -4360,6 +4360,90 @@ module.exports = async function ({ browser, baseUrl, test }) {
   /* Подсунуть объём: писать в localStorage и перезагружать НЕЛЬЗЯ — на выгрузке
      страница пишет свой снимок состояния поверх, и подсунутое молча пропадает.
      Открываем вторую вкладку: она читает хранилище заново. */
+  await test("календарь: в дне сверху дедлайн, а не то, чего в сделке больше", async () => {
+    /* 24.09.2026. В ячейку помещаются две подписи, остальное сворачивается в
+       «+N ещё», и порядок был ПОРЯДКОМ СБОРА: задачи сделки → платежи →
+       расходы. На дне с дедлайном, задачей и авансом ячейка показывала задачу и
+       аванс, а «Дедлайн: Свадьба, Пермь» прятала под «+1 ещё» — ровно то, ради
+       чего в календарь и заходят. Порядок зависел от того, чего в сделке
+       больше, а не от смысла. */
+    const день = (n) => {
+      const t2 = new Date(); t2.setDate(t2.getDate() + n);
+      const p2 = (x) => String(x).padStart(2, "0");
+      return `${t2.getFullYear()}-${p2(t2.getMonth() + 1)}-${p2(t2.getDate())}`;
+    };
+    const сегодня = день(0);
+    /* Две сделки, и дедлайн у ВТОРОЙ. Это обязательное условие: события
+       собирались сделка за сделкой, и внутри одной порядок случайно совпадал с
+       нужным (дедлайн пишется первым). Дефект вылезал ровно тогда, когда день
+       собран из разных сделок — самый обычный случай для живого календаря. */
+    const { ctx, p } = await bootWithState(`
+      st.savedProjects = [{
+        id: "cal1", name: "Ролик для маркетплейса", client: "Бренд «Вкус»", total: 320000, paid: 0,
+        crmStatus: "В работе", deadline: "", createdAt: "${день(-30)}", updatedAt: "${день(-30)}",
+        snapshot: {
+          project: { name: "Ролик для маркетплейса", crmStatus: "В работе", deadline: "" },
+          selected: {},
+          tasks: [{ id: "ct1", title: "Согласовать раскадровку", deadline: "${сегодня}", status: "Новая" }],
+          payments: [{ id: "cp1", date: "${сегодня}", amount: 45000, title: "Аванс" }],
+          expenses: [],
+        },
+      }, {
+        id: "cal2", name: "Свадьба, Пермь", client: "Иванов И.", total: 95000, paid: 0,
+        crmStatus: "В работе", deadline: "${сегодня}", createdAt: "${день(-30)}", updatedAt: "${день(-30)}",
+        snapshot: {
+          project: { name: "Свадьба, Пермь", crmStatus: "В работе", deadline: "${сегодня}" },
+          selected: {}, tasks: [], payments: [], expenses: [],
+        },
+      }];
+      // Демо-сделка приносит свои платежи в живых списках — убираем, иначе в
+      // сегодняшнем дне окажется четвёртое событие не из этой проверки.
+      st.activeProjectId = ""; st.payments = []; st.expenses = []; st.tasks = [];
+      st.calendarMonth = "${сегодня.slice(0, 7)}";
+      st.calendarSelectedDay = "";
+      st.calTypeFilter = "all";
+    `, { width: 1400, height: 1000 });
+    try {
+      await p.evaluate(() => window.app.go("global-calendar"));
+      await p.waitForTimeout(900);
+
+      const r = await p.evaluate((iso) => {
+        const ячейка = [...document.querySelectorAll(".cal-cell")].find((c) =>
+          (c.getAttribute("title") || "") === iso);
+        const подписи = ячейка
+          ? [...ячейка.querySelectorAll(".cal-event-label")].map((x) => x.textContent.trim())
+          : null;
+        const список = [...document.querySelectorAll(".cal-type-chip")].length
+          ? [...document.querySelectorAll("#appContent > div > div:last-child div[title]")]
+              .map((x) => x.textContent.trim()).filter(Boolean)
+          : [];
+        return {
+          подписи,
+          событийВдне: ячейка ? ячейка.querySelectorAll(".cal-dot-item").length : 0,
+          свёрнуто: ячейка ? /\+\d+ ещё/.test(ячейка.textContent || "") : false,
+          список: список.slice(0, 4),
+        };
+      }, сегодня);
+
+      assert(r.подписи, "не нашёл сегодняшнюю ячейку календаря");
+      assertEqual(r.событийВдне, 3, "в дне должно быть три события, найдено " + r.событийВдне);
+      assert(r.свёрнуто, "для проверки нужен день, где часть событий свёрнута в «+N ещё»");
+      assert(/Дедлайн/.test(r.подписи[0] || ""),
+        "первой в ячейке стоит не дедлайн: " + JSON.stringify(r.подписи));
+      assert(!r.подписи.some((x) => /Аванс/.test(x)),
+        "деньги вытеснили из ячейки более важное событие: " + JSON.stringify(r.подписи));
+
+      // В списке под сеткой порядок тот же.
+      const порядок = await p.evaluate(() =>
+        [...document.querySelectorAll("#appContent div[style*='border-radius:10px'] div[title]")]
+          .map((x) => x.textContent.trim()).slice(0, 3));
+      assert(/Дедлайн/.test(порядок[0] || ""),
+        "в списке под календарём дедлайн не первый в своём дне: " + JSON.stringify(порядок));
+    } finally {
+      await ctx.close();
+    }
+  });
+
   async function bootWithState(mutate, size = { width: 1200, height: 900 }) {
     const b = await bootLocal(browser, baseUrl, { ...size, seedDemo: true });
     await b.page.waitForTimeout(300);
