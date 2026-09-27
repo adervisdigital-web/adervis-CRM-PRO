@@ -6337,6 +6337,19 @@
     .kp-row-name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .kp-row-sub { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .kp-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    /* Сумма КП — своей колонкой, а не первой среди пяти значений серой строки. */
+    .kp-row-sum {
+      font-size: 13px; font-weight: 700; color: var(--text);
+      font-variant-numeric: tabular-nums; flex-shrink: 0; white-space: nowrap;
+      min-width: 96px; text-align: right;
+    }
+    /* Сколько КП ждёт ответа. После недели — предупреждением. */
+    .kp-wait {
+      font-size: 11px; font-weight: 700; flex-shrink: 0; white-space: nowrap;
+      padding: 3px 9px; border-radius: var(--r-pill);
+      background: var(--panel2); color: var(--muted);
+    }
+    .kp-wait.is-late { background: var(--tint-amber-bg); color: var(--text-warning); }
 
     /* Поиск + сортировка над списком КП */
     .kp-toolbar {
@@ -6370,9 +6383,15 @@
          без своего order она по умолчанию уезжала выше названия сделки. */
       .kp-row > .btn { order: 3; margin-left: auto; }
       /* Четыре действия подряд пальцем: 32px — промах через раз. Ряд ушёл на
-         отдельную строку, место есть (4×40 + зазоры ≈ 172px из ~340 доступных). */
+         отдельную строку, место есть (4×44 + зазоры ≈ 194px из ~340 доступных),
+         поэтому берём полные 44, а не 40: замер 24.09.2026 показал ровно 40px —
+         на один шаг ниже цели касания. Сторож это не ловил: у него в аккаунте
+         КП нет, а без них список не рисуется. */
       .kp-row-actions { gap: 6px; }
-      .kp-row-actions .icon-btn { width: 40px; height: 40px; }
+      .kp-row-actions .icon-btn { width: 44px; height: 44px; }
+      /* Сумма встаёт в свою строку рядом с метками, а не прижимается к краю. */
+      .kp-row-sum { order: 2; }
+      .kp-wait { order: 2; }
     }
     .icon-btn {
       background: none; border: 1px solid var(--line); border-radius: var(--r-sm);

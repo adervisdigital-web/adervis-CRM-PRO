@@ -17698,10 +17698,25 @@
         }
         if (_proposalsSort === 'sum') {
           list.sort((a, b) => numberValue(b.total_price, 0) - numberValue(a.total_price, 0));
+        } else if (_proposalsSort === 'wait') {
+          // «Давние» — прямой ответ на «кому напомнить»: сверху то, что ушло
+          // клиенту раньше всех и до сих пор без ответа.
+          list.sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
         } else {
           list.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
         }
         return list;
+      }
+
+      /* Сколько дней КП висит без ответа. Считаем по МЕСТНОМУ времени: клиент и
+         студия живут в одном часовом поясе, а сравнение UTC-строк после полуночи
+         даёт лишние сутки. */
+      function _proposalWaitDays(p) {
+        if (!p.created_at) return null;
+        const d = new Date(p.created_at);
+        if (isNaN(d)) return null;
+        const день = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+        return Math.max(0, Math.round((день(new Date()) - день(d)) / 86400000));
       }
 
       function _proposalRowHtml(p, dupIds) {
@@ -17709,13 +17724,19 @@
         const st = _portalStatus(p);
         const date = p.created_at ? formatDate(p.created_at) : '';
         const client = _portalClientName(p);
+        /* Сумма уехала из общей серой строки вправо: раньше «320 000 ₽» стояло
+           первым среди аванса, клиента, подписанта и даты одним потоком 12px —
+           главное число раздела нельзя было пробежать глазами по колонке. */
         const sub = [
-          money(p.total_price || 0),
           p.advance_amount ? `аванс ${money(p.advance_amount)}${p.advance_paid_at ? ' (оплачен)' : ''}` : '',
           client,
           p.signer_name ? `подписал ${escapeHtml(p.signer_name)}` : '',
           date
         ].filter(Boolean).join(' · ');
+        /* Отправленное КП без ответа — главный повод зайти в этот раздел, а
+           отличить вчерашнее от девятидневного было нельзя: обе строки говорили
+           только «Отправлено». Порог в неделю — когда пора напоминать. */
+        const ждёт = st.key === 'sent' ? _proposalWaitDays(p) : null;
         const needsLink = p.pay_method === 'link' && numberValue(p.advance_amount, 0) > 0
           && !/^https?:\/\//i.test(String(p.pay_link || '').trim());
         const act = (fn, name, title) =>
@@ -17727,9 +17748,15 @@
               <div class="kp-row-name">${escapeHtml(p.deal_name || 'Без названия')}</div>
               <div class="kp-row-sub">${sub}</div>
             </div>
+            ${ждёт != null && ждёт >= 1 ? `<span class="kp-wait${ждёт >= 7 ? ' is-late' : ''}" title="Столько дней прошло с отправки КП клиенту">ждёт ${ждёт} ${plural(ждёт, "день", "дня", "дней")}</span>` : ''}
             ${isDup ? `<span class="status-pill" style="font-size:11px;flex-shrink:0;color:var(--text-warning)" title="Есть другое КП с тем же названием, суммой и датой. Проверьте: возможно, одно из них лишнее — удалить можно кнопкой в этой же строке.">Похоже на дубль</span>` : ''}
             ${needsLink ? `<span class="status-pill" style="font-size:11px;flex-shrink:0;color:var(--text-warning)" title="Способ оплаты «ссылка», но ссылка не задана — клиент увидит КП без кнопки оплаты">Нет ссылки оплаты</span>` : ''}
             <span class="status-pill ${st.cls}" style="font-size:11px;flex-shrink:0">${st.label}</span>
+            ${/* Сумма стоит ПОСЛЕДНЕЙ перед кнопками, а не сразу за названием:
+                  метки («ждёт», «похоже на дубль», «нет ссылки») у строк разные
+                  по ширине и сдвигали число — колонки не получалось, суммы
+                  плавали по горизонтали. Правый край у всех строк один. */""}
+            <span class="kp-row-sum">${money(p.total_price || 0)}</span>
             <div class="kp-row-actions no-print">
               ${act('openPortalPreview', 'eye', 'Посмотреть КП глазами клиента')}
               ${act('openProposalModal', 'pencil', 'Изменить КП')}
@@ -17795,10 +17822,16 @@
             <div class="section-title">
               <div>
                 <h1>${h1Icon("doc")}Коммерческие предложения</h1>
+                ${/* Про дубли в подписи сказано прямо: «Всего на 1 680 000 ₽» на
+                      пяти КП, два из которых продукт САМ пометил как похожие,
+                      завышено ровно на стоимость лишней пары. Не вычитаем молча
+                      (дубль — повод посмотреть, а не факт), но и не делаем вид,
+                      что сумма чистая. */""}
                 <p>${_allPortalsError
                   ? 'Список не загрузился — суммы и счётчики показать не можем.'
                   : _allPortals.length
                     ? `Все КП по сделкам агентства. Всего на ${money(totalSum)}${paidSum ? ` · авансов оплачено ${money(paidSum)}` : ''}.`
+                      + (dupCount ? ` В сумму входят ${dupCount} похожих КП — они на вкладке «Похожие».` : '')
                     : 'Все КП по сделкам агентства.'}</p>
               </div>
               <div class="toolbar no-print">
@@ -17822,7 +17855,7 @@
                 </div>
                 <div class="kp-sort" role="group" aria-label="Сортировка КП">
                   <span class="u-meta" style="font-size:12px">Сначала:</span>
-                  ${sortBtn('date', 'новые')}${sortBtn('sum', 'дорогие')}
+                  ${sortBtn('date', 'новые')}${sortBtn('sum', 'дорогие')}${sortBtn('wait', 'давние')}
                 </div>
               </div>
               <div class="kp-list" id="proposalsList">${_proposalsListHtml()}</div>
@@ -17858,8 +17891,11 @@
                               спорила с заголовком над ней: под «Без отправленного
                               КП» стояла сделка, подписанная «КП отправлено» — это
                               её позиция в воронке, а не ссылка, ушедшая клиенту. */""}
-                        <div class="kp-row-sub">${money(d.total || 0)}${d.client ? ` · ${escapeHtml(d.client)}` : ''} · этап «${escapeHtml(d.crmStatus || 'Лид')}»</div>
+                        <div class="kp-row-sub">${d.client ? `${escapeHtml(d.client)} · ` : ''}этап «${escapeHtml(d.crmStatus || 'Лид')}»</div>
                       </div>
+                      ${/* Сумма колонкой — как в списке отправленных КП выше:
+                            два списка стоят друг под другом и читаются вместе. */""}
+                      <span class="kp-row-sum">${money(d.total || 0)}</span>
                       ${/* Кнопка тихая, заливку берёт у строки под курсором.
                             Шесть залитых акцентом кнопок подряд — тот же случай,
                             что в списке сделок, каталоге и админке: если кричат

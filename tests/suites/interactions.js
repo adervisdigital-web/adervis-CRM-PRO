@@ -1704,6 +1704,77 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assert(!/\{\{исполнитель\}\}/.test(after.body), "{{исполнитель}} остался незаполненным после подстановки");
   });
 
+  await test("все КП: суммы колонкой, отправленное говорит сколько ждёт, похожие названы в итоге", async () => {
+    /* 24.09.2026. Сумма КП стояла ПЕРВОЙ среди пяти значений одной серой
+       строки 12px («320 000 ₽ · аванс 160 000 ₽ · клиент · подписал · дата») —
+       главное число раздела нельзя было пробежать глазами по колонке. Отличить
+       КП, отправленное вчера, от висящего девять дней тоже было нельзя: обе
+       строки говорили только «Отправлено», хотя раздел затем и открывают, чтобы
+       понять, кому напомнить. А подпись «Всего на …» складывала и те КП, что
+       продукт сам пометил как похожие, ничего об этом не сказав. */
+    const день = (n) => new Date(Date.now() - n * 86400000).toISOString();
+    const КП = [
+      { id: "px1", project_id: "d1", deal_name: "Ролик для маркетплейса", deal_status: "КП отправлено",
+        total_price: 320000, approved_at: null, advance_amount: 160000, advance_paid_at: null,
+        signer_name: null, created_at: день(1), pay_method: "yookassa", pay_link: null },
+      { id: "px2", project_id: null, deal_name: "Имиджевый фильм", deal_status: "Лид",
+        total_price: 540000, approved_at: null, advance_amount: 270000, advance_paid_at: null,
+        signer_name: null, created_at: день(9), pay_method: "yookassa", pay_link: null },
+      { id: "px3", project_id: "d3", deal_name: "Имиджевый фильм", deal_status: "Лид",
+        total_price: 540000, approved_at: null, advance_amount: 0, advance_paid_at: null,
+        signer_name: null, created_at: день(9), pay_method: "yookassa", pay_link: null },
+    ];
+    const b = await bootWithSession(browser, baseUrl, { width: 1400, height: 1000 });
+    try {
+      await b.page.route("**/rest/v1/client_portals*", (r) =>
+        r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(КП) }));
+      await b.page.waitForTimeout(600);
+      await b.page.evaluate(() => window.app.go("proposals"));
+      await b.page.waitForTimeout(1300);
+
+      const r = await b.page.evaluate(() => {
+        const суммы = [...document.querySelectorAll("#proposalsList .kp-row-sum")]
+          .map((x) => ({ текст: x.textContent.trim(), правый: Math.round(x.getBoundingClientRect().right) }));
+        const ждут = [...document.querySelectorAll(".kp-wait")]
+          .map((x) => ({ текст: x.textContent.replace(/\s+/g, " ").trim(), поздно: x.classList.contains("is-late") }));
+        return {
+          сумм: суммы.length,
+          разброс: суммы.length ? Math.max(...суммы.map((s) => s.правый)) - Math.min(...суммы.map((s) => s.правый)) : -1,
+          подстроки: [...document.querySelectorAll("#proposalsList .kp-row-sub")].map((x) => x.textContent.replace(/\s+/g, " ").trim()),
+          ждут,
+          подпись: (document.querySelector(".section-title p") || {}).textContent || "",
+          сортировки: [...document.querySelectorAll(".kp-sort .fin-subtab")].map((x) => x.textContent.trim()),
+        };
+      });
+
+      assert(r.сумм >= 3, "суммы КП не вынесены отдельным элементом, найдено " + r.сумм);
+      assertEqual(r.разброс, 0, "суммы не стоят колонкой — правые края разъезжаются на " + r.разброс + "px");
+      assert(!r.подстроки.some((x) => /^\s*\d[\d\s]*₽/.test(x)),
+        "сумма осталась и в серой подстроке: " + JSON.stringify(r.подстроки));
+
+      const вчера = r.ждут.find((x) => /1 день/.test(x.текст));
+      const давнее = r.ждут.find((x) => /9 дней/.test(x.текст));
+      assert(вчера, "у свежего КП нет отметки, сколько оно ждёт: " + JSON.stringify(r.ждут));
+      assert(давнее, "у КП девятидневной давности нет отметки ожидания: " + JSON.stringify(r.ждут));
+      assert(!вчера.поздно, "вчерашнее КП помечено просроченным");
+      assert(давнее.поздно, "КП ждёт девять дней, но выглядит как вчерашнее");
+
+      assert(/похожих/.test(r.подпись),
+        "итоговая сумма молчит о похожих КП, хотя складывает их: " + r.подпись);
+      assert(r.сортировки.some((x) => /давние/.test(x)), "нет сортировки «давние» — кому напомнить, не найти");
+
+      // «Давние» ставит наверх то, что ушло клиенту раньше всех.
+      await b.page.evaluate(() => window.app.setProposalsSort("wait"));
+      await b.page.waitForTimeout(600);
+      const первый = await b.page.evaluate(() =>
+        (document.querySelector(".kp-row .kp-row-name") || {}).textContent || "");
+      assert(/Имиджевый/.test(первый), "«давние» не подняли наверх самое старое КП, сверху: " + первый);
+      assertEqual(b.errors.length, 0, "исключения на странице: " + b.errors.join(" | "));
+    } finally {
+      await b.context.close();
+    }
+  });
+
   await test("договоры: CRM заполняет то, что знает, а список ведёт к остальному", async () => {
     /* 23.09.2026. Договор создавался из шаблона с уже привязанной сделкой и
        выданным номером — и всё равно печатал в тексте {{номер}}, {{дата}},
