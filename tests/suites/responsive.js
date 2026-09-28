@@ -2158,4 +2158,37 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+/* Обход 29.09.2026 на телефоне: в «Календаре» нижняя панель подсвечивала
+     «Финансы» (кнопка ведёт только в финансы, календарь — из «Разделов»), а в
+     «Задачах» переключатель «список / доска» стоял отдельной строкой с
+     пустотой слева. Теперь он в строке поиска, проект и «Своя задача» — ниже. */
+  await test("телефон: календарь подсвечивает «Разделы», фильтры задач — две строки без вылета за край", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 390, height: 844, touch: true, seedDemo: true });
+    try {
+      await page.evaluate(() => window.app.go("global-calendar"));
+      await page.waitForTimeout(400);
+      const nav = await page.evaluate(() => ({
+        fin: document.getElementById("mbnFinances")?.classList.contains("active"),
+        more: document.getElementById("mbnMore")?.classList.contains("active"),
+      }));
+      assert(!nav.fin, "на календаре подсвечены «Финансы»");
+      assert(nav.more, "на календаре не подсвечены «Разделы», откуда он открывается");
+
+      await page.evaluate(() => { window.app.setGlobalTaskView("list"); window.app.go("global-tasks"); });
+      await page.waitForTimeout(500);
+      const r = await page.evaluate(() => {
+        const box = (sel) => { const el = document.querySelector(sel); if (!el) return null; const b = el.getBoundingClientRect(); return { top: Math.round(b.top), right: Math.round(b.right), w: Math.round(b.width) }; };
+        return { search: box(".gtask-search"), toggle: box(".gtask-filters .deal-view-toggle"), select: box(".gtask-filters .uu-select-wrap"), add: box(".gtask-add"), vw: innerWidth, sw: document.documentElement.scrollWidth };
+      });
+      assert(r.search && r.toggle && r.select, "в фильтрах задач нет поиска, переключателя или проекта: " + JSON.stringify(r));
+      assert(Math.abs(r.search.top - r.toggle.top) <= 4, "переключатель вида не в строке поиска: " + JSON.stringify(r));
+      assert(r.search.w >= 160, "поиск сжат: " + r.search.w + "px");
+      assert(r.select.top > r.search.top + 20, "проект не ушёл во вторую строку: " + JSON.stringify(r));
+      for (const k of ["search", "toggle", "select", "add"]) if (r[k]) assert(r[k].right <= r.vw, k + " вылезает за правый край: " + JSON.stringify(r[k]));
+      assertEqual(r.sw, r.vw, "страница задач шире экрана");
+    } finally {
+      await context.close();
+    }
+  });
+
 };

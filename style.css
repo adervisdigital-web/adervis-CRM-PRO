@@ -6615,6 +6615,8 @@
     .cal-cell.other-month { opacity: .32; }
     .cal-cell.selected { border-color: var(--blue); background: rgba(37,99,235,.1); }
     .cal-cell.weekend .cal-day-num { color: var(--text-danger); opacity: .7; }
+    .gcal-more { display: block; margin-top: 1px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+    @media (max-width: 640px) { .gcal-more-word { display: none; } }
 
     /* «+ Задача» живёт в самой ячейке — так она знает свой день. Появляется
        по наведению на ячейку; на тач-экране её нет вовсе (см. ниже) — там день
@@ -9318,6 +9320,17 @@ body.portal-mode .nav { display: none !important; }
   /* Раздел «Задачи» на телефоне: селектор проекта на всю ширину под чипами */
   .gtask-project-select { margin-left: 0; width: 100%; }
   .gtask-filters { gap: 8px; }
+  /* Переключатель «список / доска» — в строку к поиску. Отдельной строкой он
+     занимал ~50px с пустотой слева (обход 29.09.2026): поиск на всю ширину,
+     под ним проект и «Своя задача», и уже третьей строкой — две кнопки. */
+  /* Основа поиска — вся строка минус переключатель: тогда проект и «Своя
+     задача» гарантированно уходят на вторую строку, а не сжимают поиск. */
+  .gtask-search { order: 0; flex: 1 1 calc(100% - 120px); min-width: 0; max-width: none; }
+  .gtask-filters .deal-view-toggle { order: 1; margin-left: 0; }
+  /* Основа 60%, не 0: с нулевой основой селект втискивался в первую строку
+     остатком в 17px и вылезал содержимым за правый край. */
+  .gtask-filters .uu-select-wrap { order: 2; flex: 1 1 60%; min-width: 0; }
+  .gtask-add { order: 3; }
   /* Много пилюль-фильтров (.tabs, .gtask-chips, «Период:» в Финансах) — на телефоне не
      перенос в 2-3 тесных ряда, а горизонтальный скролл в одну строку (тот же приём,
      что у .catalog-cat-sidebar), с fade-подсказкой по краям. Скроллбар НЕ прячем —

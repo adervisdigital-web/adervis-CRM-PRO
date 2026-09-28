@@ -16804,8 +16804,11 @@
         const mbnViewMap = {
           mbnHome: ["home","wizard","profile","plans","settings","support","crm"],
           mbnDeal: ["deal","estimate","proposal","tasks","finance","team","calendar","versions"],
-          mbnFinances: ["global-finances","global-calendar"],
-          mbnMore: ["clients","company-team","knowledge","services","catalog","packages","contracts","proposals","briefs","global-tasks"]
+          // Календарь — в «Разделах»: кнопка «Финансы» ведёт только в финансы,
+          // а подсвечивалась и на календаре (обход 29.09.2026) — «вы здесь»
+          // показывало не туда, откуда человек пришёл.
+          mbnFinances: ["global-finances"],
+          mbnMore: ["clients","company-team","knowledge","services","catalog","packages","contracts","proposals","briefs","global-tasks","global-calendar"]
         };
         Object.entries(mbnViewMap).forEach(([id, views]) => {
           const el = document.getElementById(id);
@@ -26852,7 +26855,9 @@
                          · Лукойл — ролик». */
                       return `<span class="cal-event-label ${ev.type}" title="${escapeHtml(ev.title)}${ev.project && ev.project !== ev.title ? " · " + escapeHtml(ev.project) : ""}">${escapeHtml(text)}</span>`;
                     }).join("")}
-                    ${dayEvs.length > MAX_LABELS ? `<span style="font-size:12px;color:var(--muted);display:block;margin-top:1px">+${dayEvs.length - MAX_LABELS} ещё</span>` : ""}
+                    ${/* На телефоне ячейка 48px, и «+1 ещё» ломалось на две строки
+                          («+1» / «ещё»). Там слово прячется: рядом и так точки событий. */""}
+                    ${dayEvs.length > MAX_LABELS ? `<span class="gcal-more">+${dayEvs.length - MAX_LABELS}<span class="gcal-more-word"> ещё</span></span>` : ""}
                   </div>
                 `;
               }).join("")}
