@@ -4486,6 +4486,12 @@
       display: inline-flex; align-items: center; justify-content: center;
     }
     .db-analytics-range { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    /* Шапка обеих панелей ряда — одной высоты (по капсулам навигации) и с
+       воздухом под собой. Навигация периода стояла вплотную к суммам (8px),
+       и «В среднем / мес» читалось подписью к переключателю (владелец 28.09). */
+    .db-panel-title { font-size: 15px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
+    .db-money-panel > .db-analytics-header,
+    .db-clients-panel > .db-analytics-header { min-height: 34px; margin-bottom: 18px; }
 
     /* Три числа периода подписанной строкой. Прежняя легенда «▋ сумма ▋ сумма
        = сумма» объясняла цвет столбцов, но не говорила, что это за суммы. */

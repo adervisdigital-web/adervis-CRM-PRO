@@ -1,4 +1,4 @@
-﻿    (() => {
+    (() => {
       "use strict";
 
       /* Версия = ветка продукта + НОМЕР СБОРКИ из sw.js (CACHE_NAME).
@@ -19124,7 +19124,7 @@
                   <span class="db-panel-ico">
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="9" width="3.2" height="6" rx="1"/><rect x="6.4" y="4.5" width="3.2" height="10.5" rx="1"/><rect x="11.8" y="1.5" width="3.2" height="13.5" rx="1"/></svg>
                   </span>
-                  <span style="font-weight:700;font-size:13px">Доход и расходы</span>
+                  <span class="db-panel-title">Доход и расходы</span>
                 </div>
                 ${/* Навигация — справа одной группой. Стрелки обнимают сам период,
                       а не стоят после него: видно, ЧТО листается. «Сейчас» — только
@@ -19227,7 +19227,7 @@
                   <span class="db-panel-ico">
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">${EMPTY_ICON_PATHS.users}</svg>
                   </span>
-                  <span style="font-weight:700;font-size:13px">Топ клиентов</span>
+                  <span class="db-panel-title">Топ клиентов</span>
                   <span class="db-analytics-range" title="Тот же период, что и у графика">· ${rangeLabel}</span>
                 </div>
               </div>
@@ -20089,8 +20089,11 @@
                   <span class="db-stat-value">${billed > 0 ? pct + "%" : "—"}</span>
                   ${billed > 0 ? gaugeSvg(pct, pct >= 80 ? "var(--text-success)" : pct >= 50 ? "var(--text-warning)" : "var(--text-danger)") : ""}
                 </div>
-                <div class="db-stat-delta ${cls}" title="Все сделки, кроме архивных, за всё время: сколько выставлено и сколько из этого получено">${billed > 0 ? money(got) + " из " + money(billed) : "нет сумм"}</div>
-                ${over > 0 ? `<div class="db-stat-delta neg db-stat-over" title="Оплачено больше суммы сделки: ${escapeHtml(overTitle)}. Верните клиенту разницу или поправьте платёж.">переплата ${money(over)} · ${overDeals.length} ${plural(overDeals.length, "сделка", "сделки", "сделок")}</div>` : ""}
+                ${/* Строку «переплата N ₽ · M сделок» под плиткой владелец 28.09
+                      убрал — плитка про долю. Переплата в долю по-прежнему не
+                      входит (collectionStats), а сама сумма осталась в подсказке
+                      и в «Что важно» в «Финансах». */""}
+                <div class="db-stat-delta ${cls}" title="Все сделки, кроме архивных, за всё время: сколько выставлено и сколько из этого получено${over > 0 ? `. Переплата ${money(over)} (${overDeals.length} ${plural(overDeals.length, "сделка", "сделки", "сделок")}: ${escapeHtml(overTitle)}) в долю не входит` : ""}">${billed > 0 ? money(got) + " из " + money(billed) : "нет сумм"}</div>
               </div>`;
               })()}
             </div>
