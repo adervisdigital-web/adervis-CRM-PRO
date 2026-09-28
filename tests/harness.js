@@ -96,16 +96,20 @@ async function blockExternalRequests(context, baseUrl) {
 }
 
 async function bootLocal(browser, baseUrl, opts = {}) {
-  const { width = 1200, height = 800, localMode = true, seedDemo = false, touch = false } = opts;
+  const { width = 1200, height = 800, localMode = true, seedDemo = false, touch = false, reducedMotion = false } = opts;
   // touch: без hasTouch+isMobile Chromium сообщает pointer:fine, и весь блок
   // @media (hover: none) and (pointer: coarse) в проверку НЕ ПОПАДАЕТ — а там
   // живут расширенные области касания у иконочных кнопок. То есть без этого
   // флага мы меряем десктопную раскладку в узком окне, а не телефон.
-  const context = await browser.newContext(
-    touch
+  // reducedMotion: геометрию мерят в ПОКОЕ. С 28.09.2026 главная входит с
+  // анимацией (каскад, сдвиг и масштаб блоков ~1,7 с), и замер в эти секунды
+  // видел «пустую ячейку» в полосе плиток и кнопку в 43px вместо 44.
+  const context = await browser.newContext({
+    ...(touch
       ? { viewport: { width, height }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 }
-      : { viewport: { width, height } }
-  );
+      : { viewport: { width, height } }),
+    ...(reducedMotion ? { reducedMotion: "reduce" } : {}),
+  });
   await blockExternalRequests(context, baseUrl);
 
   const page = await context.newPage();

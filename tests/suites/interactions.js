@@ -4360,6 +4360,482 @@ module.exports = async function ({ browser, baseUrl, test }) {
   /* Подсунуть объём: писать в localStorage и перезагружать НЕЛЬЗЯ — на выгрузке
      страница пишет свой снимок состояния поверх, и подсунутое молча пропадает.
      Открываем вторую вкладку: она читает хранилище заново. */
+  await test("главная: вход с движением один раз, числа не врут ни в один кадр, «меньше движения» уважается", async () => {
+    /* 27.09.2026, владелец: «нужна современная анимация красивая». Каскад
+       блоков, набегающие числа, прорисовка графиков — но с тремя условиями,
+       которые и проверяем:
+       1) только на ВХОД: render() зовётся на любое действие, и каскад на каждом
+          превратил бы главную в мигающую гирлянду;
+       2) настоящее число стоит в тексте с первого кадра — его читают
+          скринридер, копирование и тесты money (через 120 мс после входа);
+          набегает только нарисованное поверх;
+       3) при «уменьшить движение» в системе ничего не двигается. */
+    const b = await bootLocal(browser, baseUrl, { width: 1440, height: 1000, seedDemo: true });
+    try {
+      const p = b.page;
+      await p.evaluate(() => window.app.go("global-finances"));
+      await p.waitForTimeout(400);
+      /* Элемент с СОБСТВЕННОЙ прозрачностью — для проверки «без вспышки» ниже.
+         Делаем его сами, а не ищем в дизайне: приглушённые блоки на главной
+         приходят и уходят с переделками (28.09 пропали пустые этапы на .5), а
+         проверять надо поведение анимации, а не нынешний вид страницы. */
+      await p.addStyleTag({ content: "#appContent .db-header { opacity: .5; }" });
+
+      // Вход — первый кадр.
+      await p.evaluate(() => window.app.go("home"));
+      await p.waitForTimeout(60);
+      const старт = await p.evaluate(() => {
+        const root = document.getElementById("appContent");
+        const vals = [...root.querySelectorAll(".db-stat-value")];
+        return {
+          вход: root.classList.contains("home-enter"),
+          помечено: root.querySelectorAll("[data-enter]").length,
+          считают: root.querySelectorAll(".db-stat-value.is-counting").length,
+          тексты: vals.map((v) => v.textContent.trim()),
+          // Набегают только числа от десяти — у них финальное значение не ноль,
+          // и ноль в ТЕКСТЕ здесь мог появиться лишь от счётчика, писавшего в текст.
+          // (У демо «Расходы / мес» честно 0 ₽ — такие не набегают и не мешают.)
+          текстыСчитающих: vals.filter((v) => v.classList.contains("is-counting")).map((v) => v.textContent.trim()),
+        };
+      });
+      assert(старт.вход, "при входе на главную движение не запустилось");
+      assert(старт.помечено >= 5, "каскадом помечено слишком мало блоков: " + старт.помечено);
+      assert(старт.считают >= 1, "ни одно число не набегает — счётчик не запустился");
+      assert(!старт.текстыСчитающих.some((x) => /^[-−]?0\s*(₽|%)?$/.test(x)),
+        "в ТЕКСТЕ плитки стоит ноль на полпути, а не настоящая сумма: " + JSON.stringify(старт.текстыСчитающих));
+
+      /* Блок с собственной прозрачностью (шапка на .5, выставлена выше) вход не
+         должен «вспыхивать» до полной яркости. С конечным кадром opacity:1 так
+         и было: приглушённые пустые этапы воронки на время входа загорались, а
+         после снятия класса резко гасли обратно. */
+      const пик = await p.evaluate(() => new Promise((resolve) => {
+        const el = document.querySelector("#appContent .db-header");
+        if (!el) { resolve(null); return; }
+        let max = 0; const t0 = performance.now();
+        const tick = () => {
+          max = Math.max(max, Number(getComputedStyle(el).opacity));
+          if (performance.now() - t0 < 1200) requestAnimationFrame(tick); else resolve(max);
+        };
+        requestAnimationFrame(tick);
+      }));
+      assert(пик !== null, "на главной нет шапки для проверки");
+      assert(пик <= 0.52, "приглушённый блок вспыхивает при входе до " + пик);
+
+      // Конец входа: всё на месте, ничего не считает, класс снят.
+      await p.waitForTimeout(700);
+      const конец = await p.evaluate(() => {
+        const root = document.getElementById("appContent");
+        return {
+          вход: root.classList.contains("home-enter"),
+          считают: root.querySelectorAll(".db-stat-value.is-counting").length,
+          тексты: [...root.querySelectorAll(".db-stat-value")].map((v) => v.textContent.trim()),
+          /* Не «прозрачность < 1»: пустые этапы воронки приглушены до .5 по
+             дизайну. Мерим то, что важно, — не зависла ли анимация. */
+          зависших: [...root.querySelectorAll("[data-enter]")]
+            .filter((x) => x.getAnimations().length > 0).length,
+        };
+      });
+      assert(!конец.вход, "класс входа остался висеть после анимации");
+      assertEqual(конец.считают, 0, "счётчики не закончились");
+      assertEqual(конец.зависших, 0, "после входа у блоков остались незавершённые анимации");
+      assertEqual(JSON.stringify(конец.тексты), JSON.stringify(старт.тексты),
+        "числа в тексте изменились за время анимации — значит, счётчик писал в сам текст");
+
+      // Повторная отрисовка на той же главной — без каскада.
+      await p.evaluate(() => window.app.go("home"));
+      await p.waitForTimeout(60);
+      const повтор = await p.evaluate(() => ({
+        вход: document.getElementById("appContent").classList.contains("home-enter"),
+        считают: document.querySelectorAll(".db-stat-value.is-counting").length,
+      }));
+      assert(!повтор.вход && повтор.считают === 0,
+        "повторная отрисовка главной снова запустила вход: " + JSON.stringify(повтор));
+
+      /* Свечение за курсором не должно подкрашивать текст. Владелец 28.09:
+         «не должно перекрывать весь текст и графику». Мерим РЕЗУЛЬТАТ, а не
+         способ, — и мерим ЯДРО букв: в кадре до наведения берём пиксели точно
+         цвета текста, в кадре под курсором смотрим, насколько сдвинулись именно
+         они. Пятно ПОД текстом меняет только фон вокруг букв (сдвиг 0); пятно
+         ПОВЕРХ красит сами буквы (замер: 11–12).
+         Первая версия проверки брала «самый белый пиксель» — а набор идёт в
+         светлой теме, где буквы тёмные и самый белый пиксель — это фон. Она
+         проходила и с дефектом; проверено поломкой. */
+      const сдвигЯдра = async (sel) => {
+        const el = await p.$(sel);
+        if (!el) return null;
+        await el.scrollIntoViewIfNeeded();
+        await p.mouse.move(2, 2);
+        await p.waitForTimeout(450);
+        const bb = await el.boundingBox();
+        const clip = { x: Math.round(bb.x), y: Math.round(bb.y), width: Math.max(4, Math.round(bb.width)), height: Math.max(4, Math.round(bb.height)) };
+        const до = (await p.screenshot({ clip })).toString("base64");
+        await p.mouse.move(clip.x + clip.width / 2, clip.y + clip.height / 2, { steps: 4 });
+        await p.waitForTimeout(550);
+        // Карточка под курсором приподнимается на 2px — кадр «после» снимаем по
+        // НОВОМУ положению, иначе буквы не совпадут с собой и сдвиг будет ложным.
+        const bb2 = await el.boundingBox();
+        const после = (await p.screenshot({ clip: { ...clip, x: Math.round(bb2.x), y: Math.round(bb2.y) } })).toString("base64");
+        return p.evaluate(async ([s, a, b2]) => {
+          const col = getComputedStyle(document.querySelector(s)).color.match(/\d+/g).slice(0, 3).map(Number);
+          const px = async (b64) => {
+            const img = new Image(); img.src = "data:image/png;base64," + b64; await img.decode();
+            const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+            const x = c.getContext("2d"); x.drawImage(img, 0, 0);
+            return x.getImageData(0, 0, c.width, c.height).data;
+          };
+          const A = await px(a), B = await px(b2);
+          let n = 0, sum = 0;
+          for (let i = 0; i < A.length; i += 4) {
+            if (Math.hypot(A[i] - col[0], A[i + 1] - col[1], A[i + 2] - col[2]) < 12) {
+              n++; sum += Math.hypot(B[i] - A[i], B[i + 1] - A[i + 1], B[i + 2] - A[i + 2]);
+            }
+          }
+          return { ядро: n, сдвиг: n ? sum / n : null };
+        }, [sel, до, после]);
+      };
+      // Сумма без своего цвета — «Воронка»: у неё нет инлайновой окраски.
+      const естьВоронка = await p.evaluate(() => {
+        const t = [...document.querySelectorAll(".db-stat")].find((x) => /Воронка/.test(x.textContent || ""));
+        if (!t) return false;
+        t.querySelector(".db-stat-value").id = "probeFunnelValue";
+        return true;
+      });
+      assert(естьВоронка, "на главной нет плитки «Воронка»");
+      const плитка = await сдвигЯдра("#probeFunnelValue");
+      assert(плитка.ядро >= 30, "не нашёл букв суммы для замера: " + JSON.stringify(плитка));
+      assert(плитка.сдвиг <= 3,
+        `свечение ложится ПОВЕРХ текста плитки: буквы сдвинулись по цвету на ${плитка.сдвиг.toFixed(1)}`);
+
+      // То же на карточке сделки: сумма «Бюджет».
+      const естьКарточка = await p.evaluate(() => {
+        const v = document.querySelector(".deal-card .deal-card-stat .val");
+        if (!v) return false;
+        v.id = "probeCardValue";
+        return true;
+      });
+      if (естьКарточка) {
+        const карточка = await сдвигЯдра("#probeCardValue");
+        assert(карточка.ядро >= 30, "не нашёл букв суммы карточки: " + JSON.stringify(карточка));
+        assert(карточка.сдвиг <= 3,
+          `свечение ложится ПОВЕРХ текста карточки: буквы сдвинулись по цвету на ${карточка.сдвиг.toFixed(1)}`);
+      }
+      await p.mouse.move(2, 2);
+
+      // «Уменьшить движение» — вход не запускается.
+      await p.emulateMedia({ reducedMotion: "reduce" });
+      await p.evaluate(() => window.app.go("global-finances"));
+      await p.waitForTimeout(300);
+      await p.evaluate(() => window.app.go("home"));
+      await p.waitForTimeout(60);
+      const тихо = await p.evaluate(() => ({
+        вход: document.getElementById("appContent").classList.contains("home-enter"),
+        считают: document.querySelectorAll(".db-stat-value.is-counting").length,
+      }));
+      assert(!тихо.вход && тихо.считают === 0,
+        "при «уменьшить движение» главная всё равно двигается: " + JSON.stringify(тихо));
+      assertEqual(b.errors.length, 0, "исключения на странице: " + b.errors.join(" | "));
+    } finally {
+      await b.context.close();
+    }
+  });
+
+  await test("главная: лента этапов — прежние плитки, цвет этапа только у занятых", async () => {
+    /* 28.09.2026. Две переделки ленты (плитки разной ширины, затем полоса-
+       воронка) владелец отклонил: «изначально было лучше». Лента — прежняя
+       ровная сетка плиток в порядке воронки; добавлена только тонкая полоска
+       цвета этапа у ЗАНЯТЫХ плиток — тот же цвет, что полоса статуса на
+       карточке сделки. Пустой этап её не получает: цвет ему ни к чему. */
+    const день = (n) => {
+      const t2 = new Date(); t2.setDate(t2.getDate() + n);
+      const p2 = (x) => String(x).padStart(2, "0");
+      return `${t2.getFullYear()}-${p2(t2.getMonth() + 1)}-${p2(t2.getDate())}`;
+    };
+    const { ctx, p } = await bootWithState(`
+      const mk = (id, status, total) => ({
+        id, name: "Сделка " + id, client: "Клиент", total, paid: 0, crmStatus: status,
+        deadline: "${день(20)}", createdAt: "${день(-30)}", updatedAt: "${день(-3)}",
+        snapshot: { project: { name: "Сделка " + id, crmStatus: status }, selected: {}, payments: [], expenses: [], tasks: [] },
+      });
+      st.savedProjects = [mk("w1", "В работе", 30000), mk("w2", "В работе", 30000), mk("o1", "Оплата", 900000)];
+      st.activeProjectId = ""; st.payments = []; st.expenses = []; st.tasks = [];
+      st.crmFilter = "all"; st.view = "home";
+    `, { width: 1440, height: 1000 });
+    try {
+      await p.evaluate(() => window.app.go("home"));
+      await p.waitForTimeout(2200);
+      const r = await p.evaluate(() => {
+        const tiles = [...document.querySelectorAll(".crm-home-funnel > .funnel-stage")];
+        const info = (name) => {
+          const t = tiles.find((x) => (x.querySelector("h3") || {}).textContent.trim() === name);
+          return t ? { shadow: getComputedStyle(t).boxShadow, w: Math.round(t.getBoundingClientRect().width) } : null;
+        };
+        return {
+          плиток: tiles.length,
+          work: info("В работе"), lead: info("Лид"), pay: info("Оплата"),
+          порядок: tiles.map((x) => (x.querySelector("h3") || {}).textContent.trim()),
+        };
+      });
+      assert(r.плиток >= 11, "плиток в ленте меньше этапов воронки: " + r.плиток);
+      assertEqual(r.work.w, r.lead.w, "в покое плитки ленты разной ширины — должна быть ровная сетка");
+      assert(/inset/.test(r.work.shadow), "у занятого этапа нет полоски цвета: " + r.work.shadow);
+      assert(!/inset/.test(r.lead.shadow), "пустой этап получил полоску цвета: " + r.lead.shadow);
+      const i = (n) => r.порядок.indexOf(n);
+      assert(i("Лид") < i("В работе") && i("В работе") < i("Сдано") && i("Сдано") < i("Оплата"),
+        "порядок этапов в ленте нарушен: " + r.порядок.join(" → "));
+
+      /* Наведение (владелец 28.09: «блоки могут растягиваться при наведении?»,
+         затем раздвигание с превью отклонил): плитка «всплывает» — крупнее и
+         поверх ленты, соседи стоят на месте и не обрезаются. */
+      const прямоугольник = (name) => p.evaluate((n) => {
+        const t = [...document.querySelectorAll(".crm-home-funnel > .funnel-stage")]
+          .find((x) => (x.querySelector("h3") || {}).textContent.trim() === n);
+        const b = t.getBoundingClientRect();
+        return { x: Math.round(b.x), w: Math.round(b.width), h: Math.round(b.height) };
+      }, name);
+      const плитка = async (name) => {
+        const all = await p.$$(".crm-home-funnel > .funnel-stage");
+        for (const t of all) if ((await t.$eval("h3", (h) => h.textContent.trim())) === name) return t;
+        return null;
+      };
+      const соседДо = await прямоугольник("Сдано");
+      const доНаведения = await прямоугольник("В работе");
+      await (await плитка("В работе")).hover();
+      await p.waitForTimeout(600);
+      const всплыла = await прямоугольник("В работе");
+      const соседПосле = await прямоугольник("Сдано");
+      assert(всплыла.w > доНаведения.w * 1.03 && всплыла.h > доНаведения.h * 1.03,
+        `плитка под курсором не всплыла: ${JSON.stringify(всплыла)} против ${JSON.stringify(доНаведения)}`);
+      assertEqual(JSON.stringify(соседПосле), JSON.stringify(соседДо),
+        "соседняя плитка сдвинулась или сжалась — всплытие не должно трогать соседей");
+      assertEqual(await p.evaluate(() => getComputedStyle(document.querySelector(".crm-home-funnel")).display), "grid",
+        "лента перестала быть ровной сеткой");
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  await test("главная: собираемость без переплаты, ряды плиток ровные, клиент подсвечивается в кольце", async () => {
+    /* 28.09.2026, по скриншоту владельца с живыми данными.
+       1) «Собрано всего 101%»: по части сделок оплачено больше их суммы, и
+          переплата одних прятала недоплату других. Доля — в пределах суммы
+          каждой сделки, переплата — отдельно; «Финансы» считают так же
+          (одна функция collectionStats вместо четырёх копий).
+       2) Ряд плиток читался лесенкой: у плиток с мини-графиком число и подпись
+          стояли ниже, чем у соседей без него.
+       3) Наведение на клиента в «Топ клиентов» — его сегмент кольца выделен,
+          в центре его доля и имя. */
+    const день = (n) => {
+      const t2 = new Date(); t2.setDate(t2.getDate() + n);
+      const p2 = (x) => String(x).padStart(2, "0");
+      return `${t2.getFullYear()}-${p2(t2.getMonth() + 1)}-${p2(t2.getDate())}`;
+    };
+    const { ctx, p } = await bootWithState(`
+      const mk = (id, status, total, paid, client, payDay) => ({
+        id, name: "Проект " + id, client, total, paid, crmStatus: status,
+        deadline: "${день(10)}", createdAt: "${день(-120)}", updatedAt: "${день(-3)}",
+        snapshot: { project: { name: "Проект " + id, crmStatus: status, client }, selected: {},
+          payments: paid ? [{ id: "p" + id, date: payDay, amount: paid, title: "Оплата" }] : [],
+          expenses: [], tasks: [] },
+      });
+      st.savedProjects = [
+        mk("a", "Завершённые", 100000, 150000, "Лукойл", "${день(-20)}"),
+        mk("b", "Завершённые", 200000, 200000, "Арина", "${день(-40)}"),
+        mk("c", "Оплата", 100000, 20000, "Рома", "${день(-10)}"),
+      ];
+      st.activeProjectId = ""; st.payments = []; st.expenses = []; st.tasks = [];
+      st.view = "home";
+    `, { width: 1440, height: 1000 });
+    try {
+      await p.evaluate(() => window.app.go("global-finances"));
+      await p.waitForTimeout(400);
+      await p.evaluate(() => window.app.go("home"));
+      await p.waitForTimeout(2300);
+      const r = await p.evaluate(() => {
+        const tiles = [...document.querySelectorAll(".db-stat")];
+        const coll = tiles.find((t) => /Собрано всего/.test(t.textContent));
+        const rows = {};
+        tiles.forEach((t) => {
+          const top = Math.round(t.getBoundingClientRect().top);
+          const d = t.querySelector(".db-stat-delta");
+          (rows[top] = rows[top] || []).push(d ? Math.round(d.getBoundingClientRect().top) : null);
+        });
+        return {
+          собрано: coll ? coll.textContent.replace(/\s+/g, " ").trim() : "",
+          разбросПодписей: Object.values(rows).map((ys) => Math.max(...ys) - Math.min(...ys)),
+        };
+      });
+      // Выставлено 400 000; получено в пределах сумм: 100 000 + 200 000 + 20 000 = 320 000 → 80%.
+      // «В лоб» было бы (150 000 + 200 000 + 20 000) / 400 000 = 93%.
+      assert(/80%/.test(r.собрано), "собираемость посчитана с переплатой: " + r.собрано);
+      assert(/переплата 50\s000\s₽/.test(r.собрано), "переплата не названа отдельно: " + r.собрано);
+      assert(r.разбросПодписей.every((d) => d <= 1),
+        "подписи в ряду плиток стоят на разной высоте: " + JSON.stringify(r.разбросПодписей));
+
+      // Клиент в топе подсвечивает свой сегмент и называет себя в центре кольца.
+      const row = await p.$('.db-client-row[data-seg="1"]');
+      assert(row, "в «Топ клиентов» нет второй строки");
+      const имя = await row.$eval(".db-top-name", (x) => x.textContent.trim());
+      await row.hover();
+      await p.waitForTimeout(500);
+      const кольцо = await p.evaluate(() => ({
+        прозрачности: [...document.querySelectorAll(".db-clients-donut .donut-seg")].map((s) => Number(getComputedStyle(s).opacity)),
+        центр: [...document.querySelectorAll(".db-clients-donut-center")]
+          .filter((c) => Number(getComputedStyle(c).opacity) > .5).map((c) => c.textContent.replace(/\s+/g, " ").trim()),
+      }));
+      assert(кольцо.прозрачности[1] > .9 && кольцо.прозрачности.filter((o, i) => i !== 1).every((o) => o < .5),
+        "наведение на клиента не выделило его сегмент: " + JSON.stringify(кольцо.прозрачности));
+      assertEqual(кольцо.центр.length, 1, "в центре кольца видно не одну подпись: " + JSON.stringify(кольцо.центр));
+      assert(кольцо.центр[0].includes(имя), `в центре кольца не «${имя}»: ` + кольцо.центр[0]);
+
+      // «Финансы» считают так же и называют переплату в «Что важно» (вкладка «Аналитика»).
+      await p.mouse.move(2, 2);
+      await p.evaluate(() => { window.app.setGFinSubTab("analytics"); window.app.go("global-finances"); });
+      await p.waitForTimeout(900);
+      const фин = await p.evaluate(() => (document.getElementById("appContent").textContent || "").replace(/\s+/g, " "));
+      assert(/Переплата 50\s000\s₽/.test(фин), "«Финансы» не называют переплату");
+      assert(!/93%/.test(фин), "«Финансы» по-прежнему считают собираемость с переплатой (93%)");
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  await test("сделки: «+» открывает мастер окном поверх списка, служебная метка O!task вычищена", async () => {
+    /* 28.09.2026, владелец:
+       — «убрать импорт-o!task, удалить везде тег в проектах»: тег и заметку
+         поставил скрипт переноса из O!task (16.07); тег лез в панель тегов.
+         Тег удаляется у всех сделок, из заметки — только строки про O!task,
+         своё, дописанное туда, остаётся;
+       — «сделать кнопку «+» — будет открывать «новая сделка» поп-ап окном». */
+    const { ctx, p } = await bootWithState(`
+      const mk = (id, tags, note) => ({ id, name: "Сделка " + id, client: "Клиент", total: 100000, paid: 0,
+        crmStatus: "В работе", tags, note, createdAt: "2026-07-16", updatedAt: "2026-07-16",
+        snapshot: { project: { name: "Сделка " + id, crmStatus: "В работе", tags, note }, selected: {}, payments: [], expenses: [], tasks: [] } });
+      st.savedProjects = [
+        mk("o1", ["импорт-o!task"], "Импортировано из O!task 16.07.2026"),
+        mk("o2", ["импорт-o!task", "свадьба"], "Импортировано из O!task 16.07.2026\\nКлиент просил тёплый цвет"),
+      ];
+      st.activeProjectId = ""; st.payments = []; st.expenses = []; st.tasks = [];
+      st.view = "home";
+    `, { width: 1440, height: 1000 });
+    try {
+      await p.evaluate(() => window.app.go("home"));
+      await p.waitForTimeout(2000);
+      const метки = await p.evaluate(() => ({
+        чипы: [...document.querySelectorAll(".deal-toolbar .deal-tag-chip")].map((x) => x.textContent.trim()),
+        заметки: [...document.querySelectorAll(".deal-card-note")].map((x) => x.textContent.trim()),
+      }));
+      assert(!метки.чипы.some((x) => /o!task/i.test(x)), "тег «импорт-o!task» остался в панели тегов: " + JSON.stringify(метки.чипы));
+      assert(метки.чипы.includes("свадьба"), "вместе со служебным тегом пропал и свой тег: " + JSON.stringify(метки.чипы));
+      assert(!метки.заметки.some((x) => /o!task/i.test(x)), "служебная строка O!task всплыла в заметке карточки: " + JSON.stringify(метки.заметки));
+      assert(метки.заметки.some((x) => /тёплый цвет/.test(x)), "своя строка заметки пропала вместе со служебной: " + JSON.stringify(метки.заметки));
+
+      // «+» — окно поверх списка, экран под ним тот же.
+      await p.click(".deal-toolbar .deal-add-btn");
+      await p.waitForTimeout(500);
+      const окно = await p.evaluate(() => ({
+        окно: !!document.querySelector("#modalContainer .wizard-modal-box"),
+        вид: document.getElementById("appContent").dataset.view,
+        фокус: document.activeElement && document.activeElement.id,
+      }));
+      assert(окно.окно, "«+» не открыл окно мастера");
+      assertEqual(окно.вид, "home", "«+» увёл с экрана сделок вместо окна поверх него");
+      assertEqual(окно.фокус, "wz_name", "курсор не встал в поле имени клиента");
+
+      await p.keyboard.press("Escape");
+      await p.waitForTimeout(400);
+      assert(!(await p.$("#modalContainer .wizard-modal-box")), "Escape не закрыл окно мастера");
+
+      // Полный путь в окне: клиент → проект → старт без пакета.
+      await p.click(".deal-toolbar .deal-add-btn");
+      await p.waitForTimeout(400);
+      await p.fill("#wz_name", "Окно Тестович");
+      await p.click('#modalContainer button.primary:has-text("Далее")');
+      await p.waitForTimeout(400);
+      await p.click('#modalContainer button.primary:has-text("Далее")');
+      await p.waitForTimeout(400);
+      await p.click('#modalContainer button:has-text("Пропустить")');
+      await p.waitForTimeout(700);
+      const итог = await p.evaluate(() => ({
+        окно: !!document.querySelector("#modalContainer .wizard-modal-box"),
+        вид: document.getElementById("appContent").dataset.view,
+        текст: (document.getElementById("appContent").textContent || "").slice(0, 600),
+      }));
+      assert(!итог.окно, "после создания сделки окно мастера не закрылось");
+      assertEqual(итог.вид, "deal", "созданная из окна сделка не открылась");
+      assert(/Окно Тестович/.test(итог.текст), "открылась не та сделка");
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  await test("главная: строка «Сегодня» считает как раздел «Задачи» и ведёт к делу", async () => {
+    /* 28.09.2026. Шапка главной говорила «в сентябре · 6 сделок» — месячную
+       справку, которую и так показывают плитки, и молчала о том, что горит
+       СЕГОДНЯ. Теперь под приветствием — сдачи и задачи на сегодня и
+       просрочка. Правило счёта — как у раздела «Задачи»: задачи закрытых
+       сделок в оперативные числа не идут, иначе шапка скажет одно, раздел
+       другое. */
+    const день = (n) => {
+      const t2 = new Date(); t2.setDate(t2.getDate() + n);
+      const p2 = (x) => String(x).padStart(2, "0");
+      return `${t2.getFullYear()}-${p2(t2.getMonth() + 1)}-${p2(t2.getDate())}`;
+    };
+    const сегодня = день(0);
+    const { ctx, p } = await bootWithState(`
+      st.savedProjects = [{
+        id: "td1", name: "Свадьба, Пермь", client: "Иванов И.", total: 95000, paid: 0,
+        crmStatus: "В работе", deadline: "${сегодня}", createdAt: "${день(-30)}", updatedAt: "${день(-30)}",
+        snapshot: {
+          project: { name: "Свадьба, Пермь", crmStatus: "В работе", deadline: "${сегодня}" },
+          selected: {}, payments: [], expenses: [],
+          tasks: [
+            { id: "tt1", title: "Согласовать раскадровку", deadline: "${сегодня}", status: "Новая" },
+            { id: "tt2", title: "Забрать технику", deadline: "${день(-2)}", status: "Новая" },
+            { id: "tt3", title: "Уже сделано", deadline: "${сегодня}", status: "Готово" },
+          ],
+        },
+      }, {
+        id: "td2", name: "Старый проект", client: "Кто-то", total: 50000, paid: 50000,
+        crmStatus: "Завершённые", deadline: "${день(-90)}", createdAt: "${день(-120)}", updatedAt: "${день(-90)}",
+        snapshot: {
+          project: { name: "Старый проект", crmStatus: "Завершённые" },
+          selected: {}, payments: [], expenses: [],
+          tasks: [{ id: "tt4", title: "Хвост закрытой сделки", deadline: "${сегодня}", status: "Новая" }],
+        },
+      }];
+      st.activeProjectId = ""; st.payments = []; st.expenses = []; st.tasks = [];
+      st.globalTasks = [];
+      st.view = "home";
+    `, { width: 1440, height: 1000 });
+    try {
+      await p.evaluate(() => window.app.go("home"));
+      await p.waitForTimeout(700);
+      const r = await p.evaluate(() => ({
+        чипы: [...document.querySelectorAll(".db-today-chip")].map((x) => x.textContent.replace(/\s+/g, " ").trim()),
+        приветствие: (document.querySelector(".db-greeting") || {}).textContent || "",
+      }));
+      assert(/^(Доброе утро|Добрый день|Добрый вечер|Доброй ночи),/.test(r.приветствие.trim()),
+        "приветствие не по времени суток: " + r.приветствие);
+      assert(r.чипы.some((x) => /Сдача сегодня: Свадьба, Пермь/.test(x)), "нет сдачи на сегодня: " + JSON.stringify(r.чипы));
+      assert(r.чипы.some((x) => /^1 задача на сегодня/.test(x)),
+        "задачи на сегодня посчитаны не как в разделе «Задачи» (готовая и задача закрытой сделки не в счёт): " + JSON.stringify(r.чипы));
+      assert(r.чипы.some((x) => /Просрочено: 1/.test(x)), "нет просрочки: " + JSON.stringify(r.чипы));
+
+      // Чип сдачи ведёт в саму сделку.
+      // Смотрим экран, а не localStorage: save() пишет туда с задержкой.
+      await p.click(".db-today-chip.is-deadline");
+      await p.waitForTimeout(600);
+      const куда = await p.evaluate(() => {
+        const root = document.getElementById("appContent");
+        return { вид: root.dataset.view, текст: (root.textContent || "").slice(0, 400) };
+      });
+      assertEqual(куда.вид, "deal", "чип «Сдача сегодня» не открыл сделку");
+      assert(/Свадьба, Пермь/.test(куда.текст), "чип «Сдача сегодня» открыл не ту сделку");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("календарь: в дне сверху дедлайн, а не то, чего в сделке больше", async () => {
     /* 24.09.2026. В ячейку помещаются две подписи, остальное сворачивается в
        «+N ещё», и порядок был ПОРЯДКОМ СБОРА: задачи сделки → платежи →

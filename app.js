@@ -2306,6 +2306,22 @@
         return changed;
       }
 
+      /* Служебная метка переноса из O!task (16.07.2026): скрипт переноса
+         поставил 113 сделкам тег «импорт-o!task» и заметку о переносе. На
+         карточке их скрывали, но тег лез в панель тегов над сделками, и
+         владелец 28.09 попросил убрать его везде. Чистим данные: тег — целиком,
+         из заметки — только строки со словом «o!task» (своё, дописанное туда
+         владельцем, остаётся). Идемпотентно: нет тега — нечего делать. */
+      const OTASK_IMPORT_TAG = "импорт-o!task";
+      function _stripOtaskImportMark(obj) {
+        if (!obj || !Array.isArray(obj.tags) || !obj.tags.includes(OTASK_IMPORT_TAG)) return false;
+        obj.tags = obj.tags.filter(t => t !== OTASK_IMPORT_TAG);
+        if (typeof obj.note === "string" && /o!task/i.test(obj.note)) {
+          obj.note = obj.note.split(/\r?\n/).filter(line => !/o!task/i.test(line)).join("\n").trim();
+        }
+        return true;
+      }
+
       function _migrateStateData() {
         _stripServiceIdentity();
         // Migrate old CRM statuses: "Закрыто" → "Завершённые", "Отказ" → "Архив"
@@ -2313,10 +2329,13 @@
           if (p.crmStatus === "Закрыто") p.crmStatus = "Завершённые";
           if (p.crmStatus === "Отказ") p.crmStatus = "Архив";
           if (p.crmStatusBeforeArchive === "Отказ") p.crmStatusBeforeArchive = "Архив";
+          _stripOtaskImportMark(p);
+          _stripOtaskImportMark(p.snapshot && p.snapshot.project);
         });
+        _stripOtaskImportMark(state.project);
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","gFinSelectMode","gFinSelected","gFinNoMethodOnly","catalogCostPanelOpen","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","pkgCatsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
+      const SYNC_SKIP_KEYS = new Set(["view","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","wizardModal","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","gFinSelectMode","gFinSelected","gFinNoMethodOnly","catalogCostPanelOpen","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","pkgCatsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
 
       // Кладёт облачное состояние в state. Отдельно от _loadCloudState, потому что
       // вызывается ещё и из разрешения конфликта.
@@ -10081,9 +10100,12 @@
                 <stop offset="1" stop-color="${c}" stop-opacity="0"/>
               </linearGradient>
             </defs>
-            <path d="${area}" fill="url(#${id})"/>
-            <path d="${line}" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="${lx}" cy="${ly}" r="2.4" fill="${c}"/>
+            ${/* Классы и pathLength — для прорисовки линии при входе на главную
+                  (style.css, «Движение на главной»): с pathLength="1" длина
+                  штриха задаётся долей, и одна анимация подходит любой линии. */""}
+            <path class="spark-area" d="${area}" fill="url(#${id})"/>
+            <path class="spark-line" pathLength="1" d="${line}" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle class="spark-dot" cx="${lx}" cy="${ly}" r="2.4" fill="${c}"/>
           </svg>`;
       }
 
@@ -10092,7 +10114,11 @@
          быстрее, чем цифрой, а место занимает столько же, сколько спарклайн. */
       function gaugeSvg(percent, color) {
         const p = Math.max(0, Math.min(100, numberValue(percent, 0)));
-        const W = 64, H = 34, R = 25, CX = W / 2, CY = H - 4, SW = 5;
+        /* 56×28, а не 64×34: полукруг стоит в том же ряду, что спарклайны
+           соседних плиток (26px), и лишние восемь пикселей высоты раздували
+           ряд — число и подпись «Собрано всего» опускались ниже соседей
+           (скриншот владельца 28.09: 220 против 213px и 248 против 234px). */
+        const W = 56, H = 28, R = 21, CX = W / 2, CY = H - 4, SW = 5;
         /* Заполненную часть рисуем НЕ вторым, укороченным путём, а тем же самым
            полукругом с пунктиром длиной в нужную долю. Так заполнение гарантированно
            начинается с левого конца дуги и повторяет её пиксель в пиксель: с двумя
@@ -10103,7 +10129,7 @@
         return `
           <svg class="spark spark-gauge" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true" focusable="false">
             <path d="${d}" fill="none" stroke="var(--line)" stroke-width="${SW}" stroke-linecap="round" opacity=".9"/>
-            ${p > 0 ? `<path d="${d}" fill="none" stroke="${c}" stroke-width="${SW}" stroke-linecap="round"
+            ${p > 0 ? `<path class="spark-gauge-fill" style="--dash:${(len * p / 100).toFixed(2)}" d="${d}" fill="none" stroke="${c}" stroke-width="${SW}" stroke-linecap="round"
               stroke-dasharray="${(len * p / 100).toFixed(2)} ${len.toFixed(2)}"/>` : ""}
           </svg>`;
       }
@@ -10114,6 +10140,30 @@
          плитка хвалит, а текст под ней опровергает (ровно это и было).
          60% — не «правильный» порог, а граница, ниже которой утверждать о марже
          нельзя: у большинства сделок затрат просто нет в системе. */
+      /* Собираемость — ОДНА функция на все места, где её показывают (плитка
+         главной, «Что важно», плитки и шкала «Финансов»). Считалась в четырёх
+         местах одинаково «в лоб»: сумма оплат / сумма сделок. У владельца
+         28.09 это дало «Собрано 101%»: по части сделок оплачено больше их суммы,
+         и переплата одних прятала недоплату других. Теперь полученное берётся в
+         пределах суммы КАЖДОЙ сделки, а переплата — отдельным числом со списком
+         сделок: её возвращают клиенту или правят платёж.
+         Архив не в счёте: деньги по сорвавшейся сделке никогда не были
+         «собираемыми». */
+      function collectionStats(projects) {
+        const live = (projects || []).filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED);
+        const billed = live.reduce((s, p) => s + numberValue(p.total, 0), 0);
+        const got = live.reduce((s, p) => s + Math.min(numberValue(p.paid, 0), numberValue(p.total, 0)), 0);
+        const overOf = (p) => numberValue(p.paid, 0) - numberValue(p.total, 0);
+        const overDeals = live.filter(p => overOf(p) > 0).sort((a, b) => overOf(b) - overOf(a));
+        const over = overDeals.reduce((s, p) => s + overOf(p), 0);
+        return {
+          billed, got, over, overDeals,
+          pct: billed > 0 ? Math.round(got / billed * 100) : null,
+          overTitle: overDeals.slice(0, 5).map(p => `${p.name || "Без названия"} (+${money(overOf(p))})`).join(", ")
+            + (overDeals.length > 5 ? ` и ещё ${overDeals.length - 5}` : ""),
+        };
+      }
+
       function costsAreTrustworthy(allTxs) {
         const deals = (state.savedProjects || []).filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED);
         if (!deals.length) return { trusted: true, withCosts: 0, total: 0 };
@@ -10246,12 +10296,12 @@
           const rh = inc > 0 ? Math.max(7, inc / scaleMax * plotH) : 0;
           const eh = exp > 0 ? Math.max(7, exp / scaleMax * plotH) : 0;
           const revLabel = showValues && inc > 0
-            ? `<text x="${rx + bw / 2}" y="${baseY - rh - 5}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)" font-family="inherit">${shortNum(inc)}</text>` : "";
+            ? `<text class="is-rev" x="${rx + bw / 2}" y="${baseY - rh - 5}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)" font-family="inherit">${shortNum(inc)}</text>` : "";
           /* Столбец расхода при доходе в разы больше — обрубок в три пикселя:
              видно, что он есть, и не видно, сколько. Подпись мельче и приглушена,
              чтобы не спорить с суммой дохода, ради которой в график и смотрят. */
           const expLabel = showValues && exp > 0
-            ? `<text x="${ex + bw / 2}" y="${baseY - eh - 5}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text-danger)" font-family="inherit" opacity=".85">${shortNum(exp)}</text>` : "";
+            ? `<text class="is-exp" x="${ex + bw / 2}" y="${baseY - eh - 5}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text-danger)" font-family="inherit" opacity=".85">${shortNum(exp)}</text>` : "";
           const hooks = o.interactive === false ? "" :
             `onmouseenter="app.showChartTip(event,'${escapeHtml(m.label)}',${inc},${exp})"
              onmousemove="app.positionChartTip(event)"
@@ -10261,8 +10311,8 @@
             <g class="db-chart-col" ${hooks}>
               <rect class="db-chart-hit-bg" x="${gx + 2}" y="${PADT}" width="${gw - 4}" height="${plotH}" rx="8" fill="url(#${id}Hl)"/>
               <rect class="db-chart-hit" x="${gx}" y="0" width="${gw}" height="${H}" fill="transparent"/>
-              ${rh ? `<path d="${barPath(rx, baseY - rh, bw, rh, 3)}" fill="url(#${id}Rev)" filter="url(#${id}Glow)"/>` : ""}
-              ${eh ? `<path d="${barPath(ex, baseY - eh, bw, eh, 3)}" fill="url(#${id}Exp)"/>` : ""}
+              ${rh ? `<path class="db-bar is-rev" style="--i:${i}" d="${barPath(rx, baseY - rh, bw, rh, 3)}" fill="url(#${id}Rev)" filter="url(#${id}Glow)"/>` : ""}
+              ${eh ? `<path class="db-bar is-exp" style="--i:${i}" d="${barPath(ex, baseY - eh, bw, eh, 3)}" fill="url(#${id}Exp)"/>` : ""}
               ${revLabel}${expLabel}
               ${/* Месяц без движения денег: колонка пустая, и подпись под ней
                     приглушена — иначе пустое место читается как обрыв графика, а
@@ -10398,7 +10448,9 @@
           // -2px на зазор между сегментами; у одного-единственного сегмента зазор
           // не нужен — иначе кольцо получается разомкнутым без причины.
           const gapped = list.length > 1 ? Math.max(0, dash - 2) : dash;
-          const seg = `<circle cx="${C}" cy="${C}" r="${R.toFixed(2)}" fill="none"
+          // --dl и --i — для раскрытия сегментов при входе на главную: сегмент
+          // растёт от нуля по своей дуге, соседи — с небольшим сдвигом.
+          const seg = `<circle class="donut-seg" data-seg="${i}" style="--dl:${LEN.toFixed(2)};--i:${i}" cx="${C}" cy="${C}" r="${R.toFixed(2)}" fill="none"
             stroke="${p.color || DONUT_COLORS[i % DONUT_COLORS.length]}" stroke-width="${SW}"
             stroke-dasharray="${gapped.toFixed(2)} ${(LEN - gapped).toFixed(2)}"
             stroke-dashoffset="${(-acc).toFixed(2)}" stroke-linecap="round"/>`;
@@ -14380,8 +14432,21 @@
           state.editTransactionModal ? "editTx" : state.financeModal ? "finance" :
           state.packageEditModal ? "package" : state.catalogEditId ? "catalog" :
           state.briefEditorType ? "briefEditor" : state.proposalModal ? "proposal" :
-          state.kbCatsModal ? "kbCats" : state.upsell ? "upsell" : null;
+          state.kbCatsModal ? "kbCats" : state.upsell ? "upsell" :
+          (state.wizardModal && state.wizard) ? "wizard" : null;
+        /* Поле ввода с фокусом внутри окна переживает перерисовку. render()
+           возвращает фокус только в основной экран (#appContent), а окна
+           рисуются отдельно — и поиск клиента в мастере-окне терял курсор после
+           первой же буквы (поиск перерисовывает окно с задержкой). */
+        const _act = document.activeElement;
+        const _keepId = _act && el.contains(_act) && _act.id && ["INPUT", "TEXTAREA", "SELECT"].includes(_act.tagName) ? _act.id : "";
+        const _keepSel = _keepId && typeof _act.selectionStart === "number" ? [_act.selectionStart, _act.selectionEnd] : null;
         if (state.upsell) { el.innerHTML = renderUpsellModal(); }
+        else if (state.wizardModal && state.wizard) {
+          el.innerHTML = `<div class="modal-overlay wizard-modal-overlay" onclick="if(event.target===this)app.cancelWizard()">
+            <div class="modal-box wizard-modal-box">${renderWizard()}</div>
+          </div>`;
+        }
         else
         if (state.helpModal) { el.innerHTML = renderHelpModal(); }
         else if (state.docsModal) { el.innerHTML = renderDocsModal(); }
@@ -14408,6 +14473,13 @@
         // #appContent при render(), который и так уже вызывает bindDynamicInputs() сам.
         bindDynamicInputs(el);
         _enhanceModalA11y(el, modalKey);
+        if (_keepId) {
+          const back = document.getElementById(_keepId);
+          if (back && el.contains(back)) {
+            back.focus({ preventScroll: true });
+            if (_keepSel && typeof back.setSelectionRange === "function") { try { back.setSelectionRange(_keepSel[0], _keepSel[1]); } catch (_) {} }
+          }
+        }
       }
 
       // Диалоговая семантика + фокус-менеджмент для всех модалок централизованно.
@@ -15041,10 +15113,9 @@
         toast("Пример убран");
       }
 
-      function startWizard() {
-        if (checkDealLimit()) return;
+      function _newWizardState() {
         const d30 = new Date(); d30.setDate(d30.getDate() + 30);
-        state.wizard = {
+        return {
           step: 1,
           clientMode: "new",
           clientId: "",
@@ -15058,8 +15129,33 @@
           pkgFavorites: {},
           pkgHidden: {},
         };
+      }
+
+      function startWizard() {
+        if (checkDealLimit()) return;
+        state.wizard = _newWizardState();
+        state.wizardModal = false;
         state.view = "wizard";
         save();
+        render();
+      }
+
+      /* Тот же мастер «Новая сделка», но ОКНОМ поверх текущего экрана — с
+         кнопки «+» над сделками (владелец 28.09.2026). Экран под окном не
+         меняется: закрыл окно — стоишь там же, где был. «Старт» создаёт сделку
+         и открывает её, как и в полноэкранном мастере (finishWizard пересоздаёт
+         состояние, и флаг окна уходит вместе с ним). */
+      function openWizardModal() {
+        if (checkDealLimit()) return;
+        state.wizard = _newWizardState();
+        state.wizardModal = true;
+        render();
+        setTimeout(() => { const i = document.getElementById("wz_name"); if (i) i.focus(); }, 60);
+      }
+
+      function _closeWizardModal() {
+        state.wizard = null;
+        state.wizardModal = false;
         render();
       }
 
@@ -15127,6 +15223,7 @@
 
       function wizardBack() {
         if (!state.wizard) return;
+        if (state.wizard.step <= 1 && state.wizardModal) { _closeWizardModal(); return; }
         if (state.wizard.step > 1) state.wizard.step--;
         else { state.wizard = null; state.view = "home"; }
         save();
@@ -15134,6 +15231,8 @@
       }
 
       function cancelWizard() {
+        // Окно закрывается, экран под ним остаётся тем же.
+        if (state.wizardModal) { _closeWizardModal(); return; }
         state.wizard = null;
         state.view = "home";
         save();
@@ -15466,6 +15565,7 @@
 
       function toggleDealMenu(id, e) {
         e.stopPropagation();
+        _endHomeEnter(); // меню не должно уйти под карточку, которая ещё «всплывает»
         const wasOpen = _dealMenuOpen === id;
         closeDealMenu();
         if (!wasOpen) {
@@ -16476,6 +16576,118 @@
         `;
       }
 
+      /* ═══ ДВИЖЕНИЕ НА ГЛАВНОЙ ═══
+         Вход: блоки поднимаются каскадом, числа в плитках набегают до значения,
+         линии и дуги прорисовываются, столбцы растут от оси. Всё — один раз на
+         вход (см. render()), и всё гаснет при «уменьшить движение» в системе.
+
+         Счётчик НЕ трогает текст числа. Настоящее значение стоит в DOM с первого
+         кадра — его читают скринридер, копирование и тесты (набор money читает
+         плитки через 120 мс после входа и поймал бы «0 ₽» на полпути). Набегающее
+         число рисуется поверх псевдоэлементом из data-count-show, а сам текст на
+         это время прозрачен и держит ширину — макет не прыгает. */
+      let _homeEnterTimer = 0;
+
+      function _reducedMotion() {
+        try { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
+        catch (_) { return false; }
+      }
+
+      function _homeEnterMotion(root) {
+        if (_reducedMotion()) return;
+        clearTimeout(_homeEnterTimer);
+        /* Порядок задаём по СТРУКТУРЕ страницы, а не списком классов: блок,
+           в котором лежат плитки, этапы воронки или карточки, раскладывается на
+           них (появляются по одной), остальные блоки поднимаются целиком. Так
+           каскад не ломается, когда на главной переставят или добавят секцию.
+           Карточек анимируем не больше двенадцати: остальные за краем экрана. */
+        const page = root.firstElementChild;
+        if (!page) return;
+        let step = 0;
+        const mark = (el, i) => { el.dataset.enter = ""; el.style.setProperty("--enter-i", String(Math.min(i, 18))); };
+        [...page.children].forEach(ch => {
+          const items = ch.querySelectorAll(".db-stat, .funnel-stage, .deal-card");
+          if (items.length) {
+            [...items].slice(0, 12).forEach((el, j) => mark(el, step + j));
+            step += Math.min(items.length, 5);
+          } else {
+            mark(ch, step);
+            step += 1;
+          }
+        });
+        root.classList.add("home-enter");
+        // Набегают числа плиток, этапов воронки и сумм над графиком. Задержка
+        // растёт по порядку на странице — числа «включаются» волной сверху вниз.
+        root.querySelectorAll(".db-stat-value, .db-money-sum > b, .funnel-stage .fs-count")
+          .forEach((el, i) => _countUp(el, 160 + Math.min(i, 24) * 40));
+        _homeEnterTimer = setTimeout(() => root.classList.remove("home-enter"), 1700);
+      }
+
+      /* Вход завершается немедленно, когда открывается выпадающий слой. Пока
+         блок анимируется, он отдельный слой наложения, и меню карточки сделки
+         уходило ПОД соседнюю карточку («В архив» перекрыт) — если открыть его
+         в первые полторы секунды после входа. Зовём из обработчиков открытия
+         (после клика), а не на нажатие: иначе элемент сдвигается под курсором
+         между нажатием и отпусканием, и клик уходит мимо. */
+      function _endHomeEnter() {
+        clearTimeout(_homeEnterTimer);
+        const root = document.getElementById("appContent");
+        if (root) root.classList.remove("home-enter");
+      }
+
+      function _countUp(el, delay) {
+        const final = (el.textContent || "").trim();
+        const m = final.match(/\d[\d\s  ]*\d|\d/);
+        if (!m) return;
+        const target = Number(m[0].replace(/\D/g, ""));
+        // Мелкие счётчики («2 в работе») не набегают: 0 → 1 → 2 читается сбоем,
+        // а не движением.
+        if (!Number.isFinite(target) || target < 10) return;
+        const head = final.slice(0, m.index), tail = final.slice(m.index + m[0].length);
+        // У нуля знака нет: убыток стартовал бы с «-0 ₽».
+        const fmt = (n) => {
+          const v = Math.round(n);
+          return (v === 0 ? head.replace(/[-−]\s*$/, "") : head) + v.toLocaleString("ru-RU") + tail;
+        };
+        const DUR = 950;
+        el.classList.add("is-counting");
+        el.dataset.countShow = fmt(0);
+        let t0 = 0;
+        const tick = (ts) => {
+          if (!el.isConnected) return;          // пришла новая отрисовка — узел уже не наш
+          if (!t0) t0 = ts + delay;
+          const k = Math.min(1, Math.max(0, (ts - t0) / DUR));
+          if (k >= 1) { el.classList.remove("is-counting"); delete el.dataset.countShow; return; }
+          const eased = 1 - Math.pow(2, -10 * k); // быстрый старт и мягкая посадка
+          el.dataset.countShow = fmt(target * eased);
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
+
+      /* Свечение за курсором на плитках, панелях и карточках — приём из
+         референсов владельца («градиенты и свечение»). Один обработчик на весь
+         документ: render() пересоздаёт узлы, и вешать слушатель на каждую плитку
+         бессмысленно. Координаты уходят в CSS-переменные, рисует CSS; не чаще
+         одного раза за кадр. На сенсорных экранах курсора нет — не ставим вовсе. */
+      function _initSpotlight() {
+        if (!window.matchMedia || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+        let raf = 0, last = null;
+        document.addEventListener("pointermove", (e) => {
+          last = e;
+          if (raf) return;
+          raf = requestAnimationFrame(() => {
+            raf = 0;
+            const t = last && last.target && last.target.closest
+              && last.target.closest(".db-stat, .deal-card, .db-analytics-row > .panel");
+            if (!t) return;
+            const r = t.getBoundingClientRect();
+            t.style.setProperty("--mx", Math.round(last.clientX - r.left) + "px");
+            t.style.setProperty("--my", Math.round(last.clientY - r.top) + "px");
+          });
+        }, { passive: true });
+      }
+
       function render() {
         if (_needsNormalize) { normalizeState(); _needsNormalize = false; }
         /* Тариф — атрибутом на <html>, и ставим его ПЕРВЫМ делом: экраны-заслонки
@@ -16644,6 +16856,12 @@
             : (views[state.view] || renderHome)();
           if (!viewChanged && prevScrollY) window.scrollTo(0, prevScrollY);
           if (viewChanged) { cancelAnimationFrame(_fadeRaf); _fadeRaf = requestAnimationFrame(() => root.classList.remove("view-fade")); }
+          /* Вход на главную — только при СМЕНЕ вида. render() зовётся на любое
+             действие (отметил задачу, сменил фильтр), и каскад на каждом из них
+             превратил бы экран в мигающую гирлянду. Повторная отрисовка во время
+             входа анимацию обрывает: новые узлы появляются сразу, на месте. */
+          if (viewChanged && state.view === "home") _homeEnterMotion(root);
+          else root.classList.remove("home-enter");
         } catch(err) {
           console.error("Render error:", err);
           root.innerHTML = `
@@ -18887,11 +19105,33 @@
               ${/* Три числа периода — подписанной строкой под шапкой, а не капсулой
                     в углу. Прежняя легенда «▋ сумма ▋ сумма = сумма» объясняла цвет
                     столбцов, но не говорила, ЧТО это за суммы. */""}
-              ${chartWorthDrawing ? `
+              ${/* Наведение на сумму подсвечивает её серию на графике и гасит
+                    другую (style.css, data-series) — сумма и столбцы читаются
+                    вместе. Сама строка сумм выглядит как прежде: точки-легенда и
+                    фон ячейки под курсором владелец 28.09 отклонил.
+
+                    Маржа под прибылью — ТОЛЬКО если расходам можно верить
+                    (costsAreTrustworthy, тот же порог, что у «Что важно» в
+                    «Финансах»). У владельца 28.09 было: доход 1,47 млн, расход
+                    108 тыс — «маржа 93%» объявила бы бизнес-факт, которого
+                    продукт не знает: расходы внесены не у всех сделок. Тогда
+                    под прибылью ничего (строку «расходы у N из M» владелец
+                    убрал). */""}
+              ${chartWorthDrawing ? (() => {
+                const marginPct = totalRev > 0 ? Math.round(profit / totalRev * 100) : null;
+                const costs = marginPct === null ? null : costsAreTrustworthy(getAllTransactions());
+                // Расходам не верим — не пишем ничего: строку «расходы у N из M
+                // сделок» владелец 28.09 попросил убрать. Маржу по неполным
+                // расходам при этом по-прежнему не показываем — она врала бы.
+                const marginHtml = marginPct === null || !costs.trusted ? ""
+                  : `<span class="db-money-margin" title="Доля дохода, которая осталась после расходов">
+                      <span class="db-money-margin-track"><span class="db-money-margin-fill" style="width:${Math.max(0, Math.min(100, marginPct))}%"></span></span>
+                      маржа ${marginPct}%</span>`;
+                return `
               <div class="db-money-sums">
-                <div class="db-money-sum"><span class="db-money-lbl">Доход</span><b style="color:var(--text-success)">${money(totalRev)}</b></div>
-                <div class="db-money-sum"><span class="db-money-lbl">Расход</span><b style="color:var(--text-danger)">${money(totalExp)}</b></div>
-                <div class="db-money-sum"><span class="db-money-lbl">Прибыль</span><b style="color:${profit>=0?'var(--text-success)':'var(--text-danger)'}">${money(profit)}</b></div>
+                <div class="db-money-sum" data-series="rev"><span class="db-money-lbl">Доход</span><b style="color:var(--text-success)">${money(totalRev)}</b></div>
+                <div class="db-money-sum" data-series="exp"><span class="db-money-lbl">Расход</span><b style="color:var(--text-danger)">${money(totalExp)}</b></div>
+                <div class="db-money-sum" data-series="profit"><span class="db-money-lbl">Прибыль</span><b style="color:${profit>=0?'var(--text-success)':'var(--text-danger)'}">${money(profit)}</b>${marginHtml}</div>
                 ${/* Четвёртая величина — не ради симметрии: три колонки на широкой
                       панели оставляли справа пустую четверть, а средний доход за
                       месяц отвечает на вопрос «на что я живу», которого ни одна из
@@ -18902,7 +19142,7 @@
                   <span class="db-money-lbl">В среднем / мес</span>
                   <b>${money(monthsWithData > 0 ? Math.round(totalRev / monthsWithData) : 0)}</b>
                 </div>
-              </div>` : ""}
+              </div>`; })() : ""}
             <div class="db-analytics-body">
               ${chartWorthDrawing ? `
               ${/* Без линии среднего: на главной прямо над графиком уже стоит
@@ -18959,10 +19199,19 @@
                     ...topClients.map((c, i) => ({ name: c.name, value: c.total, color: DONUT_COLORS[i % DONUT_COLORS.length] })),
                     ...(restSum > 0 ? [{ name: "Остальные", value: restSum, color: "var(--hint)" }] : [])
                   ], { size: 132, width: 15 })}
-                  <div class="db-clients-donut-center">
+                  <div class="db-clients-donut-center" data-seg="all">
                     <span class="db-money-lbl">Доход</span>
                     <b>${money(clientsTotal)}</b>
                   </div>
+                  ${/* Подписи центра для каждого клиента — заранее, скрытыми. Наведение
+                        на строку клиента (style.css, data-seg) гасит чужие сегменты,
+                        выдвигает его сегмент и показывает в центре его долю и имя:
+                        форма и список читаются вместе. Без JS и без перерисовки. */""}
+                  ${[...topClients.map(c => ({ name: c.name, total: c.total })), ...(restSum > 0 ? [{ name: "Остальные", total: restSum }] : [])]
+                    .map((c, i) => `<div class="db-clients-donut-center is-alt" data-seg="${i}" aria-hidden="true">
+                      <span class="db-money-lbl">${clientsTotal > 0 ? Math.round(c.total / clientsTotal * 100) : 0}%</span>
+                      <b class="db-clients-donut-name">${escapeHtml(c.name)}</b>
+                    </div>`).join("")}
                 </div>` : ""}
 
               ${/* Строка ведёт в карточку клиента. До этого справа не нажималось
@@ -18977,15 +19226,15 @@
                     + `<span class="db-client-share">${share}%</span>`
                     + `<span class="db-top-sum">${money(c.total)}</span>`;
                   return c.id
-                    ? `<button type="button" class="db-client-row is-clickable" onclick="app.openClientDetail('${c.id}')" title="Открыть клиента «${escapeHtml(c.name)}»">${body}</button>`
-                    : `<div class="db-client-row" title="Сделки этого клиента не привязаны к карточке клиента">${body}</div>`;
+                    ? `<button type="button" class="db-client-row is-clickable" data-seg="${i}" onclick="app.openClientDetail('${c.id}')" title="Открыть клиента «${escapeHtml(c.name)}»">${body}</button>`
+                    : `<div class="db-client-row" data-seg="${i}" title="Сделки этого клиента не привязаны к карточке клиента">${body}</div>`;
                 }).join("")}
                 ${/* «Остальные» — тот же сегмент, что и в кольце: клиенты за
                       пределами пятёрки плюс поступления без привязки к клиенту.
                       Без этой строки проценты в списке не складывались в сто, и
                       было непонятно, куда делась разница с доходом слева. */""}
                 ${restSum > 0 ? `
-                  <div class="db-client-row db-client-row--rest" title="Клиенты за пределами первой пятёрки и поступления, не привязанные к клиенту">
+                  <div class="db-client-row db-client-row--rest" data-seg="${topClients.length}" title="Клиенты за пределами первой пятёрки и поступления, не привязанные к клиенту">
                     <span class="db-top-dot" style="background:var(--hint)"></span>
                     <span class="db-top-name">Остальные</span>
                     <span class="db-client-share">${clientsTotal > 0 ? Math.round(restSum / clientsTotal * 100) : 0}%</span>
@@ -19177,7 +19426,7 @@
               ${hideBtn}
             </div>
             <div style="height:4px;background:var(--line);border-radius:999px;margin-bottom:12px">
-              <div style="height:100%;width:${pct}%;background:var(--primary);border-radius:999px;transition:.4s"></div>
+              <div class="onb-progress-fill" style="height:100%;width:${pct}%;background:var(--primary);border-radius:999px;transition:.4s"></div>
             </div>
             ${steps.map(s => `
               <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
@@ -19328,6 +19577,56 @@
         if (дней === 1) return "завтра";
         if (дней < 7) return `через ${дней} ${plural(дней, "день", "дня", "дней")}`;
         return new Date(iso + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+      }
+
+      function _greetingByHour() {
+        const h = new Date().getHours();
+        return h >= 5 && h < 12 ? "Доброе утро"
+          : h >= 12 && h < 17 ? "Добрый день"
+          : h >= 17 && h < 23 ? "Добрый вечер"
+          : "Доброй ночи";
+      }
+
+      /* Строка «Сегодня» под приветствием. Шапка главной говорила только «в
+         сентябре · 6 сделок» — месячную справку, которую и так показывают
+         плитки ниже, и молчала о единственном, ради чего главную открывают с
+         утра: что горит СЕГОДНЯ.
+
+         Задачи считаем ровно как раздел «Задачи» (_collectAllTasks, без задач
+         закрытых сделок, «Готово» не в счёт) — иначе шапка скажет «3 задачи на
+         сегодня», а раздел «1», и одному из чисел перестанут верить. */
+      function _homeTodayHtml(projects) {
+        const today = todayIso();
+        const active = (projects || []).filter(p => !isDealInactive(p.crmStatus || "Лид"));
+        const deadlines = active.filter(p => p.deadline === today);
+        const rows = _collectAllTasks().filter(r => !r.dealClosed && r.task.status !== "Готово");
+        const dueToday = rows.filter(r => r.task.deadline === today).length;
+        const overdue = rows.filter(r => r.task.deadline && r.task.deadline < today).length;
+
+        const chips = [];
+        if (deadlines.length) {
+          const one = deadlines.length === 1 ? deadlines[0] : null;
+          chips.push(`<button type="button" class="db-today-chip is-deadline"
+            ${one ? `data-deal="${escapeHtml(one.id)}" onclick="app.openDeal(this.dataset.deal)"` : `onclick="app.go('global-calendar')"`}>
+            ${icon("calendar", 13)}<span>${one
+              ? `Сдача сегодня: <b>${escapeHtml(one.name || "Без названия")}</b>`
+              : `Сегодня сдача по <b>${deadlines.length}</b> ${plural(deadlines.length, "сделке", "сделкам", "сделкам")}`}</span>
+          </button>`);
+        }
+        if (dueToday) {
+          chips.push(`<button type="button" class="db-today-chip" onclick="app.go('global-tasks')">
+            ${icon("check", 13)}<span><b>${dueToday}</b> ${plural(dueToday, "задача", "задачи", "задач")} на сегодня</span>
+          </button>`);
+        }
+        if (overdue) {
+          chips.push(`<button type="button" class="db-today-chip is-overdue" onclick="app.go('global-tasks')">
+            ${icon("warning", 13)}<span>Просрочено: <b>${overdue}</b></span>
+          </button>`);
+        }
+        if (!chips.length) {
+          return `<div class="db-today"><span class="db-today-calm">${icon("check", 13)} На сегодня ничего не горит</span></div>`;
+        }
+        return `<div class="db-today" aria-label="Что на сегодня">${chips.join("")}</div>`;
       }
 
       function renderHome() {
@@ -19547,9 +19846,11 @@
             <!-- ── DASHBOARD HEADER ─────────────────────── -->
             <div class="db-header">
               <div class="db-header-left">
-        <h1 class="db-greeting">Привет, ${escapeHtml(_adminSession?.user?.user_metadata?.name || _adminSession?.user?.user_metadata?.full_name || (_adminSession?.user?.email||"").split("@")[0] || "команда")} </h1>
+        <h1 class="db-greeting">${_greetingByHour()}, ${escapeHtml(_adminSession?.user?.user_metadata?.name || _adminSession?.user?.user_metadata?.full_name || (_adminSession?.user?.email||"").split("@")[0] || "команда")}</h1>
                 <p class="db-date">В ${curMonthName} · ${projects.length} ${plural(projects.length, "сделка", "сделки", "сделок")} · ${inWork} в работе</p>
+                ${_homeTodayHtml(projects)}
               </div>
+              <div class="db-header-date" aria-hidden="true">${escapeHtml(new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" }))}</div>
             </div>
 
             ${introOnTop ? introBlock : ""}
@@ -19586,7 +19887,8 @@
                 <div class="db-stat-value-row"><span class="db-stat-value" style="color:${monthProfit>=0?"var(--text-success)":"var(--text-danger)"}">${money(monthProfit)}</span>${sparklineSvg(sparkProfit, "spkProfit", monthProfit>=0?"var(--text-success)":"var(--text-danger)")}</div>
                 ${/* При нуле это ни доход, ни убыток: зелёное слово «доход» под
                       нулём утверждало то, чего нет. */""}
-                <div class="db-stat-delta ${monthProfit>0?"pos":monthProfit<0?"neg":"neu"}">${monthProfit>0?"доход":monthProfit<0?"убыток":"пока ноль"}</div>
+                ${/* «в плюсе», а не «доход»: под прибылью слово «доход» путалось с
+      выручкой в соседней плитке. */""}<div class="db-stat-delta ${monthProfit>0?"pos":monthProfit<0?"neg":"neu"}">${monthProfit>0?"в плюсе":monthProfit<0?"убыток":"пока ноль"}</div>
               </div>
               ${/* Ведём сразу в «Задолженность», а не в общий раздел: плитка про
                     то, КТО должен, а открывался список всех операций, где долг
@@ -19608,7 +19910,11 @@
               <div class="db-stat" onclick="app.dashFilterDeals('all')" title="Сумма сделок в работе — открыть список">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.funnel}</svg></span><span class="db-stat-label">Воронка</span></div>
                 <div class="db-stat-value">${money(totalPipeline)}</div>
-                <div class="db-stat-delta neu">${(() => { const n = projects.filter(p => !DEAL_DELIVERED.has(p.crmStatus||"Лид")).length; return `${n} ${plural(n, "активная", "активные", "активных")}`; })()}</div>
+                ${/* «3 до сдачи», а не «3 активные»: ниже, в ленте этапов, стоит
+                      «Активные 7» — туда входят и сданные сделки, ждущие оплаты. Одно
+                      слово с двумя разными числами на одном экране (владелец 28.09)
+                      заставляло гадать, какое из них верное. Верны оба — считают разное. */""}
+                <div class="db-stat-delta neu">${(() => { const n = projects.filter(p => !DEAL_DELIVERED.has(p.crmStatus||"Лид")).length; return `${n} ${plural(n, "сделка", "сделки", "сделок")} до сдачи`; })()}</div>
               </div>
               <div class="db-stat" onclick="app.dashFilterDeals('В работе')" title="Сделки на этапе «В работе» — открыть список">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:var(--primary-bg);color:var(--primary-text)"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.tasks}</svg></span><span class="db-stat-label">В работе</span></div>
@@ -19645,7 +19951,8 @@
               <div class="db-stat ${overdueCount>0?"db-stat-warn":""}" onclick="app.go('global-calendar')" title="Дедлайны / 7 дн">
                 <div class="db-stat-top"><span class="db-stat-icon" style="background:${overdueCount>0?"rgba(220,38,38,.13);color:var(--text-danger)":"rgba(22,163,74,.15);color:var(--text-success)"}"><svg viewBox="0 0 16 16" fill="currentColor">${EMPTY_ICON_PATHS.calendar}</svg></span><span class="db-stat-label">Дедлайны / 7 дн</span></div>
                 <div class="db-stat-value">${uniqueDeadlines.length}</div>
-        <div class="db-stat-delta ${overdueCount>0?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${overdueCount>0?overdueCount+" просрочено":uniqueDeadlines.length>0?"ближ. "+formatDate(uniqueDeadlines[0].date):"нет ✓"}</div>
+        <div class="db-stat-delta ${overdueCount>0?"neg":uniqueDeadlines.length>0?"neu":"pos"}">${/* «ближ. сегодня», а не «ближ. 28.09.2026»: строкой выше, в шапке, стоит
+      «Сдача сегодня», и дата числом заставляла сверять её с календарём. */""}${overdueCount>0?overdueCount+" просрочено":uniqueDeadlines.length>0?"ближ. "+_startWhen(uniqueDeadlines[0].date):"нет ✓"}</div>
               </div>
               ${(() => {
                 /* Десятая плитка — собираемость. Плиток было девять, и на широком
@@ -19660,9 +19967,8 @@
 
                    Считаем по всем неархивным сделкам: выставлено против
                    полученного. */
-                const live = projects.filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED);
-                const billed = live.reduce((s, p) => s + numberValue(p.total, 0), 0);
-                const got = live.reduce((s, p) => s + numberValue(p.paid, 0), 0);
+                // Переплата — отдельной строкой, доля — без неё (collectionStats).
+                const { billed, got, over, overDeals, overTitle } = collectionStats(projects);
                 const pct = billed > 0 ? Math.round(got / billed * 100) : 0;
                 const cls = billed <= 0 ? "neu" : pct >= 90 ? "pos" : pct >= 60 ? "neu" : "neg";
                 return `
@@ -19678,6 +19984,7 @@
                   ${billed > 0 ? gaugeSvg(pct, pct >= 80 ? "var(--text-success)" : pct >= 50 ? "var(--text-warning)" : "var(--text-danger)") : ""}
                 </div>
                 <div class="db-stat-delta ${cls}" title="Все сделки, кроме архивных, за всё время: сколько выставлено и сколько из этого получено">${billed > 0 ? money(got) + " из " + money(billed) : "нет сумм"}</div>
+                ${over > 0 ? `<div class="db-stat-delta neg db-stat-over" title="Оплачено больше суммы сделки: ${escapeHtml(overTitle)}. Верните клиенту разницу или поправьте платёж.">переплата ${money(over)} · ${overDeals.length} ${plural(overDeals.length, "сделка", "сделки", "сделок")}</div>` : ""}
               </div>`;
               })()}
             </div>
@@ -19703,8 +20010,13 @@
                       уехавших были те, где сделки есть, а на виду оставались нули.
                       Этап без сделок ничего не сообщает и фильтрует в пустоту; на
                       десктопе они помещаются целиком и остаются как есть. */""}
+                ${/* Цвет этапа — тонкой полоской сверху у ЗАНЯТЫХ плиток (тот же цвет,
+                      что полоса статуса на карточке сделки ниже). Лента осталась
+                      ровной сеткой: две переделки 28.09.2026 (плитки разной ширины,
+                      затем полоса-воронка) владелец отклонил — «изначально было
+                      лучше». Акцент не меняет ни размеров, ни порядка плиток. */""}
                 ${stageData.map(s => `
-                  <div class="funnel-stage ${filter === s.status ? "active" : ""} ${s.items.length ? "" : "funnel-stage--empty"}" onclick="app.setCrmFilter('${s.status}')">
+                  <div class="funnel-stage ${filter === s.status ? "active" : ""} ${s.items.length ? "is-filled" : "funnel-stage--empty"}" style="--st-color:${CRM_STATUS_COLOR[s.status] || "var(--muted)"}" onclick="app.setCrmFilter('${s.status}')">
                     <h3>${escapeHtml(s.status)}</h3>
                     <div class="fs-count">${s.items.length}</div>
                     ${s.total ? `<div class="fs-amount">${money(s.total)}</div>` : ""}
@@ -19734,8 +20046,11 @@
               const overflowTags = otherTags.slice(MAX_VISIBLE_TAGS);
               return `
               <div class="deal-toolbar">
-                ${allTags.length ? `
+                ${/* «+» — новая сделка ОКНОМ поверх списка (владелец 28.09.2026):
+                      быстрее, чем уходить на отдельный экран мастера и обратно. */""}
                 <div class="deal-toolbar-tags">
+                  <button type="button" class="deal-add-btn no-print" onclick="app.openWizardModal()" title="Новая сделка" aria-label="Новая сделка">${icon("plus", 16)}</button>
+                ${allTags.length ? `
                   ${tagFilter ? `<button class="deal-tag-chip active" onclick="app.setCrmTagFilter('')">× ${escapeHtml(tagFilter)}</button>` : ""}
                   ${visibleTags.map(t => `<button class="deal-tag-chip" data-tag="${escapeHtml(t)}" onclick="app.setCrmTagFilter(this.dataset.tag)">${escapeHtml(t)}</button>`).join("")}
                   ${overflowTags.length ? `
@@ -19746,8 +20061,8 @@
                     </div>
                   </div>
                   ` : ""}
-                </div>
                 ` : ""}
+                </div>
                 ${hasSearchRow ? `
                 <div class="deal-toolbar-controls">
                   <div class="deal-search-wrap">
@@ -19905,12 +20220,10 @@
                       })()}
 
                       ${(() => {
-                        // Служебная метка миграции из O!task (заметка+тег ставились скриптом
-                        // переноса, см. [[migration-otask-2026-07-16]]) — не нужна на карточке,
-                        // засоряет вид у всех 113 перенесённых сделок. Сами данные не трогаем.
-                        const isOltaskImport = (project.tags||[]).includes("импорт-o!task");
-                        const note = !isOltaskImport && project.note;
-                        const tags = isOltaskImport ? (project.tags||[]).filter(t => t !== "импорт-o!task") : (project.tags||[]);
+                        // Служебную метку переноса из O!task (тег + заметка) больше не
+                        // прячем здесь: её вычищает из данных _migrateStateData.
+                        const note = project.note;
+                        const tags = project.tags || [];
                         if (!project.deadline && !note && !tags.length) return "";
                         return `
                       <div class="deal-card-meta">
@@ -25538,9 +25851,12 @@
         // Собираемость и должники. Архивные/отменённые сделки исключены из знаменателя —
         // деньги по сорвавшейся сделке никогда не были «собираемыми», их учёт занижал бы
         // метрику навсегда (та же логика, что и у «Оборота» клиента и топ-клиентов).
-        const allTotal = projects.filter(p => (p.crmStatus||"Лид") !== CRM_ARCHIVED).reduce((s, p) => s + numberValue(p.total, 0), 0);
-        const allPaid  = projects.filter(p => (p.crmStatus||"Лид") !== CRM_ARCHIVED).reduce((s, p) => s + numberValue(p.paid, 0), 0);
-        const collect = allTotal > 0 ? Math.round(allPaid / allTotal * 100) : 0;
+        // Полученное — в пределах суммы каждой сделки (collectionStats): иначе
+        // переплата по одним сделкам прятала недоплату по другим.
+        const _coll = collectionStats(projects);
+        const allTotal = _coll.billed;
+        const allPaid = _coll.got;
+        const collect = _coll.pct || 0;
         // Должники — те же активные сделки, что формируют allDebt (не завершённые/архив).
         const debtors = projects.filter(p => !isDealInactive(p.crmStatus || "Лид") && Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)) > 0);
 
@@ -25605,6 +25921,7 @@
         const insights = [];
     if (collect >= 90) insights.push(["check", "good", `Отличная собираемость — оплачено ${collect}% от суммы всех сделок (${money(allPaid)} из ${money(allTotal)}).`]);
     else if (collect > 0) insights.push(["warning", "warn", `Собираемость ${collect}% — оплачено ${money(allPaid)} из ${money(allTotal)}. Есть смысл напомнить клиентам об оплате.`]);
+    if (_coll.over > 0) insights.push(["warning", "warn", `Переплата ${money(_coll.over)} — оплачено больше суммы сделки у ${_coll.overDeals.length} ${pl(_coll.overDeals.length, ["сделки","сделок","сделок"])}: ${escapeHtml(_coll.overTitle)}. Верните клиенту разницу или поправьте платёж.`]);
     if (bestKey) insights.push(["star", "good", `Лучший месяц — ${monthTitle(bestKey)}: ${money(incByMonth[bestKey])} поступлений.`]);
     if (topCat && totalExpense > 0) insights.push(["wallet", "", `Больше всего расходов — «${escapeHtml(topCat[0])}»: ${money(topCat[1])} (${Math.round(topCat[1] / totalExpense * 100)}% всех трат).`]);
     insights.push(costsTrustworthy
@@ -25753,13 +26070,7 @@
         /* Собираемость для полукруга у «Общего долга»: доля уже оплаченного от
            суммы всех неархивных сделок. Та же формула, что в «Что важно», — иначе
            два процента на одной странице разошлись бы. */
-        const finCollect = (() => {
-          const deals = (state.savedProjects || []).filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED);
-          const total = deals.reduce((s, p) => s + numberValue(p.total, 0), 0);
-          if (!(total > 0)) return null;
-          const paid = deals.reduce((s, p) => s + numberValue(p.paid, 0), 0);
-          return Math.round(paid / total * 100);
-        })();
+        const finCollect = collectionStats(state.savedProjects).pct;
 
         const maxBar = Math.max(...monthly.map(m => Math.max(m.income, m.expense)), 1);
 
@@ -25883,9 +26194,10 @@
                 const margin = inc > 0 ? Math.round(prof / inc * 100) : 0;
                 const incCount = filteredByDate.filter(t => t._type === "income").length;
                 const avgCheck = incCount > 0 ? Math.round(inc / incCount) : 0;
-                const allTotal = (state.savedProjects || []).filter(p => (p.crmStatus||"Лид") !== CRM_ARCHIVED).reduce((s, p) => s + numberValue(p.total, 0), 0);
-                const allPaid = (state.savedProjects || []).filter(p => (p.crmStatus||"Лид") !== CRM_ARCHIVED).reduce((s, p) => s + numberValue(p.paid, 0), 0);
-                const collect = allTotal > 0 ? Math.round(allPaid / allTotal * 100) : 0;
+                const _coll = collectionStats(state.savedProjects);
+                const allTotal = _coll.billed;
+                const allPaid = _coll.got;
+                const collect = _coll.pct || 0;
                 /* Плитки были шестью одинаковыми прямоугольниками с числом и
                    подписью — ряд читался как таблица без шапки. Значок называет
                    величину до того, как глаз дочитает подпись, а у долей (маржа,
@@ -26746,11 +27058,16 @@
           `;
         }
 
+        // В окне (кнопка «+» над сделками) — общий крестик окон вместо «Отмены»:
+        // на первом шаге внизу и так стоит «Отмена», две подряд были бы лишними.
+        const inModal = !!state.wizardModal;
         return `
-          <div class="panel wizard-wrap" style="margin-top:8px">
+          <div class="panel wizard-wrap${inModal ? " wizard-wrap--modal" : ""}" ${inModal ? "" : `style="margin-top:8px"`}>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
               <h1 style="margin:0;font-size:22px">Новая сделка</h1>
-              <button class="btn small" onclick="app.cancelWizard()">Отмена</button>
+              ${inModal
+                ? `<button type="button" class="u-modal-close" onclick="app.cancelWizard()" aria-label="Закрыть" title="Закрыть">${icon("close", 14)}</button>`
+                : `<button class="btn small" onclick="app.cancelWizard()">Отмена</button>`}
             </div>
 
             <div class="wizard-progress">
@@ -32599,6 +32916,16 @@ Email: _____________________              Email: _____________________
       }
 
       function initEvents() {
+        _initSpotlight();
+        // Клавиатура во время входа на главную завершает его (_endHomeEnter).
+        // НЕ pointerdown: снятие анимации в момент нажатия сдвигало карточку
+        // под курсором, отпускание приходилось уже на другое место, и клик по
+        // «⋮» открывал саму сделку. Выпадающие слои снимают вход сами, при
+        // открытии (toggleDealMenu).
+        document.addEventListener("keydown", () => {
+          const root = document.getElementById("appContent");
+          if (root && root.classList.contains("home-enter")) _endHomeEnter();
+        }, true);
         // Enter/Space на кликабельных не-кнопках, поднятых в _enhanceA11y.
         // Слушатель ОДИН и делегированный: вешать его в _enhanceA11y значило бы
         // плодить копию на каждый элемент после каждого render().
@@ -32682,6 +33009,7 @@ Email: _____________________              Email: _____________________
             // не отпускало (одно из требований к диалогу — Esc).
             else if (state.catalogGroupsConfigOpen) closeCatalogGroupsConfig();
             else if (state.pkgCatsConfigOpen) closePkgCatsConfig();
+            else if (state.wizardModal) cancelWizard();
             else if (state.dealSwitcherOpen) closeDealSwitcher();
           }
           // Ctrl+N — новая сделка (кроме полей ввода)
@@ -33191,6 +33519,7 @@ Email: _____________________              Email: _____________________
         printContract,
         openContractEdit,
         openContractWizard,
+        openWizardModal,
         closeContractEdit,
 
         openAdminModal,

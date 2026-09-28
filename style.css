@@ -3635,6 +3635,29 @@
       max-width: 860px;
       margin: 0 auto;
     }
+    /* Мастер «Новая сделка» окном (кнопка «+» над сделками). Окно шире
+       обычного (480px): на шаге «Проект» стоит выбор пакета сеткой. Панель
+       мастера внутри окна — без своей рамки и тени: окно уже и есть панель. */
+    .modal-box.wizard-modal-box { width: min(820px, calc(100vw - 32px)); padding: 0; }
+    .wizard-wrap--modal {
+      max-width: none; margin: 0; border: none; box-shadow: none; background: none;
+      padding: 26px 28px 24px;
+    }
+    @media (max-width: 768px) { .wizard-wrap--modal { padding: 18px 16px; } }
+    /* «+» над сделками — в ряд с чипами тегов, той же высоты. */
+    .deal-add-btn {
+      width: 36px; height: 36px; flex: 0 0 auto; display: inline-grid; place-items: center;
+      border-radius: var(--r-md); border: 1px solid rgb(var(--primary-rgb) / .45);
+      background: rgb(var(--primary-rgb) / .1); color: var(--primary-text); cursor: pointer;
+      transition: background var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out),
+        transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease-out);
+    }
+    .deal-add-btn:hover {
+      background: var(--primary); border-color: var(--primary); color: var(--on-color);
+      transform: translateY(-1px); box-shadow: var(--glow-sm);
+    }
+    .deal-add-btn:active { transform: none; }
+    @media (hover: none) and (pointer: coarse) { .deal-add-btn { width: 44px; height: 44px; } }
     .wizard-progress {
       display: flex;
       align-items: flex-start;
@@ -4103,6 +4126,51 @@
     }
     .db-greeting { margin: 0 0 4px; font-size: 22px; font-weight: 900; letter-spacing: -.02em; }
     .db-date { margin: 0; font-size: 13px; color: var(--muted); }
+    /* Дата словами справа — «воскресенье, 28 сентября». Прописная первая
+       буква через ::first-letter: toLocaleDateString отдаёт день недели
+       строчным. */
+    .db-header-date {
+      font-size: 13px; font-weight: 600; color: var(--muted);
+      padding-top: 8px; white-space: nowrap;
+    }
+    .db-header-date::first-letter { text-transform: uppercase; }
+    /* «Сегодня»: что горит. Чипы — кнопки: каждый ведёт туда, где это делают. */
+    .db-today { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .db-today-chip {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 6px 12px 6px 10px; min-height: 32px;
+      border-radius: var(--r-pill); border: 1px solid var(--line);
+      background: var(--panel); color: var(--text);
+      font: inherit; font-size: 13px; cursor: pointer;
+      transition: border-color var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out),
+        transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+    }
+    .db-today-chip svg { color: var(--primary-text); flex: 0 0 auto; }
+    .db-today-chip b { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .db-today-chip:hover {
+      border-color: rgb(var(--primary-rgb) / .55);
+      background: rgb(var(--primary-rgb) / .08);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px -8px rgb(var(--primary-rgb) / .55);
+    }
+    .db-today-chip:active { transform: none; }
+    .db-today-chip.is-deadline {
+      border-color: color-mix(in srgb, var(--red) 35%, transparent);
+      background: color-mix(in srgb, var(--red) 8%, transparent);
+    }
+    .db-today-chip.is-deadline svg { color: var(--text-danger); }
+    .db-today-chip.is-deadline:hover {
+      border-color: color-mix(in srgb, var(--red) 60%, transparent);
+      box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--red) 60%, transparent);
+    }
+    .db-today-chip.is-overdue svg { color: var(--text-warning); }
+    .db-today-calm {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--muted);
+    }
+    .db-today-calm svg { color: var(--text-success); }
+    @media (hover: none) and (pointer: coarse) { .db-today-chip { min-height: 44px; } }
+    @media (max-width: 640px) { .db-header-date { display: none; } }
 
     .db-kpi-grid {
       display: grid;
@@ -4276,6 +4344,14 @@
       display: flex; align-items: center; justify-content: space-between;
       gap: 8px; margin-bottom: 2px; min-width: 0;
     }
+    /* Строка значения — одной высоты у ВСЕХ плиток, с мини-графиком и без.
+       Иначе ряд плиток читался лесенкой: где справа спарклайн (26px) или
+       полукруг, число и подпись под ним стояли ниже, чем у соседа без графика
+       (скриншот владельца 28.09: «↑ 290%» на 144px, «по активным сделкам» на
+       138px в одном ряду). */
+    .db-stat-value-row,
+    .db-stat > .db-stat-value { min-height: 28px; }
+    .db-stat > .db-stat-value { display: flex; align-items: center; }
     .db-stat-value-row .db-stat-value { margin-bottom: 0; min-width: 0; }
     .db-stat-value-row .spark { flex: 0 1 auto; min-width: 0; opacity: .9; }
     .db-stat[onclick]:hover .spark { opacity: 1; }
@@ -4387,6 +4463,28 @@
       font-size: 11px; color: var(--muted); font-weight: 650;
       text-transform: uppercase; letter-spacing: .04em;
     }
+    /* Маржа под прибылью: мини-шкала доли дохода, оставшейся после расходов. */
+    .db-money-margin {
+      display: inline-flex; align-items: center; gap: 7px; margin-top: 3px;
+      font-size: 11.5px; font-weight: 600; color: var(--muted);
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .db-money-margin-track {
+      width: 54px; height: 4px; border-radius: var(--r-pill);
+      background: color-mix(in srgb, var(--red) 30%, transparent); overflow: hidden; flex: 0 0 auto;
+    }
+    .db-money-margin-fill {
+      display: block; height: 100%; border-radius: var(--r-pill); background: var(--green);
+      transform-origin: left center;
+    }
+    /* Наведение на сумму гасит столбцы ДРУГОЙ серии — видно, как эта сумма
+       разложена по месяцам. Сама ячейка суммы при этом не меняется: фон под
+       курсором читался коробкой вокруг числа (владелец 28.09: «было лучше»). */
+    .db-bar, .db-chart-col text.is-rev, .db-chart-col text.is-exp { transition: opacity var(--dur-3) var(--ease-out); }
+    .db-money-panel:has(.db-money-sum[data-series="rev"]:hover) .db-bar.is-exp,
+    .db-money-panel:has(.db-money-sum[data-series="rev"]:hover) .db-chart-col text.is-exp,
+    .db-money-panel:has(.db-money-sum[data-series="exp"]:hover) .db-bar.is-rev,
+    .db-money-panel:has(.db-money-sum[data-series="exp"]:hover) .db-chart-col text.is-rev { opacity: .14; }
 
     /* Кольцо с суммой периода по центру. Размер кольца — часть смысла, поэтому
        оно не сжимается; цифра внутри абсолютным слоем, чтобы не съезжать. */
@@ -4400,6 +4498,41 @@
       padding-bottom: 8px;
     }
     .db-clients-donut-center b { font-size: 14px; font-variant-numeric: tabular-nums; }
+    /* Наведение на клиента в списке: его сегмент кольца толще и ярче,
+       остальные гаснут, в центре — его доля и имя вместо общего дохода.
+       Правила по номеру сегмента (data-seg) — сопоставить строку и дугу
+       одним CSS можно только так; клиентов в топе не больше пяти плюс
+       «Остальные». */
+    .donut-seg { transition: opacity var(--dur-3) var(--ease-out), stroke-width var(--dur-3) var(--ease-out); }
+    /* Утолщённый сегмент выходит за рамку кольца на пару пикселей — не резать. */
+    .db-clients-donut .donut { overflow: visible; }
+    .db-clients-donut-center { transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-3) var(--ease-out); }
+    .db-clients-donut-center.is-alt { opacity: 0; transform: scale(.94); }
+    .db-clients-donut-name {
+      max-width: 92px; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .db-clients-panel:has(.db-client-row[data-seg]:hover) .db-clients-donut-center[data-seg="all"] { opacity: 0; transform: scale(.94); }
+    .db-clients-panel:has(.db-client-row[data-seg="0"]:hover) .donut-seg:not([data-seg="0"]),
+    .db-clients-panel:has(.db-client-row[data-seg="1"]:hover) .donut-seg:not([data-seg="1"]),
+    .db-clients-panel:has(.db-client-row[data-seg="2"]:hover) .donut-seg:not([data-seg="2"]),
+    .db-clients-panel:has(.db-client-row[data-seg="3"]:hover) .donut-seg:not([data-seg="3"]),
+    .db-clients-panel:has(.db-client-row[data-seg="4"]:hover) .donut-seg:not([data-seg="4"]),
+    .db-clients-panel:has(.db-client-row[data-seg="5"]:hover) .donut-seg:not([data-seg="5"]),
+    .db-clients-panel:has(.db-client-row[data-seg="6"]:hover) .donut-seg:not([data-seg="6"]) { opacity: .18; }
+    .db-clients-panel:has(.db-client-row[data-seg="0"]:hover) .donut-seg[data-seg="0"],
+    .db-clients-panel:has(.db-client-row[data-seg="1"]:hover) .donut-seg[data-seg="1"],
+    .db-clients-panel:has(.db-client-row[data-seg="2"]:hover) .donut-seg[data-seg="2"],
+    .db-clients-panel:has(.db-client-row[data-seg="3"]:hover) .donut-seg[data-seg="3"],
+    .db-clients-panel:has(.db-client-row[data-seg="4"]:hover) .donut-seg[data-seg="4"],
+    .db-clients-panel:has(.db-client-row[data-seg="5"]:hover) .donut-seg[data-seg="5"],
+    .db-clients-panel:has(.db-client-row[data-seg="6"]:hover) .donut-seg[data-seg="6"] { stroke-width: 19; }
+    .db-clients-panel:has(.db-client-row[data-seg="0"]:hover) .db-clients-donut-center[data-seg="0"],
+    .db-clients-panel:has(.db-client-row[data-seg="1"]:hover) .db-clients-donut-center[data-seg="1"],
+    .db-clients-panel:has(.db-client-row[data-seg="2"]:hover) .db-clients-donut-center[data-seg="2"],
+    .db-clients-panel:has(.db-client-row[data-seg="3"]:hover) .db-clients-donut-center[data-seg="3"],
+    .db-clients-panel:has(.db-client-row[data-seg="4"]:hover) .db-clients-donut-center[data-seg="4"],
+    .db-clients-panel:has(.db-client-row[data-seg="5"]:hover) .db-clients-donut-center[data-seg="5"],
+    .db-clients-panel:has(.db-client-row[data-seg="6"]:hover) .db-clients-donut-center[data-seg="6"] { opacity: 1; transform: none; }
 
     .db-clients-list { display: flex; flex-direction: column; gap: 2px; }
     /* Строка ведёт в карточку клиента. До этого справа не нажималось ничего:
@@ -4686,6 +4819,42 @@
     /* 11.5px, а не 10.5: это ДЕНЬГИ по этапу, ради которых воронку и открывают.
        Замер показал, что суммы и на 11.5px помещаются в плитку 98px без обрезки. */
     .funnel-stage .fs-amount { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+    /* Цвет этапа — тонкой полоской сверху у ЗАНЯТОЙ плитки (тот же цвет, что
+       полоса статуса на карточке сделки ниже) и рамкой под курсором. Лента
+       остаётся прежней ровной сеткой: две переделки 28.09.2026 (плитки разной
+       ширины, затем полоса-воронка) владелец отклонил — «изначально было
+       лучше». Полоска — внутренней тенью: не меняет ни размеров, ни раскладки. */
+    .funnel-stage.is-filled:not(.active) {
+      box-shadow: inset 0 2px 0 color-mix(in srgb, var(--st-color, var(--primary)) 75%, transparent);
+    }
+    .funnel-stage.is-filled:not(.active):hover {
+      border-color: color-mix(in srgb, var(--st-color, var(--primary)) 55%, transparent);
+      box-shadow: inset 0 2px 0 var(--st-color, var(--primary)),
+        0 8px 20px -12px color-mix(in srgb, var(--st-color, var(--primary)) 70%, transparent);
+    }
+    /* Наведение: плитка «всплывает» — чуть крупнее и выше, поверх ленты, с
+       лёгкой пружиной. Соседи стоят на месте: раздвигающуюся плитку, которая
+       сжимала соседей и резала их названия, владелец 28.09.2026 отклонил («не
+       нравится»). Увеличение (6%) меньше зазора между плитками, поэтому
+       всплывшая соседей не перекрывает. Только с настоящим курсором. */
+    @media (hover: hover) and (pointer: fine) {
+      .crm-home-funnel > .funnel-stage {
+        position: relative;
+        transition: transform .32s var(--ease-spring), box-shadow var(--dur-3) var(--ease-out),
+          border-color var(--dur-2) var(--ease-out), opacity var(--dur-2), background-color var(--dur-2);
+      }
+      .crm-home-funnel > .funnel-stage:hover,
+      .crm-home-funnel > .funnel-stage:focus-visible {
+        transform: translateY(-3px) scale(1.06);
+        z-index: 1;
+      }
+      /* Пустому этапу — всплытие скромнее: внимание к тем, где есть сделки. */
+      .crm-home-funnel > .funnel-stage--empty:hover { transform: translateY(-2px) scale(1.03); }
+      .crm-home-funnel > .funnel-stage:not(.is-filled):not(.active):hover {
+        box-shadow: var(--elev-2);
+      }
+      .crm-home-funnel > .funnel-stage:active { transform: translateY(-1px) scale(1.02); }
+    }
     @media (max-width: 640px) {
       /* Горизонтальная свайп-полоса вместо ломаного grid (auto-fit давал
          неровные строки: 1/2/3 плитки на разных строках). */
@@ -6706,6 +6875,12 @@
     /* Позиция, к которой пришли из списка каталога, — короткая подсветка рамкой. */
     /* scroll-margin — чтобы начало карточки не уходило под липкую шапку. */
     .item[data-line] { scroll-margin-top: 96px; }
+    /* То же у сделок: программная прокрутка к карточке (доводка до списка по
+       плитке, возврат к сделке) ставила её к самому верху окна — ПОД
+       фиксированный топбар (62px). Меню карточки открывалось от кнопки,
+       спрятанной под шапкой, и его пункты оказывались под ней же. Всплыло
+       28.09.2026, когда главная стала выше и прокрутке стало куда уходить. */
+    [data-deal-id] { scroll-margin-top: 96px; }
     .item.is-located { animation: line-located 1.6s ease-out; }
     @keyframes line-located {
       0%, 40% { box-shadow: 0 0 0 2px var(--primary); }
@@ -8464,6 +8639,229 @@ body.portal-mode .nav { display: none !important; }
 @keyframes viewFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 #appContent.view-fade { animation: viewFadeIn var(--dur-2) var(--ease-out) forwards; }
 @media (prefers-reduced-motion: reduce) { #appContent.view-fade { animation: none; } }
+
+/* ═══ Движение на главной ═══════════════════════════════════════════════
+   Вход — ОДИН раз на заход: класс home-enter ставит render() только при смене
+   вида, снимает таймер (app.js, _homeEnterMotion). Любая перерисовка во время
+   входа класс снимает — новые узлы встают на место без повторного каскада.
+
+   Порядок задаёт --enter-i (ставит JS по структуре страницы) — и он
+   НАСЛЕДУЕТСЯ: линия спарклайна, дуга полукруга, сегменты кольца и столбцы
+   графика берут задержку своей плитки или панели и стартуют после неё.
+
+   Только transform / opacity / stroke-*: это не трогает раскладку. Размытие —
+   лишь у плиток KPI (их десять), у карточек его нет: на сорока узлах оно
+   дорогое. При «уменьшить движение» JS каскад не запускает вовсе, а
+   глобальное правило выше гасит остальное. */
+/* У появлений НЕТ конечного кадра — намеренно. Конец берётся из собственного
+   стиля элемента: пустой этап воронки приглушён до .5, подпись расхода над
+   столбцом — до .85. С «to { opacity: 1 }» они на время входа вспыхивали до
+   полной яркости и после снятия класса резко падали обратно — скачок. */
+@keyframes homeRise     { from { opacity: 0; transform: translateY(14px) scale(.985); } }
+@keyframes homeRiseSoft { from { opacity: 0; transform: translateY(10px); filter: blur(6px); } }
+@keyframes homeFade     { from { opacity: 0; } }
+@keyframes sparkDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes gaugeDraw { from { stroke-dashoffset: var(--dash); } to { stroke-dashoffset: 0; } }
+@keyframes dotPop {
+  0%   { opacity: 0; transform: scale(0); }
+  65%  { opacity: 1; transform: scale(1.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+/* Сегмент кольца растёт от нуля со своей точки. Скруглённый кончик нулевой
+   длины рисуется точкой — поэтому на старте сегмент ещё и прозрачен. */
+@keyframes donutGrow {
+  0%   { stroke-dasharray: 0 var(--dl); opacity: 0; }
+  12%  { opacity: 1; }
+}
+@keyframes barGrow  { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes barFillX { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+#appContent.home-enter [data-enter] {
+  animation: homeRise .64s var(--ease-out) both;
+  animation-delay: calc(var(--enter-i, 0) * 45ms);
+}
+#appContent.home-enter .db-stat[data-enter] { animation-name: homeRiseSoft; }
+
+#appContent.home-enter .spark-line {
+  stroke-dasharray: 1;
+  animation: sparkDraw 1s var(--ease-out) both;
+  animation-delay: calc(var(--enter-i, 0) * 45ms + 220ms);
+}
+#appContent.home-enter .spark-area {
+  animation: homeFade .8s ease both;
+  animation-delay: calc(var(--enter-i, 0) * 45ms + 560ms);
+}
+#appContent.home-enter .spark-dot {
+  transform-box: fill-box; transform-origin: center;
+  animation: dotPop .5s var(--ease-spring) both;
+  animation-delay: calc(var(--enter-i, 0) * 45ms + 1050ms);
+}
+#appContent.home-enter .spark-gauge-fill {
+  animation: gaugeDraw 1.15s var(--ease-out) both;
+  animation-delay: calc(var(--enter-i, 0) * 45ms + 240ms);
+}
+#appContent.home-enter .donut-seg {
+  animation: donutGrow 1.05s var(--ease-out) both;
+  animation-delay: calc(var(--enter-i, 0) * 45ms + 200ms + var(--i, 0) * 90ms);
+}
+#appContent.home-enter .db-bar {
+  transform-box: fill-box; transform-origin: 50% 100%;
+  animation: barGrow .8s var(--ease-out) both;
+  animation-delay: calc(var(--enter-i, 0) * 45ms + 200ms + var(--i, 0) * 55ms);
+}
+#appContent.home-enter .deal-card-progress-fill,
+#appContent.home-enter .onb-progress-fill,
+#appContent.home-enter .db-money-margin-fill {
+  transform-origin: left center;
+  animation: barFillX .9s var(--ease-out) both;
+  animation-delay: calc(var(--enter-i, 0) * 45ms + 260ms);
+}
+/* Подписи сумм над столбцами — после того, как столбцы выросли. Без этого
+   «221к» висело в воздухе над пустой осью первые полсекунды. Подписи месяцев
+   (.db-chart-mlabel) — ось, они на месте сразу. */
+#appContent.home-enter .db-chart-col text:not(.db-chart-mlabel) {
+  animation: homeFade .45s ease both;
+  animation-delay: calc(var(--enter-i, 0) * 45ms + 900ms);
+}
+
+/* Счётчик в плитке. Настоящее число остаётся в тексте (его читают скринридер,
+   копирование и тесты) и на время анимации лишь прозрачно, держа ширину.
+   Набегающее значение рисует ::after из data-count-show. text-fill-color, а не
+   color: у значений цвет задан инлайном (доход зелёный, долг оранжевый), и
+   перебить его без !important нельзя — а заливку текста можно. */
+.is-counting { position: relative; -webkit-text-fill-color: transparent; }
+.is-counting::after {
+  content: attr(data-count-show);
+  content: attr(data-count-show) / "";
+  position: absolute; left: 0; top: 0;
+  -webkit-text-fill-color: currentColor;
+  white-space: nowrap; pointer-events: none;
+}
+
+/* Свечение за курсором — приём из референсов владельца («градиенты и
+   свечение»). Координаты кладёт один делегированный обработчик в app.js
+   (_initSpotlight). Только при настоящем курсоре: на сенсорном экране
+   свечению не за чем следовать.
+
+   ДВА слоя, и оба не ложатся на содержимое:
+   · заливка — ПОД текстом и графикой. Первая версия клала её слоем поверх
+     (::after), и пятно подкрашивало фиолетовым суммы, подписи и линии —
+     владелец 28.09: «не должно перекрывать весь текст и графику».
+   · кромка — светится только рамка в 1px у курсора (маска вырезает всё,
+     кроме полосы по краю), поэтому текста она не касается физически.
+
+   Как заливка уходит под содержимое — по-разному, и это не прихоть:
+   · у плиток — свой слой наложения (isolation) и ::before с z-index:-1.
+     Всплывающего внутри плиток нет, изолировать их безопасно;
+   · у панелей и карточек — слоем самого ФОНА. Изолировать их нельзя: у
+     панели графика внутри подсказка с position:fixed, у карточки — меню,
+     которое выпадает за её край. В изолированном блоке и то и другое
+     оказалось бы под соседними панелями и карточками. */
+@property --spot-a {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  /* Плитки: заливка слоем под содержимым. */
+  .db-stat { position: relative; isolation: isolate; }
+  .db-stat::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    pointer-events: none; opacity: 0;
+    background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 50%),
+      rgb(var(--primary-rgb) / .16), transparent 65%);
+    transition: opacity var(--dur-3) var(--ease-out);
+  }
+  .db-stat:hover::before { opacity: 1; }
+
+  /* Панели и карточки: заливка — слоем фона. Прозрачность пятна — через
+     --spot-a (зарегистрирована выше), иначе градиент в фоне появлялся бы
+     рывком: сам background плавно не переходит. */
+  .db-analytics-row > .panel {
+    position: relative;
+    background:
+      radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%),
+        rgb(var(--primary-rgb) / calc(var(--spot-a) * .09)), transparent 62%),
+      var(--panel);
+    transition: --spot-a var(--dur-3) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+  }
+  .db-analytics-row > .panel:hover { --spot-a: 1; }
+  /* Полоса статуса повторена из базового правила .deal-card: фон — один
+     shorthand, и слой пятна встаёт между полосой и заливкой карточки. */
+  .deal-card {
+    background:
+      linear-gradient(to right, var(--status-color, var(--line)) 0 4px, transparent 4px 100%),
+      radial-gradient(300px circle at var(--mx, 50%) var(--my, 50%),
+        rgb(var(--primary-rgb) / calc(var(--spot-a) * .11)), transparent 62%),
+      var(--card-fill);
+    transition: --spot-a var(--dur-3) var(--ease-out),
+      border-color var(--dur-1), transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2);
+  }
+  .deal-card:hover { --spot-a: 1; }
+
+  /* Кромка у курсора. Маска оставляет от слоя только полосу толщиной в
+     padding (1px) — светится рамка, а не площадь. */
+  .db-stat::after,
+  .deal-card::after,
+  .db-analytics-row > .panel::after {
+    content: ""; position: absolute; inset: 0;
+    padding: 1px; pointer-events: none; opacity: 0;
+    background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%),
+      rgb(var(--primary-rgb) / .85), transparent 70%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    transition: opacity var(--dur-3) var(--ease-out);
+  }
+  .db-stat:hover::after,
+  .deal-card:hover::after,
+  .db-analytics-row > .panel:hover::after { opacity: 1; }
+  /* Скругление кромки — токеном хозяина (у плитки ленты его нет вовсе). */
+  .deal-card::after,
+  .db-analytics-row > .panel::after { border-radius: var(--r-xl); }
+  /* У панели кромка — поверх её собственной рамки (inset:-1px), а не внутри:
+     иначе светящаяся линия шла бы в пикселе от серой, двумя параллельными. */
+  .db-analytics-row > .panel::after,
+  .deal-card::after { inset: -1px; }
+
+  /* ── Отклик на наведение ─────────────────────────────────────────────
+     Малое действие — малый отклик (microinteractions): ничего не прыгает
+     на полэкрана, живёт то, на что смотрят. */
+  /* Значок плитки чуть приподнимается — подтверждение «это нажимается». */
+  .db-stat-icon { transition: transform var(--dur-2) var(--ease-spring); }
+  .db-stat[onclick]:hover .db-stat-icon { transform: translateY(-1px) scale(1.1); }
+  /* Спарклайн: линия уверенней, точка на конце — пульсирует кольцом. */
+  .db-stat .spark-line { transition: stroke-width var(--dur-2) var(--ease-out); }
+  .db-stat:hover .spark-line { stroke-width: 2.2; }
+  .db-stat:hover .spark-dot {
+    transform-box: fill-box; transform-origin: center;
+    animation: sparkPulse 1.4s var(--ease-out) infinite;
+  }
+  /* Полукруг «Собрано»: дуга чуть толще — читается, что это шкала. */
+  .spark-gauge-fill { transition: stroke-width var(--dur-2) var(--ease-out); }
+  .db-stat:hover .spark-gauge-fill { stroke-width: 6.5; }
+  /* Кольцо «Топ клиентов»: под курсором панель слегка поворачивает кольцо —
+     ровно настолько, чтобы было видно: форма живая. */
+  .donut { transition: transform .6s var(--ease-out); }
+  .db-analytics-row > .panel:hover .donut { transform: rotate(6deg) scale(1.02); }
+  /* Карточка сделки: полоса оплаты светлеет — взгляд идёт к тому, сколько
+     осталось получить. */
+  .deal-card-progress-fill { transition: filter var(--dur-2) var(--ease-out); }
+  .deal-card:hover .deal-card-progress-fill { filter: brightness(1.25) saturate(1.1); }
+}
+@keyframes sparkPulse {
+  0%   { transform: scale(1);   opacity: 1; }
+  50%  { transform: scale(1.7); opacity: .55; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .db-stat::before, .db-stat::after,
+  .deal-card::after, .db-analytics-row > .panel::after { display: none; }
+  .db-analytics-row > .panel:hover, .deal-card:hover { --spot-a: 0; }
+  .db-stat:hover .spark-dot { animation: none; }
+  .db-analytics-row > .panel:hover .donut,
+  .db-stat[onclick]:hover .db-stat-icon { transform: none; }
+}
 
 /* ── Offline banner ─────────────────────────────────── */
 .offline-banner {
