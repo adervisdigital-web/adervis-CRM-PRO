@@ -27630,7 +27630,17 @@
         if (_isSuperAdmin()) tabs.push(["__admin_link", icon("lock"), "Admin Panel"]);
         const tab = tabs.some(t => t[0] === _settingsTab) ? _settingsTab : "company";
 
+        /* Вкладка «Компания» — тремя карточками по смыслу вместо сплошной
+           стены из одиннадцати полей: кто вы (реквизиты), как выглядите
+           (логотип и валюта) и что пишете клиенту (тексты КП и договоров).
+           Логотип — с превью: раньше было не понять, выбран он или нет. */
+        const _logoSrc = safeAvatarSrc(String(state.company.logoUrl || "").trim());
+        const _logoSet = !!String(state.company.logoUrl || "").trim();
+        const setHead = (ic, color, title, sub) =>
+          `<div class="set-card-head">${iconBadge(ic, color, 30)}<div><h2>${title}</h2>${sub ? `<p>${sub}</p>` : ""}</div></div>`;
         const companyTab = `
+            <div class="panel set-card">
+            ${setHead("building", "var(--primary)", "Реквизиты студии", "Попадают в КП, счета и договоры")}
             <div class="grid three">
               ${field("Название", `<input data-autosave data-scope="company" data-key="name" value="${escapeHtml(state.company.name)}" placeholder="Название вашей студии">`)}
               ${field("ИНН", `<input data-autosave data-scope="company" data-key="inn" value="${escapeHtml(state.company.inn || "")}" placeholder="590000000000">`)}
@@ -27638,6 +27648,16 @@
               ${field("Телефон", `<input data-autosave data-scope="company" data-key="phone" value="${escapeHtml(state.company.phone)}">`)}
               ${field("Email", `<input data-autosave data-scope="company" data-key="email" value="${escapeHtml(state.company.email)}">`)}
               ${field("Сайт", `<input data-autosave data-scope="company" data-key="site" value="${escapeHtml(state.company.site)}">`)}
+            </div>
+            </div>
+
+            <div class="panel set-card">
+            ${setHead("image", "var(--blue)", "Логотип и валюта", "Логотип стоит в шапке КП и договора")}
+            <div class="set-logo-row">
+              <div class="set-logo-preview${_logoSrc ? " has-img" : ""}" aria-hidden="true">
+                ${_logoSrc ? `<img src="${_logoSrc}" alt="">` : `<span>${icon("image", 20)}</span><small>${_logoSet ? "по адресу" : "нет"}</small>`}
+              </div>
+            <div class="grid three set-logo-fields">
               ${/* Значение — только своё, без подстановки «logo-icon.svg». Это файл
                     логотипа САМОГО СЕРВИСА, и поле показывало его как значение
                     профиля чужой студии: в данных после чистки
@@ -27665,8 +27685,12 @@
                 </div>
               `)}
             </div>
+            </div>
+            </div>
 
-            <div class="mt-14">
+            <div class="panel set-card">
+            ${setHead("doc", "var(--green)", "Тексты для клиента", "Подставляются в новые КП и договоры — править каждый раз не нужно")}
+            <div>
               ${field("Описание", `<textarea data-autosave data-scope="company" data-key="desc" style="min-height:64px">${escapeHtml(state.company.desc)}</textarea>`)}
             </div>
 
@@ -27677,6 +27701,7 @@
 
             <div class="mt-14">
               ${field("Реквизиты", `<textarea data-autosave data-scope="company" data-key="requisites">${escapeHtml(state.company.requisites)}</textarea>`)}
+            </div>
             </div>
 
             ${(() => {
@@ -28181,11 +28206,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         ` : "";
 
         return `
-          <div class="panel">
+          <div class="panel set-page">
             <div class="section-title">
               <div>
                 <h1>${h1Icon("gear")}Настройки</h1>
-                <p>Тема и цветовая схема — на вкладке «Оформление», режим клиента — в шапке.</p>
+                <p>Данные студии, оформление, уведомления и интеграции. Всё сохраняется само.</p>
               </div>
             </div>
 
