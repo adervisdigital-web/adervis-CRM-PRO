@@ -414,7 +414,7 @@
         { id: "global-finances", label: "Финансы" },
         { id: "global-calendar", label: "Календарь" },
         { id: "global-tasks", label: "Задачи" },
-        { id: "contracts", label: "Договора" },
+        { id: "contracts", label: "Договоры" },
         { id: "knowledge", label: "База знаний" }
       ];
 
@@ -2338,6 +2338,10 @@
            приложения: главная показывала «76 750 $» — рубли под чужим знаком,
            — а открыл другую сделку, и всё возвращалось к «₽». Переносим то,
            что человек видит сейчас, один раз: дальше живёт в company. */
+        // Старая доска «CRM» — вид без пункта в меню (заменён главной). Кто
+        // сохранил его в состоянии ранних версий, открывал приложение на
+        // экране, с которого некуда вернуться тем же путём.
+        if (state.view === "crm") state.view = "home";
         if (state.company && !state.company.currency) {
           const was = state.project && state.project.currency;
           state.company.currency = CURRENCIES.some(c => c.code === was) ? was : "₽";
@@ -2911,7 +2915,7 @@
         catalog: ["Каталог", "Услуги и цены"],
         "global-finances": ["Финансы", "Транзакции и аналитика"],
         "global-calendar": ["Календарь", "Задачи и дедлайны"],
-        contracts: ["Договора", "Шаблоны и база"],
+        contracts: ["Договоры", "Шаблоны и база"],
         clients: ["Клиенты", null],
         "company-team": ["Команда", "Сотрудники и фрилансеры"],
         knowledge: ["База знаний", "Скрипты и шаблоны"],
@@ -3173,7 +3177,7 @@
           "global-finances": () => navItem("global-finances", icon("wallet", 15), "Финансы"),
           "global-calendar": () => navItem("global-calendar", icon("calendar", 15),"Календарь","","","", overdueCount ? `badge${overdueCount}` : ""),
           "global-tasks": () => navItem("global-tasks", icon("tasks", 15),"Задачи","","","", overdueCount ? `badge${overdueCount}` : ""),
-          contracts: () => navItem("contracts", icon("contract", 15),"Договора"),
+          contracts: () => navItem("contracts", icon("contract", 15),"Договоры"),
           knowledge: () => navItem("knowledge", icon("book", 15),"База знаний")
         };
 
@@ -3520,7 +3524,7 @@
         { sel: '[data-tour="services"]', title: "Услуги", text: "Каталог позиций с ценами и готовые пакеты — всё, что продаёт студия, в одном разделе." },
         { sel: '[data-tour="clients"]', title: "Клиенты", text: "База клиентов и история сделок с каждым из них." },
         { sel: '[data-tour="global-finances"]', title: "Финансы", text: "Доходы, расходы и прибыль по всем проектам." },
-        { sel: '[data-tour="contracts"]', title: "Договора", text: "Шаблоны договоров и электронная подпись для клиентов." }
+        { sel: '[data-tour="contracts"]', title: "Договоры", text: "Шаблоны договоров и электронная подпись для клиентов." }
       ];
       let _tourStep = -1;
 
@@ -18068,7 +18072,7 @@
                     : 'Все КП по сделкам агентства.'}</p>
               </div>
               <div class="toolbar no-print">
-                <button class="btn small" onclick="app.refreshAllProposals()" title="Обновить">↻ Обновить</button>
+                <button class="btn small" onclick="app.refreshAllProposals()" title="Обновить">${icon("refresh", 14)} Обновить</button>
               </div>
             </div>
 
@@ -23696,7 +23700,7 @@
                   <div class="toolbar no-print" style="margin-top:14px">
                     <button class="btn primary" onclick="app.loadSavedProject('${project.id}')">Открыть</button>
                     <button class="btn" onclick="app.duplicateSavedProject('${project.id}')">Копия</button>
-                    <button class="btn" onclick="app.repeatSavedProject('${project.id}')" title="Копия со сдвинутым на месяц дедлайном и статусом «Лид» — для регулярных клиентов">↻ Повторить</button>
+                    <button class="btn" onclick="app.repeatSavedProject('${project.id}')" title="Копия со сдвинутым на месяц дедлайном и статусом «Лид» — для регулярных клиентов">${icon("refresh", 14)} Повторить</button>
                     <button class="btn danger-quiet" onclick="app.deleteSavedProject('${project.id}')">${TRASH_SVG} Удалить</button>
                   </div>
                 </article>
@@ -26615,8 +26619,13 @@
                            </label>`
                         : escapeHtml(tx.title)}</td>
                       <td class="fs-12">
+                        ${/* Без способа — словами, как у фильтра «Без способа» над
+                              таблицей. Раньше рисовалась ПУСТАЯ зелёная капсула:
+                              на экране — серая чёрточка, похожая на сбой. */""}
                         ${tx._type === "income"
-                          ? `<span class="type-badge income">${escapeHtml(tx.method || "")}</span>`
+                          ? (String(tx.method || "").trim()
+                            ? `<span class="type-badge income">${escapeHtml(tx.method)}</span>`
+                            : `<span class="u-meta">без способа</span>`)
                           : tx.category ? `<span class="fin-category-badge">${escapeHtml(tx.category)}</span>` : "—"
                         }
                       </td>
@@ -32671,7 +32680,7 @@ Email: _____________________              Email: _____________________
       }
 
       // ── Вкладка «Договор» внутри сделки ────────────────────────────────────
-      // Раздел «Договора» — общий список по всему агентству; здесь то же хранилище
+      // Раздел «Договоры» — общий список по всему агентству; здесь то же хранилище
       // (state.contracts), но в разрезе одной сделки: показываем только её договоры
       // и даём завести новый сразу привязанным — к сделке и к её клиенту. Раньше
       // связку приходилось выставлять руками в двух селектах, а до тех пор
@@ -32788,7 +32797,7 @@ Email: _____________________              Email: _____________________
             <div class="section-title">
               <div>
                 <h2 style="margin:0">Договор по сделке</h2>
-                <p class="u-meta" style="margin:4px 0 0">Хранится в разделе «Договора» — здесь только договоры этой сделки.</p>
+                <p class="u-meta" style="margin:4px 0 0">Хранится в разделе «Договоры» — здесь только договоры этой сделки.</p>
               </div>
               <button class="btn small no-print" onclick="app.go('contracts')">Все договоры</button>
             </div>
@@ -32844,7 +32853,7 @@ Email: _____________________              Email: _____________________
             ${orphans.length ? `
               <h3 style="font-size:14px;margin:0 0 4px">Договоры без привязки к сделке (${orphans.length})</h3>
               <p class="u-meta" style="margin:0 0 10px">
-                Они существуют в разделе «Договора», но не привязаны ни к одной сделке, поэтому
+                Они существуют в разделе «Договоры», но не привязаны ни к одной сделке, поэтому
                 и не показывались здесь. Привязка — в один клик.
               </p>
               <div class="grid two" style="margin-bottom:18px">
@@ -32874,7 +32883,7 @@ Email: _____________________              Email: _____________________
             </div>
             <p class="u-meta" style="margin-top:12px">
               Шаблон копируется целиком, реквизиты подставляются сразу. Дальше текст правится
-              как обычный документ — в разделе «Договора».
+              как обычный документ — в разделе «Договоры».
             </p>
           </div>
         `;

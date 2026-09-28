@@ -4883,6 +4883,43 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("обход 29.09: «без способа» словами, «Договоры» в меню, старый вид «crm» открывается главной", async () => {
+    /* Обход разделов 29.09.2026: у поступления без способа оплаты в «Финансах»
+       рисовалась пустая капсула (серая чёрточка, похожая на сбой); пункт меню
+       назывался «Договора», а страница — «Договоры»; сохранённый вид «crm»
+       (доска без пункта в меню) открывал приложение на экране-сироте. */
+    const { ctx, p } = await bootWithState(`
+      st.savedProjects = [{ id: "m1", name: "Сделка без способа", client: "К", total: 100000, paid: 50000, crmStatus: "В работе",
+        createdAt: "2026-09-01", updatedAt: "2026-09-01",
+        snapshot: { project: { name: "Сделка без способа", client: "К", crmStatus: "В работе" }, selected: {},
+          payments: [{ id: "pm1", date: "2026-09-05", amount: 50000, title: "Аванс", method: "" }], expenses: [], tasks: [] } }];
+      st.activeProjectId = ""; st.view = "crm";
+    `, { width: 1440, height: 1000 });
+    try {
+      await p.waitForTimeout(600);
+      assert(!(await p.$(".kanban")), "сохранённый вид «crm» снова открыл старую доску без пункта в меню");
+      // Боковое меню с пунктами есть только со входом в аккаунт.
+      const s = await bootWithSession(browser, baseUrl, { width: 1440, height: 900 });
+      await s.page.waitForTimeout(500);
+      const меню = await s.page.evaluate(() => [...document.querySelectorAll(".sidebar-nav-item .sidebar-label")].map((b) => b.textContent.trim()));
+      await s.context.close();
+      assert(меню.includes("Договоры") && !меню.some((t) => /Договора/.test(t)), "в меню не «Договоры»: " + меню.join(", "));
+      await p.evaluate(() => { window.app.setGFinSubTab("transactions"); window.app.go("global-finances"); });
+      await p.waitForTimeout(700);
+      const ячейка = await p.evaluate(() => {
+        // По названию СВОЕЙ сделки: в демо-данных тоже есть «Аванс» (со способом).
+        const row = [...document.querySelectorAll(".fin-table tbody tr")].find((r) => /Сделка без способа/.test(r.textContent));
+        const td = row && row.children[3];
+        return td ? { текст: td.textContent.trim(), пустых: [...td.querySelectorAll(".type-badge")].filter((b) => !b.textContent.trim()).length } : null;
+      });
+      assert(ячейка, "строки поступления нет в таблице операций");
+      assertEqual(ячейка.пустых, 0, "у поступления без способа снова пустая капсула");
+      assert(/без способа/.test(ячейка.текст), "поступление без способа не названо словами: " + ячейка.текст);
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("сделки: «+» открывает мастер окном поверх списка, служебная метка O!task вычищена", async () => {
     /* 28.09.2026, владелец:
        — «убрать импорт-o!task, удалить везде тег в проектах»: тег и заметку
@@ -6926,7 +6963,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assertEqual(await p.evaluate(() => document.documentElement.getAttribute("data-tier")), "start",
         "приложение не узнало тариф «Старт» по оплаченному плану");
       const m = await menu();
-      for (const gone of ["Договора", "Онлайн-брифы", "Команда"]) {
+      for (const gone of ["Договоры", "Онлайн-брифы", "Команда"]) {
         assert(!m.includes(gone), `раздел «${gone}» остался в меню на «Старте»: ${m.join(", ")}`);
       }
       for (const stay of ["Проекты", "Смета", "Клиенты", "Финансы"]) {
@@ -7005,7 +7042,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assertEqual(await p.evaluate(() => document.documentElement.getAttribute("data-tier")), "std",
         "оплаченный «Стандарт» приняли за другой тариф");
       const m = await p.evaluate(() => [...document.querySelectorAll(".sidebar-nav-item .sidebar-label")].map((x) => x.textContent.trim().split("\n")[0]));
-      for (const stay of ["Договора", "Онлайн-брифы", "Команда"]) {
+      for (const stay of ["Договоры", "Онлайн-брифы", "Команда"]) {
         assert(m.includes(stay), `на «Стандарте» пропал раздел «${stay}»: ${m.join(", ")}`);
       }
       assert(!(await p.$(".sidebar-tier-card")), "карточка младшего тарифа показана на «Стандарте»");
