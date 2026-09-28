@@ -4704,6 +4704,97 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("главная: «Доход и расходы» листается, возвращается «Сейчас», 6/12 мес, сравнение с прошлым периодом", async () => {
+    /* 28.09.2026, владелец: «проработай тут навигацию и дизайн с анимацией и
+       функционалом». Было: стрелки 22px после метки «апр – сен» (без года —
+       год назад выглядел так же), назад — столько кликов, сколько уходил,
+       текущий месяц ничем не отмечен, суммы без направления, «Все операции»
+       вели в раздел без дат показанного периода. */
+    const мес = (back) => {
+      const t2 = new Date(); t2.setDate(1); t2.setMonth(t2.getMonth() - back); t2.setDate(5);
+      const p2 = (x) => String(x).padStart(2, "0");
+      return `${t2.getFullYear()}-${p2(t2.getMonth() + 1)}-${p2(t2.getDate())}`;
+    };
+    const payments = [], expenses = [];
+    for (let k = 0; k < 12; k++) {
+      payments.push({ id: "p" + k, date: мес(k), amount: 100000 + k * 10000, title: "Оплата" });
+      if (k % 2 === 0) expenses.push({ id: "e" + k, date: мес(k), amount: 20000, title: "Аренда" });
+    }
+    const { ctx, p } = await bootWithState(`
+      st.savedProjects = [{ id: "m1", name: "Годовой клиент", client: "Лукойл", total: 3000000, paid: 0,
+        crmStatus: "В работе", createdAt: "${мес(13)}", updatedAt: "${мес(0)}",
+        snapshot: { project: { name: "Годовой клиент", client: "Лукойл", crmStatus: "В работе" }, selected: {},
+          payments: ${JSON.stringify(payments)}, expenses: ${JSON.stringify(expenses)}, tasks: [] } }];
+      st.activeProjectId = ""; st.payments = []; st.expenses = []; st.tasks = [];
+      st.dbChartOffset = 0; st.dbChartSpan = 6; st.view = "home";
+    `, { width: 1440, height: 1000 });
+    const read = () => p.evaluate(() => {
+      const panel = document.querySelector(".db-money-panel");
+      const cols = [...panel.querySelectorAll(".db-chart-col")];
+      const delta = (s) => { const d = panel.querySelector(`.db-money-sum[data-series="${s}"] .db-delta`); return d ? d.className + " | " + d.textContent.trim() : ""; };
+      return {
+        период: (panel.querySelector(".db-chart-range") || {}).textContent || "",
+        сейчас: !!panel.querySelector(".db-chart-now"),
+        впередЗакрыто: panel.querySelectorAll(".db-chart-pager .db-chart-nav-btn")[1].disabled,
+        колонок: cols.length,
+        текущийПоследний: cols.length > 0 && cols[cols.length - 1].classList.contains("is-now"),
+        текущихВсего: cols.filter((c) => c.classList.contains("is-now")).length,
+        доход: delta("rev"), расход: delta("exp"),
+        длина: [...panel.querySelectorAll(".db-chart-span-btn")].filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.textContent.trim()).join(),
+      };
+    });
+    try {
+      await p.evaluate(() => window.app.go("global-finances"));
+      await p.waitForTimeout(300);
+      await p.evaluate(() => window.app.go("home"));
+      await p.waitForTimeout(2300);
+      const год = String(new Date().getFullYear());
+      const r0 = await read();
+      assert(r0.период.includes(год), "в периоде нет года: " + r0.период);
+      assert(!r0.сейчас && r0.впередЗакрыто, "на текущем периоде видна «Сейчас» или открыта стрелка вперёд: " + JSON.stringify(r0));
+      assertEqual(r0.колонок, 6, "по умолчанию не шесть месяцев");
+      assert(r0.текущийПоследний && r0.текущихВсего === 1, "текущий месяц не отмечен последней колонкой: " + JSON.stringify(r0));
+      // Доход: 750 000 против 1 110 000 полугодием раньше → ↓ 32%, и это плохо.
+      // Расход: 60 000 против 60 000 → без изменения.
+      assert(/is-down/.test(r0.доход) && /is-bad/.test(r0.доход) && /32%/.test(r0.доход), "сравнение дохода: " + r0.доход);
+      assert(/is-flat/.test(r0.расход) && /0%/.test(r0.расход), "сравнение расхода: " + r0.расход);
+
+      // Назад на месяц — график ПРОЕЗЖАЕТ колонку (анимация), появляется «Сейчас».
+      await p.click(".db-chart-pager .db-chart-nav-btn.is-prev");
+      const анимация = await p.evaluate(() => getComputedStyle(document.querySelector(".db-money-panel .db-chart-col")).animationName);
+      assert(/dbColFromLeft/.test(анимация), "листание назад без съезда колонок: " + анимация);
+      await p.click(".db-chart-pager .db-chart-nav-btn.is-prev");
+      await p.waitForTimeout(800);
+      const r1 = await read();
+      assert(r1.период !== r0.период, "стрелка назад не сменила период");
+      assert(r1.сейчас && !r1.впередЗакрыто, "после шага назад нет «Сейчас» или закрыта стрелка вперёд: " + JSON.stringify(r1));
+      assertEqual(r1.текущихВсего, 0, "текущий месяц отмечен, хотя его нет в периоде");
+
+      // «Сейчас» возвращает одним нажатием, сколько бы ни ушли.
+      await p.click(".db-chart-now");
+      await p.waitForTimeout(800);
+      const r2 = await read();
+      assertEqual(r2.период, r0.период, "«Сейчас» не вернуло к последним месяцам");
+      assert(!r2.сейчас, "«Сейчас» осталась после возврата");
+
+      // Двенадцать месяцев. За год раньше данных нет — сравнения нет, а не «+∞%».
+      await p.click(".db-chart-span-btn:not(.is-active)");
+      await p.waitForTimeout(800);
+      const r3 = await read();
+      assertEqual(r3.колонок, 12, "«12 мес» не показало двенадцать месяцев");
+      assertEqual(r3.длина, "12 мес", "переключатель не отметил «12 мес»");
+      assertEqual(r3.доход, "", "сравнение с пустым прошлым годом: " + r3.доход);
+
+      // «Операции за период» — «Финансы» с датами показанного года.
+      await p.click(".db-money-foot .btn");
+      await p.waitForTimeout(700);
+      const с = await p.evaluate(() => { const i = document.querySelector('input[type="date"][title="С"]'); return i ? i.value : ""; });
+      assertEqual(с, мес(11).slice(0, 8) + "01", "«Операции за период» открыли «Финансы» не с начала периода");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("сделки: «+» открывает мастер окном поверх списка, служебная метка O!task вычищена", async () => {
     /* 28.09.2026, владелец:
        — «убрать импорт-o!task, удалить везде тег в проектах»: тег и заметку

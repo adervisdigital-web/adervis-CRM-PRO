@@ -7231,119 +7231,91 @@
       function renderProfile() {
         const email = _adminSession ? _adminSession.user.email : "";
         const sub = _userProfile;
-        const subLabel = getSubscriptionLabel();
-        const active = isSubscriptionActive();
         const initial = email ? email[0].toUpperCase() : "A";
         const us = getUserSettings();
         const displayName = us.displayName || "";
         const avatarHtml = us.avatarDataUrl
-          ? `<img src="${safeAvatarSrc(us.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-          : `<span style="font-size:26px;font-weight:900">${escapeHtml(initial)}</span>`;
+          ? `<img src="${safeAvatarSrc(us.avatarDataUrl)}" alt="">`
+          : `<span>${escapeHtml(initial)}</span>`;
 
-        // Subscription status details
-        let subStatusBlock = "";
+        /* Подписка — ОДНОЙ карточкой в шапке профиля рядом с именем. Раньше
+           было две: цветная плашка статуса («Пробный период — осталось 7 дн.»)
+           и ниже «Тарифный план» с той же строкой «Пробный · осталось 7 д.» —
+           одно и то же дважды, а кнопка тарифа жила во второй. Теперь статус,
+           шкала оставшегося срока, дата и кнопка стоят вместе. */
+        let planCard = "";
         if (sub) {
           const exp = sub.subscription_expires_at ? new Date(sub.subscription_expires_at) : null;
           const daysLeft = exp ? Math.max(0, Math.round((exp - new Date()) / 86400000)) : null;
-          const expStr = exp ? exp.toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" }) : "";
+          const expStr = exp ? exp.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }) : "";
           const s = sub.subscription_status;
-          const planLabel = sub.subscription_status === "trial" ? "Пробный период" : _adminPlanLabel(sub.subscription_plan);
-
-          if (s === "active") {
-            subStatusBlock = `
-              <div style="background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                  <span style="color:var(--text-success);flex-shrink:0">${icon("check", 20)}</span>
-                  <div>
-                    <div style="font-weight:900;font-size:15px;color:var(--text-success)">Подписка активна — ${escapeHtml(planLabel)}</div>
-                    ${exp ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">Действует до: ${escapeHtml(expStr)}${daysLeft !== null ? ` (ещё ${daysLeft} дн.)` : ""}</div>` : ""}
-                  </div>
-                </div>
-              </div>`;
-          } else if (s === "trial") {
-            const urgency = daysLeft !== null && daysLeft <= 3;
-            subStatusBlock = `
-              <div style="background:rgba(202,138,4,.1);border:1px solid rgba(202,138,4,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                  <span style="color:${urgency ? "var(--text-danger)" : "var(--yellow)"};flex-shrink:0">${icon("warning", 20)}</span>
-                  <div>
-                    <div style="font-weight:900;font-size:15px;color:${urgency ? "var(--text-danger)" : "var(--yellow)"}">Пробный период${daysLeft !== null ? ` — осталось ${daysLeft} дн.` : ""}</div>
-                    ${exp ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">Истекает: ${escapeHtml(expStr)}</div>` : ""}
-                  </div>
-                </div>
-                <p style="font-size:13px;margin:0;color:var(--muted)">После окончания пробного периода выберите тариф ниже, чтобы продолжить работу.</p>
-              </div>`;
-          } else {
-            subStatusBlock = `
-              <div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:14px;padding:16px 20px;margin-bottom:20px">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;color:var(--text-danger);font-weight:900">${icon("xcircle")} Подписка истекла</div>
-                <p style="font-size:13px;margin:0;color:var(--muted)">Выберите тариф ниже для продолжения работы.</p>
-              </div>`;
-          }
+          const plan = PLANS.find(x => x.id === sub.subscription_plan);
+          // Длина периода для шкалы: пробный — 7 дней, платный — месяцы тарифа.
+          const totalDays = s === "trial" ? 7 : Math.max(1, ((plan && plan.months) || 1) * 30);
+          const pct = daysLeft === null ? 0 : Math.max(3, Math.min(100, Math.round(daysLeft / totalDays * 100)));
+          const kind = s === "active" ? (daysLeft !== null && daysLeft <= 5 ? "is-soon" : "is-active")
+            : s === "trial" ? (daysLeft !== null && daysLeft <= 3 ? "is-soon" : "is-trial") : "is-expired";
+          const title = s === "active" ? _adminPlanLabel(sub.subscription_plan)
+            : s === "trial" ? "Пробный период" : s === "cancelled" ? "Подписка отменена" : "Подписка истекла";
+          const note = s === "active" ? (exp ? `Действует до ${escapeHtml(expStr)}` : "")
+            : s === "trial" ? `${exp ? `До ${escapeHtml(expStr)}. ` : ""}Потом — выбрать тариф, данные сохранятся.`
+            : "Данные на месте — выберите тариф, чтобы продолжить работу.";
+          planCard = `
+            <div class="pf-plan ${kind}">
+              <div class="pf-plan-top">
+                <span class="pf-plan-chip">${icon(s === "active" ? "check" : s === "trial" ? "star" : "warning", 13)} ${escapeHtml(title)}</span>
+                ${daysLeft !== null && s !== "expired" && s !== "cancelled" ? `<span class="pf-plan-days"><b>${daysLeft}</b> ${plural(daysLeft, "день", "дня", "дней")}</span>` : ""}
+              </div>
+              ${daysLeft !== null && (s === "active" || s === "trial") ? `<div class="pf-plan-track" role="img" aria-label="Осталось ${daysLeft} из ${totalDays} дней"><span style="width:${pct}%"></span></div>` : ""}
+              <div class="pf-plan-note">${note}</div>
+              <button class="btn small ${s === "active" ? "" : "primary"} pf-plan-btn" onclick="app.go('plans')">${s === "active" ? "Сменить тариф" : "Выбрать тариф"}</button>
+            </div>`;
         }
 
         return `
-          <div class="panel">
+          <div class="panel pf-page">
             ${_adminSession ? `
             <!-- ── PROFILE SECTION ── -->
+            ${/* Заголовок — как у «Настроек»: значок в квадрате. «Синхронизировать»
+                  была ярко-зелёной, самой громкой кнопкой страницы, хотя
+                  синхронизация идёт сама; теперь это обычная кнопка. */""}
             <div class="section-title" style="margin-bottom:20px">
-              <div><h1 class="m-0">Профиль</h1><p style="margin:4px 0 0;color:var(--muted)">Аккаунт, подписка и настройки</p></div>
+              <div><h1 class="m-0"><span class="h1-ico">${icon("person", 16)}</span>Профиль</h1><p style="margin:4px 0 0;color:var(--muted)">Аккаунт, подписка и команда</p></div>
               <div class="toolbar" style="gap:8px">
-                <button class="btn small green" onclick="app.forceSaveToCloud()">${icon("cloud")} Синхронизировать</button>
+                <button class="btn small" onclick="app.forceSaveToCloud()" title="Данные сохраняются в облако сами — кнопка на случай, если нужно прямо сейчас"><span class="pf-ico-green">${icon("cloud")}</span> Синхронизировать</button>
                 <button class="btn small" onclick="app.adminLogout()">Выйти</button>
               </div>
             </div>
 
-            <!-- Avatar + name -->
-            <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
-              <h2 style="margin-top:0;font-size:15px">Фото и имя</h2>
-              <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
-                <div style="position:relative;flex:0 0 80px">
-                  <div style="width:80px;height:80px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;overflow:hidden;box-shadow:0 6px 20px rgb(var(--primary-rgb) / .35)">
-                    ${avatarHtml}
+            ${/* Шапка профиля: кто вы и что с подпиской — в одном ряду. Фото
+                  меняется нажатием на сам аватар (значок камеры на нём), а не
+                  отдельной кнопкой «Изменить фото» над полями. */""}
+            <div class="pf-hero">
+              <div class="pf-id">
+                <label class="pf-avatar" title="Изменить фото">
+                  ${avatarHtml}
+                  <span class="pf-avatar-edit" aria-hidden="true">${icon("camera", 14)}</span>
+                  <input type="file" accept="image/*" onchange="app.uploadUserAvatar(event)" aria-label="Изменить фото">
+                </label>
+                <div class="pf-id-fields">
+                  <div class="field pf-field">
+                    <label for="pfName">Имя</label>
+                    <input id="pfName" placeholder="Как к вам обращаться" value="${escapeHtml(us.displayName||"")}" oninput="app._saveUserField('displayName',this.value)">
                   </div>
-                </div>
-                <div style="flex:1;min-width:180px">
-                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-                    <label class="btn small" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-                      <span style="color:var(--primary);display:inline-flex">${icon("camera")}</span> Изменить фото
-                      <input type="file" accept="image/*" onchange="app.uploadUserAvatar(event)" style="display:none">
-                    </label>
-                    ${us.avatarDataUrl ? `<button class="btn danger-quiet small" onclick="app.removeUserAvatar()">${TRASH_SVG} Удалить</button>` : ""}
-                  </div>
-                  <div class="grid two" style="gap:8px">
-                    <div class="field" style="margin:0">
-                      <label>Имя</label>
-                      <input placeholder="Ваше имя" value="${escapeHtml(us.displayName||"")}" oninput="app._saveUserField('displayName',this.value)">
-                    </div>
-                    <div class="field" style="margin:0">
-                      <label>Email</label>
-                      <input value="${escapeHtml(email)}" readonly style="opacity:.6">
-                    </div>
-                  </div>
+                  <div class="pf-email" title="Email аккаунта">${icon("mail", 13)} <span>${escapeHtml(email)}</span></div>
+                  ${us.avatarDataUrl ? `<button class="btn danger-quiet small pf-avatar-del" onclick="app.removeUserAvatar()">${TRASH_SVG} Убрать фото</button>` : ""}
                 </div>
               </div>
+              ${planCard}
             </div>
 
-            ${subStatusBlock}
-
-            <!-- Compact subscription link -->
-            <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
-              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-                <div>
-                  <h2 style="margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:9px">${iconBadge("card", "var(--primary)")} Тарифный план</h2>
-                  <div class="u-meta-13">${escapeHtml(subLabel)}${sub && sub.subscription_expires_at ? ` · до ${new Date(sub.subscription_expires_at).toLocaleDateString("ru-RU", {day:"2-digit",month:"short",year:"numeric"})}` : ""}</div>
-                </div>
-                <button class="btn small primary" onclick="app.go('plans')" style="white-space:nowrap">Изменить тариф</button>
-              </div>
-            </div>
-
+            <div class="pf-grid">
             <!-- Security -->
-            <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
-              <h2 style="margin-top:0;font-size:15px;display:flex;align-items:center;gap:9px">${iconBadge("lock", "var(--blue)")} Безопасность</h2>
+            <div class="pf-card">
+              <div class="pf-card-head">${iconBadge("lock", "var(--blue)", 30)}<div><h2>Безопасность</h2><p>Пароль для входа по email</p></div></div>
               <div id="changePasswordBox"></div>
-              <div class="toolbar" style="gap:8px;flex-wrap:wrap">
-                <button class="btn small" onclick="app.openChangePassword()" style="display:inline-flex;align-items:center;gap:6px"><span style="color:var(--blue);display:inline-flex">${icon("key")}</span> Изменить пароль</button>
+              <div class="pf-card-actions">
+                <button class="btn small" onclick="app.openChangePassword()"><span class="pf-ico-blue">${icon("key")}</span> Изменить пароль</button>
                 <button class="btn danger-quiet small" onclick="app.confirmDeleteAccount()">${TRASH_SVG} Удалить аккаунт</button>
               </div>
             </div>
@@ -7352,20 +7324,21 @@
             ${(() => {
               const agencyId = getAgencyId();
               const isOwner = _adminSession && _userProfile && _userProfile.agency_id === _adminSession.user.id;
-              const onlineList = _onlineUsers.length ? _onlineUsers.map(u => `<span style="background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.3);border-radius:99px;padding:2px 10px;font-size:12px">● ${escapeHtml(u)}</span>`).join(" ") : "";
+              const onlineList = _onlineUsers.length ? _onlineUsers.map(u => `<span class="pf-online">${escapeHtml(u)}</span>`).join(" ") : "";
               return `
-              <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
-                <h2 style="margin-top:0;font-size:15px;display:flex;align-items:center;gap:9px">${iconBadge("users", "var(--green)")} Команда</h2>
+              <div class="pf-card">
+                <div class="pf-card-head">${iconBadge("team", "var(--green)", 30)}<div><h2>Команда</h2><p>${isOwner ? "Код приглашения коллег" : "Вы в команде агентства"}</p></div></div>
                 ${isOwner ? `
-                  <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Дайте этот код коллеге — при регистрации он вводит его и попадёт в ваше агентство.</p>
-                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                    <code style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">${escapeHtml(agencyId)}</code>
-                    <button class="btn small" onclick="app.copy('${escapeHtml(agencyId)}','Скопировано!')" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span style="color:var(--primary);display:inline-flex">${icon("copy")}</span> Копировать</button>
+                  <p class="pf-text">Коллега вводит этот код при регистрации и попадает в ваше агентство.</p>
+                  <div class="pf-copy">
+                    <code>${escapeHtml(agencyId)}</code>
+                    <button class="btn small" onclick="app.copy('${escapeHtml(agencyId)}','Скопировано!')"><span class="pf-ico-primary">${icon("copy")}</span> Копировать</button>
                   </div>
-                  ${onlineList ? `<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="u-meta">Сейчас онлайн:</span>${onlineList}</div>` : ""}
-                ` : `<p style="font-size:13px;color:var(--muted);margin:0">Вы в команде агентства${onlineList ? ` · Онлайн: ${onlineList}` : ""}</p>`}
+                ` : ""}
+                ${onlineList ? `<div class="pf-online-row"><span class="u-meta">Сейчас онлайн:</span>${onlineList}</div>` : ""}
               </div>`;
             })()}
+            </div>
             ` : `
             <div style="text-align:center;padding:32px 24px;margin-bottom:24px;background:var(--panel2);border-radius:16px;border:1px solid var(--line)">
               <div style="width:72px;height:72px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;margin:0 auto 16px;box-shadow:0 8px 28px rgb(var(--primary-rgb) / .4)">A</div>
@@ -7382,39 +7355,37 @@
               setTimeout(_loadRefStats, 200);
               const refUrl = escapeHtml(location.origin + location.pathname + '?ref=' + getAgencyId());
               return `
-              <div class="panel" style="box-shadow:none;background:var(--panel2);margin-bottom:16px">
-                <h2 style="margin-top:0;font-size:15px;display:flex;align-items:center;gap:9px">${iconBadge("gift", "var(--orange)")} Реферальная программа</h2>
-                <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.6">
-                  Поделитесь ссылкой с другой видеостудией или фрилансером. Когда они оплатят любой тариф — вы получите <b>+30 дней</b> к подписке бесплатно.
-                </p>
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-                  <code id="refLinkCode" style="flex:1;font-size:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;border:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--muted)">${refUrl}</code>
-                  <button class="btn small" onclick="app.copy(document.getElementById('refLinkCode').textContent.trim(),'Реферальная ссылка скопирована!')" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span style="color:var(--primary);display:inline-flex">${icon("copy")}</span> Копировать</button>
+              <div class="pf-card pf-ref">
+                <div class="pf-card-head">${iconBadge("gift", "var(--orange)", 30)}<div><h2>Реферальная программа</h2><p><b>+30 дней</b> подписки за каждого, кто оплатит тариф по вашей ссылке</p></div></div>
+                <p class="pf-text">Поделитесь ссылкой с другой видеостудией или фрилансером — бонус начислится сам после их первой оплаты.</p>
+                <div class="pf-copy">
+                  <code id="refLinkCode">${refUrl}</code>
+                  <button class="btn small primary" onclick="app.copy(document.getElementById('refLinkCode').textContent.trim(),'Реферальная ссылка скопирована!')">${icon("copy")} Копировать ссылку</button>
                 </div>
                 <div id="refStats" class="u-meta" aria-busy="true"><div class="skeleton" style="height:14px;width:240px"></div></div>
               </div>`;
             })() : ''}
 
-          <div class="panel" style="box-shadow:none;background:var(--panel2);margin-top:16px">
-            <h2 style="margin-top:0;font-size:15px;margin-bottom:14px;display:flex;align-items:center;gap:8px">${iconBadge("check", "var(--text-success)", 22)} Что включено в подписку</h2>
-            <div class="grid two" style="gap:10px">
+          <div class="pf-card pf-included">
+            <div class="pf-card-head">${iconBadge("check", "var(--text-success)", 30)}<div><h2>Что входит в подписку</h2><p>Набор «Стандарта»; чем отличаются тарифы — в разделе «Тарифы»</p></div><button class="btn small pf-head-btn" onclick="app.go('plans')">Сравнить тарифы</button></div>
+            <div class="pf-features">
               ${[
-                ["CRM и сделки", "Неограниченное число сделок и проектов по всем стадиям воронки"],
+                ["target", "CRM и сделки", "Без лимита на сделки, вся воронка"],
                 // Каталог давно вырос до 200 позиций, а витрина обещала «100+» —
                 // считаем от самого каталога, чтобы обещание не отставало снова
                 // (так уже сделано в подписи публичного расчёта).
-                ["Калькулятор смет", `${BASE_ITEMS.length} позиций каталога: съёмка, постпродакшн, ИИ, логистика`],
-                ["КП и договоры", "Генерация коммерческих предложений и договоров за секунды"],
-                ["Календарь", "Дедлайны, задачи и платежи по всем проектам в одном месте"],
-                ["Финансы", "Доходы, расходы, маржа и аналитика по каждому проекту"],
-                ["Облачная синхронизация", "Realtime-синхронизация между устройствами и членами команды"],
-                ["Команда", "Совместная работа — пригласите коллег через код приглашения"],
-                ["Мобильная версия", "PWA — устанавливается на телефон и работает как приложение"]
-              ].map(([title, desc]) => `
-                <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:var(--panel);border-radius:10px;border:1px solid var(--line)">
-                  <div style="width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0;margin-top:5px"></div>
+                ["receipt", "Калькулятор смет", `${BASE_ITEMS.length} позиций: съёмка, пост, ИИ, логистика`],
+                ["contract", "КП и договоры", "Предложение и договор за секунды"],
+                ["calendar", "Календарь", "Дедлайны, задачи и платежи вместе"],
+                ["wallet", "Финансы", "Доходы, расходы и маржа по проектам"],
+                ["cloud", "Облако", "Синхронизация устройств и команды"],
+                ["team", "Команда", "Коллеги по коду приглашения"],
+                ["mobile", "Телефон", "Ставится как приложение"]
+              ].map(([ic, title, desc]) => `
+                <div class="pf-feature">
+                  <span class="pf-feature-ico">${icon(ic, 16)}</span>
                   <div>
-                    <div style="font-size:13px;font-weight:700;margin-bottom:2px">${escapeHtml(title)}</div>
+                    <div class="pf-feature-title">${escapeHtml(title)}</div>
                     <div class="u-meta">${escapeHtml(desc)}</div>
                   </div>
                 </div>`).join("")}
@@ -9056,6 +9027,7 @@
           crmTagFilter: "",
           crmSearch: "",
           dbChartOffset: 0,
+          dbChartSpan: 6,
           telegramChatIds: [],
           clientMode: false,
           recentlyAdded: "",
@@ -10308,7 +10280,7 @@
              onmouseleave="app.hideChartTip()"
              onclick="app.drillIntoMonth('${m.key}')"`;
           return `
-            <g class="db-chart-col" ${hooks}>
+            <g class="db-chart-col${o.current && m.key === o.current ? " is-now" : ""}" ${hooks}>
               <rect class="db-chart-hit-bg" x="${gx + 2}" y="${PADT}" width="${gw - 4}" height="${plotH}" rx="8" fill="url(#${id}Hl)"/>
               <rect class="db-chart-hit" x="${gx}" y="0" width="${gw}" height="${H}" fill="transparent"/>
               ${rh ? `<path class="db-bar is-rev" style="--i:${i}" d="${barPath(rx, baseY - rh, bw, rh, 3)}" fill="url(#${id}Rev)" filter="url(#${id}Glow)"/>` : ""}
@@ -10378,7 +10350,7 @@
         })() : "";
 
         return `
-          <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-height:${o.maxH || 320}px">
+          <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-height:${o.maxH || 320}px;--gw:${gw.toFixed(1)}px">
             <defs>
               ${/* Градиент идёт от ЛЁГКОЙ вершины к плотному основанию, а не
                     наоборот. Прежний (плотно сверху, прозрачно снизу) размывал
@@ -16659,14 +16631,18 @@
         if (root) root.classList.remove("home-enter");
       }
 
-      function _countUp(el, delay) {
+      // from — с чего набегать (листание графика: от прежней суммы к новой, а
+      // не каждый раз с нуля). Без него — с нуля, как при входе на главную.
+      function _countUp(el, delay, from) {
         const final = (el.textContent || "").trim();
         const m = final.match(/\d[\d\s  ]*\d|\d/);
         if (!m) return;
         const target = Number(m[0].replace(/\D/g, ""));
+        const start = Number.isFinite(from) && from >= 0 ? from : 0;
+        if (start === target) return;
         // Мелкие счётчики («2 в работе») не набегают: 0 → 1 → 2 читается сбоем,
         // а не движением.
-        if (!Number.isFinite(target) || target < 10) return;
+        if (!Number.isFinite(target) || (target < 10 && start < 10)) return;
         const head = final.slice(0, m.index), tail = final.slice(m.index + m[0].length);
         // У нуля знака нет: убыток стартовал бы с «-0 ₽».
         const fmt = (n) => {
@@ -16675,7 +16651,7 @@
         };
         const DUR = 950;
         el.classList.add("is-counting");
-        el.dataset.countShow = fmt(0);
+        el.dataset.countShow = fmt(start);
         let t0 = 0;
         const tick = (ts) => {
           if (!el.isConnected) return;          // пришла новая отрисовка — узел уже не наш
@@ -16683,7 +16659,7 @@
           const k = Math.min(1, Math.max(0, (ts - t0) / DUR));
           if (k >= 1) { el.classList.remove("is-counting"); delete el.dataset.countShow; return; }
           const eased = 1 - Math.pow(2, -10 * k); // быстрый старт и мягкая посадка
-          el.dataset.countShow = fmt(target * eased);
+          el.dataset.countShow = fmt(start + (target - start) * eased);
           requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
@@ -18997,34 +18973,53 @@
       function renderAnalyticsSection(projects) {
         if (!projects.length) return '';
 
-        // Последние 6 месяцев со сдвигом state.dbChartOffset (листание стрелками «‹ ›»)
+        /* Период — 6 или 12 месяцев (state.dbChartSpan), со сдвигом назад на
+           state.dbChartOffset МЕСЯЦЕВ (стрелки «‹ ›» листают по одному: график
+           едет на колонку, а не прыгает на полгода, и соседний месяц остаётся
+           перед глазами). */
+        const span = state.dbChartSpan === 12 ? 12 : 6;
         const chartOffset = state.dbChartOffset || 0;
-        const months = [];
-        for (let i = 5 + chartOffset; i >= chartOffset; i--) {
-          const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
-          months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
-        }
+        const monthKey = back => {
+          const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - back);
+          return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        };
+        const months = [], prevMonths = [];
+        for (let i = span - 1 + chartOffset; i >= chartOffset; i--) months.push(monthKey(i));
+        for (let i = 2 * span - 1 + chartOffset; i >= span + chartOffset; i--) prevMonths.push(monthKey(i));
         const ML = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
         const MLfull = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 
         // Активный проект живёт в state.payments/expenses (live) и одновременно
         // лежит в savedProjects со своим snapshot — считаем только live, иначе
         // его суммы задваиваются на графике (тот же приём, что в getAllTransactions).
-        const revenue = months.map(m => {
+        const monthSum = (m, kind) => {
           let s = 0;
-          projects.forEach(p => { if (p.id === state.activeProjectId) return; (p.snapshot?.payments||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; }); });
-          (state.payments||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; });
+          projects.forEach(p => { if (p.id === state.activeProjectId) return; (p.snapshot?.[kind]||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; }); });
+          (state[kind]||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; });
           return s;
-        });
-        const expenseArr = months.map(m => {
-          let s = 0;
-          projects.forEach(p => { if (p.id === state.activeProjectId) return; (p.snapshot?.expenses||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; }); });
-          (state.expenses||[]).forEach(x => { if (x.date?.startsWith(m)) s += x.amount||0; });
-          return s;
-        });
+        };
+        const revenue = months.map(m => monthSum(m, 'payments'));
+        const expenseArr = months.map(m => monthSum(m, 'expenses'));
 
         const totalRev = revenue.reduce((a,b)=>a+b,0);
         const totalExp = expenseArr.reduce((a,b)=>a+b,0);
+        /* Предыдущий период той же длины — для «↑ 12%» у сумм. Без него три
+           числа панели ничего не говорили о направлении: 1,08 млн за полгода —
+           это рост или спад, по ним не понять. */
+        const prevRev = prevMonths.reduce((s, m) => s + monthSum(m, 'payments'), 0);
+        const prevExp = prevMonths.reduce((s, m) => s + monthSum(m, 'expenses'), 0);
+        const mLabel = (k, withYear) => ML[parseInt(k.split('-')[1]) - 1] + (withYear ? ' ' + k.slice(0, 4) : '');
+        const prevLabel = `${mLabel(prevMonths[0], prevMonths[0].slice(0,4) !== prevMonths[span-1].slice(0,4))} – ${mLabel(prevMonths[span-1], true)}`;
+        /* Сравнение — только когда в прошлом периоде было с чем сравнивать.
+           «+∞%» от нуля или процент от отрицательной прибыли выглядят числом,
+           а смысла не несут. goodUp=false — для расхода рост красный. */
+        const deltaHtml = (cur, prev, goodUp) => {
+          if (!(prev > 0)) return '';
+          const pct = Math.round((cur - prev) / prev * 100);
+          const dir = pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
+          const good = dir === 'flat' ? '' : ((dir === 'up') === goodUp ? ' is-good' : ' is-bad');
+          return `<span class="db-delta is-${dir}${good}" title="К предыдущим ${span} мес (${prevLabel}): ${money(prev)}">${dir === 'up' ? '↑' : dir === 'down' ? '↓' : '→'} ${Math.abs(pct)}%</span>`;
+        };
         // При смещении назад (chartOffset>0) не прячем секцию целиком даже если период
         // пустой — иначе пропадают и стрелки навигации, вернуться к текущим месяцам будет нечем.
         if (totalRev === 0 && totalExp === 0 && !chartOffset) return '';
@@ -19035,6 +19030,8 @@
         const chartMonths = months.map((m, i) => ({
           key: m,
           label: MLfull[parseInt(m.split('-')[1]) - 1],
+          // На двенадцати колонках «Сентябрь» не помещается — короткое имя.
+          short: span === 12 ? ML[parseInt(m.split('-')[1]) - 1] : '',
           income: revenue[i],
           expense: expenseArr[i]
         }));
@@ -19105,6 +19102,15 @@
         // Короткие имена месяцев (не MLfull) — тоже ради стабильной ширины: на узких
         // экранах полные «Январь – Июнь» не помещались рядом со стрелками.
         const rangeLabel = `${ML[parseInt(months[0].split('-')[1])-1]} – ${ML[parseInt(months[months.length-1].split('-')[1])-1]}`;
+        /* В капсуле навигации — с годом: ушли на год назад, и «апр – сен»
+           стало неотличимо от текущего. Год один раз в конце, у начала — только
+           если период переходит через новый год. */
+        const lastM = months[months.length - 1];
+        const rangeFull = `${mLabel(months[0], months[0].slice(0,4) !== lastM.slice(0,4))} – ${mLabel(lastM, true)}`;
+        // Первый и последний день периода — для «Операции за период».
+        const [ly, lmo] = lastM.split('-').map(Number);
+        const periodFrom = `${months[0]}-01`;
+        const periodTo = `${lastM}-${String(new Date(ly, lmo, 0).getDate()).padStart(2, '0')}`;
         return `
           ${/* ДВЕ панели вместо одной. Раньше график и «Топ клиентов» жили в одной
                 коробке, разделённые только вертикальной чертой: правый столбец шёл
@@ -19119,10 +19125,22 @@
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="9" width="3.2" height="6" rx="1"/><rect x="6.4" y="4.5" width="3.2" height="10.5" rx="1"/><rect x="11.8" y="1.5" width="3.2" height="13.5" rx="1"/></svg>
                   </span>
                   <span style="font-weight:700;font-size:13px">Доход и расходы</span>
-                  <span class="db-analytics-range" title="Показанный период">· ${rangeLabel}</span>
-                  <div class="db-chart-nav no-print">
-                    <button class="db-chart-nav-btn" onclick="app.shiftDbChart(1)" title="Более ранний период" aria-label="Более ранний период">‹</button>
-                    <button class="db-chart-nav-btn" onclick="app.shiftDbChart(-1)" ${chartOffset ? '' : 'disabled'} title="Более поздний период" aria-label="Более поздний период">›</button>
+                </div>
+                ${/* Навигация — справа одной группой. Стрелки обнимают сам период,
+                      а не стоят после него: видно, ЧТО листается. «Сейчас» — только
+                      когда ушли назад: раньше возвращаться приходилось столько же
+                      кликов, сколько уходил. Стрелки не двигаются, когда «Сейчас»
+                      появляется: группа прижата вправо и растёт влево. */""}
+                <div class="db-chart-nav no-print">
+                  ${chartOffset ? `<button type="button" class="db-chart-now" onclick="app.resetDbChart()" title="Вернуться к последним месяцам">Сейчас</button>` : ''}
+                  <div class="db-chart-span" role="group" aria-label="Длина периода">
+                    <button type="button" class="db-chart-span-btn${span === 6 ? ' is-active' : ''}" onclick="app.setDbChartSpan(6)" aria-pressed="${span === 6}">6 мес</button>
+                    <button type="button" class="db-chart-span-btn${span === 12 ? ' is-active' : ''}" onclick="app.setDbChartSpan(12)" aria-pressed="${span === 12}">12 мес</button>
+                  </div>
+                  <div class="db-chart-pager">
+                    <button type="button" class="db-chart-nav-btn is-prev" onclick="app.shiftDbChart(1)" title="На месяц раньше" aria-label="На месяц раньше">${icon("chevron", 14)}</button>
+                    <span class="db-chart-range" title="Показанный период">${rangeFull}</span>
+                    <button type="button" class="db-chart-nav-btn" onclick="app.shiftDbChart(-1)" ${chartOffset ? '' : 'disabled'} title="На месяц позже" aria-label="На месяц позже">${icon("chevron", 14)}</button>
                   </div>
                 </div>
               </div>
@@ -19153,9 +19171,9 @@
                       маржа ${marginPct}%</span>`;
                 return `
               <div class="db-money-sums">
-                <div class="db-money-sum" data-series="rev"><span class="db-money-lbl">Доход</span><b style="color:var(--text-success)">${money(totalRev)}</b></div>
-                <div class="db-money-sum" data-series="exp"><span class="db-money-lbl">Расход</span><b style="color:var(--text-danger)">${money(totalExp)}</b></div>
-                <div class="db-money-sum" data-series="profit"><span class="db-money-lbl">Прибыль</span><b style="color:${profit>=0?'var(--text-success)':'var(--text-danger)'}">${money(profit)}</b>${marginHtml}</div>
+                <div class="db-money-sum" data-series="rev"><span class="db-money-lbl">Доход ${deltaHtml(totalRev, prevRev, true)}</span><b style="color:var(--text-success)">${money(totalRev)}</b></div>
+                <div class="db-money-sum" data-series="exp"><span class="db-money-lbl">Расход ${deltaHtml(totalExp, prevExp, false)}</span><b style="color:var(--text-danger)">${money(totalExp)}</b></div>
+                <div class="db-money-sum" data-series="profit"><span class="db-money-lbl">Прибыль ${deltaHtml(profit, prevRev - prevExp, true)}</span><b style="color:${profit>=0?'var(--text-success)':'var(--text-danger)'}">${money(profit)}</b>${marginHtml}</div>
                 ${/* Четвёртая величина — не ради симметрии: три колонки на широкой
                       панели оставляли справа пустую четверть, а средний доход за
                       месяц отвечает на вопрос «на что я живу», которого ни одна из
@@ -19174,7 +19192,7 @@
                     третьим начертанием того же числа (решение владельца
                     14.09.2026). В «Финансах» такой цифры рядом нет — там линия
                     остаётся. */""}
-              ${monthlyBarsSvg("dbBars", chartMonths, { avg: false })}
+              ${monthlyBarsSvg("dbBars", chartMonths, { avg: false, current: monthKey(0) })}
               ` : `
               <div class="db-analytics-early">
                 <p class="mini-note" style="margin:0 0 10px">
@@ -19197,7 +19215,7 @@
               ${chartWorthDrawing ? `
               <div class="db-money-foot no-print">
                 <span class="db-clients-foot-note">Нажмите на месяц — откроются его операции</span>
-                <button class="btn small" onclick="app.go('global-finances')">Все операции</button>
+                <button class="btn small" onclick="app.openFinancesPeriod('${periodFrom}','${periodTo}')" title="Финансы с датами показанного периода">Операции за период</button>
               </div>` : ""}
               <div id="dbChartTooltip" class="db-chart-tooltip no-print" style="display:none"></div>
             </div>
@@ -19279,7 +19297,71 @@
       // Листание графика «За 6 месяцев» стрелками ‹›: +1 — на полгода раньше,
       // -1 — обратно к текущим месяцам (дальше «в будущее» уйти нельзя, клампим на 0).
       function shiftDbChart(delta) {
-        state.dbChartOffset = Math.max(0, (state.dbChartOffset || 0) + delta);
+        const next = Math.max(0, (state.dbChartOffset || 0) + delta);
+        if (next === (state.dbChartOffset || 0)) return;
+        const before = _dbSumsNow();
+        state.dbChartOffset = next;
+        render();
+        _dbChartAnimate(delta > 0 ? "is-slide-prev" : "is-slide-next", before);
+      }
+      // К последним месяцам одним нажатием — сколько бы ни ушли назад.
+      function resetDbChart() {
+        if (!state.dbChartOffset) return;
+        const before = _dbSumsNow();
+        state.dbChartOffset = 0;
+        render();
+        _dbChartAnimate("is-regrow", before);
+      }
+      function setDbChartSpan(n) {
+        const span = n === 12 ? 12 : 6;
+        if ((state.dbChartSpan === 12 ? 12 : 6) === span) return;
+        const before = _dbSumsNow();
+        state.dbChartSpan = span;
+        save();
+        render();
+        _dbChartAnimate("is-regrow", before);
+      }
+      // Суммы панели ДО перерисовки — со знаком, чтобы убыток не набегал от
+      // прошлой прибыли с минусом впереди.
+      function _dbSumsNow() {
+        const read = el => {
+          const t = (el.textContent || "").replace(/[\s  ]/g, "");
+          const m = t.match(/([-−]?)(\d+)/);
+          return m ? (m[1] ? -1 : 1) * Number(m[2]) : NaN;
+        };
+        return {
+          sums: [...document.querySelectorAll(".db-money-panel .db-money-sum > b")].map(read),
+          center: [...document.querySelectorAll(".db-clients-donut-center[data-seg='all'] b")].map(read),
+        };
+      }
+      /* Движение после листания. Страница перерисована целиком, поэтому
+         старых столбцов уже нет: съезд на одну колонку (--gw в svg) и
+         досчёт сумм создают ощущение, что график ПРОЕХАЛ, а не мигнул.
+         Класс снимается сам — повторное нажатие запускает движение заново. */
+      let _dbChartAnimTimer = 0;
+      function _dbChartAnimate(kind, before) {
+        if (_reducedMotion()) return;
+        const panel = document.querySelector(".db-money-panel");
+        if (!panel) return;
+        clearTimeout(_dbChartAnimTimer);
+        panel.classList.add(kind);
+        const now = _dbSumsNow();
+        const from = (list, i) => {
+          const a = before && before[list] ? before[list][i] : NaN, b = now[list][i];
+          // Знак сменился (прибыль ушла в минус) — набегаем от нуля.
+          return Number.isFinite(a) && Number.isFinite(b) && (a < 0) === (b < 0) ? Math.abs(a) : 0;
+        };
+        panel.querySelectorAll(".db-money-sum > b").forEach((el, i) => _countUp(el, 0, from("sums", i)));
+        document.querySelectorAll(".db-clients-donut-center[data-seg='all'] b").forEach((el, i) => _countUp(el, 0, from("center", i)));
+        _dbChartAnimTimer = setTimeout(() => panel.classList.remove(kind), 700);
+      }
+      // «Операции за период» — «Финансы» с датами показанного графиком периода.
+      function openFinancesPeriod(from, to) {
+        state.gFinDateFrom = from;
+        state.gFinDateTo = to;
+        state.gFinDatePreset = 'custom';
+        state.view = 'global-finances';
+        save();
         render();
       }
 
@@ -33363,6 +33445,9 @@ Email: _____________________              Email: _____________________
         setGFinDateTo,
         setGFinSearch,
         shiftDbChart,
+        resetDbChart,
+        setDbChartSpan,
+        openFinancesPeriod,
         drillIntoMonth,
         showChartTip,
         positionChartTip,

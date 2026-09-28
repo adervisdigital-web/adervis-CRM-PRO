@@ -4633,16 +4633,248 @@
     .db-analytics-early-nums > div { display: flex; flex-direction: column; gap: 2px; }
     .db-analytics-early-nums b { font-size: 18px; font-variant-numeric: tabular-nums; }
 
-    /* Стрелки листания периода графика «За N месяцев» */
-    .db-chart-nav { display: flex; gap: 2px; margin-left: 2px; }
-    .db-chart-nav-btn {
-      width: 22px; height: 22px; border-radius: var(--r-sm); border: 1px solid var(--line);
-      background: var(--panel2); color: var(--muted); cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px; line-height: 1; transition: var(--dur-1);
+    /* Навигация графика — справа одной группой: «Сейчас» (когда ушли назад),
+       длина периода и капсула «‹ период ›». Прежние стрелки 22px стояли ПОСЛЕ
+       метки периода и читались значками, а не управлением. Группа прижата
+       вправо и растёт влево — появление «Сейчас» не двигает стрелки. */
+    .db-chart-nav {
+      display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap;
+      gap: 8px; margin-left: auto;
     }
-    .db-chart-nav-btn:hover:not(:disabled) { border-color: rgb(var(--primary-rgb) / .5); color: var(--primary-text); }
-    .db-chart-nav-btn:disabled { opacity: .35; cursor: default; }
+    .db-chart-span, .db-chart-pager {
+      display: inline-flex; align-items: center; gap: 2px; padding: 2px;
+      border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--panel2);
+    }
+    .db-chart-span-btn {
+      height: 26px; padding: 0 10px; border: 0; border-radius: var(--r-pill);
+      background: transparent; color: var(--muted); cursor: pointer;
+      font: inherit; font-size: 12px; font-weight: 650; white-space: nowrap;
+      transition: background var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+    }
+    .db-chart-span-btn:hover:not(.is-active) { color: var(--text); }
+    .db-chart-span-btn.is-active { background: var(--panel); color: var(--text); box-shadow: var(--elev-1); cursor: default; }
+    .db-chart-range {
+      min-width: 128px; padding: 0 4px; text-align: center;
+      font-size: 12.5px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .db-chart-nav-btn {
+      width: 26px; height: 26px; border-radius: var(--r-pill); border: 0;
+      background: transparent; color: var(--muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+      transition: background var(--dur-1), color var(--dur-1);
+    }
+    .db-chart-nav-btn svg { transition: transform var(--dur-2) var(--ease-out); }
+    .db-chart-nav-btn.is-prev svg { transform: scaleX(-1); }
+    .db-chart-nav-btn:hover:not(:disabled) { background: var(--primary-bg); color: var(--primary-text); }
+    /* Шеврон подаётся в сторону листания — нажатие видно рукой. */
+    .db-chart-nav-btn:hover:not(:disabled) svg { transform: translateX(2px); }
+    .db-chart-nav-btn.is-prev:hover:not(:disabled) svg { transform: scaleX(-1) translateX(2px); }
+    .db-chart-nav-btn:disabled { opacity: .3; cursor: default; }
+    .db-chart-now {
+      height: 32px; padding: 0 12px; border-radius: var(--r-pill);
+      border: 1px solid rgb(var(--primary-rgb) / .45); background: var(--primary-bg); color: var(--primary-text);
+      font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+      animation: dbNowIn var(--dur-3) var(--ease-spring);
+      transition: border-color var(--dur-1), background var(--dur-1);
+    }
+    .db-chart-now:hover { border-color: rgb(var(--primary-rgb) / .8); }
+    @keyframes dbNowIn { from { opacity: 0; transform: translateX(8px) scale(.9); } }
+    /* На пальце: кнопки периода и «Сейчас» дотягивают зону касания до 44px
+       по высоте на всю свою ширину (стрелки — в общем списке ниже). */
+    @media (hover: none) and (pointer: coarse) {
+      .db-chart-span-btn, .db-chart-now { position: relative; }
+      .db-chart-span-btn::after, .db-chart-now::after {
+        content: ""; position: absolute; left: 0; right: 0; top: 50%;
+        height: 44px; transform: translateY(-50%);
+      }
+    }
+    @media (max-width: 640px) {
+      .db-money-panel .db-analytics-header { row-gap: 10px; }
+      .db-money-panel .db-chart-nav { width: 100%; justify-content: flex-start; }
+      .db-money-panel .db-chart-pager { flex: 1 1 auto; justify-content: space-between; }
+      .db-chart-range { min-width: 0; }
+      .db-chart-now { order: 1; }
+    }
+
+    /* ── Профиль ─────────────────────────────────────────────────────────
+       Шапка: аватар с именем и карточка подписки в одном ряду; ниже
+       карточки одной семьи (панель, рамка --line, скругление --r-xl,
+       наведение — фиолетовое свечение, как у карточек на главной). */
+    .pf-hero {
+      display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 16px; margin-bottom: 16px;
+    }
+    .pf-id {
+      display: flex; align-items: center; gap: 22px; padding: 22px;
+      border: 1px solid var(--line); border-radius: var(--r-xl);
+      background: radial-gradient(120% 150% at 0% 0%, rgb(var(--primary-rgb) / .16), transparent 55%), var(--panel2);
+    }
+    .pf-avatar {
+      position: relative; flex: 0 0 auto; width: 88px; height: 88px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 50%, var(--blue)));
+      color: var(--on-color); font-family: var(--font-display); font-size: 34px; font-weight: 700;
+      box-shadow: 0 0 0 4px var(--panel2), 0 0 0 5px rgb(var(--primary-rgb) / .45), 0 12px 30px -6px rgb(var(--primary-rgb) / .45);
+      transition: box-shadow var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out);
+    }
+    .pf-avatar:hover { transform: scale(1.03); box-shadow: 0 0 0 4px var(--panel2), 0 0 0 6px rgb(var(--primary-rgb) / .7), 0 14px 36px -6px rgb(var(--primary-rgb) / .6); }
+    .pf-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+    /* Поле файла не display:none, а невидимое — до него доходит Tab, и фото
+       меняется с клавиатуры. */
+    .pf-avatar input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .pf-avatar:has(input:focus-visible) { outline: var(--ring-w) solid var(--ring); outline-offset: 6px; }
+    .pf-avatar-edit {
+      position: absolute; right: -2px; bottom: -2px; width: 30px; height: 30px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--panel); border: 1px solid var(--line); color: var(--text); box-shadow: var(--elev-1);
+      transition: transform var(--dur-2) var(--ease-spring), color var(--dur-2);
+    }
+    .pf-avatar:hover .pf-avatar-edit { transform: scale(1.12); color: var(--primary-text); }
+    .pf-id-fields { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+    .pf-field { margin: 0; }
+    .pf-field input { font-size: 16px; font-weight: 650; }
+    .pf-email { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; color: var(--muted); }
+    .pf-email span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pf-avatar-del { align-self: flex-start; }
+
+    /* Карточка подписки: цвет — по состоянию (--pf-c), шкала — сколько
+       осталось от периода. Скоро конец — оранжевая, истекла — красная. */
+    .pf-plan {
+      --pf-c: var(--primary);
+      display: flex; flex-direction: column; gap: 10px; padding: 18px 20px;
+      border: 1px solid color-mix(in srgb, var(--pf-c) 35%, var(--line)); border-radius: var(--r-xl);
+      background: linear-gradient(160deg, color-mix(in srgb, var(--pf-c) 16%, transparent), transparent 70%), var(--panel2);
+    }
+    .pf-plan.is-active { --pf-c: var(--green); }
+    .pf-plan.is-soon { --pf-c: var(--orange); }
+    .pf-plan.is-expired { --pf-c: var(--red); }
+    .pf-plan-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .pf-plan-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--r-pill);
+      background: color-mix(in srgb, var(--pf-c) 16%, transparent);
+      color: color-mix(in srgb, var(--pf-c) 65%, var(--text)); font-size: 12.5px; font-weight: 700;
+    }
+    .pf-plan-days { font-size: 13px; color: var(--muted); white-space: nowrap; }
+    .pf-plan-days b {
+      font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--text);
+      font-variant-numeric: tabular-nums; margin-right: 2px;
+    }
+    .pf-plan-track {
+      height: 6px; border-radius: var(--r-pill); overflow: hidden;
+      background: color-mix(in srgb, var(--pf-c) 14%, var(--line));
+    }
+    .pf-plan-track > span {
+      display: block; height: 100%; border-radius: var(--r-pill);
+      background: linear-gradient(90deg, color-mix(in srgb, var(--pf-c) 55%, transparent), var(--pf-c));
+    }
+    .pf-plan-note { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+    .pf-plan-btn { align-self: flex-start; margin-top: auto; }
+
+    .pf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .pf-card {
+      padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--r-xl); background: var(--panel2);
+      transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+    }
+    .pf-card:hover {
+      border-color: rgb(var(--primary-rgb) / .35);
+      box-shadow: 0 12px 32px -14px rgb(var(--primary-rgb) / .45);
+    }
+    .pf-ref { margin-bottom: 16px; }
+    .pf-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .pf-card-head h2 { margin: 0; font-size: 15px; }
+    .pf-card-head p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+    .pf-head-btn { margin-left: auto; flex: 0 0 auto; }
+    .pf-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pf-text { margin: 0 0 10px; font-size: 13px; line-height: 1.55; color: var(--muted); }
+    .pf-copy { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .pf-copy code {
+      flex: 1 1 auto; min-width: 0; padding: 8px 12px; font-size: 12px; color: var(--muted);
+      border: 1px dashed var(--line); border-radius: var(--r-sm); background: var(--panel);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pf-copy .btn { flex: 0 0 auto; white-space: nowrap; }
+    .pf-ico-blue, .pf-ico-green, .pf-ico-primary { display: inline-flex; }
+    .pf-ico-blue { color: var(--blue); }
+    .pf-ico-green { color: var(--text-success); }
+    .pf-ico-primary { color: var(--primary-text); }
+    .pf-online-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+    .pf-online {
+      display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: var(--r-pill); font-size: 12px;
+      background: color-mix(in srgb, var(--green) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--green) 30%, transparent);
+    }
+    .pf-online::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+    .pf-features { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .pf-feature {
+      display: flex; align-items: flex-start; gap: 10px; padding: 12px;
+      border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel);
+      transition: transform var(--dur-2) var(--ease-out), border-color var(--dur-2);
+    }
+    .pf-feature:hover { transform: translateY(-2px); border-color: rgb(var(--primary-rgb) / .35); }
+    .pf-feature-ico {
+      width: 32px; height: 32px; flex: 0 0 auto; border-radius: var(--r-md);
+      display: flex; align-items: center; justify-content: center;
+      background: var(--primary-bg); color: var(--primary-text);
+    }
+    .pf-feature-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+    @media (max-width: 1100px) { .pf-features { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 900px) {
+      .pf-hero, .pf-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .pf-id { flex-direction: column; align-items: stretch; text-align: left; padding: 18px; gap: 16px; }
+      .pf-avatar { align-self: center; }
+      .pf-copy { flex-wrap: wrap; }
+      .pf-copy code { flex-basis: 100%; }
+      /* Восемь пунктов в столбик — полтора экрана телефона. Две колонки
+         без пояснений: название со значком и так говорит, что входит. */
+      .pf-feature { align-items: center; padding: 10px; }
+      .pf-feature .u-meta { display: none; }
+      .pf-card-head { flex-wrap: wrap; }
+      .pf-head-btn { margin-left: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pf-avatar, .pf-avatar-edit, .pf-feature { transition: none; }
+      .pf-avatar:hover, .pf-feature:hover, .pf-avatar:hover .pf-avatar-edit { transform: none; }
+    }
+
+    /* Изменение к предыдущему такому же периоду — капсулой у подписи суммы.
+       Цвет по смыслу, а не по знаку: рост расхода — красный. */
+    .db-delta {
+      display: inline-flex; align-items: center; margin-left: 4px; padding: 1px 6px;
+      border-radius: var(--r-pill); background: var(--panel2); color: var(--muted);
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0; text-transform: none;
+      font-variant-numeric: tabular-nums; vertical-align: 1px; cursor: help;
+    }
+    .db-delta.is-good { color: var(--text-success); background: color-mix(in srgb, var(--green) 14%, transparent); }
+    .db-delta.is-bad { color: var(--text-danger); background: color-mix(in srgb, var(--red) 14%, transparent); }
+
+    /* Текущий месяц — подпись акцентом: он ещё не закончился, и его
+       невысокий столбец не должен читаться провалом. */
+    .db-chart-col.is-now .db-chart-mlabel { fill: var(--primary-text); font-weight: 700; }
+
+    /* Листание: страница перерисована, и столбцы съезжают на одну колонку
+       (--gw задаёт svg) — график ПРОЕЗЖАЕТ месяц, а не мигает. Новая колонка
+       с края проявляется. Смена длины периода — столбцы вырастают заново. */
+    .db-money-panel.is-slide-next .db-chart-col { animation: dbColFromRight .5s var(--ease-out); }
+    .db-money-panel.is-slide-prev .db-chart-col { animation: dbColFromLeft .5s var(--ease-out); }
+    .db-money-panel.is-slide-next .db-chart-col:last-of-type { animation-name: dbColFromRight, homeFade; }
+    .db-money-panel.is-slide-prev .db-chart-col:first-of-type { animation-name: dbColFromLeft, homeFade; }
+    @keyframes dbColFromRight { from { transform: translateX(var(--gw, 0px)); } }
+    @keyframes dbColFromLeft { from { transform: translateX(calc(var(--gw, 0px) * -1)); } }
+    .db-money-panel.is-regrow .db-bar {
+      transform-box: fill-box; transform-origin: 50% 100%;
+      animation: barGrow .55s var(--ease-out) both;
+      animation-delay: calc(var(--i, 0) * 25ms);
+    }
+    .db-money-panel.is-regrow .db-chart-col text:not(.db-chart-mlabel) {
+      animation: homeFade .35s ease both; animation-delay: .4s;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .db-chart-now, .db-money-panel .db-chart-col, .db-money-panel .db-bar,
+      .db-money-panel .db-chart-col text { animation: none; }
+    }
 
     /* Наведение/тап по колонке месяца — hover-подсветка + курсор, клик уводит в «Финансы» */
     /* Подсветка — вертикальный градиент от основания к нулю вверху (заливка
