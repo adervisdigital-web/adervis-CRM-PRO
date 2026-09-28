@@ -3639,6 +3639,14 @@
        обычного (480px): на шаге «Проект» стоит выбор пакета сеткой. Панель
        мастера внутри окна — без своей рамки и тени: окно уже и есть панель. */
     .modal-box.wizard-modal-box { width: min(820px, calc(100vw - 32px)); padding: 0; }
+    /* Пакет, выбранный заранее кнопкой «В смету», — видно, с чем создастся сделка. */
+    .wizard-preset-pkg {
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 16px;
+      padding: 8px 12px; border-radius: var(--r-md);
+      background: rgb(var(--primary-rgb) / .1); border: 1px solid rgb(var(--primary-rgb) / .3);
+      color: var(--primary-text); font-size: 13px;
+    }
+    .wizard-preset-pkg b { color: var(--text); }
     .wizard-wrap--modal {
       max-width: none; margin: 0; border: none; box-shadow: none; background: none;
       padding: 26px 28px 24px;
@@ -5984,11 +5992,12 @@
     .deal-switcher-section-label:hover { background: var(--panel2); }
     .deal-switcher-section-label:first-child { padding-top: 4px; }
     .deal-switcher-section-label.active-label { color: var(--text-success); }
-    .deal-switcher-section-label.completed-label { color: var(--text-danger); }
+    /* «Завершённые» — итог работы, а не тревога: красным они читались как
+       проблема (владелец 28.09). Подпись приглушённая, галочка — зелёная. */
+    .deal-switcher-section-label.completed-label { color: var(--muted); }
+    .deal-switcher-section-label.completed-label svg { color: var(--text-success); opacity: 1; }
     .deal-switcher-section-label.archived-label { color: var(--muted); }
-    /* Иконка и подпись — одна группа: значок наследует цвет секции (зелёный у
-       «В работе», красный у «Завершённых», приглушённый у «Архива»), поэтому
-       отдельного правила на цвет не нужно. */
+    /* Иконка и подпись — одна группа: значок наследует цвет секции. */
     .deal-switcher-section-title {
       display: inline-flex; align-items: center; gap: 7px; min-width: 0;
     }
@@ -6060,8 +6069,11 @@
     .deal-switcher-item.active:hover {
       background-image: linear-gradient(rgb(var(--primary-rgb) / .19), rgb(var(--primary-rgb) / .19));
     }
-    .deal-switcher-item.active-deal { border-left: 2px solid var(--green); }
-    .deal-switcher-item.completed-deal { border-left: 2px solid var(--red); opacity: .75; }
+    /* Полоса слева — цвет ЭТАПА сделки (--st-color из CRM_STATUS_COLOR), тот же,
+       что у точки этапа и у полосы на карточках главной. Была зелёной у всех
+       активных, а у завершённых — красной. */
+    .deal-switcher-item.active-deal { border-left: 3px solid var(--st-color, var(--green)); }
+    .deal-switcher-item.completed-deal { border-left: 3px solid color-mix(in srgb, var(--green) 45%, transparent); opacity: .75; }
     .deal-switcher-item.completed-deal:hover { opacity: 1; }
     .deal-switcher-item.archived-deal { border-left: 2px solid var(--muted); opacity: .6; }
     .deal-switcher-item.archived-deal:hover { opacity: 1; }
@@ -6116,7 +6128,19 @@
     /* Срок стоит в строке статуса, отделённый точкой: «● В работе · 27.08.2026».
        Отдельной четвёртой строкой он висел без подписи и без связи с соседями —
        и добавлял карточке высоты на ровном месте. */
-    .deal-switcher-item-date { font-size: 11px; font-weight: 700; flex: 0 0 auto; }
+    .deal-switcher-item-date {
+      font-size: 11px; font-weight: 700; flex: 0 0 auto;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .deal-switcher-item-date svg { opacity: .8; }
+    /* Полоса оплаты внизу строки: сколько из суммы сделки уже получено. */
+    .deal-switcher-item-pay {
+      display: block; height: 3px; margin-top: 3px; border-radius: var(--r-pill);
+      background: var(--line); overflow: hidden;
+    }
+    .deal-switcher-item-pay > span {
+      display: block; height: 100%; border-radius: var(--r-pill); background: var(--green);
+    }
 
     /* ── ANALYTICS DATE FILTER ────────────────────── */
     .analytics-date-bar {
@@ -9721,7 +9745,21 @@ body.portal-mode .nav { display: none !important; }
   flex: 0 0 auto;
 }
 .deal-rail-head h3 { margin: 0; font-size: 14px; flex: 1; }
-.deal-rail-search-wrap { padding: 10px 12px; flex: 0 0 auto; }
+/* Ряд колонки «Сделки»: «+» (новая сделка окном) и поиск длинной строкой. */
+.deal-rail-actions { display: flex; align-items: center; gap: 8px; padding: 10px 12px; flex: 0 0 auto; }
+.deal-rail-add {
+  flex: 0 0 auto; width: 40px; height: 40px; display: inline-grid; place-items: center;
+  border-radius: var(--r-md); border: 1px solid rgb(var(--primary-rgb) / .35);
+  background: rgb(var(--primary-rgb) / .1); color: var(--primary-text); cursor: pointer;
+  transition: background var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out),
+    color var(--dur-2), transform var(--dur-2) var(--ease-spring);
+}
+.deal-rail-add:hover {
+  background: var(--primary); border-color: var(--primary); color: var(--on-color); transform: translateY(-1px);
+}
+.deal-rail-add:active { transform: none; }
+.deal-rail-actions .deal-rail-search { flex: 1 1 auto; min-width: 0; width: auto; }
+@media (hover: none) and (pointer: coarse) { .deal-rail-add { width: 44px; height: 44px; } }
 .deal-rail-list {
   flex: 1 1 auto;
   overflow-y: auto;

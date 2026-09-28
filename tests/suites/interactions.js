@@ -4758,11 +4758,128 @@ module.exports = async function ({ browser, baseUrl, test }) {
       const итог = await p.evaluate(() => ({
         окно: !!document.querySelector("#modalContainer .wizard-modal-box"),
         вид: document.getElementById("appContent").dataset.view,
-        текст: (document.getElementById("appContent").textContent || "").slice(0, 600),
+        открыта: ((document.querySelector(".deal-rail .deal-switcher-item.active .deal-switcher-item-name") || {}).textContent || "").trim(),
       }));
       assert(!итог.окно, "после создания сделки окно мастера не закрылось");
       assertEqual(итог.вид, "deal", "созданная из окна сделка не открылась");
-      assert(/Окно Тестович/.test(итог.текст), "открылась не та сделка");
+      assert(/Окно Тестович/.test(итог.открыта), "открылась не та сделка: " + итог.открыта);
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  await test("боковой список сделок: цвет этапа, итоговые не красные, срок только до сдачи, полоса оплаты", async () => {
+    /* 28.09.2026, владелец: «нужно улучшить этот блок». Было: полоса слева
+       зелёная у всех активных (а точка этапа — фиолетовая), «Завершённые»
+       красным, как тревога; в группе «В работе» лежали и сделки на «Оплате»;
+       клиент стоял дважды (в названии и строкой ниже); срок — голой датой;
+       сколько осталось получить — не видно. */
+    const день = (n) => {
+      const t2 = new Date(); t2.setDate(t2.getDate() + n);
+      const p2 = (x) => String(x).padStart(2, "0");
+      return `${t2.getFullYear()}-${p2(t2.getMonth() + 1)}-${p2(t2.getDate())}`;
+    };
+    const { ctx, p } = await bootWithState(`
+      const mk = (id, name, client, status, total, paid, dl) => ({ id, name, client, crmStatus: status, total, paid,
+        deadline: dl, createdAt: "${день(-60)}", updatedAt: "${день(-2)}",
+        snapshot: { project: { name, client, crmStatus: status }, selected: {}, payments: [], expenses: [], tasks: [] } });
+      st.savedProjects = [
+        mk("r1", "Арина — видео мероприятия", "Арина", "В работе", 40000, 10000, "${день(3)}"),
+        mk("r2", "БР 2025", "Битва роботов", "Оплата", 200000, 150000, "${день(-3)}"),
+        mk("r3", "Серия рилсов", "Пар", "Завершённые", 100000, 100000, "${день(-30)}"),
+      ];
+      st.activeProjectId = ""; st.payments = []; st.expenses = []; st.tasks = [];
+      st.dealRailManual = false;
+    `, { width: 1440, height: 1000 });
+    try {
+      await p.evaluate(() => window.app.loadSavedProject("r1"));
+      await p.waitForTimeout(900);
+      const r = await p.evaluate(() => {
+        const row = (id) => document.querySelector(`.deal-rail [data-deal-id="${id}"]`);
+        const probe = document.createElement("span");
+        probe.style.color = "var(--text-danger)"; document.body.appendChild(probe);
+        const danger = getComputedStyle(probe).color; probe.remove();
+        const txt = (el) => (el ? el.textContent.replace(/\s+/g, " ").trim() : "");
+        const done = [...document.querySelectorAll(".deal-rail .deal-switcher-section-label")].find((x) => /Завершённые/.test(x.textContent));
+        const actLbl = [...document.querySelectorAll(".deal-rail .deal-switcher-section-label")].find((x) => x.classList.contains("active-label"));
+        const pay = row("r2") && row("r2").querySelector(".deal-switcher-item-pay > span");
+        return {
+          полосаРабота: getComputedStyle(row("r1")).borderLeftColor,
+          полосаОплата: getComputedStyle(row("r2")).borderLeftColor,
+          завершённые: done ? getComputedStyle(done).color : null, danger,
+          активные: txt(actLbl),
+          r1: txt(row("r1")), r2: txt(row("r2")),
+          оплата: pay ? pay.style.width : null,
+        };
+      });
+      assert(r.полосаРабота !== r.полосаОплата, "полоса слева одного цвета у разных этапов: " + r.полосаРабота);
+      assert(r.завершённые && r.завершённые !== r.danger, "«Завершённые» снова красные, как тревога");
+      assert(/^Активные/.test(r.активные), "секция активных сделок подписана не «Активные»: " + r.активные);
+      assert(!/Арина — видео мероприятия Арина/.test(r.r1), "клиент повторён под названием, где он уже есть: " + r.r1);
+      assert(/Битва роботов/.test(r.r2), "клиент, которого нет в названии, пропал: " + r.r2);
+      assert(/через 3 дня/.test(r.r1), "срок сделки до сдачи не назван словом: " + r.r1);
+      assert(!/просрочен|дн\./.test(r.r2), "у сделки на «Оплате» показан срок сдачи — работа уже отдана: " + r.r2);
+      assertEqual(r.оплата, "75%", "полоса оплаты не показывает долю полученного");
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  await test("пакет «В смету» без открытой сделки — новая сделка с пакетом, а не смета без навигации", async () => {
+    /* 28.09.2026, владелец: «правильно открывается? без навигации». Без
+       открытой сделки пакет ложился в черновик сметы вне всякой сделки, и
+       открывался старый отдельный вид «Смета» — без колонки сделок, без
+       вкладок, с пустым названием. Теперь мастер «Новая сделка» окном с уже
+       выбранным пакетом, и сделка создаётся сразу с ним. */
+    const { ctx, p } = await bootWithState(`
+      st.activeProjectId = ""; st.selected = {}; st.estimateOrder = [];
+      st.payments = []; st.expenses = []; st.tasks = [];
+      st.view = "home";
+    `, { width: 1440, height: 1000 });
+    try {
+      // Приложение при загрузке само открывает последнюю сделку (демо) —
+      // снимаем выделение живым путём, как человек кликом по пустому месту.
+      await p.evaluate(() => window.app.deselectActiveProject());
+      await p.waitForTimeout(300);
+      await p.evaluate(() => window.app.go("packages"));
+      await p.waitForTimeout(700);
+      const btn = await p.$('[onclick*="packageToEstimate"]');
+      assert(btn, "у пакетов нет кнопки «В смету»");
+      await btn.click();
+      await p.waitForTimeout(500);
+      const окно = await p.evaluate(() => ({
+        окно: !!document.querySelector("#modalContainer .wizard-modal-box"),
+        вид: document.getElementById("appContent").dataset.view,
+      }));
+      assert(окно.окно, "«В смету» без сделки не открыл окно новой сделки");
+      assert(окно.вид !== "estimate", "«В смету» снова открыл смету без сделки и навигации");
+
+      await p.fill("#wz_name", "Пакетный клиент");
+      await p.click('#modalContainer button.primary:has-text("Далее")');
+      await p.waitForTimeout(400);
+      const шаг2 = await p.evaluate(() => ({
+        пакет: ((document.querySelector("#modalContainer .wizard-preset-pkg") || {}).textContent || "").trim(),
+        кнопка: [...document.querySelectorAll("#modalContainer button.primary")].map((b) => b.textContent.trim()).join(" | "),
+      }));
+      assert(/Пакет:/.test(шаг2.пакет), "в окне не видно, с каким пакетом создастся сделка");
+      assert(/с пакетом/.test(шаг2.кнопка), "кнопка шага не говорит, что сделка создастся с пакетом: " + шаг2.кнопка);
+      await p.click('#modalContainer button.primary:has-text("с пакетом")');
+      await p.waitForTimeout(800);
+      const итог = await p.evaluate(() => {
+        const root = document.getElementById("appContent");
+        return {
+          окно: !!document.querySelector("#modalContainer .wizard-modal-box"),
+          вид: root.dataset.view,
+          колонка: !!root.querySelector(".deal-rail"),
+          открыта: ((root.querySelector(".deal-rail .deal-switcher-item.active .deal-switcher-item-name") || {}).textContent || "").trim(),
+          позиций: root.querySelectorAll(".item[data-line]").length,
+        };
+      });
+      assert(!итог.окно, "окно мастера не закрылось");
+      assertEqual(итог.вид, "deal", "после создания открылась не сделка");
+      assert(итог.колонка, "у открытой сделки нет колонки «Сделки» — снова без навигации");
+      assert(/Пакетный клиент/.test(итог.открыта), "открылась не созданная сделка: " + итог.открыта);
+      assert(итог.позиций > 0, "пакет не лёг в смету новой сделки");
     } finally {
       await ctx.close();
     }
@@ -4827,10 +4944,13 @@ module.exports = async function ({ browser, baseUrl, test }) {
       await p.waitForTimeout(600);
       const куда = await p.evaluate(() => {
         const root = document.getElementById("appContent");
-        return { вид: root.dataset.view, текст: (root.textContent || "").slice(0, 400) };
+        // Открытая сделка отмечена в колонке «Сделки» — это точнее, чем искать
+        // название в начале текста экрана (оно уезжает с любой правкой шапки).
+        const открыта = root.querySelector(".deal-rail .deal-switcher-item.active .deal-switcher-item-name");
+        return { вид: root.dataset.view, открыта: открыта ? открыта.textContent.trim() : "" };
       });
       assertEqual(куда.вид, "deal", "чип «Сдача сегодня» не открыл сделку");
-      assert(/Свадьба, Пермь/.test(куда.текст), "чип «Сдача сегодня» открыл не ту сделку");
+      assertEqual(куда.открыта, "Свадьба, Пермь", "чип «Сдача сегодня» открыл не ту сделку");
     } finally {
       await ctx.close();
     }

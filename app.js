@@ -12467,7 +12467,9 @@
         state.payments = deepClone(version.payments || state.payments || []);
         state.expenses = deepClone(version.expenses || state.expenses || []);
         state.team = deepClone(version.team || state.team || []);
-        state.view = "estimate";
+        // Экран сделки с её навигацией, а не старый отдельный вид «Смета».
+        state.view = "deal";
+        state.dealView = "estimate";
 
         toast("Версия восстановлена");
         save();
@@ -12799,6 +12801,25 @@
         toast(`Пакет «${pkg.name}» добавлен`);
         save();
         render();
+      }
+
+      /* Кнопка «В смету» у пакета. Сделка открыта — пакет ложится в неё. Не
+         открыта — пакет встаёт в НОВУЮ сделку через окно мастера: раньше он
+         уходил в черновик сметы вне всякой сделки, и открывался старый
+         отдельный вид «Смета» — без колонки сделок, без вкладок, с пустым
+         названием (владелец 28.09.2026: «правильно открывается? без
+         навигации»). Мастер спросит клиента и проект и создаст сделку сразу
+         с пакетом (wizardNext → finishWizardWithPackage). */
+      function packageToEstimate(pkgId) {
+        const pkg = (state.packages || DEFAULT_PACKAGES).find(x => x.id === pkgId);
+        if (!pkg) return;
+        if (state.activeProjectId) { applyPackage(pkgId); return; }
+        if (checkDealLimit()) return;
+        state.wizard = { ..._newWizardState(), presetPkg: pkgId };
+        state.wizardModal = true;
+        render();
+        toast(`Пакет «${pkg.name}» встанет в новую сделку — укажите клиента`);
+        setTimeout(() => { const i = document.getElementById("wz_name"); if (i) i.focus(); }, 60);
       }
 
       async function createPackage() {
@@ -15214,6 +15235,9 @@
           w.step = 2;
         } else if (w.step === 2) {
           if (!String(w.projectName || "").trim()) { toast("Введи название проекта"); return; }
+          // Пакет уже выбран (мастер открыт кнопкой «В смету» у пакета) —
+          // шаг выбора пакета не нужен: создаём сделку сразу с ним.
+          if (w.presetPkg) { finishWizardWithPackage(w.presetPkg); return; }
           w.step = 3;
         }
 
@@ -19624,7 +19648,7 @@
           </button>`);
         }
         if (!chips.length) {
-          return `<div class="db-today"><span class="db-today-calm">${icon("check", 13)} На сегодня ничего не горит</span></div>`;
+          return `<div class="db-today"><span class="db-today-calm">${icon("check", 13)} На сегодня задач нет</span></div>`;
         }
         return `<div class="db-today" aria-label="Что на сегодня">${chips.join("")}</div>`;
       }
@@ -21073,7 +21097,7 @@
                       называется «Редактировать пакет», открывается кликом по
                       карточке (кнопка «В смету» у карточки своя), поэтому главное
                       здесь — сохранить правки; применить пакет — второй путь. */""}
-                <button class="btn" onclick="app.applyPackage('${m.id}');app.closePackageEditModal()">В смету</button>
+                <button class="btn" onclick="app.closePackageEditModal();app.packageToEstimate('${m.id}')">В смету</button>
                 <button class="btn green" onclick="app.savePackageEdit()">Сохранить</button>
               </div>
             </div>
@@ -21173,7 +21197,7 @@
                 ${isPkgHidden(pkg) ? `
                   <button class="btn green small" style="flex:1" onclick="event.stopPropagation();app.restorePkg('${pkg.id}')">Восстановить</button>
                 ` : `
-                  <button class="btn primary small pkg-apply-btn" style="flex:1" onclick="event.stopPropagation();app.applyPackage('${pkg.id}')">В смету</button>
+                  <button class="btn primary small pkg-apply-btn" style="flex:1" onclick="event.stopPropagation();app.packageToEstimate('${pkg.id}')">В смету</button>
                   <button class="btn small" onclick="event.stopPropagation();app.copyPackageCalcLink('${pkg.id}')"
                           title="Скопировать ссылку на публичный расчёт по этому пакету — её можно отправить клиенту">Ссылка клиенту</button>
                 `}
@@ -27083,9 +27107,15 @@
             <div class="wizard-body">
               ${body}
 
+              ${(() => {
+                // Пакет выбран заранее (кнопка «В смету» у пакета) — назовём его,
+                // чтобы было видно, с чем создастся сделка.
+                const pre = w.presetPkg && (state.packages || DEFAULT_PACKAGES).find(x => x.id === w.presetPkg);
+                return pre ? `<div class="wizard-preset-pkg">${icon("catalog", 14)}<span>Пакет: <b>${escapeHtml(pre.name)}</b></span></div>` : "";
+              })()}
               <div class="toolbar no-print" style="margin-top:22px;justify-content:space-between">
                 <button class="btn" onclick="app.wizardBack()">${w.step === 1 ? "Отмена" : "← Назад"}</button>
-                ${w.step < 3 ? `<button class="btn primary" onclick="app.wizardNext()">Далее →</button>` : ""}
+                ${w.step < 3 ? `<button class="btn primary" onclick="app.wizardNext()">${w.step === 2 && w.presetPkg ? "Создать сделку с пакетом →" : "Далее →"}</button>` : ""}
               </div>
             </div>
           </div>
@@ -30588,8 +30618,33 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const stage = p.crmStatus || "Лид";
         const dateColor = u && u.level !== "ok" ? u.color : "var(--muted)";
         const idSafe = p.id.replace(/'/g, "");
+        /* 28.09.2026, по скриншоту владельца «нужно улучшить этот блок»:
+           — полоса слева была ЗЕЛЁНОЙ у всех активных, а точка этапа рядом —
+             фиолетовой у «В работе»: цвет полосы не совпадал с этапом. Теперь
+             полоса — цвет этапа, как на карточках главной;
+           — клиент стоял дважды («Арина Черемных — видео…» и строкой ниже
+             «Арина Черемных») — если он уже в названии, строкой не повторяем;
+           — дата справа была голым числом: теперь срок словом («через 5 дней»,
+             «завтра»), просрочка — прямо «просрочен», у закрытых сделок срока нет;
+           — внизу полоса оплаты: для этапа «Оплата» главное — сколько ещё
+             получить, а видно было только сумму сделки. */
+        const stageColor = CRM_STATUS_COLOR[stage] || "var(--muted)";
+        const closed = isDealInactive(stage);
+        const clientShown = p.client && !String(p.name || "").includes(p.client) ? p.client : "";
+        // Срок — только до сдачи: на «Сдано» и «Оплате» работа уже отдана, и
+        // «просрочен 3 дн.» у сделки, которая ждёт денег, — ложная тревога
+        // (dealDeadlineUrgency по той же причине молчит для DEAL_DELIVERED).
+        const when = (() => {
+          if (!p.deadline || DEAL_DELIVERED.has(stage)) return "";
+          const дней = Math.round((new Date(p.deadline + "T00:00:00") - new Date(todayIso() + "T00:00:00")) / 86400000);
+          if (!Number.isFinite(дней)) return "";
+          return дней < 0 ? `просрочен ${-дней} дн.` : _startWhen(p.deadline);
+        })();
+        const total = numberValue(p.total, 0), paid = numberValue(p.paid, 0);
+        const payPct = !closed && total > 0 ? Math.max(0, Math.min(100, Math.round(paid / total * 100))) : null;
         return `
           <div class="deal-switcher-item deal-switcher-item-draggable ${isActive ? "active" : ""} ${extraClass || ""}"
+            style="--st-color:${stageColor}"
             data-deal-id="${idSafe}"
             onpointerdown="app.dealPointerDown('${idSafe}',event)"
             onpointermove="app.dealPointerMove(event)"
@@ -30605,16 +30660,18 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   без связи с соседями, а попытка вписать его в строку этапа упёрлась
                   в ширину: замер на колонке 262px — «КП отправлено · 27.08.2026»
                   уже резалось многоточием. Строка клиента короткая, там место есть. */""}
+            ${clientShown || when ? `
             <div class="deal-switcher-item-meta">
-              <span class="deal-switcher-item-client">${p.client ? escapeHtml(p.client) : ""}</span>
-              ${p.deadline ? `<span class="deal-switcher-item-date" style="color:${dateColor}" title="${u ? escapeHtml(u.label) : "Дедлайн"}">${escapeHtml(formatDate(p.deadline))}</span>` : ""}
-            </div>
+              <span class="deal-switcher-item-client">${escapeHtml(clientShown)}</span>
+              ${when ? `<span class="deal-switcher-item-date" style="color:${dateColor}" title="Срок сдачи: ${escapeHtml(formatDate(p.deadline))}">${icon("calendar", 11)}${escapeHtml(when)}</span>` : ""}
+            </div>` : ""}
             <div class="deal-switcher-item-meta">
               <span class="deal-switcher-item-stage">
                 <i style="background:${CRM_STATUS_COLOR[stage] || "var(--muted)"}"></i>${escapeHtml(stage)}
               </span>
               ${p.total ? `<span class="deal-switcher-item-sum">${money(p.total)}</span>` : ""}
             </div>
+            ${payPct !== null ? `<span class="deal-switcher-item-pay" title="Оплачено ${money(paid)} из ${money(total)} · ${payPct}%"><span style="width:${payPct}%"></span></span>` : ""}
           </div>
         `;
       }
@@ -30672,7 +30729,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           ${/* Кнопка возврата к автосортировке переехала в шапку колонки (см.
                 renderDealRailHtml): полосой над списком она занимала строку целиком
                 и читалась как заголовок секции, а не как действие. */""}
-          ${section("active", "В работе", "active-label", active, "active-deal")}
+          ${/* «Активные», а не «В работе»: в секцию входят все этапы, кроме
+                «Завершённых» и «Архива» — и «Оплата», и «Договор». Подпись «В работе»
+                у группы, где половина сделок на «Оплате», спорила с этапом на самих
+                карточках (владелец 28.09). Ключ секции прежний — на нём перенос. */""}
+          ${section("active", "Активные", "active-label", active, "active-deal")}
           ${section("completed", "Завершённые", "completed-label", completed, "completed-deal", "margin-top:8px")}
           ${section("archived", "Архив", "archived-label", archived, "archived-deal", "margin-top:8px")}
         `;
@@ -30723,9 +30784,13 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 </button>
               ` : ""}
             </div>
-            <div class="deal-rail-search-wrap">
-              <input id="dealRailSearch" class="deal-switcher-search" type="text"
-                     placeholder="Поиск по названию или клиенту…"
+            ${/* Ряд действий колонки (владелец 28.09.2026): «+» открывает мастер
+                  новой сделки окном, не уходя со сметы, рядом — поиск длинной
+                  строкой, сразу. Одной строкой вместо двух. */""}
+            <div class="deal-rail-actions">
+              <button type="button" class="deal-rail-add" onclick="app.openWizardModal()" title="Новая сделка" aria-label="Новая сделка">${icon("plus", 16)}</button>
+              <input id="dealRailSearch" class="deal-switcher-search deal-rail-search" type="text"
+                     placeholder="Поиск по сделкам…" title="Ищет по названию и клиенту"
                      aria-label="Поиск по сделкам"
                      value="${escapeHtml(_dealSwitcherQuery)}"
                      oninput="app.filterDealSwitcher(this.value)">
@@ -33520,6 +33585,7 @@ Email: _____________________              Email: _____________________
         openContractEdit,
         openContractWizard,
         openWizardModal,
+        packageToEstimate,
         closeContractEdit,
 
         openAdminModal,
