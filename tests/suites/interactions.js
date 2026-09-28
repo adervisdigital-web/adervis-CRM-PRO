@@ -4855,6 +4855,23 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assert(comp.вкладки.includes("КП и договоры"), "нет вкладки «КП и договоры»: " + comp.вкладки.join(", "));
       assert(/^\$/.test(comp.валюта.trim()), "в «Компании» валюта не студии: " + comp.валюта);
       assert(!comp.подпись && !/Оплата аванса в КП/.test(comp.т), "подпись или оплата аванса остались в «Компании»");
+      /* Превью логотипа показывает то же, что шапка КП: относительный путь и
+         svg тоже (у владельца 29.09 «logo-icon.svg» стоял заглушкой), а
+         неоткрывшуюся картинку — честной пометкой. */
+      const лого = async (v) => {
+        await p.fill('input[data-key="logoUrl"]', v);
+        await p.waitForTimeout(500);
+        return p.evaluate(() => {
+          const box = document.querySelector(".set-logo-preview");
+          const img = box && box.querySelector("img");
+          return { видно: !!img && img.naturalWidth > 0 && !box.classList.contains("is-broken"), битая: !!box && box.classList.contains("is-broken") };
+        });
+      };
+      const хорошее = await лого("logo-icon.svg");
+      assert(хорошее.видно, "превью не показало svg по относительному пути: " + JSON.stringify(хорошее));
+      const плохое = await лого("net-takogo-fajla.png");
+      assert(плохое.битая && !плохое.видно, "битый адрес логотипа не помечен: " + JSON.stringify(плохое));
+      await p.fill('input[data-key="logoUrl"]', "");
       const kp = await вкладка("kp");
       assert(kp.подпись && /Оплата аванса в КП/.test(kp.т) && /Тексты для клиента/.test(kp.т), "во вкладке «КП и договоры» не всё: подпись, оплата, тексты");
       const вид = await вкладка("appearance");

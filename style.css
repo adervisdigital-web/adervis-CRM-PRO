@@ -4726,10 +4726,9 @@
     }
     .pf-avatar:hover { transform: scale(1.03); box-shadow: 0 0 0 4px var(--panel2), 0 0 0 6px rgb(var(--primary-rgb) / .7), 0 14px 36px -6px rgb(var(--primary-rgb) / .6); }
     .pf-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
-    /* Поле файла не display:none, а невидимое — до него доходит Tab, и фото
-       меняется с клавиатуры. */
-    .pf-avatar input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-    .pf-avatar:has(input:focus-visible) { outline: var(--ring-w) solid var(--ring); outline-offset: 6px; }
+    /* С клавиатуры фокусируется сам аватар (tabindex, Enter/пробел открывают
+       выбор файла), поле файла скрыто: Tab на невидимом — фокуса не видно. */
+    .pf-avatar:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 6px; }
     .pf-avatar-edit {
       position: absolute; right: -2px; bottom: -2px; width: 30px; height: 30px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
@@ -4878,9 +4877,19 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
       border: 1px dashed var(--line); background: var(--panel); color: var(--muted); overflow: hidden;
     }
-    .set-logo-preview small { font-size: 10.5px; }
-    .set-logo-preview.has-img { border-style: solid; padding: 8px; background: var(--on-color); }
+    .set-logo-empty { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .set-logo-empty small { font-size: 10.5px; }
+    /* Картинка есть — заглушку прячем; не загрузилась — наоборот. */
+    .set-logo-preview.has-img:not(.is-broken) .set-logo-empty { display: none; }
+    .set-logo-preview.is-broken img { display: none; }
+    .set-logo-preview.is-broken { color: var(--text-warning); }
+    .set-logo-preview.has-img:not(.is-broken) { border-style: solid; padding: 8px; background: var(--on-color); }
     .set-logo-preview img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+    .set-logo-input { display: flex; gap: 8px; align-items: stretch; }
+    .set-logo-input input[type="text"], .set-logo-input > input { flex: 1 1 auto; min-width: 0; }
+    .set-logo-upload { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
+    /* С клавиатуры фокусируется сама кнопка (tabindex), поле файла скрыто. */
+    .set-logo-upload:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
     @media (max-width: 640px) {
       .set-page .panel { padding: 16px; }
       .set-logo-row { flex-direction: column; }

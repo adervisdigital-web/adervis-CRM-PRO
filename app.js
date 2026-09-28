@@ -7307,10 +7307,10 @@
                   отдельной кнопкой «Изменить фото» над полями. */""}
             <div class="pf-hero">
               <div class="pf-id">
-                <label class="pf-avatar" title="Изменить фото">
+                <label class="pf-avatar" title="Изменить фото" tabindex="0" role="button" aria-label="Изменить фото" onkeydown="app._fileLabelKey(event)">
                   ${avatarHtml}
                   <span class="pf-avatar-edit" aria-hidden="true">${icon("camera", 14)}</span>
-                  <input type="file" accept="image/*" onchange="app.uploadUserAvatar(event)" aria-label="Изменить фото">
+                  <input type="file" accept="image/*" onchange="app.uploadUserAvatar(event)" tabindex="-1" hidden>
                 </label>
                 <div class="pf-id-fields">
                   <div class="field pf-field">
@@ -27633,6 +27633,36 @@
           </div>`;
       }
 
+      // Превью логотипа при наборе адреса — без перерисовки страницы (фокус в
+      // поле не теряется). Только DOM-API: адрес — чужой текст, в разметку
+      // строкой его не кладём.
+      // Кнопка-подпись над скрытым полем файла: Enter и пробел открывают выбор.
+      function _fileLabelKey(e) {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        const input = e.currentTarget.querySelector('input[type="file"]');
+        if (input) input.click();
+      }
+
+      function _previewCompanyLogo(value) {
+        const box = document.querySelector(".set-logo-preview");
+        if (!box) return;
+        const v = String(value || "").trim();
+        let img = box.querySelector("img");
+        box.classList.remove("is-broken");
+        box.classList.toggle("has-img", !!v);
+        const note = box.querySelector(".set-logo-empty small");
+        if (note) note.textContent = v ? "не открылся" : "нет";
+        if (!v) { if (img) img.remove(); return; }
+        if (!img) {
+          img = document.createElement("img");
+          img.alt = "";
+          img.addEventListener("error", () => box.classList.add("is-broken"));
+          box.prepend(img);
+        }
+        img.src = v;
+      }
+
       function renderSettings() {
         const tabs = [
           ["company", icon("gear"), "Компания"],
@@ -27653,8 +27683,13 @@
            стены из одиннадцати полей: кто вы (реквизиты), как выглядите
            (логотип и валюта) и что пишете клиенту (тексты КП и договоров).
            Логотип — с превью: раньше было не понять, выбран он или нет. */
-        const _logoSrc = safeAvatarSrc(String(state.company.logoUrl || "").trim());
-        const _logoSet = !!String(state.company.logoUrl || "").trim();
+        /* Превью показывает логотип ТАК ЖЕ, как шапка КП (_docBrandHtml):
+           любой заданный адрес, экранированный. Прежний фильтр safeAvatarSrc
+           пропускал только https и png/jpg — у владельца 29.09 «logo-icon.svg»
+           (относительный путь, svg) стоял заглушкой «по адресу», хотя в КП
+           логотип печатался. Не загрузилась картинка — «не открылся»: так же
+           она не откроется и у клиента. */
+        const _logoRaw = String(state.company.logoUrl || "").trim();
         const setHead = (ic, color, title, sub) =>
           `<div class="set-card-head">${iconBadge(ic, color, 30)}<div><h2>${title}</h2>${sub ? `<p>${sub}</p>` : ""}</div></div>`;
         const companyTab = `
@@ -27673,10 +27708,11 @@
             <div class="panel set-card">
             ${setHead("image", "var(--blue)", "Логотип и валюта", "Логотип — в шапке КП и договора, валюта — во всех суммах студии")}
             <div class="set-logo-row">
-              <div class="set-logo-preview${_logoSrc ? " has-img" : ""}" aria-hidden="true">
-                ${_logoSrc ? `<img src="${_logoSrc}" alt="">` : `<span>${icon("image", 20)}</span><small>${_logoSet ? "по адресу" : "нет"}</small>`}
+              <div class="set-logo-preview${_logoRaw ? " has-img" : ""}" aria-hidden="true">
+                ${_logoRaw ? `<img src="${escapeHtml(_logoRaw)}" alt="" onerror="this.parentElement.classList.add('is-broken')">` : ""}
+                <span class="set-logo-empty">${icon("image", 20)}<small>${_logoRaw ? "не открылся" : "нет"}</small></span>
               </div>
-            <div class="grid three set-logo-fields">
+            <div class="grid two set-logo-fields">
               ${/* Значение — только своё, без подстановки «logo-icon.svg». Это файл
                     логотипа САМОГО СЕРВИСА, и поле показывало его как значение
                     профиля чужой студии: в данных после чистки
@@ -27685,12 +27721,20 @@
                     логотипа у него нет, и любое сохранение поля записывало чужой
                     файл обратно в профиль, откуда он попадает в КП и договоры.
                     Подсказка тоже нейтральная: пример адреса, а не наш файл. */""}
-              ${field("Логотип: путь или URL", `<input data-autosave data-scope="company" data-key="logoUrl" value="${escapeHtml(state.company.logoUrl || "")}" placeholder="https://ваш-сайт.ru/logo.png">`)}
-              ${field("Загрузить логотип", `
-                <label class="btn small" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;width:fit-content">
-                  <span style="color:var(--primary);display:inline-flex">${icon("upload")}</span> Выбрать файл
-                  <input type="file" accept="image/*" onchange="app.importCompanyLogo(event)" style="display:none">
-                </label>
+              ${/* Адрес и загрузка — одним полем: это два способа задать ОДНО
+                    значение. Отдельной колонкой кнопка «Выбрать файл» стояла
+                    посреди пустоты (скриншот владельца 29.09). */""}
+              ${field("Логотип — файл или адрес картинки", `
+                <div class="set-logo-input">
+                  <input data-autosave data-scope="company" data-key="logoUrl" value="${escapeHtml(state.company.logoUrl || "")}" placeholder="https://ваш-сайт.ru/logo.png" aria-label="Адрес логотипа" oninput="app._previewCompanyLogo(this.value)">
+                  ${/* В фокус попадает сама кнопка (tabindex + Enter/пробел), а
+                        поле файла скрыто целиком: сторож a11y не пускает Tab на
+                        невидимое — фокус там не видно. */""}
+                  <label class="btn small set-logo-upload" tabindex="0" role="button" onkeydown="app._fileLabelKey(event)">
+                    <span class="pf-ico-primary">${icon("upload")}</span> Загрузить
+                    <input type="file" accept="image/*" onchange="app.importCompanyLogo(event)" tabindex="-1" hidden>
+                  </label>
+                </div>
               `)}
               ${field("Валюта", `
                 <div class="currency-select-wrap">
@@ -33505,6 +33549,8 @@ Email: _____________________              Email: _____________________
         setGFinSearch,
         shiftDbChart,
         resetDbChart,
+        _previewCompanyLogo,
+        _fileLabelKey,
         setDbChartSpan,
         openFinancesPeriod,
         drillIntoMonth,
