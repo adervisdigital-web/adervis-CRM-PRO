@@ -860,6 +860,40 @@
       border-color: color-mix(in srgb, var(--stock-gold) 50%, transparent);
       box-shadow: 0 8px 24px color-mix(in srgb, var(--stock-gold) 14%, transparent);
     }
+    /* Постоянное движение карточки (владелец 28.09.2026: «баннер adervis stock
+       должен быть с анимацией постоянной»). Три спокойных слоя: золотое
+       свечение медленно дрейфует, по карточке раз в несколько секунд проходит
+       блик, кнопка мягко «дышит». Всё — ПОД текстом (слой наложения карточки и
+       z-index:-1) и на transform/opacity: композитор двигает готовые слои,
+       перерисовки нет. */
+    .side-promo { position: relative; overflow: hidden; isolation: isolate; }
+    .side-promo::before {
+      content: ""; position: absolute; z-index: -1; pointer-events: none;
+      width: 150%; height: 150%; top: -55%; left: -25%;
+      background: radial-gradient(closest-side, color-mix(in srgb, var(--stock-gold) 24%, transparent), transparent);
+      animation: stockGlow 9s ease-in-out infinite alternate;
+    }
+    @keyframes stockGlow {
+      0%   { transform: translate(28%, -6%) scale(.8); }
+      50%  { transform: translate(-12%, 18%) scale(1); }
+      100% { transform: translate(18%, 42%) scale(.9); }
+    }
+    .side-promo::after {
+      content: ""; position: absolute; z-index: -1; pointer-events: none;
+      top: 0; bottom: 0; left: -60%; width: 45%;
+      background: linear-gradient(105deg, transparent,
+        color-mix(in srgb, var(--on-color) 11%, transparent) 50%, transparent);
+      animation: stockShine 5.6s ease-in-out infinite;
+    }
+    @keyframes stockShine {
+      0%, 55% { transform: translateX(0); }
+      85%, 100% { transform: translateX(420%); }
+    }
+    @keyframes stockCta {
+      0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--stock-gold) 0%, transparent); }
+      50%      { box-shadow: 0 0 0 5px color-mix(in srgb, var(--stock-gold) 18%, transparent),
+                             0 6px 18px -6px color-mix(in srgb, var(--stock-gold) 60%, transparent); }
+    }
     /* Фокус — наш, а не золотой: кольцо одно на всё приложение (сторож в assets),
        иначе при переходе табом подсветка меняла бы оттенок на этой карточке. */
     .side-promo:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
@@ -889,6 +923,14 @@
       border-color: transparent;
       color: var(--stock-ink);
       font-weight: 700;
+      animation: stockCta 2.8s ease-in-out infinite;
+    }
+    /* «Уменьшить движение» — анимации карточки выключаем ЯВНО. Общее правило
+       проекта ускоряет их до 0,01 мс, а бесконечная анимация на такой
+       скорости превратилась бы в мерцание. */
+    @media (prefers-reduced-motion: reduce) {
+      .side-promo::before, .side-promo::after,
+      .side-promo .btn.side-promo-cta { animation: none; }
     }
     .side-promo-close {
       position: absolute; top: 8px; right: 8px;
