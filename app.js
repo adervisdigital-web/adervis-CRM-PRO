@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 451;
+      const APP_BUILD = 452;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -24141,16 +24141,26 @@
         document.body.classList.add("gtask-dragging");
         if (d.type !== "mouse" && navigator.vibrate) { try { navigator.vibrate(10); } catch (e) {} }
         const board = d.card.closest(".gtask-board");
-        const EDGE = 48, SPEED = 14;
-        const loop = () => {
+        /* Скорость автопрокрутки у края — ПИКСЕЛИ В СЕКУНДУ, а не за кадр.
+           Было 14px за кадр: при 60 кадрах это 840 px/с, а на медленном
+           телефоне при 10 кадрах — 140 px/с, и доска за секунду у края не
+           доезжала до «Готово». Нашёл CI: там кадров мало, и перенос пальцем
+           падал стабильно, хотя локально проходил. Шаг кадра ограничен 0,25 с —
+           чтобы после паузы вкладки доску не швырнуло на экран разом. */
+        const EDGE = 48, PX_PER_SEC = 840;
+        let lastTs = 0;
+        const loop = (ts) => {
           if (!_tbDrag || !_tbDrag.active) return;
+          const dt = lastTs ? Math.min(0.25, Math.max(0, (ts - lastTs) / 1000)) : 1 / 60;
+          lastTs = ts;
+          const step = PX_PER_SEC * dt;
           if (board) {
             const br = board.getBoundingClientRect();
-            if (d.x < br.left + EDGE) board.scrollLeft -= SPEED;
-            else if (d.x > br.right - EDGE) board.scrollLeft += SPEED;
+            if (d.x < br.left + EDGE) board.scrollLeft -= step;
+            else if (d.x > br.right - EDGE) board.scrollLeft += step;
           }
-          if (d.y < EDGE) window.scrollBy(0, -SPEED);
-          else if (d.y > window.innerHeight - EDGE) window.scrollBy(0, SPEED);
+          if (d.y < EDGE) window.scrollBy(0, -step);
+          else if (d.y > window.innerHeight - EDGE) window.scrollBy(0, step);
           _tbTrack();
           d.raf = requestAnimationFrame(loop);
         };

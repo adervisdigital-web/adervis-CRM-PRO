@@ -1349,6 +1349,11 @@ module.exports = async function ({ browser, baseUrl, test }) {
       await p.evaluate(() => window.app.go("global-tasks"));
       await p.waitForTimeout(400);
       const cdp = await ctx.newCDPSession(p);
+      /* Как медленный телефон: процессор в 6 раз медленнее, кадров мало.
+         Автопрокрутка доски у края считалась «пикселей за кадр», и при малом
+         числе кадров доска не доезжала до «Готово» — в CI тест падал стабильно,
+         а локально проходил. С замедлением дефект виден и здесь. */
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
       const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
       await p.locator('.gtask-card[data-drag-id="gd2"]').scrollIntoViewIfNeeded();
 
