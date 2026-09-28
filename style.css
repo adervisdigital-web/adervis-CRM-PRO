@@ -3424,7 +3424,8 @@
     .help-dd-item-icon { width: 20px; height: 20px; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; font-size: 13px; flex: 0 0 20px; }
 
     /* ── CURRENCY DROPDOWN ───────────────────────── */
-    .currency-select-wrap { position: relative; }
+    /* width: на телефоне поле стояло уже соседних (по ширине текста). */
+    .currency-select-wrap { position: relative; width: 100%; }
     /* Тот же вид, что у остальных выпадающих списков (.uu-select-btn): у кнопки
        браузер по умолчанию центрирует текст, и «₽ — Российский рубль» стоял по
        центру поля, когда все соседние поля формы выровнены влево. Заодно

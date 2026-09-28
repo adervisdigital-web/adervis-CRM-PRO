@@ -233,7 +233,8 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
   await test("настройки: переключатель подписи КП заблокирован без оплаты", async () => {
     const { context, page } = await bootLocal(browser, baseUrl);
-    await page.evaluate(() => window.app.go("settings"));
+    // Подпись на КП — во вкладке «КП и договоры» (до 29.09.2026 — в «Компании»).
+    await page.evaluate(() => { window.app.go("settings"); window.app._setSettingsTab("kp"); });
     await page.waitForSelector("#hideProposalBranding", { timeout: 5000 });
     const disabled = await page.$eval("#hideProposalBranding", (el) => el.disabled);
     assert(disabled, "чекбокс «скрывать подпись» доступен на неоплаченном тарифе");
@@ -505,7 +506,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
     });
     assert(hint.warned, "студии не сказано, что клиент не увидит в КП ни оплаты, ни реквизитов");
     assert(
-      /_setSettingsTab\('company'\)/.test(hint.toSettings || ""),
+      /_setSettingsTab\('kp'\)/.test(hint.toSettings || ""),
       "подсказка не ведёт туда, где способ выбирается: " + hint.toSettings
     );
     await own.context.close();

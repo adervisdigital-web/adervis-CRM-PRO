@@ -2333,6 +2333,19 @@
           _stripOtaskImportMark(p.snapshot && p.snapshot.project);
         });
         _stripOtaskImportMark(state.project);
+        /* Валюта — настройка СТУДИИ (29.09.2026). Раньше выбор в «Настройках»
+           писался в открытую сделку (project.currency), а знак брали все суммы
+           приложения: главная показывала «76 750 $» — рубли под чужим знаком,
+           — а открыл другую сделку, и всё возвращалось к «₽». Переносим то,
+           что человек видит сейчас, один раз: дальше живёт в company. */
+        if (state.company && !state.company.currency) {
+          const was = state.project && state.project.currency;
+          state.company.currency = CURRENCIES.some(c => c.code === was) ? was : "₽";
+        }
+      }
+      // Знак валюты студии — один на все суммы, сделки и документы.
+      function studioCurrency() {
+        return (state.company && state.company.currency) || "₽";
       }
 
       const SYNC_SKIP_KEYS = new Set(["view","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","wizardModal","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","gFinSelectMode","gFinSelected","gFinNoMethodOnly","catalogCostPanelOpen","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","pkgCatsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
@@ -4391,7 +4404,8 @@
       }
       function _closeCurrencyDd() { _currencyDdOpen = false; const el = document.getElementById("currencyDd"); if (el) el.classList.remove("open"); }
       function selectCurrency(code) {
-        state.project.currency = code;
+        if (!CURRENCIES.some(c => c.code === code)) return;
+        state.company.currency = code;
         save();
         _currencyDdOpen = false;
         render();
@@ -7258,7 +7272,8 @@
           const title = s === "active" ? _adminPlanLabel(sub.subscription_plan)
             : s === "trial" ? "Пробный период" : s === "cancelled" ? "Подписка отменена" : "Подписка истекла";
           const note = s === "active" ? (exp ? `Действует до ${escapeHtml(expStr)}` : "")
-            : s === "trial" ? `${exp ? `До ${escapeHtml(expStr)}. ` : ""}Потом — выбрать тариф, данные сохранятся.`
+            // Дата по-русски уже кончается на «г.» — своя точка дала бы «г..».
+            : s === "trial" ? `${exp ? `До ${escapeHtml(expStr)}${/\.$/.test(expStr) ? "" : "."} ` : ""}Потом — выбрать тариф, данные сохранятся.`
             : "Данные на месте — выберите тариф, чтобы продолжить работу.";
           planCard = `
             <div class="pf-plan ${kind}">
@@ -7327,7 +7342,7 @@
               const onlineList = _onlineUsers.length ? _onlineUsers.map(u => `<span class="pf-online">${escapeHtml(u)}</span>`).join(" ") : "";
               return `
               <div class="pf-card">
-                <div class="pf-card-head">${iconBadge("team", "var(--green)", 30)}<div><h2>Команда</h2><p>${isOwner ? "Код приглашения коллег" : "Вы в команде агентства"}</p></div></div>
+                <div class="pf-card-head">${iconBadge("team", "var(--green)", 30)}<div><h2>Доступ для коллег</h2><p>${isOwner ? "Код, по которому коллега войдёт в ваш аккаунт" : "Вы работаете в аккаунте агентства"}</p></div></div>
                 ${isOwner ? `
                   <p class="pf-text">Коллега вводит этот код при регистрации и попадает в ваше агентство.</p>
                   <div class="pf-copy">
@@ -10022,7 +10037,7 @@
 
       function money(value) {
         const amount = Math.round(numberValue(value, 0));
-        const currency = state.project?.currency || "₽";
+        const currency = studioCurrency();
         return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(amount) + " " + currency;
       }
 
@@ -22024,7 +22039,7 @@
                     value="${getCatalogPrice(itemData) ? new Intl.NumberFormat("ru-RU").format(getCatalogPrice(itemData)) : ""}" placeholder="сумма"
                     onchange="app.${custom ? "updateCustomItem" : "updateCatalogPrice"}('${itemData.id}', ${custom ? "'price', " : ""}this.value.replace(/\\D+/g, '') || this.defaultValue.replace(/\\D+/g, '') || '0')"
                     title="Цена" aria-label="Цена: ${escapeHtml(itemData.name)}, ₽ за ${escapeHtml(unitAccusative(itemData.unit))}">
-                  <span class="cat-price-cur" aria-hidden="true">${escapeHtml(state.project?.currency || "₽")}</span>
+                  <span class="cat-price-cur" aria-hidden="true">${escapeHtml(studioCurrency())}</span>
                 </label>
                 <div class="u-meta cat-price-unit">за ${escapeHtml(unitAccusative(itemData.unit))}</div>
               </div>
@@ -24716,14 +24731,14 @@
               ${t.tax > 0 ? `<tr><td colspan="4">Налог</td><td>${Math.round(t.tax).toLocaleString("ru-RU")}</td></tr>` : ""}
               ${/* Счёт клиенту — тот же случай: у сделки «одной суммой» позиций нет,
                     и строка «Итого по смете» была нулевой рядом с непустым «К оплате». */""}
-              <tr><td colspan="4">Итого по смете</td><td style="font-weight:bold">${(displayTotal(t).total||0).toLocaleString("ru-RU")} ${state.project?.currency||"₽"}</td></tr>
+              <tr><td colspan="4">Итого по смете</td><td style="font-weight:bold">${(displayTotal(t).total||0).toLocaleString("ru-RU")} ${studioCurrency()}</td></tr>
             </tbody>
             ${/* «К ОПЛАТЕ» = остаток долга. Стояло `f.debt || t.total`: у полностью
                   оплаченной сделки долг ноль, ноль ложен — и счёт снова требовал ВСЮ
                   сумму, будто денег не платили. Считаем явно, а «уже оплачено»
                   показываем отдельной строкой, чтобы ноль внизу был объяснён. */""}
-            ${paidSoFar > 0 ? `<tr><td colspan="4">Уже оплачено</td><td>−${Math.round(paidSoFar).toLocaleString("ru-RU")} ${state.project?.currency||"₽"}</td></tr>` : ""}
-            <tfoot><tr class="total-row"><td colspan="4">К ОПЛАТЕ</td><td>${Math.round(dueNow).toLocaleString("ru-RU")} ${state.project?.currency||"₽"}</td></tr></tfoot>
+            ${paidSoFar > 0 ? `<tr><td colspan="4">Уже оплачено</td><td>−${Math.round(paidSoFar).toLocaleString("ru-RU")} ${studioCurrency()}</td></tr>` : ""}
+            <tfoot><tr class="total-row"><td colspan="4">К ОПЛАТЕ</td><td>${Math.round(dueNow).toLocaleString("ru-RU")} ${studioCurrency()}</td></tr></tfoot>
           </table>
           ${c.requisites ? `<div style="border-top:2px solid #eee;margin-top:24px;padding-top:16px;font-size:12px;color:#555"><b>Реквизиты:</b><br>${escapeHtml(c.requisites).replace(/\n/g,"<br>")}</div>` : ""}
           <script>window.print();window.onafterprint=()=>window.close();<\/script>
@@ -25613,7 +25628,7 @@
               <div style="font-weight:700;font-size:13px">Оплата аванса в КП не настроена</div>
               <div class="u-meta">Клиент увидит только сумму — ни кнопки оплаты, ни реквизитов в КП не будет. Если берёте аванс, выберите способ; если работаете по счёту, ничего делать не нужно.</div>
             </div>
-            <button class="btn small" onclick="app.go('settings');app._setSettingsTab('company')">Выбрать способ</button>
+            <button class="btn small" onclick="app.go('settings');app._setSettingsTab('kp')">Выбрать способ</button>
           </div>`;
       }
 
@@ -27621,6 +27636,7 @@
       function renderSettings() {
         const tabs = [
           ["company", icon("gear"), "Компания"],
+          ["kp", icon("contract"), "КП и договоры"],
           ["appearance", icon("palette"), "Оформление"],
           ["notify", icon("bell"), "Уведомления"],
           ["finance", icon("wallet"), "Финансы"],
@@ -27655,7 +27671,7 @@
             </div>
 
             <div class="panel set-card">
-            ${setHead("image", "var(--blue)", "Логотип и валюта", "Логотип стоит в шапке КП и договора")}
+            ${setHead("image", "var(--blue)", "Логотип и валюта", "Логотип — в шапке КП и договора, валюта — во всех суммах студии")}
             <div class="set-logo-row">
               <div class="set-logo-preview${_logoSrc ? " has-img" : ""}" aria-hidden="true">
                 ${_logoSrc ? `<img src="${_logoSrc}" alt="">` : `<span>${icon("image", 20)}</span><small>${_logoSet ? "по адресу" : "нет"}</small>`}
@@ -27679,11 +27695,11 @@
               ${field("Валюта", `
                 <div class="currency-select-wrap">
                   <button class="currency-select-btn" onclick="app.toggleCurrencyDd();event.stopPropagation()">
-                    <span>${escapeHtml(state.project.currency || "₽")} — ${escapeHtml((CURRENCIES.find(c=>c.code===(state.project.currency||"₽"))||CURRENCIES[0]).label)}</span>
+                    <span>${escapeHtml(studioCurrency())} — ${escapeHtml((CURRENCIES.find(c=>c.code===studioCurrency())||CURRENCIES[0]).label)}</span>
                     <span style="opacity:.5">▾</span>
                   </button>
                   <div class="currency-select-dd" id="currencyDd">
-                    ${CURRENCIES.map(c => `<button class="currency-opt ${(state.project.currency||"₽")===c.code?"active":""}" onclick="app.selectCurrency('${c.code}');event.stopPropagation()"><span class="currency-sym">${escapeHtml(c.sym)}</span>${escapeHtml(c.label)}</button>`).join("")}
+                    ${CURRENCIES.map(c => `<button class="currency-opt ${studioCurrency()===c.code?"active":""}" onclick="app.selectCurrency('${c.code}');event.stopPropagation()"><span class="currency-sym">${escapeHtml(c.sym)}</span>${escapeHtml(c.label)}</button>`).join("")}
                   </div>
                 </div>
               `)}
@@ -27691,6 +27707,13 @@
             </div>
             </div>
 
+
+        `;
+
+        /* «КП и договоры» — всё, что видит заказчик: тексты, подпись сервиса и
+           оплата аванса. До 29.09.2026 это лежало во вкладке «Компания» под
+           реквизитами, и искать настройку оплаты в «Компании» никто не стал бы. */
+        const kpTab = `
             <div class="panel set-card">
             ${setHead("doc", "var(--green)", "Тексты для клиента", "Подставляются в новые КП и договоры — править каждый раз не нужно")}
             <div>
@@ -27885,6 +27908,13 @@
               `}
             </div>` : ""}
 
+
+        `;
+
+        /* Установка приложения — настройка ЭТОГО устройства, как тема и цвет,
+           поэтому живёт в «Оформлении». В «Интеграциях» (29.09.2026 и раньше)
+           она стояла среди календарей и калькулятора для сайта. */
+        const pwaCard = `
             <!-- PWA Установка -->
             <div class="panel" style="margin-top:16px;box-shadow:none;background:linear-gradient(135deg,rgb(var(--primary-rgb) / .10),rgba(37,99,235,.08));border:1px solid rgb(var(--primary-rgb) / .25)">
               <div class="pwa-install-head">
@@ -27892,7 +27922,7 @@
                   <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
                 </div>
                 <div class="u-flex1-min0">
-                  <h2 style="margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:9px">${iconBadge("mobile", "var(--blue)")} Установить ADERVIS</h2>
+                  <h2 style="margin:0 0 4px;font-size:16px">Установить ADERVIS</h2>
                   <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.6">Работает как полноценное приложение — быстрый запуск с рабочего стола, без вкладки браузера, поддержка push-уведомлений.</p>
                 </div>
                 <div class="pwa-install-cta">
@@ -28235,7 +28265,8 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             </div>
 
             ${tab === "company" ? companyTab : ""}
-            ${tab === "appearance" ? renderSettingsAppearance() : ""}
+            ${tab === "kp" ? kpTab : ""}
+            ${tab === "appearance" ? renderSettingsAppearance() + pwaCard : ""}
             ${tab === "notify" ? notifyTab : ""}
             ${tab === "finance" ? financeTab : ""}
             ${tab === "integrations" ? integrationsTab : ""}

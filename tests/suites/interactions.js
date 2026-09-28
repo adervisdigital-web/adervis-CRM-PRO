@@ -1371,8 +1371,15 @@ module.exports = async function ({ browser, baseUrl, test }) {
       const c2 = await p.locator('.gtask-card[data-drag-id="gd2"]').boundingBox();
       const sx = c2.x + 60, sy = c2.y + 12;
       await touch("touchStart", sx, sy);
-      await p.waitForTimeout(500);
+      /* Ждём, пока долгое нажатие действительно включило перенос, а не 500 мс
+         вслепую: под нагрузкой (параллельные браузеры, CI) таймер приложения
+         опаздывал, первый сдвиг пальца приходил раньше — и засчитывался как
+         прокрутка. Тест падал, хотя приложение работало. */
+      await p.waitForFunction(() => document.body.classList.contains("gtask-dragging"), null, { timeout: 4000 });
       for (let i = 1; i <= 10; i++) { await touch("touchMove", sx + (370 - sx) * i / 10, sy); await p.waitForTimeout(20); }
+      /* У края — ровно 1,2 с, не «пока не доедет»: с ожиданием по результату
+         (проверено, 2 с) доска доезжала и при скорости «за кадр», и тест
+         переставал ловить дефект f8031f9. */
       await p.waitForTimeout(1200);
       await touch("touchMove", 200, sy);
       await p.waitForTimeout(150);
@@ -4799,6 +4806,66 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("настройки: валюта — одна на студию, КП и оплата — своей вкладкой, установка — в «Оформлении»", async () => {
+    /* 29.09.2026, владелец: «по логике "Валюта" стоит на своём месте?» и
+       «проверь всю логику по навигации там». Валюта из «Настроек» писалась в
+       ОТКРЫТУЮ сделку, а знак брали все суммы: главная показывала «76 750 $»
+       (рубли под чужим знаком), другая сделка возвращала «₽». Подпись и
+       оплата аванса в КП лежали в «Компании», установка приложения — в
+       «Интеграциях». */
+    const { ctx, p } = await bootWithState(`
+      const mk = (id, cur) => ({ id, name: "Сделка " + id, client: "Клиент " + id, total: 100000, paid: 40000,
+        crmStatus: "В работе", createdAt: "2026-08-01", updatedAt: "2026-09-01",
+        snapshot: { project: { name: "Сделка " + id, client: "Клиент " + id, crmStatus: "В работе", currency: cur }, selected: {},
+          payments: [{ id: "p" + id, date: "2026-09-05", amount: 40000, title: "Аванс" }], expenses: [], tasks: [] } });
+      st.savedProjects = [mk("a", "€"), mk("b", "₽")];
+      st.project = { ...(st.project || {}), currency: "€" };
+      if (st.company) delete st.company.currency;
+      st.activeProjectId = ""; st.view = "home";
+    `, { width: 1440, height: 1000 });
+    const знаки = () => p.evaluate(() => [...document.querySelectorAll(".db-stat-value, .db-money-sum b")]
+      // Только суммы: число со знаком валюты в конце. Счётчики («2», «0») и доли — мимо.
+      .map((x) => x.textContent.trim()).filter((s) => /\d\s*[^\d\s%]$/.test(s)).map((s) => s.slice(-1)));
+    try {
+      await p.evaluate(() => window.app.go("home"));
+      await p.waitForTimeout(2200);
+      // То, что человек видел до переноса (знак открытой сделки), переехало в студию.
+      const з0 = await знаки();
+      assert(з0.length > 0 && з0.every((s) => s === "€"), "после переноса не € на главной: " + з0.join(","));
+
+      await p.evaluate(() => window.app.selectCurrency("$"));
+      await p.evaluate(() => window.app.loadSavedProject("b"));
+      await p.waitForTimeout(600);
+      await p.evaluate(() => window.app.go("home"));
+      await p.waitForTimeout(2200);
+      const з1 = await знаки();
+      assert(з1.length > 0 && з1.every((s) => s === "$"), "открыл другую сделку — знак сменился: " + з1.join(","));
+
+      const вкладка = async (id) => {
+        await p.evaluate((t) => { window.app.go("settings"); window.app._setSettingsTab(t); }, id);
+        await p.waitForTimeout(400);
+        return p.evaluate(() => ({
+          т: document.getElementById("appContent").textContent.replace(/\s+/g, " "),
+          подпись: !!document.getElementById("hideProposalBranding"),
+          валюта: (document.querySelector(".currency-select-btn span") || {}).textContent || "",
+          вкладки: [...document.querySelectorAll('.seg-switch [role="tab"]')].map((b) => b.textContent.trim()),
+        }));
+      };
+      const comp = await вкладка("company");
+      assert(comp.вкладки.includes("КП и договоры"), "нет вкладки «КП и договоры»: " + comp.вкладки.join(", "));
+      assert(/^\$/.test(comp.валюта.trim()), "в «Компании» валюта не студии: " + comp.валюта);
+      assert(!comp.подпись && !/Оплата аванса в КП/.test(comp.т), "подпись или оплата аванса остались в «Компании»");
+      const kp = await вкладка("kp");
+      assert(kp.подпись && /Оплата аванса в КП/.test(kp.т) && /Тексты для клиента/.test(kp.т), "во вкладке «КП и договоры» не всё: подпись, оплата, тексты");
+      const вид = await вкладка("appearance");
+      assert(/Установить ADERVIS/.test(вид.т), "установки приложения нет в «Оформлении»");
+      const инт = await вкладка("integrations");
+      assert(!/Установить ADERVIS/.test(инт.т), "установка приложения осталась в «Интеграциях»");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("сделки: «+» открывает мастер окном поверх списка, служебная метка O!task вычищена", async () => {
     /* 28.09.2026, владелец:
        — «убрать импорт-o!task, удалить везде тег в проектах»: тег и заметку
@@ -6941,7 +7008,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
       /* Возможности «Про» на «Стандарте» закрыты, но объяснены: подпись на КП
          и публичный калькулятор — то, за что доплачивают агентства. */
-      await p.evaluate(() => { window.app.go("settings"); });
+      await p.evaluate(() => { window.app.go("settings"); window.app._setSettingsTab("kp"); });
       await p.waitForTimeout(700);
       const std = await p.evaluate(() => {
         const t = document.getElementById("appContent").textContent.replace(/\s+/g, " ");
@@ -6960,7 +7027,8 @@ module.exports = async function ({ browser, baseUrl, test }) {
     try {
       assertEqual(await p.evaluate(() => document.documentElement.getAttribute("data-tier")), "pro",
         "оплаченный «Про» приняли за другой тариф");
-      await p.evaluate(() => window.app.go("settings"));
+      // Подпись на КП — во вкладке «КП и договоры» (до 29.09.2026 — в «Компании»).
+      await p.evaluate(() => { window.app.go("settings"); window.app._setSettingsTab("kp"); });
       await p.waitForTimeout(700);
       const бренд = await p.evaluate(() => { const b = document.getElementById("hideProposalBranding"); return !!b && !b.disabled; });
       // Публичный калькулятор живёт во вкладке «Интеграции», а не в «Компании».
