@@ -7534,9 +7534,13 @@
             throw new Error(err.error || "Ошибка создания платежа");
           }
 
-          const { paymentUrl } = await resp.json();
+          const { paymentUrl, paymentId } = await resp.json();
           clearTimeout(_buyTimeout);
           trackGoal("payment_click", { planId });
+          // Номер платежа — чтобы после возврата из кассы ждать ИМЕННО его
+          // (checkPaymentReturn), а не гадать по «подписка активна»: у того,
+          // кто продлевает, она активна и до оплаты.
+          if (paymentId) lsSet(PENDING_PAYMENT_KEY, JSON.stringify({ id: paymentId, plan: planId, at: Date.now() }));
           window.location.href = paymentUrl;
         } catch (e) {
           clearTimeout(_buyTimeout);
@@ -7583,23 +7587,41 @@
         go("plans");
       }
 
+      /* Возврат из кассы. Касса возвращает сюда и после оплаты, и после отмены,
+         а подписку продлевает вебхук — иногда через десятки секунд. Раньше через
+         2,5 с проверялось «подписка активна?» — у продлевающего она активна и до
+         оплаты, и он читал «активирована», даже если платёж не прошёл. Теперь
+         ждём, пока в профиле появится ИМЕННО этот платёж (номер запомнен перед
+         уходом в кассу), и называем новую дату окончания. */
+      const PENDING_PAYMENT_KEY = "adervis_pending_payment";
       function checkPaymentReturn() {
         const params = new URLSearchParams(window.location.search);
         if (params.get("payment") !== "success") return;
         history.replaceState({}, "", window.location.pathname);
-        toast("⏳ Проверяем статус оплаты...");
-        setTimeout(async () => {
-          if (_adminSession) {
-            await _loadUserProfile(_adminSession.user.id, _adminSession.user.email);
+        let pending = null;
+        try { pending = JSON.parse(lsGet(PENDING_PAYMENT_KEY) || "null"); } catch (e) { pending = null; }
+        toast("Проверяем оплату…");
+        const started = Date.now();
+        const LIMIT_MS = 90000, STEP_MS = 3000;
+        const tick = async () => {
+          if (!_adminSession) { if (Date.now() - started < LIMIT_MS) setTimeout(tick, STEP_MS); return; }
+          await _loadUserProfile(_adminSession.user.id, _adminSession.user.email);
+          const prof = _userProfile || {};
+          const done = pending && pending.id ? prof.yookassa_last_payment_id === pending.id : isSubscriptionActive();
+          if (done) {
+            lsRemove(PENDING_PAYMENT_KEY);
+            renderAdminTopbar();
             render();
-            if (isSubscriptionActive()) {
-              trackGoal("payment_success", { planId: _userProfile && _userProfile.subscription_plan });
-       toast("Подписка активирована! Спасибо за оплату.");
-            } else {
-              toast("Оплата обрабатывается — статус обновится автоматически.");
-            }
+            trackGoal("payment_success", { planId: prof.subscription_plan });
+            const until = prof.subscription_expires_at ? _longDate(new Date(prof.subscription_expires_at)) : "";
+            toast(`Оплата прошла — «${tierLabel(currentTier())}» ${until ? "до " + until : "активен"}. Спасибо!`);
+            return;
           }
-        }, 2500);
+          if (Date.now() - started < LIMIT_MS) { setTimeout(tick, STEP_MS); return; }
+          render();
+          toast("Подтверждение оплаты пока не пришло. Если вы оплатили — доступ продлится в течение нескольких минут; если нет — напишите в поддержку, разберёмся.");
+        };
+        setTimeout(tick, 1500);
       }
 
       /* ═══════════════════════════════════════════════════════

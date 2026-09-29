@@ -7192,6 +7192,39 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("возврат из кассы: ждём именно этот платёж и называем новую дату, чужой платёж — не «оплата прошла»", async () => {
+    /* Касса возвращает на ?payment=success и после отмены тоже, а продлевает
+       вебхук. Было: через 2,5 с «подписка активна?» — у продлевающего она
+       активна и до оплаты, и он читал «активирована» при любом исходе. */
+    const профиль = (lastId) => ({
+      id: "00000000-0000-0000-0000-000000000001", agency_id: "00000000-0000-0000-0000-000000000001",
+      email: "owner@example.com", subscription_status: "active", subscription_plan: "pro12",
+      subscription_expires_at: new Date(Date.now() + 400 * 86400000).toISOString(), yookassa_last_payment_id: lastId,
+    });
+    const тосты = (page) => page.evaluate(() => [...document.querySelectorAll("[class*='toast']")].map((t) => t.textContent.replace(/\s+/g, " ").trim()).join(" | "));
+    for (const [lastId, ждём] of [["pay_42", true], ["pay_old", false]]) {
+      const b = await bootWithSession(browser, baseUrl, { width: 1280, height: 900, profile: профиль(lastId) });
+      try {
+        await b.page.waitForTimeout(600);
+        await b.page.evaluate(() => localStorage.setItem("adervis_pending_payment", JSON.stringify({ id: "pay_42", plan: "pro1", at: Date.now() })));
+        await b.page.goto(baseUrl + "/index.html?payment=success", { waitUntil: "load" });
+        if (ждём) {
+          await b.page.waitForFunction(() => /Оплата прошла/.test(document.body.innerText), null, { timeout: 12000 });
+          const т = await тосты(b.page);
+          assert(/«Про» до \d+ \S+ \d{4}/.test(т), "после оплаты не названы тариф и новая дата: " + т);
+          assert(!/\.\./.test(т), "в сообщении двойная точка: " + т);
+          assertEqual(await b.page.evaluate(() => localStorage.getItem("adervis_pending_payment")), null, "ожидаемый платёж не забыт после подтверждения");
+        } else {
+          await b.page.waitForTimeout(6000);
+          assert(!/Оплата прошла|активирована/.test(await b.page.evaluate(() => document.body.innerText)),
+            "профиль с ДРУГИМ платежом объявлен как «оплата прошла»");
+        }
+      } finally {
+        await b.context.close();
+      }
+    }
+  });
+
   await test("тариф «Про»: свой бренд и калькулятор на сайте открыты", async () => {
     const { ctx, p } = await bootTier("pro1", 3);
     try {
