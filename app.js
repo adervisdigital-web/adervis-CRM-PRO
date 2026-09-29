@@ -5759,7 +5759,10 @@
                           onclick="event.stopPropagation();app.toggleAdminUserSelect('${escapeHtml(String(a.id))}')"
                           style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;accent-color:var(--primary)">` : ""}
                         <!-- Avatar -->
-                        <div class="adm-avatar">${(a.email||"?")[0].toUpperCase()}</div>
+                        ${/* Цвет аватара — статус подписки: из семнадцати строк
+                              одинаковых фиолетовых кругов глаз не выделял ни
+                              активных, ни истёкших — только мелкой капсулой справа. */""}
+                        <div class="adm-avatar is-${escapeHtml(ast || "none")}">${(a.email||"?")[0].toUpperCase()}</div>
                         <!-- Info -->
                         <div class="u-flex1-min0 adm-who">
                           <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.email||"—")}</div>
@@ -5783,7 +5786,14 @@
                             ${_adminSubLabel(ast)}
                           </span>
                           ${a.subscription_plan ? `<span style="font-size:12px;font-weight:600;color:var(--muted)">${_adminPlanLabel(a.subscription_plan)}</span>` : ""}
-                          ${a.subscription_expires_at ? `<span style="font-size:12px;color:${isExpired?"var(--text-danger)":"var(--muted)"}">${daysLeft}</span>` : ""}
+                          ${(() => {
+                            if (!a.subscription_expires_at) return "";
+                            // Срочность словами не видна: «через 4 дн.» и «через
+                            // 318 дн.» были одного цвета. Неделя и меньше — янтарь.
+                            const left = Math.ceil((new Date(a.subscription_expires_at) - Date.now()) / 864e5);
+                            const cls = isExpired || left < 0 ? "is-late" : left <= 7 ? "is-soon" : "";
+                            return `<span class="adm-days ${cls}">${daysLeft}</span>`;
+                          })()}
                           ${!a.email_confirmed ? `<span title="Email не подтверждён" style="font-size:12px;color:var(--yellow);display:inline-flex">${icon("warning", 13)}</span>` : ""}
                           ${/* Метка аккаунта: амбассадор, партнёр, свой тестовый.
                                 По ней принимаются решения — кому продлевать
@@ -5825,8 +5835,14 @@
                             <span class="adm-no-profile" title="Пользователь зарегистрировался, но запись агентства не создалась — активировать нечего. Профиль появляется при первом входе в приложение.">${icon("warning", 13)} Профиля нет — действия недоступны</span>
                           ` : !isEditing ? `
                             <div class="adm-act-main">
+                              ${/* Главное действие — то, ради чего сюда приходят:
+                                    продлить или активировать. Здесь стоял «Возврат»
+                                    у каждого активного — редкое и необратимое
+                                    действие крупной кнопкой рядом с правкой
+                                    (владелец 29.09: «неудобно продлевать и
+                                    активировать»). Возврат — в окне правки подписки. */""}
                               ${(isExpired || ast === "") ? `<button class="btn small green adm-act-wide" onclick="app.adminActivate('${aid}')" title="Активировать на 30 дней">${icon("check")} Активировать</button>` : ""}
-                              ${ast === "active" ? `<button class="btn small adm-act-wide" data-email="${escapeHtml(a.email||"")}" onclick="app.adminRefund('${aid}',this.dataset.email)" title="Оформить возврат: закрыть подписку и вернуть деньги в ЮKassa">Возврат</button>` : ""}
+                              ${(ast === "active" || ast === "trial") ? `<button class="btn small adm-act-wide adm-act-extend" onclick="app._openEditSub('${aid}','${escapeHtml(ast)}','${escapeHtml(a.subscription_plan||"")}','${a.subscription_expires_at ? a.subscription_expires_at.slice(0,10) : ""}')" title="Продлить: +1 мес, +3 мес, +1 год или своя дата">${icon("calendar", 13)} Продлить</button>` : ""}
                             </div>
                             <div class="adm-act-tools">
                               ${/* Активность — первым инструментом: чаще всего нужно понять,
@@ -5844,8 +5860,9 @@
                       </div>
                       <!-- Inline editor -->
                       ${isEditing ? `
-                        <div style="border-top:1px solid var(--line);padding:14px 16px;background:var(--panel2)">
-                          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px">
+                        <div class="adm-edit">
+                          <div class="adm-edit-title">${icon("calendar", 14)} Подписка · ${escapeHtml(a.email || "")}</div>
+                          <div class="adm-edit-grid">
                             <div class="field" style="margin:0">
                               <label>Статус</label>
                               <select onchange="app._setEditSub('status',this.value)">
@@ -5855,7 +5872,16 @@
                             <div class="field" style="margin:0">
                               <label>Тариф</label>
                               <select onchange="app._setEditSub('plan',this.value)">
-                                ${[...PLANS.filter(x => x.id !== "trial").map(x => x.id), "pro"].map(pv => `<option value="${pv}" ${_adminEditSub.plan===pv?"selected":""}>${_adminPlanLabel(pv)}</option>`).join("")}
+                                ${/* «Пробный» — в списке: без него у триала выбор
+                                      показывал первый вариант («Старт · 1 мес»), и
+                                      «Сохранить» ради одной даты молча переводил
+                                      человека на «Старт». Неизвестный план тоже
+                                      остаётся вариантом — не подменяем его первым. */""}
+                                ${(() => {
+                                  const opts = ["trial", ...PLANS.filter(x => x.id !== "trial").map(x => x.id), "pro"];
+                                  if (_adminEditSub.plan && !opts.includes(_adminEditSub.plan)) opts.unshift(_adminEditSub.plan);
+                                  return opts.map(pv => `<option value="${escapeHtml(pv)}" ${_adminEditSub.plan===pv?"selected":""}>${escapeHtml(_adminPlanLabel(pv))}</option>`).join("");
+                                })()}
                               </select>
                             </div>
                             <div class="field" style="margin:0">
@@ -5869,9 +5895,10 @@
                             <button type="button" class="btn small" onclick="app._editSubAdd(3)">+3 мес</button>
                             <button type="button" class="btn small" onclick="app._editSubAdd(12)">+1 год</button>
                           </div>
-                          <div class="u-flex-g8">
+                          <div class="adm-edit-foot">
                             <button class="btn primary small" onclick="app.adminSetSubscription()">Сохранить</button>
                             <button class="btn small" onclick="app._closeEditSub()">Отмена</button>
+                            ${ast === "active" ? `<button class="btn small danger-quiet adm-edit-refund" data-email="${escapeHtml(a.email||"")}" onclick="app.adminRefund('${aid}',this.dataset.email)" title="Закрыть подписку и вернуть деньги в ЮKassa">Оформить возврат</button>` : ""}
                           </div>
                         </div>
                       ` : ""}

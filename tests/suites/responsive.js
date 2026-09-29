@@ -2235,4 +2235,51 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  /* 29.09.2026, «сделай визуально красиво и удобно в админ-панели»:
+     главное действие у активного и триала — «Продлить» (было «Возврат» крупной
+     кнопкой), возврат — в окне правки; у триала правка не подменяет тариф
+     первым вариантом списка («Старт · 1 мес»), иначе «Сохранить» переводил
+     человека на «Старт». */
+  await test("админка: «Продлить» главной кнопкой, возврат только в правке, тариф триала не подменяется", async () => {
+    const дней = (n) => new Date(Date.now() + n * 864e5).toISOString();
+    const users = [
+      { id: "t1", agency_id: "at", email: "trial@studio.ru", subscription_status: "trial", subscription_plan: "trial",
+        subscription_expires_at: дней(4), created_at: дней(-3), last_sign_in_at: дней(-1), email_confirmed: true, admin_tag: "" },
+      { id: "a1", agency_id: "aa", email: "paid@studio.ru", subscription_status: "active", subscription_plan: "pro12",
+        subscription_expires_at: дней(200), created_at: дней(-40), last_sign_in_at: дней(-1), email_confirmed: true, admin_tag: "" },
+    ];
+    const { bootWithSession: boot } = require("../harness");
+    const { context, page } = await boot(browser, baseUrl, { width: 1440, height: 950, email: "adervis.digital@gmail.com" });
+    try {
+      await context.route("**/rest/v1/rpc/*", (route) => {
+        const name = route.request().url().split("/rpc/")[1].split("?")[0];
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(name === "admin_get_all_users" ? users : []) });
+      });
+      await page.evaluate(() => window.app.go("admin"));
+      await page.waitForSelector("#appContent .adm-card", { timeout: 15000 });
+      const строки = await page.evaluate(() => [...document.querySelectorAll("#appContent .adm-card")].map((c) => ({
+        email: (c.querySelector(".adm-who") || {}).textContent || "",
+        main: [...c.querySelectorAll(".adm-act-main .btn")].map((b) => b.textContent.trim()).join(","),
+        refund: /Возврат/.test(c.querySelector(".adm-card-row").textContent),
+      })));
+      for (const s of строки) {
+        assert(/Продлить/.test(s.main), "главная кнопка не «Продлить»: " + JSON.stringify(s));
+        assert(!s.refund, "«Возврат» снова в строке аккаунта: " + JSON.stringify(s));
+      }
+      // Правка активного — там «Оформить возврат».
+      await page.evaluate(() => [...document.querySelectorAll("#appContent .adm-card")].find((c) => /paid@/.test(c.textContent)).querySelector(".adm-act-extend").click());
+      await page.waitForSelector("#appContent .adm-edit", { timeout: 3000 });
+      assert(/Оформить возврат/.test(await page.$eval("#appContent .adm-edit", (el) => el.textContent)), "в правке активной подписки нет «Оформить возврат»");
+      await page.click("#appContent .adm-edit-foot button:nth-of-type(2)");
+      await page.waitForTimeout(300);
+      // Правка триала — тариф «Пробный», а не первый вариант списка.
+      await page.evaluate(() => [...document.querySelectorAll("#appContent .adm-card")].find((c) => /trial@/.test(c.textContent)).querySelector(".adm-act-extend").click());
+      await page.waitForSelector("#appContent .adm-edit", { timeout: 3000 });
+      const план = await page.$eval("#appContent .adm-edit select[onchange*='plan']", (s) => s.value);
+      assertEqual(план, "trial", "у триала в правке подменён тариф");
+    } finally {
+      await context.close();
+    }
+  });
+
 };

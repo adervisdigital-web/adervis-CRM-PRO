@@ -10374,6 +10374,21 @@ button.is-busy::before {
   background: var(--primary); color: var(--on-color);
   display: grid; place-items: center; font-size: 14px; font-weight: 900;
 }
+/* Цвет аватара — статус подписки: активна, триал, истекла, заблокирован. */
+.adm-avatar.is-active { background: var(--green); }
+.adm-avatar.is-trial { background: var(--yellow); color: var(--bg); }
+.adm-avatar.is-expired, .adm-avatar.is-none { background: var(--panel2); color: var(--muted); border: 1px solid var(--line); }
+.adm-avatar.is-blocked { background: color-mix(in srgb, var(--red) 70%, var(--panel2)); }
+/* Срок: неделя и меньше — янтарь, прошёл — красный. */
+.adm-days { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.adm-days.is-soon { color: var(--text-warning); font-weight: 700; }
+.adm-days.is-late { color: var(--text-danger); }
+/* Правка подписки — карточкой под строкой. */
+.adm-edit { border-top: 1px solid var(--line); padding: 16px; background: var(--panel2); }
+.adm-edit-title { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; font-weight: 700; }
+.adm-edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.adm-edit-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.adm-edit-refund { margin-left: auto; }
 .adm-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
 .adm-actions { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; align-items: center; }
 /* Колонки правой части. Зона статуса растёт по содержимому (у кого-то метка, у
