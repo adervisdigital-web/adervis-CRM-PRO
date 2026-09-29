@@ -1363,18 +1363,32 @@ module.exports = async function ({ browser, baseUrl, test }) {
       await touch("touchEnd");
       await p.waitForTimeout(400);
       assertEqual(await statusOf(p, "gd2"), "Новая", "палец: быстрый свайп перенёс карточку вместо прокрутки");
+      /* Ждём, пока доска остановится после свайпа: на медленной машине CI она
+         ещё докручивалась по инерции, и касание, которое тормозит инерцию,
+         долгим нажатием не становилось (CI 29.09.2026, локально не падало). */
+      await p.waitForFunction(() => new Promise((res) => {
+        const b = document.querySelector(".gtask-board"); const x = b.scrollLeft;
+        setTimeout(() => res(b.scrollLeft === x), 150);
+      }), null, { timeout: 5000 });
       await p.evaluate(() => { document.querySelector(".gtask-board").scrollLeft = 0; });
-      await p.waitForTimeout(100);
+      await p.waitForTimeout(150);
 
       // Долгое нажатие, тянем к правому краю — доска доезжает до «Готово».
-      const c2 = await p.locator('.gtask-card[data-drag-id="gd2"]').boundingBox();
-      const sx = c2.x + 60, sy = c2.y + 12;
-      await touch("touchStart", sx, sy);
+      let sx = 0, sy = 0, started = false;
       /* Ждём, пока долгое нажатие действительно включило перенос, а не 500 мс
          вслепую: под нагрузкой (параллельные браузеры, CI) таймер приложения
          опаздывал, первый сдвиг пальца приходил раньше — и засчитывался как
-         прокрутка. Тест падал, хотя приложение работало. */
-      await p.waitForFunction(() => document.body.classList.contains("gtask-dragging"), null, { timeout: 4000 });
+         прокрутка. До трёх попыток: одно сорванное касание на загруженной
+         машине — не дефект переноса. */
+      for (let attempt = 0; attempt < 3 && !started; attempt++) {
+        const c2 = await p.locator('.gtask-card[data-drag-id="gd2"]').boundingBox();
+        sx = c2.x + 60; sy = c2.y + 12;
+        await touch("touchStart", sx, sy);
+        started = await p.waitForFunction(() => document.body.classList.contains("gtask-dragging"), null, { timeout: 2500 })
+          .then(() => true, () => false);
+        if (!started) { await touch("touchEnd"); await p.waitForTimeout(400); }
+      }
+      assert(started, "палец: долгое нажатие на карточку не включило перенос (три попытки)");
       for (let i = 1; i <= 10; i++) { await touch("touchMove", sx + (370 - sx) * i / 10, sy); await p.waitForTimeout(20); }
       /* У края — ровно 1,2 с, не «пока не доедет»: с ожиданием по результату
          (проверено, 2 с) доска доезжала и при скорости «за кадр», и тест
