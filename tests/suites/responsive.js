@@ -2361,4 +2361,40 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  /* 30.09.2026 «Тарифы» переделаны: на телефоне колонка названий в таблице
+     сравнения занимала полэкрана, и из четырёх тарифов был виден один. Теперь
+     она закреплена, а тарифы листаются под ней. И ровно одна карточка — «Ваш тариф». */
+  await test("тарифы на телефоне: одна карточка «Ваш тариф», названия в сравнении закреплены", async () => {
+    const { bootWithSession: boot } = require("../harness");
+    const profile = { id: "00000000-0000-0000-0000-000000000001", agency_id: "00000000-0000-0000-0000-000000000001", email: "owner@example.com",
+      subscription_status: "active", subscription_plan: "start1", subscription_expires_at: new Date(Date.now() + 25 * 864e5).toISOString() };
+    const { context, page } = await boot(browser, baseUrl, { width: 390, height: 900, profile, touch: true });
+    try {
+      await page.evaluate(() => window.app.go("plans"));
+      await page.waitForSelector("#appContent .plans-compare", { timeout: 5000 });
+      const r = await page.evaluate(() => {
+        const sc = document.querySelector(".plans-compare-scroll");
+        const label = document.querySelector(".plans-compare .pc-label");
+        const x0 = label.getBoundingClientRect().left;
+        sc.scrollLeft = 150;
+        return {
+          cards: document.querySelectorAll(".plans-page .plan-card").length,
+          current: [...document.querySelectorAll(".plans-page .plan-card.is-current")].map((c) => c.querySelector(".plan-card-name").textContent),
+          docW: document.documentElement.scrollWidth,
+          scrolled: sc.scrollLeft,
+          labelMoved: Math.round(label.getBoundingClientRect().left - x0),
+          labelW: Math.round(label.getBoundingClientRect().width),
+        };
+      });
+      assertEqual(r.cards, 3, "карточек тарифов не три");
+      assertEqual(r.current.join(","), "Старт", "«Ваш тариф» стоит не на «Старте» или не один");
+      assert(r.docW <= 390, "страница тарифов шире экрана: " + r.docW);
+      assert(r.scrolled > 0, "таблица сравнения не листается вбок — не видно тарифов справа");
+      assertEqual(r.labelMoved, 0, "колонка названий уехала вместе с тарифами");
+      assert(r.labelW <= 160, "колонка названий занимает " + r.labelW + "px из 390");
+    } finally {
+      await context.close();
+    }
+  });
+
 };

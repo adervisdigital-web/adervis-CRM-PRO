@@ -2738,7 +2738,9 @@
 
       // Срок в витрине тарифов. Живёт в состоянии, а не в переменной модуля:
       // человек ушёл в другой раздел и вернулся — выбранный срок на месте.
+      let _plansPeriodAnim = false; // цены «переезжают» один раз после смены срока
       function setPlanPeriod(months) {
+        if (state.planPeriod !== months) _plansPeriodAnim = true;
         state.planPeriod = months;
         save();
         render();
@@ -6978,7 +6980,7 @@
            месяца» — строку, которая ничего не говорит о продукте. */
         const tierFeatures = tierFeatureMap();
         const promoValid = _promoState && typeof _promoState === "object";
-        const { active: activeSub, tier: activeTier, until: activeUntil } = _activeSubscription();
+        const { active: activeSub, tier: activeTier, until: activeUntil } = _isSuperAdmin() ? { active: false, tier: "", until: null } : _activeSubscription();
         const cardHtml = (p, tier) => {
           /* «Ваш тариф» — по ТАРИФУ, а не по точному плану: на «Про на год»
              карточка «Про» с помесячным сроком тоже ваша. И её можно ПРОДЛИТЬ:
@@ -6998,29 +7000,34 @@
             : `Оплатить ${money(payAmount)}${p.months > 1 ? ` за ${p.months} мес.` : ""}`;
           const btnOff = p.price === 0 || !!_buyingPlan;
           const feats = tierFeatures[p.id === "trial" ? "trial" : p.tier] || [];
-          const border = isCurrent ? "var(--green)" : recommended ? "var(--primary)" : "var(--line)";
-          const bg = isCurrent ? "rgba(22,163,74,.06)" : recommended ? "rgb(var(--primary-rgb) / .05)" : "var(--panel2)";
+          /* Карточка — на классах (style.css «Витрина тарифов»), а не инлайном:
+             наведение, свечение «Советуем», галочки значком и анимации живут в
+             CSS. --i — порядок для входа карточек волной. */
+          const cls = isCurrent ? "is-current" : recommended ? "is-recommended" : "";
+          const idx = Math.max(0, PLAN_TIERS.findIndex(t => t.id === p.tier));
           const priceHtml = p.price === 0
-            ? `<div style="font-size:28px;font-weight:900;color:var(--text-success);line-height:1">Бесплатно</div><div style="font-size:12px;color:var(--muted);margin-bottom:16px">${escapeHtml(p.period)}</div>`
-            : discountedPrice !== null
-              ? `<div style="font-size:13px;color:var(--muted);text-decoration:line-through;line-height:1">${p.price} ₽</div><div style="font-size:28px;font-weight:900;color:var(--text-success);line-height:1.1">${discountedPrice} ₽</div><div class="u-meta">${escapeHtml(p.period)}</div><div style="font-size:12px;color:var(--text-success);font-weight:700;margin-bottom:16px">−${_promoState.discount}% по промокоду</div>`
-              : `<div style="font-size:28px;font-weight:900;line-height:1">${money(p.price)}</div><div class="u-meta">${escapeHtml(p.period)}</div>${p.months > 1 ? `<div style="font-size:12px;color:var(--primary-text);font-weight:750;margin-bottom:16px">${escapeHtml(p.save)} · счёт ${money(p.price * p.months)}</div>` : `<div class="mb-16"></div>`}`;
+            ? `<div class="plan-price"><span class="plan-price-num is-free">Бесплатно</span><div class="plan-price-note">${escapeHtml(p.period)}</div></div>`
+            : `<div class="plan-price">
+                ${discountedPrice !== null ? `<span class="plan-price-old">${money(p.price)}</span>` : ""}
+                <div class="plan-price-row"><span class="plan-price-num${discountedPrice !== null ? " is-discount" : ""}">${money(discountedPrice !== null ? discountedPrice : p.price)}</span><span class="plan-price-per">/ мес</span></div>
+                <div class="plan-price-note">${discountedPrice !== null
+                  ? `−${_promoState.discount}% по промокоду`
+                  : p.months > 1 ? `${escapeHtml(p.save)} · счёт ${money(p.price * p.months)}` : "Оплата за месяц"}</div>
+              </div>`;
           return `
-          <div class="plan-card" style="border-radius:18px;border:2px solid ${border};background:${bg};padding:20px 16px;display:flex;flex-direction:column;position:relative;min-width:0">
-            ${recommended && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">Советуем</div>` : ""}
-            ${isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">✓ Ваш тариф</div>` : ""}
+          <div class="plan-card ${cls}" style="--i:${idx}">
+            ${isCurrent ? `<span class="plan-card-badge is-current">${icon("check", 11)} Ваш тариф</span>`
+              : recommended ? `<span class="plan-card-badge">Советуем</span>` : ""}
             <div class="plan-card-head">
               <span class="plan-card-name">${escapeHtml(p.label)}</span>
               ${tier && tier.note ? `<span class="plan-card-note">${escapeHtml(tier.note)}</span>` : ""}
             </div>
             ${priceHtml}
-            <div style="flex:1;display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
-              ${feats.map(f => `<div style="font-size:12px;display:flex;align-items:flex-start;gap:5px"><span style="color:${isCurrent ? "var(--text-success)" : "var(--primary-text)"};flex-shrink:0;font-size:12px;margin-top:1px">✓</span><span>${escapeHtml(f)}</span></div>`).join("")}
-            </div>
-            ${/* Приглушение и курсор задаёт общее правило для :disabled в style.css —
-                  раньше они дублировались здесь инлайном, и отключённая кнопка
-                  выглядела в тарифах не так, как в остальном приложении. */""}
-            <button class="btn ${recommended && !isCurrent ? "primary" : "small"}" style="width:100%;white-space:normal;line-height:1.25;text-align:center" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
+            <ul class="plan-feats">
+              ${feats.map(f => `<li>${icon("check", 12)}<span>${escapeHtml(f)}</span></li>`).join("")}
+            </ul>
+            ${/* Приглушение и курсор задаёт общее правило для :disabled в style.css. */""}
+            <button class="btn plan-card-btn ${(recommended && !isCurrent) ? "primary" : ""}" onclick="app.buyPlan('${p.id}')" ${btnOff ? "disabled" : ""}>
               ${btnLabel}
             </button>
           </div>`;
@@ -7046,8 +7053,10 @@
           const p = planFor(t.id);
           return p ? cardHtml(p, t) : "";
         }).join("");
-        const yes = `<span style="color:var(--text-success);font-size:16px;font-weight:700">✓</span>`;
-        const no  = `<span style="color:var(--muted);font-size:15px">—</span>`;
+        // Таблица сравнения — на классах (style.css «Сравнение тарифов»):
+        // галочка значком в кружке, приглушённое «—», подсветка «Стандарта».
+        const yes = `<span class="pc-yes" aria-label="есть">${icon("check", 12)}</span>`;
+        const no  = `<span class="pc-no" aria-label="нет">—</span>`;
         /* Колонок в таблице ТРИ, а не по числу планов: сроки отличаются только
            ценой, и «Старт 230 ₽» рядом со «Старт 190 ₽» сравнивать нечего. */
         const COLS = [
@@ -7056,29 +7065,31 @@
           { key: "std", label: PLAN_TIERS[1].label, sub: `${money((planFor("std") || {}).price)}/мес`, hl: true },
           { key: "pro", label: PLAN_TIERS[2].label, sub: `${money((planFor("pro") || {}).price)}/мес` },
         ];
-        const colStyle = (key) => key === "std" ? "background:rgb(var(--primary-rgb) / .07);font-weight:600" : "";
-        const hdr = (label, key) => `<th style="text-align:center;padding:10px 8px;font-size:12px;font-weight:700;white-space:nowrap;${colStyle(key)}">${label}</th>`;
-        const cell = (val, key) => `<td style="text-align:center;padding:9px 8px;${colStyle(key)}">${val}</td>`;
-        const row = (label, vals) => `<tr><td style="padding:9px 12px;font-size:13px;color:var(--muted)">${label}</td>${COLS.map((c,i) => cell(vals[i], c.key)).join("")}</tr>`;
+        const colCls = (key) => key === "std" ? " is-hl" : "";
+        const hdr = (label, key) => `<th class="pc-col${colCls(key)}">${label}</th>`;
+        const cell = (val, key) => `<td class="pc-cell${colCls(key)}">${val}</td>`;
+        const row = (label, vals) => `<tr class="pc-row"><td class="pc-label">${label}</td>${COLS.map((c,i) => cell(vals[i], c.key)).join("")}</tr>`;
         /* Значение задаётся один раз на тариф: `rowT("Договоры", { start: no, pro: yes })`.
            Раньше список шёл по индексу PLANS — добавление тарифа молча сдвинуло
            бы всю таблицу. */
         const rowT = (label, v) => row(label, COLS.map(c => (typeof v === "string" ? v : (v[c.key] !== undefined ? v[c.key] : v.pro))));
-        const group = (title) => `<tr><td colspan="${COLS.length + 1}" style="padding:10px 12px 4px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:var(--panel2);border-top:1px solid var(--line)">${title}</td></tr>`;
+        const group = (title) => `<tr class="pc-group"><td colspan="${COLS.length + 1}"><span>${title}</span></td></tr>`;
 
         const compTable = `
-          <div style="overflow-x:auto;margin-top:32px">
-            <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px">
+          <div class="plans-compare-wrap">
+            <h2 class="plans-compare-title">Сравнение тарифов</h2>
+            <div class="plans-compare-scroll">
+            <table class="plans-compare">
               <thead>
-                <tr style="border-bottom:2px solid var(--line)">
-                  <th style="text-align:left;padding:10px 12px;font-size:13px;min-width:180px">Функция</th>
+                <tr>
+                  <th class="pc-label-head">Возможность</th>
                   ${/* Цены здесь и ниже берутся из PLANS, а не переписываются руками:
                         до 08.08.2026 те же четыре суммы лежали в трёх местах (карточки,
                         шапка таблицы, строка «Стоимость»), и при подъёме цен таблица
                         осталась бы показывать старые — расхождение, которое видит
                         только клиент. */""}
                   ${COLS.map(c => hdr(
-                    `${escapeHtml(c.label)}<br><span style='font-weight:400;color:var(--muted)'>${escapeHtml(c.sub)}</span>`,
+                    `<span class="pc-col-name">${escapeHtml(c.label)}</span><span class="pc-col-sub">${escapeHtml(c.sub)}</span>`,
                     c.key
                   )).join("")}
                 </tr>
@@ -7091,7 +7102,7 @@
                       шестая сделка в пробном заводится молча. Пишем то, что есть. */""}
                 ${rowT("Активных сделок", {
                   start: `<b>${TIER_RULES.start.deals}</b>`,
-                  pro: `<span style='color:var(--text-success);font-weight:700'>∞</span>`,
+                  pro: `<span class="pc-inf">без лимита</span>`,
                 })}
                 ${rowT("Сделки и воронка (канбан)", yes)}
                 ${rowT("Карточка сделки", yes)}
@@ -7166,27 +7177,45 @@
                 }))}
               </tbody>
             </table>
+            </div>
           </div>`;
 
+        /* Анимация цен при смене срока — один раз на переключение (setPlanPeriod). */
+        const periodAnim = _plansPeriodAnim; _plansPeriodAnim = false;
+        const facts = [
+          "Подписка включается сразу после оплаты",
+          "Оплата разовая, без автосписаний — продление вручную, напомним заранее",
+          "Срок меняет только цену: состав тарифа тот же",
+          `Людей в команде: ${PLAN_TIERS.map(t => `«${escapeHtml(t.label)}» — ${TIER_RULES[t.id].seats}`).join(", ")}`,
+          "Оставшиеся дни при смене тарифа переносятся, данные не теряются",
+          "Истёк срок — данные сохраняются, доступ вернётся сразу после оплаты",
+        ];
         return `
-          <div class="panel">
+          <div class="panel plans-page${periodAnim ? " is-period-switch" : ""}">
             <div class="section-title" style="margin-bottom:24px">
               <div><h1 class="m-0">${h1Icon("card")}Тарифный план</h1><p style="margin:4px 0 0;color:var(--muted)">Оплата через ЮKassa — карта, СБП, ЮМани</p></div>
               <button class="btn small" onclick="app.go('profile')">← Профиль</button>
             </div>
-            ${activeSub ? `
-              <p class="plans-current">${icon("check", 14)} Сейчас: «${escapeHtml(tierLabel(activeTier))}» до ${escapeHtml(_longDate(activeUntil))}. Оплата добавит дни к этой дате — оставшиеся не сгорают.</p>` : ""}
-            ${periodSwitch}
-            <div class="grid three plans-tier-grid" style="gap:14px;margin-bottom:16px">
+            ${/* Витрина по центру и одной ширины с таблицей: карточки стояли
+                  прижатыми влево на две трети экрана, а таблица под ними — во
+                  всю ширину (владелец 30.09.2026: «должно выглядеть лучше»). */""}
+            <div class="plans-wrap">
+            ${_isSuperAdmin() ? `
+              <p class="plans-current is-admin">${icon("lock", 14)} У вас полный доступ администратора — всё открыто независимо от тарифа. Ниже витрина так, как её видят пользователи.</p>`
+              : activeSub ? `
+              <p class="plans-current">${icon("check", 14)} Сейчас: «${escapeHtml(tierLabel(activeTier))}» до ${escapeHtml(_longDate(activeUntil))}. Оплата добавит дни к этой дате — оставшиеся не сгорают.</p>`
+              : sub && sub.subscription_status === "trial" ? `
+              <p class="plans-current is-trial">${icon("star", 14)} Идёт пробный период — весь «${escapeHtml(tierLabel("std"))}»${getSubscriptionDaysLeft() !== null ? `, осталось ${getSubscriptionDaysLeft()} ${plural(getSubscriptionDaysLeft(), "день", "дня", "дней")}` : ""}. Выберите тариф, чтобы работа продолжилась без перерыва.</p>` : ""}
+            <div class="plans-period-row">${periodSwitch}</div>
+            <div class="plans-tier-grid">
               ${tierCards}
             </div>
-            ${sub && sub.subscription_status === "trial" ? `
-              <p class="mini-note" style="margin:0 0 20px">Идёт пробный период — весь «Стандарт» ${getSubscriptionDaysLeft() !== null ? `ещё ${getSubscriptionDaysLeft()} дн.` : ""}</p>` : ""}
             ${_promoCodeInputHtml()}
-            <p style="font-size:12px;color:var(--muted);padding:10px 16px;background:rgb(var(--primary-rgb) / .06);border-radius:10px;margin:0;line-height:1.6">
-        Подписка активируется автоматически после оплаты · Оплата разовая, без автосписаний — продление вручную, мы напомним заранее · Срок меняет только цену: состав тарифа от него не зависит · Людей в команде задаёт тариф: ${PLAN_TIERS.map(t => `«${escapeHtml(t.label)}» — ${TIER_RULES[t.id].seats}`).join(", ")} · Данные не теряются при смене тарифа, оставшиеся дни переносятся · Если срок истёк — данные сохраняются, доступ возобновляется сразу после оплаты
-            </p>
+            <ul class="plans-facts">
+              ${facts.map(x => `<li>${icon("check", 12)}<span>${x}</span></li>`).join("")}
+            </ul>
             ${compTable}
+            </div>
           </div>
         `;
       }
@@ -17080,6 +17109,11 @@
              входа анимацию обрывает: новые узлы появляются сразу, на месте. */
           if (viewChanged && state.view === "home") _homeEnterMotion(root);
           else root.classList.remove("home-enter");
+          // «Тарифы»: карточки входят волной — только при заходе на экран.
+          if (viewChanged && state.view === "plans" && !_reducedMotion()) {
+            root.classList.add("plans-enter");
+            setTimeout(() => root.classList.remove("plans-enter"), 900);
+          } else if (!viewChanged) root.classList.remove("plans-enter");
         } catch(err) {
           console.error("Render error:", err);
           root.innerHTML = `

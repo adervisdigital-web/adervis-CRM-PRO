@@ -1,4 +1,4 @@
-﻿    /* ── Self-hosted шрифты (variable woff2, latin + latin-ext) ──────────────
+    /* ── Self-hosted шрифты (variable woff2, latin + latin-ext) ──────────────
        Google Fonts нестабилен в РФ и добавлял render-blocking запрос + 2 preconnect.
        Кириллица у обоих семейств отсутствует и в Google Fonts — рендерится системным
        фолбэком (ui-sans-serif), поведение не изменилось. Файлы в fonts/, кэшируются SW. */
@@ -6265,19 +6265,133 @@
     }
     .plan-period-off { font-size: 11.5px; font-weight: 800; color: var(--text-success); }
     .plan-period-btn.active .plan-period-off { color: var(--on-color); opacity: .85; }
-    .plans-tier-grid { max-width: 1040px; }
     /* Админка: продление подписки в один клик под полем даты. */
     .admin-sub-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -2px 0 12px; }
     /* Действующая подписка — строкой над витриной: что сейчас и до когда. */
     .plans-current {
-      display: flex; align-items: center; gap: 8px; margin: 0 0 16px; max-width: 1040px;
+      display: flex; align-items: center; gap: 8px; margin: 0 0 16px;
       padding: 10px 14px; border-radius: var(--r-md); font-size: 13px; font-weight: 600;
       color: var(--text-success); background: color-mix(in srgb, var(--green) 10%, transparent);
       border: 1px solid color-mix(in srgb, var(--green) 30%, transparent);
     }
-    .plan-card-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
-    .plan-card-name { font-size: 15px; font-weight: 900; }
-    .plan-card-note { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+    .plans-current.is-admin { color: var(--primary-text); background: var(--primary-bg); border-color: rgb(var(--primary-rgb) / .3); }
+    .plans-current.is-trial { color: var(--text-warning); background: color-mix(in srgb, var(--yellow) 10%, transparent); border-color: color-mix(in srgb, var(--yellow) 35%, transparent); }
+    /* ── Витрина тарифов ─────────────────────────────────────────────────
+       Всё по центру одной колонкой (карточки, условия, таблица): карточки
+       стояли прижатыми влево на две трети экрана, а таблица — во всю ширину
+       (владелец 30.09.2026: «должно выглядеть лучше»). */
+    .plans-wrap { max-width: 1120px; margin: 0 auto; }
+    .plans-period-row { display: flex; justify-content: center; }
+    .plans-page .plan-period-switch { margin: 4px 0 26px; }
+    .plans-tier-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;
+      align-items: stretch; margin-bottom: 18px;
+    }
+    @media (max-width: 900px) { .plans-tier-grid { grid-template-columns: 1fr; max-width: 460px; margin-left: auto; margin-right: auto; } }
+    .plans-page .plan-card {
+      position: relative; display: flex; flex-direction: column; min-width: 0; text-align: left;
+      padding: 24px 22px 20px; border: 1px solid var(--line); border-radius: var(--r-2xl); background: var(--panel2);
+      transition: transform var(--dur-3) var(--ease-out), box-shadow var(--dur-3) var(--ease-out), border-color var(--dur-2);
+    }
+    .plans-page .plan-card:hover { transform: translateY(-3px); border-color: rgb(var(--primary-rgb) / .35); box-shadow: 0 18px 40px -22px rgb(var(--primary-rgb) / .5); }
+    .plans-page .plan-card.is-recommended {
+      border-color: rgb(var(--primary-rgb) / .7);
+      background: linear-gradient(180deg, rgb(var(--primary-rgb) / .12), transparent 55%), var(--panel2);
+      box-shadow: 0 20px 44px -24px rgb(var(--primary-rgb) / .65);
+    }
+    .plans-page .plan-card.is-current {
+      border-color: color-mix(in srgb, var(--green) 60%, var(--line));
+      background: linear-gradient(180deg, color-mix(in srgb, var(--green) 10%, transparent), transparent 55%), var(--panel2);
+    }
+    .plan-card-badge {
+      position: absolute; top: -11px; left: 22px; display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: 800; white-space: nowrap;
+      background: var(--primary); color: var(--on-color); box-shadow: 0 6px 16px -8px rgb(var(--primary-rgb) / .8);
+    }
+    .plan-card-badge.is-current { background: var(--green); box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--green) 80%, transparent); }
+    .plans-page .plan-card-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 14px; }
+    .plans-page .plan-card-name { font-family: var(--font-display); font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+    .plans-page .plan-card-note { font-size: 12px; color: var(--muted); font-weight: 600; }
+    .plans-page .plan-price { margin: 0 0 16px; padding-bottom: 16px; border-bottom: 1px dashed var(--line); font-size: inherit; font-weight: inherit; }
+    .plan-price-row { display: flex; align-items: baseline; gap: 6px; }
+    .plan-price-num {
+      display: inline-block; font-family: var(--font-display); font-size: 34px; font-weight: 700;
+      line-height: 1.05; letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+    }
+    .plan-price-num.is-free, .plan-price-num.is-discount { color: var(--text-success); }
+    .plan-price-per { font-size: 13px; color: var(--muted); font-weight: 600; }
+    .plan-price-old { display: block; font-size: 13px; color: var(--muted); text-decoration: line-through; }
+    .plan-price-note { margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--primary-text); min-height: 16px; }
+    .plan-feats { list-style: none; margin: 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; }
+    .plan-feats li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.4; }
+    .plan-feats li svg {
+      flex: 0 0 auto; width: 18px; height: 18px; padding: 3px; margin-top: 0; border-radius: 50%;
+      color: var(--primary-text); background: var(--primary-bg);
+    }
+    .plans-page .plan-card.is-current .plan-feats li svg { color: var(--text-success); background: color-mix(in srgb, var(--green) 14%, transparent); }
+    .plan-card-btn { width: 100%; justify-content: center; white-space: normal; line-height: 1.25; min-height: 42px; font-weight: 700; }
+    /* Вход волной при заходе на экран; цены «переезжают» при смене срока. */
+    #appContent.plans-enter .plans-page .plan-card { animation: planIn .55s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 80ms); }
+    @keyframes planIn { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+    .plans-page.is-period-switch .plan-price-num,
+    .plans-page.is-period-switch .plan-price-note { animation: priceIn .4s var(--ease-out) both; }
+    @keyframes priceIn { from { opacity: 0; transform: translateY(8px); } }
+    @media (prefers-reduced-motion: reduce) {
+      .plans-page .plan-card, .plans-page .plan-card:hover { transition: none; transform: none; }
+      #appContent.plans-enter .plans-page .plan-card, .plans-page.is-period-switch .plan-price-num,
+      .plans-page.is-period-switch .plan-price-note { animation: none; }
+    }
+    /* Условия — списком со значками, а не абзацем мелким шрифтом. */
+    .plans-facts {
+      list-style: none; margin: 18px 0 0; padding: 16px 18px; display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 22px;
+      border: 1px solid var(--line); border-radius: var(--r-xl); background: var(--panel2);
+    }
+    .plans-facts li { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+    .plans-facts li svg { flex: 0 0 auto; margin-top: 2px; color: var(--text-success); }
+    @media (max-width: 700px) { .plans-facts { grid-template-columns: 1fr; } }
+
+    /* ── Сравнение тарифов ─────────────────────────────────────────────── */
+    .plans-compare-wrap { margin-top: 34px; }
+    .plans-compare-title { margin: 0 0 12px; font-size: 17px; font-family: var(--font-display); }
+    .plans-compare-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-xl); }
+    .plans-compare { width: 100%; min-width: 600px; border-collapse: collapse; font-size: 13px; }
+    .plans-compare thead th { padding: 14px 10px; border-bottom: 1px solid var(--line); background: var(--panel2); }
+    .plans-compare .pc-label-head { text-align: left; padding-left: 16px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; min-width: 200px; }
+    .plans-compare .pc-col { text-align: center; white-space: nowrap; }
+    .pc-col-name { display: block; font-size: 13.5px; font-weight: 800; }
+    .pc-col-sub { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+    .plans-compare .is-hl { background: rgb(var(--primary-rgb) / .08); }
+    .plans-compare thead .pc-col.is-hl { box-shadow: inset 0 3px 0 var(--primary); }
+    .plans-compare .pc-row td { padding: 10px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+    .plans-compare .pc-row:hover td { background: rgb(var(--primary-rgb) / .05); }
+    .plans-compare .pc-row:hover td.is-hl { background: rgb(var(--primary-rgb) / .12); }
+    .plans-compare .pc-label { padding-left: 16px; color: var(--text); }
+    .plans-compare .pc-cell { text-align: center; font-variant-numeric: tabular-nums; }
+    .plans-compare .pc-group td {
+      padding: 14px 16px 6px; font-size: 11.5px; font-weight: 800; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .05em; background: transparent;
+    }
+    .pc-yes {
+      display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%;
+      color: var(--text-success); background: color-mix(in srgb, var(--green) 14%, transparent);
+    }
+    .pc-no { color: var(--muted); opacity: .6; }
+    .pc-inf { font-size: 12px; font-weight: 700; color: var(--text-success); white-space: nowrap; }
+    /* Телефон: колонка с названиями стоит на месте, тарифы листаются под ней —
+       иначе названия съедали полэкрана и был виден один тариф из четырёх. */
+    @media (max-width: 700px) {
+      .plans-compare { min-width: 0; font-size: 12.5px; }
+      .plans-compare .pc-label-head, .plans-compare .pc-label {
+        position: sticky; left: 0; z-index: 1; min-width: 132px; max-width: 150px;
+        padding-left: 12px; background: linear-gradient(var(--panel), var(--panel)), var(--bg); box-shadow: 1px 0 0 var(--line);
+      }
+      .plans-compare .pc-label-head { background: linear-gradient(var(--panel2), var(--panel2)), var(--bg); }
+      .plans-compare .pc-row:hover td.pc-label { background: linear-gradient(var(--panel), var(--panel)), var(--bg); }
+      .plans-compare .pc-col, .plans-compare .pc-cell { min-width: 84px; padding-left: 6px; padding-right: 6px; }
+      .plans-compare .pc-group td { padding-left: 12px; }
+      .plans-compare .pc-group td span { position: sticky; left: 12px; }
+    }
     .plans-tier-head {
       margin: 0 0 10px; font-size: 12px; font-weight: 800;
       letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
