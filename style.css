@@ -3117,6 +3117,67 @@
       justify-content: flex-end;
     }
 
+    /* «Как считать: За ролик · Сменами · По часам» — сегмент над полями строки. */
+    .bill-mode { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .bill-mode-lbl { font-size: 12px; font-weight: 700; color: var(--muted); }
+    .bill-mode-seg {
+      display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--r-pill);
+      border: 1px solid var(--line); background: var(--panel2);
+    }
+    .bill-mode-btn {
+      height: 30px; padding: 0 14px; border: 0; border-radius: var(--r-pill); cursor: pointer;
+      background: transparent; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 650; white-space: nowrap;
+      transition: background var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+    }
+    .bill-mode-btn:hover:not(.is-active) { color: var(--text); }
+    .bill-mode-btn.is-active { background: var(--primary); color: var(--on-color); box-shadow: 0 4px 14px -6px rgb(var(--primary-rgb) / .7); }
+    @media (hover: none) and (pointer: coarse) {
+      .bill-mode-btn { position: relative; }
+      .bill-mode-btn::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+    }
+    /* Число, которое считается по датам, — не поле ввода, а итог. */
+    input.is-by-dates { background: var(--panel2); color: var(--muted); cursor: default; }
+
+    /* «Смены / дни по датам» — список дат вместо N одинаковых строк. */
+    .work-dates {
+      margin-top: 12px; padding: 12px 14px; border-radius: var(--r-lg);
+      border: 1px solid var(--line); background: var(--panel2);
+    }
+    .work-dates.is-empty { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; border-style: dashed; }
+    .work-dates-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .work-dates-title { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+    .work-dates-sum { font-size: 12.5px; font-weight: 700; color: var(--primary-text); font-variant-numeric: tabular-nums; }
+    .work-dates-list { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .work-date {
+      display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 2px;
+      border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel);
+      transition: border-color var(--dur-2);
+    }
+    .work-date:hover { border-color: rgb(var(--primary-rgb) / .45); }
+    .work-date input[type="date"] {
+      width: auto; min-width: 0; height: 30px; padding: 0 6px; border: 0; background: transparent;
+      font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--text);
+    }
+    .work-date-x {
+      width: 24px; height: 24px; border: 0; border-radius: 50%; background: transparent; color: var(--muted);
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: background var(--dur-1), color var(--dur-1);
+    }
+    .work-date-x:hover { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--text-danger); }
+    .work-date.is-new { animation: workDateIn .45s var(--ease-spring); border-color: rgb(var(--primary-rgb) / .6); }
+    @keyframes workDateIn { from { opacity: 0; transform: translateY(4px) scale(.92); } }
+    .work-date-add { display: inline-flex; align-items: center; gap: 4px; }
+    .work-dates-clear {
+      margin-top: 10px; padding: 0; border: 0; background: none; cursor: pointer;
+      font-size: 12px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px;
+    }
+    .work-dates-clear:hover { color: var(--text); }
+    @media (hover: none) and (pointer: coarse) {
+      .work-date-x, .work-dates-clear { position: relative; }
+      .work-date-x::after, .work-dates-clear::after { content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+    }
+    @media (prefers-reduced-motion: reduce) { .work-date.is-new { animation: none; } }
+
     /* Дата работы по позиции под её названием — видна и в свёрнутой строке. */
     .line-date-meta {
       display: inline-flex; align-items: center; gap: 5px; margin: 2px 0 2px 2px;

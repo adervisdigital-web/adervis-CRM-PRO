@@ -4913,7 +4913,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
       return {
         сумма: (el.querySelector(".price") || {}).textContent || "",
         кол: qty ? qty.value : null, подпись: lbl,
-        формула: (el.querySelector(".line-details .u-meta") || {}).textContent || "",
+        формула: (el.querySelector(".line-calc .u-meta") || {}).textContent || "",
         дата: (el.querySelector(".line-date-meta") || {}).textContent || "",
         поле: (el.querySelector('[data-key="date"]') || {}).value || "",
       };
@@ -4948,6 +4948,86 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assert(/\d{4}/.test(нов.дата), "дата не видна под названием позиции: " + нов.дата);
       // У старых строк дату не выдумываем.
       assertEqual((await line("color")).дата, "", "старой строке выдумана дата");
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  await test("смета: монтаж — одна позиция, «Как считать: За ролик · Сменами · По часам», смены по датам", async () => {
+    /* 29.09.2026. Амбассадор: «надо посчитать монтаж сменами, как у оператора»
+       и «делаю в каталоге монтаж/смена, и в смете их отдельно столько штук,
+       сколько смен» + «понимать, в какой день какой расход». Владелец: «чтобы
+       не путались на монтажёре и монтаже видео». Одна позиция с выбором
+       способа расчёта; смены раскладываются по датам внутри строки.
+       Плюс «200 позиций» было вписано числом в семи местах. */
+    const { ctx, p } = await bootWithState(String.raw`
+      st.selected = { edit: { id: "edit", qty: 1, price: 6000, cost: 0, stageId: "post", lineName: "Монтаж ролика",
+        durationPreset: "60", customDurationSec: 60, videoType: "standard", complexity: "standard", sourceCount: 1, cameraCount: 1 } };
+      st.estimateOrder = ["edit"]; st.lineCollapsed = { edit: false }; st.view = "estimate";
+    `, { width: 1440, height: 1000 });
+    const line = () => p.evaluate(() => {
+      const el = document.querySelector('[data-line="edit"]');
+      if (!el) return null;
+      const shifts = el.querySelector('[data-key="shifts"]');
+      return {
+        сумма: (el.querySelector(".price") || {}).textContent || "",
+        режим: (el.querySelector(".bill-mode-btn.is-active") || {}).textContent || "",
+        формула: (el.querySelector(".line-calc .u-meta") || {}).textContent || "",
+        смены: shifts ? { value: shifts.value, ro: shifts.readOnly } : null,
+        даты: [...el.querySelectorAll(".work-date input")].map((i) => i.value),
+        параметрыМонтажа: /Тип видео/.test(el.textContent),
+        мета: (el.querySelector(".line-date-meta") || {}).textContent || "",
+      };
+    });
+    try {
+      await p.evaluate(() => window.app.go("estimate"));
+      await p.waitForTimeout(500);
+      const r0 = await line();
+      assert(r0, "строки «Монтаж ролика» нет в смете");
+      assertEqual(r0.режим.trim(), "За ролик", "по умолчанию монтаж считается не «за ролик»: " + r0.режим);
+      assert(/6\s000/.test(r0.сумма) && r0.параметрыМонтажа, "«за ролик» сломался: " + r0.сумма);
+
+      // Сменами: 3 смены по 10 000 ₽ = 30 000 ₽, параметры монтажа скрыты.
+      await p.click('[data-line="edit"] .bill-mode-btn:nth-child(2)');
+      await p.waitForTimeout(400);
+      await p.fill('[data-line="edit"] [data-key="shifts"]', "3");
+      await p.press('[data-line="edit"] [data-key="shifts"]', "Tab");
+      await p.waitForTimeout(400);
+      const r1 = await line();
+      assert(/30\s000/.test(r1.сумма), "3 смены монтажа не дали 30 000 ₽: " + r1.сумма);
+      assert(/× 3 смены × 1 чел\./.test(r1.формула), "в расчёте нет «× 3 смены × 1 чел.»: " + r1.формула);
+      assert(!r1.параметрыМонтажа, "в режиме «Сменами» висят параметры «за ролик»");
+
+      // По датам: разложить → 3 даты подряд; «+ смена» → 4 смены, число — только по датам.
+      await p.click('[data-line="edit"] .work-dates button');
+      await p.waitForTimeout(400);
+      await p.click('[data-line="edit"] .work-date-add');
+      await p.waitForTimeout(400);
+      const r2 = await line();
+      assertEqual(r2.даты.length, 4, "смены не разложились по датам: " + r2.даты.join(","));
+      const день = (s) => new Date(s + "T00:00:00").getTime();
+      assert(r2.даты.every((d, i) => i === 0 || день(d) - день(r2.даты[i - 1]) === 864e5), "даты не идут подряд: " + r2.даты.join(","));
+      assert(/40\s000/.test(r2.сумма), "4 смены по датам не дали 40 000 ₽: " + r2.сумма);
+      assert(r2.смены && r2.смены.ro && r2.смены.value === "4", "число смен не считается по датам: " + JSON.stringify(r2.смены));
+      assert(/4 смены/.test(r2.мета), "в строке не видно диапазона и числа смен: " + r2.мета);
+
+      // Убрать одну дату → 3 смены; вернуть «За ролик» → прежние 6 000 ₽.
+      await p.click('[data-line="edit"] .work-date:nth-child(2) .work-date-x');
+      await p.waitForTimeout(400);
+      assert(/30\s000/.test((await line()).сумма), "убранная дата не уменьшила сумму");
+      await p.click('[data-line="edit"] .bill-mode-btn:nth-child(1)');
+      await p.waitForTimeout(400);
+      assert(/6\s000/.test((await line()).сумма), "возврат к «За ролик» не вернул цену ролика");
+
+      // Витрина тарифов берёт число позиций из каталога и склоняет его.
+      await p.evaluate(() => window.app.go("plans"));
+      await p.waitForTimeout(400);
+      const текст = await p.evaluate(() => document.getElementById("appContent").innerText);
+      const m = текст.match(/Полный каталог: (\d+) (\S+)/);
+      assert(m, "на витрине нет строки «Полный каталог: N позиций»");
+      const n = Number(m[1]), n10 = n % 10, n100 = n % 100;
+      const ждём = n10 === 1 && n100 !== 11 ? "позиция" : n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14) ? "позиции" : "позиций";
+      assertEqual(m[2], ждём, `«${n} ${m[2]}» — неверное склонение`);
     } finally {
       await ctx.close();
     }

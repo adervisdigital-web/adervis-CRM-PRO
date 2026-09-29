@@ -245,7 +245,9 @@ module.exports = async function ({ test }) {
     // разошлась с каталогом. Число теперь считается из самого каталога и
     // разойтись не может — сторож следит, чтобы его не вернули в текст руками.
     const foot = app.slice(app.indexOf("function _calcRenderFoot"), app.indexOf("function _calcRenderFoot") + 700);
-    assert(/\$\{BASE_ITEMS\.length\} позиций/.test(foot),
+    // catalogCountText() — то же число из каталога, только со склонением
+    // («203 позиции»), с 29.09.2026.
+    assert(/\$\{BASE_ITEMS\.length\} позиций|\$\{catalogCountText\(\)\}/.test(foot),
       "размер каталога в подписи снова записан числом — он разойдётся с BASE_ITEMS");
     assert(!/9[05]\+ позиций/.test(foot), "в подписи осталась захардкоженная цифра каталога");
   });

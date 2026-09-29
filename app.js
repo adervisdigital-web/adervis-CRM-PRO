@@ -5098,6 +5098,14 @@
          Формулировка — из PLAN.md §2: продаём СМЕТУ И КП, а не «ещё одну CRM».
          Слово «CRM» в витрине намеренно не первое: человек ищет, чем посчитать
          смету, а не чем вести воронку. */
+      /* Число позиций каталога словами — «203 позиции». До 29.09.2026 «200
+         позиций» было вписано числом в семи местах и отстало бы при первой же
+         новой позиции (так и вышло: добавили смены постпродакшна). */
+      function catalogCountText() {
+        const n = BASE_ITEMS.length;
+        return `${n} ${plural(n, "позиция", "позиции", "позиций")}`;
+      }
+
       const PROMO_PITCH = [
         {
           id: "oneline",
@@ -5108,7 +5116,7 @@
           id: "short",
           label: "Абзац (описание сообщества, ответ в чате)",
           text: "ADERVIS — сервис смет и коммерческих предложений для видеопродакшна. "
-            + "Каталог на 200 позиций с вашими ценами, готовые пакеты, расчёт съёмочных дней и техники. "
+            + "Каталог на " + catalogCountText() + " с вашими ценами, готовые пакеты, расчёт съёмочных дней и техники. "
             + "Смета собирается за 15 минут, из неё сразу выходит КП по ссылке — клиент открывает его в браузере, "
             + "подписывает и вносит аванс. Дальше сделка живёт сама: воронка, финансы, договоры, задачи. "
             + `от ${PLAN_ENTRY_PRICE} ₽ в месяц, 7 дней бесплатно, без привязки карты.`,
@@ -5118,7 +5126,7 @@
           label: "Полное (лендинг, статья, письмо)",
           text: "Смета в видеопродакшне — это вечер в Excel: вспомнить все позиции, не забыть про технику и трансфер, "
             + "посчитать смены операторов, свести это в документ, который не стыдно отправить клиенту.\n\n"
-            + "ADERVIS делает это за 15 минут. Внутри каталог на 200 позиций и 45 готовых пакетов — "
+            + "ADERVIS делает это за 15 минут. Внутри каталог на " + catalogCountText() + " и 45 готовых пакетов — "
             + "со своими ценами, которые вы правите один раз. Съёмочные дни, количество камер, "
             + "срочность и наценки считаются сами.\n\n"
             + "Из готовой сметы одной кнопкой выходит коммерческое предложение — ссылка, которую клиент открывает "
@@ -5150,7 +5158,7 @@
             + "Правила: начни с конкретной ситуации из работы, а не с вопроса к читателю. "
             + "Дай одну мысль, которую можно применить сегодня. В конце — одна строка про то, что смету и КП "
             + "я считаю в ADERVIS (adervis.ru), без призыва «переходи по ссылке».\n\n"
-            + "Про продукт, если упоминаешь: сервис смет и КП для видеопродакшна, каталог 200 позиций со своими "
+            + "Про продукт, если упоминаешь: сервис смет и КП для видеопродакшна, каталог " + catalogCountText() + " со своими "
             + `ценами, КП уходит клиенту ссылкой с подписью и авансом, от ${PLAN_ENTRY_PRICE} ₽/мес, 7 дней бесплатно без карты.`,
         },
         {
@@ -5196,7 +5204,7 @@
           label: "Описание профиля / сообщества",
           text: "Напиши три варианта описания сообщества для [ПЛОЩАДКА] — 90, 200 и 500 знаков.\n\n"
             + "Продукт: ADERVIS, сервис смет и коммерческих предложений для видеопродакшна. "
-            + "Каталог 200 позиций со своими ценами, готовые пакеты, расчёт съёмочных дней и техники. "
+            + "Каталог " + catalogCountText() + " со своими ценами, готовые пакеты, расчёт съёмочных дней и техники. "
             + `КП уходит клиенту ссылкой — он подписывает и вносит аванс. От ${PLAN_ENTRY_PRICE} ₽/мес, 7 дней бесплатно без карты. `
             + "Сайт adervis.ru, приложение app.adervis.ru.\n\n"
             + "Тон: точный, быстрый, свой. Без «инновационный», «уникальный», «команда профессионалов».",
@@ -6940,7 +6948,7 @@
         const tierFeatures = {
           trial: ["Весь «Стандарт» на 7 дней", "Сделки без ограничения", "Калькулятор смет", "КП для клиентов", `${AI_PROPOSAL_TRIAL_LIMIT} AI-генераций КП`, "Один пользователь"],
           start: [`До ${TIER_RULES.start.deals} съёмок в работе`, "Короткий каталог фото- и видеоуслуг", "КП по ссылке с авансом", "Клиенты и календарь съёмок", "Деньги: оплачено и сколько должны", "Один пользователь"],
-          std: ["Сделок без ограничения", `До ${TIER_RULES.std.seats} человек в команде`, "Полный каталог: 200 позиций", "Договоры и онлайн-брифы", "Аналитика и ИИ-помощник", "Экспорт в Excel"],
+          std: ["Сделок без ограничения", `До ${TIER_RULES.std.seats} человек в команде`, `Полный каталог: ${catalogCountText()}`, "Договоры и онлайн-брифы", "Аналитика и ИИ-помощник", "Экспорт в Excel"],
           pro: ["Всё из «Стандарта»", `До ${TIER_RULES.pro.seats} человек в команде`, "Ваш бренд вместо нашего в КП", "Калькулятор на вашем сайте", "Приоритетная поддержка", "Помощь с переносом цен"],
         };
         const promoValid = _promoState && typeof _promoState === "object";
@@ -7069,7 +7077,7 @@
                 ${rowT("Калькулятор смет", yes)}
                 ${rowT("Каталог и пакеты услуг", {
                   start: "<span style='color:var(--muted)'>короткий</span>",
-                  pro: "<b>200 позиций</b>",
+                  pro: `<b>${catalogCountText()}</b>`,
                 })}
                 ${rowT("Этапы производства", yes)}
                 ${rowT("Версии смет", yes)}
@@ -7306,7 +7314,7 @@
                 // Каталог давно вырос до 200 позиций, а витрина обещала «100+» —
                 // считаем от самого каталога, чтобы обещание не отставало снова
                 // (так уже сделано в подписи публичного расчёта).
-                ["receipt", "Калькулятор смет", `${BASE_ITEMS.length} позиций: съёмка, пост, ИИ, логистика`],
+                ["receipt", "Калькулятор смет", `${catalogCountText()}: съёмка, пост, ИИ, логистика`],
                 ["contract", "КП и договоры", "Предложение и договор за секунды"],
                 ["calendar", "Календарь", "Дедлайны, задачи и платежи вместе"],
                 ["wallet", "Финансы", "Доходы, расходы и маржа по проектам"],
@@ -8405,7 +8413,7 @@
         if (next.ai && !cur.ai) out.push("ИИ-помощник для КП");
         if (next.whiteLabel && !cur.whiteLabel) out.push("Ваш бренд вместо нашего в КП и портале");
         if (next.publicCalc && !cur.publicCalc) out.push("Калькулятор на вашем сайте");
-        if (next.catalog === "full" && cur.catalog !== "full") out.push("Полный каталог: 200 позиций и 45 пакетов");
+        if (next.catalog === "full" && cur.catalog !== "full") out.push(`Полный каталог: ${catalogCountText()} и 45 пакетов`);
         return out;
       }
 
@@ -10694,6 +10702,26 @@
         const rows = [];
         const warnings = [];
 
+        // Сменами / по часам — своя формула поверх модели позиции (lineBillMode).
+        const billMode = lineBillMode(itemData, line);
+        if (billMode !== "item") {
+          const people = Math.max(1, _numOr(line.people, 1));
+          let sum;
+          if (billMode === "shift") {
+            const rate = Math.max(0, _numOr(line.shiftRate, defaultShiftRate(id)));
+            const shifts = Math.max(1, _numOr(line.shifts, 1));
+            sum = rate * shifts * people;
+            addBreakdownRow(rows, "Сменами", sum, `${money(rate)} × ${unitCount(shifts, "смена")} × ${people} чел.`);
+          } else {
+            const rate = Math.max(0, _numOr(line.billHourRate, defaultHourRate(id)));
+            const hours = Math.max(0, _numOr(line.billHours, 1));
+            sum = rate * hours * people;
+            addBreakdownRow(rows, "По часам", sum, `${money(rate)} × ${unitCount(hours, "час")} × ${people} чел.`);
+          }
+          sum = Math.max(0, sum);
+          return { total: sum, rows, warnings, formula: rows.map(row => `${row.label}: ${money(row.value)}${row.note ? ` (${row.note})` : ""}`).join("; ") };
+        }
+
         let price = Math.max(0, numberValue(line.price, getCatalogPrice(itemData)));
         const qty = Math.max(0, numberValue(line.qty, 1));
         let total = price;
@@ -10718,8 +10746,10 @@
 
             total = daySubtotal * days * people;
 
-            addBreakdownRow(rows, "Смена", shiftPrice * days * people, `${money(shiftPrice)} × ${days} дн. × ${people} чел.`);
-            addBreakdownRow(rows, "Сверхурочно", overtime * days * people, `${overtimeHours} ч × ${money(overtimeRate)} × ${days} дн. × ${people} чел.`);
+            // Постпродакшн считается сменами, съёмка — днями (одно и то же поле days).
+            const daysText = (line.stageId || itemData.stage) === "post" ? unitCount(days, "смена") : `${days} дн.`;
+            addBreakdownRow(rows, "Смена", shiftPrice * days * people, `${money(shiftPrice)} × ${daysText} × ${people} чел.`);
+            addBreakdownRow(rows, "Сверхурочно", overtime * days * people, `${overtimeHours} ч × ${money(overtimeRate)} × ${daysText} × ${people} чел.`);
           }
         } else if (itemData.calcModel === "equipmentRental") {
           const rates = getEffectiveRates(itemData);
@@ -11926,8 +11956,12 @@
           "extraRevisions",
           "urgentPercent",
           "urgentFixed",
-          "iterations" 
-
+          "iterations",
+          // Сменами / по часам у постпродакшна (lineBillMode).
+          "shiftRate",
+          "shifts",
+          "billHourRate",
+          "billHours"
         ];
 
         const booleanKeys = ["urgent"];
@@ -11941,6 +11975,10 @@
            один раз отказаться от пересчёта, и «нетронутые» строки навсегда переставали
            отличаться от правленых, а значит, замирали до конца жизни сметы. */
         if (key === "days" || key === "rentalDays") state.selected[id].daysManual = true;
+        // Ставку за смену / час запоминаем по позиции каталога — следующая
+        // смета подставит её сама (defaultShiftRate / defaultHourRate).
+        if (key === "shiftRate") (state.itemShiftRates = state.itemShiftRates || {})[_billBaseId(id)] = state.selected[id].shiftRate;
+        if (key === "billHourRate") (state.itemHourRates = state.itemHourRates || {})[_billBaseId(id)] = state.selected[id].billHourRate;
 
         if (key === "shiftType") {
           const itemData = findItem(id, true);
@@ -11972,6 +12010,120 @@
 
         save();
         render();
+      }
+
+      // «Как считать: За ролик · Сменами · По часам». При первом переключении
+      // ставка берётся из запомненной для этой позиции (defaultShiftRate) и
+      // ЗАПИСЫВАЕТСЯ в строку: иначе смена ставки в другой смете молча поменяла
+      // бы сумму этой.
+      function setBillMode(id, mode) {
+        const line = state.selected[id];
+        const itemData = findItem(id, true);
+        if (!line || !lineBillModesAllowed(itemData, line)) return;
+        saveHistory();
+        line.billMode = mode === "shift" || mode === "hour" ? mode : "item";
+        if (line.billMode === "shift") {
+          if (line.shiftRate === undefined) line.shiftRate = defaultShiftRate(id);
+          if (line.shifts === undefined) line.shifts = Math.max(1, (line.workDates || []).length || 1);
+        }
+        if (line.billMode === "hour") {
+          if (line.billHourRate === undefined) line.billHourRate = defaultHourRate(id);
+          if (line.billHours === undefined) line.billHours = 1;
+        }
+        save();
+        render();
+      }
+
+      /* ── Смены / дни по датам ─────────────────────────────────────────────
+         Отзыв Амбассадора 29.09.2026: «делаю в каталоге монтаж/смена, и в
+         смете их отдельно столько штук, сколько смен» + «понимать, в какой день
+         какой расход был». Вместо N одинаковых строк — одна строка и список
+         дат: число смен считается по датам, клиент в КП видит одну позицию. */
+      function lineCountKey(itemData, line) {
+        if (!itemData || !line) return null;
+        const mode = lineBillMode(itemData, line);
+        if (mode === "shift") return "shifts";
+        if (mode === "hour") return null;
+        if (itemData.calcModel === "crewShift") return line.crewBilling === "hour" ? null : "days";
+        if (itemData.calcModel === "perDay") return "days";
+        if (itemData.calcModel === "equipmentRental") return "rentalDays";
+        if ((!itemData.calcModel || itemData.calcModel === "fixed" || itemData.calcModel === "fixed+qty")
+            && /^(смена|день|сутки)$/i.test(String(itemData.unit || "").trim())) return "qty";
+        return null;
+      }
+      // Единица для «+ смена» и «3 смены»: у постпродакшна и своих «смен» — смены.
+      function workUnitOf(itemData, line) {
+        const key = lineCountKey(itemData, line);
+        if (key === "shifts") return "смена";
+        if (key === "qty") return String(itemData.unit || "смена").trim().toLowerCase();
+        if (key === "days" && itemData.calcModel === "crewShift" && (line.stageId || itemData.stage) === "post") return "смена";
+        return "день";
+      }
+      const _isoDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
+      const _plusDays = (iso, n) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return localIso(d); };
+      function _syncWorkDates(id) {
+        const line = state.selected[id];
+        const itemData = findItem(id, true);
+        if (!line) return;
+        const dates = [...new Set((line.workDates || []).filter(_isoDay))].sort();
+        line.workDates = dates;
+        const key = lineCountKey(itemData, line);
+        if (dates.length && key) {
+          line[key] = dates.length;
+          if (key === "days" || key === "rentalDays") line.daysManual = true;
+        }
+      }
+      let _workDateJustAdded = null; // { id, date } — подсветить новую дату один раз
+      function splitWorkDates(id) {
+        const line = state.selected[id];
+        const itemData = findItem(id, true);
+        const key = lineCountKey(itemData, line);
+        if (!line || !key) return;
+        saveHistory();
+        const n = Math.max(1, Math.min(60, Math.round(_numOr(line[key], 1))));
+        const start = _isoDay(line.date) ? line.date : todayIso();
+        line.workDates = Array.from({ length: n }, (_, i) => _plusDays(start, i));
+        _syncWorkDates(id);
+        save(); render();
+      }
+      function addWorkDate(id) {
+        const line = state.selected[id];
+        if (!line) return;
+        saveHistory();
+        const dates = (line.workDates || []).filter(_isoDay).sort();
+        const next = dates.length ? _plusDays(dates[dates.length - 1], 1) : (_isoDay(line.date) ? line.date : todayIso());
+        line.workDates = [...dates, next];
+        _workDateJustAdded = { id, date: next };
+        _syncWorkDates(id);
+        save(); render();
+      }
+      function setWorkDate(id, idx, value) {
+        const line = state.selected[id];
+        if (!line || !_isoDay(value)) return;
+        saveHistory();
+        const dates = (line.workDates || []).slice();
+        dates[idx] = value;
+        line.workDates = dates;
+        _syncWorkDates(id);
+        save(); render();
+      }
+      function removeWorkDate(id, idx) {
+        const line = state.selected[id];
+        if (!line) return;
+        saveHistory();
+        const dates = (line.workDates || []).slice();
+        dates.splice(idx, 1);
+        line.workDates = dates;
+        _syncWorkDates(id);
+        save(); render();
+      }
+      // Убрать даты — число смен остаётся, его снова можно вписать руками.
+      function clearWorkDates(id) {
+        const line = state.selected[id];
+        if (!line) return;
+        saveHistory();
+        line.workDates = [];
+        save(); render();
       }
 
       async function updateCatalogPrice(id, value) {
@@ -12374,6 +12526,9 @@
           if (!line || !usesDays(itemData)) return false;
           // Правленые руками (и заданные составом пакета) не трогаем никогда.
           if (line.daysManual) return false;
+          // Смены постпродакшна (монтажёр, колорист) со сроком СЪЁМКИ не связаны:
+          // три дня съёмки — не три смены монтажа.
+          if ((line.stageId || itemData.stage) === "post") return false;
           const cur = itemData.calcModel === "equipmentRental" ? numberValue(line.rentalDays, 1) : numberValue(line.days, 1);
           return cur !== newDays;
         });
@@ -16135,6 +16290,10 @@
           const unit = itemData.unit || "ед.";
           const price = Math.round(numberValue((line && line.price) || 0, 0));
           const total = Math.round(lineTotal(id));
+          // Сменами / по часам: количество, единица и ставка — из своих полей.
+          const bm = line ? lineBillMode(itemData, line) : "item";
+          if (bm === "shift") return [name, Math.max(1, _numOr(line.shifts, 1)) * Math.max(1, _numOr(line.people, 1)), "смена", Math.round(_numOr(line.shiftRate, defaultShiftRate(id))), "", "", total];
+          if (bm === "hour") return [name, Math.max(0, _numOr(line.billHours, 1)) * Math.max(1, _numOr(line.people, 1)), "час", Math.round(_numOr(line.billHourRate, defaultHourRate(id))), "", "", total];
           return [name, qty, unit, price, "", "", total];
         }
 
@@ -22009,6 +22168,27 @@
         if (f) return `${n} ${plural(n, f[0], f[1], f[2])}`;
         return u ? `${n} · ${u}` : String(n);
       }
+      /* ── Способ расчёта у работы постпродакшна ───────────────────────────
+         «За ролик» (модель самой позиции), «Сменами» или «По часам» — ОДНА
+         позиция с выбором вместо двух разных («Монтаж ролика» и «Монтажёр —
+         смена»), между которыми путались (владелец 29.09.2026). Съёмочные
+         смены, аренда и «за день» считаются своими моделями и выбора не имеют. */
+      const _numOr = (v, d) => (v === undefined || v === null || v === "") ? d : numberValue(v, d);
+      function lineBillModesAllowed(itemData, line) {
+        if (!itemData || itemData.id === "ai_sub_service") return false;
+        if (["crewShift", "equipmentRental", "perDay"].includes(itemData.calcModel)) return false;
+        const stage = (line && line.stageId) || itemData.stage;
+        return stage === "post" || itemData.calcModel === "videoEdit";
+      }
+      function lineBillMode(itemData, line) {
+        return line && lineBillModesAllowed(itemData, line) && (line.billMode === "shift" || line.billMode === "hour") ? line.billMode : "item";
+      }
+      // Ставка запоминается по позиции каталога: поставили монтажу 10 000 ₽ за
+      // смену — следующая смета подставит 10 000 сама, без отдельных настроек.
+      function _billBaseId(id) { const it = findItem(id, true); return (it && it.catalogSourceId) || id; }
+      function defaultShiftRate(id) { return _numOr((state.itemShiftRates || {})[_billBaseId(id)], 10000); }
+      function defaultHourRate(id) { return _numOr((state.itemHourRates || {})[_billBaseId(id)], 1500); }
+
       // Подпись поля количества: «Смен», «Роликов» — как «Дней» у смены.
       function unitCountLabel(unit) {
         const f = UNIT_FORMS[String(unit || "").trim().toLowerCase()];
@@ -22498,42 +22678,61 @@
         const total = lineTotal(id);
         const collapsed = state.lineCollapsed?.[id] !== undefined ? Boolean(state.lineCollapsed[id]) : _lineCollapsedByDefault();
 
-        const mainFields = [
-          field("Этап", `
+        const billMode = lineBillMode(itemData, line);
+        const countKey = lineCountKey(itemData, line);
+        const byDates = !!(countKey && (line.workDates || []).length);
+        // Число, которое считается по датам (блок «по датам» ниже), руками не правится.
+        const countInput = (key, min) => `<input type="number" min="${min}" step="1" data-autosave data-scope="line" data-id="${id}" data-key="${key}" value="${escapeHtml(line[key] === undefined || line[key] === "" ? 1 : line[key])}"${byDates && key === countKey ? ` readonly class="is-by-dates" title="Считается по датам ниже"` : ""}>`;
+        const stageField = field("Этап", `
             <select data-autosave data-scope="line" data-id="${id}" data-key="stageId">
               ${state.stages.map(stage => optionValueHtml(stage.id, stage.name, stageId)).join("")}
             </select>
-          `),
+          `);
+        const costField = `<div class="field no-print"><label>Себестоимость</label><input type="number" data-autosave data-scope="line" data-id="${id}" data-key="cost" value="${escapeHtml(line.cost || 0)}" placeholder="0" title="Внутренняя себестоимость — клиенту не показывается"></div>`;
+        const mainFields = [stageField];
+
+        if (billMode === "shift") {
+          mainFields.push(
+            field("Ставка за смену", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="shiftRate" value="${escapeHtml(_numOr(line.shiftRate, defaultShiftRate(id)))}">`),
+            costField,
+            field("Смен", countInput("shifts", 1)),
+            field("Людей", `<input type="number" min="1" data-autosave data-scope="line" data-id="${id}" data-key="people" value="${escapeHtml(_numOr(line.people, 1))}">`)
+          );
+        } else if (billMode === "hour") {
+          mainFields.push(
+            field("Ставка за час", `<input type="number" min="0" data-autosave data-scope="line" data-id="${id}" data-key="billHourRate" value="${escapeHtml(_numOr(line.billHourRate, defaultHourRate(id)))}">`),
+            costField,
+            field("Часов", `<input type="number" min="0" step="0.5" data-autosave data-scope="line" data-id="${id}" data-key="billHours" value="${escapeHtml(_numOr(line.billHours, 1))}">`),
+            field("Людей", `<input type="number" min="1" data-autosave data-scope="line" data-id="${id}" data-key="people" value="${escapeHtml(_numOr(line.people, 1))}">`)
+          );
+        } else {
           /* Единица переехала в подпись поля: «Цена за смену» вместо «Цена» и
              отдельной капсулы «Ед.: смена» строкой выше. Капсула занимала на
              карточке целый ряд, а говорила ровно то, что объясняет цену, — у
              поля цены ей и место. */
-          field(itemData.unit ? `Цена за ${unitAccusative(itemData.unit)}` : "Цена",
-            `<input type="number" data-autosave data-scope="line" data-id="${id}" data-key="price" value="${escapeHtml(line.price)}">`),
-          `<div class="field no-print"><label>Себестоимость</label><input type="number" data-autosave data-scope="line" data-id="${id}" data-key="cost" value="${escapeHtml(line.cost || 0)}" placeholder="0" title="Внутренняя себестоимость — клиенту не показывается"></div>`
-        ];
-
-        if (itemData.calcModel === "crewShift" || itemData.calcModel === "perDay") {
           mainFields.push(
-            field("Дней", `<input type="number" min="1" data-autosave data-scope="line" data-id="${id}" data-key="days" value="${escapeHtml(line.days)}">`)
+            field(itemData.unit ? `Цена за ${unitAccusative(itemData.unit)}` : "Цена",
+              `<input type="number" data-autosave data-scope="line" data-id="${id}" data-key="price" value="${escapeHtml(line.price)}">`),
+            costField
           );
-        }
-
-        if (itemData.calcModel === "fixed+qty") {
-          mainFields.push(
-            field(unitCountLabel(itemData.unit), `<input type="number" min="0" step="1" data-autosave data-scope="line" data-id="${id}" data-key="qty" value="${escapeHtml(line.qty)}">`)
-          );
-        }
-        // Цена за единицу — и количество к ней (смены монтажа, ролики, макеты).
-        if (!itemData.calcModel || itemData.calcModel === "fixed") {
-          mainFields.push(
-            field(unitCountLabel(itemData.unit), `<input type="number" min="1" step="1" data-autosave data-scope="line" data-id="${id}" data-key="qty" value="${escapeHtml(line.qty === undefined || line.qty === "" ? 1 : line.qty)}">`)
-          );
+          if (itemData.calcModel === "crewShift" || itemData.calcModel === "perDay") {
+            // У смен постпродакшна это смены, а не дни съёмки.
+            const isPostShift = itemData.calcModel === "crewShift" && (line.stageId || itemData.stage) === "post";
+            mainFields.push(field(isPostShift ? "Смен" : "Дней", countInput("days", 1)));
+          }
+          if (itemData.calcModel === "fixed+qty") {
+            mainFields.push(field(unitCountLabel(itemData.unit), countInput("qty", 0)));
+          }
+          // Цена за единицу — и количество к ней (смены монтажа, ролики, макеты).
+          if (!itemData.calcModel || itemData.calcModel === "fixed") {
+            mainFields.push(field(unitCountLabel(itemData.unit), countInput("qty", 1)));
+          }
         }
 
         // Дата работы по позиции (учёт студии, клиенту не видна). У строк,
         // добавленных до 29.09.2026, пусто — день задним числом не выдумываем.
-        mainFields.push(
+        // Разложено по датам — одна «Дата» рядом со списком дат лишняя.
+        if (!byDates) mainFields.push(
           `<div class="field no-print"><label>Дата</label><input type="date" data-autosave data-scope="line" data-id="${id}" data-key="date" value="${escapeHtml(line.date || "")}" title="День работы по позиции — видно, когда что было. Клиенту не показывается"></div>`
         );
 
@@ -22558,7 +22757,16 @@
         ${dragHandleHtml({ title: "Потяните, чтобы переставить позицию", attrs: `onmousedown="this.closest('.item').draggable=true" onmouseup="this.closest('.item').draggable=false"` })}
                 <div class="u-flex1-min0">
                   <input class="line-name-input" type="text" data-autosave data-scope="line" data-id="${id}" data-key="lineName" value="${escapeHtml(line.lineName || "")}" placeholder="${escapeHtml(itemData.name)}" title="Нажми, чтобы переименовать позицию" style="color:var(--text);font-weight:750;font-size:15px">
-                  ${/^\d{4}-\d{2}-\d{2}$/.test(String(line.date || "")) ? `<div class="line-date-meta no-print" title="День работы по позиции — меняется в поле «Дата»">${icon("calendar", 12)} ${escapeHtml(new Date(line.date + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }))}</div>` : ""}
+                  ${(() => {
+                    // Разложено по датам — показываем диапазон и число смен, иначе дату позиции.
+                    const wd = countKey ? (line.workDates || []).filter(_isoDay) : [];
+                    if (wd.length) {
+                      const u = workUnitOf(itemData, line);
+                      const range = wd.length > 1 ? `${_shortDay(wd[0])} — ${_shortDay(wd[wd.length - 1])}` : _shortDay(wd[0]);
+                      return `<div class="line-date-meta no-print" title="Даты — в блоке «по датам» внутри позиции">${icon("calendar", 12)} ${escapeHtml(range)} · ${escapeHtml(unitCount(wd.length, u))}</div>`;
+                    }
+                    return _isoDay(line.date) ? `<div class="line-date-meta no-print" title="День работы по позиции — меняется в поле «Дата»">${icon("calendar", 12)} ${escapeHtml(_longDate(new Date(line.date + "T00:00:00")))}</div>` : "";
+                  })()}
                   ${!collapsed ? `<textarea class="line-desc-input" data-autosave data-scope="line" data-id="${id}" data-key="editedDesc" placeholder="${escapeHtml(itemData.desc)}" title="Нажми чтобы отредактировать описание" style="color:var(--muted);font-size:12px">${escapeHtml(line.editedDesc || "")}</textarea>` : ""}
 
                   ${/* Капсул было четыре, две из них ничего не добавляли.
@@ -22606,11 +22814,26 @@
             </div>
 
             <div class="line-details ${collapsed ? "line-details-collapsed" : ""}">
+              ${lineBillModesAllowed(itemData, line) ? (() => {
+                // «Как считать» — одна позиция вместо «Монтаж ролика» и «Монтажёр —
+                // смена» по отдельности (владелец 29.09.2026: «чтобы не путались»).
+                const first = itemData.unit ? `За ${unitAccusative(itemData.unit)}` : "Фикс. цена";
+                const btn = (m, label, hint) => `<button type="button" class="bill-mode-btn${billMode === m ? " is-active" : ""}" aria-pressed="${billMode === m}" title="${escapeHtml(hint)}" onclick="app.setBillMode('${id}','${m}')">${escapeHtml(label)}</button>`;
+                return `<div class="bill-mode no-print" role="group" aria-label="Как считать">
+                  <span class="bill-mode-lbl">Как считать</span>
+                  <div class="bill-mode-seg">
+                    ${btn("item", first, "Цена позиции — как в каталоге")}
+                    ${btn("shift", "Сменами", "Ставка за смену × смены × людей")}
+                    ${btn("hour", "По часам", "Ставка за час × часы × людей")}
+                  </div>
+                </div>`;
+              })() : ""}
               <div class="grid ${gridClass}" style="margin-top:14px">
                 ${mainFields.join("")}
               </div>
 
-              ${renderLineAdvancedControls(id, itemData, line)}
+              ${billMode === "item" ? renderLineAdvancedControls(id, itemData, line) : ""}
+              ${countKey ? renderWorkDates(id, itemData, line) : ""}
 
               ${(() => {
                 const bd = lineBreakdown(id);
@@ -22629,7 +22852,7 @@
                 if (bd.rows.length === 1
                     && Math.round(bd.rows[0].value) === Math.round(bd.total)
                     && !/\d/.test(пояснение)) return "";
-                return `<div style="background:rgb(var(--primary-rgb) / .06);border:1px solid rgb(var(--primary-rgb) / .15);border-radius:10px;padding:10px 14px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                return `<div class="line-calc" style="background:rgb(var(--primary-rgb) / .06);border:1px solid rgb(var(--primary-rgb) / .15);border-radius:10px;padding:10px 14px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
                   ${/* У единственной строки её сумма и есть итог — печатать её
                         дважды в одной полосе («Смена …: 18 000 ₽   = 18 000 ₽»)
                         незачем. Слева тогда остаётся только формула. */""}
@@ -23115,6 +23338,49 @@
         return `<p class="mini-note">${text}</p>`;
       }
 
+      // Короткая дата «29 сент» для списков и диапазонов.
+      function _shortDay(iso) {
+        return new Date(iso + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short" }).replace(".", "");
+      }
+      /* Блок «Смены / дни по датам» (lineCountKey). Пустой — предлагает
+         разложить нынешнее число по датам; с датами — список, «+ смена» и
+         итог «3 смены · 29 сент — 2 окт». Даты — учёт студии, в КП их нет. */
+      function renderWorkDates(id, itemData, line) {
+        const key = lineCountKey(itemData, line);
+        if (!key) return "";
+        const unit = workUnitOf(itemData, line);
+        const f = UNIT_FORMS[unit];
+        const plur = f ? f[2] : unit;           // «смен», «дней»
+        const title = (unit === "смена" ? "Смены" : "Дни") + " по датам";
+        const dates = (line.workDates || []).filter(_isoDay);
+        const n = Math.max(1, Math.round(_numOr(line[key], 1)));
+        if (!dates.length) {
+          return `<div class="work-dates is-empty no-print">
+            <span class="work-dates-title">${icon("calendar", 14)} ${escapeHtml(title)}</span>
+            <span class="u-meta">Разложите ${escapeHtml(unitCount(n, unit))} по датам — будет видно, в какой день что было.</span>
+            <button type="button" class="btn small" onclick="app.splitWorkDates('${id}')">Разложить по датам</button>
+          </div>`;
+        }
+        const just = _workDateJustAdded && _workDateJustAdded.id === id ? _workDateJustAdded.date : "";
+        _workDateJustAdded = null;
+        const range = dates.length > 1 ? `${_shortDay(dates[0])} — ${_shortDay(dates[dates.length - 1])}` : _shortDay(dates[0]);
+        return `<div class="work-dates no-print">
+          <div class="work-dates-head">
+            <span class="work-dates-title">${icon("calendar", 14)} ${escapeHtml(title)}</span>
+            <span class="work-dates-sum">${escapeHtml(unitCount(dates.length, unit))} · ${escapeHtml(range)}</span>
+          </div>
+          <div class="work-dates-list">
+            ${dates.map((d, i) => `
+              <span class="work-date${d === just ? " is-new" : ""}">
+                <input type="date" value="${escapeHtml(d)}" onchange="app.setWorkDate('${id}',${i},this.value)" aria-label="Дата ${i + 1}">
+                <button type="button" class="work-date-x" onclick="app.removeWorkDate('${id}',${i})" aria-label="Убрать дату ${escapeHtml(_shortDay(d))}" title="Убрать">${icon("close", 12)}</button>
+              </span>`).join("")}
+            <button type="button" class="btn small work-date-add" onclick="app.addWorkDate('${id}')">${icon("plus", 13)} ${escapeHtml(unit)}</button>
+          </div>
+          <button type="button" class="work-dates-clear" onclick="app.clearWorkDates('${id}')" title="Число ${escapeHtml(plur)} останется — его можно будет вписать руками">Убрать даты</button>
+        </div>`;
+      }
+
       function renderLineAdvancedControls(id, itemData, line) {
         if (itemData.id === "ai_sub_service") {
           const priceOptions = AI_SERVICES.map(s =>
@@ -23196,7 +23462,7 @@
             <div class="calc-box">
               <h3>Аренда техники</h3>
               <div class="grid two">
-                ${field("Дней аренды", `<input type="number" min="1" data-autosave data-scope="line" data-id="${id}" data-key="rentalDays" value="${escapeHtml(line.rentalDays)}">`)}
+                ${field("Дней аренды", `<input type="number" min="1" data-autosave data-scope="line" data-id="${id}" data-key="rentalDays" value="${escapeHtml(line.rentalDays)}"${(line.workDates || []).length ? ` readonly class="is-by-dates" title="Считается по датам ниже"` : ""}>`)}
                 ${field("Комплектов", `<input type="number" min="1" data-autosave data-scope="line" data-id="${id}" data-key="qty" value="${escapeHtml(line.qty)}">`)}
               </div>
             </div>
@@ -24687,6 +24953,19 @@
             if (!itemData) return null;
             const model = itemData.calcModel;
             let qty;
+            // Сменами / по часам — количество и ставка из своих полей строки.
+            const bm = lineBillMode(itemData, line);
+            if (bm !== "item") {
+              const people = Math.max(1, _numOr(line.people, 1));
+              const n = bm === "shift" ? Math.max(1, _numOr(line.shifts, 1)) : Math.max(0, _numOr(line.billHours, 1));
+              const q = unitCount(n, bm === "shift" ? "смена" : "час") + (people > 1 ? ` × ${people} чел.` : "");
+              return {
+                name: itemData.name,
+                qty: q,
+                price: Math.round(bm === "shift" ? _numOr(line.shiftRate, defaultShiftRate(id)) : _numOr(line.billHourRate, defaultHourRate(id))),
+                total: Math.round(lineTotal(id)),
+              };
+            }
             if (model === "crewShift" || model === "perDay") {
               const days = Math.max(1, numberValue(line.days, 1));
               const people = Math.max(1, numberValue(line.people, 1));
@@ -29443,7 +29722,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       function _calcRenderFoot() {
         return `
           <p class="calc-foot">
-            Вы студия или продюсер? Этот расчёт собран в ADERVIS — там ${BASE_ITEMS.length} позиций,
+            Вы студия или продюсер? Этот расчёт собран в ADERVIS — там ${catalogCountText()},
             свои ставки, КП с оплатой аванса, задачи и финансы.
             ${_calcStep === 3
               ? `<button type="button" class="calc-link" onclick="app.calcSaveToAccount()">Открыть этот расчёт в CRM →</button>`
@@ -33595,6 +33874,12 @@ Email: _____________________              Email: _____________________
         shiftDbChart,
         resetDbChart,
         _previewCompanyLogo,
+        setBillMode,
+        splitWorkDates,
+        addWorkDate,
+        setWorkDate,
+        removeWorkDate,
+        clearWorkDates,
         _fileLabelKey,
         setDbChartSpan,
         openFinancesPeriod,
