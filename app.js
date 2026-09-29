@@ -28110,13 +28110,16 @@
             </div>
 
             <div class="panel set-card">
-            ${setHead("image", "var(--blue)", "Логотип и валюта", "Логотип — в шапке КП и договора, валюта — во всех суммах студии")}
+            ${setHead("image", "var(--blue)", "Логотип", "В шапке КП, договора и клиентского портала")}
             <div class="set-logo-row">
               <div class="set-logo-preview${_logoRaw ? " has-img" : ""}" aria-hidden="true">
                 ${_logoRaw ? `<img src="${escapeHtml(_logoRaw)}" alt="" onerror="this.parentElement.classList.add('is-broken')">` : ""}
                 <span class="set-logo-empty">${icon("image", 20)}<small>${_logoRaw ? "не открылся" : "нет"}</small></span>
               </div>
-            <div class="grid two set-logo-fields">
+            ${/* Валюта жила здесь, соседом логотипа («Логотип и валюта») — случайное
+                  соседство: логотип — оформление документов, валюта — деньги.
+                  Переехала во вкладку «Финансы» (владелец 30.09.2026). */""}
+            <div class="set-logo-fields">
               ${/* Значение — только своё, без подстановки «logo-icon.svg». Это файл
                     логотипа САМОГО СЕРВИСА, и поле показывало его как значение
                     профиля чужой студии: в данных после чистки
@@ -28138,17 +28141,6 @@
                     <span class="pf-ico-primary">${icon("upload")}</span> Загрузить
                     <input type="file" accept="image/*" onchange="app.importCompanyLogo(event)" tabindex="-1" hidden>
                   </label>
-                </div>
-              `)}
-              ${field("Валюта", `
-                <div class="currency-select-wrap">
-                  <button class="currency-select-btn" onclick="app.toggleCurrencyDd();event.stopPropagation()">
-                    <span>${escapeHtml(studioCurrency())} — ${escapeHtml((CURRENCIES.find(c=>c.code===studioCurrency())||CURRENCIES[0]).label)}</span>
-                    <span style="opacity:.5">▾</span>
-                  </button>
-                  <div class="currency-select-dd" id="currencyDd">
-                    ${CURRENCIES.map(c => `<button class="currency-opt ${studioCurrency()===c.code?"active":""}" onclick="app.selectCurrency('${c.code}');event.stopPropagation()"><span class="currency-sym">${escapeHtml(c.sym)}</span>${escapeHtml(c.label)}</button>`).join("")}
-                  </div>
                 </div>
               `)}
             </div>
@@ -28271,6 +28263,22 @@
               </div>`;
           };
           return `
+            <div class="panel set-card">
+            ${setHead("wallet", "var(--green)", "Валюта студии", "Знак во всех суммах: сделки, сметы, финансы, главная, отчёты")}
+            <div class="set-currency-field">
+              ${field("Валюта", `
+                <div class="currency-select-wrap">
+                  <button class="currency-select-btn" onclick="app.toggleCurrencyDd();event.stopPropagation()">
+                    <span>${escapeHtml(studioCurrency())} — ${escapeHtml((CURRENCIES.find(c=>c.code===studioCurrency())||CURRENCIES[0]).label)}</span>
+                    <span style="opacity:.5">▾</span>
+                  </button>
+                  <div class="currency-select-dd" id="currencyDd">
+                    ${CURRENCIES.map(c => `<button class="currency-opt ${studioCurrency()===c.code?"active":""}" onclick="app.selectCurrency('${c.code}');event.stopPropagation()"><span class="currency-sym">${escapeHtml(c.sym)}</span>${escapeHtml(c.label)}</button>`).join("")}
+                  </div>
+                </div>
+              `)}
+            </div>
+            </div>
             ${block("payment", "Статьи поступлений", "Чем помечаются приходы: предоплата, оплата, возврат. Видны в выпадающем списке при добавлении поступления.")}
             ${block("expense", "Статьи расходов", "Чем помечаются траты: аренда, подряд, налоги. Переименование не меняет уже проведённые операции — там статья хранится текстом.")}
           `;

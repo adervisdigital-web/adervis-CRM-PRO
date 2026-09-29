@@ -3515,7 +3515,9 @@
     .currency-select-btn span:last-child { flex-shrink: 0; }
     .currency-select-dd {
       position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-      background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
+      /* Непрозрачно: --panel полупрозрачен, и под списком читались строки
+         следующей карточки (валюта теперь не последняя на вкладке). */
+      background: linear-gradient(var(--panel), var(--panel)), var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg);
       box-shadow: 0 12px 40px rgba(0,0,0,.3); z-index: 200; overflow: hidden;
       display: none;
     }
@@ -4947,6 +4949,8 @@
     .set-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
     .set-card-head h2 { margin: 0; font-size: 15px; }
     .set-card-head p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+    .set-currency-field { max-width: 420px; }
+    .set-currency-field .field { margin: 0; }
     .set-card .field { margin-bottom: 0; }
     .set-card .grid.three, .set-card .grid.two { row-gap: 14px; }
 
