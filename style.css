@@ -10383,6 +10383,18 @@ button.is-busy::before {
 .adm-days { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .adm-days.is-soon { color: var(--text-warning); font-weight: 700; }
 .adm-days.is-late { color: var(--text-danger); }
+/* «Платежи»: время, пометка «сегодня», номер платежа в ЮKassa. */
+.adm-pay-time { margin-top: 2px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.adm-pay-today {
+  display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: var(--r-pill);
+  font-size: 10.5px; font-weight: 700; color: var(--text-success);
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+}
+.adm-pay-id {
+  display: block; margin-top: 3px; padding: 0; border: 0; background: none; cursor: copy;
+  font: 11px var(--font-mono); color: var(--muted);
+}
+.adm-pay-id:hover { color: var(--primary-text); }
 /* Правка подписки — карточкой под строкой. */
 .adm-edit { border-top: 1px solid var(--line); padding: 16px; background: var(--panel2); }
 .adm-edit-title { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; font-weight: 700; }

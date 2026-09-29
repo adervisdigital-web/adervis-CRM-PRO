@@ -6710,10 +6710,24 @@
                   <table class="fin-table">
                     <thead><tr><th>Дата</th><th>Кто</th><th>Тариф</th><th>Промокод</th><th class="ta-right">Сумма</th><th></th></tr></thead>
                     <tbody>
-                      ${rows.map(r => `
+                      ${/* Время, пометка «сегодня» и номер платежа в ЮKassa —
+                            для первых оплат (29.09.2026): по номеру платёж ищут
+                            в кабинете кассы, если подписка не продлилась или
+                            нужен возврат. Номер копируется нажатием. */""}
+                      ${rows.map(r => {
+                        const paid = r.paid_at ? new Date(r.paid_at) : null;
+                        const today = paid && paid.toDateString() === new Date().toDateString();
+                        const time = paid ? paid.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : "";
+                        const ykId = String(r.yookassa_payment_id || "");
+                        return `
                         <tr${r.refunded_at ? ` style="opacity:.55"` : ""}>
-                          <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${escapeHtml(formatDate(r.paid_at))}</td>
-                          <td style="font-size:12px">${escapeHtml(r.email || r.user_id || "—")}</td>
+                          <td style="white-space:nowrap;font-size:12px;color:var(--muted)">
+                            ${escapeHtml(formatDate(r.paid_at))}${time ? `<div class="adm-pay-time">${escapeHtml(time)}${today ? ` <span class="adm-pay-today">сегодня</span>` : ""}</div>` : ""}
+                          </td>
+                          <td style="font-size:12px">
+                            ${escapeHtml(r.email || r.user_id || "—")}
+                            ${ykId ? `<button type="button" class="adm-pay-id" data-id="${escapeHtml(ykId)}" onclick="app.copy(this.dataset.id,'Номер платежа скопирован')" title="Номер платежа в ЮKassa — нажмите, чтобы скопировать">${escapeHtml(ykId.length > 14 ? ykId.slice(0, 8) + "…" + ykId.slice(-4) : ykId)}</button>` : ""}
+                          </td>
                           <td style="font-size:12px">${escapeHtml(_adminPlanLabel(r.plan))}</td>
                           <td style="font-size:12px">${r.promo_code ? `<span class="badge">${escapeHtml(r.promo_code)}${r.discount_percent ? ` −${r.discount_percent}%` : ""}</span>` : "—"}</td>
                           <td class="amount-cell" style="text-align:right;white-space:nowrap">${money(r.amount)}</td>
@@ -6722,7 +6736,7 @@
                               ? `<span class="badge" title="${escapeHtml(r.refund_reason || "")}">возвращено ${money(r.refund_amount || 0)}</span>`
                               : `<button class="btn small" onclick="app.adminMarkRefund('${escapeHtml(r.id)}', ${Number(r.amount || 0)})" title="Отметить возврат после того, как деньги вернули в ЮKassa">Отметить возврат</button>`}
                           </td>
-                        </tr>`).join("")}
+                        </tr>`; }).join("")}
                     </tbody>
                   </table>
                 </div>

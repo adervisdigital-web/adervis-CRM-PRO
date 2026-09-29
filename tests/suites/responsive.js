@@ -2282,4 +2282,36 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  /* 29.09.2026, перед первыми оплатами: в «Платежах» — время, пометка
+     «сегодня» и номер платежа ЮKassa (копируется целиком) — по нему платёж
+     ищут в кабинете кассы, если подписка не продлилась или нужен возврат. */
+  await test("админка «Платежи»: время, «сегодня» и номер платежа ЮKassa для копирования", async () => {
+    const ykId = "2e8f4c1a-000f-5000-9000-1b3c5d7e9f11";
+    const payments = [{ id: "p1", user_id: "u1", agency_id: "a1", yookassa_payment_id: ykId, amount: 890, currency: "RUB",
+      plan: "pro1", promo_code: null, discount_percent: null, paid_at: new Date().toISOString(), refunded_at: null,
+      refund_amount: null, refund_reason: null, email: "amb@studio.ru" }];
+    const { bootWithSession: boot } = require("../harness");
+    const { context, page } = await boot(browser, baseUrl, { width: 1440, height: 950, email: "adervis.digital@gmail.com" });
+    try {
+      await context.route("**/rest/v1/rpc/*", (route) => {
+        const name = route.request().url().split("/rpc/")[1].split("?")[0];
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(name === "admin_get_payments" ? payments : []) });
+      });
+      await page.evaluate(() => window.app.go("admin"));
+      await page.waitForTimeout(1500);
+      await page.evaluate(() => window.app._setAdminTab("payments"));
+      await page.waitForSelector("#appContent .fin-table tbody tr", { timeout: 10000 });
+      const r = await page.evaluate(() => {
+        const row = document.querySelector("#appContent .fin-table tbody tr");
+        const id = row.querySelector(".adm-pay-id");
+        return { today: !!row.querySelector(".adm-pay-today"), time: (row.querySelector(".adm-pay-time") || {}).textContent || "", id: id ? id.dataset.id : "" };
+      });
+      assert(r.today, "у сегодняшнего платежа нет пометки «сегодня»");
+      assert(/\d{2}:\d{2}/.test(r.time), "у платежа нет времени: " + r.time);
+      assertEqual(r.id, ykId, "номер платежа ЮKassa не лежит целиком для копирования");
+    } finally {
+      await context.close();
+    }
+  });
+
 };
