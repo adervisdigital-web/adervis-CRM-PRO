@@ -2774,6 +2774,8 @@
     if (s === "active") return `${_planShortName(plan)} ✓`;
         if (s === "expired") return "Подписка истекла";
         if (s === "cancelled") return "Подписка отменена";
+        // Сырой статус («blocked») на экран не выводим.
+        if (s === "blocked") return "Аккаунт заблокирован";
         return s;
       }
 
@@ -2806,6 +2808,8 @@
         if (s === "active") return _planShortName(plan);
         if (s === "expired") return "Подписка истекла";
         if (s === "cancelled") return "Подписка отменена";
+        // Сырой статус («blocked») на экран не выводим.
+        if (s === "blocked") return "Аккаунт заблокирован";
         return s;
       }
 
@@ -5549,7 +5553,18 @@
         // периоды «Стандарта», и «solo3» показывался сырым идентификатором.
         const p = PLANS.find(x => x.id === plan);
         if (p && p.id !== "trial") return `${p.label} · ${p.months === 12 ? "год" : p.months + " мес"}`;
-        return { trial: "Пробный", pro: "PRO", "": "—" }[plan || ""] || plan;
+        if (plan === "trial") return "Пробный";
+        if (!plan) return "—";
+        /* План вне линейки (старая запись «pro», «team» — до тарифов 21.09.2026)
+           называется по тому, что аккаунт ПОЛУЧАЕТ: currentTier даёт ему
+           «Стандарт». Подпись «PRO» рядом с «Про · год» читалась как тот же
+           тариф (вопрос владельца 29.09: «чем отличается Про · год от PRO?»). */
+        return `${tierLabel("std")} · старая запись`;
+      }
+      // Подсказка к плану вне линейки — что это и почему «Стандарт».
+      function _adminPlanHint(plan) {
+        if (!plan || plan === "trial" || PLANS.some(x => x.id === plan)) return "";
+        return `План «${plan}» записан до линейки тарифов (21.09.2026). Доступ по нему — «${tierLabel("std")}». Чтобы дать «${tierLabel("pro")}», выберите «${tierLabel("pro")}» с нужным сроком.`;
       }
       /* «Сколько прошло» словами. Рядом уже живёт _adminDaysLeft («через 4 дн.»),
          но он про БУДУЩЕЕ — срок подписки, — а здесь нужно прошедшее время, и
@@ -5785,7 +5800,7 @@
                           <span style="padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;background:${statusColor[ast]||"var(--panel2)"};color:${statusText[ast]||"var(--muted)"}">
                             ${_adminSubLabel(ast)}
                           </span>
-                          ${a.subscription_plan ? `<span style="font-size:12px;font-weight:600;color:var(--muted)">${_adminPlanLabel(a.subscription_plan)}</span>` : ""}
+                          ${a.subscription_plan ? `<span style="font-size:12px;font-weight:600;color:var(--muted)"${_adminPlanHint(a.subscription_plan) ? ` title="${escapeHtml(_adminPlanHint(a.subscription_plan))}"` : ""}>${escapeHtml(_adminPlanLabel(a.subscription_plan))}</span>` : ""}
                           ${(() => {
                             if (!a.subscription_expires_at) return "";
                             // Срочность словами не видна: «через 4 дн.» и «через
@@ -5878,7 +5893,9 @@
                                       человека на «Старт». Неизвестный план тоже
                                       остаётся вариантом — не подменяем его первым. */""}
                                 ${(() => {
-                                  const opts = ["trial", ...PLANS.filter(x => x.id !== "trial").map(x => x.id), "pro"];
+                                  // Старые записи («pro») для новых подписок не предлагаем —
+                                  // только текущая линейка; уже стоящая остаётся вариантом ниже.
+                                  const opts = ["trial", ...PLANS.filter(x => x.id !== "trial").map(x => x.id)];
                                   if (_adminEditSub.plan && !opts.includes(_adminEditSub.plan)) opts.unshift(_adminEditSub.plan);
                                   return opts.map(pv => `<option value="${escapeHtml(pv)}" ${_adminEditSub.plan===pv?"selected":""}>${escapeHtml(_adminPlanLabel(pv))}</option>`).join("");
                                 })()}
@@ -7166,7 +7183,10 @@
           const pct = daysLeft === null ? 0 : Math.max(3, Math.min(100, Math.round(daysLeft / totalDays * 100)));
           const kind = s === "active" ? (daysLeft !== null && daysLeft <= 5 ? "is-soon" : "is-active")
             : s === "trial" ? (daysLeft !== null && daysLeft <= 3 ? "is-soon" : "is-trial") : "is-expired";
-          const title = s === "active" ? _adminPlanLabel(sub.subscription_plan)
+          // Название — по тому, что аккаунт получает (currentTier), а срок — из
+          // плана, если план из линейки: «Про · год». Старая запись «pro» —
+          // просто «Стандарт», без внутреннего кода плана.
+          const title = s === "active" ? tierLabel(currentTier()) + (plan ? ` · ${plan.months === 12 ? "год" : plan.months + " мес"}` : "")
             : s === "trial" ? "Пробный период" : s === "cancelled" ? "Подписка отменена" : "Подписка истекла";
           const note = s === "active" ? (exp ? `Действует до ${escapeHtml(expStr)}` : "")
             // Дата по-русски уже кончается на «г.» — своя точка дала бы «г..».

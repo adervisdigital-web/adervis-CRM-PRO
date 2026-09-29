@@ -2314,4 +2314,46 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  /* Владелец 29.09.2026: «чем отличается Про · год от PRO?» Старая запись
+     плана «pro» (до линейки тарифов) по доступу — «Стандарт», а подписана была
+     «PRO» и читалась как «Про». Теперь подпись — по доступу, с пояснением, и
+     для новых подписок старую запись не предлагаем. */
+  await test("админка: старый план «pro» подписан «Стандарт · старая запись», новым не предлагается", async () => {
+    const дней = (n) => new Date(Date.now() + n * 864e5).toISOString();
+    const users = [
+      { id: "l1", agency_id: "al", email: "legacy@studio.ru", subscription_status: "active", subscription_plan: "pro",
+        subscription_expires_at: дней(900), created_at: дней(-100), last_sign_in_at: дней(-1), email_confirmed: true, admin_tag: "" },
+      { id: "n1", agency_id: "an", email: "new@studio.ru", subscription_status: "active", subscription_plan: "pro12",
+        subscription_expires_at: дней(300), created_at: дней(-10), last_sign_in_at: дней(-1), email_confirmed: true, admin_tag: "" },
+    ];
+    const { bootWithSession: boot } = require("../harness");
+    const { context, page } = await boot(browser, baseUrl, { width: 1440, height: 950, email: "adervis.digital@gmail.com" });
+    try {
+      await context.route("**/rest/v1/rpc/*", (route) => {
+        const name = route.request().url().split("/rpc/")[1].split("?")[0];
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(name === "admin_get_all_users" ? users : []) });
+      });
+      await page.evaluate(() => window.app.go("admin"));
+      await page.waitForSelector("#appContent .adm-card", { timeout: 15000 });
+      const текст = await page.evaluate(() => document.getElementById("appContent").innerText);
+      assert(!/\bPRO\b/.test(текст), "в админке снова подпись «PRO»");
+      assert(/Стандарт · старая запись/.test(текст), "старый план не подписан «Стандарт · старая запись»");
+      assert(/Про · год/.test(текст), "план из линейки подписан не «Про · год»");
+      const opts = async (email) => {
+        await page.evaluate((e) => [...document.querySelectorAll("#appContent .adm-card")].find((c) => c.textContent.includes(e)).querySelector(".adm-act-extend").click(), email);
+        await page.waitForSelector("#appContent .adm-edit select[onchange*='plan']", { timeout: 3000 });
+        const r = await page.$eval("#appContent .adm-edit select[onchange*='plan']", (s) => ({ value: s.value, all: [...s.options].map((o) => o.value) }));
+        await page.click("#appContent .adm-edit-foot button:nth-of-type(2)");
+        await page.waitForTimeout(250);
+        return r;
+      };
+      const нов = await opts("new@studio.ru");
+      assert(!нов.all.includes("pro"), "старую запись «pro» предлагают для новой подписки: " + нов.all.join(","));
+      const стар = await opts("legacy@studio.ru");
+      assertEqual(стар.value, "pro", "у аккаунта со старой записью она подменена при открытии правки");
+    } finally {
+      await context.close();
+    }
+  });
+
 };
