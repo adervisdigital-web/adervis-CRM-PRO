@@ -5956,40 +5956,6 @@
         };
       }
 
-      /* Таблица «тема × сеть» одним массивом строк — один источник и для экрана,
-         и для буфера, и для файла. Разъедутся, если собирать их по отдельности. */
-      function _promoMatrixRows() {
-        const head = ["Неделя", "День", "Тема", ...PROMO_NETWORKS.map(n => n.label)];
-        const rows = PROMO_CONTENT_MATRIX.map(r =>
-          [String(r.week), r.day, r.theme, ...PROMO_NETWORKS.map(n => r[n.id] || "")]);
-        return [head, ...rows];
-      }
-
-      /* В буфер — ТАБАМИ, а не запятыми: Google Таблицы и Excel разбирают
-         вставку из буфера по табу и раскладывают по колонкам сами, без диалога
-         «как разделены поля». Отсюда и формулировка кнопки. */
-      function copyPromoMatrix() {
-        const tsv = _promoMatrixRows().map(r => r.join("\t")).join("\n");
-        copyToClipboard(tsv, "Скопировано. В Google Таблицах: Ctrl+V — ляжет по колонкам");
-        trackGoal("promo_matrix_copy");
-      }
-
-      function downloadPromoMatrix() {
-        // Кавычки удваиваем, всё поле берём в кавычки: в темах есть запятые и
-        // двоеточия. BOM в начале — иначе Excel открывает кириллицу кракозябрами.
-        const csv = _promoMatrixRows()
-          .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(","))
-          .join("\r\n");
-        const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "adervis-content-plan.csv";
-        link.click();
-        URL.revokeObjectURL(url);
-        trackGoal("promo_matrix_csv");
-      }
-
       /* Продажи считаем по ДЕНЬГАМ (таблица payments), а не по статусам подписок.
          В KPI-полосе выше MRR выводится из subscription_status — и туда попадают
          собственные аккаунты владельца и амбассадор с бесплатным годом. Для
@@ -6062,74 +6028,6 @@
         { name: "VC.ru",                   kind: "Чужой", note: "Кейсы и разборы, аудитория с деньгами." },
         { name: "Авито · Профи.ру",        kind: "Чужой", note: "Там сидят те, кто ищет видеографа — и сами видеографы." },
         { name: "Публичный калькулятор",   kind: "Свой", note: "?calc= — вход без регистрации. ВКЛЮЧИТЬ в Настройки → Данные." },
-      ];
-
-      const PROMO_POST_STATUS = ["Идея", "Пишется", "Опубликовано"];
-
-      /* ═══ КОНТЕНТ-ПЛАН ПО СЕТЯМ ═══
-         Просьба владельца 12.09.2026: готовая таблица «тема × сеть», чтобы вести
-         соцсети и собирать клиентов на CRM. Список записей выше — то, что он
-         заполняет сам; эта таблица — заготовка на месяц, которую можно забрать в
-         Google Таблицы и править там.
-
-         Instagram и Threads здесь ПО ЕГО ПРЯМОМУ РЕШЕНИЮ (12.09.2026, вариант
-         «добавить без пометок»). Для протокола: это площадки Meta, её
-         деятельность в РФ признана экстремистской, реклама там вне закона, вход
-         только через VPN. До этого дня их сознательно держали вне списка каналов
-         (PROMO_CHANNEL_SEED) — там они и не появились, решение касается только
-         этой таблицы. Риски владелец берёт на себя.
-
-         Темы — из его же работы: деньги продакшна, сметы, договоры, маржа. Это
-         то, что болит у видеографов, и то, что закрывает CRM. */
-      const PROMO_NETWORKS = [
-        { id: "vk",      label: "ВКонтакте" },
-        { id: "tg",      label: "Telegram" },
-        { id: "inst",    label: "Instagram" },
-        { id: "threads", label: "Threads" },
-        { id: "clips",   label: "Клипы / Shorts" },
-        { id: "dzen",    label: "Дзен" },
-      ];
-
-      const PROMO_CONTENT_MATRIX = [
-        { week: 1, day: "Пн", theme: "Сколько на самом деле стоит съёмочный день",
-          vk: "Пост 1200 зн. + скрин сметы", tg: "Разбор с цифрами, 900 зн.", inst: "Карусель 6 слайдов: строки сметы",
-          threads: "Тред 4 сообщения: «а вы считали трансфер?»", clips: "45 сек: смета на экране, голос за кадром", dzen: "Статья 4000 зн. с примером" },
-        { week: 1, day: "Ср", theme: "Забытый трансфер: как теряется 15% проекта",
-          vk: "История из практики, 900 зн.", tg: "Короткий пост + опрос", inst: "Reels 30 сек: «что забыли»",
-          threads: "Вопрос подписчикам: что чаще всего забываете", clips: "30 сек, текст крупно", dzen: "Разбор с таблицей расходов" },
-        { week: 1, day: "Пт", theme: "Договор на съёмку: 5 пунктов, без которых не начинаю",
-          vk: "Пост + файл-чеклист", tg: "Чеклист списком, закреп", inst: "Карусель 5 слайдов = 5 пунктов",
-          threads: "Тред 5 сообщений, по пункту", clips: "50 сек: пункты на экране", dzen: "Статья + шаблон договора" },
-
-        { week: 2, day: "Пн", theme: "Клиент просит скидку: три ответа, которые не роняют цену",
-          vk: "Пост 1000 зн., три реплики", tg: "Три ответа + почему работают", inst: "Карусель 4 слайда",
-          threads: "Тред: «а как отвечаете вы?»", clips: "40 сек: диалог с клиентом", dzen: "Статья с разбором переговоров" },
-        { week: 2, day: "Ср", theme: "Предоплата 50%: формулировка, из-за которой не спорят",
-          vk: "Пост + скрин переписки", tg: "Готовая формулировка, копируемая", inst: "Слайд с текстом + подпись",
-          threads: "Короткий тред 3 сообщения", clips: "30 сек: текст на экране", dzen: "Статья про деньги вперёд" },
-        { week: 2, day: "Пт", theme: "КП, которое согласовывают с первого раза",
-          vk: "Пост + пример КП", tg: "Структура КП по пунктам", inst: "Карусель: было / стало",
-          threads: "Тред про структуру", clips: "60 сек: листаем КП", dzen: "Разбор + ссылка на калькулятор" },
-
-        { week: 3, day: "Пн", theme: "Считаем маржу проекта: выручка минус то, о чём забывают",
-          vk: "Пост с арифметикой", tg: "Разбор на цифрах одного проекта", inst: "Карусель: расчёт по шагам",
-          threads: "Тред: «какая у вас маржа?»", clips: "45 сек: считаем на экране", dzen: "Длинная статья с таблицей" },
-        { week: 3, day: "Ср", theme: "Себестоимость своей камеры: почему «своё» не бесплатно",
-          vk: "Пост + расчёт амортизации", tg: "Короткий расчёт", inst: "Карусель 5 слайдов",
-          threads: "Тред 4 сообщения", clips: "40 сек: камера и цифра", dzen: "Статья про амортизацию техники" },
-        { week: 3, day: "Пт", theme: "Пакеты услуг: старт / профи / премиум",
-          vk: "Пост + три пакета", tg: "Три пакета списком", inst: "Карусель: три пакета",
-          threads: "Тред: как упаковать услуги", clips: "50 сек: пакеты на экране", dzen: "Статья с примерами цен" },
-
-        { week: 4, day: "Пн", theme: "Три причины, по которым проект уходит в минус",
-          vk: "Пост 1100 зн.", tg: "Три причины + как поймать", inst: "Карусель 3 слайда",
-          threads: "Тред: «а у вас какая?»", clips: "45 сек: три причины", dzen: "Разбор с примерами" },
-        { week: 4, day: "Ср", theme: "Что показывать клиенту в смете, а что нет",
-          vk: "Пост + два варианта сметы", tg: "Сравнение двух смет", inst: "Карусель: клиентский вид",
-          threads: "Тред про прозрачность", clips: "40 сек: два экрана", dzen: "Статья про клиентскую смету" },
-        { week: 4, day: "Пт", theme: "Итоги месяца студии: цифры, которые смотрю сам",
-          vk: "Пост со скринами отчёта", tg: "Отчёт месяца, честные цифры", inst: "Карусель: 4 цифры месяца",
-          threads: "Тред с выводами", clips: "60 сек: отчёт на экране", dzen: "Статья-итоги месяца" },
       ];
 
       const PROMO_MILESTONES = [
@@ -6346,79 +6244,8 @@
               </div>
             </div>
 
-            <div class="panel" style="box-shadow:none;background:var(--panel2)">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-                <h2 style="margin:0;display:flex;align-items:center;gap:9px">${iconBadge("calendar", "var(--green)")} Контент-план</h2>
-                <button class="btn small primary" onclick="app.addPromoPost()">${icon("plus", 13)} Запись</button>
-              </div>
-              ${(() => {
-                const идей = p.posts.filter(x => x.status === "Идея").length;
-                const вРаботе = p.posts.filter(x => x.status === "Пишется").length;
-                const вышло = p.posts.filter(x => x.status === "Опубликовано").length;
-                return `<p class="mini-note">Идей ${идей} · пишется ${вРаботе} · опубликовано ${вышло}. Отметили «Опубликовано» — каналу проставится дата, и в списке выше станет видно, где работа встала.</p>`;
-              })()}
-              ${p.posts.length ? `
-                <div style="display:grid;gap:8px;margin-top:12px">
-                  ${p.posts.map(post => `
-                    <div class="data-card" style="gap:8px">
-                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                        <input type="date" value="${escapeHtml(post.date || "")}" onchange="app.setPromoPostField('${post.id}','date',this.value)"
-                          aria-label="Дата" style="font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel2);color:var(--text);width:auto">
-                        <select onchange="app.setPromoPostField('${post.id}','status',this.value)" aria-label="Состояние"
-                          style="font-size:12px;padding:5px 26px 5px 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel2);color:var(--text)">
-                          ${PROMO_POST_STATUS.map(s => optionValueHtml(s, s, post.status)).join("")}
-                        </select>
-                        <select onchange="app.setPromoPostField('${post.id}','channelId',this.value)" aria-label="Канал"
-                          style="font-size:12px;padding:5px 26px 5px 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel2);color:var(--text);max-width:190px">
-                          ${optionValueHtml("", "— канал не выбран", post.channelId || "")}
-                          ${p.channels.map(c => optionValueHtml(c.id, c.name, post.channelId || "")).join("")}
-                        </select>
-                        <button class="icon-del-btn no-print" title="Убрать" aria-label="Убрать запись" onclick="app.deletePromoPost('${post.id}')">${TRASH_SVG}</button>
-                      </div>
-                      <input value="${escapeHtml(post.title || "")}" onchange="app.setPromoPostField('${post.id}','title',this.value)"
-                        placeholder="О чём: «сколько на самом деле стоит съёмочный день»"
-                        aria-label="Тема записи"
-                        style="width:100%;font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel2);color:var(--text)">
-                    </div>`).join("")}
-                </div>
-              ` : `<p class="u-meta" style="margin-top:12px;font-size:13px">Плана пока нет. Возьмите промпт ниже, придумайте пять тем — и запишите их сюда, чтобы не начинать каждый раз с чистого листа.</p>`}
-            </div>`;
+`;
             })()}
-
-            ${/* Готовая таблица на месяц: тема × сеть. Список выше владелец ведёт
-                  сам, а это заготовка, которую он забирает в Google Таблицы и
-                  правит там (его решение 12.09.2026). Таблица в своей прокрутке:
-                  семь колонок на телефон не влезут никогда, а страница от этого
-                  ехать вбок не должна. */""}
-            <div class="panel" style="box-shadow:none;background:var(--panel2)">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-                <h2 style="margin:0;display:flex;align-items:center;gap:9px">${iconBadge("grid", "var(--tint-cyan)")} Контент-план по сетям</h2>
-                <div style="display:flex;gap:8px;flex-wrap:wrap">
-                  <button class="btn small primary" onclick="app.copyPromoMatrix()" title="Вставится в Google Таблицы готовой таблицей">${icon("copy", 13)} Скопировать для Google Таблиц</button>
-                  <button class="btn small" onclick="app.downloadPromoMatrix()" title="Файл для Excel и Google Таблиц">${icon("download", 13)} CSV</button>
-                </div>
-              </div>
-              <p class="mini-note" style="margin-top:6px">Месяц, ${PROMO_CONTENT_MATRIX.length} тем по ${PROMO_NETWORKS.length} сетям: три выхода в неделю. Копия вставляется в таблицу как есть — дальше правьте там.</p>
-              <div class="promo-matrix-wrap">
-                <table class="promo-matrix">
-                  <thead>
-                    <tr>
-                      <th>Нед.</th><th>День</th><th>Тема</th>
-                      ${PROMO_NETWORKS.map(n => `<th>${escapeHtml(n.label)}</th>`).join("")}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${PROMO_CONTENT_MATRIX.map(r => `
-                      <tr>
-                        <td class="promo-matrix-num">${r.week}</td>
-                        <td class="promo-matrix-num">${escapeHtml(r.day)}</td>
-                        <td class="promo-matrix-theme">${escapeHtml(r.theme)}</td>
-                        ${PROMO_NETWORKS.map(n => `<td>${escapeHtml(r[n.id] || "")}</td>`).join("")}
-                      </tr>`).join("")}
-                  </tbody>
-                </table>
-              </div>
-            </div>
 
             <div class="panel" style="box-shadow:none;background:var(--panel2)">
               <h2 style="margin-top:0;display:flex;align-items:center;gap:9px">${iconBadge("megaphone", "var(--primary)")} Описание продукта</h2>
@@ -6519,36 +6346,6 @@
         const ch = _promo().channels.find(c => c.id === id);
         if (!ch) return;
         copyToClipboard(promoUtmLink(ch), `Ссылка для «${ch.name}» скопирована`);
-      }
-
-      function addPromoPost() {
-        _promo().posts.unshift({ id: uid("post"), title: "", channelId: "", date: todayIso(), status: "Идея", note: "" });
-        save(); render();
-      }
-
-      function setPromoPostField(id, key, value) {
-        const post = _promo().posts.find(p => p.id === id);
-        if (!post) return;
-        post[key] = String(value ?? "").slice(0, 300);
-        /* Отметили «Опубликовано» — проставляем каналу дату последней публикации.
-           Ради этого числа блок «Каналы» и заведён: он отвечает на вопрос «где
-           работа встала», а вручную такую дату не ведёт никто. */
-        if (key === "status" && value === "Опубликовано" && post.channelId) {
-          const ch = _promo().channels.find(c => c.id === post.channelId);
-          if (ch) { ch.lastPost = post.date || todayIso(); ch.active = true; }
-        }
-        save();
-        if (key === "status" || key === "channelId") render();
-      }
-
-      function deletePromoPost(id) {
-        const p = _promo();
-        const idx = p.posts.findIndex(x => x.id === id);
-        if (idx < 0) return;
-        const removed = p.posts[idx];
-        p.posts.splice(idx, 1);
-        save(); render();
-        toastUndo("Запись убрана из плана", () => { p.posts.splice(idx, 0, removed); save(); render(); });
       }
 
       function copyPromoText(id) {
@@ -33800,9 +33597,6 @@ Email: _____________________              Email: _____________________
         setPromoChannelField,
         deletePromoChannel,
         copyPromoUtm,
-        addPromoPost,
-        setPromoPostField,
-        deletePromoPost,
         expandBotEstimate,
         dismissBotEstimate,
         toggleCatalogCostPanel,
@@ -34240,9 +34034,6 @@ Email: _____________________              Email: _____________________
         // Счёт в шапке админки — чистая функция наружу: данные админки приходят
         // по сети, и иначе арифметику не проверить (тест в money).
         _adminStatsFrom,
-        copyPromoMatrix,
-        downloadPromoMatrix,
-        _promoMatrixRows,
         setCrmView,
         setClientsView,
         setCrmSort,

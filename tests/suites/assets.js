@@ -1799,7 +1799,10 @@ module.exports = async function ({ test }) {
        Сторож нужен потому, что список каналов — заготовка в коде, и вернуть туда
        Instagram по привычке легко: он у всех на слуху как «канал по умолчанию». */
     const code = readSrc("app.js");
-    const seed = code.slice(code.indexOf("PROMO_CHANNEL_SEED"), code.indexOf("PROMO_POST_STATUS"));
+    // Граница — конец массива заготовки (контент-план с его PROMO_POST_STATUS
+    // убран 29.09.2026 по просьбе владельца).
+    const seedAt = code.indexOf("PROMO_CHANNEL_SEED");
+    const seed = code.slice(seedAt, code.indexOf("];", seedAt) + 2);
     assert(seed.length > 200, "заготовка каналов PROMO_CHANNEL_SEED пропала");
     for (const запрет of ["Threads", "Instagram", "Facebook"]) {
       assert(!new RegExp(запрет, "i").test(seed),
@@ -1991,35 +1994,6 @@ module.exports = async function ({ test }) {
     assert(!bad.length,
       "текст подставлен прямо в код обработчика — апостроф убьёт кнопку, а ловушка исполнится:\n  " +
       bad.join("\n  ") + "\n  Класть в data-* и читать через this.dataset.");
-  });
-
-  await test("контент-план по сетям: строки одни и те же на экране, в буфере и в файле", () => {
-    /* Просьба владельца 12.09.2026: готовая таблица «тема × сеть» и кнопка, чтобы
-       забрать её в Google Таблицы. Три потребителя (экран, буфер, CSV) обязаны
-       брать строки ИЗ ОДНОГО места — иначе они разъедутся, и в таблицу уедет не
-       то, что человек видел. Держим это структурно: _promoMatrixRows().
-
-       Instagram и Threads тут по прямому решению владельца (вариант «без
-       пометок»). Для протокола: площадки Meta, в РФ запрещены. Сторож «каналы
-       продвижения не включают запрещённые площадки» это НЕ отменяет — он про
-       список каналов (PROMO_CHANNEL_SEED), там их по-прежнему нет. */
-    const code = readSrc("app.js");
-    const from = code.indexOf("const PROMO_NETWORKS");
-    const to = code.indexOf("const PROMO_MILESTONES");
-    assert(from !== -1 && to > from, "не нашёлся блок контент-плана по сетям");
-    const block = code.slice(from, to);
-    for (const сеть of ["ВКонтакте", "Telegram", "Instagram", "Threads", "Дзен"]) {
-      assert(block.includes(сеть), `в контент-плане нет сети «${сеть}»`);
-    }
-    // Один источник строк: и копирование, и CSV зовут _promoMatrixRows.
-    for (const fn of ["copyPromoMatrix", "downloadPromoMatrix"]) {
-      const i = code.indexOf("function " + fn);
-      assert(i !== -1, `нет функции ${fn}`);
-      assert(code.slice(i, i + 700).includes("_promoMatrixRows()"),
-        `${fn} собирает строки сама — экран, буфер и файл разъедутся`);
-    }
-    assert(/BOM|﻿/.test(code.slice(code.indexOf("function downloadPromoMatrix"), code.indexOf("function downloadPromoMatrix") + 900)),
-      "в CSV нет BOM — Excel откроет кириллицу кракозябрами");
   });
 
   await test("новая версия берёт файлы с сервера, а не из HTTP-кэша браузера", () => {

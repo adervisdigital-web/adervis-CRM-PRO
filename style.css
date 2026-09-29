@@ -9797,26 +9797,6 @@ body.portal-mode .nav { display: none !important; }
   .adm-kpi-label { margin-top: 2px; }
   .kp-sort > .u-meta { display: none; }
 }
-/* ── Контент-план по сетям ──────────────────────────────────────────────────
-   Семь колонок на телефон не влезут никогда, поэтому таблица живёт в СВОЕЙ
-   прокрутке: страница от неё вбок не едет. Первые три колонки — опора взгляда
-   (неделя, день, тема), поэтому тема не переносится в кашу, а держит ширину. */
-.promo-matrix-wrap { margin-top: 12px; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-lg); }
-.promo-matrix { width: 100%; border-collapse: collapse; font-size: 12px; }
-.promo-matrix th, .promo-matrix td {
-  padding: 8px 10px; text-align: left; vertical-align: top;
-  border-bottom: 1px solid var(--line);
-}
-.promo-matrix th {
-  position: sticky; top: 0; z-index: 1;
-  background: var(--panel); color: var(--muted);
-  font-weight: 700; white-space: nowrap;
-}
-.promo-matrix tbody tr:last-child td { border-bottom: none; }
-.promo-matrix tbody tr:hover td { background: var(--primary-bg); }
-.promo-matrix-num { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.promo-matrix-theme { font-weight: 700; color: var(--text); min-width: 190px; }
-.promo-matrix td:not(.promo-matrix-theme):not(.promo-matrix-num) { color: var(--muted); min-width: 150px; }
 
 /* Счётчик найденного — в ряду поиска и сортировки, справа перед «Выбрать». */
 .adm-shown { font-size: 12px; margin-left: auto; white-space: nowrap; align-self: center; }
