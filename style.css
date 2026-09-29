@@ -8357,6 +8357,11 @@
     }
     .kb-new-card:hover .kb-new-icon { background: rgb(var(--primary-rgb) / .2); }
     .kb-new-label { font-size: 13px; font-weight: 600; }
+    /* Поиск и тематики — строкой, как фильтры «Задач». */
+    .kb-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 18px; }
+    .kb-search { flex: 1 1 240px; max-width: 420px; }
+    .kb-chips { flex: 1 1 100%; }
+    .kb-chip-count { opacity: .6; font-size: 12px; font-variant-numeric: tabular-nums; }
     .kb-doc-card {
       background: var(--panel2); border: 1px solid var(--line);
       border-radius: var(--r-xl); padding: 16px; cursor: pointer; transition: var(--dur-1);

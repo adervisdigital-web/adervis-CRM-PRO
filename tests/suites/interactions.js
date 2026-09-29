@@ -2598,9 +2598,13 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.evaluate(() => window.app.go("knowledge"));
     await page.waitForTimeout(200);
 
-    const catText = () => page.$eval("#appContent .tabs", (el) => el.textContent || "");
+    const catText = () => page.$eval("#appContent .kb-chips", (el) => el.textContent || "");
     const before = await catText();
     assert(/Продажи/.test(before), "во вкладках нет встроенной тематики «Продажи»");
+    // Тематики — чипами того же кегля, что в «Задачах» (29.09.2026: были
+    // вкладками .tab в 17px, раздел выглядел из другого приложения).
+    const кегль = await page.$eval("#appContent .kb-chips .chip", (el) => parseFloat(getComputedStyle(el).fontSize));
+    assert(кегль <= 14, "тематики базы знаний крупнее чипов остальных разделов: " + кегль + "px");
 
     const docsBefore = await page.$$eval("#appContent .kb-doc-card", (els) => els.length);
     await page.click("[onclick*='openKbCatsModal']");

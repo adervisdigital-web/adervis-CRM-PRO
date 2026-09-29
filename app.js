@@ -8273,20 +8273,26 @@
               </div>
             </div>
 
-            <div style="margin-bottom:16px">
-              ${field("Поиск", `<input value="${escapeHtml(search)}" oninput="app.kbSetSearch(this.value)" placeholder="Поиск по документам...">`)}
-            </div>
-
-            <div class="tabs" style="margin-bottom:20px">
-              ${Object.entries(kbCats()).map(([k, v]) => {
-                const cnt = k === "all" ? docs.length : docs.filter(d => d.cat === k).length;
-                return `<button class="tab ${catFilter===k?"active":""}" onclick="app.kbSetCat('${k}')">${escapeHtml(v)} <span style="opacity:.6;font-size:12px">${cnt}</span></button>`;
-              }).join("")}
+            ${/* Поиск и тематики — тем же видом, что в «Задачах» и каталоге:
+                  поле с лупой и чипы. Здесь стояли поле с подписью «Поиск» и
+                  крупные вкладки .tab (17px против 13px у чипов по соседству) с
+                  залитой активной — раздел выглядел из другого приложения. */""}
+            <div class="kb-filters">
+              <div class="catalog-search-wrap kb-search">
+                ${icon("search", 15)}
+                <input id="kbSearchInput" class="catalog-search-input" type="search" aria-label="Поиск по документам" value="${escapeHtml(search)}" oninput="app.kbSetSearch(this.value)" placeholder="Поиск по документам…">
+              </div>
+              <div class="gtask-chips kb-chips">
+                ${Object.entries(kbCats()).map(([k, v]) => {
+                  const cnt = k === "all" ? docs.length : docs.filter(d => d.cat === k).length;
+                  return `<button class="chip ${catFilter===k?"active":""}" onclick="app.kbSetCat('${k}')">${escapeHtml(v)} <span class="kb-chip-count">${cnt}</span></button>`;
+                }).join("")}
+              </div>
             </div>
 
             <div class="grid three kb-grid">
               <div class="kb-new-card" onclick="app.kbNew()">
-                <div class="kb-new-icon">+</div>
+                <div class="kb-new-icon">${icon("plus", 18)}</div>
                 <div class="kb-new-label">Новый документ</div>
               </div>
               ${filtered.map(d => `
