@@ -4889,7 +4889,22 @@
       display: flex; align-items: center; justify-content: center;
       background: var(--primary-bg); color: var(--primary-text);
     }
-    .pf-feature-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+    .pf-feature-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; display: block; }
+    /* Недоступное на тарифе — приглушённо, с тарифом, где оно есть; ведёт в «Тарифы». */
+    .pf-feature.is-locked {
+      width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+      background: transparent; border-style: dashed;
+    }
+    .pf-feature.is-locked .pf-feature-ico { background: var(--panel2); color: var(--muted); }
+    .pf-feature.is-locked .pf-feature-title { color: var(--muted); }
+    .pf-feature.is-locked:hover { border-color: rgb(var(--primary-rgb) / .45); }
+    .pf-feature.is-locked:hover .pf-feature-need { color: var(--primary-text); }
+    .pf-feature-need { display: block; font-weight: 600; }
+    .pf-included-all {
+      display: flex; align-items: flex-start; gap: 6px; margin: 12px 0 0;
+      font-size: 12.5px; color: var(--muted); line-height: 1.5;
+    }
+    .pf-included-all svg { flex: 0 0 auto; margin-top: 2px; color: var(--text-success); }
     @media (max-width: 1100px) { .pf-features { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 900px) {
       .pf-hero, .pf-grid { grid-template-columns: 1fr; }
@@ -4902,7 +4917,7 @@
       /* Восемь пунктов в столбик — полтора экрана телефона. Две колонки
          без пояснений: название со значком и так говорит, что входит. */
       .pf-feature { align-items: center; padding: 10px; }
-      .pf-feature .u-meta { display: none; }
+      .pf-feature .u-meta:not(.pf-feature-need) { display: none; }
       .pf-card-head { flex-wrap: wrap; }
       .pf-head-btn { margin-left: 0; }
     }

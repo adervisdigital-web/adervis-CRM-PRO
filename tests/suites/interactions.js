@@ -7272,6 +7272,50 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("тарифы говорят правду: места пробного, отличия «Стандарта», каталог «Старта», профиль по тарифу", async () => {
+    /* 29.09.2026, владелец: «проверь, чтобы тарифы везде отображались
+       правильно, что входит и что не входит». Нашлось: таблица обещала
+       пробному «до 3 человек» (сервер agency_seat_info даёт одно место),
+       «Стандарт» подавал «Экспорт в Excel» своим отличием (открыт на всех),
+       «Старт» — «короткий каталог» без чисел, профиль всем показывал набор
+       «Стандарта». */
+    const { ctx, p } = await bootTier("start1", 1);
+    try {
+      await p.evaluate(() => window.app.go("plans"));
+      await p.waitForTimeout(500);
+      const r = await p.evaluate(() => {
+        const rows = [...document.querySelectorAll("#appContent table tr")];
+        const row = (label) => { const tr = rows.find((x) => (x.children[0] || {}).textContent === label); return tr ? [...tr.children].slice(1).map((td) => td.textContent.trim()) : null; };
+        const card = (name) => { const c = [...document.querySelectorAll(".plan-card")].find((x) => (x.querySelector(".plan-card-name") || {}).textContent === name); return c ? c.textContent : ""; };
+        return { места: row("Пользователей в команде"), каталог: row("Каталог и пакеты услуг"), стандарт: card("Стандарт"), старт: card("Старт") };
+      });
+      assert(r.места, "в таблице нет строки «Пользователей в команде»");
+      assertEqual(r.места[0], "1", "пробному снова обещано больше одного места: " + r.места.join(" | "));
+      assert(!/Экспорт в Excel/.test(r.стандарт), "«Экспорт в Excel» снова подан отличием «Стандарта» — он открыт на всех тарифах");
+      assert(/36 позиций · 13 пакетов/.test(r.каталог[1]) && /36 позиций · 13 пакетов/.test(r.старт), "каталог «Старта» не назван числами: " + r.каталог[1]);
+
+      await p.evaluate(() => window.app.go("profile"));
+      await p.waitForTimeout(500);
+      const prof = await p.evaluate(() => ({
+        head: (document.querySelector(".pf-included .pf-card-head p") || {}).textContent || "",
+        locked: [...document.querySelectorAll(".pf-included .pf-feature.is-locked")].map((x) => x.textContent.replace(/\s+/g, " ").trim()),
+      }));
+      assert(/«Старт»/.test(prof.head), "профиль «Старта» не называет свой тариф: " + prof.head);
+      assert(prof.locked.some((x) => /Договоры и брифы/.test(x) && /на «Стандарте»/.test(x)), "договоры на «Старте» не показаны закрытыми «на «Стандарте»»: " + prof.locked.join(" | "));
+    } finally {
+      await ctx.close();
+    }
+    const pro = await bootTier("pro12", 1);
+    try {
+      await pro.p.evaluate(() => window.app.go("profile"));
+      await pro.p.waitForTimeout(500);
+      assertEqual(await pro.p.evaluate(() => document.querySelectorAll(".pf-included .pf-feature.is-locked").length), 0,
+        "на «Про» в профиле показаны закрытые возможности");
+    } finally {
+      await pro.ctx.close();
+    }
+  });
+
   await test("возврат из кассы: ждём именно этот платёж и называем новую дату, чужой платёж — не «оплата прошла»", async () => {
     /* Касса возвращает на ?payment=success и после отмены тоже, а продлевает
        вебхук. Было: через 2,5 с «подписка активна?» — у продлевающего она

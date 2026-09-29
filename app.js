@@ -5065,6 +5065,8 @@
 
       const tierRules = (tier) => TIER_RULES[tier] || TIER_RULES.std;
       const tierLabel = (tier) => (PLAN_TIERS.find(t => t.id === tier) || {}).label || "Стандарт";
+      // «на «Стандарте»», а не «на «Стандарт»»: предложный падеж для «на …».
+      const tierLabelPrep = (tier) => ({ start: "Старте", std: "Стандарте", pro: "Про" })[tier] || tierLabel(tier);
 
       // Разделы приложения, которых нет у младшего тарифа. Их не рисуем в меню
       // вовсе (интерфейс проще), а прямой заход показывает экран о старшем.
@@ -5105,6 +5107,28 @@
         const n = BASE_ITEMS.length;
         return `${n} ${plural(n, "позиция", "позиции", "позиций")}`;
       }
+      // То же для пакетов: «45 пакетов» тоже было вписано числом.
+      function packagesCountText(n = DEFAULT_PACKAGES.length) {
+        return `${n} ${plural(n, "пакет", "пакета", "пакетов")}`;
+      }
+      // Короткий каталог «Старта» — числами из его же списков.
+      function startCatalogText() {
+        const n = START_CATALOG_IDS.size;
+        return `${n} ${plural(n, "позиция", "позиции", "позиций")} · ${packagesCountText(START_PACKAGE_IDS.size)}`;
+      }
+      /* Что входит в тариф — ОДИН список на витрину тарифов и профиль. Каждая
+         строка сверена с тем, что тариф реально даёт (TIER_RULES, сервер мест
+         agency_seat_info): 29.09.2026 таблица обещала пробному «до 3 человек»
+         при одном месте на сервере, а «Стандарт» подавал как своё отличие
+         «Экспорт в Excel», открытый на всех тарифах. */
+      function tierFeatureMap() {
+        return {
+          trial: ["Весь «Стандарт» на 7 дней", "Сделки без ограничения", "Калькулятор смет", "КП для клиентов", `${AI_PROPOSAL_TRIAL_LIMIT} AI-генераций КП`, "Один пользователь"],
+          start: [`До ${TIER_RULES.start.deals} съёмок в работе`, `Каталог фото и видео: ${startCatalogText()}`, "КП по ссылке с авансом", "Клиенты и календарь съёмок", "Деньги: оплачено и сколько должны", "Один пользователь"],
+          std: ["Сделок без ограничения", `До ${TIER_RULES.std.seats} человек в команде`, `Полный каталог: ${catalogCountText()}`, "Договоры и онлайн-брифы", "Дашборд: графики и прогноз", "ИИ-помощник для КП"],
+          pro: ["Всё из «Стандарта»", `До ${TIER_RULES.pro.seats} человек в команде`, "Ваш бренд вместо нашего в КП", "Калькулятор на вашем сайте", "Приоритетная поддержка", "Помощь с переносом цен"],
+        };
+      }
 
       const PROMO_PITCH = [
         {
@@ -5126,7 +5150,7 @@
           label: "Полное (лендинг, статья, письмо)",
           text: "Смета в видеопродакшне — это вечер в Excel: вспомнить все позиции, не забыть про технику и трансфер, "
             + "посчитать смены операторов, свести это в документ, который не стыдно отправить клиенту.\n\n"
-            + "ADERVIS делает это за 15 минут. Внутри каталог на " + catalogCountText() + " и 45 готовых пакетов — "
+            + "ADERVIS делает это за 15 минут. Внутри каталог на " + catalogCountText() + " и " + DEFAULT_PACKAGES.length + " готовых " + plural(DEFAULT_PACKAGES.length, "пакет", "пакета", "пакетов") + " — "
             + "со своими ценами, которые вы правите один раз. Съёмочные дни, количество камер, "
             + "срочность и наценки считаются сами.\n\n"
             + "Из готовой сметы одной кнопкой выходит коммерческое предложение — ссылка, которую клиент открывает "
@@ -6945,12 +6969,7 @@
         /* Состав — по ТАРИФУ, а не по каждому сроку: срок меняет только цену.
            Раньше список был у каждой карточки, и «3 месяца» обещали «Всё из
            месяца» — строку, которая ничего не говорит о продукте. */
-        const tierFeatures = {
-          trial: ["Весь «Стандарт» на 7 дней", "Сделки без ограничения", "Калькулятор смет", "КП для клиентов", `${AI_PROPOSAL_TRIAL_LIMIT} AI-генераций КП`, "Один пользователь"],
-          start: [`До ${TIER_RULES.start.deals} съёмок в работе`, "Короткий каталог фото- и видеоуслуг", "КП по ссылке с авансом", "Клиенты и календарь съёмок", "Деньги: оплачено и сколько должны", "Один пользователь"],
-          std: ["Сделок без ограничения", `До ${TIER_RULES.std.seats} человек в команде`, `Полный каталог: ${catalogCountText()}`, "Договоры и онлайн-брифы", "Аналитика и ИИ-помощник", "Экспорт в Excel"],
-          pro: ["Всё из «Стандарта»", `До ${TIER_RULES.pro.seats} человек в команде`, "Ваш бренд вместо нашего в КП", "Калькулятор на вашем сайте", "Приоритетная поддержка", "Помощь с переносом цен"],
-        };
+        const tierFeatures = tierFeatureMap();
         const promoValid = _promoState && typeof _promoState === "object";
         const { active: activeSub, tier: activeTier, until: activeUntil } = _activeSubscription();
         const cardHtml = (p, tier) => {
@@ -7076,8 +7095,8 @@
                 ${group("Смета и калькулятор")}
                 ${rowT("Калькулятор смет", yes)}
                 ${rowT("Каталог и пакеты услуг", {
-                  start: "<span style='color:var(--muted)'>короткий</span>",
-                  pro: `<b>${catalogCountText()}</b>`,
+                  start: `<span style='color:var(--muted)'>${startCatalogText()}</span>`,
+                  pro: `<b>${catalogCountText()}</b> · ${packagesCountText()}`,
                 })}
                 ${rowT("Этапы производства", yes)}
                 ${rowT("Версии смет", yes)}
@@ -7102,7 +7121,8 @@
                 ${rowT("Договоры (шаблоны и редактор)", { start: no, pro: yes })}
                 ${rowT("Telegram-уведомления", yes)}
                 ${rowT("Пользователей в команде", {
-                  trial: `<b>до ${TIER_RULES.std.seats}</b>`,
+                  // Пробному сервер (agency_seat_info) даёт ОДНО место — не «до 3».
+                  trial: "<span style='color:var(--muted)'>1</span>",
                   start: "<span style='color:var(--muted)'>1</span>",
                   std: `<b>до ${TIER_RULES.std.seats}</b>`,
                   pro: `<b>до ${TIER_RULES.pro.seats}</b>`,
@@ -7306,22 +7326,39 @@
               </div>`;
             })() : ''}
 
+          ${/* «Что входит» — по ТЕКУЩЕМУ тарифу. Раньше блок всегда показывал
+                набор «Стандарта»: на «Старте» человек читал про договоры и
+                команду, которых у него нет (29.09.2026, «тарифы везде должны
+                отображаться правильно — что входит и что не входит»).
+                Недоступное — приглушённо, с тарифом, на котором оно есть. */""}
+          ${(() => {
+            const tier = currentTier();
+            const R = tierRules(tier);
+            const isTrial = !!(_userProfile && _userProfile.subscription_status === "trial") && !_isSuperAdmin();
+            const seats = isTrial ? 1 : R.seats;
+            const feats = [
+              ["target", "Сделки", isFinite(R.deals) ? `До ${R.deals} сделок в работе` : "Без ограничения, вся воронка", ""],
+              ["receipt", "Каталог и пакеты", R.catalog === "full" ? `${catalogCountText()} · ${packagesCountText()}` : startCatalogText(), ""],
+              ["contract", "Договоры и брифы", "Шаблоны договоров, онлайн-брифы клиентов", R.sections ? "" : "std"],
+              ["chart", "Дашборд", "Графики дохода, воронка, прогноз", R.dashboard ? "" : "std"],
+              ["robot", "ИИ-помощник", isTrial ? `Тексты КП — ${AI_PROPOSAL_TRIAL_LIMIT} генераций на пробном` : "Тексты КП по составу сметы", R.ai ? "" : "std"],
+              ["team", "Команда", R.sections ? (seats > 1 ? `До ${seats} ${plural(seats, "человека", "человек", "человек")} в аккаунте` : "На пробном — один пользователь") : "Коллеги в общем доступе", R.sections ? "" : "std"],
+              ["star", "Ваш бренд в КП", "Без подписи «Сделано в ADERVIS»", R.whiteLabel ? "" : "pro"],
+              ["link", "Калькулятор на сайте", "Клиенты считают смету сами", R.publicCalc ? "" : "pro"],
+            ];
+            const name = isTrial ? `пробный период (весь «${tierLabel("std")}»)` : `«${tierLabel(tier)}»`;
+            return `
           <div class="pf-card pf-included">
-            <div class="pf-card-head">${iconBadge("check", "var(--text-success)", 30)}<div><h2>Что входит в подписку</h2><p>Набор «Стандарта»; чем отличаются тарифы — в разделе «Тарифы»</p></div><button class="btn small pf-head-btn" onclick="app.go('plans')">Сравнить тарифы</button></div>
+            <div class="pf-card-head">${iconBadge("check", "var(--text-success)", 30)}<div><h2>Что входит в ваш тариф</h2><p>Сейчас — ${escapeHtml(name)}</p></div><button class="btn small pf-head-btn" onclick="app.go('plans')">Сравнить тарифы</button></div>
             <div class="pf-features">
-              ${[
-                ["target", "CRM и сделки", "Без лимита на сделки, вся воронка"],
-                // Каталог давно вырос до 200 позиций, а витрина обещала «100+» —
-                // считаем от самого каталога, чтобы обещание не отставало снова
-                // (так уже сделано в подписи публичного расчёта).
-                ["receipt", "Калькулятор смет", `${catalogCountText()}: съёмка, пост, ИИ, логистика`],
-                ["contract", "КП и договоры", "Предложение и договор за секунды"],
-                ["calendar", "Календарь", "Дедлайны, задачи и платежи вместе"],
-                ["wallet", "Финансы", "Доходы, расходы и маржа по проектам"],
-                ["cloud", "Облако", "Синхронизация устройств и команды"],
-                ["team", "Команда", "Коллеги по коду приглашения"],
-                ["mobile", "Телефон", "Ставится как приложение"]
-              ].map(([ic, title, desc]) => `
+              ${feats.map(([ic, title, desc, need]) => need ? `
+                <button type="button" class="pf-feature is-locked" onclick="app.go('plans')" title="Открывается на тарифе «${escapeHtml(tierLabel(need))}»">
+                  <span class="pf-feature-ico">${icon("lock", 15)}</span>
+                  <span>
+                    <span class="pf-feature-title">${escapeHtml(title)}</span>
+                    <span class="u-meta pf-feature-need">на «${escapeHtml(tierLabelPrep(need))}»</span>
+                  </span>
+                </button>` : `
                 <div class="pf-feature">
                   <span class="pf-feature-ico">${icon(ic, 16)}</span>
                   <div>
@@ -7330,7 +7367,9 @@
                   </div>
                 </div>`).join("")}
             </div>
-          </div>
+            <p class="pf-included-all">${icon("check", 13)} На любом тарифе: смета и КП по ссылке, клиенты, задачи и календарь, финансы, облако, приложение на телефон.</p>
+          </div>`;
+          })()}
 
           </div>
         `;
@@ -8413,7 +8452,7 @@
         if (next.ai && !cur.ai) out.push("ИИ-помощник для КП");
         if (next.whiteLabel && !cur.whiteLabel) out.push("Ваш бренд вместо нашего в КП и портале");
         if (next.publicCalc && !cur.publicCalc) out.push("Калькулятор на вашем сайте");
-        if (next.catalog === "full" && cur.catalog !== "full") out.push(`Полный каталог: ${catalogCountText()} и 45 пакетов`);
+        if (next.catalog === "full" && cur.catalog !== "full") out.push(`Полный каталог: ${catalogCountText()} и ${packagesCountText()}`);
         return out;
       }
 
