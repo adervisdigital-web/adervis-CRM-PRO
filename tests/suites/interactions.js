@@ -5726,6 +5726,47 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(searched.more, "", "после поиска осталась кнопка «Показать ещё», хотя показывать нечего");
   });
 
+  /* 30.09.2026 «доделываем финансы с анимацией и графикой»: итог за период —
+     карточкой (была серая строка в углу полосы периода), под ней график по
+     дням; нажатие на столбик сужает период до этого дня. */
+  await test("финансы: итог за период карточкой, график по дням, столбик сужает период", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await bootWithState(`
+      const pad = (n) => String(n).padStart(2, "0");
+      const d = new Date(); const ym = d.getFullYear() + "-" + pad(d.getMonth() + 1);
+      st.savedProjects = [{ id: "ff1", name: "Сделка Ф", client: "К", total: 100000, paid: 30000, crmStatus: "В работе",
+        createdAt: ym + "-01", updatedAt: ym + "-01",
+        snapshot: { payments: [{ id: "fp1", date: ym + "-01", amount: 30000, title: "Аванс", method: "Перевод на карту" }],
+                    expenses: [{ id: "fe1", date: ym + "-01", amount: 5000, title: "Такси", category: "Транспорт" }], tasks: [] } }];
+      st.activeProjectId = null; st.payments = []; st.expenses = [];
+      st.gFinDatePreset = "month"; st.gFinSubTab = "transactions"; st.gFinFilter = "all"; st.gFinTypeFilter = "all"; st.gFinSearch = "";
+    `, { width: 1440, height: 1000 });
+    try {
+      await p.evaluate(() => window.app.go("global-finances"));
+      await p.waitForTimeout(1900); // суммы набегают при входе — ждём, пока встанут
+      const read = () => p.evaluate(() => ({
+        nums: [...document.querySelectorAll(".fin-period-num")].map((e) => e.textContent.trim()),
+        cols: document.querySelectorAll(".fin-period .fin-flow-col").length,
+        corner: (document.querySelector(".analytics-date-bar") || {}).textContent || "",
+        preset: (document.querySelector(".date-preset-btn.active") || {}).textContent || "",
+        range: [...document.querySelectorAll(".date-range-inputs input[type=date]")].map((i) => i.value),
+      }));
+      const r = await read();
+      assertEqual(r.nums.map((s) => s.replace(/[^\d+−-]/g, "")).join(" "), "+30000 −5000 +25000 2", "итог за период: " + r.nums.join(" | "));
+      assertEqual(r.cols, new Date().getDate(), "столбиков не по дню на каждый день месяца до сегодня");
+      assert(!/получено/.test(r.corner), "в полосе периода осталась старая строка-итог: " + r.corner.trim());
+      await p.evaluate(() => document.querySelector(".fin-flow-col").dispatchEvent(new MouseEvent("click", { bubbles: true })));
+      await p.waitForTimeout(300);
+      const r2 = await read();
+      const first = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-01"; })();
+      assertEqual(r2.preset.trim(), "Свой", "нажатие на столбик не включило свой период");
+      assertEqual(r2.range.join(" "), first + " " + first, "период не сузился до дня столбика");
+      assertEqual(r2.cols, 1, "после сужения график не про один день");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("финансы: строки режутся порциями, а итоги остаются по ВСЕМ операциям", async () => {
     await dismissStaleDialog(page);
     /* Суммы круглые нарочно: ожидаемый итог тогда не зависит от арифметики в уме —
@@ -5762,7 +5803,8 @@ module.exports = async function ({ browser, baseUrl, test }) {
         rows: root.querySelectorAll(".fin-table tbody tr").length,
         moreBtn: [...root.querySelectorAll("button")].find((b) => /показать ещё/i.test(b.textContent || ""))?.textContent.trim().replace(/\s+/g, " ") || "",
         foot: [...root.querySelectorAll(".fin-table-footer .amount-cell")].map((e) => norm(e.textContent)),
-        counter: norm((root.textContent.match(/\d[\d\s ]*операц\S+[^]{0,80}?расходов/) || [""])[0]),
+        // С 30.09.2026 счётчик — число «Операций» в карточке «За период».
+        counter: norm(([...root.querySelectorAll('.fin-period-num')].pop() || {}).textContent),
         nodes: root.querySelectorAll("*").length,
       };
     });

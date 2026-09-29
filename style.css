@@ -10885,3 +10885,86 @@ button.is-busy::before {
     overflow: hidden;
   }
 }
+
+/* ── «Финансы»: итог за период и движение денег ─────────────────────────
+   Карточка под полосой периода: четыре числа и график «вверх — пришло, вниз —
+   ушло». Раньше итог был серой строкой мелким шрифтом в углу полосы
+   (владелец 30.09.2026: «доделываем финансы с анимацией и графикой»). */
+.fin-period {
+  margin: 0 0 14px; padding: 16px 18px 12px;
+  border: 1px solid var(--line); border-radius: var(--r-xl); background: var(--panel2);
+}
+.fin-period-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 20px; }
+.fin-period-stat { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fin-period-lbl {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+}
+.fin-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.fin-dot.is-inc { background: var(--green); }
+.fin-dot.is-exp { background: var(--red); }
+.fin-period-num {
+  font-family: var(--font-display); font-size: 22px; font-weight: 700; line-height: 1.1;
+  font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fin-period-num.is-inc, .fin-period-num.is-pos { color: var(--text-success); }
+.fin-period-num.is-exp { color: var(--text-danger); }
+.fin-period-chart { margin-top: 14px; }
+.fin-flow { display: block; width: 100%; height: 120px; }
+.fin-flow-base { stroke: var(--line); stroke-width: 1; }
+.fin-flow-hit { fill: rgb(var(--primary-rgb) / .08); opacity: 0; transition: opacity var(--dur-1); }
+.fin-flow-col { cursor: pointer; }
+.fin-flow-col:hover .fin-flow-hit { opacity: 1; }
+.fin-flow-inc { fill: url(#finFlowInc); transition: filter var(--dur-1); }
+.fin-flow-exp { fill: url(#finFlowExp); transition: filter var(--dur-1); }
+.fin-flow-col:hover .fin-flow-inc { filter: brightness(1.15); }
+.fin-flow-col:hover .fin-flow-exp { filter: brightness(1.2); }
+.fin-flow-axis { position: relative; height: 16px; margin-top: 6px; }
+.fin-flow-axis span {
+  position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap;
+  font-size: 11px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.fin-period-hint { margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+@media (max-width: 760px) {
+  .fin-period { padding: 14px 14px 10px; }
+  .fin-period-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fin-period-num { font-size: 19px; }
+}
+
+/* ── «Финансы»: движение ─────────────────────────────────────────────────
+   При заходе в раздел — один раз (класс ставит render() только при смене
+   вида): плитки волной, суммы набегают (_countUp), линии прорисовываются,
+   столбики растут, строки проявляются. При смене вкладки — мягкий въезд её
+   содержимого. Строки только проявляются, без сдвига: сдвинутая строка под
+   курсором ловила бы клик не той операции. */
+#appContent.fin-enter .fin-summary-grid > .fin-card { animation: homeRiseSoft .6s var(--ease-out) both; }
+#appContent.fin-enter .fin-summary-grid > .fin-card:nth-child(2) { animation-delay: 50ms; }
+#appContent.fin-enter .fin-summary-grid > .fin-card:nth-child(3) { animation-delay: 100ms; }
+#appContent.fin-enter .fin-summary-grid > .fin-card:nth-child(4) { animation-delay: 150ms; }
+#appContent.fin-enter .fin-summary-grid > .fin-card:nth-child(5) { animation-delay: 200ms; }
+#appContent.fin-enter .fin-card .spark-line { stroke-dasharray: 1; animation: sparkDraw 1s var(--ease-out) .3s both; }
+#appContent.fin-enter .fin-card .spark-area { animation: homeFade .8s ease .6s both; }
+#appContent.fin-enter .fin-card .spark-dot { transform-box: fill-box; transform-origin: center; animation: dotPop .5s var(--ease-spring) 1.1s both; }
+#appContent.fin-enter .spark-gauge-fill { animation: gaugeDraw 1.15s var(--ease-out) .3s both; }
+#appContent.fin-enter .fin-period { animation: homeRiseSoft .6s var(--ease-out) .18s both; }
+#appContent.fin-enter .fin-flow-inc,
+#appContent.fin-tab-switch .fin-flow-inc {
+  transform-box: fill-box; transform-origin: 50% 100%;
+  animation: barGrow .7s var(--ease-out) both; animation-delay: calc(260ms + var(--i, 0) * 18ms);
+}
+#appContent.fin-enter .fin-flow-exp,
+#appContent.fin-tab-switch .fin-flow-exp {
+  transform-box: fill-box; transform-origin: 50% 0;
+  animation: barGrow .7s var(--ease-out) both; animation-delay: calc(320ms + var(--i, 0) * 18ms);
+}
+#appContent.fin-enter .fin-table--ops tbody tr { animation: homeFade .45s ease both; animation-delay: calc(300ms + var(--r, 0) * 28ms); }
+#appContent.fin-enter .db-bar,
+#appContent.fin-tab-switch .db-bar {
+  transform-box: fill-box; transform-origin: 50% 100%;
+  animation: barGrow .8s var(--ease-out) both; animation-delay: calc(200ms + var(--i, 0) * 45ms);
+}
+#appContent.fin-enter .rank-fill,
+#appContent.fin-tab-switch .rank-fill { transform-origin: left center; animation: barFillX .9s var(--ease-out) .2s both; }
+#appContent.fin-tab-switch .fin-subtab-bar ~ * { animation: finTabIn .38s var(--ease-out) both; }
+@keyframes finTabIn { from { opacity: 0; transform: translateY(6px); } }
+/* Уменьшенное движение: классы fin-enter / fin-tab-switch render() не ставит вовсе. */

@@ -15034,8 +15034,19 @@
         render();
       }
 
+      let _finTabAnim = false; // содержимое вкладки «въезжает» один раз после переключения
       function setGFinSubTab(value) {
+        if ((state.gFinSubTab || "transactions") !== value) _finTabAnim = true;
         state.gFinSubTab = value;
+        save();
+        render();
+      }
+
+      // Нажатие на столбик графика «За период»: свой период ровно на этот день или месяц.
+      function setGFinRange(from, to) {
+        state.gFinDatePreset = "custom";
+        state.gFinDateFrom = from;
+        state.gFinDateTo = to;
         save();
         render();
       }
@@ -15087,9 +15098,12 @@
         render();
       }
 
-      function filterByDateRange(txs) {
+      /* Границы периода «Финансов» одной функцией: ими режет список
+         filterByDateRange, а график «За период» строит по ним ось — иначе у
+         «Этот месяц» ось кончалась бы на последней операции, а не на сегодня. */
+      function gFinDateBounds() {
         const preset = state.gFinDatePreset || "all";
-        if (preset === "all") return txs;
+        if (preset === "all") return { from: "", to: "" };
         const today = new Date();
         const fmt = localIso;
         let from = "", to = fmt(today);
@@ -15105,6 +15119,99 @@
         } else if (preset === "custom") {
           from = state.gFinDateFrom || ""; to = state.gFinDateTo || fmt(today);
         }
+        return { from, to };
+      }
+
+      /* Движение денег за период: поступления столбиком вверх, расходы — вниз от
+         общей линии. Отвечает на «когда деньги пришли и когда ушли» — то, чего
+         не видно ни в плитках (там итог), ни в таблице (там строки). До двух
+         месяцев — по дням, дольше — по месяцам (последние 24). Столбик
+         нажимается: период сужается до этого дня или месяца. */
+      function finFlowSvg(txs, bounds) {
+        const MN = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+        const days = txs.map(t => String(t.date || "").slice(0, 10)).filter(_isoDay).sort();
+        if (!days.length) return "";
+        let from = _isoDay(bounds.from) ? bounds.from : days[0];
+        let to = _isoDay(bounds.to) ? bounds.to : days[days.length - 1];
+        if (to < from) [from, to] = [to, from];
+        const d0 = new Date(from + "T00:00:00"), d1 = new Date(to + "T00:00:00");
+        const spanDays = Math.round((d1 - d0) / 864e5) + 1;
+        const byDay = spanDays <= 62;
+        const buckets = [];
+        if (byDay) {
+          for (let i = 0; i < spanDays; i++) {
+            const d = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + i);
+            const key = localIso(d);
+            buckets.push({ key, from: key, to: key, label: String(d.getDate()), title: `${d.getDate()} ${MN[d.getMonth()]}`, first: d.getDate() === 1, inc: 0, exp: 0 });
+          }
+        } else {
+          const m0 = new Date(d0.getFullYear(), d0.getMonth(), 1);
+          for (let d = m0; d <= d1; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+            const key = localIso(d).slice(0, 7);
+            const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+            buckets.push({ key, from: localIso(d), to: localIso(last), label: MN[d.getMonth()], title: monthTitleRu(key), first: d.getMonth() === 0, year: d.getFullYear(), inc: 0, exp: 0 });
+          }
+          if (buckets.length > 24) buckets.splice(0, buckets.length - 24);
+        }
+        const at = new Map(buckets.map((b, i) => [b.key, i]));
+        txs.forEach(t => {
+          const day = String(t.date || "").slice(0, 10);
+          const i = at.get(byDay ? day : day.slice(0, 7));
+          if (i === undefined) return;
+          if (t._type === "income") buckets[i].inc += numberValue(t.amount, 0);
+          else buckets[i].exp += numberValue(t.amount, 0);
+        });
+        const maxInc = Math.max(0, ...buckets.map(b => b.inc));
+        const maxExp = Math.max(0, ...buckets.map(b => b.exp));
+        if (!maxInc && !maxExp) return "";
+        /* Рисунок растягивается на ширину панели (preserveAspectRatio="none"),
+           высота постоянная — 120px. Угадывать ширину панели по окну не вышло:
+           меню бывает свёрнуто, и подписи раздувались в полтора раза. Поэтому
+           подписи дней и месяцев — HTML под рисунком, их кегль от масштаба не
+           зависит, а у линии — non-scaling-stroke. */
+        const narrow = typeof window !== "undefined" && window.innerWidth < 760;
+        const W = 1000, H = 120, PADT = 6, PADB = 6;
+        const plotH = H - PADT - PADB;
+        // Шкала общая для верха и низа: столбик в 10 000 одинаков вверх и вниз.
+        const s = plotH / ((maxInc + maxExp) || 1);
+        const baseY = PADT + maxInc * s;
+        const n = buckets.length, gw = W / n;
+        const bw = Math.max(1.5, Math.min(30, gw * 0.62));
+        const every = Math.max(1, Math.ceil(n / (narrow ? 8 : 16)));
+        const r1 = (v) => Math.round(v * 10) / 10;
+        const labels = [];
+        const cols = buckets.map((b, i) => {
+          const cx = gw * i + gw / 2, x = r1(cx - bw / 2);
+          const ih = b.inc ? Math.max(b.inc * s, 1.5) : 0, eh = b.exp ? Math.max(b.exp * s, 1.5) : 0;
+          const tip = `${b.title}: ${b.inc ? "+" + money(b.inc) : "поступлений нет"}${b.exp ? " · −" + money(b.exp) : ""}`;
+          if (i % every === 0 || (byDay && b.first)) labels.push(`<span style="left:${r1(cx / W * 100)}%">${escapeHtml(b.label)}</span>`);
+          return `<g class="fin-flow-col" style="--i:${Math.min(i, 40)}" onclick="app.setGFinRange('${b.from}','${b.to}')">
+            <title>${escapeHtml(tip)}</title>
+            <rect class="fin-flow-hit" x="${r1(gw * i)}" y="0" width="${r1(gw)}" height="${H}"/>
+            ${ih ? `<rect class="fin-flow-inc" x="${x}" y="${r1(baseY - ih)}" width="${r1(bw)}" height="${r1(ih)}" rx="2"/>` : ""}
+            ${eh ? `<rect class="fin-flow-exp" x="${x}" y="${r1(baseY)}" width="${r1(bw)}" height="${r1(eh)}" rx="2"/>` : ""}
+          </g>`;
+        }).join("");
+        const inc = buckets.reduce((a, b) => a + b.inc, 0), exp = buckets.reduce((a, b) => a + b.exp, 0);
+        return `<svg class="fin-flow" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"
+            aria-label="Движение денег ${byDay ? "по дням" : "по месяцам"}: поступления ${money(inc)}, расходы ${money(exp)}">
+          <defs>
+            <linearGradient id="finFlowInc" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stop-color="var(--green)"/><stop offset="1" stop-color="var(--green)" stop-opacity=".45"/>
+            </linearGradient>
+            <linearGradient id="finFlowExp" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stop-color="var(--red)" stop-opacity=".5"/><stop offset="1" stop-color="var(--red)" stop-opacity=".9"/>
+            </linearGradient>
+          </defs>
+          <line class="fin-flow-base" x1="0" x2="${W}" y1="${r1(baseY)}" y2="${r1(baseY)}" vector-effect="non-scaling-stroke"/>
+          ${cols}
+        </svg>
+        <div class="fin-flow-axis" aria-hidden="true">${labels.join("")}</div>`;
+      }
+
+      function filterByDateRange(txs) {
+        if ((state.gFinDatePreset || "all") === "all") return txs;
+        const { from, to } = gFinDateBounds();
         return txs.filter(tx => {
           const d = tx.date || "";
           return (!from || d >= from) && (!to || d <= to);
@@ -16869,6 +16976,7 @@
          в первые полторы секунды после входа. Зовём из обработчиков открытия
          (после клика), а не на нажатие: иначе элемент сдвигается под курсором
          между нажатием и отпусканием, и клик уходит мимо. */
+      let _finEnterTimer = 0, _finTabTimer = 0;
       function _endHomeEnter() {
         clearTimeout(_homeEnterTimer);
         const root = document.getElementById("appContent");
@@ -17114,6 +17222,24 @@
             root.classList.add("plans-enter");
             setTimeout(() => root.classList.remove("plans-enter"), 900);
           } else if (!viewChanged) root.classList.remove("plans-enter");
+          /* «Финансы»: при заходе — волна плиток, набегающие суммы, прорисовка
+             графиков; при смене вкладки — мягкий въезд её содержимого. На
+             любую другую перерисовку (фильтр, поиск) — ничего: иначе экран
+             мигал бы на каждой букве в поиске. */
+          const finMotion = state.view === "global-finances" && !_reducedMotion();
+          if (viewChanged && finMotion) {
+            root.classList.add("fin-enter");
+            root.querySelectorAll(".fin-card .fin-amount, .fin-period-num, .kpi-row .kpi-val").forEach((el, i) => _countUp(el, 120 + Math.min(i, 10) * 60));
+            clearTimeout(_finEnterTimer);
+            _finEnterTimer = setTimeout(() => root.classList.remove("fin-enter"), 1500);
+          } else root.classList.remove("fin-enter");
+          if (_finTabAnim && finMotion) {
+            root.classList.add("fin-tab-switch");
+            root.querySelectorAll(".fin-period-num, .kpi-row .kpi-val").forEach((el, i) => _countUp(el, 60 + Math.min(i, 10) * 50));
+            clearTimeout(_finTabTimer);
+            _finTabTimer = setTimeout(() => root.classList.remove("fin-tab-switch"), 900);
+          } else if (!_finTabAnim) root.classList.remove("fin-tab-switch");
+          _finTabAnim = false;
         } catch(err) {
           console.error("Render error:", err);
           root.innerHTML = `
@@ -26951,8 +27077,41 @@
                   <input type="date" value="${escapeHtml(state.gFinDateTo)}" onchange="app.setGFinDateTo(this.value)" title="По">
                 </div>
               ` : ""}
-              <span style="font-size:12px;color:var(--muted);margin-left:auto;font-variant-numeric:tabular-nums">${filtered.length} ${plural(filtered.length, "операция", "операции", "операций")} · ${money(filtered.filter(t=>t._type==="income").reduce((s,t)=>s+numberValue(t.amount,0),0))} получено · ${money(filtered.filter(t=>t._type==="expense").reduce((s,t)=>s+numberValue(t.amount,0),0))} расходов</span>
             </div>
+
+            ${/* Итог за период — карточкой с графиком, а не серой строкой мелким
+                  шрифтом в углу полосы периода: это главный ответ вкладки
+                  («сколько пришло и ушло за это время»), и он терялся. Считается
+                  по тому же отбору, что и таблица (проект, тип, поиск, период). */""}
+            ${filtered.length ? (() => {
+              const diff = filteredIncome - filteredExpense;
+              const chart = finFlowSvg(filtered, gFinDateBounds());
+              return `
+              <div class="fin-period">
+                <div class="fin-period-stats">
+                  <div class="fin-period-stat">
+                    <span class="fin-period-lbl"><i class="fin-dot is-inc"></i>Получено</span>
+                    <b class="fin-period-num is-inc">${signedMoney(filteredIncome, "+")}</b>
+                  </div>
+                  <div class="fin-period-stat">
+                    <span class="fin-period-lbl"><i class="fin-dot is-exp"></i>Расходы</span>
+                    <b class="fin-period-num is-exp">${signedMoney(filteredExpense, "−")}</b>
+                  </div>
+                  <div class="fin-period-stat">
+                    <span class="fin-period-lbl">Разница</span>
+                    <b class="fin-period-num ${diff >= 0 ? "is-pos" : "is-exp"}">${signedMoney(Math.abs(diff), diff >= 0 ? "+" : "−")}</b>
+                  </div>
+                  <div class="fin-period-stat">
+                    <span class="fin-period-lbl">Операций</span>
+                    <b class="fin-period-num">${filtered.length}</b>
+                  </div>
+                </div>
+                ${chart ? `
+                  <div class="fin-period-chart">${chart}</div>
+                  <div class="fin-period-hint no-print">Столбик вверх — поступления, вниз — расходы. Нажмите на столбик — период сузится до него.</div>
+                ` : ""}
+              </div>`;
+            })() : ""}
 
             ${(() => {
               // Панель видна всё время в режиме выбора — иначе, сняв последнюю
@@ -26994,8 +27153,8 @@
                   </tr>
                 </thead>
                 <tbody>
-                  ${filtered.length ? shownTxs.map(tx => `
-                    <tr class="u-pointer" title="Нажми для редактирования" onclick="app.openEditTransaction('${tx.id}','${tx._type}','${tx.projectId}')">
+                  ${filtered.length ? shownTxs.map((tx, ri) => `
+                    <tr class="u-pointer" style="--r:${Math.min(ri, 14)}" title="Нажми для редактирования" onclick="app.openEditTransaction('${tx.id}','${tx._type}','${tx.projectId}')">
                       <td style="color:var(--muted);font-size:12px;white-space:nowrap">${escapeHtml(formatDate(tx.date))}</td>
                       <td title="${escapeHtml(tx.projectName || "—")}" style="font-size:12px;font-weight:750;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(tx.projectName || "—")}</td>
                       ${/* Галочка живёт ВНУТРИ ячейки описания, а не отдельной
@@ -33955,6 +34114,7 @@ Email: _____________________              Email: _____________________
         setGFinFilter,
         setGFinTypeFilter,
         setGFinSubTab,
+        setGFinRange,
         setGFinDatePreset,
         setGFinDateFrom,
         setGFinDateTo,
