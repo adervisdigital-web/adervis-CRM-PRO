@@ -2191,4 +2191,48 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  /* Владелец 29.09.2026: «неудобно продлевать и активировать — дату когда пишу,
+     все числа слетают, год вписывается по одной цифре и вылетает». Поле даты
+     шлёт change на каждую цифру года, а форма перерисовывалась на каждый change.
+     Теперь значения копятся без перерисовки, а продлить можно кнопкой «+1 мес». */
+  await test("админка: дата подписки набирается с клавиатуры целиком, «+1 мес» продлевает от даты окончания", async () => {
+    const дней = (n) => new Date(Date.now() + n * 864e5).toISOString();
+    const users = [{ id: "u1", agency_id: "a1", email: "amb@studio.ru", subscription_status: "active",
+      subscription_plan: "pro12", subscription_expires_at: дней(29), created_at: дней(-40), last_sign_in_at: дней(-1),
+      email_confirmed: true, admin_tag: "Амбассадор" }];
+    const { bootWithSession: boot } = require("../harness");
+    const { context, page } = await boot(browser, baseUrl, { width: 1440, height: 950, email: "adervis.digital@gmail.com" });
+    let сохранено = null;
+    try {
+      await context.route("**/rest/v1/rpc/*", (route) => {
+        const name = route.request().url().split("/rpc/")[1].split("?")[0];
+        if (name === "admin_set_subscription") сохранено = JSON.parse(route.request().postData() || "{}");
+        const body = name === "admin_get_all_users" ? users : [];
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+      });
+      await page.evaluate(() => window.app.go("admin"));
+      await page.waitForSelector("#appContent [aria-label='Изменить подписку']", { timeout: 15000 });
+      await page.click("#appContent [aria-label='Изменить подписку']");
+      const date = "#appContent input[type='date'][onchange*='expires']";
+      await page.waitForSelector(date, { timeout: 3000 });
+      // Набор с клавиатуры, как человек: день, месяц, год по цифре.
+      await page.click(date);
+      await page.keyboard.press("Home").catch(() => {});
+      await page.keyboard.type("15112027", { delay: 40 });
+      await page.waitForTimeout(300);
+      assertEqual(await page.$eval(date, (el) => el.value), "2027-11-15", "дата не набралась целиком — цифры слетают");
+      // «+1 мес» — от набранной даты окончания, статус «Активна».
+      await page.click("#appContent .admin-sub-quick button:nth-of-type(1)");
+      await page.waitForTimeout(300);
+      assertEqual(await page.$eval(date, (el) => el.value), "2027-12-15", "«+1 мес» продлил не от даты окончания");
+      await page.click("#appContent button[onclick*='adminSetSubscription']");
+      await page.waitForTimeout(500);
+      assert(сохранено, "«Сохранить» не отправил подписку");
+      assertEqual(сохранено.p_expires_at, "2027-12-15", "в базу ушла не та дата");
+      assertEqual(сохранено.p_status, "active", "продление не сделало подписку активной");
+    } finally {
+      await context.close();
+    }
+  });
+
 };

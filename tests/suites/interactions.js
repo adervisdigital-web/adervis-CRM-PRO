@@ -7146,6 +7146,52 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("тарифы при действующей подписке: «Продлить», вопрос перед младшим тарифом, подпись старого плана", async () => {
+    /* 29.09.2026, перед первой оплатой Амбассадора (у него бесплатный год):
+       1) карточка своего тарифа была выключена «✓ Активен» — продлить заранее
+          было нечем, хотя письмо о конце срока зовёт именно к этому;
+       2) оплата тарифа ниже действующего молча переводила на него ВЕСЬ срок
+          (план в профиле один, вебхук только добавляет дни);
+       3) старый план «pro» подписан «Про ✓», а доступ по нему — «Стандарт». */
+    const { ctx, p } = await bootTier("pro12", 1);
+    let платежей = 0;
+    await ctx.route("**/functions/v1/create-payment", (route) => { платежей++; route.fulfill({ status: 500, body: "{}" }); });
+    try {
+      await p.evaluate(() => { window.app.setPlanPeriod ? window.app.setPlanPeriod(1) : null; window.app.go("plans"); });
+      await p.waitForTimeout(600);
+      const r = await p.evaluate(() => {
+        const cards = [...document.querySelectorAll(".plan-card")];
+        const card = (name) => cards.find((c) => (c.querySelector(".plan-card-name") || {}).textContent === name);
+        const btn = (name) => { const c = card(name); const b = c && c.querySelector("button"); return b ? { text: b.textContent.trim(), off: b.disabled } : null; };
+        return { сейчас: (document.querySelector(".plans-current") || {}).textContent || "", про: btn("Про"), старт: btn("Старт") };
+      });
+      assert(/«Про»/.test(r.сейчас) && /не сгорают/.test(r.сейчас), "над витриной не сказано, какой тариф и до когда: " + r.сейчас);
+      assert(!/\.\./.test(r.сейчас), "в строке о подписке двойная точка («г..»): " + r.сейчас);
+      assert(r.про && !r.про.off && /^Продлить/.test(r.про.text), "свой тариф нельзя продлить: " + JSON.stringify(r.про));
+
+      // Младший тариф — только после вопроса; «Оставить» не создаёт платёж.
+      await p.evaluate(() => [...document.querySelectorAll(".plan-card")]
+        .find((c) => (c.querySelector(".plan-card-name") || {}).textContent === "Старт").querySelector("button").click());
+      await p.waitForSelector(".confirm-dialog-overlay", { timeout: 3000 });
+      const вопрос = await p.evaluate(() => document.querySelector(".confirm-dialog-overlay").textContent.replace(/\s+/g, " "));
+      assert(/Перейти на «Старт»/.test(вопрос) && /договоры/.test(вопрос), "вопрос перед младшим тарифом не объясняет, что закроется: " + вопрос);
+      await p.click(".confirm-dialog-overlay button:not(.primary):not(.danger)");
+      await p.waitForTimeout(400);
+      assertEqual(платежей, 0, "«Оставить «Про»» всё равно создал платёж");
+    } finally {
+      await ctx.close();
+    }
+
+    const old = await bootTier("pro", 1);
+    try {
+      const текст = await old.p.evaluate(() => document.body.innerText);
+      assert(!/Про ✓/.test(текст), "старый план «pro» снова подписан «Про ✓», хотя доступ — «Стандарт»");
+      assert(/Стандарт ✓/.test(текст), "у старого плана нет подписи «Стандарт ✓»");
+    } finally {
+      await old.ctx.close();
+    }
+  });
+
   await test("тариф «Про»: свой бренд и калькулятор на сайте открыты", async () => {
     const { ctx, p } = await bootTier("pro1", 3);
     try {

@@ -2754,7 +2754,11 @@
         const p = PLANS.find(x => x.id === planId);
         if (p && p.id !== "trial") return p.label;
         if (planId === "team") return "Команда";
-        return "Про";
+        /* Подпись — по тому, что аккаунт ПОЛУЧАЕТ (currentTier): старые
+           подписки записаны планом «pro», и доступ по нему — «Стандарт». Здесь
+           стояло «Про», и Амбассадор (год с 07.08, до линейки тарифов) видел
+           «Про ✓», а свой бренд в КП и калькулятор на сайт были закрыты. */
+        return tierLabel("std");
       }
 
       function getSubscriptionLabel() {
@@ -5859,6 +5863,12 @@
                               <input type="date" value="${escapeHtml(_adminEditSub.expires||"")}" onchange="app._setEditSub('expires',this.value)">
                             </div>
                           </div>
+                          <div class="admin-sub-quick">
+                            <span class="u-meta">Продлить от даты окончания:</span>
+                            <button type="button" class="btn small" onclick="app._editSubAdd(1)">+1 мес</button>
+                            <button type="button" class="btn small" onclick="app._editSubAdd(3)">+3 мес</button>
+                            <button type="button" class="btn small" onclick="app._editSubAdd(12)">+1 год</button>
+                          </div>
                           <div class="u-flex-g8">
                             <button class="btn primary small" onclick="app.adminSetSubscription()">Сохранить</button>
                             <button class="btn small" onclick="app._closeEditSub()">Отмена</button>
@@ -6915,8 +6925,25 @@
       }
       function _openEditSub(agencyId, status, plan, expires) { _adminEditSub = { agencyId, status, plan, expires }; render(); }
       function _closeEditSub() { _adminEditSub = null; render(); }
-      function _setEditSub(k, v) { if (_adminEditSub) { _adminEditSub[k] = v; render(); } }
-      function _setPromoForm(k, v) { _adminPromoForm[k] = v; render(); }
+      /* Поля форм админки запоминаются БЕЗ перерисовки: значения читаются при
+         «Сохранить». Раньше каждое изменение звало render(): поле даты шлёт
+         change на каждую цифру года («0002», «0020»…), форма пересоздавалась,
+         и год вводился по одной цифре и слетал (владелец 29.09.2026). У формы
+         промокода то же было на каждую букву кода. */
+      function _setEditSub(k, v) { if (_adminEditSub) _adminEditSub[k] = v; }
+      function _setPromoForm(k, v) { _adminPromoForm[k] = v; }
+      /* Продлить в один клик: +N месяцев от даты окончания (или от сегодня,
+         если срок уже прошёл) и статус «Активна» — продлевают, чтобы дать доступ. */
+      function _editSubAdd(months) {
+        if (!_adminEditSub) return;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const cur = _adminEditSub.expires ? new Date(_adminEditSub.expires + "T00:00:00") : null;
+        const base = cur && cur > today ? cur : today;
+        const d = new Date(base); d.setMonth(d.getMonth() + months);
+        _adminEditSub.expires = localIso(d);
+        _adminEditSub.status = "active";
+        render();
+      }
 
       function renderSupport() {
         return `
@@ -7062,16 +7089,25 @@
           pro: ["Всё из «Стандарта»", `До ${TIER_RULES.pro.seats} человек в команде`, "Ваш бренд вместо нашего в КП", "Калькулятор на вашем сайте", "Приоритетная поддержка", "Помощь с переносом цен"],
         };
         const promoValid = _promoState && typeof _promoState === "object";
+        const { active: activeSub, tier: activeTier, until: activeUntil } = _activeSubscription();
         const cardHtml = (p, tier) => {
-          const isCurrent = sub && sub.subscription_plan === p.id && (sub.subscription_status === "active" || (sub.subscription_status === "trial" && p.id === "trial"));
+          /* «Ваш тариф» — по ТАРИФУ, а не по точному плану: на «Про на год»
+             карточка «Про» с помесячным сроком тоже ваша. И её можно ПРОДЛИТЬ:
+             раньше кнопка была выключена надписью «✓ Активен», хотя письмо о
+             конце срока зовёт продлить заранее — человек приходил, а платить
+             было нечем. Вебхук добавляет дни к текущей дате окончания. */
+          const isCurrentTier = activeSub && p.tier === activeTier;
+          const isCurrent = isCurrentTier || (sub && sub.subscription_status === "trial" && p.id === "trial");
           const isLoading = _buyingPlan === p.id;
           const discountedPrice = (promoValid && p.price > 0) ? Math.round(p.price * (1 - _promoState.discount / 100)) : null;
           // «Советуем» — у среднего тарифа: это ответ на вопрос «а мне какой?».
           const recommended = tier && tier.id === "std";
           const totalDisc = discountedPrice ? discountedPrice * Math.max(p.months, 1) : null;
           const payAmount = totalDisc !== null ? totalDisc : p.price * Math.max(p.months, 1);
-     const btnLabel = isCurrent ? "✓ Активен" : isLoading ? "⏳..." : p.price === 0 ? "Бесплатно" : `Оплатить ${money(payAmount)}${p.months > 1 ? ` за ${p.months} мес.` : ""}`;
-          const btnOff = isCurrent || p.price === 0 || !!_buyingPlan;
+          const btnLabel = isLoading ? "⏳..." : p.price === 0 ? (isCurrent ? "✓ Активен" : "Бесплатно")
+            : isCurrentTier ? `Продлить ${p.months > 1 ? `на ${p.months} мес.` : "на месяц"} — ${money(payAmount)}`
+            : `Оплатить ${money(payAmount)}${p.months > 1 ? ` за ${p.months} мес.` : ""}`;
+          const btnOff = p.price === 0 || !!_buyingPlan;
           const feats = tierFeatures[p.id === "trial" ? "trial" : p.tier] || [];
           const border = isCurrent ? "var(--green)" : recommended ? "var(--primary)" : "var(--line)";
           const bg = isCurrent ? "rgba(22,163,74,.06)" : recommended ? "rgb(var(--primary-rgb) / .05)" : "var(--panel2)";
@@ -7083,7 +7119,7 @@
           return `
           <div class="plan-card" style="border-radius:18px;border:2px solid ${border};background:${bg};padding:20px 16px;display:flex;flex-direction:column;position:relative;min-width:0">
             ${recommended && !isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">Советуем</div>` : ""}
-            ${isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">✓ Активен</div>` : ""}
+            ${isCurrent ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:12px;font-weight:900;padding:2px 12px;border-radius:99px;white-space:nowrap">✓ Ваш тариф</div>` : ""}
             <div class="plan-card-head">
               <span class="plan-card-name">${escapeHtml(p.label)}</span>
               ${tier && tier.note ? `<span class="plan-card-note">${escapeHtml(tier.note)}</span>` : ""}
@@ -7248,6 +7284,8 @@
               <div><h1 class="m-0">${h1Icon("card")}Тарифный план</h1><p style="margin:4px 0 0;color:var(--muted)">Оплата через ЮKassa — карта, СБП, ЮМани</p></div>
               <button class="btn small" onclick="app.go('profile')">← Профиль</button>
             </div>
+            ${activeSub ? `
+              <p class="plans-current">${icon("check", 14)} Сейчас: «${escapeHtml(tierLabel(activeTier))}» до ${escapeHtml(_longDate(activeUntil))}. Оплата добавит дни к этой дате — оставшиеся не сгорают.</p>` : ""}
             ${periodSwitch}
             <div class="grid three plans-tier-grid" style="gap:14px;margin-bottom:16px">
               ${tierCards}
@@ -7432,10 +7470,45 @@
         `;
       }
 
+      /* Действующая платная подписка: тариф и дата окончания. Тариф — как в
+         currentTier: план вне линейки (старый «pro») даёт «Стандарт». */
+      function _activeSubscription() {
+        const sub = _userProfile;
+        const until = sub && sub.subscription_expires_at ? new Date(sub.subscription_expires_at) : null;
+        const active = !!(sub && sub.subscription_status === "active" && until && until > new Date());
+        const plan = active ? PLANS.find(x => x.id === sub.subscription_plan) : null;
+        return { active, tier: active ? (plan ? plan.tier : "std") : "", until };
+      }
+      const TIER_RANK = { start: 1, std: 2, pro: 3 };
+      // «26 июля 2027» — без «г.»: в середине фразы он давал «2027 г.. Оплата».
+      function _longDate(d) {
+        return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }).replace(/\s*г\.$/, "");
+      }
+
       /* ─── YOOKASSA SUBSCRIPTION PAYMENT ─── */
       async function buyPlan(planId) {
         if (!_adminSession) { toast("Войдите в аккаунт для оплаты"); return; }
         if (planId === "trial" || _buyingPlan) return;
+        /* Оплата тарифа НИЖЕ действующего переводит на него ВЕСЬ оставшийся
+           срок: вебхук добавляет дни к дате окончания, но план в профиле
+           один. Без вопроса «Про» на год, проверенный оплатой «Старта» за
+           290 ₽, молча превращался в «Старт» на год — закрывались договоры,
+           брифы, команда (29.09.2026, перед первой оплатой Амбассадора). */
+        const target = PLANS.find(x => x.id === planId);
+        const cur = _activeSubscription();
+        if (target && cur.active && (TIER_RANK[target.tier] || 0) < (TIER_RANK[cur.tier] || 0)) {
+          const lost = target.tier === "start"
+            ? "закроются договоры, онлайн-брифы и команда, каталог станет коротким, в работе — не больше " + TIER_RULES.start.deals + " сделок"
+            : "закроются свой бренд в КП и калькулятор на вашем сайте, в команде — до " + TIER_RULES[target.tier].seats + " человек";
+          const ok = await confirmDialog({
+            title: `Перейти на «${tierLabel(target.tier)}»?`,
+            message: `Сейчас у вас «${tierLabel(cur.tier)}» до ${_longDate(cur.until)}. `
+              + `После оплаты весь срок, включая оставшиеся дни, будет на «${tierLabel(target.tier)}»: ${lost}. Дни не сгорят — добавятся к сроку.`,
+            okText: `Оплатить «${tierLabel(target.tier)}»`,
+            cancelText: `Оставить «${tierLabel(cur.tier)}»`,
+          });
+          if (!ok) return;
+        }
 
         _buyingPlan = planId;
         render();
@@ -33926,6 +33999,7 @@ Email: _____________________              Email: _____________________
         _openEditSub,
         _closeEditSub,
         _setEditSub,
+        _editSubAdd,
         _setPromoForm,
         _setErrorsFilter,
         _setAdminUsersStatus,
