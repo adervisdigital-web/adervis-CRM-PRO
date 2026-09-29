@@ -2342,6 +2342,23 @@
         // сохранил его в состоянии ранних версий, открывал приложение на
         // экране, с которого некуда вернуться тем же путём.
         if (state.view === "crm") state.view = "home";
+        /* Строки с фиксированной ценой считаются теперь «цена × количество»
+           (29.09.2026). Раньше их количество в сумму не шло, а лежать в строке
+           могло что угодно — например, 10 от позиции, которая когда-то
+           считалась «× кол-во». Без этой чистки такая строка молча подорожала
+           бы вдесятеро. Один раз, под флагом: дальше количество — выбор
+           человека. Сумма не меняется, а счёт перестаёт показывать количество,
+           которого в сумме не было. */
+        if (!state.fixedQtyNormalized) {
+          const norm = (sel) => Object.keys(sel || {}).forEach(id => {
+            const it = findItem(id, true);
+            const l = sel[id];
+            if (it && l && (!it.calcModel || it.calcModel === "fixed") && numberValue(l.qty, 1) !== 1) l.qty = 1;
+          });
+          norm(state.selected);
+          (state.savedProjects || []).forEach(p => norm(p.snapshot && p.snapshot.selected));
+          state.fixedQtyNormalized = true;
+        }
         if (state.company && !state.company.currency) {
           const was = state.project && state.project.currency;
           state.company.currency = CURRENCIES.some(c => c.code === was) ? was : "₽";
@@ -10587,7 +10604,12 @@
 
           editedDesc: "",
           lineName: itemData.name,
-          assigneeId: ""
+          assigneeId: "",
+          /* Дата работы по позиции — по умолчанию день добавления (отзыв
+             Амбассадора 29.09.2026: «в проектах, где что-то делаешь, а потом
+             считаешься, хорошо бы понимать, в какой день какой расход был»).
+             Клиенту не показывается — это учёт студии. */
+          date: todayIso()
         };
 
         if (itemData.calcModel === "fixed+qty") {
@@ -10837,10 +10859,19 @@
           addBreakdownRow(rows, "Расчёт по дням", total, `${money(price)} × ${days} дн.`);
         } else if (itemData.calcModel === "fixed+qty") {
           total = price * qty;
-          addBreakdownRow(rows, "Количество", total, `${money(price)} × ${qty}`);
+          addBreakdownRow(rows, "Количество", total, `${money(price)} × ${unitCount(qty, itemData.unit)}`);
         } else {
-          total = price;
-          addBreakdownRow(rows, "Фиксированная стоимость", total, "");
+          /* Цена за единицу × количество (29.09.2026, отзыв Амбассадора: «в
+             некоторых позициях количество нельзя указать — монтаж, например;
+             приходится менять общую сумму»). Своя позиция «Монтаж/смена»
+             получила фиксированную цену от соседей по разделу, и три смены
+             монтажа считались правкой цены руками. Пустое количество — одна
+             единица: старые строки не меняются (см. _migrateStateData). */
+          const units = line.qty === undefined || line.qty === null || line.qty === ""
+            ? 1 : Math.max(1, numberValue(line.qty, 1));
+          total = price * units;
+          if (units !== 1) addBreakdownRow(rows, "Количество", total, `${money(price)} × ${unitCount(units, itemData.unit)}`);
+          else addBreakdownRow(rows, "Фиксированная стоимость", total, "");
         }
 
         total = Math.max(0, total);
@@ -11627,7 +11658,8 @@
         customItem.price = numberValue(line.price, getCatalogPrice(itemData));
 
         state.customItems.unshift(customItem);
-        state.selected[newId] = { ...deepClone(line), id: newId };
+        // Копия — новая работа: дата её добавления, а не оригинала.
+        state.selected[newId] = { ...deepClone(line), id: newId, date: todayIso() };
 
         const index = state.estimateOrder.indexOf(id);
         state.estimateOrder.splice(index >= 0 ? index + 1 : state.estimateOrder.length, 0, newId);
@@ -22004,6 +22036,33 @@
       /* Сокращения единиц в каталоге — полными словами: «за мес», «за чел» и
          «за шт» в подписи цены читались как недописанные. */
       const UNIT_ACCUSATIVE_FULL = { "мес": "месяц", "мес.": "месяц", "чел": "человека", "чел.": "человека", "шт": "штуку", "шт.": "штуку", "чел/день": "человека в день" };
+      /* Формы единиц для «× 3 смены» и подписи поля «Смен». Таблица — только
+         частые единицы каталога; незнакомая единица пишется как есть
+         («× 3 · шаблон»), без выдуманного склонения. */
+      const UNIT_FORMS = {
+        "смена": ["смена", "смены", "смен"], "день": ["день", "дня", "дней"], "час": ["час", "часа", "часов"],
+        "ролик": ["ролик", "ролика", "роликов"], "комплект": ["комплект", "комплекта", "комплектов"],
+        "шт": ["шт", "шт", "шт"], "шт.": ["шт.", "шт.", "шт."], "проект": ["проект", "проекта", "проектов"],
+        "пакет": ["пакет", "пакета", "пакетов"], "макет": ["макет", "макета", "макетов"],
+        "трек": ["трек", "трека", "треков"], "пост": ["пост", "поста", "постов"],
+        "публикация": ["публикация", "публикации", "публикаций"], "сессия": ["сессия", "сессии", "сессий"],
+        "фото": ["фото", "фото", "фото"], "кадр": ["кадр", "кадра", "кадров"], "минута": ["минута", "минуты", "минут"],
+        "версия": ["версия", "версии", "версий"], "сайт": ["сайт", "сайта", "сайтов"], "товар": ["товар", "товара", "товаров"],
+        "локация": ["локация", "локации", "локаций"], "человек": ["человек", "человека", "человек"],
+      };
+      function unitCount(n, unit) {
+        const u = String(unit || "").trim().toLowerCase();
+        const f = UNIT_FORMS[u];
+        if (f) return `${n} ${plural(n, f[0], f[1], f[2])}`;
+        return u ? `${n} · ${u}` : String(n);
+      }
+      // Подпись поля количества: «Смен», «Роликов» — как «Дней» у смены.
+      function unitCountLabel(unit) {
+        const f = UNIT_FORMS[String(unit || "").trim().toLowerCase()];
+        if (!f || f[2] === f[0]) return "Количество";
+        return f[2].charAt(0).toUpperCase() + f[2].slice(1);
+      }
+
       function unitAccusative(unit) {
         if (!unit) return unit;
         if (UNIT_ACCUSATIVE_FULL[unit]) return UNIT_ACCUSATIVE_FULL[unit];
@@ -22509,9 +22568,21 @@
 
         if (itemData.calcModel === "fixed+qty") {
           mainFields.push(
-            field("Кол-во", `<input type="number" min="0" step="1" data-autosave data-scope="line" data-id="${id}" data-key="qty" value="${escapeHtml(line.qty)}">`)
+            field(unitCountLabel(itemData.unit), `<input type="number" min="0" step="1" data-autosave data-scope="line" data-id="${id}" data-key="qty" value="${escapeHtml(line.qty)}">`)
           );
         }
+        // Цена за единицу — и количество к ней (смены монтажа, ролики, макеты).
+        if (!itemData.calcModel || itemData.calcModel === "fixed") {
+          mainFields.push(
+            field(unitCountLabel(itemData.unit), `<input type="number" min="1" step="1" data-autosave data-scope="line" data-id="${id}" data-key="qty" value="${escapeHtml(line.qty === undefined || line.qty === "" ? 1 : line.qty)}">`)
+          );
+        }
+
+        // Дата работы по позиции (учёт студии, клиенту не видна). У строк,
+        // добавленных до 29.09.2026, пусто — день задним числом не выдумываем.
+        mainFields.push(
+          `<div class="field no-print"><label>Дата</label><input type="date" data-autosave data-scope="line" data-id="${id}" data-key="date" value="${escapeHtml(line.date || "")}" title="День работы по позиции — видно, когда что было. Клиенту не показывается"></div>`
+        );
 
         mainFields.push(
           field("Ответственный", `
@@ -22534,6 +22605,7 @@
         ${dragHandleHtml({ title: "Потяните, чтобы переставить позицию", attrs: `onmousedown="this.closest('.item').draggable=true" onmouseup="this.closest('.item').draggable=false"` })}
                 <div class="u-flex1-min0">
                   <input class="line-name-input" type="text" data-autosave data-scope="line" data-id="${id}" data-key="lineName" value="${escapeHtml(line.lineName || "")}" placeholder="${escapeHtml(itemData.name)}" title="Нажми, чтобы переименовать позицию" style="color:var(--text);font-weight:750;font-size:15px">
+                  ${/^\d{4}-\d{2}-\d{2}$/.test(String(line.date || "")) ? `<div class="line-date-meta no-print" title="День работы по позиции — меняется в поле «Дата»">${icon("calendar", 12)} ${escapeHtml(new Date(line.date + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }))}</div>` : ""}
                   ${!collapsed ? `<textarea class="line-desc-input" data-autosave data-scope="line" data-id="${id}" data-key="editedDesc" placeholder="${escapeHtml(itemData.desc)}" title="Нажми чтобы отредактировать описание" style="color:var(--muted);font-size:12px">${escapeHtml(line.editedDesc || "")}</textarea>` : ""}
 
                   ${/* Капсул было четыре, две из них ничего не добавляли.

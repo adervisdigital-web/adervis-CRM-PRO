@@ -4887,6 +4887,72 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("смета: у позиции с фиксированной ценой есть количество (смены монтажа), у строки — дата", async () => {
+    /* 29.09.2026, отзыв Амбассадора со скриншотом: своя позиция «Монтаж/смена»
+       получила фиксированную цену «за комплект», количества не было — три
+       смены монтажа он вписывал общей суммой. И: «хорошо бы позиции в смете
+       к дате прикручивать». Плюс перенос: у старой строки с фиксированной
+       ценой в qty могло лежать 10 — сумма не должна вырасти вдесятеро. */
+    const { ctx, p } = await bootWithState(`
+      st.customItems = [...(st.customItems || []), { id: "cm_montage", name: "Монтаж/смена", desc: "",
+        category: "post", section: "post", calcModel: "fixed", price: 10000, unit: "смена", stage: "post" }];
+      st.selected = {
+        cm_montage: { id: "cm_montage", qty: 1, price: 10000, cost: 0, stageId: "post", lineName: "Монтаж/смена" },
+        color: { id: "color", qty: 10, price: 3500, cost: 0, stageId: "post", lineName: "Цветокоррекция" },
+      };
+      st.estimateOrder = ["cm_montage", "color"];
+      st.lineCollapsed = { cm_montage: false, color: false };
+      delete st.fixedQtyNormalized;
+      st.view = "estimate";
+    `, { width: 1440, height: 1000 });
+    const line = (id) => p.evaluate((id) => {
+      const el = document.querySelector('[data-line="' + id + '"]');
+      if (!el) return null;
+      const qty = el.querySelector('[data-key="qty"]');
+      const lbl = qty && qty.closest(".field") ? qty.closest(".field").querySelector("label").textContent.trim() : "";
+      return {
+        сумма: (el.querySelector(".price") || {}).textContent || "",
+        кол: qty ? qty.value : null, подпись: lbl,
+        формула: (el.querySelector(".line-details .u-meta") || {}).textContent || "",
+        дата: (el.querySelector(".line-date-meta") || {}).textContent || "",
+        поле: (el.querySelector('[data-key="date"]') || {}).value || "",
+      };
+    }, id);
+    try {
+      await p.evaluate(() => window.app.go("estimate"));
+      await p.waitForTimeout(500);
+      // Перенос: количество 10 у фиксированной цены в сумму не шло — и не пойдёт.
+      const цвет = await line("color");
+      assert(цвет, "строки «Цветокоррекция» нет в смете");
+      assert(/3\s500/.test(цвет.сумма) && !/35\s000/.test(цвет.сумма), "старая строка подорожала после переноса: " + цвет.сумма);
+      assertEqual(цвет.кол, "1", "у старой строки не сброшено количество, которого в сумме не было");
+
+      const м0 = await line("cm_montage");
+      assertEqual(м0.подпись, "Смен", "поле количества у «Монтаж/смена» подписано не сменами: " + м0.подпись);
+      await p.fill('[data-line="cm_montage"] [data-key="qty"]', "3");
+      await p.press('[data-line="cm_montage"] [data-key="qty"]', "Tab");
+      await p.waitForTimeout(500);
+      const м1 = await line("cm_montage");
+      assert(/30\s000/.test(м1.сумма), "три смены монтажа не дали 30 000 ₽: " + м1.сумма);
+      assert(/10\s000\s₽\s×\s3\sсмены/.test(м1.формула), "в расчёте нет «10 000 ₽ × 3 смены»: " + м1.формула);
+
+      // Новая позиция получает дату добавления; видна под названием и в поле.
+      await p.evaluate(() => window.app.addItem("sound_post"));
+      await p.waitForTimeout(500);
+      await p.evaluate(() => { const el = document.querySelector('[data-line="sound_post"] .line-collapse-btn.collapsed'); if (el) el.click(); });
+      await p.waitForTimeout(300);
+      const нов = await line("sound_post");
+      const сегодня = await p.evaluate(() => { const d = new Date(); const z = (x) => String(x).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); });
+      assert(нов, "новая позиция не появилась в смете");
+      assertEqual(нов.поле, сегодня, "у новой позиции нет даты добавления");
+      assert(/\d{4}/.test(нов.дата), "дата не видна под названием позиции: " + нов.дата);
+      // У старых строк дату не выдумываем.
+      assertEqual((await line("color")).дата, "", "старой строке выдумана дата");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("обход 29.09: «без способа» словами, «Договоры» в меню, старый вид «crm» открывается главной", async () => {
     /* Обход разделов 29.09.2026: у поступления без способа оплаты в «Финансах»
        рисовалась пустая капсула (серая чёрточка, похожая на сбой); пункт меню
