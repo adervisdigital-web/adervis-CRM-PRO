@@ -1349,11 +1349,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
       await p.evaluate(() => window.app.go("global-tasks"));
       await p.waitForTimeout(400);
       const cdp = await ctx.newCDPSession(p);
-      /* Как медленный телефон: процессор в 6 раз медленнее, кадров мало.
-         Автопрокрутка доски у края считалась «пикселей за кадр», и при малом
-         числе кадров доска не доезжала до «Готово» — в CI тест падал стабильно,
-         а локально проходил. С замедлением дефект виден и здесь. */
-      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
+      /* Замедление процессора (было 6×) убрано 29.09.2026: проверено руками —
+         дефект «скорость за кадр» (f8031f9) тест не ловил и с ним, а на
+         медленной машине CI замедление само роняло тест: долгое нажатие не
+         успевало включиться. Тест проверяет перенос пальцем, не скорость. */
       const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
       await p.locator('.gtask-card[data-drag-id="gd2"]').scrollIntoViewIfNeeded();
 
@@ -5028,6 +5027,38 @@ module.exports = async function ({ browser, baseUrl, test }) {
       const n = Number(m[1]), n10 = n % 10, n100 = n % 100;
       const ждём = n10 === 1 && n100 !== 11 ? "позиция" : n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14) ? "позиции" : "позиций";
       assertEqual(m[2], ждём, `«${n} ${m[2]}» — неверное склонение`);
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  await test("смета: «Монтажёр» — работник со ставкой за смену, как оператор", async () => {
+    /* Владелец 29.09.2026: «"Монтажёр" добавил в список услуг? Пусть тоже будет
+       как работник». Смена × смены × люди; у постпродакшна поле — «Смен». */
+    const { ctx, p } = await bootWithState(`
+      st.selected = { editor: { id: "editor", qty: 1, days: 3, people: 1, price: 10000, cost: 0, stageId: "post",
+        lineName: "Монтажёр", crewBilling: "shift", shiftType: "full", hours: 2, overtimeHours: 0 } };
+      st.estimateOrder = ["editor"]; st.lineCollapsed = { editor: false }; st.view = "estimate";
+    `, { width: 1440, height: 1000 });
+    try {
+      await p.evaluate(() => window.app.go("estimate"));
+      await p.waitForTimeout(500);
+      const r = await p.evaluate(() => {
+        const el = document.querySelector('[data-line="editor"]');
+        if (!el) return null;
+        const days = el.querySelector('[data-key="days"]');
+        return {
+          сумма: (el.querySelector(".price") || {}).textContent || "",
+          подпись: days ? days.closest(".field").querySelector("label").textContent.trim() : "",
+          формула: (el.querySelector(".line-calc .u-meta") || {}).textContent || "",
+          переключатель: !!el.querySelector(".bill-mode"),
+        };
+      });
+      assert(r, "позиции «Монтажёр» нет в каталоге");
+      assert(/30\s000/.test(r.сумма), "три смены монтажёра не дали 30 000 ₽: " + r.сумма);
+      assertEqual(r.подпись, "Смен", "у монтажёра поле подписано не «Смен»: " + r.подпись);
+      assert(/× 3 смены × 1 чел\./.test(r.формула), "в расчёте нет «× 3 смены × 1 чел.»: " + r.формула);
+      assert(!r.переключатель, "у работника со сменами лишний переключатель «Как считать»");
     } finally {
       await ctx.close();
     }

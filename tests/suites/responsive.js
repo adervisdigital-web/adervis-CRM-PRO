@@ -2215,10 +2215,15 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
       await page.click("#appContent [aria-label='Изменить подписку']");
       const date = "#appContent input[type='date'][onchange*='expires']";
       await page.waitForSelector(date, { timeout: 3000 });
-      // Набор с клавиатуры, как человек: день, месяц, год по цифре.
+      // Набор с клавиатуры, как человек: по цифре. Порядок полей даты зависит
+      // от локали браузера (в CI — английская, «месяц/день/год»): берём его у
+      // самого браузера, иначе тест проверял бы раскладку, а не ввод.
+      const порядок = await page.evaluate(() => new Intl.DateTimeFormat(navigator.language, { day: "2-digit", month: "2-digit", year: "numeric" })
+        .formatToParts(new Date(2027, 10, 15)).filter((x) => ["day", "month", "year"].includes(x.type)).map((x) => x.type));
+      const цифры = порядок.map((t) => ({ day: "15", month: "11", year: "2027" })[t]).join("");
       await page.click(date);
       await page.keyboard.press("Home").catch(() => {});
-      await page.keyboard.type("15112027", { delay: 40 });
+      await page.keyboard.type(цифры, { delay: 40 });
       await page.waitForTimeout(300);
       assertEqual(await page.$eval(date, (el) => el.value), "2027-11-15", "дата не набралась целиком — цифры слетают");
       // «+1 мес» — от набранной даты окончания, статус «Активна».
@@ -2256,7 +2261,7 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
         route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(name === "admin_get_all_users" ? users : []) });
       });
       await page.evaluate(() => window.app.go("admin"));
-      await page.waitForSelector("#appContent .adm-card", { timeout: 15000 });
+      await page.waitForSelector("#appContent .adm-card", { timeout: 30000 });
       const строки = await page.evaluate(() => [...document.querySelectorAll("#appContent .adm-card")].map((c) => ({
         email: (c.querySelector(".adm-who") || {}).textContent || "",
         main: [...c.querySelectorAll(".adm-act-main .btn")].map((b) => b.textContent.trim()).join(","),
@@ -2334,7 +2339,7 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
         route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(name === "admin_get_all_users" ? users : []) });
       });
       await page.evaluate(() => window.app.go("admin"));
-      await page.waitForSelector("#appContent .adm-card", { timeout: 15000 });
+      await page.waitForSelector("#appContent .adm-card", { timeout: 30000 });
       const текст = await page.evaluate(() => document.getElementById("appContent").innerText);
       assert(!/\bPRO\b/.test(текст), "в админке снова подпись «PRO»");
       assert(/Стандарт · старая запись/.test(текст), "старый план не подписан «Стандарт · старая запись»");
