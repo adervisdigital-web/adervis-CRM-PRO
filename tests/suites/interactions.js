@@ -654,7 +654,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
      же списком, — «1 событий»: первый считал все события за всё время, второй —
      месяц, и оба стояли на одном экране. Плюс форма слова не согласовывалась с
      числом. Проверяем оба числа разом на живом DOM. */
-  await test("календарь: счётчики под сеткой и над списком показывают одно число", async () => {
+  await test("календарь: счётчик над списком совпадает со списком и согласован со словом", async () => {
     const own = await bootLocal(browser, baseUrl, { width: 1280, height: 900, seedDemo: true });
     try {
       await own.page.evaluate(() => window.app.go("global-calendar"));
@@ -663,10 +663,12 @@ module.exports = async function ({ browser, baseUrl, test }) {
         const txt = (document.querySelector("#appContent").textContent || "").replace(/\s+/g, " ");
         return (txt.match(/\d+ событи[йея]/g) || []);
       });
-      assert(счётчики.length >= 2, "не нашёл оба счётчика календаря: " + JSON.stringify(счётчики));
-      const числа = счётчики.map((s) => Number(s.match(/\d+/)[0]));
-      assertEqual(числа[0], числа[1],
-        "счётчики календаря спорят друг с другом: " + счётчики.join(" / "));
+      // С 01.10.2026 счётчик один — над списком (строка легенды с вторым убрана).
+      // Он обязан совпадать с числом строк списка — тем, что нарисовано.
+      assert(счётчики.length >= 1, "не нашёл счётчик календаря: " + JSON.stringify(счётчики));
+      const строк = await own.page.evaluate(() => document.querySelectorAll("#appContent .cal-list-row").length);
+      assertEqual(Number(счётчики[0].match(/\d+/)[0]), строк,
+        "счётчик над списком не совпадает с числом событий в списке: " + счётчики[0]);
       // Согласование числа со словом: 1 событие, 2 события, 5 событий.
       счётчики.forEach((s) => {
         const n = Number(s.match(/\d+/)[0]);

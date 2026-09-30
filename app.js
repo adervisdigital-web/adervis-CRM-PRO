@@ -27851,21 +27851,46 @@
         // темах и на светлом фоне дают 3.0-4.2:1. Точкам-маркерам это не мешает.
         const typeTextColor = { deadline: "var(--text-danger)", task: "var(--text-info)", payment: "var(--text-success)", expense: "var(--text-warning)", google: "var(--primary-text)" };
 
-        setTimeout(() => {
-          const scroller = document.getElementById("calMonthsScroll");
-          const activePill = scroller?.querySelector(".cal-month-pill.active");
-          if (activePill) activePill.scrollIntoView({ inline: "center", block: "nearest" });
-        }, 0);
 
         return `
           <div class="panel">
-            <!-- Шапка. «Наведите на день» тут стояло дословно, а на телефоне навести
-                 нечем: подсказка описывала жест, которого на устройстве нет. Пишем
-                 то, что верно обоими способами ввода. -->
-            <div class="cal-header">
+            ${/* Навигация одной строкой (01.10.2026, «лучшее ли это решение по
+                  навигации?» — нет): было два способа сменить месяц (стрелки и
+                  ряд из 13 кнопок), два фильтра по типу (плитки и кнопки над
+                  списком) и легенда, повторявшая плитки. Стало: «‹ Месяц ▾ ›»
+                  (по названию — сетка месяцев), «Месяц / Год», «Сегодня»; один
+                  фильтр — плитки; день и ближайшие события — справа. */""}
+            <div class="cal-top">
               <div class="cal-header-title">
                 <h1>${h1Icon("calendar")}Календарь</h1>
-                <p class="cal-header-sub">Дедлайны, задачи и финансы по всем проектам. Нажмите на день — покажем, что в нём, и добавим задачу.</p>
+                <p class="cal-header-sub">Дедлайны, задачи и деньги по всем проектам. Нажмите на день — покажем, что в нём.</p>
+              </div>
+              <div class="cal-nav3 no-print">
+                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${calAllMode ? prevYear() : prevMonth()}')" title="${calAllMode ? "Предыдущий год" : "Предыдущий месяц"}" aria-label="${calAllMode ? "Предыдущий год" : "Предыдущий месяц"}">‹</button>
+                <details class="cal-month-pick">
+                  <summary title="Выбрать месяц">${calAllMode ? yr + " год" : `${monthNames[mo - 1]} ${yr}`}${icon("chevron", 11)}</summary>
+                  <div class="cal-month-pop">
+                    <div class="cal-month-pop-year">
+                      <button type="button" onclick="app.calSetMonth('${prevYear()}')" aria-label="Предыдущий год">‹</button>
+                      <b>${yr}</b>
+                      <button type="button" onclick="app.calSetMonth('${nextYear()}')" aria-label="Следующий год">›</button>
+                    </div>
+                    <div class="cal-month-pop-grid">
+                      ${monthNames.map((name, i) => {
+                        const key = `${yr}-${padZ(i + 1)}`;
+                        const on = !calAllMode && mo === i + 1;
+                        const now = key === today.slice(0, 7);
+                        return `<button type="button" class="${on ? "is-on" : ""}${now ? " is-now" : ""}" onclick="app.calSetMonth('${key}');app.calSetAllMode(false)">${name.slice(0, 3)}</button>`;
+                      }).join("")}
+                    </div>
+                  </div>
+                </details>
+                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${calAllMode ? nextYear() : nextMonth()}')" title="${calAllMode ? "Следующий год" : "Следующий месяц"}" aria-label="${calAllMode ? "Следующий год" : "Следующий месяц"}">›</button>
+                <span class="cal-mode-seg" role="group" aria-label="Период">
+                  <button type="button" class="${calAllMode ? "" : "is-on"}" aria-pressed="${!calAllMode}" onclick="app.calSetAllMode(false)">Месяц</button>
+                  <button type="button" class="${calAllMode ? "is-on" : ""}" aria-pressed="${calAllMode}" onclick="app.calSetAllMode(true)">Год</button>
+                </span>
+                <button class="cal-nav2-today" onclick="app.calSetMonth('${today.slice(0,7)}');app.calSelectDay('${today}');app.calSetAllMode(false)">Сегодня</button>
               </div>
             </div>
 
@@ -27895,27 +27920,9 @@
               </div>`;
             })()}
 
-            <!-- Навигация: месяц/год ← → + Сегодня -->
-            <div class="cal-nav2">
-              <div class="cal-nav2-center">
-                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${calAllMode ? prevYear() : prevMonth()}')" title="${calAllMode ? "Предыдущий год" : "Предыдущий месяц"}">‹</button>
-                <span class="cal-nav2-month">${calAllMode ? yr : `${monthNames[mo - 1]} ${yr}`}</span>
-                <button class="cal-nav2-arrow" onclick="app.calSetMonth('${calAllMode ? nextYear() : nextMonth()}')" title="${calAllMode ? "Следующий год" : "Следующий месяц"}">›</button>
-              </div>
-              <button class="cal-nav2-today" onclick="app.calSetMonth('${today.slice(0,7)}');app.calSelectDay('${today}');app.calSetAllMode(false)">Сегодня</button>
-            </div>
 
-            <!-- Быстрый выбор месяца (горизонтальный скролл) -->
-            <div class="cal-months-scroll" id="calMonthsScroll">
-              <button class="cal-month-pill ${calAllMode ? "active" : ""}" onclick="app.calSetAllMode(true)">Весь год</button>
-              ${monthNames.map((name, i) => {
-                const mIdx = i + 1;
-                const mKey = `${yr}-${padZ(mIdx)}`;
-                const isActive = !calAllMode && mo === mIdx;
-                return `<button class="cal-month-pill ${isActive ? "active" : ""}" onclick="app.calSetMonth('${mKey}');app.calSetAllMode(false)">${name.slice(0,3)}</button>`;
-              }).join("")}
-            </div>
-
+            <div class="cal-body">
+            <div class="cal-main">
             <!-- Дни недели -->
             <div class="cal-weekdays">
               ${["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map((d,i) => `<div class="cal-weekday ${i>=5 ? "weekend" : ""}">${d}</div>`).join("")}
@@ -27965,51 +27972,6 @@
               }).join("")}
             </div>
 
-            <!-- Легенда -->
-            <div class="cal-legend">
-              <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--red)"></div>Дедлайн</div>
-              <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--blue)"></div>Задача</div>
-              <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--green)"></div>Поступление</div>
-              <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--orange)"></div>Расход</div>
-              ${(_googleCalEvents || []).length ? `<div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--primary)"></div>Google Calendar</div>` : ""}
-              ${/* Счётчик стоит ПОД сеткой месяца и читается как «столько в этом
-                    месяце», а считал он все события за всё время: под августом с
-                    одним платежом было написано «Всего событий: 2», а строкой ниже
-                    — «1». Считаем ровно то, что нарисовано в сетке. */""}
-              <div class="cal-legend-item" style="margin-left:auto;font-size:12px;color:var(--muted)">${(() => {
-                const shown = calAllMode ? events : events.filter(ev => ev.date && ev.date.startsWith(`${yr}-${padZ(mo)}`));
-                return `${calAllMode ? "Всего" : "В этом месяце"}: ${shown.length} ${plural(shown.length, "событие", "события", "событий")}`;
-              })()}</div>
-            </div>
-
-            <!-- Selected day panel -->
-            ${selDay ? `
-              <div class="cal-day-panel">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
-                  <h3 style="margin:0;font-size:15px">${formatDate(selDay)}${selDay === today ? " — Сегодня" : ""}</h3>
-                  ${/* Подписанная кнопка вместо «+» в ячейке: на телефоне это
-                        единственный путь завести задачу на день, а на мыши —
-                        второй, читаемый (у «+» в ячейке подписи нет вовсе). */""}
-                  <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto">
-                    <button class="btn small primary" onclick="app.createGlobalTaskOn('${selDay}')"
-                      title="Своя задача на ${escapeHtml(formatDate(selDay))}">${icon("plus", 13)} Задача</button>
-                    <button class="btn small" onclick="app.calSelectDay('')" aria-label="Закрыть день">${icon("close", 13)}</button>
-                  </div>
-                </div>
-                ${selEvents.length ? selEvents.map(ev => `
-                  <div class="cal-day-event-row" style="cursor:${ev.projectId || ev.taskId || ev.htmlLink ? "pointer" : "default"}"
-                    onclick="${ev.personal && ev.taskId ? `app.openGlobalTaskModal('${ev.taskId}')` : ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : ev.htmlLink ? `window.open('${escapeHtml(ev.htmlLink)}','_blank')` : ""}">
-                    <div class="cal-day-event-type" style="background:${typeColor[ev.type]}"></div>
-                    <div class="cal-day-event-info">
-                      <h4>${escapeHtml(ev.title)}</h4>
-                      <p>${escapeHtml(ev.project || "")}${ev.amount ? ` · ${money(ev.amount)}` : ""} · <span style="color:${typeTextColor[ev.type]};font-weight:750">${typeLabel[ev.type] || ""}</span></p>
-                    </div>
-                    
-                  </div>
-                `).join("") : emptyState({ icon: "calendar", size: "sm", text: "Событий нет" })}
-              </div>
-            ` : ""}
-
             <!-- Events list with All/Month toggle + type filter -->
             ${(() => {
               const typeFilters = [
@@ -28038,15 +28000,8 @@
                 <!-- Фильтр по типу + счётчик -->
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px">
                   <span style="font-size:12px;font-weight:750;color:var(--muted);margin-right:2px">${calAllMode ? yr + " год" : monthNames[mo-1] + " " + yr}:</span>
-                  <div style="display:flex;gap:4px;flex-wrap:wrap">
-                    ${/* Класс нужен, чтобы до кнопок дотягивался CSS: целиком на
-                          инлайновых стилях они оставались 27px высотой на телефоне,
-                          и ни одно правило про цели касания их не видело. */""}
-                    ${/* Вид — в классах .cal-type-chip / .active (style.css), а не инлайном:
-                          инлайн-рамка и фон перебивали любое :hover, и фильтр
-                          никак не отзывался на наведение (замер 11.09.2026). */""}
-                    ${typeFilters.map(f => `<button class="cal-type-chip${calTypeFilter===f.id?" active":""}" aria-pressed="${calTypeFilter===f.id}" onclick="app.calSetTypeFilter('${f.id}')">${escapeHtml(f.label)}</button>`).join("")}
-                  </div>
+                  ${/* Кнопки-фильтры по типу здесь были — повторяли плитки сводки сверху. */""}
+                  ${calTypeFilter !== "all" ? `<button type="button" class="cal-type-chip active" onclick="app.calSetTypeFilter('all')" title="Показать все события">${escapeHtml((typeFilters.find(f => f.id === calTypeFilter) || {}).label || "")} · сбросить</button>` : ""}
                   <span style="font-size:12px;color:var(--muted);margin-left:auto">${listEvents.length} ${plural(listEvents.length, "событие", "события", "событий")}</span>
                 </div>
                 ${!listEvents.length
@@ -28082,6 +28037,55 @@
                 }
               </div>`;
             })()}
+            </div>
+            <aside class="cal-side">
+            <!-- Selected day panel -->
+            ${selDay ? `
+              <div class="cal-day-panel cal-side-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
+                  <h3 style="margin:0;font-size:15px" title="${escapeHtml(formatDate(selDay))}">${(() => { const d = new Date(selDay + "T00:00:00"); return `${d.getDate()} ${["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"][d.getMonth()]}, ${["вс","пн","вт","ср","чт","пт","сб"][d.getDay()]}`; })()}${selDay === today ? " · сегодня" : ""}</h3>
+                  ${/* Подписанная кнопка вместо «+» в ячейке: на телефоне это
+                        единственный путь завести задачу на день, а на мыши —
+                        второй, читаемый (у «+» в ячейке подписи нет вовсе). */""}
+                  <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto">
+                    <button class="btn small primary" onclick="app.createGlobalTaskOn('${selDay}')"
+                      title="Своя задача на ${escapeHtml(formatDate(selDay))}">${icon("plus", 13)} Задача</button>
+                    <button class="btn small" onclick="app.calSelectDay('')" aria-label="Закрыть день">${icon("close", 13)}</button>
+                  </div>
+                </div>
+                ${selEvents.length ? selEvents.map(ev => `
+                  <div class="cal-day-event-row" style="cursor:${ev.projectId || ev.taskId || ev.htmlLink ? "pointer" : "default"}"
+                    onclick="${ev.personal && ev.taskId ? `app.openGlobalTaskModal('${ev.taskId}')` : ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : ev.htmlLink ? `window.open('${escapeHtml(ev.htmlLink)}','_blank')` : ""}">
+                    <div class="cal-day-event-type" style="background:${typeColor[ev.type]}"></div>
+                    <div class="cal-day-event-info">
+                      <h4>${escapeHtml(ev.title)}</h4>
+                      <p>${escapeHtml(ev.project || "")}${ev.amount ? ` · ${money(ev.amount)}` : ""} · <span style="color:${typeTextColor[ev.type]};font-weight:750">${typeLabel[ev.type] || ""}</span></p>
+                    </div>
+                    
+                  </div>
+                `).join("") : emptyState({ icon: "calendar", size: "sm", text: "Событий нет" })}
+              </div>
+            ` : ""}
+
+            ${!selDay ? (() => {
+              const next = events.filter(ev => ev.date >= today && (calTypeFilter === "all" || ev.type === calTypeFilter))
+                .sort((a, b) => a.date.localeCompare(b.date) || (_calEventRank[a.type] ?? 9) - (_calEventRank[b.type] ?? 9)).slice(0, 7);
+              return `<div class="cal-side-card">
+                <div class="cal-side-head"><h3>Ближайшие</h3>
+                  <button class="btn small primary" onclick="app.createGlobalTaskOn('${today}')" title="Своя задача на сегодня">${icon("plus", 13)} Задача</button></div>
+                ${next.length ? next.map(ev => {
+                  const d = new Date(ev.date + "T00:00:00");
+                  const amt = numberValue(ev.amount, 0);
+                  return `<button type="button" class="cal-up-row" style="--c:${typeColor[ev.type]}" onclick="app.calSetMonth('${ev.date.slice(0, 7)}');app.calSelectDay('${ev.date}');app.calSetAllMode(false)">
+                    <span class="cal-up-date"><b>${d.getDate()}</b><small>${["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"][d.getMonth()]}</small></span>
+                    <span class="cal-up-text"><b title="${escapeHtml(ev.title)}">${escapeHtml(ev.title)}</b>${(() => { const sub = (ev.date === today ? "сегодня" : typeLabel[ev.type] || "") + (ev.project && ev.project !== ev.title ? " · " + ev.project : ""); return `<small title="${escapeHtml(sub)}">${escapeHtml(sub)}</small>`; })()}</span>
+                    ${amt > 0 && (ev.type === "payment" || ev.type === "expense") ? `<b class="cal-up-sum" style="color:${typeTextColor[ev.type]}">${ev.type === "payment" ? "+" : "−"}${money(amt)}</b>` : ""}
+                  </button>`;
+                }).join("") : `<p class="u-meta" style="margin:6px 0 0">Впереди событий нет. Нажмите на день в календаре, чтобы добавить задачу.</p>`}
+              </div>`;
+            })() : ""}
+            </aside>
+            </div>
           </div>
         `;
       }

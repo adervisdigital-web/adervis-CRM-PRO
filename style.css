@@ -11665,3 +11665,68 @@ button.summary-adjust-row:hover { background: rgb(var(--primary-rgb) / .06); bor
 .deal-switcher-item-pay.is-empty { background: transparent; }
 .deal-switcher-item { transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
 .deal-switcher-item.active { box-shadow: 0 8px 22px -16px rgb(var(--primary-rgb) / .8); }
+
+/* ── Календарь: навигация одной строкой, день справа (01.10.2026) ─────── */
+.cal-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; margin-bottom: 14px; }
+.cal-top .cal-header-title { min-width: 0; }
+.cal-top .cal-header-title h1 { margin: 0; }
+.cal-nav3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cal-month-pick { position: relative; }
+.cal-month-pick > summary {
+  list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 12px;
+  border-radius: var(--r-md); cursor: pointer; font-family: var(--font-display); font-size: 16px; font-weight: 700; white-space: nowrap;
+  transition: background var(--dur-1);
+}
+.cal-month-pick > summary::-webkit-details-marker { display: none; }
+.cal-month-pick > summary:hover { background: rgb(var(--primary-rgb) / .08); }
+.cal-month-pick > summary svg { transform: rotate(90deg); color: var(--muted); transition: transform var(--dur-2); }
+.cal-month-pick[open] > summary svg { transform: rotate(-90deg); }
+.cal-month-pop {
+  position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); z-index: var(--z-dropdown);
+  width: 244px; padding: 10px; background: var(--bg2); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--elev-3);
+  animation: estOpen .2s var(--ease-out) both;
+}
+.cal-month-pop-year { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cal-month-pop-year b { font-family: var(--font-display); font-size: 14px; }
+.cal-month-pop-year button, .cal-month-pop-grid button {
+  border: 1px solid transparent; background: transparent; color: var(--text); font: inherit; cursor: pointer; border-radius: var(--r-sm);
+  transition: background var(--dur-1), border-color var(--dur-1);
+}
+.cal-month-pop-year button { width: 30px; height: 28px; font-size: 16px; }
+.cal-month-pop-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.cal-month-pop-grid button { height: 34px; font-size: 13px; font-weight: 600; }
+.cal-month-pop button:hover { background: rgb(var(--primary-rgb) / .1); }
+.cal-month-pop-grid button.is-now { border-color: rgb(var(--primary-rgb) / .45); }
+.cal-month-pop-grid button.is-on { background: var(--primary); color: var(--on-color); }
+.cal-mode-seg { display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel2); }
+.cal-mode-seg button { min-height: 30px; padding: 3px 12px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cal-mode-seg button:hover { color: var(--text); }
+.cal-mode-seg button.is-on { background: rgb(var(--primary-rgb) / .16); color: var(--primary-text); }
+@media (hover: none) and (pointer: coarse) { .cal-mode-seg button, .cal-month-pop-grid button { min-height: 44px; } .cal-month-pick > summary { min-height: 44px; } .cal-month-pop-year button { width: 44px; height: 44px; } }
+
+.cal-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.cal-main { min-width: 0; }
+.cal-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* Две колонки, когда панели календаря хватает места (окно ≥1400 = ~1130px панели
+   с меню слева). Контейнерным запросом нельзя: он не меряет сам себя. */
+@media (min-width: 1400px) {
+  .cal-body { grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+  .cal-side { position: sticky; top: 86px; }
+}
+.cal-side-card { padding: 14px; border: 1px solid var(--line); border-radius: var(--r-xl); background: var(--panel2); }
+.cal-side .cal-day-panel { margin: 0; }
+.cal-side-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.cal-side-head h3 { margin: 0; font-size: 15px; }
+.cal-up-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 6px 8px; margin: 0 0 4px;
+  border: 1px solid transparent; border-radius: var(--r-md); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+  transition: background var(--dur-1), border-color var(--dur-1);
+}
+.cal-up-row:hover { background: color-mix(in srgb, var(--c) 8%, transparent); border-color: color-mix(in srgb, var(--c) 30%, var(--line)); }
+.cal-up-date { flex: 0 0 38px; display: flex; flex-direction: column; align-items: center; padding: 3px 0; border-radius: var(--r-sm); box-shadow: inset 0 3px 0 var(--c); background: var(--panel); }
+.cal-up-date b { font-family: var(--font-display); font-size: 15px; line-height: 1.1; }
+.cal-up-date small { font-size: 10.5px; color: var(--muted); }
+.cal-up-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.cal-up-text b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-up-text small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-up-sum { flex: 0 0 auto; font-family: var(--font-display); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
