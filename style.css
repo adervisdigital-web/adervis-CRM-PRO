@@ -4570,11 +4570,11 @@
        ритм колонок графика под ним. */
     .db-money-sums {
       display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-      margin-bottom: 4px; border-bottom: 1px solid var(--line); padding-bottom: 10px;
+      margin: 4px 0 6px; border-bottom: 1px solid var(--line); padding-bottom: 14px;
     }
     .db-money-sum {
-      display: flex; flex-direction: column; gap: 2px; min-width: 0;
-      padding-left: 14px; border-left: 1px solid var(--line);
+      display: flex; flex-direction: column; gap: 3px; min-width: 0;
+      padding-left: 18px; border-left: 1px solid var(--line);
     }
     .db-money-sum:first-child { padding-left: 0; border-left: none; }
     /* Ниже 1100px четыре колонки дают по 130px на число с длинной подписью —
@@ -4583,11 +4583,16 @@
       .db-money-sums { grid-template-columns: 1fr 1fr; gap: 10px 0; }
       .db-money-sum:nth-child(3) { padding-left: 0; border-left: none; }
     }
-    .db-money-sum b { font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-    .db-money-lbl {
-      font-size: 11px; color: var(--muted); font-weight: 650;
-      text-transform: uppercase; letter-spacing: .04em;
+    .db-money-sum b {
+      font-family: var(--font-display); font-size: 22px; font-weight: 700; line-height: 1.15;
+      font-variant-numeric: tabular-nums; letter-spacing: -.01em; white-space: nowrap;
     }
+    /* Подпись — обычным регистром (владелец 30.09.2026: заглавные «ДОХОД / РАСХОД»
+       кричали и спорили с числами). */
+    .db-money-lbl { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+    .db-money-trend { display: flex; align-items: center; gap: 6px; min-height: 18px; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+    .db-money-trend .db-delta { margin-left: 0; }
+    .db-delta-note { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
     /* Маржа под прибылью: мини-шкала доли дохода, оставшейся после расходов. */
     .db-money-margin {
       display: inline-flex; align-items: center; gap: 7px; margin-top: 3px;

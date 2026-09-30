@@ -19766,7 +19766,7 @@
           const pct = Math.round((cur - prev) / prev * 100);
           const dir = pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
           const good = dir === 'flat' ? '' : ((dir === 'up') === goodUp ? ' is-good' : ' is-bad');
-          return `<span class="db-delta is-${dir}${good}" title="К предыдущим ${span} мес (${prevLabel}): ${money(prev)}">${dir === 'up' ? '↑' : dir === 'down' ? '↓' : '→'} ${Math.abs(pct)}%</span>`;
+          return `<span class="db-delta is-${dir}${good}" title="К предыдущим ${span} мес (${prevLabel}): ${money(prev)}">${dir === 'up' ? '↑' : dir === 'down' ? '↓' : '→'} ${Math.abs(pct)}%</span><span class="db-delta-note">к прошлым ${span} мес</span>`;
         };
         // При смещении назад (chartOffset>0) не прячем секцию целиком даже если период
         // пустой — иначе пропадают и стрелки навигации, вернуться к текущим месяцам будет нечем.
@@ -19919,9 +19919,13 @@
                       маржа ${marginPct}%</span>`;
                 return `
               <div class="db-money-sums">
-                <div class="db-money-sum" data-series="rev"><span class="db-money-lbl">Доход ${deltaHtml(totalRev, prevRev, true)}</span><b style="color:var(--text-success)">${money(totalRev)}</b></div>
-                <div class="db-money-sum" data-series="exp"><span class="db-money-lbl">Расход ${deltaHtml(totalExp, prevExp, false)}</span><b style="color:var(--text-danger)">${money(totalExp)}</b></div>
-                <div class="db-money-sum" data-series="profit"><span class="db-money-lbl">Прибыль ${deltaHtml(profit, prevRev - prevExp, true)}</span><b style="color:${profit>=0?'var(--text-success)':'var(--text-danger)'}">${money(profit)}</b>${marginHtml}</div>
+                ${/* 30.09.2026 (владелец: «зачем всё большими буквами? … не красиво по
+                      композиции»): подпись обычным регистром, число крупнее, а
+                      изменение к прошлому периоду — отдельной строкой ПОД числом, а
+                      не капсулой, прилипшей к подписи. */""}
+                <div class="db-money-sum" data-series="rev"><span class="db-money-lbl">Доход</span><b style="color:var(--text-success)">${money(totalRev)}</b><span class="db-money-trend">${deltaHtml(totalRev, prevRev, true) || "&nbsp;"}</span></div>
+                <div class="db-money-sum" data-series="exp"><span class="db-money-lbl">Расход</span><b style="color:var(--text-danger)">${money(totalExp)}</b><span class="db-money-trend">${deltaHtml(totalExp, prevExp, false) || "&nbsp;"}</span></div>
+                <div class="db-money-sum" data-series="profit"><span class="db-money-lbl">Прибыль</span><b style="color:${profit>=0?'var(--text-success)':'var(--text-danger)'}">${money(profit)}</b><span class="db-money-trend">${deltaHtml(profit, prevRev - prevExp, true) || "&nbsp;"}</span>${marginHtml}</div>
                 ${/* Четвёртая величина — не ради симметрии: три колонки на широкой
                       панели оставляли справа пустую четверть, а средний доход за
                       месяц отвечает на вопрос «на что я живу», которого ни одна из
@@ -19929,8 +19933,9 @@
                       денег, а не на шесть: пустые месяцы занизили бы среднее и
                       сделали бы его неправдой. */""}
                 <div class="db-money-sum" title="Средний доход за месяц по тем месяцам периода, в которых были поступления">
-                  <span class="db-money-lbl">В среднем / мес</span>
+                  <span class="db-money-lbl">В среднем за месяц</span>
                   <b>${money(monthsWithData > 0 ? Math.round(totalRev / monthsWithData) : 0)}</b>
+                  <span class="db-money-trend">доход</span>
                 </div>
               </div>`; })() : ""}
             <div class="db-analytics-body">
