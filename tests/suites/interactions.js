@@ -792,9 +792,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
       await page.evaluate((id) => { window.app.newProject(); window.app.applyPackage(id); window.app.go("deal"); }, pid);
       await page.waitForTimeout(250);
       return page.evaluate(() => {
-        const t = document.getElementById("appContent").textContent.replace(/\s+/g, " ");
-        const m = t.match(/([\d\s]+)\s*₽\s*\d+ позиц/);
-        return m ? Number(m[1].replace(/\D/g, "")) : null;
+        // С 30.09.2026 сумма в полосе над сметой спрятана, когда рядом «Итоги сметы»,
+        // а «N позиций» из полосы убрано — читаем само число итога (оно в разметке).
+        const m = ((document.querySelector("#appContent .est-head-total") || {}).textContent || "").match(/[\d\s ]+/);
+        return m ? Number(m[0].replace(/\D/g, "")) : null;
       });
     };
 
@@ -4823,7 +4824,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
-  await test("настройки: валюта — одна на студию, КП и оплата — своей вкладкой, установка — в «Оформлении»", async () => {
+  await test("настройки: валюта — одна на студию, КП и оплата — своей вкладкой, установка — в «Интеграциях»", async () => {
     /* 29.09.2026, владелец: «по логике "Валюта" стоит на своём месте?» и
        «проверь всю логику по навигации там». Валюта из «Настроек» писалась в
        ОТКРЫТУЮ сделку, а знак брали все суммы: главная показывала «76 750 $»
@@ -4897,9 +4898,9 @@ module.exports = async function ({ browser, baseUrl, test }) {
       const kp = await вкладка("kp");
       assert(kp.подпись && /Оплата аванса в КП/.test(kp.т) && /Тексты для клиента/.test(kp.т), "во вкладке «КП и договоры» не всё: подпись, оплата, тексты");
       const вид = await вкладка("appearance");
-      assert(/Установить ADERVIS/.test(вид.т), "установки приложения нет в «Оформлении»");
+      assert(!/Установить ADERVIS/.test(вид.т), "установка приложения снова в «Оформлении»");
       const инт = await вкладка("integrations");
-      assert(!/Установить ADERVIS/.test(инт.т), "установка приложения осталась в «Интеграциях»");
+      assert(/Установить ADERVIS/.test(инт.т), "установки приложения нет в «Интеграциях» (владелец 30.09.2026)");
     } finally {
       await ctx.close();
     }
@@ -5905,9 +5906,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
         window.app.applyPackage(pid);
         window.app.go("deal");
         await new Promise((r) => setTimeout(r, 100));
-        const t = document.getElementById("appContent").textContent.replace(/\s+/g, " ");
-        const m = t.match(/([\d\s ]+)\s*₽\s*\d+ позиц/);
-        return m ? Number(m[1].replace(/\D/g, "")) : null;
+        // С 30.09.2026 сумма в полосе над сметой спрятана, когда рядом «Итоги сметы»,
+        // а «N позиций» из полосы убрано — читаем само число итога (оно в разметке).
+        const m = ((document.querySelector("#appContent .est-head-total") || {}).textContent || "").match(/[\d\s ]+/);
+        return m ? Number(m[0].replace(/\D/g, "")) : null;
       }, id);
       if (cards[id] == null) { bad.push(`${name}: карточки нет на витрине`); continue; }
       if (applied == null) { bad.push(`${name}: итог сметы не прочитался`); continue; }
@@ -8412,7 +8414,8 @@ module.exports = async function ({ browser, baseUrl, test }) {
       const bodies = () => p.evaluate(() => document.querySelectorAll(".estimate-stage .stage-body").length);
       const b0 = await bodies();
       await p.locator(".estimate-stage .stage-header--toggle").first().click({ position: { x: 200, y: 16 } });
-      await p.waitForTimeout(300);
+      // С 30.09.2026 этап сворачивается плавно (до 0,5 с, по высоте) — ждём результат, а не 300 мс.
+      await p.waitForFunction((n) => document.querySelectorAll(".estimate-stage .stage-body").length === n, b0 - 1, { timeout: 2000 }).catch(() => {});
       assertEqual(await bodies(), b0 - 1, "нажатие на заголовок этапа не свернуло его");
       assert(!(await p.$(".stage-collapsed-note")), "под свёрнутым этапом снова строка «Этап свернут…»");
 

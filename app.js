@@ -11953,22 +11953,53 @@
          сворачиваемый блок сначала уезжает на месте (высота → 0), и только потом
          перерисовка; раскрытый — после перерисовки проявляется. */
       const _collapseBusy = new Set();
+      /* Длительность — от высоты: строка в 300px и этап в 6000px за одно и то же
+         время выглядят по-разному (этап улетал рывком). Кривая мягкая с обоих
+         концов. Отступы блока сворачиваются вместе с высотой — иначе в конце
+         оставалась полоска в 32px и исчезала скачком. */
+      const COLLAPSE_EASE = "cubic-bezier(.4, 0, .2, 1)";
+      const _collapseMs = (h) => Math.round(Math.max(240, Math.min(520, 200 + h * 0.08)));
+      const _clearCollapseStyles = (el) => {
+        ["maxHeight", "overflow", "opacity", "transition", "paddingTop", "paddingBottom"].forEach(k => { el.style[k] = ""; });
+      };
       function _animateClose(el, done) {
         if (!el || _reducedMotion()) { done(); return; }
+        const h = el.scrollHeight, ms = _collapseMs(h);
+        // Свой переход у блока (у .line-details он в CSS) подхватил бы стартовое
+        // значение и повёл бы его от 2000px — сначала выключаем, потом ведём сами.
+        el.style.transition = "none";
         el.style.overflow = "hidden";
-        el.style.maxHeight = el.scrollHeight + "px";
+        el.style.maxHeight = h + "px";
         void el.offsetHeight;
-        el.style.transition = "max-height .22s var(--ease-out), opacity .16s ease";
+        el.style.transition = `max-height ${ms}ms ${COLLAPSE_EASE}, padding ${ms}ms ${COLLAPSE_EASE}, opacity ${Math.round(ms * 0.7)}ms ease`;
         el.style.maxHeight = "0px";
+        el.style.paddingTop = "0px";
+        el.style.paddingBottom = "0px";
         el.style.opacity = "0";
-        setTimeout(done, 220);
+        setTimeout(done, ms);
+      }
+      /* Раскрытие было «проявлением» блока, который уже стоит во всю высоту:
+         содержимое прыгало вниз разом (владелец 30.09.2026: «происходит не
+         плавно»). Теперь высота и отступы растут от нуля до своих. */
+      function _animateOpenEl(el) {
+        if (!el || _reducedMotion()) return;
+        const h = el.scrollHeight, ms = _collapseMs(h);
+        el.style.transition = "none";
+        el.style.overflow = "hidden";
+        el.style.maxHeight = "0px";
+        el.style.paddingTop = "0px";
+        el.style.paddingBottom = "0px";
+        el.style.opacity = "0";
+        void el.offsetHeight;
+        el.style.transition = `max-height ${ms}ms ${COLLAPSE_EASE}, padding ${ms}ms ${COLLAPSE_EASE}, opacity ${ms}ms ease`;
+        el.style.maxHeight = h + "px";
+        el.style.paddingTop = "";
+        el.style.paddingBottom = "";
+        el.style.opacity = "1";
+        setTimeout(() => _clearCollapseStyles(el), ms + 30);
       }
       function _animateOpen(sel) {
-        if (_reducedMotion()) return;
-        const el = document.querySelector(sel);
-        if (!el) return;
-        el.classList.add("is-opening");
-        setTimeout(() => el.classList.remove("is-opening"), 450);
+        document.querySelectorAll(sel).forEach(_animateOpenEl);
       }
 
       function toggleLineCollapse(id) {
@@ -12048,9 +12079,23 @@
       }
 
       function toggleAllEstimate() {
+        if (_collapseBusy.has("all")) return;
         const stagesWithItems = state.stages.filter(stage => selectedIdsByStage(stage.id, true).length);
         const allCollapsed = stagesWithItems.length > 0 && stagesWithItems.every(stage => state.stageCollapsed?.[stage.id]);
-        if (allCollapsed) expandAllEstimate(); else collapseAllEstimate();
+        if (allCollapsed) {
+          expandAllEstimate();
+          _animateOpen(".estimate-stage .stage-body");
+          return;
+        }
+        const bodies = [...document.querySelectorAll(".estimate-stage .stage-body")];
+        if (!bodies.length || _reducedMotion()) { collapseAllEstimate(); return; }
+        _collapseBusy.add("all");
+        let left = bodies.length;
+        bodies.forEach(b => _animateClose(b, () => {
+          if (--left) return;
+          _collapseBusy.delete("all");
+          collapseAllEstimate();
+        }));
       }
 
       function toggleSummary() {
@@ -13219,6 +13264,13 @@
       // раньше состояние выводилось из наличия текста (clientComment || internalComment),
       // из-за чего render() (напр. от чужого realtime-снапшота) мог схлопнуть только что
       // открытый пустой <details> прямо во время печати и увести фокус в никуда.
+      // Какие блоки «Монтаж» раскрыты (renderLineAdvancedControls) — память
+      // страницы, не сделки: перерисовка не должна схлопывать открытый блок.
+      const _calcFoldOpen = {};
+      function setCalcFoldOpen(id, isOpen) {
+        if (isOpen) _calcFoldOpen[id] = true; else delete _calcFoldOpen[id];
+      }
+
       function setLineCommentsOpen(id, isOpen) {
         if (!state.lineCommentsOpen) state.lineCommentsOpen = {};
         state.lineCommentsOpen[id] = isOpen;
@@ -21100,10 +21152,10 @@
                     Теперь строка выходит только когда гонорары команды действительно
                     начислены, но ещё не выплачены, и называет себя этим. */""}
               ${fin.teamPayouts !== fin.teamPayoutsPaid ? `<div class="summary-line" style="font-size:12px;color:var(--muted)" title="Гонораров начислено ${money(fin.teamPayouts)}, выплачено ${money(fin.teamPayoutsPaid)}. Доход в строке плановый — по сумме сметы, а не по полученным деньгам."><span>Прибыль без невыплаченных гонораров</span><strong>${money(fin.profitFact)}</strong></div>` : ""}
-              <div class="mt-8">
-                ${fin.revenue > 0 ? `<span class="margin-badge ${marginClass}" title="${escapeHtml(marginTitle)}">${margin}% маржа</span>` : ""}
-                ${!costsKnown && fin.revenue > 0 ? `<div class="u-meta" style="margin-top:6px">Себестоимость не заполнена — прибыль показана как вся сумма сметы</div>` : ""}
-              </div>
+              ${/* Маржи здесь нет: она уже стоит капсулой в шапке сделки, над
+                    вкладками (владелец 30.09.2026: «у нас уже есть маржа вверху»).
+                    Остаётся пояснение, почему прибыль равна всей сумме. */""}
+              ${!costsKnown && fin.revenue > 0 ? `<div class="u-meta" style="margin-top:8px;line-height:1.4">Себестоимость не заполнена — прибыль показана как вся сумма сметы</div>` : ""}
               ${fin.profit < 0 ? `<div class="no-print" style="margin-top:10px;padding:9px 12px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:10px;font-size:12px;font-weight:700;color:var(--text-danger)"> Смета в минусе: себестоимость и расходы превышают цену для клиента</div>` : ""}
             </div>`}
 
@@ -22798,64 +22850,87 @@
                 ${projectFields()}
               `}
 
-              <!-- Компактная шапка сметы -->
-              <div style="display:flex;align-items:center;gap:10px;margin-top:${inDeal ? "0" : "18px"};margin-bottom:10px;flex-wrap:wrap;padding:10px 14px;background:var(--panel2);border-radius:14px;border:1px solid var(--line)">
-                <div style="flex:1;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              ${/* Полоса над сметой, 30.09.2026 (владелец: «этот блок стоит удобно по
+                    дизайну?»). Было: сумма (третья копия на экране — есть в шапке
+                    сделки и в «Итогах»), налог без подписи и четыре кнопки одного
+                    веса. Стало: главное действие — «+ Услуги» — выделено, справа
+                    настройки сметы (налог подписан, скидка, «свернуть всё» значком).
+                    Сумма остаётся только там, где «Итогов» рядом нет (≤1160px). */""}
+              <div class="est-bar${inDeal ? "" : " is-standalone"}">
+                <div class="est-bar-main">
                   ${(() => {
                     const d = displayTotal(t);
-                    return `<div>
-                    <div class="est-head-total">${money(d.total)}</div>
-                    <div style="font-size:12px;color:var(--muted);margin-top:1px">${d.budgetOnly
-                      ? "бюджет без разбивки"
-                      : `${totalItems} позиц.${t.optional ? ` · опции +${money(t.optional)}` : ""}`}</div>
-                  </div>`;
+                    return `<div class="est-bar-total">
+                      <div class="est-head-total">${money(d.total)}</div>
+                      ${d.budgetOnly ? `<div class="est-bar-sub">бюджет без разбивки</div>` : t.optional ? `<div class="est-bar-sub">опции +${money(t.optional)}</div>` : ""}
+                    </div>`;
                   })()}
-                  <!-- max-width обязателен: enhanceSelects растягивает кастом-дропдаун по
-                       самому длинному варианту («Самозанятый (НПД), с юрлицами/ИП — 6%»),
-                       и на телефоне селект уезжал за край экрана, утаскивая страницу вбок
-                       (замер на 390px: −63px). Та же грабля, что с тулбаром каталога. -->
-                  <select data-autosave data-scope="project" data-key="taxType" title="Налог в смете" aria-label="Налог в смете" style="width:auto;max-width:100%;padding:5px 30px 5px 10px;font-size:12px;border-radius:10px;margin-left:4px">
-                    ${taxOptionsHtml(state.project.taxType)}
-                  </select>
+                  ${stagesWithItems.length ? `
+                  ${/* «+ Услуги» и «+ Пакет» были непонятны (владелец 30.09.2026):
+                        теперь это плитки со значком, названием и подсказкой, что
+                        внутри. */""}
+                  <div class="est-bar-add no-print">
+                    <button type="button" class="est-add-tile is-main" onclick="app.go('catalog')">
+                      ${iconBadge("catalog", "var(--primary-text)", 34)}
+                      <span class="est-add-text"><b>Услуги из каталога</b><small>люди, техника, монтаж</small></span>
+                      ${icon("plus", 14)}
+                    </button>
+                    <button type="button" class="est-add-tile" onclick="app.go('packages')">
+                      ${iconBadge("gift", "var(--orange)", 34)}
+                      <span class="est-add-text"><b>Готовый пакет</b><small>набор позиций сразу</small></span>
+                      ${icon("plus", 14)}
+                    </button>
+                    ${inDeal ? "" : `<button class="btn small" onclick="app.createVersion()">Версия</button>`}
+                  </div>` : ""}
+                  ${/* Кнопка Excel ПЕРЕЕХАЛА в меню «⋮» шапки сделки (просьба
+                        владельца): здесь панель рисуется только при позициях, а у
+                        сделки «одним числом» кнопки не было бы вовсе. */""}
+                </div>
+                <div class="est-bar-tools">
+                  ${/* Числа позиций здесь нет: оно стоит у каждого этапа, а в полосе
+                        из-за него настройки не помещались в строку с плитками и
+                        падали вниз под пустоту (скриншот владельца 30.09.2026). */""}
+                  ${/* max-width обязателен: enhanceSelects растягивает кастом-дропдаун
+                        по самому длинному варианту, и на телефоне селект уезжал за
+                        край экрана (замер на 390px: −63px). */""}
+                  <label class="est-bar-tax">
+                    <span>Налог</span>
+                    <select data-autosave data-scope="project" data-key="taxType" title="Налог в смете" aria-label="Налог в смете">
+                      ${taxOptionsHtml(state.project.taxType)}
+                    </select>
+                  </label>
                   ${(() => {
-                    // Сверка с бюджетом, который назвал клиент. Без неё сборка сметы
-                    // идёт вслепую: сумму видно, а «влезаем или нет» — только в уме,
-                    // причём сравнивать надо с итогом ПОСЛЕ налога, его клиент и платит.
+                    // Сверка с бюджетом, который назвал клиент — с итогом ПОСЛЕ налога.
+                    // Блок кликабельный: бюджет можно поменять или убрать.
                     const cb = numberValue(state.project.clientBudget, 0);
                     if (cb <= 0 || !totalItems) return "";
                     const diff = cb - numberValue(t.total, 0);
                     const over = diff < 0;
                     const color = over ? "var(--red)" : "var(--green)";
-                    /* Блок кликабельный: бюджет называют при создании сделки, а
-                       потом он живёт вечно — поменять или убрать его было негде,
-                       и смета до конца проекта показывала «перерасход» по цифре,
-                       о которой давно договорились иначе. */
                     return `<button type="button" class="client-budget-chip" onclick="app.editClientBudget()"
                       title="Бюджет назван клиентом при создании сделки. Нажмите, чтобы изменить или убрать — сравнивается с итогом сметы с налогом.">
                       <span style="font-size:12px;color:var(--muted)">бюджет клиента ${money(cb)}</span>
                       <span style="font-size:13px;font-weight:800;color:${color}">${over ? "перерасход " + money(-diff) : "запас " + money(diff)}</span>
                     </button>`;
                   })()}
+                  ${stagesWithItems.length ? `
+                  <div class="toolbar no-print est-bar-btns">
+                    ${renderEstimateDiscountButton(t)}
+                    <button class="btn small estimate-collapse-all-btn est-bar-icon ${allStagesCollapsed ? "collapsed" : ""}" onclick="app.toggleAllEstimate()"
+                      title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}" aria-label="${allStagesCollapsed ? "Развернуть все этапы" : "Свернуть все этапы"}">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
+                    </button>
+                  </div>` : ""}
                 </div>
                 ${stagesWithItems.length ? `
-                ${/* 8px, а не 5: при переносе на две строки кнопки вставали почти
-                      вплотную и читались одной длинной подписью («Свернуть всё+
-                      Услуги»). Зазор из шкалы DESIGN.md. */""}
-                <div class="toolbar no-print" style="gap:8px;flex-direction:row;flex-wrap:wrap">
-                  ${renderEstimateDiscountButton(t)}
-                  <button class="btn small estimate-collapse-all-btn ${allStagesCollapsed ? "collapsed" : ""}" onclick="app.toggleAllEstimate()" title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
-                    ${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}
-                  </button>
-                  <button class="btn small" onclick="app.go('catalog')">${icon("plus", 13)} Услуги</button>
-                  <button class="btn small" onclick="app.go('packages')">${icon("plus", 13)} Пакет</button>
-                  ${inDeal ? "" : `<button class="btn small" onclick="app.createVersion()">Версия</button>`}
-                  ${/* Кнопка Excel ПЕРЕЕХАЛА в меню «⋮» шапки сделки (просьба
-                        владельца). Здесь её держать было нельзя по той же причине,
-                        по которой она когда-то тут появилась: панель рисуется только
-                        при `stagesWithItems.length`, то есть у сделки с бюджетом
-                        «одним числом» кнопки не было вовсе. В меню шапки она есть
-                        всегда, и второй копии на экране мы не заводим. */""}
+                ${/* Прямо в нужный раздел каталога — те же разделы и значки, что
+                      в каталоге и у позиций сметы; без «открыл каталог — ищу». */""}
+                <div class="est-bar-jump no-print">
+                  <span class="est-bar-jump-lbl">В раздел</span>
+                  ${["crew", "shoot", "gear", "post", "money"].map(gid => {
+                    const g = CATALOG_GROUPS.find(x => x.id === gid);
+                    return g ? `<button type="button" class="est-jump" style="--c:${g.color}" onclick="app.goCatalogGroup('${g.id}')" title="Открыть каталог: ${escapeHtml(g.label)} — ${escapeHtml(g.hint)}">${icon(g.ic, 13)}<span>${escapeHtml(g.label)}</span></button>` : "";
+                  }).join("")}
                 </div>` : ""}
               </div>
 
@@ -23114,7 +23189,11 @@
                   </button>
                 </div>
                 <div class="line-total-note">${line.optional ? "Не входит в итог" : "В итоге"}</div>
-                ${numberValue(line.cost, 0) > 0 ? (() => {
+                ${/* У позиции «Расходы» себестоимость равна цене по смыслу: это
+                      деньги, которые проходят через студию насквозь. Красная
+                      «Маржа: 0 ₽ (0%)» на каждой такой строке звучала как тревога,
+                      а пометка «Расходы» и так говорит всё. */""}
+                ${numberValue(line.cost, 0) > 0 && !isPassthroughCostItem(itemData) ? (() => {
                   const margin = total - numberValue(line.cost, 0);
                   const marginPct = total > 0 ? Math.round(margin / total * 100) : 0;
                   const mColor = marginPct >= 40 ? "var(--green)" : marginPct >= 20 ? "var(--yellow)" : "var(--red)";
@@ -23772,9 +23851,33 @@
           const editRates = getEffectiveRates(itemData);
           const editInc = editIncluded(itemData);
           const urgentMode = line.urgentMode || "none";
+          /* Девять полей монтажа занимали полэкрана даже тогда, когда всё давно
+             выставлено (скриншот владельца 30.09.2026). Теперь это одна строка-
+             сводка того, что выбрано, а поля — по нажатию. Открыт блок или нет,
+             помнит страница (как комментарии строки), в сделку это не пишется. */
+          const VT = { standard: "Стандартный ролик", reels: "Reels / Shorts", interview: "Интервью", event: "Мероприятие", ad: "Рекламный ролик", education: "Обучающее видео" };
+          const CX = { simple: "Простая ×0.85", standard: "Стандарт ×1", advanced: "Сложная ×1.35", premium: "Премиум ×1.7", advertising: "Рекламная ×2" };
+          const DUR = { "15": "15 сек", "30": "30 сек", "60": "1 мин", "120": "2 мин", "300": "5 мин", "600": "10 мин", "900": "15 мин", "1200": "20 мин" };
+          const cams = Math.max(1, numberValue(line.cameraCount, 1) || 1);
+          const srcs = Math.max(1, numberValue(line.sourceCount || line.sourcePacks, 1) || 1);
+          const ev = numberValue(line.extraVersions, 0), er = numberValue(line.extraRevisions, 0);
+          const chips = [
+            VT[line.videoType || "standard"],
+            CX[line.complexity || "standard"],
+            line.durationPreset === "custom" ? `${numberValue(line.customDurationSec, 0)} сек` : DUR[String(line.durationPreset || "")],
+            `${cams} ${plural(cams, "камера", "камеры", "камер")}`,
+            `${srcs} ${plural(srcs, "исходник", "исходника", "исходников")}`,
+            ev > 0 ? `+${ev} ${plural(ev, "версия", "версии", "версий")}` : "",
+            er > 0 ? `+${er} ${plural(er, "круг правок", "круга правок", "кругов правок")}` : "",
+            urgentMode === "percent" ? `срочно +${numberValue(line.urgentPercent ?? 30, 30)}%` : urgentMode === "fixed" ? `срочно +${money(numberValue(line.urgentFixed, 0))}` : "",
+          ].filter(Boolean);
           return `
-            <div class="calc-box">
-              <h3>Монтаж</h3>
+            <details class="calc-box calc-fold" ${_calcFoldOpen[id] ? "open" : ""} ontoggle="app.setCalcFoldOpen('${id}', this.open)">
+              <summary class="calc-fold-sum">
+                <span class="calc-fold-title">${icon("film", 14)} Монтаж</span>
+                <span class="calc-fold-chips">${chips.map(c => `<span>${escapeHtml(c)}</span>`).join("")}</span>
+                <span class="calc-fold-edit"><span class="is-closed">Изменить</span><span class="is-open">Свернуть</span>${icon("chevron", 12)}</span>
+              </summary>
               ${calcHintOnce("videoEdit", "Стоимость считается от базы, длительности, камер, исходников, версий, правок, сложности и срочности.")}
 
               <div class="grid four">
@@ -23847,7 +23950,7 @@
                 onclick="app.openCatalogEdit('${escapeHtml(itemData.id)}')">
                 ${icon("gear", 13)} Настроить лимиты и тарифы
               </button>
-            </div>
+            </details>
           `;
         }
 
@@ -28619,9 +28722,10 @@
 
         `;
 
-        /* Установка приложения — настройка ЭТОГО устройства, как тема и цвет,
-           поэтому живёт в «Оформлении». В «Интеграциях» (29.09.2026 и раньше)
-           она стояла среди календарей и калькулятора для сайта. */
+        /* Установка приложения — подключение к устройству, как календарь к телефону,
+           поэтому стоит первой в «Интеграциях». 29.09.2026 её переносили в
+           «Оформление», но там тема и цвета — как приложение выглядит; владелец
+           30.09.2026 вернул: «должно быть в интеграции». */
         const pwaCard = `
             <!-- PWA Установка -->
             <div class="panel" style="margin-top:16px;box-shadow:none;background:linear-gradient(135deg,rgb(var(--primary-rgb) / .10),rgba(37,99,235,.08));border:1px solid rgb(var(--primary-rgb) / .25)">
@@ -28974,10 +29078,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
             ${tab === "company" ? companyTab : ""}
             ${tab === "kp" ? kpTab : ""}
-            ${tab === "appearance" ? renderSettingsAppearance() + pwaCard : ""}
+            ${tab === "appearance" ? renderSettingsAppearance() : ""}
             ${tab === "notify" ? notifyTab : ""}
             ${tab === "finance" ? financeTab : ""}
-            ${tab === "integrations" ? integrationsTab : ""}
+            ${tab === "integrations" ? pwaCard + integrationsTab : ""}
             ${tab === "data" ? dataTab : ""}
             ${tab === "dev" ? devTab : ""}
 
@@ -34209,6 +34313,7 @@ Email: _____________________              Email: _____________________
         setGFinSubTab,
         setGFinRange,
         removeEstimateLine,
+        setCalcFoldOpen,
         setGFinDatePreset,
         setGFinDateFrom,
         setGFinDateTo,

@@ -10993,8 +10993,124 @@ button.is-busy::before {
   font-family: var(--font-display); font-size: 22px; font-weight: 700; line-height: 1.1;
   font-variant-numeric: tabular-nums; color: var(--text);
 }
-.line-details.is-opening, .stage-body.is-opening { animation: estOpen .36s var(--ease-out) both; }
 @keyframes estOpen { from { opacity: 0; transform: translateY(-6px); } }
 .item.is-leaving { pointer-events: none; }
 .bill-mode-btn.is-active.is-fresh { animation: segIn .32s var(--ease-spring) both; }
 @keyframes segIn { from { transform: scale(.86); opacity: .5; } }
+/* «Монтаж» сводкой: строка выбранного, поля — по «Изменить». */
+.calc-fold > .calc-fold-sum {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  list-style: none; cursor: pointer; margin: -2px 0;
+}
+.calc-fold > .calc-fold-sum::-webkit-details-marker { display: none; }
+.calc-fold[open] > .calc-fold-sum { margin-bottom: 12px; }
+.calc-fold-title { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; color: var(--text); }
+.calc-fold-title svg { color: var(--green); }
+.calc-fold-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 260px; min-width: 0; }
+.calc-fold-chips span {
+  padding: 3px 9px; border-radius: var(--r-pill); font-size: 12px; font-weight: 650; white-space: nowrap;
+  color: var(--muted); background: var(--panel); border: 1px solid var(--line);
+}
+.calc-fold[open] .calc-fold-chips { display: none; }
+.calc-fold-edit {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
+  font-size: 12px; font-weight: 700; color: var(--primary-text);
+}
+.calc-fold-edit svg { transition: transform var(--dur-2); transform: rotate(90deg); }
+.calc-fold[open] .calc-fold-edit svg { transform: rotate(-90deg); }
+.calc-fold .is-open, .calc-fold[open] .is-closed { display: none; }
+.calc-fold[open] .is-open { display: inline; }
+.calc-fold > .calc-fold-sum:hover .calc-fold-edit { text-decoration: underline; }
+.calc-fold[open] > :not(summary) { animation: estOpen .3s var(--ease-out) both; }
+/* Поля строки сметы — одного кегля и высоты. Замер 30.09.2026: поля ввода
+   16px / 44px, выпадающие списки рядом — 13px / 37px; строка читалась
+   «прыгающей». На телефоне ввод остаётся 16px: меньше — и iPhone приближает
+   страницу при фокусе. «Ответственный» делил колонку с «+» и обрезался до
+   «— не назна…» — ему две колонки. */
+@media (min-width: 769px) {
+  .item .line-details .field input:not([type="checkbox"]):not([type="radio"]),
+  .item .line-details .field .uu-select-btn {
+    font-size: 14px; min-height: 40px; height: 40px;
+  }
+  .item .line-details .field input:not([type="checkbox"]):not([type="radio"]) { padding-top: 8px; padding-bottom: 8px; }
+  .item .line-details .field input[type="number"] { font-variant-numeric: tabular-nums; }
+  .item .line-details .grid > .field:has(.catalog-action-btn) { grid-column: span 2; }
+}
+/* Полоса над сметой: слева главное действие (+ Услуги) и сумма там, где
+   «Итогов» рядом нет; справа настройки сметы — позиции, налог, скидка,
+   «свернуть всё» значком. */
+.est-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
+  margin: 0 0 10px; padding: 10px 14px;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: var(--r-lg);
+}
+.est-bar.is-standalone { margin-top: 18px; }
+.est-bar-main { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-width: 0; }
+.est-bar-total { min-width: 0; }
+.est-bar-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.est-bar-add { display: flex; gap: 8px; flex-wrap: wrap; }
+.est-bar-tools { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; margin-left: auto; min-width: 0; }
+.est-bar-count { font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.est-bar-tax { display: inline-flex; align-items: center; gap: 6px; margin: 0; min-width: 0; max-width: 100%; }
+.est-bar-tax > span { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.est-bar-tax select, .est-bar-tax .uu-select-btn {
+  width: auto; max-width: 100%; min-height: 32px; padding: 5px 30px 5px 10px; font-size: 12px; border-radius: var(--r-md);
+}
+.est-bar-btns { gap: 8px; flex-direction: row; flex-wrap: wrap; margin: 0; }
+.est-bar-icon { width: 34px; padding-left: 0; padding-right: 0; justify-content: center; }
+/* Сумма в полосе — третья копия, когда «Итоги сметы» стоят рядом (>1160px). */
+@media (min-width: 1161px) {
+  body:not(.client-mode) .layout:has(> .summary) .est-bar-total { display: none; }
+}
+/* Полоса заметнее, добавление — плитками со значком и подсказкой, ряд
+   «Сразу в раздел» (владелец 30.09.2026: «+услуги и + пакет не понятно»). */
+.est-bar {
+  padding: 12px 14px;
+  border-color: rgb(var(--primary-rgb) / .25);
+  background: linear-gradient(135deg, rgb(var(--primary-rgb) / .09), transparent 60%), var(--panel2);
+}
+.est-add-tile {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 48px;
+  padding: 6px 12px 6px 7px; border-radius: var(--r-lg); border: 1px solid var(--line);
+  background: var(--panel); color: var(--text); cursor: pointer; text-align: left; font: inherit;
+  transition: transform var(--dur-2) var(--ease-out), border-color var(--dur-2), box-shadow var(--dur-2);
+}
+.est-add-tile:hover { transform: translateY(-1px); border-color: rgb(var(--primary-rgb) / .5); box-shadow: 0 10px 24px -14px rgb(var(--primary-rgb) / .6); }
+.est-add-tile.is-main {
+  border-color: rgb(var(--primary-rgb) / .45);
+  background: linear-gradient(135deg, rgb(var(--primary-rgb) / .16), rgb(var(--primary-rgb) / .04)), var(--panel);
+}
+.est-add-text { display: flex; flex-direction: column; gap: 1px; line-height: 1.2; }
+.est-add-text b { font-size: 13.5px; font-weight: 750; }
+.est-add-text small { font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.est-add-tile > svg:last-child { color: var(--primary-text); margin-left: auto; flex: 0 0 auto; }
+.est-bar-jump {
+  flex: 1 1 100%; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding-top: 10px; border-top: 1px dashed var(--line);
+}
+.est-bar-jump-lbl { margin-right: 4px; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.est-jump {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 3px 10px;
+  border-radius: var(--r-pill); border: 1px solid color-mix(in srgb, var(--c) 30%, var(--line));
+  background: color-mix(in srgb, var(--c) 8%, transparent); color: var(--text);
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  transition: background var(--dur-1), border-color var(--dur-1), transform var(--dur-1);
+}
+.est-jump svg { color: var(--c); }
+.est-jump:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--c) 16%, transparent); border-color: color-mix(in srgb, var(--c) 55%, var(--line)); }
+/* Телефон: разделы одной лентой с прокруткой вбок — три ряда пилюль по 44px
+   съедали полэкрана. Касание по-прежнему 44px в высоту (сама лента). */
+@media (hover: none) and (pointer: coarse) {
+  .est-jump { min-height: 44px; }
+  .est-bar-tax select, .est-bar-tax .uu-select-btn { min-height: 44px; }
+}
+@media (max-width: 560px) {
+  .est-bar-jump { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 10px 14px 2px; }
+  .est-bar-jump::-webkit-scrollbar { display: none; }
+  .est-bar-jump-lbl { display: none; }
+  .est-jump { flex: 0 0 auto; }
+}
+@media (max-width: 560px) {
+  .est-bar-add { width: 100%; }
+  .est-add-tile { flex: 1 1 100%; }
+}

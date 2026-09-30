@@ -1110,6 +1110,8 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(migrated.total, 2000, "надбавка за 2 лишних пакета исходников должна быть 2000");
 
     // Ставим камеры руками — так выглядела строка после прежней миграции.
+    // С 30.09.2026 поля монтажа свёрнуты в сводку — раскрываем, как человек «Изменить».
+    await p.evaluate(() => document.querySelectorAll("details.calc-fold").forEach((d) => { d.open = true; }));
     await p.fill('[data-key="cameraCount"]', "3");
     await p.evaluate(() => document.querySelector('[data-key="cameraCount"]')
       .dispatchEvent(new Event("change", { bubbles: true })));
