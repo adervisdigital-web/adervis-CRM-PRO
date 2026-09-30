@@ -12691,6 +12691,10 @@
             </div>` : ""}
           </div>`;
       }
+      // Меню разделов у «Каталога» (полоса над сметой) закрывается щелчком мимо.
+      document.addEventListener("pointerdown", e => {
+        document.querySelectorAll("details.est-split-more[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; });
+      }, true);
       // Щелчок мимо окошка скидки закрывает его — без перерисовки: окошко
       // просто убираем, чтобы не перебить то, куда человек нажал.
       document.addEventListener("pointerdown", e => {
@@ -22950,80 +22954,56 @@
                     веса. Стало: главное действие — «+ Услуги» — выделено, справа
                     настройки сметы (налог подписан, скидка, «свернуть всё» значком).
                     Сумма остаётся только там, где «Итогов» рядом нет (≤1160px). */""}
+              ${/* Полоса — одной строкой (владелец 30.09.2026: «расположение или
+                    дизайн улучшить?»). Было три способа добавить (плитки, ряд «В
+                    раздел», «+» у этапов) и два ряда. Стало: поиск во всю ширину,
+                    «Каталог» — весь каталог, стрелка рядом — меню разделов, «Пакет»,
+                    «свернуть всё». Сумма — только там, где «Итогов» рядом нет. */""}
               <div class="est-bar${inDeal ? "" : " is-standalone"}">
-                <div class="est-bar-main">
+                ${(() => {
+                  const d = displayTotal(t);
+                  return `<div class="est-bar-total">
+                    <div class="est-head-total">${money(d.total)}</div>
+                    ${d.budgetOnly ? `<div class="est-bar-sub">бюджет без разбивки</div>` : t.optional ? `<div class="est-bar-sub">опции +${money(t.optional)}</div>` : ""}
+                  </div>`;
+                })()}
+                ${totalItems > 3 ? `
+                <label class="est-search no-print">
+                  ${icon("search", 14)}
+                  <input id="estSearch" type="search" placeholder="Найти в смете" autocomplete="off" value="${escapeHtml(_estSearch)}"
+                    oninput="app.setEstimateSearch(this.value)" aria-label="Найти позицию в смете">
+                </label>` : ""}
+                ${stagesWithItems.length ? `
+                <div class="est-bar-actions no-print">
+                  <div class="est-split">
+                    <button type="button" class="btn small est-split-main" onclick="app.go('catalog')" title="Весь каталог услуг">${icon("catalog", 14)} Каталог</button>
+                    <details class="est-split-more">
+                      <summary class="btn small" aria-label="Разделы каталога" title="Сразу в раздел каталога">${icon("chevron", 12)}</summary>
+                      <div class="est-split-menu" role="menu">
+                        ${["crew", "shoot", "gear", "post", "money"].map(gid => {
+                          const g = CATALOG_GROUPS.find(x => x.id === gid);
+                          return g ? `<button type="button" role="menuitem" style="--c:${g.color}" onclick="app.goCatalogGroup('${g.id}')">${icon(g.ic, 14)}<span><b>${escapeHtml(g.label)}</b><small>${escapeHtml(g.hint)}</small></span></button>` : "";
+                        }).join("")}
+                      </div>
+                    </details>
+                  </div>
+                  <button type="button" class="btn small" onclick="app.go('packages')" title="Готовый пакет — набор позиций сразу">${icon("gift", 14)} Пакет</button>
+                  ${inDeal ? "" : `<button class="btn small" onclick="app.createVersion()">Версия</button>`}
                   ${(() => {
-                    const d = displayTotal(t);
-                    return `<div class="est-bar-total">
-                      <div class="est-head-total">${money(d.total)}</div>
-                      ${d.budgetOnly ? `<div class="est-bar-sub">бюджет без разбивки</div>` : t.optional ? `<div class="est-bar-sub">опции +${money(t.optional)}</div>` : ""}
-                    </div>`;
-                  })()}
-                  ${stagesWithItems.length ? `
-                  ${/* «+ Услуги» и «+ Пакет» были непонятны (владелец 30.09.2026):
-                        теперь это плитки со значком, названием и подсказкой, что
-                        внутри. */""}
-                  <div class="est-bar-add no-print">
-                    <button type="button" class="est-add-tile is-main" onclick="app.go('catalog')">
-                      ${iconBadge("catalog", "var(--primary-text)", 34)}
-                      <span class="est-add-text"><b>Услуги из каталога</b><small>люди, техника, монтаж</small></span>
-                      ${icon("plus", 14)}
-                    </button>
-                    <button type="button" class="est-add-tile" onclick="app.go('packages')">
-                      ${iconBadge("gift", "var(--orange)", 34)}
-                      <span class="est-add-text"><b>Готовый пакет</b><small>набор позиций сразу</small></span>
-                      ${icon("plus", 14)}
-                    </button>
-                    ${inDeal ? "" : `<button class="btn small" onclick="app.createVersion()">Версия</button>`}
-                  </div>` : ""}
-                  ${/* Кнопка Excel ПЕРЕЕХАЛА в меню «⋮» шапки сделки (просьба
-                        владельца): здесь панель рисуется только при позициях, а у
-                        сделки «одним числом» кнопки не было бы вовсе. */""}
-                </div>
-                <div class="est-bar-tools">
-                  ${/* Числа позиций здесь нет: оно стоит у каждого этапа, а в полосе
-                        из-за него настройки не помещались в строку с плитками и
-                        падали вниз под пустоту (скриншот владельца 30.09.2026). */""}
-                  ${/* max-width обязателен: enhanceSelects растягивает кастом-дропдаун
-                        по самому длинному варианту, и на телефоне селект уезжал за
-                        край экрана (замер на 390px: −63px). */""}
-                  ${(() => {
-                    // Сверка с бюджетом, который назвал клиент — с итогом ПОСЛЕ налога.
-                    // Блок кликабельный: бюджет можно поменять или убрать.
                     const cb = numberValue(state.project.clientBudget, 0);
                     if (cb <= 0 || !totalItems) return "";
                     const diff = cb - numberValue(t.total, 0);
                     const over = diff < 0;
-                    const color = over ? "var(--red)" : "var(--green)";
                     return `<button type="button" class="client-budget-chip" onclick="app.editClientBudget()"
                       title="Бюджет назван клиентом при создании сделки. Нажмите, чтобы изменить или убрать — сравнивается с итогом сметы с налогом.">
                       <span style="font-size:12px;color:var(--muted)">бюджет клиента ${money(cb)}</span>
-                      <span style="font-size:13px;font-weight:800;color:${color}">${over ? "перерасход " + money(-diff) : "запас " + money(diff)}</span>
+                      <span style="font-size:13px;font-weight:800;color:${over ? "var(--red)" : "var(--green)"}">${over ? "перерасход " + money(-diff) : "запас " + money(diff)}</span>
                     </button>`;
                   })()}
-                  ${totalItems > 3 ? `
-                  <label class="est-search no-print">
-                    ${icon("search", 13)}
-                    <input id="estSearch" type="search" placeholder="Найти в смете" autocomplete="off" value="${escapeHtml(_estSearch)}"
-                      oninput="app.setEstimateSearch(this.value)" aria-label="Найти позицию в смете">
-                  </label>` : ""}
-                  ${stagesWithItems.length ? `
-                  <div class="toolbar no-print est-bar-btns">
-                    <button class="btn small estimate-collapse-all-btn est-bar-icon ${allStagesCollapsed ? "collapsed" : ""}" onclick="app.toggleAllEstimate()"
-                      title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}" aria-label="${allStagesCollapsed ? "Развернуть все этапы" : "Свернуть все этапы"}">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
-                    </button>
-                  </div>` : ""}
-                </div>
-                ${stagesWithItems.length ? `
-                ${/* Прямо в нужный раздел каталога — те же разделы и значки, что
-                      в каталоге и у позиций сметы; без «открыл каталог — ищу». */""}
-                <div class="est-bar-jump no-print">
-                  <span class="est-bar-jump-lbl">В раздел</span>
-                  ${["crew", "shoot", "gear", "post", "money"].map(gid => {
-                    const g = CATALOG_GROUPS.find(x => x.id === gid);
-                    return g ? `<button type="button" class="est-jump" style="--c:${g.color}" onclick="app.goCatalogGroup('${g.id}')" title="Открыть каталог: ${escapeHtml(g.label)} — ${escapeHtml(g.hint)}">${icon(g.ic, 13)}<span>${escapeHtml(g.label)}</span></button>` : "";
-                  }).join("")}
+                  <button class="btn small estimate-collapse-all-btn est-bar-icon ${allStagesCollapsed ? "collapsed" : ""}" onclick="app.toggleAllEstimate()"
+                    title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}" aria-label="${allStagesCollapsed ? "Развернуть все этапы" : "Свернуть все этапы"}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
+                  </button>
                 </div>` : ""}
               </div>
 
