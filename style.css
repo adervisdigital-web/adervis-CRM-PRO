@@ -11657,3 +11657,11 @@ button.summary-adjust-row:hover { background: rgb(var(--primary-rgb) / .06); bor
 
 /* Подсказка слева в полосе, когда искать нечего (пустая смета / бюджет одной суммой). */
 .est-bar-hint { flex: 1 1 220px; min-width: 0; font-size: 13px; color: var(--muted); padding-left: 4px; }
+
+/* Колонка «Сделки»: строки одной структуры (01.10.2026). Пустой ярус «клиент ·
+   срок» держит высоту, пустая полоса оплаты — прозрачная дорожка того же места.
+   Выбор сделки подсвечивается мягко, без скачка. */
+.deal-switcher-item-meta--who { min-height: 16px; }
+.deal-switcher-item-pay.is-empty { background: transparent; }
+.deal-switcher-item { transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.deal-switcher-item.active { box-shadow: 0 8px 22px -16px rgb(var(--primary-rgb) / .8); }

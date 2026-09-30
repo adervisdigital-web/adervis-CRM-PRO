@@ -5727,6 +5727,49 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(searched.more, "", "после поиска осталась кнопка «Показать ещё», хотя показывать нечего");
   });
 
+  /* 01.10.2026 (владелец: «блоки слева — чтобы при переключении не расширялись
+     и работали плавно»): нажатая сделка уезжала на верх секции (сортировка по
+     дате правки, а открытие обновляет дату предыдущей), строки были разной
+     высоты, прокрутка длинного списка сбрасывалась наверх. */
+  await test("колонка «Сделки»: переключение не меняет порядок, строки ровные, прокрутка на месте", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await bootWithState(`
+      const mk = (id, name, client, status, total, paid, deadline, upd) => ({ id, name, client, total, paid, crmStatus: status, deadline, createdAt: "2026-09-01", updatedAt: upd,
+        snapshot: { payments: [], expenses: [], tasks: [] } });
+      st.savedProjects = [
+        mk("q1", "Первая", "К1", "В работе", 1000, 0, "", "2026-09-20"),
+        mk("q2", "Вторая", "", "В работе", 0, 0, "", "2026-09-19"),
+        mk("q3", "Третья", "К3", "В работе", 5000, 2000, "2026-10-20", "2026-09-18"),
+      ];
+      for (let i = 0; i < 30; i++) st.savedProjects.push(mk("z" + i, "Закрытая " + i, "", "Завершённые", 1000, 1000, "", "2026-08-" + String(10 + (i % 18)).padStart(2, "0")));
+      st.activeProjectId = "q1"; st.view = "deal"; st.dealView = "estimate"; st.dealRailManual = false;
+    `, { width: 1600, height: 800 });
+    try {
+      await p.evaluate(() => { window.app.go("deal"); window.app.setDealView("estimate"); });
+      await p.waitForTimeout(700);
+      const order = () => p.evaluate(() => [...document.querySelectorAll('.deal-rail .deal-switcher-section-items[data-section="active"] .deal-switcher-item')].map((r) => r.dataset.dealId).join(","));
+      const before = await order();
+      await p.evaluate(() => document.querySelector('.deal-rail .deal-switcher-item[data-deal-id="q3"]').click());
+      await p.waitForTimeout(600);
+      await p.evaluate(() => document.querySelector('.deal-rail .deal-switcher-item[data-deal-id="q2"]').click());
+      await p.waitForTimeout(600);
+      assertEqual(await order(), before, "после переключения сделок порядок в колонке поменялся");
+      const hs = await p.evaluate(() => [...document.querySelectorAll('.deal-rail .deal-switcher-section-items[data-section="active"] .deal-switcher-item')].map((r) => Math.round(r.getBoundingClientRect().height)));
+      assert(Math.max(...hs) - Math.min(...hs) <= 2, "строки активных сделок разной высоты: " + hs.join(", "));
+      // Прокрутка: раскрыть «Завершённые», прокрутить вниз, открыть сделку оттуда.
+      await p.evaluate(() => { const lbl = [...document.querySelectorAll(".deal-rail .deal-switcher-section-label")].find((b) => /Завершённые/.test(b.textContent)); if (lbl && !lbl.querySelector(".open")) lbl.click(); });
+      await p.waitForTimeout(400);
+      const y = await p.evaluate(() => { const l = document.getElementById("dealRailList"); l.scrollTop = 900; return l.scrollTop; });
+      assert(y > 200, "список не прокручивается — проверять нечего (" + y + ")");
+      await p.evaluate(() => { const rows = [...document.querySelectorAll('.deal-rail .deal-switcher-section-items[data-section="completed"] .deal-switcher-item')]; const l = document.getElementById("dealRailList").getBoundingClientRect(); const r = rows.find((x) => x.getBoundingClientRect().top > l.top + 20); r && r.click(); });
+      await p.waitForTimeout(600);
+      const y2 = await p.evaluate(() => document.getElementById("dealRailList").scrollTop);
+      assert(Math.abs(y2 - y) < 40, `после выбора сделки список уехал: было ${y}, стало ${y2}`);
+    } finally {
+      await ctx.close();
+    }
+  });
+
   /* 30.09.2026 (владелец: «на ноутбуке "Архив" выходит на вторую строку»):
      лента этапов на «Проектах» — всегда один ряд, суммы не режутся многоточием.
      Ширина 1056 = ноутбук 1280 минус левое меню (в локальном режиме его нет). */

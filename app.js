@@ -17560,6 +17560,10 @@
           // из-за чего при вводе в длинном списке/смете экран прыгал к началу на каждый render().
           // Сохраняем позицию и возвращаем её, если вид не менялся (при смене вида — наверх, естественно).
           const prevScrollY = viewChanged ? 0 : window.scrollY;
+          // Список «Сделки» слева — своя прокрутка: без этого нажатие на сделку в
+          // середине длинного списка (раскрытые «Завершённые») отбрасывало его наверх.
+          const _railEl = document.getElementById("dealRailList");
+          const prevRailScroll = _railEl ? _railEl.scrollTop : 0;
           // Раздел закрыт тарифом «Соло» — вместо него экран о «Стандарте».
           // Не молчаливый редирект: человек пришёл за договорами и должен
           // увидеть ответ на своё действие, а не оказаться на главной.
@@ -17567,6 +17571,7 @@
             ? renderLockedSection(state.view)
             : (views[state.view] || renderHome)();
           if (!viewChanged && prevScrollY) window.scrollTo(0, prevScrollY);
+          if (prevRailScroll) { const r = document.getElementById("dealRailList"); if (r) r.scrollTop = prevRailScroll; }
           /* Появление раздела (владелец 30.09.2026: «по всем страницам плавная
              анимация появления»). Прежний view-fade снимался на следующем кадре —
              анимация обрывалась в самом начале, и разделы появлялись рывком.
@@ -31981,21 +31986,25 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   без связи с соседями, а попытка вписать его в строку этапа упёрлась
                   в ширину: замер на колонке 262px — «КП отправлено · 27.08.2026»
                   уже резалось многоточием. Строка клиента короткая, там место есть. */""}
-            ${clientShown || when ? `
-            <div class="deal-switcher-item-meta">
+            ${/* Ярус «клиент · срок» есть ВСЕГДА, даже пустой: строки были разной
+                  высоты (65–113px) — у одних клиент, срок и полоса оплаты, у других
+                  нет, и колонка выглядела рваной. Теперь разница только в том,
+                  в одну или две строки имя. */""}
+            <div class="deal-switcher-item-meta deal-switcher-item-meta--who">
               <span class="deal-switcher-item-client">${escapeHtml(clientShown)}</span>
               ${when ? `<span class="deal-switcher-item-date" style="color:${dateColor}" title="Срок сдачи: ${escapeHtml(formatDate(p.deadline))}">${icon("calendar", 11)}${escapeHtml(when)}</span>` : ""}
-            </div>` : ""}
+            </div>
             <div class="deal-switcher-item-meta">
               <span class="deal-switcher-item-stage">
                 <i style="background:${CRM_STATUS_COLOR[stage] || "var(--muted)"}"></i>${escapeHtml(stage)}
               </span>
               ${p.total ? `<span class="deal-switcher-item-sum">${money(p.total)}</span>` : ""}
             </div>
-            ${payPct !== null ? `<span class="deal-switcher-item-pay" title="Оплачено ${money(paid)} из ${money(total)} · ${payPct}%"><span style="width:${payPct}%"></span></span>` : ""}
+            ${payPct !== null ? `<span class="deal-switcher-item-pay" title="Оплачено ${money(paid)} из ${money(total)} · ${payPct}%"><span style="width:${payPct}%"></span></span>` : `<span class="deal-switcher-item-pay is-empty" aria-hidden="true"></span>`}
           </div>
         `;
       }
+      let _railOrderSnap = null; // порядок «свежие сверху» на время захода, см. ниже
       function renderDealSwitcherListHtml() {
         const projects = _dealSwitcherFilteredProjects();
         if (!projects.length) {
@@ -32008,7 +32017,20 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         const manual = !!state.dealRailManual;
         const railPos = new Map((state.savedProjects || []).map((p, i) => [p.id, i]));
         const byManual = (a, b) => (railPos.get(a.id) ?? 1e9) - (railPos.get(b.id) ?? 1e9);
-        const byUpdated = (a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "");
+        /* «Свежие сверху» — по снимку порядка, снятому при первом показе списка.
+           Сортировка шла по updatedAt на КАЖДОЙ перерисовке, а открытие сделки
+           сохраняет предыдущую и обновляет её дату — нажатая строка уезжала на
+           верх секции прямо под курсором (владелец 01.10.2026: «блоки слева …
+           чтобы при переключении не расширялись и работали плавно»). Новые
+           сделки, которых нет в снимке, встают сверху; снимок живёт до
+           перезагрузки страницы. */
+        if (!_railOrderSnap) {
+          _railOrderSnap = new Map([...(state.savedProjects || [])]
+            .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
+            .map((p, i) => [p.id, i]));
+        }
+        const snapRank = (p) => _railOrderSnap.has(p.id) ? _railOrderSnap.get(p.id) : -1;
+        const byUpdated = (a, b) => (snapRank(a) - snapRank(b)) || (b.updatedAt || "").localeCompare(a.updatedAt || "");
         const active = projects
           .filter(p => !isDealInactive(p.crmStatus || "Лид"))
           .sort(manual ? byManual : (a, b) => {
