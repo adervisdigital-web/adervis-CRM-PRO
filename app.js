@@ -23195,13 +23195,20 @@
                     ${d.budgetOnly ? `<div class="est-bar-sub">бюджет без разбивки</div>` : t.optional ? `<div class="est-bar-sub">опции +${money(t.optional)}</div>` : ""}
                   </div>`;
                 })()}
-                ${totalItems > 3 ? `
+                ${/* Одна полоса во всех случаях (владелец 30.09 — 01.10.2026: «как
+                      по-разному выглядит этот блок», «почему такое решение?»). У
+                      добавления ОДНО место и одни названия: справа всегда «Каталог ▾
+                      · Пакет». Слева — поиск, когда есть что искать, иначе подсказка.
+                      Раньше: поиск только с 4-й позиции (при 1–3 кнопки висели над
+                      пустотой), у пустой сметы — пустая лента, а кнопки жили в
+                      карточке шагов под другими именами («Весь каталог», «Готовый
+                      пакет») и в обратном порядке. */""}
+                ${totalItems ? `
                 <label class="est-search no-print">
                   ${icon("search", 14)}
                   <input id="estSearch" type="search" placeholder="Найти в смете" autocomplete="off" value="${escapeHtml(_estSearch)}"
                     oninput="app.setEstimateSearch(this.value)" aria-label="Найти позицию в смете">
-                </label>` : ""}
-                ${stagesWithItems.length ? `
+                </label>` : `<span class="est-bar-hint">${displayTotal(t).budgetOnly ? "Бюджет без разбивки — разложите его на позиции" : "Смета пуста — начните с каталога или готового пакета"}</span>`}
                 <div class="est-bar-actions no-print">
                   <div class="est-split">
                     <button type="button" class="btn small est-split-main" onclick="app.go('catalog')" title="Весь каталог услуг">${icon("catalog", 14)} Каталог</button>
@@ -23228,11 +23235,11 @@
                       <span style="font-size:13px;font-weight:800;color:${over ? "var(--red)" : "var(--green)"}">${over ? "перерасход " + money(-diff) : "запас " + money(diff)}</span>
                     </button>`;
                   })()}
-                  <button class="btn small estimate-collapse-all-btn est-bar-icon ${allStagesCollapsed ? "collapsed" : ""}" onclick="app.toggleAllEstimate()"
+                  ${stagesWithItems.length ? `<button class="btn small estimate-collapse-all-btn est-bar-icon ${allStagesCollapsed ? "collapsed" : ""}" onclick="app.toggleAllEstimate()"
                     title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}" aria-label="${allStagesCollapsed ? "Развернуть все этапы" : "Свернуть все этапы"}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
-                  </button>
-                </div>` : ""}
+                  </button>` : ""}
+                </div>
               </div>
 
               <div style="margin-top:6px">
@@ -23262,11 +23269,8 @@
                             icon: "doc",
                             title: `Бюджет ${money(d.total)} — без разбивки`,
                             text: "Сумма перенесена одним числом, позиций нет. Деньги на месте: они видны на карточке, в финансах и в воронке. Разбейте на позиции, если нужно КП для клиента и расчёт маржи.",
-                            cta: [
-                              { label: "Открыть каталог", ic: "list", onclick: "app.go('catalog')" },
-                              { label: "Выбрать пакет", ic: "gift", onclick: "app.go('packages')", variant: "" },
-                              ...budgetBtn("Изменить бюджет")
-                            ]
+                            // Каталог и пакет — в полосе над сметой (одно место добавления).
+                            cta: budgetBtn("Изменить бюджет")
                           })
                         : renderEstimateStartSteps(canSetBudget);
                     })()
@@ -23646,12 +23650,13 @@
                 </button>`;
               }).join("")}
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
-              <span class="mini-note">Или сразу:</span>
-              <button class="btn small" onclick="app.go('packages')">Готовый пакет</button>
-              <button class="btn small" onclick="app.go('catalog')">Весь каталог</button>
-              ${canSetBudget ? `<button class="btn small" onclick="app.openDealModal('${state.activeProjectId}')">Указать бюджет одним числом</button>` : ""}
-            </div>
+            ${/* «Готовый пакет» и «Весь каталог» здесь были вторыми копиями кнопок
+                  полосы над сметой под другими именами — убраны. Бюджета в полосе
+                  нет, он остаётся. */""}
+            ${canSetBudget ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
+              <span class="mini-note">Или без разбивки:</span>
+              <button class="btn small" onclick="app.openDealModal('${state.activeProjectId}')">Указать бюджет одним числом</button>
+            </div>` : ""}
           </div>`;
       }
 
