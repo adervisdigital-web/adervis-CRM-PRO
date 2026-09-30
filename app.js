@@ -24887,6 +24887,12 @@
         const effStatus = boardView || hitsOutsideStatus ? "all" : statusFilter;
         if (effStatus === "active") filtered = filtered.filter(r => r.task.status !== "Готово");
         else if (effStatus !== "all") filtered = filtered.filter(r => r.task.status === effStatus);
+        /* Плитки «На сегодня» и «Просрочено» — фильтры (01.10.2026), как плитки
+           «Календаря» и «Клиентов»: число, которое нельзя нажать и увидеть, что
+           за ним стоит, наполовину бесполезно. */
+        const dueFilter = ["today", "overdue"].includes(state.globalTaskDue) ? state.globalTaskDue : "";
+        if (dueFilter === "today") filtered = filtered.filter(r => r.task.deadline === today && r.task.status !== "Готово");
+        else if (dueFilter === "overdue") filtered = filtered.filter(r => r.task.deadline && r.task.deadline < today && r.task.status !== "Готово");
         if (projectFilter === "personal") filtered = filtered.filter(r => r.kind === "global");
         else if (projectFilter !== "all") filtered = filtered.filter(r => r.projectId === projectFilter);
 
@@ -24901,7 +24907,7 @@
            отвечает «что горит», доска — «где стоит работа». */
         const statusChips = [{ id: "active", label: "Активные" }, { id: "all", label: "Все" }, ...TASK_STATUSES.map(s => ({ id: s, label: s }))];
 
-        const _tKey = effStatus + "|" + projectFilter + "|" + taskQuery + "|" + (closedVisible ? "closed" : "");
+        const _tKey = effStatus + "|" + projectFilter + "|" + taskQuery + "|" + (closedVisible ? "closed" : "") + "|" + dueFilter;
         if (_tKey !== _tasksLimitKey) { _tasksLimitKey = _tKey; _tasksVisibleLimit = TASKS_PAGE_SIZE; }
         const shownTasks = filtered.slice(0, _tasksVisibleLimit);
         const tasksHidden = filtered.length - shownTasks.length;
@@ -24940,17 +24946,18 @@
                   Цвет плитка получает, только когда в ней что-то есть: ноль в
                   красном «Просрочено» читался бы как тревога. Подпись идёт в
                   разметке ДО числа — по ней читают плитку экранные дикторы. */""}
-            <div class="gtask-stats">
-              ${[
-                ["tasks", "Всего", total, ""],
-                ["calendar", "На сегодня", dueToday, dueToday ? "warn" : ""],
-                ["warning", "Просрочено", overdue, overdue ? "danger" : ""],
-                ["check", "Готово", done, done ? "success" : ""],
-              ].map(([ic, lbl, n, tone]) => `
-                <div class="gtask-stat ${tone ? "is-" + tone : ""} ${n ? "" : "is-zero"} ${lbl === "Всего" ? "gtask-stat--total" : ""}">
-                  <span class="gtask-stat-ico" aria-hidden="true">${icon(ic, 14)}</span>
-                  <span class="gtask-stat-body"><span class="lbl">${lbl}</span><span class="val">${n}</span></span>
-                </div>`).join("")}
+            <div class="cal-summary gtask-stats">
+              ${(() => {
+                const on = (k) => (k === "done" ? statusFilter === "Готово" && !dueFilter : dueFilter === k);
+                const tile = (k, cls, lbl, n, sub, action) => `
+                  <button type="button" class="cal-sum-tile ${cls}${on(k) ? " is-on" : ""}${n ? "" : " is-zero"}" aria-pressed="${on(k)}" onclick="${action}">
+                    <span class="cal-sum-lbl"><i></i>${lbl}</span><b>${n}</b><small title="${escapeHtml(sub)}">${sub}</small>
+                  </button>`;
+                return tile("all", "is-task", "Всего", total, "активные и готовые", "app.setGlobalTaskDue('');app.setGlobalTaskFilter('status','active')")
+                  + tile("today", "is-exp", "На сегодня", dueToday, dueToday ? "показать" : "на сегодня ничего", `app.setGlobalTaskDue('${dueFilter === "today" ? "" : "today"}')`)
+                  + tile("overdue", "is-dl", "Просрочено", overdue, overdue ? "показать" : "всё в срок", `app.setGlobalTaskDue('${dueFilter === "overdue" ? "" : "overdue"}')`)
+                  + tile("done", "is-inc", "Готово", done, total ? `${Math.round(done / total * 100)}% всех задач` : "—", `app.setGlobalTaskDue('');app.setGlobalTaskFilter('status','${on("done") ? "active" : "Готово"}')`);
+              })()}
             </div>` : ""}
 
             <div class="gtask-filters no-print">
@@ -24981,7 +24988,25 @@
             </div>
 
             ${filtered.length ? (boardView ? renderTaskBoardHtml(filtered, "global") : `<div class="gtask-list">
-              ${shownTasks.map(renderGlobalTaskRow).join("")}
+              ${(() => {
+                /* Группы по сроку (01.10.2026): список уже шёл по дедлайну, но
+                   сплошной лентой — где кончается «сегодня» и начинается «потом»,
+                   приходилось вычитывать по датам. Готовые — отдельной группой. */
+                _tasksAllPersonal = shownTasks.every(r => r.kind === "global");
+                const d0 = new Date(today + "T00:00:00");
+                const plus = (n) => { const d = new Date(d0); d.setDate(d.getDate() + n); return localIso(d); };
+                const tomorrow = plus(1), weekEnd = plus(7 - ((d0.getDay() + 6) % 7) - 1);
+                const bucket = (r) => r.task.status === "Готово" ? "done"
+                  : !r.task.deadline ? "none" : r.task.deadline < today ? "overdue" : r.task.deadline === today ? "today"
+                  : r.task.deadline === tomorrow ? "tomorrow" : r.task.deadline <= weekEnd ? "week" : "later";
+                const TITLE = { overdue: "Просрочено", today: "Сегодня", tomorrow: "Завтра", week: "На этой неделе", later: "Позже", none: "Без срока", done: "Готово" };
+                const ORDER = ["overdue", "today", "tomorrow", "week", "later", "none", "done"];
+                const groups = {};
+                shownTasks.forEach(r => { (groups[bucket(r)] = groups[bucket(r)] || []).push(r); });
+                return ORDER.filter(k => groups[k]).map(k => `
+                  <div class="gtask-group-head is-${k}"><b>${TITLE[k]}</b><span>${groups[k].length}</span></div>
+                  ${groups[k].map(renderGlobalTaskRow).join("")}`).join("");
+              })()}
             </div>
             ${tasksHidden > 0 ? `<div class="show-more-row no-print">
               <button class="btn" onclick="app.tasksShowMore()">Показать ещё ${Math.min(TASKS_PAGE_SIZE, tasksHidden)} · осталось ${tasksHidden}</button>
@@ -25449,6 +25474,8 @@
         render();
       }
 
+      // Все задачи в списке личные — метка «Личная» у каждой ничего не различает.
+      let _tasksAllPersonal = false;
       function renderGlobalTaskRow(row) {
         const t = row.task;
         const done = t.status === "Готово";
@@ -25469,7 +25496,7 @@
             <div class="gtask-main">
               <div class="gtask-title">${escapeHtml(t.title)}</div>
               <div class="gtask-meta">
-        <span class="gtask-project ${isGlobal ? "personal" : ""}">${isGlobal ? "Личная" : escapeHtml(row.projectName)}</span>
+        ${isGlobal && _tasksAllPersonal ? "" : `<span class="gtask-project ${isGlobal ? "personal" : ""}">${isGlobal ? "Личная" : escapeHtml(row.projectName)}</span>`}
                 ${/* Задача из закрытой сделки видна только когда её попросили показать
                       (или нашли поиском) — и обязана называть себя: иначе она читается
                       как живая работа. */""}
@@ -25488,6 +25515,8 @@
           </div>
         `;
       }
+
+      function setGlobalTaskDue(v) { state.globalTaskDue = v === "today" || v === "overdue" ? v : ""; render(); }
 
       function setGlobalTaskFilter(type, value) {
         if (type === "status") state.globalTaskStatusFilter = value;
@@ -34743,6 +34772,7 @@ Email: _____________________              Email: _____________________
         setCatalogView,
         setClientsSeg,
         setClientsSort,
+        setGlobalTaskDue,
         setEstimateSearch,
         clearEstimateSearch,
         replayWelcome,

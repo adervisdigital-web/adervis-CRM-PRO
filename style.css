@@ -11749,3 +11749,18 @@ button.summary-adjust-row:hover { background: rgb(var(--primary-rgb) / .06); bor
 .client-card-nums .client-deals-link:hover { background: rgb(var(--primary-rgb) / .12); }
 .client-card-nums .client-card-none { color: var(--muted); font-weight: 600; }
 .client-pay-track.is-empty { background: transparent; }
+
+/* ── Задачи: плитки единого вида, список по срокам (01.10.2026) ──────── */
+.gtask-stats.cal-summary { margin: 0 0 14px; }
+.gtask-stats .cal-sum-tile.is-zero b { color: var(--muted); }
+.gtask-group-head { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 6px; padding-left: 2px; }
+.gtask-group-head:first-child { margin-top: 0; }
+.gtask-group-head b { font-size: 13.5px; }
+.gtask-group-head span { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gtask-group-head.is-overdue b { color: var(--text-danger); }
+.gtask-group-head.is-today b { color: var(--text-warning); }
+.gtask-group-head.is-done b { color: var(--muted); }
+/* Корзина — при наведении на строку (на телефоне видна всегда). */
+.gtask-row .icon-del-btn { opacity: 0; transition: opacity var(--dur-1); }
+.gtask-row:hover .icon-del-btn, .gtask-row .icon-del-btn:focus-visible { opacity: 1; }
+@media (hover: none) { .gtask-row .icon-del-btn { opacity: 1; } }
