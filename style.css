@@ -11134,3 +11134,136 @@ button.summary-adjust-row:hover { border-color: rgb(var(--primary-rgb) / .45); }
   .summary-adjust-row { min-height: 48px; }
   .summary-tax-row select, .summary-tax-row .uu-select-btn { min-height: 44px; height: 44px; }
 }
+/* ── Тур: первый слайд — живая сцена (renderWelcomeScene) ────────────────
+   Базовые стили = ФИНАЛЬНЫЙ кадр. Анимации живут только под .obx.is-play и
+   прячут элементы в «from»; без is-play (повторный показ, уменьшенное
+   движение) сцена стоит на итоге. Язык движения один: вход
+   cubic-bezier(.16,1,.3,1), перемещение (.65,0,.35,1), без отскоков. */
+.ob-mock.is-scene { position: relative; background: linear-gradient(160deg, rgb(var(--primary-rgb) / .16), rgb(var(--primary-rgb) / .03) 55%), var(--panel2); }
+.obx {
+  --obx-in: cubic-bezier(.16, 1, .3, 1); --obx-move: cubic-bezier(.65, 0, .35, 1);
+  position: relative; height: 100%; container-type: size;
+  display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); grid-template-rows: minmax(0, 1fr) auto;
+  gap: 14px 56px; padding: 20px 24px 16px; box-sizing: border-box;
+}
+.obx-est, .obx-client {
+  display: flex; flex-direction: column; gap: 7px; min-width: 0;
+  padding: 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel);
+  box-shadow: 0 18px 40px -26px rgb(0 0 0 / .6);
+}
+.obx-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.obx-line { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+.obx-line > span:not([style]) { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.obx-line b, .obx-total b { font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.obx-total { display: flex; align-items: baseline; justify-content: space-between; margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 13px; color: var(--muted); }
+.obx-total b { font-size: 22px; color: var(--text); }
+.obx-send {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px;
+  border-radius: var(--r-md); background: var(--primary); color: var(--on-color); font-size: 13px; font-weight: 700;
+  box-shadow: 0 10px 24px -12px rgb(var(--primary-rgb) / .8);
+}
+.obx-link {
+  position: absolute; left: 34%; top: 66%; z-index: 2; opacity: 0;
+  display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: var(--r-pill);
+  background: var(--primary); color: var(--on-color); font-size: 11.5px; font-weight: 700; white-space: nowrap;
+  box-shadow: 0 8px 22px -8px rgb(var(--primary-rgb) / .9);
+}
+.obx-client { border-color: rgb(var(--primary-rgb) / .45); }
+.obx-step {
+  display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 10px;
+  border-radius: var(--r-md); font-size: 12.5px; font-weight: 650;
+  color: var(--text-success); background: color-mix(in srgb, var(--green) 10%, transparent);
+}
+.obx-step.s3 { margin-top: auto; min-height: 40px; color: var(--on-color); background: var(--green); font-weight: 750; }
+.obx-pipe {
+  grid-column: 1 / -1; position: relative;
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0;
+  padding: 4px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--panel);
+}
+.obx-stage {
+  position: relative; z-index: 1; padding: 7px 4px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 11.5px; font-weight: 650; color: var(--muted);
+}
+.obx-stage.is-done, .obx-stage.st1, .obx-stage.st2 { color: var(--text-success); }
+.obx-stage.st3 { color: var(--on-color); }
+.obx-kp {
+  display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 10px;
+  border: 1px dashed rgb(var(--primary-rgb) / .45); border-radius: var(--r-md);
+  background: rgb(var(--primary-rgb) / .08); font-size: 12.5px; font-weight: 650;
+}
+.obx-kp span { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.obx-kp b { font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; }
+.obx-kp svg { color: var(--primary-text); }
+.obx-cursor {
+  position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 5);
+  border-radius: var(--r-pill); background: var(--primary); transform: translateX(300%);
+  box-shadow: 0 6px 18px -8px rgb(var(--primary-rgb) / .9);
+}
+.obx-replay {
+  /* В строке заголовка карточки «Клиент» — там справа пусто, а в углу сцены
+     кнопка наезжала на рамку карточки. */
+  position: absolute; right: 34px; top: 29px; z-index: 3;
+  display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 2px 10px;
+  border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--panel);
+  color: var(--muted); font: inherit; font-size: 11.5px; font-weight: 650; cursor: pointer;
+  transition: color var(--dur-1), border-color var(--dur-1);
+}
+.obx-replay:hover { color: var(--text); border-color: rgb(var(--primary-rgb) / .5); }
+
+/* Таймлайн (с): смета 0–2 · отправка 2 · ссылка 2,2–3 · клиент 3–4,4 · воронка 4,7–5,4 */
+.obx.is-play .obx-est { animation: obxRise .6s var(--obx-in) both; }
+.obx.is-play .obx-client { animation: obxRise .6s var(--obx-in) .15s both, obxGlow 1s ease 3s both; }
+.obx.is-play .obx-line { animation: obxSlide .5s var(--obx-in) both; animation-delay: calc(.4s + var(--i) * .14s); }
+.obx.is-play .obx-total { animation: obxFade .4s ease .85s both; }
+.obx.is-play .obx-send { animation: obxFade .4s ease 1.1s both, obxPress .45s var(--obx-move) 2s both; }
+.obx.is-play .obx-link { animation: obxFly .85s var(--obx-move) 2.2s both; }
+.obx.is-play .obx-step { animation: obxSlide .45s var(--obx-in) both; }
+.obx.is-play .obx-step.s1 { animation-delay: 3.05s; }
+.obx.is-play .obx-step.s2 { animation-delay: 3.55s; }
+.obx.is-play .obx-step.s3 { animation: obxPay .6s var(--obx-in) 4.05s both; }
+.obx.is-play .obx-pipe { animation: obxFade .5s ease .3s both; }
+.obx.is-play .obx-kp { animation: obxRise .5s var(--obx-in) 3s both; }
+.obx.is-play .obx-cursor { animation: obxCursor 5.4s linear both; }
+.obx.is-play .obx-stage.st1 { animation: obxSt1 5.4s linear both; }
+.obx.is-play .obx-stage.st2 { animation: obxSt2 5.4s linear both; }
+.obx.is-play .obx-stage.st3 { animation: obxSt3 5.4s linear both; }
+.obx.is-play ~ .obx-replay { animation: obxFade .4s ease 5.6s both; }
+
+@keyframes obxRise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes obxSlide { from { opacity: 0; transform: translateX(-10px); } }
+@keyframes obxFade { from { opacity: 0; } }
+@keyframes obxPress { 0%, 100% { transform: none; } 45% { transform: scale(.94); } }
+@keyframes obxGlow { 0% { box-shadow: 0 0 0 0 rgb(var(--primary-rgb) / .55); } 100% { box-shadow: 0 0 0 14px rgb(var(--primary-rgb) / 0); } }
+/* Ссылка летит дугой от кнопки к карточке клиента: доли от размера сцены (cqw/cqh). */
+@keyframes obxFly {
+  0%   { opacity: 0; transform: translate(0, 0) scale(.8); }
+  12%  { opacity: 1; transform: translate(2cqw, -3cqh) scale(1); }
+  55%  { opacity: 1; transform: translate(16cqw, -34cqh); }
+  88%  { opacity: 1; transform: translate(26cqw, -44cqh) scale(1); }
+  100% { opacity: 0; transform: translate(28cqw, -46cqh) scale(.7); }
+}
+@keyframes obxPay { from { opacity: 0; transform: translateY(8px); color: var(--text-success); background: color-mix(in srgb, var(--green) 10%, transparent); } }
+@keyframes obxCursor {
+  0%, 42% { transform: translateX(100%); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+  48%, 87% { transform: translateX(200%); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+  98%, 100% { transform: translateX(300%); }
+}
+@keyframes obxSt1 { 0%, 43% { color: var(--on-color); } 47%, 100% { color: var(--text-success); } }
+@keyframes obxSt2 { 0%, 43% { color: var(--muted); } 47%, 88% { color: var(--on-color); } 92%, 100% { color: var(--text-success); } }
+@keyframes obxSt3 { 0%, 92% { color: var(--muted); } 96%, 100% { color: var(--on-color); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .obx.is-play *, .obx.is-play, .obx.is-play ~ .obx-replay { animation: none; }
+}
+/* Телефон: сцена в столбик, без полёта ссылки — последовательность и так видна. */
+@media (max-width: 600px) {
+  .ob-mock.is-scene { aspect-ratio: auto; max-height: none; }
+  .obx-replay { position: static; margin: 0 14px 14px auto; display: flex; width: max-content; }
+  .obx { container-type: normal; grid-template-columns: 1fr; gap: 10px; padding: 14px; }
+  .obx-link { display: none; }
+  /* Полные «КП отправлено» / «Предоплата» на 390px резались до «КП отпр…» —
+     на телефоне короткие подписи из data-short. */
+  .obx-stage[data-short] { font-size: 0; }
+  .obx-stage[data-short]::after { content: attr(data-short); font-size: 11px; }
+  .obx-stage { font-size: 11px; }
+}

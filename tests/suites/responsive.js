@@ -2394,6 +2394,37 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  /* 30.09.2026: первый слайд тура — живая сцена вместо обрезанного скриншота.
+     Все слайды лежат в DOM разом и окно перерисовывается на каждом листании —
+     сцена обязана играть только когда её показывают, а в остальное время стоять
+     на итоге. И не вылезать за экран телефона. */
+  await test("тур: первый слайд играет при показе, стоит на итоге при листании, влезает в телефон", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 390, height: 900, touch: true });
+    try {
+      const st = () => page.evaluate(() => {
+        const s = document.querySelector(".obx");
+        return s ? { play: s.classList.contains("is-play"), still: s.classList.contains("is-still"),
+          text: s.textContent.replace(/\s+/g, " "), docW: document.documentElement.scrollWidth,
+          right: Math.round(s.getBoundingClientRect().right) } : null;
+      });
+      await page.evaluate(() => window.app.openHelpModal());
+      await page.waitForTimeout(300);
+      const a = await st();
+      assert(a, "на первом слайде нет сцены");
+      assert(a.play, "при открытии тура сцена не играет");
+      assert(/Аванс 20 000 ₽ оплачен/.test(a.text) && /Предоплата/.test(a.text), "в сцене нет итога: " + a.text.slice(0, 120));
+      assert(a.docW <= 390 && a.right <= 390, `сцена шире экрана: страница ${a.docW}px, правый край ${a.right}px`);
+      await page.evaluate(() => window.app.helpNext());
+      await page.waitForTimeout(200);
+      assert((await st()).still, "листнул дальше — невидимая сцена всё равно играет");
+      await page.evaluate(() => window.app.helpPrev());
+      await page.waitForTimeout(200);
+      assert((await st()).play, "вернулся на первый слайд — сцена не играет");
+    } finally {
+      await context.close();
+    }
+  });
+
   /* 30.09.2026 «Тарифы» переделаны: на телефоне колонка названий в таблице
      сравнения занимала полэкрана, и из четырёх тарифов был виден один. Теперь
      она закреплена, а тарифы листаются под ней. И ровно одна карточка — «Ваш тариф». */

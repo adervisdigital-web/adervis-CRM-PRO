@@ -7920,7 +7920,7 @@
         {
           title: "Добро пожаловать в ADERVIS",
           body: "Смета и КП для видеопродакшна за 15 минут вместо вечера в Excel. Клиент открывает ссылку, соглашается и платит аванс онлайн — а дальше сделка живёт в воронке.",
-          mock: "dashboard"
+          mock: "welcome"
         },
         {
           title: "Управление сделками",
@@ -8006,8 +8006,63 @@
         return mocks[kind] || "";
       }
 
+      /* Первый слайд — живая сцена вместо обрезанного скриншота главной
+         (владелец 30.09.2026: «анимацией сделаем каждый слайд»). Сцена
+         рассказывает ровно то, что написано под ней: смета собирается →
+         КП уходит ссылкой → клиент открыл, согласовал, оплатил аванс →
+         сделка переезжает в «Предоплату».
+         Язык движения один на сцену (motion-art-direction, «Corporate»):
+         вход cubic-bezier(.16,1,.3,1), перемещение (.65,0,.35,1), без
+         отскоков — это деньги; двигаются только transform и opacity.
+         Играет ОДИН раз и останавливается на итоге; «Повторить» — по кнопке.
+         Все слайды лежат в DOM разом и окно перерисовывается на каждом
+         листании, поэтому играть разрешено только когда слайд показывают
+         (_obPlayed), иначе сцена проигрывалась бы невидимо. */
+      let _obPlayed = -1;
+      function replayWelcome() { _obPlayed = -1; renderModal(); }
+      function renderWelcomeScene(play) {
+        const line = (i, ic, color, name, sum) => `
+          <div class="obx-line" style="--i:${i}">${iconBadge(ic, color, 26)}<span>${name}</span><b>${sum}</b></div>`;
+        return `
+          <div class="obx ${play ? "is-play" : "is-still"}" role="img"
+            aria-label="Смета собирается из четырёх позиций на 40 000 ₽, КП уходит клиенту ссылкой, клиент соглашается и платит аванс 20 000 ₽, сделка переходит из «Брифа» в «КП отправлено» и в «Предоплату»">
+            <div class="obx-est">
+              <div class="obx-card-head">${icon("receipt", 13)} Смета · рекламный ролик</div>
+              ${line(0, "team", "var(--tint-pink)", "Оператор · 2 смены", "18 000 ₽")}
+              ${line(1, "film", "var(--green)", "Монтаж ролика", "12 000 ₽")}
+              ${line(2, "palette", "var(--orange)", "Цветокоррекция", "6 000 ₽")}
+              ${line(3, "video", "var(--violet)", "Аренда камеры", "4 000 ₽")}
+              <div class="obx-total"><span>Итого</span><b class="obx-total-num">40 000 ₽</b></div>
+              <div class="obx-send">${icon("send", 13)} Отправить КП</div>
+            </div>
+            <div class="obx-link" aria-hidden="true">${icon("link", 12)} ссылка на КП</div>
+            <div class="obx-client">
+              <div class="obx-card-head">${icon("person", 13)} Клиент</div>
+              <div class="obx-kp">${icon("doc", 13)}<span>КП · рекламный ролик</span><b>40 000 ₽</b></div>
+              <div class="obx-step s1">${icon("eye", 13)} Открыл КП</div>
+              <div class="obx-step s2">${icon("check", 13)} Согласовал</div>
+              <div class="obx-step s3">${icon("coins", 13)} Аванс 20 000 ₽ оплачен</div>
+            </div>
+            <div class="obx-pipe" aria-hidden="true">
+              <span class="obx-cursor"></span>
+              <span class="obx-stage is-done">Лид</span>
+              <span class="obx-stage st1">Бриф</span>
+              <span class="obx-stage st2" data-short="КП">КП отправлено</span>
+              <span class="obx-stage st3" data-short="Аванс">Предоплата</span>
+              <span class="obx-stage" data-short="Работа">В работе</span>
+            </div>
+          </div>`;
+      }
+      // Итог сметы в сцене набегает тем же _countUp, что числа на главной.
+      function _welcomeAfterRender(root) {
+        const n = root && root.querySelector(".obx.is-play .obx-total-num");
+        if (n && !_reducedMotion()) _countUp(n, 950, 0);
+      }
+
       function renderHelpModal() {
         const idx = state.helpSlide || 0;
+        const playWelcome = idx === 0 && _obPlayed !== 0;
+        _obPlayed = idx;
         const total = ONBOARD_SLIDES.length;
         const slide = ONBOARD_SLIDES[idx];
         return `
@@ -8025,10 +8080,15 @@
                 <div class="ob-slides" style="transform:translateX(-${idx * 100}%)">
                   ${ONBOARD_SLIDES.map((s, i) => `
                     <div class="ob-slide">
+                      ${s.mock === "welcome" ? `
+                      <div class="ob-mock is-scene">
+                        ${renderWelcomeScene(playWelcome)}
+                        <button type="button" class="obx-replay" onclick="app.replayWelcome()" title="Показать ещё раз">${icon("refresh", 12)} Повторить</button>
+                      </div>` : `
                       <div class="ob-mock">
                         <img src="onboarding/${s.mock}.webp" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
                         <div class="ob-mock-fallback">${renderOnboardMock(s.mock)}</div>
-                      </div>
+                      </div>`}
                       <h3>${escapeHtml(s.title)}</h3>
                       <p class="u-muted">${escapeHtml(s.body)}</p>
                     </div>
@@ -8060,6 +8120,7 @@
       }
 
       function openHelpModal() {
+        _obPlayed = -1;
         state.helpModal = true;
         state.helpSlide = 0;
         renderModal();
@@ -14804,7 +14865,7 @@
           </div>`;
         }
         else
-        if (state.helpModal) { el.innerHTML = renderHelpModal(); }
+        if (state.helpModal) { el.innerHTML = renderHelpModal(); _welcomeAfterRender(el); }
         else if (state.docsModal) { el.innerHTML = renderDocsModal(); }
         else if (state.catalogGroupsConfigOpen) { el.innerHTML = renderCatalogGroupsConfigModal(); }
         else if (state.pkgCatsConfigOpen) { el.innerHTML = renderPkgCatsConfigModal(); }
@@ -34317,6 +34378,7 @@ Email: _____________________              Email: _____________________
         setGFinRange,
         removeEstimateLine,
         setCalcFoldOpen,
+        replayWelcome,
         setGFinDatePreset,
         setGFinDateFrom,
         setGFinDateTo,
