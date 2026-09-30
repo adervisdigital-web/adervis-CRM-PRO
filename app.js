@@ -13988,6 +13988,8 @@
         render();
       }
 
+      function setClientsSeg(v) { state.clientsSeg = v === "debt" || v === "repeat" ? v : "all"; save(); render(); }
+      function setClientsSort(v) { state.clientsSort = v; save(); render(); }
       function setClientsView(v) {
         state.clientsView = v === "list" ? "list" : "grid";
         save();
@@ -24333,14 +24335,35 @@
 
         const clients = state.clients || [];
         const clientQ = (state.clientsFilter || "").toLowerCase();
-        const allFilteredClients = clientQ
-          ? clients.filter(c => (c.name + c.company + c.phone + c.email).toLowerCase().includes(clientQ))
-          : clients;
         const clientsView = state.clientsView === "list" ? "list" : "grid";
+        const clientMoney = client => {
+          const cProjects = (state.savedProjects || []).filter(p => p.clientId === client.id);
+          return {
+            count: cProjects.length,
+            paid: cProjects.reduce((s, p) => s + numberValue(p.paid, 0), 0),
+            debt: cProjects.filter(p => !isDealInactive(p.crmStatus || "Лид"))
+              .reduce((s, p) => s + Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), 0)
+          };
+        };
+        /* Отбор плитками и сортировка (01.10.2026, «Клиенты» без итогов и без
+           порядка: кто должен и кто приходит повторно, было не узнать, не
+           перебрав все карточки). Деньги клиента считаем один раз на заход. */
+        const clientsSeg = ["debt", "repeat"].includes(state.clientsSeg) ? state.clientsSeg : "all";
+        const clientsSort = ["paid", "debt", "name"].includes(state.clientsSort) ? state.clientsSort : "recent";
+        const _moneyById = new Map();
+        const moneyOf = (c) => { if (!_moneyById.has(c.id)) _moneyById.set(c.id, clientMoney(c)); return _moneyById.get(c.id); };
+        const lastDealAt = (c) => (state.savedProjects || []).filter(p => p.clientId === c.id).reduce((m, p) => (p.updatedAt || p.createdAt || "") > m ? (p.updatedAt || p.createdAt || "") : m, c.createdAt || "");
+        const allFilteredClients = clients
+          .filter(c => !clientQ || (c.name + c.company + c.phone + c.email).toLowerCase().includes(clientQ))
+          .filter(c => clientsSeg === "all" || (clientsSeg === "debt" ? moneyOf(c).debt > 0 : moneyOf(c).count >= 2))
+          .sort(clientsSort === "paid" ? (a, b) => moneyOf(b).paid - moneyOf(a).paid
+            : clientsSort === "debt" ? (a, b) => moneyOf(b).debt - moneyOf(a).debt
+            : clientsSort === "name" ? (a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ru")
+            : (a, b) => lastDealAt(b).localeCompare(lastDealAt(a)));
 
         // Лимит сбрасывается при смене поиска и раскладки: иначе после поиска по
         // трём совпадениям кнопка «показать ещё» осталась бы доращённой до сотни.
-        const _clKey = clientQ + "|" + clientsView;
+        const _clKey = clientQ + "|" + clientsView + "|" + clientsSeg + "|" + clientsSort;
         if (_clKey !== _clientsLimitKey) { _clientsLimitKey = _clKey; _clientsVisibleLimit = CLIENTS_PAGE_SIZE; }
         const filteredClients = allFilteredClients.slice(0, _clientsVisibleLimit);
         const clientsHidden = allFilteredClients.length - filteredClients.length;
@@ -24354,15 +24377,6 @@
         // по активным сделкам (тот же isDealInactive, что и у «Общего долга» на дашборде):
         // архивная или отменённая сделка с неоплаченным бюджетом рисовала бы клиенту
         // несуществующий долг.
-        const clientMoney = client => {
-          const cProjects = (state.savedProjects || []).filter(p => p.clientId === client.id);
-          return {
-            count: cProjects.length,
-            paid: cProjects.reduce((s, p) => s + numberValue(p.paid, 0), 0),
-            debt: cProjects.filter(p => !isDealInactive(p.crmStatus || "Лид"))
-              .reduce((s, p) => s + Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), 0)
-          };
-        };
         const statusLabel = s => ({ new: "Новый", active: "Активный", vip: "VIP", paused: "Пауза", lost: "Потерян" })[s] || "Новый";
         /* «Новый» у клиента с семнадцатью сделками и оплатами на 160 000 ₽ —
            именно это и стояло на карточках. Причина не в интерфейсе:
@@ -24408,6 +24422,9 @@
                     выгрузки обрезалась на полуслове (скриншот владельца). */""}
               <div class="clients-toolbar-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                 ${clients.length > 4 ? `<input class="clients-search-input" placeholder="Поиск клиентов..." value="${escapeHtml(state.clientsFilter || "")}" oninput="app.setClientsFilter(this.value)" style="width:180px;padding:7px 12px;font-size:13px">` : ""}
+                ${clients.length > 2 ? `<select class="clients-sort no-print" aria-label="Порядок клиентов" onchange="app.setClientsSort(this.value)">
+                  ${[["recent", "Недавние"], ["paid", "По оплатам"], ["debt", "По долгу"], ["name", "По имени"]].map(([v, l]) => optionValueHtml(v, l, clientsSort)).join("")}
+                </select>` : ""}
                 ${clients.length ? `<div class="deal-view-toggle no-print">
                   <button class="deal-view-btn ${clientsView === "grid" ? "active" : ""}" onclick="app.setClientsView('grid')" title="Плитка" aria-label="Показать клиентов плиткой">${icon("grid", 14)}</button>
                   <button class="deal-view-btn ${clientsView === "list" ? "active" : ""}" onclick="app.setClientsView('list')" title="Список" aria-label="Показать клиентов списком">${icon("tasks", 14)}</button>
@@ -24430,6 +24447,26 @@
                   признак и та же оговорка, что на главной и в «Финансах», — иначе
                   повторяется ровно то расхождение, из-за которого демо и считалась
                   настоящими деньгами: исключение писали точечно. */""}
+            ${clients.length > 1 ? (() => {
+              const all = clients.map(c => moneyOf(c));
+              const withDeals = all.filter(m => m.count > 0).length;
+              const paid = all.reduce((s, m) => s + m.paid, 0);
+              const debtors = all.filter(m => m.debt > 0);
+              const repeat = all.filter(m => m.count >= 2).length;
+              const monthStart = todayIso().slice(0, 7);
+              const fresh = clients.filter(c => String(c.createdAt || "").startsWith(monthStart)).length;
+              const tile = (seg, cls, label, value, sub) => `
+                <button type="button" class="cal-sum-tile ${cls}${clientsSeg === seg && seg !== "all" ? " is-on" : ""}" aria-pressed="${clientsSeg === seg}"
+                  onclick="app.setClientsSeg('${clientsSeg === seg ? "all" : seg}')">
+                  <span class="cal-sum-lbl"><i></i>${label}</span><b title="${escapeHtml(value)}">${value}</b><small title="${escapeHtml(sub)}">${sub}</small>
+                </button>`;
+              return `<div class="cal-summary clients-summary">
+                ${tile("all", "is-task", "Клиенты", String(clients.length), fresh ? `${fresh} ${plural(fresh, "новый", "новых", "новых")} в этом месяце` : `${withDeals} со сделками`)}
+                ${tile("all", "is-inc", "Получено", money(paid), withDeals ? `в среднем ${money(Math.round(paid / withDeals))} с клиента` : "оплат пока нет")}
+                ${tile("debt", "is-exp", "Должны", money(debtors.reduce((s, m) => s + m.debt, 0)), debtors.length ? `${debtors.length} ${plural(debtors.length, "клиент", "клиента", "клиентов")} — показать` : "никто не должен")}
+                ${tile("repeat", "is-rep", "Повторные", String(repeat), withDeals ? `${Math.round(repeat / withDeals * 100)}% вернулись со 2-й сделкой` : "—")}
+              </div>`;
+            })() : ""}
             ${isDemoOnlyAccount() ? `
               <div class="demo-money-note no-print">
                 <strong>Это клиент примера.</strong>
@@ -24484,7 +24521,7 @@
                   тех, кто должен: сплошь зелёная у всех ничего не сообщала. */""}
             <div class="grid three clients-grid">
               ${filteredClients.length ? filteredClients.map(client => {
-                  const m = clientMoney(client);
+                  const m = moneyOf(client);
                   const st = effectiveStatus(client, m);
                   const words = String(client.name || "").replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
                   const initials = (words.slice(0, 2).map(w => w[0]).join("") || "?").toUpperCase();
@@ -24514,16 +24551,21 @@
                         ${tel ? `<a class="client-contact" href="tel:${escapeHtml(tel)}" onclick="event.stopPropagation()" title="Позвонить: ${escapeHtml(client.phone)}" aria-label="Позвонить: ${escapeHtml(client.phone)}">${icon("phone", 13)}</a>` : ""}
                       </span>` : ""}
                     </div>
-                    <div class="client-card-stats">
-                      ${m.count
-                        ? `<button type="button" class="client-deals-link no-print" onclick="event.stopPropagation();app.openClientDetail('${client.id}')" title="Сделки клиента">${m.count} ${plural(m.count, "сделка", "сделки", "сделок")}${icon("chevron", 11)}</button>`
-                        : `<span class="client-card-none">Сделок нет</span>`}
-                      ${m.paid ? `<span class="client-card-paid" title="Всего оплачено клиентом">${money(m.paid)}</span>` : ""}
-                      ${m.debt ? `<span class="client-card-debt" title="Долг клиента">долг ${money(m.debt)}</span>` : ""}
+                    ${/* Три колонки с подписями у ВСЕХ карточек (01.10.2026): суммы
+                          без подписи читались загадкой («64 500 ₽» — это что?), а
+                          «долг …» у должников переносился на вторую строку, и
+                          карточки выходили разной высоты. Полоса оплаты — место
+                          есть у всех, заливка только у должников. */""}
+                    <div class="client-card-nums">
+                      <span><small>Сделок</small>${m.count
+                        ? `<button type="button" class="client-deals-link no-print" onclick="event.stopPropagation();app.openClientDetail('${client.id}')" title="Сделки клиента">${m.count}${icon("chevron", 11)}</button>`
+                        : `<b class="client-card-none">0</b>`}</span>
+                      <span><small>Оплачено</small><b class="${m.paid ? "client-card-paid" : "client-card-none"}" title="Всего оплачено клиентом">${m.paid ? money(m.paid) : "—"}</b></span>
+                      <span><small>Долг</small><b class="${m.debt ? "client-card-debt" : "client-card-none"}" title="Долг клиента по активным сделкам">${m.debt ? money(m.debt) : "—"}</b></span>
                     </div>
-                    ${m.debt > 0 && выставлено > 0 ? `<span class="client-pay-track" title="Оплачено ${доля}% — ${money(m.paid)} из ${money(выставлено)}">
-                      <span class="client-pay-fill" style="width:${доля}%"></span>
-                    </span>` : ""}
+                    <span class="client-pay-track${m.debt > 0 && выставлено > 0 ? "" : " is-empty"}" ${m.debt > 0 && выставлено > 0 ? `title="Оплачено ${доля}% — ${money(m.paid)} из ${money(выставлено)}"` : 'aria-hidden="true"'}>
+                      ${m.debt > 0 && выставлено > 0 ? `<span class="client-pay-fill" style="width:${доля}%"></span>` : ""}
+                    </span>
                     ${client.note ? `<p class="client-card-note" title="${escapeHtml(client.note)}">${escapeHtml(client.note)}</p>` : ""}
                   </article>`;
                 }).join("") : clientsEmpty()}
@@ -34699,6 +34741,8 @@ Email: _____________________              Email: _____________________
         removeEstimateLine,
         setCalcFoldOpen,
         setCatalogView,
+        setClientsSeg,
+        setClientsSort,
         setEstimateSearch,
         clearEstimateSearch,
         replayWelcome,

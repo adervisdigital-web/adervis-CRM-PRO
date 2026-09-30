@@ -5729,6 +5729,31 @@ module.exports = async function ({ browser, baseUrl, test }) {
     assertEqual(searched.more, "", "после поиска осталась кнопка «Показать ещё», хотя показывать нечего");
   });
 
+  /* 01.10.2026: «Клиенты» — итоги плитками, отбор «Должны», у всех карточек одна
+     раскладка и высота (долг у должников переносился и растягивал карточку). */
+  await test("клиенты: плитка «Должны» оставляет должников, карточки одной высоты", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await bootWithState(`
+      st.clients = [["a", "Альфа"], ["b", "Бета"], ["c", "Гамма"]].map(([id, name]) => ({ id, name, phone: "", email: "", createdAt: "2026-09-01" }));
+      const mk = (id, cid, total, paid, status) => ({ id, name: "Сделка " + id, client: "", clientId: cid, total, paid, crmStatus: status, createdAt: "2026-09-01", updatedAt: "2026-09-02", snapshot: { payments: [], expenses: [], tasks: [] } });
+      st.savedProjects = [mk("1", "a", 100000, 40000, "В работе"), mk("2", "b", 50000, 50000, "Завершённые"), mk("3", "b", 30000, 30000, "Завершённые"), mk("4", "c", 20000, 20000, "Завершённые")];
+      st.clientsSeg = "all"; st.clientsView = "grid"; st.clientsFilter = "";
+    `, { width: 1440, height: 900 });
+    try {
+      await p.evaluate(() => window.app.go("clients"));
+      await p.waitForTimeout(900);
+      const hs = await p.evaluate(() => [...document.querySelectorAll(".clients-grid .client-card")].map((c) => Math.round(c.getBoundingClientRect().height)));
+      assertEqual(hs.length, 3, "карточек не три");
+      assert(Math.max(...hs) - Math.min(...hs) <= 2, "карточки клиентов разной высоты: " + hs.join(", "));
+      await p.evaluate(() => [...document.querySelectorAll(".clients-summary .cal-sum-tile")].find((b) => /Должны/.test(b.textContent)).click());
+      await p.waitForTimeout(500);
+      const names = await p.evaluate(() => [...document.querySelectorAll(".clients-grid .client-card h3")].map((h) => h.textContent.trim()));
+      assertEqual(names.join(","), "Альфа", "«Должны» показывает не только должников");
+    } finally {
+      await ctx.close();
+    }
+  });
+
   /* 01.10.2026 (владелец: «блоки слева — чтобы при переключении не расширялись
      и работали плавно»): нажатая сделка уезжала на верх секции (сортировка по
      дате правки, а открытие обновляет дату предыдущей), строки были разной
@@ -8398,7 +8423,8 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assert(!r.tile, "в плитке снова ячейка «Новый клиент»");
       assert(r.headBtn, "в шапке нет «Новый клиент»");
       assertEqual(r.tel, "tel:+79124998942", "телефон клиента не стал ссылкой для звонка");
-      assert(/^1 сделка/.test(r.deals || ""), "число сделок не ссылка на проекты: " + r.deals);
+      // С 01.10.2026 число сделок — под подписью «Сделок» (колонки у всех карточек).
+      assert(/^1$/.test(r.deals || ""), "число сделок не ссылка на проекты: " + r.deals);
       assert(r.debtTrack, "у должника нет полоски оплаты");
       assert(r.paused.includes("Пауза") && !r.paused.includes("Активный"), "капсулы статусов не те: " + JSON.stringify(r.paused));
 
