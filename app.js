@@ -12594,20 +12594,24 @@
         else openDiscountEditor();
       }
 
-      /* Кнопка «Скидка» — в ряду кнопок сметы, рядом с «Свернуть всё / Услуги /
-         Пакет» (владелец 19.09.2026: «скидку вынести ко всем кнопкам»). По
-         нажатию под ней окошко: поле, %/₽, «Убрать». Когда скидка задана, кнопка
-         сама её называет («Скидка −10%»), а в «Итогах» — строка с суммой.
-         Окошко закрывается повторным нажатием, Esc или щелчком мимо. */
+      /* Скидка — строкой в «Итогах сметы», рядом с налогом и итогом (владелец
+         30.09.2026: налог и скидку — в «Итоги»). История: до 19.09 поле жило во
+         вкладке «Описание», где его не находили; 19.09 — кнопкой в ряду кнопок
+         сметы; теперь там, где считается итог, как в корзине: сумма → скидка →
+         налог → итого. Строка сама называет скидку («Скидка 10% · − 16 253 ₽»),
+         без скидки — «добавить». По нажатию окошко: поле, %/₽, «Убрать».
+         Закрывается повторным нажатием, Esc или щелчком мимо. */
       function renderEstimateDiscountButton(t) {
         const isAmount = state.project.discountType === "amount";
         const v = numberValue(state.project.discount, 0);
         const set = t.discount > 0;
-        const label = !set ? "Скидка" : isAmount ? `Скидка −${money(t.discount)}` : `Скидка −${String(v).replace(".", ",")}%`;
         return `
-          <div class="estimate-discount">
-            <button type="button" class="btn small estimate-discount-btn ${set ? "is-set" : ""}" aria-expanded="${_discountEditorOpen}"
-              onclick="app.toggleDiscountEditor()" title="Скидка клиенту — процентом или суммой">${icon("percent", 13)} ${label}</button>
+          <div class="estimate-discount is-row">
+            <button type="button" class="estimate-discount-btn summary-adjust-row${set ? " is-set summary-discount-line" : ""}" aria-expanded="${_discountEditorOpen}"
+              onclick="app.toggleDiscountEditor()" title="Скидка клиенту — процентом или суммой">
+              <span class="summary-adjust-lbl">${icon("percent", 13)} ${set && !isAmount ? `Скидка ${String(v).replace(".", ",")}%` : "Скидка"}</span>
+              ${set ? `<strong class="summary-discount-sum">− ${money(t.discount)}</strong>` : `<span class="summary-adjust-add">добавить</span>`}
+            </button>
             ${_discountEditorOpen ? `
             <div class="estimate-discount-pop" role="group" aria-label="Скидка клиенту">
               <div class="estimate-discount-row">
@@ -21069,13 +21073,19 @@
               }).join("");
             })() : ""}
 
-            ${/* Скидка задаётся кнопкой «Скидка» в ряду кнопок сметы (владелец
-                  19.09.2026: «вынести ко всем кнопкам», см. renderEstimateDiscountButton).
-                  Здесь — только результат, строкой того же строя, что налог. */""}
-            ${t.discount > 0 && !d.budgetOnly ? `<div class="summary-line summary-discount-line"><span>Скидка${state.project.discountType === "amount" ? "" : ` ${String(numberValue(state.project.discount, 0)).replace(".", ",")}%`}</span><strong class="summary-discount-sum">− ${money(t.discount)}</strong></div>` : ""}
-            ${/* С названием режима: «Налог 10 745 ₽» не отвечал, откуда число,
-                  а ставка выбрана тут же в шапке сметы. */""}
-            ${t.tax ? (() => {
+            ${/* Скидка и налог правятся прямо здесь, строками (владелец 30.09.2026):
+                  они меняют итог, а не состав сметы, — их место рядом с итогом. */""}
+            ${hasLines && !d.budgetOnly ? `
+            <div class="summary-adjust no-print">
+              ${renderEstimateDiscountButton(t)}
+              <div class="summary-adjust-row summary-tax-row">
+                <span class="summary-adjust-lbl">${icon("receipt", 13)} Налог</span>
+                <select data-autosave data-scope="project" data-key="taxType" title="Налог в смете" aria-label="Налог в смете">
+                  ${taxOptionsHtml(state.project.taxType)}
+                </select>
+                ${t.tax ? `<strong>${money(t.tax)}</strong>` : ""}
+              </div>
+            </div>` : t.tax ? (() => {
               const режим = TAX_OPTIONS.find(o => o.id === (state.project.taxType || "none"));
               return `<div class="summary-line"><span>Налог${режим && режим.short ? ` · ${escapeHtml(режим.short)}` : ""}</span><strong>${money(t.tax)}</strong></div>`;
             })() : ""}
@@ -22893,12 +22903,6 @@
                   ${/* max-width обязателен: enhanceSelects растягивает кастом-дропдаун
                         по самому длинному варианту, и на телефоне селект уезжал за
                         край экрана (замер на 390px: −63px). */""}
-                  <label class="est-bar-tax">
-                    <span>Налог</span>
-                    <select data-autosave data-scope="project" data-key="taxType" title="Налог в смете" aria-label="Налог в смете">
-                      ${taxOptionsHtml(state.project.taxType)}
-                    </select>
-                  </label>
                   ${(() => {
                     // Сверка с бюджетом, который назвал клиент — с итогом ПОСЛЕ налога.
                     // Блок кликабельный: бюджет можно поменять или убрать.
@@ -22915,7 +22919,6 @@
                   })()}
                   ${stagesWithItems.length ? `
                   <div class="toolbar no-print est-bar-btns">
-                    ${renderEstimateDiscountButton(t)}
                     <button class="btn small estimate-collapse-all-btn est-bar-icon ${allStagesCollapsed ? "collapsed" : ""}" onclick="app.toggleAllEstimate()"
                       title="${allStagesCollapsed ? "Развернуть всё" : "Свернуть всё"}" aria-label="${allStagesCollapsed ? "Развернуть все этапы" : "Свернуть все этапы"}">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>

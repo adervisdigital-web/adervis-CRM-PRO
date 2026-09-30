@@ -7124,7 +7124,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
           v: ((x.querySelector("strong") || {}).textContent || "").replace(/[^\d]/g, ""),
         }));
         const plan = lines.find((l) => /^Расходы \(план\)/.test(l.t.trim()));
-        return { tax: (lines.find((l) => /^Налог/.test(l.t.trim())) || {}).t,
+        // С 30.09.2026 налог в «Итогах» — строка с выбором режима (.summary-tax-row):
+        // ставку называет сама кнопка выбора.
+        const taxBtn = a.querySelector(".summary-tax-row .uu-select-btn");
+        return { tax: taxBtn ? "Налог · " + taxBtn.textContent.trim() : (lines.find((l) => /^Налог/.test(l.t.trim())) || {}).t,
           dupSub: lines.filter((l) => /из них/.test(l.t) && plan && l.v === plan.v).map((l) => l.t.trim()) };
       });
       assert(/НПД 7%/.test(panel.tax || ""), "налог не назван ставкой: «" + panel.tax + "»");

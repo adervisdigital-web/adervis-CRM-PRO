@@ -11051,11 +11051,6 @@ button.is-busy::before {
 .est-bar-add { display: flex; gap: 8px; flex-wrap: wrap; }
 .est-bar-tools { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; margin-left: auto; min-width: 0; }
 .est-bar-count { font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.est-bar-tax { display: inline-flex; align-items: center; gap: 6px; margin: 0; min-width: 0; max-width: 100%; }
-.est-bar-tax > span { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
-.est-bar-tax select, .est-bar-tax .uu-select-btn {
-  width: auto; max-width: 100%; min-height: 32px; padding: 5px 30px 5px 10px; font-size: 12px; border-radius: var(--r-md);
-}
 .est-bar-btns { gap: 8px; flex-direction: row; flex-wrap: wrap; margin: 0; }
 .est-bar-icon { width: 34px; padding-left: 0; padding-right: 0; justify-content: center; }
 /* Сумма в полосе — третья копия, когда «Итоги сметы» стоят рядом (>1160px). */
@@ -11102,7 +11097,6 @@ button.is-busy::before {
    съедали полэкрана. Касание по-прежнему 44px в высоту (сама лента). */
 @media (hover: none) and (pointer: coarse) {
   .est-jump { min-height: 44px; }
-  .est-bar-tax select, .est-bar-tax .uu-select-btn { min-height: 44px; }
 }
 @media (max-width: 560px) {
   .est-bar-jump { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 10px 14px 2px; }
@@ -11113,4 +11107,30 @@ button.is-busy::before {
 @media (max-width: 560px) {
   .est-bar-add { width: 100%; }
   .est-add-tile { flex: 1 1 100%; }
+}
+/* «Итоги сметы»: скидка и налог — строками, которые правятся на месте
+   (владелец 30.09.2026). Порядок как в корзине: этапы → скидка → налог → итого. */
+.summary-adjust { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 14px; }
+.summary-adjust .estimate-discount { display: flex; flex-direction: column; gap: 6px; }
+.summary-adjust-row {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 42px;
+  padding: 6px 8px 6px 12px; border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--panel); color: var(--text); font: inherit; font-size: 14px; text-align: left;
+}
+button.summary-adjust-row { cursor: pointer; transition: border-color var(--dur-1), background var(--dur-1); }
+button.summary-adjust-row:hover { border-color: rgb(var(--primary-rgb) / .45); }
+.summary-adjust-lbl { display: inline-flex; align-items: center; gap: 7px; margin-right: auto; font-weight: 600; }
+.summary-adjust-lbl svg { color: var(--muted); }
+.estimate-discount-btn.is-set .summary-adjust-lbl svg { color: var(--text-success); }
+.summary-adjust-add { display: inline-flex; align-items: center; gap: 4px; padding-right: 4px; font-size: 12.5px; font-weight: 700; color: var(--primary-text); }
+.summary-adjust-row strong { font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; padding-right: 4px; }
+.summary-tax-row select, .summary-tax-row .uu-select-btn {
+  width: auto; max-width: 150px; min-height: 30px; height: 30px; padding: 3px 28px 3px 10px;
+  font-size: 12.5px; border-radius: var(--r-sm);
+}
+/* В колонке «Итогов» окошко раскрывается под строкой, а не поверх налога и итога. */
+.summary-adjust .estimate-discount-pop { position: static; width: auto; box-shadow: none; background: var(--panel2); animation: estOpen .24s var(--ease-out) both; }
+@media (hover: none) and (pointer: coarse) {
+  .summary-adjust-row { min-height: 48px; }
+  .summary-tax-row select, .summary-tax-row .uu-select-btn { min-height: 44px; height: 44px; }
 }
