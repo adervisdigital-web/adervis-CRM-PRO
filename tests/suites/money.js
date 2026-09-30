@@ -1101,7 +1101,8 @@ module.exports = async function ({ browser, baseUrl, test }) {
     const read = () => p.evaluate(() => ({
       cam: (document.querySelector('[data-key="cameraCount"]') || {}).value,
       src: (document.querySelector('[data-key="sourceCount"]') || {}).value,
-      total: Number(String((document.querySelector(".summary-total") || {}).textContent || "").replace(/[^\d]/g, ""))
+      // .summary-total strong: с 30.09.2026 под итогом строка аванса, её цифры не складываем в итог.
+      total: Number(String((document.querySelector(".summary-total strong") || {}).textContent || "").replace(/[^\d]/g, ""))
     }));
 
     const migrated = await read();

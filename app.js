@@ -21155,6 +21155,10 @@
             <div class="summary-total">
               <span>${d.budgetOnly ? "Бюджет сделки" : "Итого для клиента"}</span>
               <strong>${money(d.total)}</strong>
+              ${/* Аванс — тем же расчётом, что в КП (advanceFromTerms по «Условиям
+                    оплаты»): первое, что спрашивают в разговоре с клиентом. Нет
+                    слова про аванс в условиях — нет и строки. */""}
+              ${(() => { const a = advanceFromTerms(state.project.paymentTerms, d.total); return a ? `<small class="summary-advance">аванс ${a.pct}% — ${money(a.сумма)}</small>` : ""; })()}
             </div>`}
             ${d.budgetOnly ? `<div class="summary-line" style="font-size:12px"><span>Смета не разбита на позиции</span></div>` : ""}
 
@@ -22864,8 +22868,27 @@
         updateCustomItem(id, "place", place);
       }
 
+      /* Поиск по смете (30.09.2026). В большой смете этапы свёрнуты, и найти
+         «Цветокоррекцию» можно было только раскрывая всё подряд. Пока строка
+         поиска не пуста, видны только совпавшие позиции, их этапы раскрыты;
+         суммы этапов при этом — по ВСЕМ позициям этапа, не по найденным.
+         Запрос живёт в памяти страницы и сбрасывается при смене сделки. */
+      let _estSearch = "", _estSearchDeal = null;
+      function setEstimateSearch(v) {
+        _estSearch = String(v || "");
+        _debouncedSearchRender();
+      }
+      function clearEstimateSearch() { _estSearch = ""; render(); }
+      function _estLineMatches(id, q) {
+        const itemData = findItem(id, true), line = state.selected[id] || {};
+        const hay = [line.lineName, itemData && itemData.name, line.editedDesc, itemData && itemData.desc].filter(Boolean).join(" ").toLowerCase();
+        return hay.includes(q);
+      }
+
       function renderEstimate() {
         const inDeal = state.view === "deal";
+        if (_estSearchDeal !== (state.activeProjectId || "")) { _estSearchDeal = state.activeProjectId || ""; _estSearch = ""; }
+        const estQ = _estSearch.trim().toLowerCase();
         // Пояснения к моделям расчёта показываются по одному разу на экран —
         // счётчик обнуляется на каждый проход (см. calcHintOnce).
         _calcHintShown = new Set();
@@ -22978,6 +23001,12 @@
                       <span style="font-size:13px;font-weight:800;color:${color}">${over ? "перерасход " + money(-diff) : "запас " + money(diff)}</span>
                     </button>`;
                   })()}
+                  ${totalItems > 3 ? `
+                  <label class="est-search no-print">
+                    ${icon("search", 13)}
+                    <input id="estSearch" type="search" placeholder="Найти в смете" autocomplete="off" value="${escapeHtml(_estSearch)}"
+                      oninput="app.setEstimateSearch(this.value)" aria-label="Найти позицию в смете">
+                  </label>` : ""}
                   ${stagesWithItems.length ? `
                   <div class="toolbar no-print est-bar-btns">
                     <button class="btn small estimate-collapse-all-btn est-bar-icon ${allStagesCollapsed ? "collapsed" : ""}" onclick="app.toggleAllEstimate()"
@@ -22999,7 +23028,16 @@
               </div>
 
               <div style="margin-top:6px">
-                ${stagesWithItems.length
+                ${stagesWithItems.length && estQ ? (() => {
+                  const found = stagesWithItems
+                    .map(x => ({ ...x, allIds: x.ids, ids: x.ids.filter(id => _estLineMatches(id, estQ)), forceOpen: true }))
+                    .filter(x => x.ids.length);
+                  const n = found.reduce((s, x) => s + x.ids.length, 0);
+                  return `<div class="est-search-note no-print">${n ? `Найдено: ${n} ${plural(n, "позиция", "позиции", "позиций")}` : `По «${escapeHtml(_estSearch.trim())}» в смете ничего нет`}
+                    <button type="button" class="btn small" onclick="app.clearEstimateSearch()">Сбросить поиск</button></div>`
+                    + found.map(renderEstimateStage).join("");
+                })()
+                : stagesWithItems.length
                   ? stagesWithItems.map(renderEstimateStage).join("")
                   : (() => {
                       // Сделка из импорта: бюджет есть, позиций нет. Не пугаем «пустой сметой»,
@@ -23035,10 +23073,23 @@
 
       function renderEstimateStage(stageBlock) {
         const { stage, ids } = stageBlock;
-        const isCollapsed = Boolean(state.stageCollapsed?.[stage.id]);
-        const stageSum = ids.reduce((sum, id) => sum + lineTotal(id), 0);
-        const mainCount = ids.filter(id => !state.selected[id]?.optional).length;
-        const optionalCount = ids.filter(id => state.selected[id]?.optional).length;
+        // При поиске ids — найденные, а сумма и счётчики — по всему этапу.
+        const allIds = stageBlock.allIds || ids;
+        const isCollapsed = !stageBlock.forceOpen && Boolean(state.stageCollapsed?.[stage.id]);
+        const stageSum = allIds.reduce((sum, id) => sum + lineTotal(id), 0);
+        const mainCount = allIds.filter(id => !state.selected[id]?.optional).length;
+        const optionalCount = allIds.filter(id => state.selected[id]?.optional).length;
+        /* «+» у этапа — сразу в раздел каталога, откуда такие позиции берут:
+           добавить монтаж в собранную смету значило подняться к полосе и
+           искать раздел. Свой этап — в каталог целиком. */
+        const STAGE_TO_GROUP = { pre: "prep", shoot: "crew", post: "post", management: "crew", marketing: "dist" };
+        const addGroup = STAGE_TO_GROUP[stage.id] || "";
+        /* Свёрнутый этап называет, что внутри: «13 позиц.» не говорит, есть ли
+           там цветокоррекция, — приходилось раскрывать. */
+        const peekNames = isCollapsed ? allIds.slice(0, 3).map(id => {
+          const it = findItem(id, true), ln = state.selected[id] || {};
+          return ln.lineName || (it && it.name) || "";
+        }).filter(Boolean) : [];
         const color = stage.color || "#7c3aed";
 
         return `
@@ -23064,12 +23115,15 @@
                     ${escapeHtml(stage.desc || "")}
                     · <strong>${mainCount}</strong> позиц.${optionalCount ? ` · <strong>${optionalCount}</strong> опц.` : ""}
                   </div>
+                  ${peekNames.length ? `<div class="stage-peek">${peekNames.map(n => escapeHtml(n)).join(" · ")}${allIds.length > peekNames.length ? ` <span>и ещё ${allIds.length - peekNames.length}</span>` : ""}</div>` : ""}
                 </div>
               </div>
               ${/* Класс вместо инлайнового стиля: на телефоне этот блок должен уметь
                     переноситься на свою строку — раньше он вылезал за край карточки
                     вместе с кнопкой «Развернуть». */""}
               <div class="stage-header-right">
+                <button type="button" class="btn small stage-add-btn no-print" onclick="${addGroup ? `app.goCatalogGroup('${addGroup}')` : "app.go('catalog')"}"
+                  title="Позиция в «${escapeHtml(stage.name)}» — из каталога" aria-label="Позиция в этап «${escapeHtml(stage.name)}» из каталога">${icon("plus", 14)}</button>
                 <div class="price" style="font-size:20px">${money(stageSum)}</div>
                 <button class="btn small no-print stage-collapse-btn ${isCollapsed ? "collapsed" : ""}" onclick="app.toggleStageCollapse('${stage.id}')">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
@@ -34378,6 +34432,8 @@ Email: _____________________              Email: _____________________
         setGFinRange,
         removeEstimateLine,
         setCalcFoldOpen,
+        setEstimateSearch,
+        clearEstimateSearch,
         replayWelcome,
         setGFinDatePreset,
         setGFinDateFrom,

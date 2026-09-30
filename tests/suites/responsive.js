@@ -2394,6 +2394,41 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  /* 30.09.2026: поиск по смете оставляет только совпавшие позиции и раскрывает
+     их этап, фокус в поле не теряется; свёрнутый этап называет состав; «+» у
+     этапа ведёт в раздел каталога. */
+  await test("смета: поиск по позициям, состав свёрнутого этапа, «+» этапа — в каталог", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1440, height: 1000, seedDemo: true });
+    try {
+      await page.evaluate(() => { window.app.go("deal"); window.app.setDealView("estimate"); });
+      await page.waitForTimeout(600);
+      await page.evaluate(() => window.app.toggleAllEstimate());
+      await page.waitForTimeout(900);
+      const peek = await page.evaluate(() => [...document.querySelectorAll(".stage-peek")].map((e) => e.textContent.trim()));
+      assert(peek.length > 0 && peek.every((t) => t.length > 3), "у свёрнутых этапов не назван состав: " + JSON.stringify(peek));
+      await page.click("#estSearch");
+      await page.keyboard.type("монтаж", { delay: 30 });
+      await page.waitForTimeout(700);
+      const r = await page.evaluate(() => ({
+        focus: document.activeElement && document.activeElement.id,
+        names: [...document.querySelectorAll("article.item .line-name-input")].map((i) => i.value),
+        note: (document.querySelector(".est-search-note") || {}).textContent || "",
+      }));
+      assertEqual(r.focus, "estSearch", "поиск перерисовал экран и увёл фокус из поля");
+      assert(r.names.length > 0 && r.names.every((n) => /монтаж/i.test(n)), "поиск оставил не только совпадения: " + JSON.stringify(r.names));
+      assert(/Найдено/.test(r.note), "нет строки «Найдено»");
+      await page.evaluate(() => window.app.clearEstimateSearch());
+      await page.waitForTimeout(300);
+      await page.evaluate(() => document.querySelector('.estimate-stage[data-stage="post"] .stage-add-btn').click());
+      await page.waitForTimeout(900); // состояние пишется с задержкой
+      const st = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}"); return { view: s.view, tab: s.tab }; });
+      // Каталог открывается видом «services» (go("catalog") ведёт туда же).
+      assert(/^(catalog|services)$/.test(st.view) && st.tab === "grp:post", "«+» у «Постпродакшна» открыл не раздел «Постпродакшн» каталога: " + st.view + " " + st.tab);
+    } finally {
+      await context.close();
+    }
+  });
+
   /* 30.09.2026: первый слайд тура — живая сцена вместо обрезанного скриншота.
      Все слайды лежат в DOM разом и окно перерисовывается на каждом листании —
      сцена обязана играть только когда её показывают, а в остальное время стоять
