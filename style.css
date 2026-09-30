@@ -10313,14 +10313,17 @@ body.portal-mode .nav { display: none !important; }
 }
 .deal-rail-order-reset svg { flex: 0 0 auto; }
 
-/* Ниже 1100px колонка не помещается рядом со сметой — возвращаемся к кнопке. */
-@media (max-width: 1100px) {
+/* Ниже 1440px колонка не помещается рядом со сметой — возвращаемся к кнопке.
+   Было 1100px, и меню разделов слева не учитывалось: на ноутбуке 1280 смете
+   оставалось 360px, позиции резались справа (замер 30.09.2026: 1280 → 360px,
+   1366 → 441px). Без колонки: 1280 → ~650px, 1366 → ~730px. */
+@media (max-width: 1440px) {
   .deal-layout { display: block; }
   .deal-rail { display: none; }
 }
 /* На широком экране кнопка-переключатель в шапке сделки не нужна: список и так
    виден слева. Оставляем её только там, где колонка скрыта. */
-@media (min-width: 1101px) {
+@media (min-width: 1441px) {
   .deal-switcher { display: none; }
 }
 
@@ -11485,3 +11488,36 @@ button.summary-adjust-row:hover { background: rgb(var(--primary-rgb) / .06); bor
 .obx-tier-f li { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .obx-tier-f li svg { flex: 0 0 auto; color: var(--c); }
 .obx.is-play .obx-tier-f li { animation: obxFade .35s ease both; animation-delay: calc(.6s + var(--i) * .12s + var(--j) * .08s); }
+/* «Итоги сметы» на ноутбуке уже: 360px оставляли смете слишком мало. */
+@media (max-width: 1320px) and (min-width: 1161px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 320px; }
+}
+
+/* Лента этапов на «Проектах» — всегда один ряд на компьютере. Сетка «сколько
+   влезет по 98px» на ноутбуке ставила в ряд 11 плиток из 12, и «Архив» уходил
+   один на вторую строку (владелец 30.09.2026). Теперь плитки делят ширину
+   поровну; длинное название сокращается, полное — в подсказке. Вид и порядок
+   плиток прежние (две переделки ленты 28.09 владелец отклонил). */
+@media (min-width: 641px) {
+  .crm-home-funnel { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  .crm-home-funnel > .funnel-stage { min-width: 0; }
+  .crm-home-funnel > .funnel-stage h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .crm-home-funnel > .funnel-stage .fs-amount { white-space: nowrap; }
+  /* Узкая плитка (ноутбук): сумму не режем многоточием — «1 742 10…» про деньги
+     недопустимо; мельче кегль и поля. */
+  .crm-home-funnel > .funnel-stage { container-type: inline-size; }
+}
+@media (min-width: 641px) and (max-width: 1400px) {
+  .crm-home-funnel > .funnel-stage { padding-left: 7px; padding-right: 7px; }
+}
+@container (max-width: 90px) {
+  .funnel-stage .fs-amount { font-size: 10.5px; letter-spacing: -.01em; }
+  .funnel-stage h3 { font-size: 11px; }
+}
+/* Поля позиции сметы по карточке, а не по окну: при 1536 с колонкой «Сделки»
+   смете остаётся ~580px, и четыре поля в ряд резались («Подгото…», дата
+   «30.09.202»). Узкая карточка — поля по два в ряд. */
+.estimate-stage article.item { container-type: inline-size; }
+@container (max-width: 640px) {
+  .line-details .grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

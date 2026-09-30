@@ -2857,7 +2857,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
   // На узком экране места нет — там остаётся прежняя кнопка с выезжающей панелью.
   await test("«Смета»: список сделок открыт сбоку, на узком экране — кнопкой", async () => {
     await dismissStaleDialog(page);
-    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setViewportSize({ width: 1600, height: 900 }); // колонка «Сделки» видна только шире 1440px (30.09.2026)
     await page.evaluate(() => window.app.go("home"));
     await page.waitForTimeout(200);
     const card = await page.$(".deal-card");
@@ -3652,7 +3652,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
   // Колонка показывается только от 1101px (ниже — кнопка с выезжающей панелью),
   // а общая страница набора шириной 1000 — поэтому здесь свой контекст.
   async function bootRail() {
-    const { context: ctx, page: p } = await bootLocal(browser, baseUrl, { width: 1400, height: 900, seedDemo: true });
+    const { context: ctx, page: p } = await bootLocal(browser, baseUrl, { width: 1600, height: 900, seedDemo: true }); // колонка «Сделки» видна только шире 1440px (30.09.2026)
     const ids = await p.evaluate(() => {
       const read = () => JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
       const first = (read().savedProjects || [])[0];
@@ -5725,6 +5725,32 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await ctx.close();
     assertEqual(searched.rows, 1, "поиск по клиентам дал не одно совпадение: " + searched.rows);
     assertEqual(searched.more, "", "после поиска осталась кнопка «Показать ещё», хотя показывать нечего");
+  });
+
+  /* 30.09.2026 (владелец: «на ноутбуке "Архив" выходит на вторую строку»):
+     лента этапов на «Проектах» — всегда один ряд, суммы не режутся многоточием.
+     Ширина 1056 = ноутбук 1280 минус левое меню (в локальном режиме его нет). */
+  await test("лента этапов на ноутбуке: «Архив» в том же ряду, сумма целиком", async () => {
+    await dismissStaleDialog(page);
+    const { ctx, p } = await bootWithState(`
+      const mk = (id, name, status, total) => ({ id, name, client: "К", total, paid: 0, crmStatus: status, createdAt: "2026-09-01", updatedAt: "2026-09-01", snapshot: { payments: [], expenses: [], tasks: [] } });
+      st.savedProjects = (st.savedProjects || []).concat([mk("fa1", "Архивная", "Архив", 147018), mk("fz1", "Готово", "Завершённые", 1742100)]);
+    `, { width: 1056, height: 800 });
+    try {
+      await p.evaluate(() => window.app.go("home"));
+      await p.waitForTimeout(2200);
+      const r = await p.evaluate(() => {
+        const tiles = [...document.querySelectorAll(".crm-home-funnel > .funnel-stage")];
+        const amounts = [...document.querySelectorAll(".crm-home-funnel .fs-amount")].map((a) => ({ t: a.textContent.trim(), cut: a.scrollWidth > a.clientWidth + 1 }));
+        return { n: tiles.length, rows: new Set(tiles.map((t) => Math.round(t.getBoundingClientRect().top))).size,
+          last: (tiles[tiles.length - 1].querySelector("h3") || {}).textContent, cut: amounts.filter((a) => a.cut).map((a) => a.t) };
+      });
+      assert(/Архив/.test(r.last || ""), "последняя плитка не «Архив»: " + r.last);
+      assertEqual(r.rows, 1, `лента этапов в ${r.rows} ряда — «Архив» снова уехал на вторую строку`);
+      assertEqual(r.cut.length, 0, "сумма в плитке обрезана: " + r.cut.join(", "));
+    } finally {
+      await ctx.close();
+    }
   });
 
   /* 30.09.2026 «доделываем финансы с анимацией и графикой»: итог за период —

@@ -20854,7 +20854,7 @@
                       затем полоса-воронка) владелец отклонил — «изначально было
                       лучше». Акцент не меняет ни размеров, ни порядка плиток. */""}
                 ${stageData.map(s => `
-                  <div class="funnel-stage ${filter === s.status ? "active" : ""} ${s.items.length ? "is-filled" : "funnel-stage--empty"}" style="--st-color:${CRM_STATUS_COLOR[s.status] || "var(--muted)"}" onclick="app.setCrmFilter('${s.status}')">
+                  <div class="funnel-stage ${filter === s.status ? "active" : ""} ${s.items.length ? "is-filled" : "funnel-stage--empty"}" style="--st-color:${CRM_STATUS_COLOR[s.status] || "var(--muted)"}" onclick="app.setCrmFilter('${s.status}')" title="${escapeHtml(s.status)}: ${s.items.length}">
                     <h3>${escapeHtml(s.status)}</h3>
                     <div class="fs-count">${s.items.length}</div>
                     ${s.total ? `<div class="fs-amount">${money(s.total)}</div>` : ""}
