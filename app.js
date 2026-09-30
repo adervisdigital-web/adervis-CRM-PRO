@@ -7934,7 +7934,7 @@
         },
         {
           title: "Командная работа",
-          body: "Добавляйте участников команды, назначайте задачи с дедлайнами. Работайте совместно — изменения синхронизируются через Supabase Realtime.",
+          body: "Добавляйте участников команды и назначайте задачи с дедлайнами. Коллеги работают в той же базе — изменения видны всем сразу.",
           mock: "team"
         },
         {
@@ -7944,7 +7944,7 @@
         },
         {
           title: "Тарифы и подписка",
-          body: "ADERVIS работает по подписке. Напишите на adervis.digital@gmail.com для оплаты и активации нужного тарифа. Установите как приложение (PWA) для работы офлайн.",
+          body: "7 дней бесплатно и без карты. Потом — «Старт», «Стандарт» или «Про»: оплата онлайн картой или по СБП, без автосписаний. Установить ADERVIS как приложение можно в «Настройках → Интеграции».",
           mock: "plans"
         }
       ];
@@ -8019,7 +8019,7 @@
          листании, поэтому играть разрешено только когда слайд показывают
          (_obPlayed), иначе сцена проигрывалась бы невидимо. */
       let _obPlayed = -1;
-      function replayWelcome() { _obPlayed = -1; renderModal(); }
+      function replayWelcome() { _obPlayed = -1; renderModal(); } // «Повторить» — у любого слайда
       function renderWelcomeScene(play) {
         const line = (i, ic, color, name, sum) => `
           <div class="obx-line" style="--i:${i}">${iconBadge(ic, color, 26)}<span>${name}</span><b>${sum}</b></div>`;
@@ -8053,15 +8053,160 @@
             </div>
           </div>`;
       }
-      // Итог сметы в сцене набегает тем же _countUp, что числа на главной.
+      /* Сцены остальных слайдов тура — тем же языком, что «Добро пожаловать»:
+         базовые стили = финальный кадр, движение только под .obx.is-play,
+         вход (.16,1,.3,1), перемещение (.65,0,.35,1), без отскоков. Числа с
+         классом js-count набегают через _countUp (data-delay — задержка, мс). */
+      const _obAv = (txt, color) => `<span class="obx-av" style="background:${color}">${txt}</span>`;
+      const ONBOARD_SCENES = {
+        welcome: (play) => renderWelcomeScene(play),
+
+        kanban: (play) => {
+          const cols = [
+            { name: "Лид", color: "var(--muted)", cards: [["Свадьба · Анна", "45 000 ₽"], ["Подкаст", "32 000 ₽"]] },
+            { name: "Бриф", color: "var(--blue)", cards: [["Клип группы", "90 000 ₽"]] },
+            { name: "КП отправлено", color: "var(--yellow)", cards: [["Корпоратив", "120 000 ₽"]] },
+            { name: "Предоплата", color: "var(--green)", cards: [] },
+          ];
+          return `
+          <div class="obx obx--kanban ${play ? "is-play" : "is-still"}" role="img"
+            aria-label="Новая сделка появляется в колонке «Лид» и переезжает по воронке до «Предоплаты»">
+            <div class="obx-kb-top">
+              <span class="obx-card-head">${icon("list", 13)} Воронка сделок</span>
+              <span class="obx-newbtn">${icon("plus", 12)} Новая сделка</span>
+            </div>
+            <div class="obx-kb">
+              ${cols.map((c, i) => `
+                <div class="obx-kb-col" style="--i:${i}">
+                  <div class="obx-kb-h"><i style="background:${c.color}"></i>${c.name}</div>
+                  <div class="obx-kb-slot"></div>
+                  ${c.cards.map(([tt, s], j) => `<div class="obx-kb-card" style="--j:${i + j}"><b>${tt}</b><small>${s}</small></div>`).join("")}
+                </div>`).join("")}
+              <div class="obx-kb-mover"><b>Рекламный ролик</b><small>153 500 ₽</small><span class="obx-kb-done">${icon("check", 11)}</span></div>
+            </div>
+          </div>`;
+        },
+
+        finance: (play) => {
+          const kpi = (i, label, sum, color, delay) => `
+            <div class="obx-kpi" style="--i:${i};--c:${color}">
+              <span>${label}</span><b class="js-count" data-delay="${delay}">${sum}</b>
+            </div>`;
+          const bars = [38, 55, 42, 70, 62, 88];
+          return `
+          <div class="obx obx--fin ${play ? "is-play" : "is-still"}" role="img"
+            aria-label="Финансы сделки: получено 120 000 ₽, расходы 35 000 ₽, прибыль 85 000 ₽, операции и доход по месяцам">
+            <div class="obx-kpis">
+              ${kpi(0, "Получено", "120 000 ₽", "var(--text-success)", 350)}
+              ${kpi(1, "Расходы", "35 000 ₽", "var(--text-danger)", 450)}
+              ${kpi(2, "Прибыль", "85 000 ₽", "var(--primary-text)", 550)}
+            </div>
+            <div class="obx-card obx-tx">
+              <div class="obx-card-head">${icon("wallet", 13)} Операции</div>
+              <div class="obx-txr" style="--i:0"><span>Аванс 50%</span><b class="is-in">+60 000 ₽</b></div>
+              <div class="obx-txr" style="--i:1"><span>Аренда света</span><b class="is-out">−12 000 ₽</b></div>
+              <div class="obx-txr" style="--i:2"><span>Остаток после сдачи</span><b class="is-in">+60 000 ₽</b></div>
+            </div>
+            <div class="obx-card obx-bars">
+              <div class="obx-card-head">${icon("chart", 13)} Доход по месяцам</div>
+              <div class="obx-bars-row">${bars.map((h, i) => `<span style="--h:${h}%;--i:${i}"></span>`).join("")}</div>
+            </div>
+          </div>`;
+        },
+
+        team: (play) => {
+          const people = [["АК", "var(--primary)", "Алексей", "режиссёр"], ["МС", "var(--blue)", "Мария", "оператор"], ["ЕП", "var(--green)", "Егор", "монтажёр"]];
+          const tasks = [["Сценарий", "до 3 окт", 0, true], ["Съёмка на площадке", "12 окт", 1, true], ["Монтаж и цвет", "20 окт", 2, false]];
+          return `
+          <div class="obx obx--team ${play ? "is-play" : "is-still"}" role="img"
+            aria-label="Участники команды получают задачи с дедлайнами, две задачи выполнены, изменения видны всем">
+            <div class="obx-card obx-people">
+              <div class="obx-card-head">${icon("team", 13)} Команда</div>
+              ${people.map(([av, c, n, r], i) => `<div class="obx-person" style="--i:${i}">${_obAv(av, c)}<span><b>${n}</b><small>${r}</small></span></div>`).join("")}
+              <div class="obx-person is-add" style="--i:3"><span class="obx-av is-ghost">${icon("plus", 12)}</span><span><b>Участник</b><small>по ссылке-приглашению</small></span></div>
+            </div>
+            <div class="obx-card obx-tasks">
+              <div class="obx-card-head">${icon("check", 13)} Задачи <span class="obx-sync">${icon("refresh", 11)} Синхронизировано</span></div>
+              ${tasks.map(([tt, due, who, done], i) => `
+                <div class="obx-task${done ? " is-done" : ""}" style="--i:${i}">
+                  <span class="obx-cb">${done ? icon("check", 11) : ""}</span>
+                  <span class="obx-task-t"><b>${tt}</b><small>${icon("calendar", 10)} ${due}</small></span>
+                  ${_obAv(people[who][0], people[who][1])}
+                </div>`).join("")}
+            </div>
+          </div>`;
+        },
+
+        settings: (play) => {
+          const ph = (tag, val, i) => `<span class="obx-ph" style="--i:${i}"><s>{{${tag}}}</s><em>${val}</em></span>`;
+          return `
+          <div class="obx obx--set ${play ? "is-play" : "is-still"}" role="img"
+            aria-label="Реквизиты студии и логотип заполняются один раз, а договор сам подставляет данные сделки">
+            <div class="obx-card obx-company">
+              <div class="obx-card-head">${icon("building", 13)} Реквизиты студии</div>
+              <div class="obx-logo">A</div>
+              <div class="obx-field" style="--i:0"><small>Название</small><b>Студия «Кадр»</b></div>
+              <div class="obx-field" style="--i:1"><small>ИНН</small><b>5902 123 456</b></div>
+              <div class="obx-field" style="--i:2"><small>Телефон</small><b>+7 900 000-00-00</b></div>
+            </div>
+            <div class="obx-card obx-doc">
+              <div class="obx-card-head">${icon("contract", 13)} Договор № 12</div>
+              <div class="obx-doc-l">Заказчик: ${ph("заказчик", "ООО «Вкус»", 0)}</div>
+              <div class="obx-doc-sk" style="width:86%"></div>
+              <div class="obx-doc-l">Сумма: ${ph("сумма", "153 500 ₽", 1)}</div>
+              <div class="obx-doc-sk" style="width:72%"></div>
+              <div class="obx-doc-l">Срок: ${ph("срок", "14 октября", 2)}</div>
+              <div class="obx-stamp">${icon("check", 12)} Готов к подписи</div>
+            </div>
+          </div>`;
+        },
+
+        plans: (play) => {
+          const price = (tier) => ((PLANS.find(p => p.tier === tier && p.months === 1) || {}).price || 0);
+          const tiers = [["start", "Старт", "Снимаю один", "var(--blue)"], ["std", "Стандарт", "Небольшая студия", "var(--primary)"], ["pro", "Про", "Агентство", "var(--orange)"]];
+          return `
+          <div class="obx obx--plans ${play ? "is-play" : "is-still"}" role="img"
+            aria-label="Три тарифа — Старт, Стандарт и Про; выбран «Стандарт», оплата онлайн картой или по СБП">
+            <div class="obx-tiers">
+              ${tiers.map(([id, name, note, c], i) => `
+                <div class="obx-tier${id === "std" ? " is-rec" : ""}" style="--i:${i};--c:${c}">
+                  ${id === "std" ? `<span class="obx-badge">Советуем</span>` : ""}
+                  <b class="obx-tier-n">${name}</b><small>${note}</small>
+                  <span class="obx-tier-p">${money(price(id))}<small>/мес</small></span>
+                  ${/* Отличия — из TIER_RULES, а не текстом: иначе разойдутся с тарифами. */""}
+                  ${(() => {
+                    const r = TIER_RULES[id] || {};
+                    const feats = [
+                      r.deals === Infinity ? "Сделки без лимита" : `До ${r.deals} съёмок в работе`,
+                      r.seats > 1 ? `До ${r.seats} человек в команде` : "Один пользователь",
+                      r.whiteLabel ? "Свой бренд в КП" : r.catalog === "full" ? "Полный каталог" : "Короткий каталог",
+                    ];
+                    return `<ul class="obx-tier-f">${feats.map((x, j) => `<li style="--j:${j}">${icon("check", 11)} ${x}</li>`).join("")}</ul>`;
+                  })()}
+                  <span class="obx-tier-btn">${id === "std" ? `<i class="is-pick">Выбрать</i><i class="is-on">${icon("check", 11)} Активно</i>` : "Выбрать"}</span>
+                </div>`).join("")}
+            </div>
+            <div class="obx-paychips">
+              <span style="--i:0">${icon("card", 12)} Карта · СБП · ЮMoney</span>
+              <span style="--i:1">${icon("gift", 12)} 7 дней бесплатно</span>
+              <span style="--i:2">${icon("shield", 12)} Без автосписаний</span>
+            </div>
+          </div>`;
+        },
+      };
+
+      // Числа в играющей сцене набегают тем же _countUp, что на главной.
       function _welcomeAfterRender(root) {
-        const n = root && root.querySelector(".obx.is-play .obx-total-num");
-        if (n && !_reducedMotion()) _countUp(n, 950, 0);
+        if (!root || _reducedMotion()) return;
+        const n = root.querySelector(".obx.is-play .obx-total-num");
+        if (n) _countUp(n, 950, 0);
+        root.querySelectorAll(".obx.is-play .js-count").forEach(el => _countUp(el, Number(el.dataset.delay) || 300, 0));
       }
 
       function renderHelpModal() {
         const idx = state.helpSlide || 0;
-        const playWelcome = idx === 0 && _obPlayed !== 0;
+        // Играет только слайд, который сейчас показывают, и только при первом показе.
+        const playIdx = _obPlayed !== idx ? idx : -1;
         _obPlayed = idx;
         const total = ONBOARD_SLIDES.length;
         const slide = ONBOARD_SLIDES[idx];
@@ -8080,9 +8225,9 @@
                 <div class="ob-slides" style="transform:translateX(-${idx * 100}%)">
                   ${ONBOARD_SLIDES.map((s, i) => `
                     <div class="ob-slide">
-                      ${s.mock === "welcome" ? `
+                      ${ONBOARD_SCENES[s.mock] ? `
                       <div class="ob-mock is-scene">
-                        ${renderWelcomeScene(playWelcome)}
+                        ${ONBOARD_SCENES[s.mock](i === playIdx)}
                         <button type="button" class="obx-replay" onclick="app.replayWelcome()" title="Показать ещё раз">${icon("refresh", 12)} Повторить</button>
                       </div>` : `
                       <div class="ob-mock">
@@ -23059,11 +23204,8 @@
         const stageSum = allIds.reduce((sum, id) => sum + lineTotal(id), 0);
         const mainCount = allIds.filter(id => !state.selected[id]?.optional).length;
         const optionalCount = allIds.filter(id => state.selected[id]?.optional).length;
-        /* «+» у этапа — сразу в раздел каталога, откуда такие позиции берут:
-           добавить монтаж в собранную смету значило подняться к полосе и
-           искать раздел. Свой этап — в каталог целиком. */
-        const STAGE_TO_GROUP = { pre: "prep", shoot: "crew", post: "post", management: "crew", marketing: "dist" };
-        const addGroup = STAGE_TO_GROUP[stage.id] || "";
+        /* «+» у этапа был (30.09.2026) и убран по просьбе владельца: добавление
+           живёт в полосе над сметой — «Каталог» с меню разделов и «Пакет». */
         /* Свёрнутый этап называет, что внутри: «13 позиц.» не говорит, есть ли
            там цветокоррекция, — приходилось раскрывать. */
         const peekNames = isCollapsed ? allIds.slice(0, 3).map(id => {
@@ -23102,8 +23244,6 @@
                     переноситься на свою строку — раньше он вылезал за край карточки
                     вместе с кнопкой «Развернуть». */""}
               <div class="stage-header-right">
-                <button type="button" class="btn small stage-add-btn no-print" onclick="${addGroup ? `app.goCatalogGroup('${addGroup}')` : "app.go('catalog')"}"
-                  title="Позиция в «${escapeHtml(stage.name)}» — из каталога" aria-label="Позиция в этап «${escapeHtml(stage.name)}» из каталога">${icon("plus", 14)}</button>
                 <div class="price" style="font-size:20px">${money(stageSum)}</div>
                 <button class="btn small no-print stage-collapse-btn ${isCollapsed ? "collapsed" : ""}" onclick="app.toggleStageCollapse('${stage.id}')">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>

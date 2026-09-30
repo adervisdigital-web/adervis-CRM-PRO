@@ -2397,7 +2397,7 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
   /* 30.09.2026: поиск по смете оставляет только совпавшие позиции и раскрывает
      их этап, фокус в поле не теряется; свёрнутый этап называет состав; «+» у
      этапа ведёт в раздел каталога. */
-  await test("смета: поиск по позициям, состав свёрнутого этапа, «+» этапа — в каталог", async () => {
+  await test("смета: поиск по позициям, состав свёрнутого этапа, без «+» у этапа", async () => {
     const { context, page } = await bootLocal(browser, baseUrl, { width: 1440, height: 1000, seedDemo: true });
     try {
       await page.evaluate(() => { window.app.go("deal"); window.app.setDealView("estimate"); });
@@ -2417,13 +2417,8 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
       assertEqual(r.focus, "estSearch", "поиск перерисовал экран и увёл фокус из поля");
       assert(r.names.length > 0 && r.names.every((n) => /монтаж/i.test(n)), "поиск оставил не только совпадения: " + JSON.stringify(r.names));
       assert(/Найдено/.test(r.note), "нет строки «Найдено»");
-      await page.evaluate(() => window.app.clearEstimateSearch());
-      await page.waitForTimeout(300);
-      await page.evaluate(() => document.querySelector('.estimate-stage[data-stage="post"] .stage-add-btn').click());
-      await page.waitForTimeout(900); // состояние пишется с задержкой
-      const st = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}"); return { view: s.view, tab: s.tab }; });
-      // Каталог открывается видом «services» (go("catalog") ведёт туда же).
-      assert(/^(catalog|services)$/.test(st.view) && st.tab === "grp:post", "«+» у «Постпродакшна» открыл не раздел «Постпродакшн» каталога: " + st.view + " " + st.tab);
+      // «+» у этапа убран (владелец 30.09.2026) — его не должно быть.
+      assert(!(await page.$(".stage-add-btn")), "у этапа снова «+»");
     } finally {
       await context.close();
     }

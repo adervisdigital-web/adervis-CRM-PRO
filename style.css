@@ -11236,8 +11236,7 @@ button.summary-adjust-row:hover { border-color: rgb(var(--primary-rgb) / .45); }
 }
 @media (max-width: 560px) { .est-search { flex: 1 1 auto; } .est-search input { width: 100%; } }
 
-/* «+» у этапа — в раздел каталога; свёрнутый этап называет состав. */
-.stage-add-btn { width: 34px; padding-left: 0; padding-right: 0; justify-content: center; color: var(--primary-text); }
+/* Свёрнутый этап называет состав. */
 .stage-peek {
   margin-top: 4px; font-size: 12px; color: var(--muted); line-height: 1.4;
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
@@ -11290,3 +11289,199 @@ button.summary-adjust-row:hover { background: rgb(var(--primary-rgb) / .06); bor
 .summary-adjust-lbl { font-weight: 500; }
 .estimate-discount-btn.is-set { background: transparent; border-color: transparent; }
 .estimate-discount-btn.is-set:hover { background: color-mix(in srgb, var(--green) 8%, transparent); }
+
+/* ── Тур: сцены слайдов 2–6 (ONBOARD_SCENES) ─────────────────────────────
+   Тот же язык, что у первого слайда: база = финальный кадр, движение только
+   под .obx.is-play. Общая карточка — .obx-card. */
+.obx-card {
+  display: flex; flex-direction: column; gap: 7px; min-width: 0;
+  padding: 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel);
+  box-shadow: 0 18px 40px -26px rgb(0 0 0 / .6);
+}
+.obx-av {
+  display: inline-grid; place-items: center; flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%;
+  color: var(--on-color); font-size: 10.5px; font-weight: 800;
+}
+.obx-av.is-ghost { background: transparent; border: 1px dashed var(--line); color: var(--muted); }
+.obx.is-play .obx-card { animation: obxRise .55s var(--obx-in) both; animation-delay: calc(var(--i, 0) * .1s); }
+
+/* 2. Воронка: новая сделка переезжает по колонкам до «Предоплаты». */
+.obx--kanban { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); gap: 12px; }
+.obx-kb-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.obx-newbtn {
+  display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: var(--r-md);
+  background: var(--primary); color: var(--on-color); font-size: 12px; font-weight: 700;
+}
+.obx-kb { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; min-height: 0; }
+.obx-kb-col { display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 8px; border-radius: var(--r-lg); background: var(--panel); border: 1px solid var(--line); }
+.obx-kb-h { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.obx-kb-h i { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+.obx-kb-slot { height: 48px; flex: 0 0 auto; }
+.obx-kb-card, .obx-kb-mover {
+  display: flex; flex-direction: column; justify-content: center; gap: 1px; height: 48px; padding: 0 10px;
+  border-radius: var(--r-md); background: var(--panel2); border: 1px solid var(--line); min-width: 0;
+}
+.obx-kb-card b, .obx-kb-mover b { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.obx-kb-card small, .obx-kb-mover small { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Путь карточки: слот под заголовком каждой колонки; шаг — ширина колонки + зазор. */
+.obx-kb-mover {
+  --kb-step: 28px; /* ширина колонки = ширина карточки + 2×(8 поле + 1 рамка) + 10 зазор */
+  position: absolute; left: 9px; top: 32px; width: calc((100% - 30px) / 4 - 18px);
+  border-color: rgb(var(--primary-rgb) / .55); background: rgb(var(--primary-rgb) / .14);
+  transform: translateX(calc(3 * (100% + var(--kb-step))));
+}
+.obx-kb-done {
+  position: absolute; right: 8px; top: 50%; margin-top: -9px; width: 18px; height: 18px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--green); color: var(--on-color);
+}
+.obx.is-play .obx-kb-col { animation: obxRise .5s var(--obx-in) both; animation-delay: calc(var(--i) * .08s); }
+.obx.is-play .obx-kb-card { animation: obxFade .4s ease both; animation-delay: calc(.3s + var(--j) * .06s); }
+.obx.is-play .obx-newbtn { animation: obxPress .45s var(--obx-move) .75s both; }
+.obx.is-play .obx-kb-mover { animation: obxKbMove 3s linear 1s both; }
+.obx.is-play .obx-kb-done { animation: obxPop .35s var(--obx-in) 3.95s both; }
+@keyframes obxKbMove {
+  0%   { opacity: 0; transform: translate(0, -10px) scale(.96); }
+  9%   { opacity: 1; transform: translate(0, 0); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+  26%  { transform: translateX(0); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+  38%  { transform: translateX(calc(100% + var(--kb-step))); }
+  52%  { transform: translateX(calc(100% + var(--kb-step))); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+  64%  { transform: translateX(calc(2 * (100% + var(--kb-step)))); }
+  78%  { transform: translateX(calc(2 * (100% + var(--kb-step)))); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+  92%, 100% { opacity: 1; transform: translateX(calc(3 * (100% + var(--kb-step)))); }
+}
+@keyframes obxPop { from { opacity: 0; transform: scale(.4); } }
+
+/* 3. Финансы: плитки набегают, операции въезжают, столбики растут. */
+.obx--fin { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 12px 14px; }
+.obx-kpis { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.obx-kpi {
+  display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: var(--r-lg);
+  background: var(--panel); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--c);
+}
+.obx-kpi span { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.obx-kpi b { font-family: var(--font-display); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c); white-space: nowrap; }
+.obx-txr { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; font-size: 12.5px; border-bottom: 1px solid var(--line); }
+.obx-txr:last-child { border-bottom: 0; }
+.obx-txr b { font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.obx-txr b.is-in { color: var(--text-success); }
+.obx-txr b.is-out { color: var(--text-danger); }
+.obx-bars-row { flex: 1 1 auto; display: flex; align-items: flex-end; gap: 8px; min-height: 60px; }
+.obx-bars-row span {
+  flex: 1 1 0; height: var(--h); border-radius: var(--r-xs) var(--r-xs) 0 0;
+  background: linear-gradient(180deg, var(--green), color-mix(in srgb, var(--green) 40%, transparent));
+  transform-origin: 50% 100%;
+}
+.obx.is-play .obx-kpi { animation: obxRise .5s var(--obx-in) both; animation-delay: calc(var(--i) * .1s); }
+.obx.is-play .obx-txr { animation: obxSlide .45s var(--obx-in) both; animation-delay: calc(1.4s + var(--i) * .25s); }
+.obx.is-play .obx-bars-row span { animation: barGrow .7s var(--obx-in) both; animation-delay: calc(2.3s + var(--i) * .09s); }
+
+/* 4. Команда: участники, исполнители у задач, отметки, «Синхронизировано». */
+.obx--team { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); grid-template-rows: minmax(0, 1fr); gap: 14px; }
+.obx-person { display: flex; align-items: center; gap: 10px; min-height: 38px; }
+.obx-person b { display: block; font-size: 13px; }
+.obx-person small { display: block; font-size: 11.5px; color: var(--muted); }
+.obx-person.is-add { opacity: .75; }
+.obx-sync {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-pill);
+  font-size: 11px; color: var(--text-success); background: color-mix(in srgb, var(--green) 12%, transparent);
+}
+.obx-task { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border-radius: var(--r-md); background: var(--panel2); }
+.obx-cb {
+  display: grid; place-items: center; flex: 0 0 auto; width: 18px; height: 18px; border-radius: var(--r-xs);
+  border: 1.5px solid var(--line); color: var(--on-color);
+}
+.obx-task.is-done .obx-cb { background: var(--green); border-color: var(--green); }
+.obx-task-t { flex: 1 1 auto; min-width: 0; }
+.obx-task-t b { display: block; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.obx-task-t small { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+.obx-task.is-done .obx-task-t b { color: var(--muted); text-decoration: line-through; }
+.obx.is-play .obx-person { animation: obxSlide .45s var(--obx-in) both; animation-delay: calc(.3s + var(--i) * .15s); }
+.obx.is-play .obx-task { animation: obxSlide .45s var(--obx-in) both; animation-delay: calc(.9s + var(--i) * .15s); }
+.obx.is-play .obx-task .obx-av { animation: obxPop .35s var(--obx-in) both; animation-delay: calc(1.8s + var(--i) * .3s); }
+.obx.is-play .obx-task.is-done .obx-cb { animation: obxCheck .3s ease both; animation-delay: calc(2.9s + var(--i) * .4s); }
+.obx.is-play .obx-task.is-done .obx-task-t b { animation: obxStrike .3s ease both; animation-delay: calc(2.9s + var(--i) * .4s); }
+.obx.is-play .obx-sync { animation: obxFade .4s ease 3.8s both; }
+@keyframes obxCheck { from { background: transparent; border-color: var(--line); color: transparent; } }
+@keyframes obxStrike { from { color: var(--text); text-decoration-color: transparent; } }
+
+/* 5. Настройки: логотип, реквизиты «печатаются», договор сам подставляет данные. */
+.obx--set { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); grid-template-rows: minmax(0, 1fr); gap: 14px; }
+.obx-logo {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-md);
+  background: var(--primary); color: var(--on-color); font-family: var(--font-display); font-size: 22px; font-weight: 700;
+  box-shadow: 0 8px 20px -10px rgb(var(--primary-rgb) / .9);
+}
+.obx-field { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border-radius: var(--r-md); background: var(--panel2); }
+.obx-field small { font-size: 10.5px; color: var(--muted); }
+.obx-field b { font-size: 13px; white-space: nowrap; overflow: hidden; }
+.obx-doc-l { font-size: 12.5px; line-height: 1.6; }
+.obx-doc-sk { height: 7px; border-radius: var(--r-xs); background: var(--line); }
+.obx-ph { position: relative; display: inline-block; }
+.obx-ph em { font-style: normal; font-weight: 700; color: var(--primary-text); background: rgb(var(--primary-rgb) / .12); padding: 0 4px; border-radius: var(--r-xs); }
+.obx-ph s { position: absolute; left: 0; top: 0; text-decoration: none; white-space: nowrap; color: var(--muted); font-family: ui-monospace, monospace; font-size: 11.5px; opacity: 0; }
+.obx-stamp {
+  margin-top: auto; align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px;
+  border-radius: var(--r-pill); background: var(--green); color: var(--on-color); font-size: 12px; font-weight: 700;
+}
+.obx.is-play .obx-logo { animation: obxPop .45s var(--obx-in) .4s both; }
+.obx.is-play .obx-field b { animation: obxType .6s steps(14, end) both; animation-delay: calc(.8s + var(--i) * .5s); }
+.obx.is-play .obx-ph em { animation: obxFade .35s ease both; animation-delay: calc(2.6s + var(--i) * .35s); }
+.obx.is-play .obx-ph s { animation: obxPhOut 2.95s linear both; animation-delay: calc(var(--i) * .35s); }
+.obx.is-play .obx-stamp { animation: obxPop .4s var(--obx-in) 3.9s both; }
+@keyframes obxType { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes obxPhOut { 0% { opacity: 0; } 20%, 85% { opacity: 1; } 100% { opacity: 0; } }
+
+/* 6. Тарифы: три карточки, на «Стандарте» «Выбрать» → «Активно». */
+.obx--plans { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; gap: 12px; }
+.obx-tiers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-height: 0; }
+.obx-tier {
+  position: relative; display: flex; flex-direction: column; gap: 3px; padding: 16px 14px 14px;
+  border: 1px solid var(--line); border-radius: var(--r-xl); background: var(--panel);
+}
+.obx-tier.is-rec { border-color: rgb(var(--primary-rgb) / .7); background: linear-gradient(180deg, rgb(var(--primary-rgb) / .14), transparent 60%), var(--panel); }
+.obx-badge { position: absolute; top: -10px; left: 14px; padding: 2px 9px; border-radius: var(--r-pill); background: var(--primary); color: var(--on-color); font-size: 11px; font-weight: 800; }
+.obx-tier-n { font-family: var(--font-display); font-size: 17px; }
+.obx-tier > small { font-size: 11.5px; color: var(--muted); }
+.obx-tier-p { margin: 8px 0 10px; font-family: var(--font-display); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.obx-tier-p small { font-family: inherit; font-size: 12px; color: var(--muted); font-weight: 600; margin-left: 2px; }
+.obx-tier-btn {
+  position: relative; margin-top: auto; display: grid; place-items: center; min-height: 34px; border-radius: var(--r-md);
+  border: 1px solid var(--line); font-size: 12.5px; font-weight: 700; color: var(--text); overflow: hidden;
+}
+.obx-tier.is-rec .obx-tier-btn { border-color: transparent; background: var(--green); color: var(--on-color); }
+.obx-tier-btn i { font-style: normal; display: inline-flex; align-items: center; gap: 5px; grid-area: 1 / 1; }
+.obx-tier-btn .is-pick { opacity: 0; }
+.obx-paychips { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.obx-paychips span {
+  display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: var(--r-pill);
+  background: var(--panel); border: 1px solid var(--line); font-size: 12px; font-weight: 600; color: var(--muted);
+}
+.obx-paychips svg { color: var(--primary-text); }
+.obx.is-play .obx-tier { animation: obxRise .55s var(--obx-in) both; animation-delay: calc(var(--i) * .12s); }
+.obx.is-play .obx-tier.is-rec .obx-tier-btn { animation: obxPayBtn .5s ease 2.2s both, obxPress .45s var(--obx-move) 1.8s both; }
+.obx.is-play .obx-tier-btn .is-pick { animation: obxPickOut .5s ease 2.2s both; }
+.obx.is-play .obx-tier-btn .is-on { animation: obxFade .35s ease 2.45s both; }
+.obx.is-play .obx-paychips span { animation: obxRise .45s var(--obx-in) both; animation-delay: calc(3s + var(--i) * .15s); }
+@keyframes obxPayBtn { from { background: var(--primary); color: var(--on-color); } }
+@keyframes obxPickOut { from { opacity: 1; } to { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .obx.is-play .obx-card, .obx.is-play [class^="obx-"], .obx.is-play [class*=" obx-"] { animation: none; }
+}
+@media (max-width: 600px) {
+  .obx--fin, .obx--team, .obx--set { grid-template-columns: 1fr; grid-template-rows: none; }
+  .obx-kpis { grid-template-columns: 1fr; }
+  .obx-tiers { grid-template-columns: 1fr; }
+  .obx-kb { gap: 6px; }
+  .obx-kb-col { padding: 6px; }
+  .obx-kb-mover { --kb-step: 20px; left: 7px; top: 30px; width: calc((100% - 18px) / 4 - 14px); }
+  .obx-kb-card b, .obx-kb-mover b { font-size: 10.5px; }
+}
+
+/* Карточки сцен — по содержимому, без пустого низа; отличия тарифов. */
+.obx--team, .obx--set { align-items: start; }
+.obx-kb { align-items: stretch; align-content: start; grid-auto-rows: min-content; } /* колонки — по самой высокой, без пустоты до низа */
+.obx-tier-f { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.obx-tier-f li { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.obx-tier-f li svg { flex: 0 0 auto; color: var(--c); }
+.obx.is-play .obx-tier-f li { animation: obxFade .35s ease both; animation-delay: calc(.6s + var(--i) * .12s + var(--j) * .08s); }
