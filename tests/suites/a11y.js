@@ -646,6 +646,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
       for (const v of VIEWS) {
         await own.page.evaluate((view) => { window.app.go(view); window.scrollTo(0, 0); document.body.focus(); }, v);
         await own.page.waitForTimeout(280);
+        // С 30.09.2026 разделы появляются волной (~0,9 с): карточки в эти доли
+        // секунды прозрачны. Мерим в покое — невидимость здесь про устройство
+        // разметки, а не про анимацию входа.
+        await own.page.waitForFunction(() => !document.getElementById("appContent").classList.contains("page-enter"), null, { timeout: 3000 }).catch(() => {});
         for (let i = 0; i < 25; i++) {
           await own.page.keyboard.press("Tab");
           const r = await own.page.evaluate(() => {

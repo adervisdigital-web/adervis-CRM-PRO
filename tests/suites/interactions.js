@@ -5453,7 +5453,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
       // В списке под сеткой порядок тот же.
       const порядок = await p.evaluate(() =>
-        [...document.querySelectorAll("#appContent div[style*='border-radius:10px'] div[title]")]
+        [...document.querySelectorAll("#appContent .cal-list-row .cal-list-title")]
           .map((x) => x.textContent.trim()).slice(0, 3));
       assert(/Дедлайн/.test(порядок[0] || ""),
         "в списке под календарём дедлайн не первый в своём дне: " + JSON.stringify(порядок));

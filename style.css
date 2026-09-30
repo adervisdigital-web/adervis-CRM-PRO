@@ -9205,10 +9205,34 @@ body.portal-mode .nav { display: none !important; }
 }
 .toast-undo:hover { text-decoration: underline; }
 
-/* ── View fade on section switch ───────────────────── */
-@keyframes viewFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-#appContent.view-fade { animation: viewFadeIn var(--dur-2) var(--ease-out) forwards; }
-@media (prefers-reduced-motion: reduce) { #appContent.view-fade { animation: none; } }
+/* ── Появление раздела (render → page-enter) ──────────────────────────
+   Блоки страницы поднимаются волной (шаг 35 мс), карточки сеток проявляются
+   следом — только прозрачностью, без сдвига, чтобы не складывать движение с
+   родителем. Вход (.16,1,.3,1), всё укладывается в ~0,6 с. */
+@keyframes pageRise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes pageFade { from { opacity: 0; } }
+#appContent.page-enter > .panel > *, #appContent.page-enter > :not(.panel) { animation: pageRise .38s cubic-bezier(.16, 1, .3, 1) both; }
+#appContent.page-enter > .panel > :nth-child(1), #appContent.page-enter > :not(.panel):nth-child(1) { animation-delay: 0ms; }
+#appContent.page-enter > .panel > :nth-child(2), #appContent.page-enter > :not(.panel):nth-child(2) { animation-delay: 35ms; }
+#appContent.page-enter > .panel > :nth-child(3), #appContent.page-enter > :not(.panel):nth-child(3) { animation-delay: 70ms; }
+#appContent.page-enter > .panel > :nth-child(4), #appContent.page-enter > :not(.panel):nth-child(4) { animation-delay: 105ms; }
+#appContent.page-enter > .panel > :nth-child(5), #appContent.page-enter > :not(.panel):nth-child(5) { animation-delay: 140ms; }
+#appContent.page-enter > .panel > :nth-child(6), #appContent.page-enter > :not(.panel):nth-child(6) { animation-delay: 175ms; }
+#appContent.page-enter > .panel > :nth-child(7), #appContent.page-enter > :not(.panel):nth-child(7) { animation-delay: 210ms; }
+#appContent.page-enter :is(.catalog-grid, .grid) > * { animation: pageFade .32s ease both; }
+#appContent.page-enter :is(.catalog-grid, .grid) > :nth-child(1) { animation-delay: 160ms; }
+#appContent.page-enter :is(.catalog-grid, .grid) > :nth-child(2) { animation-delay: 190ms; }
+#appContent.page-enter :is(.catalog-grid, .grid) > :nth-child(3) { animation-delay: 220ms; }
+#appContent.page-enter :is(.catalog-grid, .grid) > :nth-child(4) { animation-delay: 250ms; }
+#appContent.page-enter :is(.catalog-grid, .grid) > :nth-child(5) { animation-delay: 280ms; }
+#appContent.page-enter :is(.catalog-grid, .grid) > :nth-child(6) { animation-delay: 310ms; }
+#appContent.page-enter :is(.catalog-grid, .grid) > :nth-child(7) { animation-delay: 340ms; }
+#appContent.page-enter :is(.catalog-grid, .grid) > :nth-child(8) { animation-delay: 370ms; }
+#appContent.page-enter :is(.catalog-grid, .grid) > :nth-child(9) { animation-delay: 400ms; }
+#appContent.page-enter :is(.catalog-grid, .grid) > :nth-child(10) { animation-delay: 430ms; }
+#appContent.page-enter :is(.catalog-grid, .grid) > :nth-child(11) { animation-delay: 460ms; }
+#appContent.page-enter :is(.catalog-grid, .grid) > :nth-child(12) { animation-delay: 490ms; }
+/* Уменьшенное движение: класс page-enter render() не ставит вовсе. */
 
 /* ═══ Движение на главной ═══════════════════════════════════════════════
    Вход — ОДИН раз на заход: класс home-enter ставит render() только при смене
@@ -11521,3 +11545,107 @@ button.summary-adjust-row:hover { background: rgb(var(--primary-rgb) / .06); bor
 @container (max-width: 640px) {
   .line-details .grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* ── Каталог: подразделы чипами, значок раздела ─────────────────────── */
+.catalog-subchips { display: flex; gap: 6px; flex-wrap: wrap; margin: -4px 0 14px; }
+.catalog-subchip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 11px;
+  border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--panel);
+  color: var(--text); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  transition: border-color var(--dur-1), background var(--dur-1), color var(--dur-1);
+}
+.catalog-subchip span { font-size: 11px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.catalog-subchip:hover { border-color: rgb(var(--primary-rgb) / .5); }
+.catalog-subchip.is-on { background: rgb(var(--primary-rgb) / .14); border-color: rgb(var(--primary-rgb) / .6); color: var(--primary-text); }
+.catalog-subchip.is-on span { color: var(--primary-text); }
+@media (hover: none) and (pointer: coarse) { .catalog-subchip { min-height: 44px; } }
+.summary-line-mult { font-size: 11.5px; font-weight: 700; color: var(--primary-text); font-variant-numeric: tabular-nums; }
+.cat-card-ico { display: inline-flex; vertical-align: -2px; margin-right: 6px; }
+/* Цена на карточке: «45 000 ₽» без дыры — поля и зазор перед знаком сжаты. */
+.item--catalog .cat-price { gap: 2px; }
+.item--catalog .cat-price .catalog-price-input { padding-right: 1px; }
+/* ── Каталог: вид «списком», пустой поиск с созданием своей позиции ─────
+   Список собран из той же карточки: позиция — одна строка «значок · название ·
+   цена за единицу · действия»; описание — в подсказке (title) и в окне позиции. */
+.catalog-view-switch { display: inline-flex; gap: 2px; padding: 2px; margin-left: auto; margin-right: 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); }
+.catalog-view-switch button {
+  display: grid; place-items: center; width: 30px; height: 26px; border: 0; border-radius: var(--r-sm);
+  background: transparent; color: var(--muted); cursor: pointer; transition: background var(--dur-1), color var(--dur-1);
+}
+.catalog-view-switch button:hover { color: var(--text); }
+.catalog-view-switch button.is-on { background: rgb(var(--primary-rgb) / .16); color: var(--primary-text); }
+@media (hover: none) and (pointer: coarse) { .catalog-view-switch button { width: 44px; height: 44px; } }
+.catalog-grid.is-list { grid-template-columns: 1fr; gap: 6px; }
+.catalog-grid.is-list > .item--catalog { display: flex; flex-direction: row; align-items: center; gap: 12px; padding: 8px 12px; min-height: 0; text-align: left; }
+.catalog-grid.is-list .cat-card-top {
+  flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 12px;
+}
+.catalog-grid.is-list .cat-card-top h3 { margin: 0; min-height: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; -webkit-line-clamp: unset; }
+.catalog-grid.is-list .cat-card-top > p, .catalog-grid.is-list .cat-card-top > .badges, .catalog-grid.is-list .cat-desc-empty { display: none; }
+.catalog-grid.is-list .cat-card-top > .price-editor { display: flex; flex-direction: row; align-items: baseline; gap: 6px; width: auto; }
+.catalog-grid.is-list .cat-price { width: 120px; }
+.catalog-grid.is-list .cat-price-unit { min-width: 76px; text-align: left; }
+/* !important — у ряда действий отступ задан в разметке (style), иначе не перебить. */
+.catalog-grid.is-list > .item--catalog > .no-print { margin-top: 0 !important; flex: 0 0 auto; }
+.catalog-empty-create {
+  grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+  padding: 36px 20px; border: 1px dashed var(--line); border-radius: var(--r-xl); color: var(--muted);
+}
+.catalog-empty-create b { font-size: 15px; color: var(--text); }
+.catalog-empty-create span { font-size: 13px; max-width: 360px; }
+.catalog-empty-create .btn { margin-top: 6px; }
+@media (max-width: 640px) {
+  .catalog-grid.is-list > .item--catalog { flex-wrap: wrap; }
+  .catalog-grid.is-list .cat-price-unit { display: none; }
+}
+
+/* Колонка разделов каталога — постоянной ширины. Она подстраивалась под
+   содержимое: при добавлении позиции у раздела появлялась метка «✓1», колонка
+   росла с 227 до 254px и сетка карточек уезжала вправо (владелец 30.09.2026:
+   «пусть будет стабильно без сдвигов»). 264px вмещают «Постпродакшн» и оба счётчика. */
+@media (min-width: 769px) {
+  .catalog-body > .catalog-cat-sidebar { flex: 0 0 264px; width: 264px; min-width: 0; }
+  .catalog-cat-sidebar .catalog-cat-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+/* ── Календарь: сводка периода, ячейки, список по дням (30.09.2026) ───── */
+.cal-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 4px 0 14px; }
+.cal-sum-tile {
+  --c: var(--primary);
+  display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 12px 14px; text-align: left;
+  border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel2); color: var(--text);
+  font: inherit; cursor: pointer; box-shadow: inset 3px 0 0 var(--c);
+  transition: border-color var(--dur-1), background var(--dur-1), transform var(--dur-1);
+}
+.cal-sum-tile:hover { border-color: color-mix(in srgb, var(--c) 45%, var(--line)); transform: translateY(-1px); }
+.cal-sum-tile.is-on { border-color: color-mix(in srgb, var(--c) 70%, transparent); background: color-mix(in srgb, var(--c) 10%, var(--panel2)); }
+.cal-sum-tile.is-inc { --c: var(--green); } .cal-sum-tile.is-exp { --c: var(--orange); }
+.cal-sum-tile.is-dl { --c: var(--red); } .cal-sum-tile.is-task { --c: var(--blue); }
+.cal-sum-lbl { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.cal-sum-lbl i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.cal-sum-tile b { font-family: var(--font-display); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-sum-tile small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 760px) { .cal-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cal-sum-tile b { font-size: 17px; } }
+
+/* Ячейки: прошедшие дни тише, день с дедлайном — красная черта сверху. */
+.cal-cell.is-past .cal-day-num { opacity: .5; }
+.cal-cell.has-deadline { box-shadow: inset 0 2px 0 var(--red); }
+
+/* Список событий по дням. */
+.cal-list { display: flex; flex-direction: column; gap: 6px; }
+.cal-list-day { display: flex; align-items: baseline; gap: 8px; margin: 10px 0 2px; padding-left: 2px; }
+.cal-list-day:first-child { margin-top: 0; }
+.cal-list-day b { font-size: 13.5px; }
+.cal-list-day span { font-size: 12px; color: var(--muted); }
+.cal-list-day.is-today b, .cal-list-day.is-today span { color: var(--primary-text); }
+.cal-list-row {
+  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px;
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel2); cursor: pointer;
+  transition: border-color var(--dur-1), background var(--dur-1);
+}
+.cal-list-row:hover { border-color: color-mix(in srgb, var(--c) 45%, var(--line)); background: color-mix(in srgb, var(--c) 5%, var(--panel2)); }
+.cal-list-row.is-today { border-color: rgb(var(--primary-rgb) / .4); }
+.cal-list-row.is-past .cal-list-text { opacity: .6; }
+.cal-list-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; background: var(--c); }
+.cal-list-text { flex: 1 1 auto; min-width: 0; }
+.cal-list-title { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-list-sum { flex: 0 0 auto; font-family: var(--font-display); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cal-list-type { flex: 0 0 auto; font-size: 12px; font-weight: 700; white-space: nowrap; }

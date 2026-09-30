@@ -1584,7 +1584,6 @@
       let _promoCode  = "";   // raw input value
       let _promoState = null; // null=idle | "checking" | {code,discount} | "invalid"
       let _tgSaveTimer = null;
-      let _fadeRaf = null;
       let _dealMenuOpen = null;
       let _tagOverflowOpen = false;
       let _loginFailCount = 0;
@@ -11891,6 +11890,9 @@
         return count;
       }
 
+      /* Улетающая к итогу плашка «+ сумма» была (30.09.2026) и убрана — владелец:
+         «не красиво выглядит». Итог при добавлении по-прежнему доезжает до новой
+         суммы (_estTotalMotion). */
       function catalogAddOne(id) {
         if (!state.selected[id]) { addItem(id); return; }
 
@@ -13073,14 +13075,21 @@
          (catalogPlaceDefaults) и показывается там, где её завели: вкладка
          переключается на это место, раздел раскрывается, поиск и фильтр
          сбрасываются — иначе новая карточка могла бы родиться невидимой. */
-      function createCustomItemIn(section) {
+      function setCatalogView(v) {
+        state.catalogView = v === "list" ? "list" : "grid";
+        save();
+        render();
+      }
+
+      function createCustomItemIn(section, name) {
         const place = catalogPlaceOf(section);
         const d = catalogPlaceDefaults(place);
         const custom = {
           id: uid("custom"),
           category: d.category,
           section: CAT[d.category] || d.category,
-          name: "Новая позиция",
+          // Название из поиска («ничего не найдено → создать «…»»), иначе заготовка.
+          name: String(name || "").trim().slice(0, 120) || "Новая позиция",
           // Пусто, а не «Описание новой позиции.»: описание уходит клиенту в КП,
           // и заглушка оказывалась в документе у тех, кто её не стёр.
           desc: "",
@@ -17309,7 +17318,7 @@
          в первые полторы секунды после входа. Зовём из обработчиков открытия
          (после клика), а не на нажатие: иначе элемент сдвигается под курсором
          между нажатием и отпусканием, и клик уходит мимо. */
-      let _finEnterTimer = 0, _finTabTimer = 0;
+      let _finEnterTimer = 0, _finTabTimer = 0, _pageEnterTimer = 0;
       /* Итог сметы (шапка и «Итоги сметы») при изменении не перескакивает, а
          доезжает от прежней суммы к новой — видно, что правка его сдвинула и
          насколько. Только в пределах одной сделки и одного экрана: при входе
@@ -17551,7 +17560,6 @@
           // из-за чего при вводе в длинном списке/смете экран прыгал к началу на каждый render().
           // Сохраняем позицию и возвращаем её, если вид не менялся (при смене вида — наверх, естественно).
           const prevScrollY = viewChanged ? 0 : window.scrollY;
-          if (viewChanged) root.classList.add("view-fade");
           // Раздел закрыт тарифом «Соло» — вместо него экран о «Стандарте».
           // Не молчаливый редирект: человек пришёл за договорами и должен
           // увидеть ответ на своё действие, а не оказаться на главной.
@@ -17559,7 +17567,18 @@
             ? renderLockedSection(state.view)
             : (views[state.view] || renderHome)();
           if (!viewChanged && prevScrollY) window.scrollTo(0, prevScrollY);
-          if (viewChanged) { cancelAnimationFrame(_fadeRaf); _fadeRaf = requestAnimationFrame(() => root.classList.remove("view-fade")); }
+          /* Появление раздела (владелец 30.09.2026: «по всем страницам плавная
+             анимация появления»). Прежний view-fade снимался на следующем кадре —
+             анимация обрывалась в самом начале, и разделы появлялись рывком.
+             Теперь блоки страницы поднимаются волной, карточки сеток проявляются
+             следом; класс живёт ~0,9 с и ставится только при СМЕНЕ раздела. У
+             главной, «Финансов» и «Тарифов» свой вход — их не трогаем. */
+          const ownEnter = state.view === "home" || state.view === "global-finances" || state.view === "plans";
+          if (viewChanged && !ownEnter && !_reducedMotion()) {
+            root.classList.add("page-enter");
+            clearTimeout(_pageEnterTimer);
+            _pageEnterTimer = setTimeout(() => root.classList.remove("page-enter"), 900);
+          } else if (!viewChanged) root.classList.remove("page-enter");
           /* Вход на главную — только при СМЕНЕ вида. render() зовётся на любое
              действие (отметил задачу, сменил фильтр), и каскад на каждом из них
              превратил бы экран в мигающую гирлянду. Повторная отрисовка во время
@@ -21209,12 +21228,33 @@
                       <span class="summary-stage-name">${escapeHtml(st.name || "Этап")}</span>
                       <span class="summary-stage-sum">${money(st.rows.reduce((a, r) => a + (r.optional ? 0 : r.sum), 0))}</span>
                     </div>
-                    ${st.rows.map(r => `
-                      <div class="summary-line-row${r.optional ? " is-optional" : ""}${flash.has(r.id) ? " is-new" : ""}">
-                        <button type="button" class="summary-line-name" onclick="app.openEstimateLine('${r.id}')" title="Открыть в смете">${escapeHtml(r.name)}${r.qty > 1 ? ` <span class="u-meta">× ${r.qty}</span>` : ""}${r.optional ? ` <span class="summary-line-opt">опция</span>` : ""}</button>
-                        <span class="summary-line-sum">${money(r.sum)}</span>
-                        <button type="button" class="summary-line-remove" onclick="app.removeSummaryLine('${r.id}')" title="Убрать из сметы" aria-label="Убрать «${escapeHtml(r.name)}» из сметы">${icon("close", 10)}</button>
-                      </div>`).join("")}
+                    ${/* Одинаковые позиции — одной строкой «Подбор музыки ×3»: столбик
+                          из трёх одинаковых строк и «Цветокоррекция — копия — копия»
+                          читались как ошибка (скриншот владельца 30.09.2026).
+                          Крестик убирает ОДНУ — последнюю добавленную; название
+                          ведёт к первой. Опции с основными не склеиваем. */""}
+                    ${(() => {
+                      const groups = [];
+                      st.rows.forEach(r => {
+                        const base = String(r.name).replace(/(\s+—\s+копия)+$/i, "");
+                        const key = base + "|" + (r.optional ? 1 : 0);
+                        let g = groups.find(x => x.key === key);
+                        if (!g) { g = { key, name: base, rows: [], optional: r.optional }; groups.push(g); }
+                        g.rows.push(r);
+                      });
+                      return groups.map(g => {
+                        const first = g.rows[0], last = g.rows[g.rows.length - 1];
+                        const n = g.rows.length, sum = g.rows.reduce((a, r) => a + r.sum, 0);
+                        const isNew = g.rows.some(r => flash.has(r.id));
+                        const mult = n > 1 ? n : first.qty;
+                        return `
+                      <div class="summary-line-row${g.optional ? " is-optional" : ""}${isNew ? " is-new" : ""}">
+                        <button type="button" class="summary-line-name" onclick="app.openEstimateLine('${first.id}')" title="Открыть в смете">${escapeHtml(g.name)}${mult > 1 ? ` <span class="summary-line-mult">×${mult}</span>` : ""}${g.optional ? ` <span class="summary-line-opt">опция</span>` : ""}</button>
+                        <span class="summary-line-sum">${money(sum)}</span>
+                        <button type="button" class="summary-line-remove" onclick="app.removeSummaryLine('${last.id}')" title="${n > 1 ? "Убрать одну" : "Убрать из сметы"}" aria-label="${n > 1 ? "Убрать одну «" + escapeHtml(g.name) + "»" : "Убрать «" + escapeHtml(g.name) + "» из сметы"}">${icon("close", 10)}</button>
+                      </div>`;
+                      }).join("");
+                    })()}
                   </div>`).join("")}
               </div>
             ` : ""}
@@ -22619,8 +22659,23 @@
                   })()}
 
                   ${state.tab === "ai" ? renderAiCatalogGrid(shownItems) : `
-                    <div class="catalog-grid">
-                      ${shownItems.length ? shownItems.map(renderCatalogItem).join("") : emptyState({ icon: "search", title: "Ничего не найдено", text: "Измените запрос или выберите другую категорию." })}
+                    <div class="catalog-grid${state.catalogView === "list" && shownItems.length ? " is-list" : ""}">
+                      ${shownItems.length ? shownItems.map(renderCatalogItem).join("") : (() => {
+                        /* Нашли пустоту — сразу предложить завести позицию с этим
+                           названием (30.09.2026), а не только «измените запрос».
+                           Текст запроса — через data-*, не в обработчике: иначе
+                           введённое в поиск становилось бы кодом. */
+                        const q = String(state.search || "").trim();
+                        if (!q) return emptyState({ icon: "search", title: "Ничего не найдено", text: "Измените запрос или выберите другую категорию." });
+                        const section = /^(grp|sub|cat|cg):/.test(String(state.tab)) ? String(state.tab) : "";
+                        return `<div class="catalog-empty-create">
+                          ${icon("search", 22)}
+                          <b>«${escapeHtml(q)}» в каталоге нет</b>
+                          <span>Заведите свою позицию — она останется в каталоге и попадёт в смету.</span>
+                          <button type="button" class="btn primary" data-section="${escapeHtml(section)}" data-name="${escapeHtml(q)}"
+                            onclick="app.createCustomItemIn(this.dataset.section, this.dataset.name)">Своя позиция «${escapeHtml(q.length > 40 ? q.slice(0, 40) + "…" : q)}»</button>
+                        </div>`;
+                      })()}
                     </div>
                   `}
                   ${catHiddenCount > 0 ? `
@@ -22643,7 +22698,7 @@
          фильтров («11 найдено» там было подписью без предмета: чего найдено?). */
       function renderCatalogSectionHead(found, visible, quickTabs) {
         const tab = String(state.tab || "all");
-        let ic = "grid", color = "var(--primary-text)", title = "", crumb = "", hint = "";
+        let ic = "grid", color = "var(--primary-text)", title = "", crumb = "", hint = "", chipsGid = "";
         const quick = {
           all: ["grid", "Все услуги", "весь каталог, кроме скрытых позиций"],
           favorites: ["star", "Избранное", "позиции, отмеченные звёздочкой"],
@@ -22678,7 +22733,7 @@
             subLabel = cat ? cat[1] : "";
           }
           const g = CATALOG_GROUPS.find(x => x.id === gid);
-          if (g) { ic = g.ic; color = g.color; title = g.label; hint = g.hint; crumb = subLabel; }
+          if (g) { ic = g.ic; color = g.color; title = g.label; hint = g.hint; crumb = subLabel; chipsGid = gid; }
           else title = subLabel || catalogNavCurrentLabel(quickTabs, CATALOG_CATEGORY_TABS);
         }
         const narrowed = String(state.search || "").trim() || (state.filter && state.filter !== "all");
@@ -22690,8 +22745,29 @@
               <h2>${escapeHtml(title)}${crumb ? `<span class="catalog-section-crumb">${icon("chevron", 12)}${escapeHtml(crumb)}</span>` : ""}</h2>
               ${hint ? `<p>${escapeHtml(hint)}</p>` : ""}
             </div>
+            ${/* Вид «плитки / список» (30.09.2026): в списке позиция — одна строка,
+                  и на экран влезает вдвое больше, чем плитками. */""}
+            <span class="catalog-view-switch no-print" role="group" aria-label="Вид каталога">
+              <button type="button" class="${state.catalogView !== "list" ? "is-on" : ""}" aria-pressed="${state.catalogView !== "list"}" onclick="app.setCatalogView('grid')" title="Плитками">${icon("catalog", 14)}</button>
+              <button type="button" class="${state.catalogView === "list" ? "is-on" : ""}" aria-pressed="${state.catalogView === "list"}" onclick="app.setCatalogView('list')" title="Списком">${icon("list", 14)}</button>
+            </span>
             <span class="catalog-found-count">${count}</span>
-          </div>`;
+          </div>
+          ${(() => {
+            /* Подразделы — чипами над карточками (30.09.2026). Они были только в
+               левой колонке и раскрывались стрелкой у раздела — их почти не
+               находили, а в «Постпродакшне» 46 позиций листались сплошняком.
+               Те же подразделы и тот же setTab, что в колонке. */
+            if (!chipsGid) return "";
+            const subs = catalogSubsOf(chipsGid, visible.filter(x => itemGroup(x) === chipsGid));
+            if (subs.length < 2) return "";
+            const all = visible.filter(x => itemGroup(x) === chipsGid).length;
+            const chip = (tabId, label, n) => `<button type="button" class="catalog-subchip${tab === tabId ? " is-on" : ""}" aria-pressed="${tab === tabId}" onclick="app.setTab('${tabId}')">${escapeHtml(label)}<span>${n}</span></button>`;
+            return `<div class="catalog-subchips no-print" role="group" aria-label="Подразделы">
+              ${chip("grp:" + chipsGid, "Все", all)}
+              ${subs.map(s => chip(s.kind === "cat" ? `cat:${chipsGid}:${s.id}` : s.id, s.label, s.n)).join("")}
+            </div>`;
+          })()}`;
       }
 
       // Вкладка «ИИ / AI» смешивает платные услуги (генерация, монтаж, консультации)
@@ -22797,7 +22873,9 @@
                   высоту карточки, и описанию оставалась половина ширины: «Недорогая
                   локация /» на одной строке, «помещение.» на второй. */""}
             <div class="item-top cat-card-top">
-              <h3>${highlightText(itemData.name)}</h3>
+              ${/* Значок раздела — тот же знак, что у раздела слева и у позиции в
+                    смете: в «Все» и в поиске разделы перемешаны. */""}
+              <h3>${(() => { const g = CATALOG_GROUPS.find(x => x.id === itemGroup(itemData)); return g ? `<span class="cat-card-ico" style="color:${g.color}" title="${escapeHtml(g.label)}" aria-hidden="true">${icon(g.ic, 14)}</span>` : ""; })()}${highlightText(itemData.name)}</h3>
 
               ${/* Цена — с разрядами и знаком валюты, как в итоге сметы справа
                     («15 000 ₽» там и «3000» здесь читались как разные величины).
@@ -27776,6 +27854,32 @@
               </div>
             </div>
 
+            ${/* Сводка периода (30.09.2026, «улучши календарь»): сколько пришло,
+                  сколько ушло и ближайший дедлайн — то, ради чего в календарь
+                  заходят, раньше приходилось складывать по ячейкам в уме. Плитка
+                  нажимается и оставляет в сетке и списке только свой тип. */""}
+            ${(() => {
+              const inPeriod = events.filter(ev => ev.date && ev.date.startsWith(calAllMode ? String(yr) : `${yr}-${padZ(mo)}`));
+              const sum = (type) => inPeriod.filter(e => e.type === type).reduce((s, e) => s + numberValue(e.amount, 0), 0);
+              const inc = sum("payment"), exp = sum("expense");
+              const dls = inPeriod.filter(e => e.type === "deadline");
+              const next = events.filter(e => e.type === "deadline" && e.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
+              const daysTo = next ? Math.round((new Date(next.date + "T00:00:00") - new Date(today + "T00:00:00")) / 864e5) : null;
+              const tile = (type, label, value, sub, cls) => `
+                <button type="button" class="cal-sum-tile ${cls}${calTypeFilter === type ? " is-on" : ""}" aria-pressed="${calTypeFilter === type}"
+                  onclick="app.calSetTypeFilter('${calTypeFilter === type ? "all" : type}')" title="${calTypeFilter === type ? "Показать все события" : "Показать только: " + label.toLowerCase()}">
+                  <span class="cal-sum-lbl"><i></i>${label}</span>
+                  <b title="${escapeHtml(value)}">${value}</b>
+                  <small title="${escapeHtml(sub)}">${sub}</small>
+                </button>`;
+              return `<div class="cal-summary">
+                ${tile("payment", "Поступления", money(inc), `${inPeriod.filter(e => e.type === "payment").length} ${plural(inPeriod.filter(e => e.type === "payment").length, "платёж", "платежа", "платежей")}`, "is-inc")}
+                ${tile("expense", "Расходы", money(exp), `${inPeriod.filter(e => e.type === "expense").length} ${plural(inPeriod.filter(e => e.type === "expense").length, "расход", "расхода", "расходов")}`, "is-exp")}
+                ${tile("deadline", "Дедлайны", String(dls.length), next ? `ближайший — ${daysTo === 0 ? "сегодня" : daysTo === 1 ? "завтра" : "через " + daysTo + " " + plural(daysTo, "день", "дня", "дней")}` : "впереди нет", "is-dl")}
+                ${tile("task", "Задачи", String(inPeriod.filter(e => e.type === "task").length), "с дедлайном", "is-task")}
+              </div>`;
+            })()}
+
             <!-- Навигация: месяц/год ← → + Сегодня -->
             <div class="cal-nav2">
               <div class="cal-nav2-center">
@@ -27806,11 +27910,11 @@
             <div class="cal-grid-wrap">
               ${cells.map(c => {
                 const iso = cellDate(c);
-                const dayEvs = eventsByDay[iso] || [];
+                const dayEvs = (eventsByDay[iso] || []).filter(ev => calTypeFilter === "all" || ev.type === calTypeFilter);
                 const isToday = iso === today;
                 const isSel = iso === selDay;
                 const isWeekend = (cells.indexOf(c) % 7) >= 5;
-                const classes = `cal-cell ${c.other ? "other-month" : ""} ${isToday ? "today" : ""} ${isSel ? "selected" : ""} ${isWeekend && !c.other ? "weekend" : ""}`;
+                const classes = `cal-cell ${c.other ? "other-month" : ""} ${isToday ? "today" : ""} ${isSel ? "selected" : ""} ${isWeekend && !c.other ? "weekend" : ""} ${iso < today && !isToday ? "is-past" : ""} ${dayEvs.some(e => e.type === "deadline") ? "has-deadline" : ""}`;
                 const MAX_LABELS = 2;
                 return `
                   <div class="${classes}" onclick="app.calSelectDay('${iso}')" title="${iso}">
@@ -27932,22 +28036,28 @@
                 </div>
                 ${!listEvents.length
                   ? `<p style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0">Нет событий${calTypeFilter!=="all"?" по выбранному типу":calAllMode?"":" в этом месяце"}. Нажми на день, чтобы добавить задачу.</p>`
-                  : `<div style="display:flex;flex-direction:column;gap:6px">
-                  ${pagedEvents.map(ev => {
+                  : `<div class="cal-list">
+                  ${/* Список — по дням, с заголовком даты: в строках одна и та же
+                        дата повторялась десятки раз, а сумма пряталась в серой
+                        подписи. Теперь дата — заголовок группы, сумма — справа в
+                        цвете типа (30.09.2026). */""}
+                  ${pagedEvents.map((ev, i) => {
                     const isToday = ev.date === today;
                     const isPast = ev.date < today;
-                    return `
-                    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid ${isToday ? "rgb(var(--primary-rgb) / .4)" : "var(--line)"};cursor:${ev.projectId || ev.taskId ? "pointer" : "default"};transition:.12s"
+                    const newDay = i === 0 || pagedEvents[i - 1].date !== ev.date;
+                    const d = new Date(ev.date + "T00:00:00");
+                    const dayHead = newDay ? `<div class="cal-list-day${isToday ? " is-today" : ""}"><b>${d.getDate()} ${["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"][d.getMonth()]}</b><span>${["вс","пн","вт","ср","чт","пт","сб"][d.getDay()]}${isToday ? " · сегодня" : ""}</span></div>` : "";
+                    const amt = numberValue(ev.amount, 0);
+                    return `${dayHead}
+                    <div class="cal-list-row${isPast && !isToday ? " is-past" : ""}${isToday ? " is-today" : ""}" style="--c:${typeColor[ev.type]}"
                       onclick="${ev.personal && ev.taskId ? `app.openGlobalTaskModal('${ev.taskId}')` : ev.type === "task" && ev.projectId ? `app.openDealTasks('${ev.projectId}')` : ev.projectId ? `app.openDeal('${ev.projectId}')` : ev.htmlLink ? `window.open('${escapeHtml(ev.htmlLink)}','_blank')` : `app.calSelectDay('${ev.date}')`}">
-                      <div style="width:8px;height:8px;border-radius:50%;background:${typeColor[ev.type]};flex:0 0 8px"></div>
-                      <div class="u-flex1-min0">
-                        ${/* title — то же лечение, что у названия сделки в таблице
-                              финансов: строка режется жёстким многоточием, и какое
-                              это событие, иначе не выяснить, не открыв его. */""}
-                        <div title="${escapeHtml(ev.title)}" style="font-size:13px;font-weight:750;${isPast&&!isToday?"opacity:.6":""}overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(ev.title)}</div>
-                        <div class="u-meta">${formatDate(ev.date)}${ev.project ? ` · ${escapeHtml(ev.project)}` : ""}${ev.amount ? ` · ${money(ev.amount)}` : ""}</div>
+                      <span class="cal-list-dot" aria-hidden="true"></span>
+                      <div class="cal-list-text">
+                        ${/* title — строка режется многоточием, полное название в подсказке. */""}
+                        <div class="cal-list-title" title="${escapeHtml(ev.title)}">${escapeHtml(ev.title)}</div>
+                        <div class="u-meta">${[amt > 0 && (ev.type === "payment" || ev.type === "expense") ? typeLabel[ev.type] : "", ev.project && ev.project !== ev.title ? ev.project : ""].filter(Boolean).map(escapeHtml).join(" · ")}</div>
                       </div>
-                      <span style="font-size:12px;color:${typeTextColor[ev.type]};font-weight:750;flex:0 0 auto;white-space:nowrap">${escapeHtml(typeLabel[ev.type]||"")}</span>
+                      ${amt > 0 && (ev.type === "payment" || ev.type === "expense") ? `<b class="cal-list-sum" style="color:${typeTextColor[ev.type]}">${ev.type === "payment" ? "+" : "−"}${money(amt)}</b>` : `<span class="cal-list-type" style="color:${typeTextColor[ev.type]}">${escapeHtml(typeLabel[ev.type] || "")}</span>`}
                     </div>`;
                   }).join("")}
                   ${calHiddenCount > 0 ? `
@@ -34552,6 +34662,7 @@ Email: _____________________              Email: _____________________
         setGFinRange,
         removeEstimateLine,
         setCalcFoldOpen,
+        setCatalogView,
         setEstimateSearch,
         clearEstimateSearch,
         replayWelcome,

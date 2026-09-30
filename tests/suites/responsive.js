@@ -2424,6 +2424,29 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  /* 30.09.2026 (владелец: «когда добавляю в смету, сдвигается таблица слева»):
+     колонка разделов каталога подстраивалась под содержимое и росла от метки
+     «✓1» у раздела — сетка карточек уезжала. Ширина колонки постоянная. */
+  await test("каталог: добавление в смету не сдвигает колонку разделов и сетку", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1600, height: 1000 });
+    try {
+      await page.evaluate(() => { window.app.go("catalog"); window.app.setTab("all"); });
+      await page.waitForTimeout(800);
+      const m = () => page.evaluate(() => ({
+        side: Math.round(document.querySelector(".catalog-cat-sidebar").getBoundingClientRect().width),
+        main: Math.round(document.querySelector(".catalog-body-main").getBoundingClientRect().left),
+      }));
+      const a = await m();
+      await page.evaluate(() => document.querySelector(".item--catalog .catalog-add-btn").click());
+      await page.waitForTimeout(800);
+      const b = await m();
+      assertEqual(b.side, a.side, "колонка разделов изменила ширину после добавления");
+      assertEqual(b.main, a.main, "сетка карточек сдвинулась после добавления");
+    } finally {
+      await context.close();
+    }
+  });
+
   /* 30.09.2026: первый слайд тура — живая сцена вместо обрезанного скриншота.
      Все слайды лежат в DOM разом и окно перерисовывается на каждом листании —
      сцена обязана играть только когда её показывают, а в остальное время стоять
