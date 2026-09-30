@@ -1367,6 +1367,38 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
     }
   });
 
+  /* 30.09.2026: у свёрнутой позиции под названием висела пустота — невидимая
+     полоса действий в 52px (скриншот владельца). Действия переехали значками к
+     сумме; в колонке суммы шириной 190px они выталкивали сумму и стрелку за край
+     карточки — это тоже меряем. */
+  await test("строка сметы на компьютере: свёрнутая компактна, сумма и стрелка внутри карточки", async () => {
+    const { context, page } = await bootLocal(browser, baseUrl, { width: 1440, height: 1000, seedDemo: true });
+    try {
+      await page.evaluate(() => { window.app.go("deal"); window.app.setDealView("estimate"); });
+      await page.waitForTimeout(800);
+      await page.evaluate(() => {
+        const btn = document.querySelectorAll(".estimate-stage article.item .line-collapse-btn")[1];
+        if (btn && !btn.classList.contains("collapsed")) btn.click();
+      });
+      await page.waitForTimeout(700);
+      const r = await page.evaluate(() => {
+        const item = [...document.querySelectorAll(".estimate-stage article.item")].find((a) => a.querySelector(".line-collapse-btn.collapsed"));
+        if (!item) return null;
+        const box = item.getBoundingClientRect();
+        const btn = item.querySelector(".line-collapse-btn").getBoundingClientRect();
+        const price = item.querySelector(".price-editor .price").getBoundingClientRect();
+        return { h: Math.round(box.height), btnOut: Math.round(btn.right - box.right), priceOut: Math.round(price.right - box.right),
+          quick: !!item.querySelector(".line-quick"), bar: !!item.querySelector(".line-action-bar") };
+      });
+      assert(r, "не нашлась свёрнутая позиция сметы");
+      assert(r.h <= 110, "свёрнутая позиция высотой " + r.h + "px — под названием снова пустота");
+      assert(r.btnOut <= 0 && r.priceOut <= 0, `сумма или стрелка вылезли за карточку: стрелка ${r.btnOut}px, сумма ${r.priceOut}px`);
+      assert(r.quick && !r.bar, "действия не в строке суммы или вернулась нижняя полоса");
+    } finally {
+      await context.close();
+    }
+  });
+
   await test("строка сметы на телефоне: действия видны, а не висят пустой полосой", async () => {
     /* Полоса действий строки («В опции», дублировать, удалить) показывалась только
        по наведению — а на телефоне наведения НЕТ. В итоге она занимала 53px высоты
@@ -1386,7 +1418,8 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
       const res = await page.evaluate(() => {
         const item = document.querySelector(".estimate-stage .item");
         if (!item) return null;
-        const bar = item.querySelector(".line-action-bar");
+        // С 30.09.2026 действия — значками в строке суммы (.line-quick).
+        const bar = item.querySelector(".line-quick");
         const note = item.querySelector(".line-total-note");
         const price = item.querySelector(".price-editor .price");
         if (!bar || !note || !price) return { нет: true };

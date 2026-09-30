@@ -10968,3 +10968,33 @@ button.is-busy::before {
 #appContent.fin-tab-switch .fin-subtab-bar ~ * { animation: finTabIn .38s var(--ease-out) both; }
 @keyframes finTabIn { from { opacity: 0; transform: translateY(6px); } }
 /* Уменьшенное движение: классы fin-enter / fin-tab-switch render() не ставит вовсе. */
+
+/* ── Смета: значок раздела, действия в строке суммы, движение ───────────
+   30.09.2026 (владелец: «делай как думаешь будет лучше и красиво с иконками»).
+   Действия («В опции», копия, удалить) — значками рядом с суммой, а не
+   невидимой полосой в 52px под каждой позицией. */
+.item-top .line-ico { flex: 0 0 auto; margin-top: 2px; }
+/* Колонка суммы на компьютере шириной 190px: значки в потоке выталкивали
+   сумму и стрелку за край карточки. Поэтому они стоят слева от суммы поверх
+   пустого места строки (ряд суммы ужат до содержимого), а на телефоне, где
+   колонка во всю ширину, — обычным рядом. */
+.price-editor > div:first-child { position: relative; justify-self: end; }
+.line-quick {
+  position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%);
+  display: inline-flex; align-items: center; gap: 4px;
+  opacity: 0; transition: opacity var(--dur-1);
+}
+@media (max-width: 768px) {
+  .line-quick { position: static; transform: none; margin-right: 2px; }
+}
+.item:hover .line-quick, .item:focus-within .line-quick { opacity: 1; }
+@media (hover: none) { .line-quick { opacity: 1; } }
+.est-head-total {
+  font-family: var(--font-display); font-size: 22px; font-weight: 700; line-height: 1.1;
+  font-variant-numeric: tabular-nums; color: var(--text);
+}
+.line-details.is-opening, .stage-body.is-opening { animation: estOpen .36s var(--ease-out) both; }
+@keyframes estOpen { from { opacity: 0; transform: translateY(-6px); } }
+.item.is-leaving { pointer-events: none; }
+.bill-mode-btn.is-active.is-fresh { animation: segIn .32s var(--ease-spring) both; }
+@keyframes segIn { from { transform: scale(.86); opacity: .5; } }

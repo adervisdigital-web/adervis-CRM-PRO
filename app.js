@@ -11824,6 +11824,13 @@
         toast("Позиция продублирована");
         save();
         render();
+        requestAnimationFrame(() => {
+          const el = document.querySelector(`article.item[data-line="${CSS.escape(newId)}"]`);
+          if (!el) return;
+          el.scrollIntoView({ block: "nearest", behavior: _reducedMotion() ? "auto" : "smooth" });
+          el.classList.add("is-located");
+          setTimeout(() => el.classList.remove("is-located"), 1600);
+        });
       }
 
       function duplicateToCustom(id) {
@@ -11941,21 +11948,79 @@
         return typeof window !== "undefined" && window.matchMedia && window.matchMedia("(max-width: 640px)").matches;
       }
 
+      /* Сворачивание было мгновенным: переход в CSS у .line-details прописан, но
+         render() каждый раз ставит НОВЫЙ узел, и переходить было нечему. Теперь
+         сворачиваемый блок сначала уезжает на месте (высота → 0), и только потом
+         перерисовка; раскрытый — после перерисовки проявляется. */
+      const _collapseBusy = new Set();
+      function _animateClose(el, done) {
+        if (!el || _reducedMotion()) { done(); return; }
+        el.style.overflow = "hidden";
+        el.style.maxHeight = el.scrollHeight + "px";
+        void el.offsetHeight;
+        el.style.transition = "max-height .22s var(--ease-out), opacity .16s ease";
+        el.style.maxHeight = "0px";
+        el.style.opacity = "0";
+        setTimeout(done, 220);
+      }
+      function _animateOpen(sel) {
+        if (_reducedMotion()) return;
+        const el = document.querySelector(sel);
+        if (!el) return;
+        el.classList.add("is-opening");
+        setTimeout(() => el.classList.remove("is-opening"), 450);
+      }
+
       function toggleLineCollapse(id) {
         // Инвертируем РЕЗОЛВНУТОЕ состояние (с учётом мобильного дефолта), а не сырое
         // значение из state — иначе первый тап на мобильном не разворачивал бы строку
         // (undefined уже читается как «свёрнуто», а !undefined снова даёт «свёрнуто»).
+        const key = "l:" + id;
+        if (_collapseBusy.has(key)) return;
         const current = state.lineCollapsed[id] !== undefined ? Boolean(state.lineCollapsed[id]) : _lineCollapsedByDefault();
-        state.lineCollapsed[id] = !current;
-        save();
-        render();
+        const sel = `article.item[data-line="${CSS.escape(id)}"]`;
+        const apply = () => {
+          _collapseBusy.delete(key);
+          state.lineCollapsed[id] = !current;
+          save();
+          render();
+          if (current) _animateOpen(sel + " .line-details");
+        };
+        const art = document.querySelector(sel);
+        if (current || !art) { apply(); return; }
+        _collapseBusy.add(key);
+        const btn = art.querySelector(".line-collapse-btn");
+        if (btn) btn.classList.add("collapsed");
+        _animateClose(art.querySelector(".line-details"), apply);
       }
 
       function toggleStageCollapse(stageId) {
-        state.stageCollapsed[stageId] = !state.stageCollapsed[stageId];
-        if (!state.stageCollapsed[stageId]) delete state.stageCollapsed[stageId];
-        save();
-        render();
+        const key = "s:" + stageId;
+        if (_collapseBusy.has(key)) return;
+        const wasCollapsed = Boolean(state.stageCollapsed[stageId]);
+        const sel = `.estimate-stage[data-stage="${CSS.escape(stageId)}"]`;
+        const apply = () => {
+          _collapseBusy.delete(key);
+          state.stageCollapsed[stageId] = !wasCollapsed;
+          if (!state.stageCollapsed[stageId]) delete state.stageCollapsed[stageId];
+          save();
+          render();
+          if (wasCollapsed) _animateOpen(sel + " .stage-body");
+        };
+        const body = document.querySelector(sel + " .stage-body");
+        if (wasCollapsed || !body) { apply(); return; }
+        _collapseBusy.add(key);
+        _animateClose(body, apply);
+      }
+
+      /* Удаление из сметы: карточка сворачивается на месте, а в тосте — «Вернуть».
+         Раньше позиция пропадала мгновенно и без отмены, хотя из списка «В смете»
+         в каталоге та же позиция удалялась с отменой (removeSummaryLine). */
+      function removeEstimateLine(id) {
+        const art = document.querySelector(`article.item[data-line="${CSS.escape(id)}"]`);
+        if (!art || _reducedMotion()) { removeSummaryLine(id); return; }
+        art.classList.add("is-leaving");
+        _animateClose(art, () => removeSummaryLine(id));
       }
 
       function collapseAllEstimate() {
@@ -12091,12 +12156,14 @@
       // ставка берётся из запомненной для этой позиции (defaultShiftRate) и
       // ЗАПИСЫВАЕТСЯ в строку: иначе смена ставки в другой смете молча поменяла
       // бы сумму этой.
+      let _billModeFresh = ""; // строка, у которой только что сменили «Как считать»
       function setBillMode(id, mode) {
         const line = state.selected[id];
         const itemData = findItem(id, true);
         if (!line || !lineBillModesAllowed(itemData, line)) return;
         saveHistory();
         line.billMode = mode === "shift" || mode === "hour" ? mode : "item";
+        _billModeFresh = id;
         if (line.billMode === "shift") {
           if (line.shiftRate === undefined) line.shiftRate = defaultShiftRate(id);
           if (line.shifts === undefined) line.shifts = Math.max(1, (line.workDates || []).length || 1);
@@ -16977,6 +17044,22 @@
          (после клика), а не на нажатие: иначе элемент сдвигается под курсором
          между нажатием и отпусканием, и клик уходит мимо. */
       let _finEnterTimer = 0, _finTabTimer = 0;
+      /* Итог сметы (шапка и «Итоги сметы») при изменении не перескакивает, а
+         доезжает от прежней суммы к новой — видно, что правка его сдвинула и
+         насколько. Только в пределах одной сделки и одного экрана: при входе
+         или смене сделки число сразу стоит на месте. */
+      let _estPrevTotal = null, _estPrevKey = "";
+      function _estTotalMotion(root, viewChanged) {
+        const els = root.querySelectorAll(".est-head-total, .summary-total strong");
+        const key = (state.activeProjectId || "") + "|" + state.view + "|" + (state.dealView || "");
+        const tot = els.length ? Number((els[0].textContent || "").replace(/[^\d]/g, "")) : null;
+        if (!viewChanged && key === _estPrevKey && _estPrevTotal !== null && tot !== null
+            && tot !== _estPrevTotal && !_reducedMotion()) {
+          els.forEach(el => _countUp(el, 0, _estPrevTotal));
+        }
+        _estPrevTotal = tot;
+        _estPrevKey = key;
+      }
       function _endHomeEnter() {
         clearTimeout(_homeEnterTimer);
         const root = document.getElementById("appContent");
@@ -17240,6 +17323,8 @@
             _finTabTimer = setTimeout(() => root.classList.remove("fin-tab-switch"), 900);
           } else if (!_finTabAnim) root.classList.remove("fin-tab-switch");
           _finTabAnim = false;
+          _estTotalMotion(root, viewChanged);
+          _billModeFresh = "";
         } catch(err) {
           console.error("Render error:", err);
           root.innerHTML = `
@@ -22719,7 +22804,7 @@
                   ${(() => {
                     const d = displayTotal(t);
                     return `<div>
-                    <div style="font-size:22px;font-weight:900;color:var(--text)">${money(d.total)}</div>
+                    <div class="est-head-total">${money(d.total)}</div>
                     <div style="font-size:12px;color:var(--muted);margin-top:1px">${d.budgetOnly
                       ? "бюджет без разбивки"
                       : `${totalItems} позиц.${t.optional ? ` · опции +${money(t.optional)}` : ""}`}</div>
@@ -22818,7 +22903,7 @@
         const color = stage.color || "#7c3aed";
 
         return `
-          <section class="estimate-stage">
+          <section class="estimate-stage" data-stage="${escapeHtml(stage.id)}">
             ${/* Заголовок этапа сворачивает его по нажатию — целиком, а не только
                   кнопкой «Свернуть» в углу: у свёрнутого этапа заголовок и есть весь
                   этап. Кнопка остаётся для клавиатуры и экранного диктора. */""}
@@ -22961,6 +23046,13 @@
             <div class="item-top">
               <div style="display:flex;gap:12px;flex:1;min-width:0">
         ${dragHandleHtml({ title: "Потяните, чтобы переставить позицию", attrs: `onmousedown="this.closest('.item').draggable=true" onmouseup="this.closest('.item').draggable=false"` })}
+                ${(() => {
+                  /* Значок раздела каталога в его цвете — тот же знак, что у
+                     раздела в каталоге: в длинной смете глаз находит «где камера,
+                     где монтаж» по значку, а не читая названия подряд. */
+                  const grp = CATALOG_GROUPS.find(g => g.id === itemGroup(itemData));
+                  return grp ? `<span class="line-ico" title="${escapeHtml(grp.label)}" aria-hidden="true">${iconBadge(grp.ic, grp.color, 32)}</span>` : "";
+                })()}
                 <div class="u-flex1-min0">
                   <input class="line-name-input" type="text" data-autosave data-scope="line" data-id="${id}" data-key="lineName" value="${escapeHtml(line.lineName || "")}" placeholder="${escapeHtml(itemData.name)}" title="Нажми, чтобы переименовать позицию" style="color:var(--text);font-weight:750;font-size:15px">
                   ${(() => {
@@ -23004,6 +23096,18 @@
 
               <div class="price-editor">
                 <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+                  ${/* Действия стояли отдельной полосой под карточкой: невидимой
+                        до наведения, но занимавшей 52px в КАЖДОЙ позиции — у
+                        свёрнутой строки это была треть её высоты пустотой
+                        (скриншот владельца 30.09.2026). Теперь это значки в строке
+                        суммы: на компьютере проявляются при наведении, на телефоне
+                        видны всегда. «В опции» — минус (убрать из итога), у опции —
+                        плюс (вернуть в итог). */""}
+                  <div class="line-quick no-print">
+                    <button type="button" class="catalog-action-btn" onclick="app.toggleOptional('${id}')" title="${line.optional ? "Вернуть в итог" : "В опции — не входит в итог"}" aria-label="${line.optional ? "Вернуть позицию в итог" : "Перенести позицию в опции"}">${icon(line.optional ? "plus" : "minus", 13)}</button>
+                    <button type="button" class="catalog-action-btn" onclick="app.duplicateEstimateLine('${id}')" title="Дублировать позицию" aria-label="Дублировать позицию">${icon("copy", 13)}</button>
+                    <button type="button" class="catalog-action-btn danger" onclick="app.removeEstimateLine('${id}')" title="Удалить позицию" aria-label="Удалить позицию">${icon("trash", 13)}</button>
+                  </div>
                   <div class="price">${money(total)}</div>
                   <button class="line-collapse-btn no-print ${collapsed ? "collapsed" : ""}" onclick="app.toggleLineCollapse('${id}')" title="${collapsed ? "Развернуть" : "Свернуть"}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
@@ -23024,7 +23128,7 @@
                 // «Как считать» — одна позиция вместо «Монтаж ролика» и «Монтажёр —
                 // смена» по отдельности (владелец 29.09.2026: «чтобы не путались»).
                 const first = itemData.unit ? `За ${unitAccusative(itemData.unit)}` : "Фикс. цена";
-                const btn = (m, label, hint) => `<button type="button" class="bill-mode-btn${billMode === m ? " is-active" : ""}" aria-pressed="${billMode === m}" title="${escapeHtml(hint)}" onclick="app.setBillMode('${id}','${m}')">${escapeHtml(label)}</button>`;
+                const btn = (m, label, hint) => `<button type="button" class="bill-mode-btn${billMode === m ? " is-active" + (_billModeFresh === id ? " is-fresh" : "") : ""}" aria-pressed="${billMode === m}" title="${escapeHtml(hint)}" onclick="app.setBillMode('${id}','${m}')">${escapeHtml(label)}</button>`;
                 return `<div class="bill-mode no-print" role="group" aria-label="Как считать">
                   <span class="bill-mode-lbl">Как считать</span>
                   <div class="bill-mode-seg">
@@ -23082,17 +23186,6 @@
               </details>
             </div>
 
-            <div class="line-action-bar no-print">
-              <button class="btn small" onclick="app.toggleOptional('${id}')" style="font-size:12px">${line.optional ? "В основные" : "В опции"}</button>
-              <div style="display:flex;gap:4px;margin-left:auto">
-                <button class="catalog-action-btn" onclick="app.duplicateEstimateLine('${id}')" title="Дублировать позицию">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                </button>
-                <button class="catalog-action-btn danger" onclick="app.removeItem('${id}')" title="Удалить позицию">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                </button>
-              </div>
-            </div>
           </article>
         `;
       }
@@ -34115,6 +34208,7 @@ Email: _____________________              Email: _____________________
         setGFinTypeFilter,
         setGFinSubTab,
         setGFinRange,
+        removeEstimateLine,
         setGFinDatePreset,
         setGFinDateFrom,
         setGFinDateTo,
