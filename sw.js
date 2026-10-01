@@ -1,4 +1,4 @@
-const CACHE_NAME = "adervis-crm-v458";
+const CACHE_NAME = "adervis-crm-v459";
 // Только то, без чего приложение не поднимется. Скриншоты онбординга (onboarding/*.webp)
 // сюда СОЗНАТЕЛЬНО не входят: это был 1 МБ из 3,5 МБ установки, который скачивали все,
 // включая тех, кто онбординг ни разу не открывал. Обработчик fetch ниже кэширует любой
@@ -61,6 +61,10 @@ self.addEventListener("fetch", event => {
   ) {
     return;
   }
+
+  // Видео — мимо кэша: браузер просит его кусками (Range → 206), а cache.put
+  // на частичном ответе бросает исключение, и ролик не проигрывался бы вовсе.
+  if (/\.(mp4|webm|mov|m4v)$/i.test(url.pathname)) return;
 
   const isStatic = STATIC_ASSETS.some(a => url.pathname.endsWith(a.replace("./", "/"))) ||
     url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2?)$/);

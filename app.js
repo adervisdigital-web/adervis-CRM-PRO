@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 458;
+      const APP_BUILD = 459;
       const APP_VERSION = "4." + APP_BUILD;
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
@@ -6840,6 +6840,37 @@
         render();
       }
 
+      /* Ролик о продукте (01.10.2026) — в «Тарифном плане» и «Поддержке».
+         Горизонтальный 16:9 с голосом; вертикальная версия того же ролика —
+         для Reels и VK Клипов, в приложение она не кладётся.
+         preload="none": 3–4 МБ не тянем, пока не нажали «смотреть», — раздел
+         открывают ради цен или контактов, а не ради видео. Файл идёт мимо
+         кэша сервис-воркера (sw.js): видео приходит кусками (206), и
+         cache.put на таком ответе падает — ролик не играл бы в PWA. */
+      const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 27 };
+      function promoVideoHtml(variant) {
+        const support = variant === "support";
+        return `
+          <section class="promo-video no-print${support ? " is-support" : ""}" aria-label="Видео о ADERVIS">
+            <div class="promo-video-frame">
+              <video src="${PROMO_VIDEO.src}" poster="${PROMO_VIDEO.poster}" controls playsinline preload="none" aria-label="Ролик: ADERVIS за полминуты"></video>
+            </div>
+            <div class="promo-video-text">
+              <span class="promo-video-kicker">${icon("video", 12)} Видео · ${PROMO_VIDEO.secs} секунд</span>
+              <h2>${support ? "Знакомство с ADERVIS" : "ADERVIS за полминуты"}</h2>
+              <p>${support
+                ? "С чего начать: список услуг превращается в сделку и смету, КП уходит клиенту ссылкой, аванс приходит онлайн."
+                : "Что вы получаете за подписку — на одном примере: от списка услуг до оплаченного аванса."}</p>
+              <ul class="promo-video-points">
+                <li>${icon("check", 12)}<span>Боту — список услуг, в CRM — сделка со сметой</span></li>
+                <li>${icon("check", 12)}<span>КП клиенту одной ссылкой, без вложений</span></li>
+                <li>${icon("check", 12)}<span>Аванс онлайн — и сделка сама идёт по воронке</span></li>
+              </ul>
+              <a class="promo-video-open" href="${PROMO_VIDEO.src}" target="_blank" rel="noopener">${icon("external", 12)} Открыть отдельно — чтобы переслать коллегам</a>
+            </div>
+          </section>`;
+      }
+
       function renderSupport() {
         return `
           <div class="panel" style="max-width:680px;margin:0 auto">
@@ -6852,6 +6883,8 @@
                 <div class="u-meta-13">ADERVIS · сметы и КП для видеопродакшна</div>
               </div>
             </div>
+
+            ${promoVideoHtml("support")}
 
             <div style="display:grid;gap:14px;margin-bottom:28px">
               <a href="mailto:adervis.digital@gmail.com" class="support-card" style="text-decoration:none">
@@ -7213,6 +7246,7 @@
             <ul class="plans-facts">
               ${facts.map(x => `<li>${icon("check", 12)}<span>${x}</span></li>`).join("")}
             </ul>
+            ${promoVideoHtml("plans")}
             ${compTable}
             </div>
           </div>
@@ -24330,6 +24364,16 @@
         return String(client?.city || "").trim();
       }
 
+      // Кружок клиента: инициалы и цвет от имени — один и тот же в списке и на
+      // странице клиента, иначе человека узнают по цвету в одном месте и не узнают в другом.
+      function clientAvatarParts(client) {
+        const words = String(client.name || "").replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
+        const initials = (words.slice(0, 2).map(w => w[0]).join("") || "?").toUpperCase();
+        const tints = ["violet", "blue", "green", "orange", "pink", "cyan", "amber", "indigo"];
+        const hue = tints[[...String(client.name || "")].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % tints.length];
+        return { initials, hue };
+      }
+
       function renderClients() {
         if (state.clientDetailId) return renderClientDetail(state.clientDetailId);
 
@@ -24523,10 +24567,7 @@
               ${filteredClients.length ? filteredClients.map(client => {
                   const m = moneyOf(client);
                   const st = effectiveStatus(client, m);
-                  const words = String(client.name || "").replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
-                  const initials = (words.slice(0, 2).map(w => w[0]).join("") || "?").toUpperCase();
-                  const tints = ["violet", "blue", "green", "orange", "pink", "cyan", "amber", "indigo"];
-                  const hue = tints[[...String(client.name || "")].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % tints.length];
+                  const { initials, hue } = clientAvatarParts(client);
                   const tel = String(client.phone || "").replace(/[^\d+]/g, "");
                   const выставлено = numberValue(m.paid, 0) + numberValue(m.debt, 0);
                   const доля = выставлено > 0 ? Math.min(100, Math.round(numberValue(m.paid, 0) / выставлено * 100)) : 0;
@@ -24582,108 +24623,127 @@
         const clientProjects = (state.savedProjects || []).filter(p => p.clientId === clientId || p.client === client.name);
         // «Оборот» — бюджет сделок, кроме архивных/отменённых (та же логика, что и у
         // топ-клиентов на дашборде): сорвавшаяся сделка не должна раздувать оборот клиента
-        const totalRevenue = clientProjects.filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED).reduce((s, p) => s + (p.total || 0), 0);
-        const totalPaid = clientProjects.filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED).reduce((s, p) => s + (p.paid || 0), 0);
+        const live = clientProjects.filter(p => (p.crmStatus || "Лид") !== CRM_ARCHIVED);
+        const totalRevenue = live.reduce((s, p) => s + (p.total || 0), 0);
+        const totalPaid = live.reduce((s, p) => s + (p.paid || 0), 0);
+        // Долг — по той же формуле, что на карточке в списке клиентов и в «Общем долге»
+        // главной: только идущие сделки, переплата одной не гасит долг другой.
+        const debt = clientProjects.filter(p => !isDealInactive(p.crmStatus || "Лид"))
+          .reduce((s, p) => s + Math.max(0, numberValue(p.total, 0) - numberValue(p.paid, 0)), 0);
+        const { active, done } = dealsByActivity(clientProjects);
+
+        /* Страница клиента была голой формой (01.10.2026, скриншот владельца):
+           шесть полей и заметка занимали экран, сделки и долг уезжали вниз,
+           телефон нельзя было нажать, а у всех сделок стояла одна и та же
+           фиолетовая капсула «Оплата». Теперь шапка — кто это и как связаться,
+           слева то, ради чего сюда приходят (сделки и деньги), справа контакты.
+
+           Кнопки «Открыть текущую смету» больше нет: она не открывала смету
+           клиента, а перепривязывала к нему сделку, открытую в этот момент
+           (openClientEstimate пишет state.project.client), — молча и без отката. */
+        const { initials, hue } = clientAvatarParts(client);
+        const st = (!client.status || client.status === "new") && clientProjects.length ? "active" : (client.status || "new");
+        const tone = { new: "info", active: "green", vip: "accent", paused: "yellow", lost: "archived" }[st] || "info";
+        const digits = String(client.phone || "").replace(/\D/g, "");
+        const intl = digits.length === 11 && digits[0] === "8" ? "7" + digits.slice(1) : digits;
+        const tel = String(client.phone || "").replace(/[^\d+]/g, "");
+        const contact = (href, ic, label, title) => `<a class="btn small client-contact-btn" href="${escapeHtml(href)}" ${href.startsWith("http") ? 'target="_blank" rel="noopener"' : ""} title="${escapeHtml(title)}">${ic}<span>${label}</span></a>`;
+        const tile = (cls, label, value, sub) => `
+          <div class="cal-sum-tile is-static ${cls}">
+            <span class="cal-sum-lbl"><i></i>${label}</span><b title="${escapeHtml(value)}">${value}</b><small title="${escapeHtml(sub)}">${sub}</small>
+          </div>`;
+
+        const свежиеСверху = (arr) => arr.slice().sort((x, y) => String(y.updatedAt || "").localeCompare(String(x.updatedAt || "")));
+        const row = (project) => {
+          const stage = project.crmStatus || project.status || "Лид";
+          const closed = isDealInactive(stage);
+          const total = numberValue(project.total, 0), paid = numberValue(project.paid, 0);
+          const left = Math.max(0, total - paid);
+          const pct = total > 0 ? Math.max(0, Math.min(100, Math.round(paid / total * 100))) : 0;
+          const payLine = total <= 0
+            ? (paid > 0 ? `получено ${money(paid)}` : "")
+            : paid >= total ? `<span class="cpr-ok">оплачено полностью</span>`
+            : closed ? `оплачено ${money(paid)} из ${money(total)}`
+            : `${paid > 0 ? `оплачено ${money(paid)} · ` : ""}<span class="cpr-left">осталось ${money(left)}</span>`;
+          return `
+            <div class="client-project-row" style="--st-color:${CRM_STATUS_COLOR[stage] || "var(--muted)"}" onclick="app.openDeal('${project.id}')" title="Открыть сделку">
+              <div class="cpr-main">
+                <h4 title="${escapeHtml(project.name || "")}">${escapeHtml(project.name || "Без названия")}</h4>
+                <p><span class="cpr-stage"><i></i>${escapeHtml(stage)}</span> · ${escapeHtml(formatDate(project.updatedAt))}</p>
+              </div>
+              <div class="cpr-money">
+                <div class="cpr-total${total > 0 ? "" : " is-none"}">${total > 0 ? money(total) : "сумма не указана"}</div>
+                ${payLine ? `<div class="cpr-pay">${payLine}</div>` : ""}
+                ${total > 0 && !closed && paid < total ? `<span class="cpr-track" title="Оплачено ${pct}%"><span style="width:${pct}%"></span></span>` : ""}
+              </div>
+              <span class="cpr-go" aria-hidden="true">${icon("chevron", 12)}</span>
+            </div>`;
+        };
 
         return `
-          <div>
-            <div class="client-detail-header">
-              <div class="client-detail-top">
-                <div>
-                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                    <button class="btn small" onclick="app.closeClientDetail()">← Все клиенты</button>
-                    <h1 class="m-0">${escapeHtml(client.name)}</h1>
-                    <select style="border-radius:999px;padding:6px 30px 6px 12px;font-size:12px;font-weight:750;background:rgb(var(--primary-rgb) / .16);border:1px solid rgb(var(--primary-rgb) / .3);color:var(--text)" onchange="app.updateClientField('${client.id}','status',this.value)">
-                      ${["new", "active", "vip", "paused", "lost"].map(s => `<option value="${s}" ${client.status === s ? "selected" : ""}>${{new:"Новый",active:"Активный",vip:"VIP",paused:"Пауза",lost:"Потерян"}[s]||s}</option>`).join("")}
+          <div class="client-detail">
+            <div class="client-hero">
+              <button class="btn small client-back no-print" onclick="app.closeClientDetail()">← Все клиенты</button>
+              <div class="client-hero-main">
+                <span class="client-avatar client-avatar--lg" style="--av:var(--tint-${hue})" aria-hidden="true">${escapeHtml(initials)}</span>
+                <div class="client-hero-id">
+                  <div class="client-hero-name">
+                    <h1 title="${escapeHtml(client.name)}">${escapeHtml(client.name)}</h1>
+                    <select class="client-status-select status-pill ${tone}" aria-label="Статус клиента" onchange="app.updateClientField('${client.id}','status',this.value)">
+                      ${["new", "active", "vip", "paused", "lost"].map(s => `<option value="${s}" ${st === s ? "selected" : ""}>${{ new: "Новый", active: "Активный", vip: "VIP", paused: "Пауза", lost: "Потерян" }[s]}</option>`).join("")}
                     </select>
                   </div>
-                  ${clientSubtitle(client) ? `<p style="margin:6px 0 0;font-size:14px;color:var(--muted)">${escapeHtml(clientSubtitle(client))}</p>` : ""}
+                  ${clientSubtitle(client) ? `<p>${escapeHtml(clientSubtitle(client))}</p>` : ""}
                 </div>
-                <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
-                  <div class="fin-card income-card" style="padding:12px 16px;min-width:110px">
-                    <h3>Проектов</h3>
-                    <div class="fin-amount">${clientProjects.length}</div>
-                  </div>
-                  <div class="fin-card income-card" style="padding:12px 16px;min-width:110px">
-                    <h3>Оборот</h3>
-                    <div class="fin-amount">${money(totalRevenue)}</div>
-                  </div>
-                  <div class="fin-card income-card" style="padding:12px 16px;min-width:110px">
-                    <h3>Получено</h3>
-                    <div class="fin-amount">${money(totalPaid)}</div>
-                  </div>
+                <div class="client-hero-actions no-print">
+                  ${tel ? contact("tel:" + tel, icon("phone", 13), "Позвонить", "Позвонить: " + client.phone) : ""}
+                  ${intl.length >= 10 ? contact("https://wa.me/" + intl, icon("chat", 13), "WhatsApp", "Написать в WhatsApp") : ""}
+                  ${intl.length >= 10 ? contact("https://t.me/+" + intl, icon("send", 13), "Telegram", "Написать в Telegram") : ""}
+                  ${client.email ? contact("mailto:" + client.email, icon("mail", 13), "Почта", "Написать: " + client.email) : ""}
+                  <button class="btn small primary" onclick="app.startWizardForClient('${client.id}')">${icon("plus", 13)} Новая сделка</button>
                 </div>
               </div>
-
-              <div class="grid three">
-                ${field("Имя / название", `<input value="${escapeHtml(client.name)}" onchange="app.updateClientField('${client.id}','name',this.value)">`)}
-                ${field("Компания", `<input value="${escapeHtml(client.company||"")}" onchange="app.updateClientField('${client.id}','company',this.value)">`)}
-                ${field("Город", `<input value="${escapeHtml(client.city||"")}" onchange="app.updateClientField('${client.id}','city',this.value)">`)}
-                ${field("Телефон", `<input value="${escapeHtml(client.phone||"")}" onfocus="app.maskPhoneFocus(this)" oninput="app.maskPhoneInput(this)" onchange="app.updateClientField('${client.id}','phone',this.value)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00"> `)}
-                ${field("Email", `<input value="${escapeHtml(client.email||"")}" onchange="app.updateClientField('${client.id}','email',this.value)" placeholder="mail@example.com">`)}
-                ${field("Источник", `<input value="${escapeHtml(client.source||"")}" onchange="app.updateClientField('${client.id}','source',this.value)" placeholder="Рекомендация, инстаграм...">`)}
-              </div>
-              <div class="mt-12">
-                ${field("Заметка о клиенте", `<textarea onchange="app.updateClientField('${client.id}','note',this.value)" placeholder="Предпочтения, условия, важные детали...">${escapeHtml(client.note||"")}</textarea>`)}
-              </div>
-              ${(client.requisites || state.requisitesEditFor === client.id) ? `
-                <div class="mt-12">
-                  ${field("Реквизиты", `<textarea onchange="app.updateClientField('${client.id}','requisites',this.value)">${escapeHtml(client.requisites||"")}</textarea>`)}
-                </div>
-              ` : `
-                <div class="mt-10">
-                  <button class="btn small" onclick="app.showClientRequisites('${client.id}')">Добавить реквизиты</button>
-                </div>
-              `}
-
-              <div class="toolbar no-print" style="margin-top:14px">
-                <button class="btn primary" onclick="app.startWizardForClient('${client.id}')">${icon("plus", 13)} Новый проект для клиента</button>
-                <button class="btn" onclick="app.openClientEstimate('${client.id}')">Открыть текущую смету</button>
-                <button class="btn danger-quiet" onclick="app.deleteClient('${client.id}')">${TRASH_SVG} Удалить клиента</button>
+              <div class="cal-summary client-detail-stats">
+                ${tile("is-task", "Сделок", String(clientProjects.length), clientProjects.length ? `${active.length} в работе · ${done.length} ${plural(done.length, "завершена", "завершены", "завершено")}` : "пока ни одной")}
+                ${tile("is-rep", "Оборот", money(totalRevenue), "сумма сделок без архива")}
+                ${tile("is-inc", "Получено", money(totalPaid), totalRevenue > 0 ? `${Math.round(totalPaid / totalRevenue * 100)}% оборота` : "оплат пока нет")}
+                ${tile(debt > 0 ? "is-exp" : "is-inc", "Должен", debt > 0 ? money(debt) : "—", debt > 0 ? "по сделкам в работе" : "долгов нет")}
               </div>
             </div>
 
-            <h2 style="margin:0 0 12px">Проекты клиента</h2>
+            <div class="client-detail-grid">
+              <section class="client-deals">
+                <div class="client-deals-head">
+                  <h2>Сделки <span>${clientProjects.length || ""}</span></h2>
+                </div>
+                ${!clientProjects.length
+                  ? emptyState({ icon: "box", size: "sm", text: "Сделок с этим клиентом пока нет.", cta: { label: "Новая сделка", ic: "plus", onclick: `app.startWizardForClient('${client.id}')` } })
+                  : `<div class="client-projects-list">
+                      ${свежиеСверху(active).map(row).join("")}
+                      ${done.length && active.length ? `<div class="client-deals-sep">Завершённые · ${done.length}</div>` : ""}
+                      ${свежиеСверху(done).map(row).join("")}
+                    </div>`}
+              </section>
 
-            ${(() => {
-              if (!clientProjects.length) {
-                return emptyState({ icon: "box", size: "sm", text: "Проектов с этим клиентом пока нет." });
-              }
-              /* Тот же разбор, что у списков выбора (SW v428): у постоянного
-                 клиента сданных сделок в разы больше, чем идущих, а список шёл
-                 плоским и БЕЗ порядка — в каком лежат в состоянии, в таком и
-                 рисовались. Работающая сделка оказывалась где придётся.
-
-                 Сначала идущие, потом сданные под подписью; внутри каждой группы
-                 свежие сверху. Ничего не прячем — к сданной сделке возвращаются
-                 за документами и суммами. */
-              const { active, done } = dealsByActivity(clientProjects);
-              const свежиеСверху = (arr) => arr.slice().sort((a, b) =>
-                String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
-              const row = (project) => `
-                  <div class="client-project-row" onclick="app.openDeal('${project.id}')">
-                    <div>
-                      <h4>${escapeHtml(project.name)}</h4>
-                      <p>${escapeHtml(formatDate(project.updatedAt))} · ${escapeHtml(project.crmStatus || "")}</p>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:12px">
-                      <div class="ta-right">
-                        <div style="font-weight:900">${money(project.total)}</div>
-                        <div class="u-meta">оплачено ${money(project.paid)}</div>
-                      </div>
-                      <span class="status-pill">${escapeHtml(project.crmStatus || project.status)}</span>
-                    </div>
-                  </div>`;
-              return `
-                <div class="client-projects-list">
-                  ${свежиеСверху(active).map(row).join("")}
-                  ${done.length && active.length ? `
-                    <div class="u-meta" style="padding:10px 4px 4px;font-size:12px;font-weight:700">
-                      Завершённые · ${done.length}
-                    </div>` : ""}
-                  ${свежиеСверху(done).map(row).join("")}
-                </div>`;
-            })()}
+              <aside class="client-side">
+                <h2>Контакты</h2>
+                <div class="client-side-fields">
+                  ${field("Имя / название", `<input value="${escapeHtml(client.name)}" onchange="app.updateClientField('${client.id}','name',this.value)">`)}
+                  ${field("Компания", `<input value="${escapeHtml(client.company || "")}" onchange="app.updateClientField('${client.id}','company',this.value)" placeholder="ООО «…»">`)}
+                  ${field("Телефон", `<input value="${escapeHtml(client.phone || "")}" onfocus="app.maskPhoneFocus(this)" oninput="app.maskPhoneInput(this)" onchange="app.updateClientField('${client.id}','phone',this.value)" onblur="app.checkPhoneField(this)" placeholder="+7 900 000-00-00">`)}
+                  ${field("Email", `<input value="${escapeHtml(client.email || "")}" onchange="app.updateClientField('${client.id}','email',this.value)" placeholder="mail@example.com">`)}
+                  ${field("Город", `<input value="${escapeHtml(client.city || "")}" onchange="app.updateClientField('${client.id}','city',this.value)">`)}
+                  ${field("Откуда пришёл", `<input value="${escapeHtml(client.source || "")}" onchange="app.updateClientField('${client.id}','source',this.value)" placeholder="Рекомендация, Instagram…">`)}
+                </div>
+                ${field("Заметка", `<textarea rows="3" onchange="app.updateClientField('${client.id}','note',this.value)" placeholder="Предпочтения, условия, важные детали…">${escapeHtml(client.note || "")}</textarea>`)}
+                ${(client.requisites || state.requisitesEditFor === client.id)
+                  ? field("Реквизиты", `<textarea rows="3" onchange="app.updateClientField('${client.id}','requisites',this.value)">${escapeHtml(client.requisites || "")}</textarea>`)
+                  : `<button class="btn small" onclick="app.showClientRequisites('${client.id}')">${icon("plus", 13)} Реквизиты для договора</button>`}
+                <div class="client-side-danger no-print">
+                  <button class="btn small danger-quiet" onclick="app.deleteClient('${client.id}')">${TRASH_SVG} Удалить клиента</button>
+                </div>
+              </aside>
+            </div>
           </div>
         `;
       }

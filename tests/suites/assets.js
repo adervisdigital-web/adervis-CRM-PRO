@@ -2108,4 +2108,24 @@ module.exports = async function ({ test }) {
       deadCalls.map((k) => `app.${k} — строки ${calls.get(k).slice(0, 4).join(", ")}`).join("\n  "));
   });
 
+  /* Ролик о продукте в «Тарифном плане» и «Поддержке» (01.10.2026). Сторожим
+     две вещи, которые ломаются молча: видео обязано идти мимо кэша
+     сервис-воркера (ответ 206 в cache.put бросает, и ролик не играет в PWA),
+     а файлы ролика — лежать в репозитории и не раздуваться (их качает каждый,
+     кто нажал «смотреть», с телефона в том числе). */
+  await test("ролик о продукте: файлы на месте, лёгкие, и видео идёт мимо кэша SW", () => {
+    const sw = readSrc("sw.js");
+    const bypass = sw.indexOf("mp4|webm");
+    assert(bypass > 0, "sw.js не пропускает видео мимо кэша");
+    assert(bypass < sw.indexOf("const isStatic"), "пропуск видео стоит ПОСЛЕ кэширующих веток — не сработает");
+    const m = app.match(/PROMO_VIDEO = \{ src: "([^"]+)", poster: "([^"]+)"/);
+    assert(m, "не нашёлся PROMO_VIDEO в app.js");
+    for (const rel of [m[1], m[2]]) {
+      const f = path.join(REPO_ROOT, rel);
+      assert(fs.existsSync(f), "нет файла ролика: " + rel);
+      const mb = fs.statSync(f).size / 1048576;
+      assert(mb < 8, `${rel} весит ${mb.toFixed(1)} МБ — ролик для приложения должен быть легче 8 МБ`);
+    }
+    assert((app.match(/promoVideoHtml\("(plans|support)"\)/g) || []).length === 2, "ролик должен стоять в «Тарифном плане» и в «Поддержке»");
+  });
 };
