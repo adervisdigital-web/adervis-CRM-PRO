@@ -11,6 +11,8 @@
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
       const APP_BUILD = 459;
       const APP_VERSION = "4." + APP_BUILD;
+      // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
+      const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 27 };
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
       const THEME_MODE_KEY = "adervis_pro_theme_mode";
@@ -3745,67 +3747,19 @@
       let _authTab = "login"; // "login" | "register" | "forgot"
       let _authFields = { email: "", password: "", name: "", inviteCode: "", error: "", loading: false, showPassword: false, rememberMe: true, consent: false, forgotSent: false };
 
-      function renderAuthGate() {
-        const f = _authFields;
-
-        const landingLeft = `
-          <div class="auth-gate-left">
-            <div class="auth-gate-brand">
-              <div style="width:52px;height:52px;border-radius:16px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">
-                <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:34px;height:34px;object-fit:contain">
-              </div>
-              <div>
-                <div style="font-weight:900;font-size:20px;letter-spacing:-.3px">ADERVIS</div>
-                <div class="u-meta">Сметы и КП для видеопродакшна</div>
-              </div>
-            </div>
-
-            <h2 style="font-size:26px;font-weight:900;line-height:1.2;margin:28px 0 12px;letter-spacing:-.4px">Смета и КП за 15 минут<br>вместо вечера в Excel</h2>
-            <p style="font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 28px">Клиент открывает ссылку, соглашается<br>и платит аванс онлайн.</p>
-
-            <ul class="auth-features-list">
-              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg></span><div><strong>Смета по каталогу</strong><span>93 позиции с вашими ценами и готовые пакеты — забытая строка не съест прибыль</span></div></li>
-              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 011.06 2.56L5.12 11H3v-2.12l7.44-7.44A1.5 1.5 0 0111.5 1zM2 12.5V15h2.5l.1-.1-2.4-2.4-.2.1z"/></svg></span><div><strong>КП одной ссылкой</strong><span>Клиент открывает страницу, а не файл, и соглашается в один клик</span></div></li>
-              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4v.52c.91.18 1.5.75 1.5 1.48 0 .9-.74 1.5-1.5 1.65V10c.55-.12 1-.42 1.18-.84l.94.44C10.52 10.5 9.7 11 8.75 11.14V12h-.75v-.84c-.97-.17-1.75-.82-1.75-1.66 0-.93.74-1.52 1.75-1.67V6.52c-.45.1-.82.36-1 .68L6.1 6.8C6.4 6.18 7 5.7 8 5.52V5h.75z"/></svg></span><div><strong>Аванс онлайн</strong><span>Оплата картой прямо со страницы КП — без счёта и ожидания</span></div></li>
-              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h5l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.5 1.2V4.5H11L8.5 2.2zM5 7h6v1H5V7zm0 2.5h6v1H5v-1zM5 12h4v1H5v-1z"/></svg></span><div><strong>Договор из шаблона</strong><span>8 готовых бланков — заполняются полями, а не поиском по чужому файлу</span></div></li>
-              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2h13l-5 6v5.5l-3-1.5V8l-5-6z"/></svg></span><div><strong>А дальше сделка живёт сама</strong><span>Воронка, финансы и рентабельность, задачи с дедлайнами</span></div></li>
-              <li><span class="auth-feat-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M15 1L1 6.9l4.7 1.8L13.5 3 7.2 9.5 7 14l2.5-3.1 3.6 2.8L15 1z"/></svg></span><div><strong>Управление из Telegram</strong><span>Сделки, финансы и статистика прямо в боте</span></div></li>
-            </ul>
-
-            <div style="display:flex;gap:10px;align-items:flex-start;background:rgb(var(--primary-rgb) / .06);border:1px solid rgb(var(--primary-rgb) / .18);border-radius:12px;padding:12px 14px;margin-bottom:24px">
-              <p style="margin:0;font-size:12px;line-height:1.6;color:var(--muted)">ADERVIS сделали люди из видеопродакшна — мы сами теряли вечера на смету в Excel и отправляли клиенту невнятный файл. Инструмент вырос из своей практики: агентство ведёт в нём настоящие сделки, а не демо.</p>
-            </div>
-
-            <div class="auth-stats-row">
-              <div><strong>7</strong><span>дней бесплатно</span></div>
-              ${/* «от N ₽» — самый дешёвый месяц из PLANS (сейчас это годовая оплата).
-                    Числом писать нельзя: на экране входа его увидят раньше всего, а
-                    заметят расхождение с тарифами последним. */""}
-              <div><strong>от ${Math.min(...PLANS.filter(p => p.months > 0).map(p => p.price))}₽</strong><span>в месяц</span></div>
-              <div><strong>∞</strong><span>сделок</span></div>
-            </div>
-            <p style="margin:14px 0 0;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px"> Карта не нужна для пробного периода — платите только если решите остаться</p>
-
-          </div>
-        `;
-
-        /* ── Forgot password form ── */
-        if (_authTab === "forgot") {
-          return `
-            <div class="auth-gate">
-              <div class="auth-gate-inner">
-                ${landingLeft}
-                <div class="auth-gate-right">
-                  <div class="auth-gate-box">
-                    <div class="auth-gate-logo">
-                      <div class="logo" style="width:36px;height:36px;border-radius:11px;background:var(--primary);display:grid;place-items:center">
-                        <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:24px;height:24px;object-fit:contain">
-                      </div>
-                      <div>
-                        <div style="font-weight:900;font-size:15px">ADERVIS</div>
-                        <div class="u-meta">Сметы и КП для видеопродакшна</div>
-                      </div>
-                    </div>
+      /* Экран входа — небольшой лендинг (01.10.2026, владелец: «не понятно, что за
+         приложение»). Было: колонка преимуществ и форма. Стало: что это и для кого,
+         ролик, три шага, возможности, цены и форма прямо на первом экране — на
+         телефоне сразу под текстом, чтобы зарегистрироваться можно было не листая.
+         Числа (позиции каталога, пакеты, цены) — из тех же источников, что и
+         «Тарифы»: в старом тексте висели «93 позиции» при двухстах в каталоге. */
+      function authBoxHtml(f) {
+        const isForgot = _authTab === "forgot";
+        const isRegister = _authTab === "register";
+        const canSubmit = !f.loading && (!isRegister || f.consent);
+        return `
+          <div class="auth-gate-box" id="lpAuth">
+            ${isForgot ? `
                     <h3 style="font-size:16px;margin:0 0 8px">Сброс пароля</h3>
                     <p style="font-size:13px;color:var(--muted);margin:0 0 18px;line-height:1.5">Введите email — мы отправим ссылку для восстановления пароля.</p>
                     ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--text-danger);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
@@ -3819,37 +3773,13 @@
                     <div style="text-align:center;margin-top:16px">
                       <button onclick="app.setAuthTab('login')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Вернуться ко входу</button>
                     </div>
+            ` : `
+                  <div class="lp-auth-title">${isRegister ? "Создать аккаунт" : "Вход в ADERVIS CRM"}</div>
+                  <div class="lp-auth-sub">${isRegister ? "7 дней бесплатно, карта не нужна" : "Рады видеть снова"}</div>
+                  <div class="auth-tab-bar" role="tablist">
+                    <button class="auth-tab ${!isRegister ? "active" : ""}" role="tab" aria-selected="${!isRegister}" onclick="app.setAuthTab('login')">Вход</button>
+                    <button class="auth-tab ${isRegister ? "active" : ""}" role="tab" aria-selected="${isRegister}" onclick="app.setAuthTab('register')">Регистрация</button>
                   </div>
-                </div>
-              </div>
-            </div>
-          `;
-        }
-
-        /* ── Login / Register form ── */
-        const isRegister = _authTab === "register";
-        const canSubmit = !f.loading && (!isRegister || f.consent);
-        return `
-          <div class="auth-gate">
-            <div class="auth-gate-inner">
-              ${landingLeft}
-              <div class="auth-gate-right">
-                <div class="auth-gate-box">
-                  <div class="auth-gate-logo">
-                    <div class="logo" style="width:36px;height:36px;border-radius:11px;background:var(--primary);display:grid;place-items:center">
-                      <img src="logo-icon.svg" alt="A" onerror="this.style.display='none'" style="width:24px;height:24px;object-fit:contain">
-                    </div>
-                    <div>
-                      <div style="font-weight:900;font-size:15px">ADERVIS</div>
-                      <div class="u-meta">Сметы и КП для видеопродакшна</div>
-                    </div>
-                  </div>
-
-                  <div class="auth-tab-bar">
-                    <button class="auth-tab ${!isRegister ? "active" : ""}" onclick="app.setAuthTab('login')">Вход</button>
-                    <button class="auth-tab ${isRegister ? "active" : ""}" onclick="app.setAuthTab('register')">Регистрация</button>
-                  </div>
-
                   ${f.error ? `<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;color:var(--text-danger);font-size:13px;margin-bottom:14px">${escapeHtml(f.error)}</div>` : ""}
 
                   ${isRegister ? `
@@ -3899,28 +3829,129 @@
                     </button>
                   </div>` : ''}
                   ${(lsGet('vk_app_id') || _DEFAULT_VK_APP_ID) ? `<div id="vkid-one-tap" class="mt-8"></div>` : ''}
-                  <!-- Google — вторым приоритетом (не убираем совсем, но не выпячиваем):
-                       406-ФЗ формально запрещает вход через иностранные OAuth-идентификаторы
-                       при регистрации, законопроект со штрафами для сервисов принят Госдумой
-                       09.06.2026, но в силу пока не вступил. VK ID/Яндекс ID — российская
-                       инфраструктура, поэтому им отдан визуальный приоритет. Отслеживать
-                       вступление поправок в силу и по факту решить, убирать ли кнопку совсем. -->
-                  <div style="text-align:center;margin-top:10px">
-                    <button class="oauth-btn" onclick="app.oauthSignIn('google')" title="Войти через Google" style="display:inline-flex;flex-direction:row;width:auto;padding:6px 14px;gap:7px;opacity:.65;font-weight:600">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                      <span style="font-size:12px">Продолжить с Google</span>
-                    </button>
-                  </div>
 
-                  <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:12px;color:var(--muted)">
-                    Adervis · ИНН 592110786536 ·
-                    <a href="mailto:adervis.digital@gmail.com" class="u-muted">adervis.digital@gmail.com</a>
-                  </div>
-                </div>
+            `}
+          </div>`;
+      }
+
+      function renderAuthGate() {
+        const f = _authFields;
+        const logo = `<span class="lp-logo"><img src="logo-icon.svg" alt="" onerror="this.style.display='none'"></span>`;
+        const minPrice = Math.min(...PLANS.filter(p => p.months > 0).map(p => p.price));
+        const feats = tierFeatureMap();
+        const priceOf = (tier) => (PLANS.find(p => p.tier === tier && p.months === 1) || {}).price || 0;
+        const STEPS = [
+          ["receipt", "Соберите смету", `Из каталога с вашими ценами — внутри уже ${catalogCountText()} и ${packagesCountText()}. Или пришлите боту список услуг: сделка создастся сама.`],
+          ["link", "Отправьте КП ссылкой", "Клиент открывает страницу, а не файл: состав, этапы, итог — и соглашается в один клик."],
+          ["wallet", "Получите аванс онлайн", "Подключите свою ЮKassa — клиент оплатит картой или СБП прямо со страницы КП."],
+        ];
+        const FEATS = [
+          ["receipt", "Смета по каталогу", "Смены, часы или за ролик; скидка и налог в итогах. Ничего не забудете."],
+          ["link", "КП вместо PDF", "Страница для клиента с кнопкой «Согласовать» — видно, открыл ли он её."],
+          ["wallet", "Аванс по ссылке", "Деньги приходят на ваш счёт, сделка сама идёт дальше по воронке."],
+          ["chart", "Деньги под контролем", "Кто сколько должен, доход и расходы по месяцам, прибыль по проектам."],
+          ["doc", "Договоры и брифы", "Договор из шаблона заполняется данными сделки, бриф клиент заполняет сам."],
+          ["send", "Telegram-бот", "Сделки, оплаты и напоминания в Telegram. Список услуг → готовая сделка."],
+        ];
+        const ic = (name) => `<span class="lp-ic">${icon(name, 18)}</span>`;
+        return `
+          <div class="auth-gate lp">
+            <header class="lp-top">
+              <div class="lp-top-in">
+                <span class="lp-brand">${logo}<b>ADERVIS</b><i>CRM</i></span>
+                <nav class="lp-nav" aria-label="Разделы">
+                  <button type="button" onclick="app.lpGo('lp-how')">Как работает</button>
+                  <button type="button" onclick="app.lpGo('lp-video')">Ролик</button>
+                  <button type="button" onclick="app.lpGo('lp-price')">Цены</button>
+                </nav>
+                <button type="button" class="btn small lp-top-login" onclick="app.lpAuth('login')">Войти</button>
+                <button type="button" class="btn small primary lp-top-cta" onclick="app.lpAuth('register')">Попробовать бесплатно</button>
               </div>
-            </div>
+            </header>
+
+            <section class="lp-hero">
+              <div class="lp-hero-text">
+                <span class="lp-kicker">CRM для видеопродакшна</span>
+                <h1>Смета, КП и аванс —<br><span class="lp-acc">за 15 минут</span></h1>
+                <p class="lp-lead">ADERVIS CRM собирает смету из вашего каталога, отправляет клиенту КП одной ссылкой и принимает аванс онлайн. Сделки, деньги и сроки — в одном месте.</p>
+                <div class="lp-cta">
+                  <button type="button" class="btn primary lp-cta-main" onclick="app.lpAuth('register')">Попробовать 7 дней бесплатно</button>
+                  <button type="button" class="btn lp-cta-video" onclick="app.lpGo('lp-video', true)">${icon("video", 15)} Смотреть ролик · ${PROMO_VIDEO.secs} с</button>
+                </div>
+                <ul class="lp-trust">
+                  <li>${icon("check", 13)}Карта не нужна</li>
+                  <li>${icon("check", 13)}Вход через Яндекс ID и VK ID</li>
+                  <li>${icon("check", 13)}В браузере и на телефоне</li>
+                </ul>
+              </div>
+              ${authBoxHtml(f)}
+            </section>
+
+            <section class="lp-sec lp-video" id="lp-video">
+              <div class="lp-video-frame">
+                <video src="${PROMO_VIDEO.src}" poster="${PROMO_VIDEO.poster}" controls playsinline preload="none" aria-label="Ролик: ADERVIS CRM за полминуты"></video>
+              </div>
+            </section>
+
+            <section class="lp-sec" id="lp-how">
+              <h2 class="lp-h2">Как это работает</h2>
+              <ol class="lp-steps">
+                ${STEPS.map(([i, h, p], n) => `<li><span class="lp-step-n">${n + 1}</span>${ic(i)}<h3>${h}</h3><p>${p}</p></li>`).join("")}
+              </ol>
+            </section>
+
+            <section class="lp-sec">
+              <h2 class="lp-h2">Всё для работы с клиентом</h2>
+              <div class="lp-feats">
+                ${FEATS.map(([i, h, p]) => `<div class="lp-feat">${ic(i)}<h3>${h}</h3><p>${p}</p></div>`).join("")}
+              </div>
+            </section>
+
+            <section class="lp-sec" id="lp-price">
+              <h2 class="lp-h2">Цены</h2>
+              <p class="lp-sub">7 дней — весь «Стандарт» бесплатно и без карты. Потом выберете тариф, данные сохранятся.</p>
+              <div class="lp-plans">
+                ${PLAN_TIERS.map(tr => `
+                  <div class="lp-plan${tr.id === "std" ? " is-rec" : ""}">
+                    ${tr.id === "std" ? `<span class="lp-plan-badge">Советуем</span>` : ""}
+                    <div class="lp-plan-name">${escapeHtml(tr.label)}<small>${escapeHtml(tr.note || "")}</small></div>
+                    <div class="lp-plan-price"><b>${money(priceOf(tr.id))}</b><span>/ мес</span></div>
+                    <ul>${(feats[tr.id] || []).slice(0, 4).map(x => `<li>${icon("check", 12)}<span>${escapeHtml(x)}</span></li>`).join("")}</ul>
+                  </div>`).join("")}
+              </div>
+              <p class="lp-note">Оплата через ЮKassa — карта, СБП, ЮMoney. При оплате за год — от ${money(minPrice)} в месяц.</p>
+            </section>
+
+            <section class="lp-sec lp-final">
+              <h2>Первая смета — уже сегодня</h2>
+              <p>Регистрация за минуту. Пример сделки уже внутри — можно сразу посмотреть, как всё устроено.</p>
+              <button type="button" class="btn primary lp-cta-main" onclick="app.lpAuth('register')">Начать бесплатно</button>
+            </section>
+
+            <footer class="lp-foot">
+              <span>ADERVIS CRM · ИНН 592110786536</span>
+              <a href="mailto:adervis.digital@gmail.com">adervis.digital@gmail.com</a>
+              <a href="https://t.me/adervis_manager" target="_blank" rel="noopener">Поддержка в Telegram</a>
+              <a href="https://adervis.ru/docs" target="_blank" rel="noopener">Оферта и политика конфиденциальности</a>
+            </footer>
           </div>
         `;
+      }
+
+      // Кнопки лендинга: прокрутка к разделу и переход к форме (вкладка + фокус в первое поле).
+      function lpGo(id, play) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.scrollIntoView({ behavior: _reducedMotion() ? "auto" : "smooth", block: id === "lp-video" ? "center" : "start" });
+        if (play) { const v = el.querySelector("video"); if (v) { try { v.play(); } catch (e) {} } }
+      }
+      function lpAuth(tab) {
+        if (_authTab !== tab) setAuthTab(tab);
+        const box = document.getElementById("lpAuth");
+        if (!box) return;
+        box.scrollIntoView({ behavior: _reducedMotion() ? "auto" : "smooth", block: "center" });
+        const input = box.querySelector("input:not([type=checkbox])");
+        if (input) setTimeout(() => { try { input.focus({ preventScroll: true }); } catch (e) {} }, 350);
       }
 
       function setAuthTab(tab) {
@@ -4022,23 +4053,6 @@
         } catch (e) {
           f.loading = false;
           f.error = "Не удалось подключиться к серверу. Проверьте интернет-соединение и попробуйте ещё раз." + (e && e.message ? ` (${e.message})` : "");
-          renderAuthGateEl();
-        }
-      }
-
-      async function oauthSignIn(provider) {
-        if (!_supabase) {
-          _authFields.error = "Supabase не настроен — настройте в разделе Настройки";
-          renderAuthGateEl(); return;
-        }
-        try {
-          const { error } = await _supabase.auth.signInWithOAuth({
-            provider,
-            options: { redirectTo: location.origin + location.pathname }
-          });
-          if (error) { _authFields.error = error.message; renderAuthGateEl(); }
-        } catch (e) {
-          _authFields.error = "Не удалось подключиться к серверу. Проверьте интернет-соединение и попробуйте ещё раз." + (e && e.message ? ` (${e.message})` : "");
           renderAuthGateEl();
         }
       }
@@ -4681,7 +4695,9 @@
         if (_authChecking || !cfg.url || !cfg.key || localMode || _adminSession) {
           el.innerHTML = "";
         } else {
+          const prevScroll = (el.querySelector(".auth-gate") || {}).scrollTop || 0;
           el.innerHTML = renderAuthGate();
+          const gate = el.querySelector(".auth-gate"); if (gate && prevScroll) gate.scrollTop = prevScroll;
           _vkidInited = false;
           setTimeout(() => _ensureVKIDSDK().then(initVKIDWidget).catch(e => console.warn("VK ID SDK:", e)), 50);
         }
@@ -6847,7 +6863,6 @@
          открывают ради цен или контактов, а не ради видео. Файл идёт мимо
          кэша сервис-воркера (sw.js): видео приходит кусками (206), и
          cache.put на таком ответе падает — ролик не играл бы в PWA. */
-      const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 27 };
       function promoVideoHtml(variant) {
         const support = variant === "support";
         return `
@@ -18292,7 +18307,7 @@
                     который эти данные вводит, и к брендированию отношения не
                     имеет — снимать её вместе с подписью было бы подменой. */""}
               <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:20px">
-                ${_briefAgency && _briefAgency.hideBranding ? '' : 'Сделано в <strong>ADERVIS</strong> · '}Данные используются только для связи с вами
+                ${_briefAgency && _briefAgency.hideBranding ? '' : 'Сделано в <strong>ADERVIS CRM</strong> · '}Данные используются только для связи с вами
               </p>
             </div>
           </div>`;
@@ -30904,7 +30919,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 <span style="width:16px;height:16px;border-radius:5px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">
                   <img src="logo-icon.svg" alt="" style="width:11px;height:11px;object-fit:contain" onerror="this.style.display='none'">
                 </span>
-                <span>Сделано в <strong style="color:var(--muted);font-weight:700">ADERVIS</strong> — сметы и КП для видеопродакшна</span>
+                <span>Сделано в <strong style="color:var(--muted);font-weight:700">ADERVIS CRM</strong> — сметы и КП для видеопродакшна</span>
               </a>`}
             </div>
           </div>
@@ -34996,7 +35011,6 @@ Email: _____________________              Email: _____________________
         syncTaskToGoogle,
         syncProjectDeadlineToGoogle,
 
-        oauthSignIn,
         yandexLogin,
 
         openEditTransaction,
@@ -35092,6 +35106,8 @@ Email: _____________________              Email: _____________________
         saveSupabaseConfig,
 
         setAuthTab,
+        lpGo,
+        lpAuth,
         setAuthField,
         toggleAuthPasswordVisibility,
         authSubmit,
