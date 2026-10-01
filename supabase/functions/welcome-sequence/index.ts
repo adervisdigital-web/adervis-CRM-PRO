@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Идемпотентность: колонки profiles.welcome_d{1,3,6}_at (не шлём повторно).
 // «День с регистрации» = (subscription_expires_at - 7 дней), триал всегда 7 дней.
 
-const RESEND_FROM = "ADERVIS <noreply@app.adervis.ru>";
+const RESEND_FROM = "ADERVIS CRM <noreply@app.adervis.ru>";
 const REPLY_TO = "adervis.digital@gmail.com";
 const DAY = 86400000;
 
@@ -51,7 +51,7 @@ function buildMail(appUrl: string, name: string, m: Mail): string {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px"><tr><td align="center">
     <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;max-width:560px;width:100%">
       <tr><td style="background:linear-gradient(135deg,#6c00ff,#2563eb);padding:32px 40px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px">ADERVIS</div>
+        <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px">ADERVIS CRM</div>
         <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:6px">CRM для видеопродакшн-студий</div>
       </td></tr>
       <tr><td style="padding:34px 40px 8px">
@@ -69,7 +69,7 @@ function buildMail(appUrl: string, name: string, m: Mail): string {
       </td></tr>
       <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center">
         <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6">Есть вопросы? Просто ответьте на это письмо.<br>
-        <strong>ADERVIS</strong> · <a href="${appUrl}" style="color:#6c00ff;text-decoration:none">app.adervis.ru</a></p>
+        <strong>ADERVIS CRM</strong> · <a href="${appUrl}" style="color:#6c00ff;text-decoration:none">app.adervis.ru</a></p>
       </td></tr>
     </table>
   </td></tr></table>
@@ -78,7 +78,7 @@ function buildMail(appUrl: string, name: string, m: Mail): string {
 
 function mailFor(stage: 1 | 3 | 6, appUrl: string): Mail {
   if (stage === 1) return {
-    subject: "Соберите первую смету в ADERVIS за 5 минут",
+    subject: "Соберите первую смету в ADERVIS CRM за 5 минут",
     heading: "Смета за минуты, а не за вечер 📋",
     intro: "После регистрации мы уже завели демо-сделку с готовой сметой — откройте её, чтобы за минуту понять, как всё устроено, а потом соберите свою.",
     steps: [
@@ -86,14 +86,14 @@ function mailFor(stage: 1 | 3 | 6, appUrl: string): Mail {
       ["Создайте свою сделку", "Кнопка «+ Новая сделка», добавьте клиента — займёт полминуты"],
       ["Соберите смету из пакетов", "Готовые пакеты услуг и каталог позиций — сумма считается сама"],
     ],
-    cta: "Открыть ADERVIS",
+    cta: "Открыть ADERVIS CRM",
     href: appUrl,
     note: "Все данные в облаке — работайте с любого устройства",
   };
   if (stage === 3) return {
     subject: "Покажите клиенту КП онлайн — он одобрит в один клик",
     heading: "Клиентский портал — ваше КП выглядит дорого 💼",
-    intro: "Самое сильное в ADERVIS — онлайн-портал КП. Клиент открывает ссылку, видит состав, сроки и сумму, и одобряет прямо из браузера. Никаких PDF по почте.",
+    intro: "Самое сильное в ADERVIS CRM — онлайн-портал КП. Клиент открывает ссылку, видит состав, сроки и сумму, и одобряет прямо из браузера. Никаких PDF по почте.",
     steps: [
       ["Откройте любую сделку", "Перейдите в смету и нажмите «Ссылка КП» или «КП на почту клиента»"],
       ["Отправьте ссылку клиенту", "Он увидит красивый портал с вашим предложением и сможет одобрить"],
@@ -104,7 +104,7 @@ function mailFor(stage: 1 | 3 | 6, appUrl: string): Mail {
     note: "Одобрение и оплата аванса — не выходя из браузера",
   };
   return {
-    subject: "Завтра заканчивается пробный период ADERVIS",
+    subject: "Завтра заканчивается пробный период ADERVIS CRM",
     heading: "Остался один день пробного периода ⏳",
     /* Тарифов с 21.09.2026 три: «Старт» 290, «Стандарт» 490, «Про» 890 ₽ за
        месяц. В письме называем ЦЕНУ ВХОДА и обязательно период: «от 150» без

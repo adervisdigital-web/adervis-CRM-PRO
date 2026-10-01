@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // cron hitting the function URL with the service role key).
 
 // Sender must be on the domain verified in Resend (app.adervis.ru, not the apex adervis.ru)
-const RESEND_FROM = "ADERVIS <noreply@app.adervis.ru>";
+const RESEND_FROM = "ADERVIS CRM <noreply@app.adervis.ru>";
 const REPLY_TO = "adervis.digital@gmail.com";
 
 Deno.serve(async (req) => {
@@ -57,11 +57,11 @@ Deno.serve(async (req) => {
     const isTrial = p.subscription_status === "trial";
     const expiresLabel = new Date(p.subscription_expires_at).toLocaleDateString("ru-RU");
     const subject = isTrial
-      ? "Пробный период ADERVIS заканчивается через 3 дня"
-      : "Подписка ADERVIS заканчивается через 3 дня";
+      ? "Пробный период ADERVIS CRM заканчивается через 3 дня"
+      : "Подписка ADERVIS CRM заканчивается через 3 дня";
     const html = `
       <p>Здравствуйте!</p>
-      <p>${isTrial ? "Ваш бесплатный пробный период" : "Ваша подписка ADERVIS"}
+      <p>${isTrial ? "Ваш бесплатный пробный период" : "Ваша подписка ADERVIS CRM"}
          заканчивается <strong>${expiresLabel}</strong>.</p>
       <p>Чтобы продолжить работу с CRM, сметами и клиентскими КП без перерыва — продлите тариф:</p>
       <p><a href="${appUrl}">Продлить подписку →</a></p>
@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
         text: [
           "Здравствуйте!",
           "",
-          `${isTrial ? "Ваш бесплатный пробный период" : "Ваша подписка ADERVIS"} заканчивается ${expiresLabel}.`,
+          `${isTrial ? "Ваш бесплатный пробный период" : "Ваша подписка ADERVIS CRM"} заканчивается ${expiresLabel}.`,
           "",
           "Продлить тариф: " + appUrl,
           "",

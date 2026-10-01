@@ -698,15 +698,20 @@ module.exports = async function ({ test }) {
          фильтр его пропускал (первая версия этой проверки на том и упала). */
       const code = src.replace(/(?<![\w"'/])\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
       code.split(/\r?\n/).forEach((line) => {
-        // Обе формы: «ADERVIS CRM» в письмах и «Adervis CRM» в текстах бота.
-        if (/ADERVIS CRM|Adervis CRM/.test(line)) named.push(`${fn}: ${line.trim().slice(0, 70)}`);
+        // 01.10.2026 имя продукта — «ADERVIS CRM» везде: голое «ADERVIS» в тексте
+        // письма или бота — это старое имя, проскочившее мимо переименования.
+        if (/ADERVIS(?! CRM)/.test(line)) named.push(`${fn}: ${line.trim().slice(0, 70)}`);
       });
       // Каждая отправка через Resend обязана нести текстовую часть.
       const sends = (src.match(/api\.resend\.com\/emails/g) || []).length;
       const texts = (src.match(/\btext:|\btext,/g) || []).length;
       if (sends > 0 && texts === 0) noText.push(fn);
     }
-    assert(named.length === 0, "«ADERVIS CRM» вернулось в письма:\n" + named.join("\n"));
+    assert(named.length === 0, "в письмах и боте осталось «ADERVIS» без «CRM»:\n" + named.join("\n"));
+    for (const fn of ["welcome-email", "welcome-sequence", "subscription-reminder"]) {
+      const src = fs.readFileSync(path.join(REPO_ROOT, "supabase/functions", fn, "index.ts"), "utf8");
+      assert(/RESEND_FROM = "ADERVIS CRM </.test(src), fn + ": отправитель письма не «ADERVIS CRM»");
+    }
     assertEqual(noText.length, 0, "письма уходят без текстовой версии: " + noText.join(", "));
   });
 

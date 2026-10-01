@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
         <!-- Footer -->
         <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center">
           <p style="margin:0;font-size:12px;color:#94a3b8">
-            ${portal.hide_branding ? "" : "Письмо отправлено через платформу <strong>ADERVIS</strong>. "}Если вы получили его по ошибке — просто проигнорируйте.
+            ${portal.hide_branding ? "" : "Письмо отправлено через платформу <strong>ADERVIS CRM</strong>. "}Если вы получили его по ошибке — просто проигнорируйте.
           </p>
         </td></tr>
 
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
     "Открыть коммерческое предложение:",
     portalUrl,
     "",
-    portal.hide_branding ? "" : "Письмо отправлено через платформу ADERVIS.",
+    portal.hide_branding ? "" : "Письмо отправлено через платформу ADERVIS CRM.",
     "Если вы получили его по ошибке — просто проигнорируйте.",
   ].filter((l) => l !== "").join("\n");
 
