@@ -662,7 +662,7 @@ module.exports = async function ({ test }) {
     assert(/^ADERVIS CRM/.test(manifest.name) && manifest.short_name === "ADERVIS CRM", "имя PWA не «ADERVIS CRM»: " + manifest.name + " / " + manifest.short_name);
     assert(/Сделано в <strong[^>]*>ADERVIS CRM<\/strong>/.test(app), "подпись на клиентском КП не «ADERVIS CRM»");
     assert(!/Сделано в <strong[^>]*>ADERVIS<\/strong>/.test(app), "где-то осталась подпись «Сделано в ADERVIS» без CRM");
-    assert(/Смета, КП и аванс/.test(app) && /CRM для видеопродакшна/.test(app), "лендинг входа перестал говорить, что это и для кого");
+    assert(/Смета и КП —/.test(app) && /CRM для видеопродакшна/.test(app), "лендинг входа перестал говорить, что это и для кого");
   });
 
   /* Письма — та же витрина, но проверка её не видела: сторож выше читает только

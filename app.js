@@ -12,7 +12,7 @@
       const APP_BUILD = 459;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
-      const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 27 };
+      const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
       const THEME_MODE_KEY = "adervis_pro_theme_mode";
@@ -3840,46 +3840,66 @@
         const minPrice = Math.min(...PLANS.filter(p => p.months > 0).map(p => p.price));
         const feats = tierFeatureMap();
         const priceOf = (tier) => (PLANS.find(p => p.tier === tier && p.months === 1) || {}).price || 0;
+        const ic = (name, s = 18) => `<span class="lp-ic">${icon(name, s)}</span>`;
+        /* Текст лендинга (02.10.2026, скиллы копирайтера и продажника: StoryBrand,
+           SUCCESs, работа с возражениями). Каждое утверждение — функция, которая
+           реально есть в продукте; чисел о клиентах и отзывов НЕТ намеренно:
+           внешних пользователей пока нет, а выдуманное доверие хуже никакого. */
+        const BEFORE_AFTER = [
+          ["Смета в Excel до ночи — и формула снова съехала", "Смета из каталога за 15 минут: итог, аванс и прибыль считаются сами"],
+          ["PDF в мессенджере — и клиент пропал на неделю", "КП — страница по ссылке, клиент согласует в один клик"],
+          ["«Скиньте реквизиты» — и аванс приходит через неделю", "Аванс картой или по СБП прямо со страницы КП"],
+          ["Кто сколько должен, помнит только память", "Долги, оплаты и прибыль по каждой сделке — на одном экране"],
+        ];
         const STEPS = [
-          ["receipt", "Соберите смету", `Из каталога с вашими ценами — внутри уже ${catalogCountText()} и ${packagesCountText()}. Или пришлите боту список услуг: сделка создастся сама.`],
-          ["link", "Отправьте КП ссылкой", "Клиент открывает страницу, а не файл: состав, этапы, итог — и соглашается в один клик."],
-          ["wallet", "Получите аванс онлайн", "Подключите свою ЮKassa — клиент оплатит картой или СБП прямо со страницы КП."],
+          ["receipt", "Соберите смету", `В каталоге уже ${catalogCountText()} и ${packagesCountText()} — поправьте цены под себя. Или пришлите боту список услуг: сделка создастся сама.`],
+          ["link", "Отправьте КП ссылкой", "Клиент открывает страницу, а не файл: состав, этапы и итог — и соглашается в один клик."],
+          ["wallet", "Получите аванс онлайн", "Подключите свою ЮKassa — клиент оплатит картой или по СБП, деньги придут на ваш счёт."],
         ];
         const FEATS = [
-          ["receipt", "Смета по каталогу", "Смены, часы или за ролик; скидка и налог в итогах. Ничего не забудете."],
-          ["link", "КП вместо PDF", "Страница для клиента с кнопкой «Согласовать» — видно, открыл ли он её."],
-          ["wallet", "Аванс по ссылке", "Деньги приходят на ваш счёт, сделка сама идёт дальше по воронке."],
-          ["chart", "Деньги под контролем", "Кто сколько должен, доход и расходы по месяцам, прибыль по проектам."],
-          ["doc", "Договоры и брифы", "Договор из шаблона заполняется данными сделки, бриф клиент заполняет сам."],
-          ["send", "Telegram-бот", "Сделки, оплаты и напоминания в Telegram. Список услуг → готовая сделка."],
+          ["receipt", "Ни одной забытой строки", "Смета по каталогу: смены, часы или за ролик, скидка и налог прямо в итогах."],
+          ["link", "Клиент соглашается быстрее", "Вместо PDF — понятная страница с кнопкой «Согласовать» на любом телефоне."],
+          ["wallet", "Деньги приходят раньше", "Аванс по ссылке, и сделка сама переходит дальше по воронке."],
+          ["chart", "Видно, где деньги", "Кто сколько должен, доход и расходы по месяцам, прибыль по каждому проекту."],
+          ["doc", "Документы за минуту", "Договор из шаблона заполняется данными сделки, бриф клиент заполняет сам."],
+          ["send", "Всё под рукой в Telegram", "Сделки, оплаты и напоминания в боте. Список услуг — и сделка готова."],
         ];
-        const ic = (name) => `<span class="lp-ic">${icon(name, 18)}</span>`;
+        const FAQ = [
+          ["Нужно ли переносить свой прайс?", `Нет. В каталоге уже ${catalogCountText()} и ${packagesCountText()} для видео- и фотопродакшна — достаточно поправить цены под себя. На тарифе «Про» поможем перенести ваши цены.`],
+          ["Сложно ли разобраться?", "Внутри уже есть пример сделки и короткий тур по разделам — можно сразу посмотреть, как всё устроено, и собрать первую смету по образцу."],
+          ["Можно работать с телефона?", "Да. ADERVIS CRM работает в браузере на компьютере и телефоне, а ещё его можно установить как приложение."],
+          ["Как клиент платит аванс?", "Вы подключаете свою ЮKassa — клиент платит картой или по СБП прямо со страницы КП, деньги приходят на ваш счёт."],
+          ["Что будет после 7 дней?", `Выберете тариф — от ${money(priceOf("start"))} в месяц. Автосписаний нет: если не продлите, данные сохранятся, а доступ вернётся сразу после оплаты.`],
+          ["Можно работать командой?", `Да: на «Стандарте» — до ${TIER_RULES.std.seats} человек, на «Про» — до ${TIER_RULES.pro.seats}. Каждый видит свои задачи и общие сделки.`],
+        ];
         return `
           <div class="auth-gate lp">
             <header class="lp-top">
               <div class="lp-top-in">
                 <span class="lp-brand">${logo}<b>ADERVIS</b><i>CRM</i></span>
                 <nav class="lp-nav" aria-label="Разделы">
+                  <button type="button" onclick="app.lpGo('lp-product')">Продукт</button>
                   <button type="button" onclick="app.lpGo('lp-how')">Как работает</button>
-                  <button type="button" onclick="app.lpGo('lp-video')">Ролик</button>
                   <button type="button" onclick="app.lpGo('lp-price')">Цены</button>
+                  <button type="button" onclick="app.lpGo('lp-faq')">Вопросы</button>
                 </nav>
                 <button type="button" class="btn small lp-top-login" onclick="app.lpAuth('login')">Войти</button>
-                <button type="button" class="btn small primary lp-top-cta" onclick="app.lpAuth('register')">Попробовать бесплатно</button>
+                <button type="button" class="btn small primary lp-top-cta" onclick="app.lpAuth('register')">Начать бесплатно</button>
               </div>
             </header>
 
             <section class="lp-hero">
               <div class="lp-hero-text">
-                <span class="lp-kicker">CRM для видеопродакшна</span>
-                <h1>Смета, КП и аванс —<br><span class="lp-acc">за 15 минут</span></h1>
-                <p class="lp-lead">ADERVIS CRM собирает смету из вашего каталога, отправляет клиенту КП одной ссылкой и принимает аванс онлайн. Сделки, деньги и сроки — в одном месте.</p>
+                <span class="lp-kicker">CRM для видеопродакшна и видеографов</span>
+                <h1>Смета и КП —<br><span class="lp-acc">за 15 минут, а&nbsp;не&nbsp;за&nbsp;вечер</span></h1>
+                <p class="lp-lead">ADERVIS CRM собирает смету из вашего каталога, отправляет клиенту КП одной ссылкой и принимает аванс онлайн. Вы снимаете — а сделки, деньги и сроки под контролем в одном месте.</p>
                 <div class="lp-cta">
-                  <button type="button" class="btn primary lp-cta-main" onclick="app.lpAuth('register')">Попробовать 7 дней бесплатно</button>
+                  <button type="button" class="btn primary lp-cta-main" onclick="app.lpAuth('register')">Начать бесплатно</button>
                   <button type="button" class="btn lp-cta-video" onclick="app.lpGo('lp-video', true)">${icon("video", 15)} Смотреть ролик · ${PROMO_VIDEO.secs} с</button>
                 </div>
+                <p class="lp-micro">7 дней бесплатно · без карты · регистрация за минуту</p>
                 <ul class="lp-trust">
-                  <li>${icon("check", 13)}Карта не нужна</li>
+                  <li>${icon("check", 13)}Каталог на ${catalogCountText()} уже внутри</li>
                   <li>${icon("check", 13)}Вход через Яндекс ID и VK ID</li>
                   <li>${icon("check", 13)}В браузере и на телефоне</li>
                 </ul>
@@ -3887,23 +3907,44 @@
               ${authBoxHtml(f)}
             </section>
 
+            <section class="lp-sec" id="lp-product">
+              <h2 class="lp-h2">Так выглядит смета в ADERVIS CRM</h2>
+              <p class="lp-sub">Настоящий экран приложения: этапы, позиции из каталога, итог для клиента и аванс — всё на одной странице.</p>
+              <div class="lp-shot">
+                <div class="lp-shot-bar"><i></i><i></i><i></i><span>app.adervis.ru</span></div>
+                <img src="media/lp-estimate.webp" alt="Смета в ADERVIS CRM: этапы, позиции, итог для клиента 153 500 ₽ и аванс 50%" loading="lazy" width="1440" height="836">
+                <span class="lp-pin" style="--x:30%;--y:44%"><b>1</b>Позиции из каталога — цены подставятся сами</span>
+                <span class="lp-pin" style="--x:79%;--y:30%"><b>2</b>Итог, аванс и прибыль считаются на лету</span>
+                <span class="lp-pin" style="--x:79%;--y:93%"><b>3</b>КП клиенту — одной кнопкой</span>
+              </div>
+            </section>
+
+            <section class="lp-sec" id="lp-why">
+              <h2 class="lp-h2">Знакомо?</h2>
+              <div class="lp-ba">
+                <div class="lp-ba-col is-before"><h3>Как обычно</h3>${BEFORE_AFTER.map(([x]) => `<p>${icon("close", 14)}<span>${x}</span></p>`).join("")}</div>
+                <div class="lp-ba-col is-after"><h3>С ADERVIS CRM</h3>${BEFORE_AFTER.map(([, y]) => `<p>${icon("check", 14)}<span>${y}</span></p>`).join("")}</div>
+              </div>
+            </section>
+
             <section class="lp-sec lp-video" id="lp-video">
+              <h2 class="lp-h2">ADERVIS CRM за ${PROMO_VIDEO.secs} секунд</h2>
               <div class="lp-video-frame">
                 <video src="${PROMO_VIDEO.src}" poster="${PROMO_VIDEO.poster}" controls playsinline preload="none" aria-label="Ролик: ADERVIS CRM за полминуты"></video>
               </div>
             </section>
 
             <section class="lp-sec" id="lp-how">
-              <h2 class="lp-h2">Как это работает</h2>
+              <h2 class="lp-h2">Три шага — и аванс у вас</h2>
               <ol class="lp-steps">
-                ${STEPS.map(([i, h, p], n) => `<li><span class="lp-step-n">${n + 1}</span>${ic(i)}<h3>${h}</h3><p>${p}</p></li>`).join("")}
+                ${STEPS.map(([i, hh, p], n) => `<li><span class="lp-step-n">${n + 1}</span>${ic(i)}<h3>${hh}</h3><p>${p}</p></li>`).join("")}
               </ol>
             </section>
 
             <section class="lp-sec">
-              <h2 class="lp-h2">Всё для работы с клиентом</h2>
+              <h2 class="lp-h2">Что вы получите</h2>
               <div class="lp-feats">
-                ${FEATS.map(([i, h, p]) => `<div class="lp-feat">${ic(i)}<h3>${h}</h3><p>${p}</p></div>`).join("")}
+                ${FEATS.map(([i, hh, p]) => `<div class="lp-feat">${ic(i)}<h3>${hh}</h3><p>${p}</p></div>`).join("")}
               </div>
             </section>
 
@@ -3917,14 +3958,27 @@
                     <div class="lp-plan-name">${escapeHtml(tr.label)}<small>${escapeHtml(tr.note || "")}</small></div>
                     <div class="lp-plan-price"><b>${money(priceOf(tr.id))}</b><span>/ мес</span></div>
                     <ul>${(feats[tr.id] || []).slice(0, 4).map(x => `<li>${icon("check", 12)}<span>${escapeHtml(x)}</span></li>`).join("")}</ul>
+                    <button type="button" class="btn ${tr.id === "std" ? "primary " : ""}lp-plan-btn" onclick="app.lpAuth('register')">Начать бесплатно</button>
                   </div>`).join("")}
               </div>
+              <ul class="lp-guar">
+                <li>${icon("shield", 15)}<span><b>Вернём деньги</b> за неиспользованные дни — без объяснения причин</span></li>
+                <li>${icon("lock", 15)}<span><b>Без автосписаний</b> — продлеваете сами, напомним заранее</span></li>
+                <li>${icon("cloud", 15)}<span><b>Данные ваши</b> — сохраняются, даже если срок закончился</span></li>
+              </ul>
               <p class="lp-note">Оплата через ЮKassa — карта, СБП, ЮMoney. При оплате за год — от ${money(minPrice)} в месяц.</p>
             </section>
 
+            <section class="lp-sec" id="lp-faq">
+              <h2 class="lp-h2">Частые вопросы</h2>
+              <div class="lp-faq">
+                ${FAQ.map(([q, ans]) => `<details><summary>${q}${icon("chevron", 14)}</summary><p>${ans}</p></details>`).join("")}
+              </div>
+            </section>
+
             <section class="lp-sec lp-final">
-              <h2>Первая смета — уже сегодня</h2>
-              <p>Регистрация за минуту. Пример сделки уже внутри — можно сразу посмотреть, как всё устроено.</p>
+              <h2>Вечера — <span class="lp-acc">снова ваши</span></h2>
+              <p>Соберите первую смету сегодня: 7 дней бесплатно, без карты. Пример сделки уже внутри.</p>
               <button type="button" class="btn primary lp-cta-main" onclick="app.lpAuth('register')">Начать бесплатно</button>
             </section>
 
