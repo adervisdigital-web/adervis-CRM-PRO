@@ -3023,13 +3023,24 @@
           href: "https://stock.adervis.ru/?utm_source=crm&utm_medium=sidebar&utm_campaign=premium_stock",
           logo: "promo/stock-logo.svg",
           name: "Adervis Stock",
-          title: "Файл с Envato — по вашей ссылке",
-          text: "Видео, шаблоны, музыка и графика — без своей подписки и водяных знаков",
+          /* Сменяющиеся пары (владелец 02.10.2026: «текст на баннере должен быть
+             сменяющимся, чтобы читали»). Обещания — дословно из FAQ Stock, не
+             сверх него. Ровно SIDE_PROMO_SLIDES штук: под это число написаны
+             ключевые кадры promoMsg в style.css. Пара не длиннее первой —
+             пороги высоты карточки в style.css мерились по ней. */
+          slides: [
+            { title: "Файл с Envato — по вашей ссылке", text: "Видео, шаблоны, музыка и графика — без своей подписки и водяных знаков" },
+            { title: "Вставили ссылку — забрали оригинал", text: "Тот же файл, что у владельца подписки: в оригинальном качестве" },
+            { title: "Шаблоны After Effects и Premiere", text: "А ещё футажи, музыка, шрифты, фото и 3D — всё с Envato Elements" },
+            // про неудачные скачивания не писать (владелец 02.10: «не скачалось… не надо это писать»)
+            { title: "Доступ — в течение минуты", text: "Открывается сам после оплаты. Остаток скачиваний виден в кабинете" },
+          ],
           price: "от 149 ₽",
           cta: "Открыть",
         },
       ];
       const SIDE_PROMO_HIDE_DAYS = 14;
+      const SIDE_PROMO_SLIDES = 4, SIDE_PROMO_SLIDE_MS = 5000;   // пара держится 5 с — успеть прочитать
 
       /* Одна карточка на два места: боковое меню (десктоп) и лист «Разделы» на
          телефоне. На телефоне бокового меню нет вовсе, а владелец и его клиенты
@@ -3042,14 +3053,24 @@
         const day = Math.floor(Date.now() / 864e5);
         const p = SIDE_PROMOS[day % SIDE_PROMOS.length];
         const sheet = !!opts.sheet;
+        const slides = p.slides || [{ title: p.title, text: p.text }];
+        const rot = slides.length === SIDE_PROMO_SLIDES;
+        /* Фаза смены — от часов, а не от момента отрисовки: меню перерисовывается
+           на каждом переходе, и без этого смена всякий раз начиналась бы с первой
+           пары — остальные никто бы не увидел. */
+        const phase = -(Date.now() % (SIDE_PROMO_SLIDES * SIDE_PROMO_SLIDE_MS));
         return `
           ${sheet ? "" : `<div class="side-promo-slot no-print">`}
             <div class="side-promo-wrap${sheet ? " side-promo-wrap--sheet" : ""}">
               <a class="side-promo" href="${escapeHtml(p.href)}" target="_blank" rel="noopener"
                 onclick="app.sidePromoClick('${p.id}')">
                 <img class="side-promo-logo" src="${escapeHtml(p.logo)}" alt="${escapeHtml(p.name)}">
-                <span class="side-promo-title">${escapeHtml(p.title)}</span>
-                <span class="side-promo-text">${escapeHtml(p.text)}</span>
+                <span class="side-promo-msgs${rot ? " is-rotating" : ""}" style="--promo-phase:${phase}ms">
+                  ${(rot ? slides : slides.slice(0, 1)).map((s, i) => `<span class="side-promo-msg" style="--i:${i}"${i ? ' aria-hidden="true"' : ""}>
+                    <span class="side-promo-title">${escapeHtml(s.title)}</span>
+                    <span class="side-promo-text">${escapeHtml(s.text)}</span>
+                  </span>`).join("")}
+                </span>
                 <span class="side-promo-foot">
                   <span class="side-promo-price">${escapeHtml(p.price)}</span>
                   <span class="btn small side-promo-cta">${escapeHtml(p.cta)}</span>
@@ -3928,7 +3949,7 @@
             </section>
 
             <section class="lp-sec lp-video" id="lp-video">
-              <h2 class="lp-h2">ADERVIS CRM за ${PROMO_VIDEO.secs} секунд</h2>
+              <h2 class="lp-h2">ADERVIS CRM за ${PROMO_VIDEO.secs} ${plural(PROMO_VIDEO.secs, "секунду", "секунды", "секунд")}</h2>
               <div class="lp-video-frame">
                 <video src="${PROMO_VIDEO.src}" poster="${PROMO_VIDEO.poster}" controls playsinline preload="none" aria-label="Ролик: ADERVIS CRM за полминуты"></video>
               </div>
@@ -6925,7 +6946,7 @@
               <video src="${PROMO_VIDEO.src}" poster="${PROMO_VIDEO.poster}" controls playsinline preload="none" aria-label="Ролик: ADERVIS за полминуты"></video>
             </div>
             <div class="promo-video-text">
-              <span class="promo-video-kicker">${icon("video", 12)} Видео · ${PROMO_VIDEO.secs} секунд</span>
+              <span class="promo-video-kicker">${icon("video", 12)} Видео · ${PROMO_VIDEO.secs} ${plural(PROMO_VIDEO.secs, "секунда", "секунды", "секунд")}</span>
               <h2>${support ? "Знакомство с ADERVIS" : "ADERVIS за полминуты"}</h2>
               <p>${support
                 ? "С чего начать: список услуг превращается в сделку и смету, КП уходит клиенту ссылкой, аванс приходит онлайн."
@@ -11408,7 +11429,7 @@
 
         const query = String(state.search || "").trim().toLowerCase();
         if (query) {
-          items = items.filter(x => [x.name, x.desc, x.category, x.section, x.calcModel, x.unit, ...(x.tags || [])].join(" ").toLowerCase().includes(query));
+          items = items.filter(x => catalogSearchMatch(x, query));
         }
 
         if (state.filter === "selected") items = items.filter(x => state.selected[x.id]);
@@ -17719,6 +17740,7 @@
           } else if (!_finTabAnim) root.classList.remove("fin-tab-switch");
           _finTabAnim = false;
           _estTotalMotion(root, viewChanged);
+          _catalogSpy();
           _billModeFresh = "";
         } catch(err) {
           console.error("Render error:", err);
@@ -22457,6 +22479,11 @@
         // каждое использование (было 4×) значит гонять сортировку 93 позиций 4 раза
         // за render. Считаем один раз.
         const allFiltered = filteredItems();
+        /* «Все» — разделами (владелец 02.10.2026): лента идёт блоками в порядке
+           колонки слева, внутри раздела — выбранная сортировка. Раньше «Все» шли
+           сплошным алфавитом (3D-визуализация, Аватар, Администратор съёмки —
+           разделы вперемешку), и колонка слева в ленте не помогала. */
+        if (state.tab === "all") sortByCatalogGroup(allFiltered);
         const _catKey = [state.tab, state.search, state.filter, state.sort].join("|");
         if (_catKey !== _catalogLimitKey) { _catalogLimitKey = _catKey; _catalogVisibleLimit = CATALOG_PAGE_SIZE; }
         const shownItems = allFiltered.slice(0, _catalogVisibleLimit);
@@ -22472,8 +22499,9 @@
         // тарифе каталог короткий, и «Все 200» рядом с 36 карточками врали бы.
         const catalogVisible = allItems(false).filter(x => !isLineOnlyItem(x)).filter(itemAllowedByTier);
         const QUICK_ICONS = { all: "grid", favorites: "star", hidden: "eyeOff" };
+        const qAll = String(state.search || "").trim().toLowerCase();
         const quickCounts = {
-          all: catalogVisible.length,
+          all: qAll ? catalogVisible.filter(x => catalogSearchMatch(x, qAll)).length : catalogVisible.length,
           favorites: catalogVisible.filter(x => state.favorites[x.id]).length,
           hidden: hidden.filter(x => !isLineOnlyItem(x)).length,
         };
@@ -22545,25 +22573,6 @@
 
               ${renderCatalogNavTrigger(catalogNavCurrentLabel(quickTabs, categoryTabs), "Раздел")}
 
-              <div class="catalog-toolbar no-print">
-                <div class="catalog-search-wrap">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                  <input class="catalog-search-input" aria-label="Поиск по каталогу услуг" value="${escapeHtml(state.search)}" oninput="app.setSearch(this.value)" placeholder="Поиск: монтаж, дизайн, свет...">
-                </div>
-                <select class="catalog-toolbar-select" style="width:170px" onchange="app.setFilter(this.value)" title="Фильтр" aria-label="Фильтр каталога">
-                  ${optionValueHtml("all", "Все позиции", state.filter)}
-                  ${optionValueHtml("selected", "В смете", state.filter)}
-                  ${optionValueHtml("edited", "Изменённые цены", state.filter)}
-                  ${optionValueHtml("hourly", "С почасовым расчётом", state.filter)}
-                </select>
-                <select class="catalog-toolbar-select" style="width:150px" onchange="app.setSort(this.value)" title="Сортировка" aria-label="Сортировка каталога">
-                  ${optionValueHtml("name", "По названию", state.sort)}
-                  ${optionValueHtml("priceAsc", "Цена ↑", state.sort)}
-                  ${optionValueHtml("priceDesc", "Цена ↓", state.sort)}
-                  ${optionValueHtml("category", "По разделу", state.sort)}
-                </select>
-              </div>
-
               <div class="catalog-body">
                 ${state.catalogNavOpen ? `<div class="catalog-nav-backdrop no-print" onclick="app.closeCatalogNav()"></div>` : ""}
                 <aside class="catalog-cat-sidebar no-print ${state.catalogNavOpen ? "is-open" : ""}">
@@ -22599,9 +22608,13 @@
                       const catalogAll = catalogVisible;
                       const byGroup = {};
                       catalogAll.forEach(x => { (byGroup[itemGroup(x)] = byGroup[itemGroup(x)] || []).push(x); });
+                      // При поиске счётчик раздела — сколько В НЁМ найдено; ноль бледный,
+                      // чтобы не открывать раздел, где искомого нет.
+                      const q = String(state.search || "").trim().toLowerCase();
                       return CATALOG_GROUPS.map((g, i) => {
                         const list = byGroup[g.id] || [];
                         if (!list.length) return "";
+                        const shownN = q ? list.filter(x => catalogSearchMatch(x, q)).length : list.length;
                         // Скрыт через «Настроить разделы». Прячем только пункт
                         // навигации: сами услуги остаются в «Все» и в поиске,
                         // как и в настройках бокового меню.
@@ -22635,7 +22648,7 @@
                           <div class="catalog-cat-row ${g.id === "money" ? "danger" : ""}">
                             <button class="catalog-cat-item ${g.id === "money" ? "danger" : ""} ${active ? "active" : ""}"
                               data-group="${g.id}" data-group-size="${list.length}" data-open="${open ? "1" : "0"}"
-                              onclick="app.toggleCatalogGroup('${g.id}')" title="${escapeHtml(g.hint)}">
+                              onclick="app.catalogNavClick('${g.id}')" title="${escapeHtml(g.hint)}">
                               <span class="catalog-cat-label">
                                 <span class="catalog-cat-chev" aria-hidden="true">${icon("chevron", 12)}</span>
                                 <span class="catalog-cat-ico" style="color:${g.color}" aria-hidden="true">${icon(g.ic, 15)}</span>
@@ -22647,7 +22660,7 @@
                                     выглядели как размеры разделов. */""}
                               <span class="catalog-cat-nums">
                                 ${picked ? `<span class="catalog-cat-picked" title="${picked} ${plural(picked, "позиция", "позиции", "позиций")} уже в смете">${icon("check", 10)}${picked}</span>` : ""}
-                                <span class="catalog-cat-count">${list.length}</span>
+                                <span class="catalog-cat-count${shownN ? "" : " is-zero"}"${q ? ` title="Найдено в разделе: ${shownN}"` : ""}>${shownN}</span>
                               </span>
                             </button>
                             ${addBtn("grp:" + g.id, g.label)}
@@ -22735,6 +22748,39 @@
                 </aside>
 
                 <div class="catalog-body-main">
+                  ${/* Поиск — над лентой, вровень с карточками, а не полосой через весь
+                        каталог над колонкой разделов (владелец 02.10.2026: «зачем такая
+                        длинная полоса поиска»). Поле компактное, выбор и вид — справа в
+                        той же строке. На широком экране строка прилипает при прокрутке:
+                        в «Все» двести позиций, и листать к поиску обратно наверх — лишнее. */""}
+                  <div class="catalog-toolbar no-print">
+                    <div class="catalog-search-wrap">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                      <input class="catalog-search-input" aria-label="Поиск по каталогу услуг" aria-keyshortcuts="/" value="${escapeHtml(state.search)}" oninput="app.setSearch(this.value)"
+                        onkeydown="if(event.key==='Escape'&&this.value){event.stopPropagation();this.value='';app.setSearch('')}" placeholder="Поиск: монтаж, свет…">
+                      <kbd class="catalog-search-kbd" aria-hidden="true" title="Нажмите «/», чтобы искать">/</kbd>
+                    </div>
+                    <div class="catalog-toolbar-tools">
+                      <select class="catalog-toolbar-select" style="width:170px" onchange="app.setFilter(this.value)" title="Фильтр" aria-label="Фильтр каталога">
+                        ${optionValueHtml("all", "Все позиции", state.filter)}
+                        ${optionValueHtml("selected", "В смете", state.filter)}
+                        ${optionValueHtml("edited", "Изменённые цены", state.filter)}
+                        ${optionValueHtml("hourly", "С почасовым расчётом", state.filter)}
+                      </select>
+                      <select class="catalog-toolbar-select" style="width:150px" onchange="app.setSort(this.value)" title="Сортировка" aria-label="Сортировка каталога">
+                        ${optionValueHtml("name", "По названию", state.sort)}
+                        ${optionValueHtml("priceAsc", "Цена ↑", state.sort)}
+                        ${optionValueHtml("priceDesc", "Цена ↓", state.sort)}
+                        ${optionValueHtml("category", "По разделу", state.sort)}
+                      </select>
+                      ${/* Вид «плитки / список» (30.09.2026): в списке позиция — одна
+                            строка, и на экран влезает вдвое больше, чем плитками. */""}
+                      <span class="catalog-view-switch no-print" role="group" aria-label="Вид каталога">
+                        <button type="button" class="${state.catalogView !== "list" ? "is-on" : ""}" aria-pressed="${state.catalogView !== "list"}" onclick="app.setCatalogView('grid')" title="Плитками">${icon("catalog", 14)}</button>
+                        <button type="button" class="${state.catalogView === "list" ? "is-on" : ""}" aria-pressed="${state.catalogView === "list"}" onclick="app.setCatalogView('list')" title="Списком">${icon("list", 14)}</button>
+                      </span>
+                    </div>
+                  </div>
                   ${renderCatalogSectionHead(allFiltered.length, catalogVisible, quickTabs)}
                   ${state.tab === "hidden" && hidden.length ? `
                     <div class="hidden-bar">Скрытые позиции не показываются в общем каталоге. Их можно восстановить.</div>
@@ -22773,7 +22819,7 @@
                     `;
                   })()}
 
-                  ${state.tab === "ai" ? renderAiCatalogGrid(shownItems) : `
+                  ${state.tab === "ai" ? renderAiCatalogGrid(shownItems) : state.tab === "all" && shownItems.length ? renderCatalogBlocks(shownItems, allFiltered) : `
                     <div class="catalog-grid${state.catalogView === "list" && shownItems.length ? " is-list" : ""}">
                       ${shownItems.length ? shownItems.map(renderCatalogItem).join("") : (() => {
                         /* Нашли пустоту — сразу предложить завести позицию с этим
@@ -22852,21 +22898,21 @@
           else title = subLabel || catalogNavCurrentLabel(quickTabs, CATALOG_CATEGORY_TABS);
         }
         const narrowed = String(state.search || "").trim() || (state.filter && state.filter !== "all");
+        /* Дубль (владелец 02.10.2026): «Все услуги · 202 позиции» над лентой
+           повторяли колонку слева. На широком экране шапка «Все» без поиска
+           скрыта целиком (is-dup-head) — у каждого блока-раздела своя, — а у
+           раздела скрыт только счёт (is-dup). На телефоне колонки нет, там оба
+           нужны. «N найдено» при поиске и фильтре — новость, его видно везде. */
+        const dupHead = tab === "all" && !narrowed;
         const count = narrowed ? `${found} найдено` : `${found} ${plural(found, "позиция", "позиции", "позиций")}`;
         return `
-          <div class="catalog-section-head">
+          <div class="catalog-section-head${dupHead ? " is-dup-head" : ""}">
             <span class="catalog-section-ico" style="color:${color}" aria-hidden="true">${icon(ic, 16)}</span>
             <div class="catalog-section-text">
               <h2>${escapeHtml(title)}${crumb ? `<span class="catalog-section-crumb">${icon("chevron", 12)}${escapeHtml(crumb)}</span>` : ""}</h2>
               ${hint ? `<p>${escapeHtml(hint)}</p>` : ""}
             </div>
-            ${/* Вид «плитки / список» (30.09.2026): в списке позиция — одна строка,
-                  и на экран влезает вдвое больше, чем плитками. */""}
-            <span class="catalog-view-switch no-print" role="group" aria-label="Вид каталога">
-              <button type="button" class="${state.catalogView !== "list" ? "is-on" : ""}" aria-pressed="${state.catalogView !== "list"}" onclick="app.setCatalogView('grid')" title="Плитками">${icon("catalog", 14)}</button>
-              <button type="button" class="${state.catalogView === "list" ? "is-on" : ""}" aria-pressed="${state.catalogView === "list"}" onclick="app.setCatalogView('list')" title="Списком">${icon("list", 14)}</button>
-            </span>
-            <span class="catalog-found-count">${count}</span>
+            <span class="catalog-found-count${narrowed ? "" : " is-dup"}">${count}</span>
           </div>
           ${(() => {
             /* Подразделы — чипами над карточками (30.09.2026). Они были только в
@@ -22883,6 +22929,92 @@
               ${subs.map(s => chip(s.kind === "cat" ? `cat:${chipsGid}:${s.id}` : s.id, s.label, s.n)).join("")}
             </div>`;
           })()}`;
+      }
+
+      /* Порядок разделов в «Все» — порядок колонки слева. sort стабилен: порядок
+         внутри раздела (и свежие свои позиции сверху) сохраняется. */
+      function _catalogGroupPos(x) {
+        const i = CATALOG_GROUPS.findIndex(g => g.id === itemGroup(x));
+        return i < 0 ? CATALOG_GROUPS.length : i;
+      }
+      function sortByCatalogGroup(items) { return items.sort((a, b) => _catalogGroupPos(a) - _catalogGroupPos(b)); }
+
+      /* «Все» блоками: шапка раздела прилипает, пока листаешь его карточки (на
+         широком экране — под строкой поиска). Число в шапке — сколько в разделе
+         всего с учётом поиска, а не сколько уже догружено порцией. «Открыть
+         раздел» — его отдельный вид с подразделами: клик по разделу слева в
+         «Все» теперь ведёт к блоку, а не сужает список. */
+      function renderCatalogBlocks(shown, all) {
+        const total = {};
+        all.forEach(x => { const g = itemGroup(x); total[g] = (total[g] || 0) + 1; });
+        const blocks = [];
+        shown.forEach(x => {
+          const g = itemGroup(x), last = blocks[blocks.length - 1];
+          if (last && last.gid === g) last.items.push(x); else blocks.push({ gid: g, items: [x] });
+        });
+        const list = state.catalogView === "list";
+        return blocks.map(({ gid, items }) => {
+          const g = CATALOG_GROUPS.find(x => x.id === gid);
+          return `
+            <section class="catalog-block" data-block="${escapeHtml(gid)}">
+              <div class="catalog-block-head">
+                <span class="catalog-block-ico" style="color:${g ? g.color : "var(--muted)"}" aria-hidden="true">${icon(g ? g.ic : "grid", 15)}</span>
+                <h3>${escapeHtml(g ? g.label : "Прочее")}</h3>
+                <span class="catalog-block-count">${total[gid] || items.length}</span>
+                ${g ? `<button type="button" class="catalog-block-open no-print" data-gid="${escapeHtml(gid)}"
+                  onclick="app.setTab('grp:' + this.dataset.gid)" title="Только этот раздел, с подразделами">Открыть раздел${icon("chevron", 12)}</button>` : ""}
+              </div>
+              <div class="catalog-grid${list ? " is-list" : ""}">${items.map(renderCatalogItem).join("")}</div>
+            </section>`;
+        }).join("");
+      }
+
+      /* Клик по разделу слева в «Все» — прокрутка к его блоку. Раздела ещё нет в
+         ленте (порция не догружена) — догружаем ровно до его конца. Пустой при
+         текущем поиске раздел открываем по-старому, отдельным видом: прокручивать
+         не к чему. */
+      function catalogJumpTo(gid) {
+        const order = sortByCatalogGroup(filteredItems());
+        let last = -1;
+        order.forEach((x, i) => { if (itemGroup(x) === gid) last = i; });
+        if (last < 0) return false;
+        if (last >= _catalogVisibleLimit) _catalogVisibleLimit = Math.ceil((last + 1) / CATALOG_PAGE_SIZE) * CATALOG_PAGE_SIZE;
+        state.catalogNavOpen = false;
+        render();
+        const block = document.querySelector(`.catalog-block[data-block="${CSS.escape(gid)}"]`);
+        if (!block) return true;
+        const head = block.querySelector(".catalog-block-head");
+        const off = head ? parseFloat(getComputedStyle(head).top) || 0 : 0;
+        window.scrollTo({ top: Math.max(0, block.getBoundingClientRect().top + window.scrollY - off), behavior: _reducedMotion() ? "auto" : "smooth" });
+        _catalogSpy(gid);
+        return true;
+      }
+
+      /* Какой раздел сейчас на экране — подсветка в колонке слева (только в «Все»,
+         где разделы идут блоками). Текущий — последний блок, чья шапка уже дошла
+         до места прилипания. */
+      function _catalogSpy(force) {
+        const blocks = document.querySelectorAll(".catalog-block");
+        let cur = force || "";
+        if (!cur && blocks.length) {
+          cur = blocks[0].dataset.block;
+          blocks.forEach(b => {
+            const head = b.querySelector(".catalog-block-head");
+            const stick = head ? parseFloat(getComputedStyle(head).top) || 0 : 0;
+            if (b.getBoundingClientRect().top <= stick + 4) cur = b.dataset.block;
+          });
+        }
+        document.querySelectorAll(".catalog-cat-item[data-group]").forEach(el => el.classList.toggle("is-here", !!cur && el.dataset.group === cur));
+      }
+      let _catalogSpyRaf = 0;
+      function _catalogSpySchedule() {
+        if (_catalogSpyRaf || !document.querySelector(".catalog-block")) return;
+        _catalogSpyRaf = requestAnimationFrame(() => { _catalogSpyRaf = 0; _catalogSpy(); });
+      }
+
+      // Совпадение с поиском каталога — одно правило для списка и для счётчиков колонки.
+      function catalogSearchMatch(x, query) {
+        return [x.name, x.desc, x.category, x.section, x.calcModel, x.unit, ...(x.tags || [])].join(" ").toLowerCase().includes(query);
       }
 
       // Вкладка «ИИ / AI» смешивает платные услуги (генерация, монтаж, консультации)
@@ -24123,6 +24255,14 @@
               </p>
             </div>
           </div>`;
+      }
+
+      /* Клик по разделу в колонке. В «Все» лента идёт разделами — клик ведёт к
+         блоку раздела, а не сужает список (владелец 02.10.2026). В остальных
+         видах — как раньше: открыть раздел и раскрыть его подразделы. */
+      function catalogNavClick(gid) {
+        if (state.tab === "all" && catalogJumpTo(gid)) return;
+        toggleCatalogGroup(gid);
       }
 
       function toggleCatalogGroup(gid) {
@@ -34580,6 +34720,8 @@ Email: _____________________              Email: _____________________
             scrollTopBtn.classList.toggle("visible", window.scrollY > 250);
           }, { passive: true });
         }
+        // Раздел каталога на экране — подсветка в колонке слева (см. _catalogSpy)
+        window.addEventListener("scroll", _catalogSpySchedule, { passive: true });
 
         document.addEventListener("keydown", e => {
           if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
@@ -34599,6 +34741,13 @@ Email: _____________________              Email: _____________________
             if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT")) return;
             e.preventDefault();
             openSearch();
+          }
+          // «/» — к поиску каталога (если он на экране), как в GitHub и Figma
+          if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            const active = document.activeElement;
+            const typing = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT" || active.isContentEditable);
+            const box = !typing && !document.querySelector("[aria-modal='true']") && document.querySelector(".catalog-search-input");
+            if (box) { e.preventDefault(); box.focus(); box.select(); }
           }
           if (e.key === "Escape") {
             closeSearch();
@@ -34731,6 +34880,7 @@ Email: _____________________              Email: _____________________
         setTab,
         goCatalogGroup,
         toggleCatalogGroup,
+        catalogNavClick,
         openCatalogGroupsConfig,
         closeCatalogGroupsConfig,
         toggleCatalogGroupHidden,

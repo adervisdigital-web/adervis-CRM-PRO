@@ -907,6 +907,25 @@
       font-size: 12px; line-height: 1.4;
       color: color-mix(in srgb, var(--on-color) 62%, transparent);
     }
+    /* Сменяющиеся пары «заголовок + строка» (владелец 02.10.2026: «чтобы читали»).
+       Пары лежат в ОДНОЙ ячейке сетки: высота карточки = самая длинная пара, и
+       при смене ничего не прыгает. Ключевые кадры — под 4 пары по 5 с
+       (SIDE_PROMO_SLIDES / SIDE_PROMO_SLIDE_MS в app.js): 25% цикла на пару,
+       вход и уход по 0,5 с. Фаза приходит из app.js от часов — перерисовка
+       меню смену не обнуляет. Наведение или фокус — пауза, чтобы дочитать. */
+    .side-promo-msgs { display: grid; }
+    .side-promo-msg { grid-area: 1 / 1; align-self: start; display: flex; flex-direction: column; gap: 8px; }
+    .side-promo-msgs.is-rotating .side-promo-msg {
+      animation: promoMsg 20s var(--ease-out) infinite both;
+      animation-delay: calc(var(--promo-phase, 0ms) + var(--i, 0) * 5s);
+    }
+    .side-promo:hover .side-promo-msg,
+    .side-promo:focus-visible .side-promo-msg { animation-play-state: paused; }
+    @keyframes promoMsg {
+      0%        { opacity: 0; transform: translateY(8px); }
+      2.5%, 22.5% { opacity: 1; transform: none; }
+      25%, 100% { opacity: 0; transform: translateY(-8px); }
+    }
     .side-promo-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
     .side-promo-price {
       font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums;
@@ -930,7 +949,10 @@
        скорости превратилась бы в мерцание. */
     @media (prefers-reduced-motion: reduce) {
       .side-promo::before, .side-promo::after,
-      .side-promo .btn.side-promo-cta { animation: none; }
+      .side-promo .btn.side-promo-cta,
+      .side-promo-msgs.is-rotating .side-promo-msg { animation: none; }
+      /* без смены — только первая пара, остальные не должны лечь поверх */
+      .side-promo-msg:not(:first-child) { visibility: hidden; }
     }
     .side-promo-close {
       position: absolute; top: 8px; right: 8px;
@@ -952,7 +974,7 @@
     .side-promo-wrap--sheet { margin: 14px 4px 4px; }
     .side-promo-wrap--sheet .side-promo-text { display: none; }
     @container sidepromo (max-height: 223px) {
-      .side-promo-title, .side-promo-text { display: none; }
+      .side-promo-msgs { display: none; }
     }
     @container sidepromo (max-height: 111px) {
       .side-promo-wrap { display: none; }
@@ -1605,19 +1627,89 @@
       margin: 14px 0 16px;
     }
 
+    /* Строка поиска — над лентой, вровень с карточками (02.10.2026). Раньше
+       поле тянулось через весь каталог над колонкой разделов: 760px пустого
+       поля на запрос в одно слово. Теперь поле компактное, выбор и вид — у
+       правого края той же строки. */
     .catalog-toolbar {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-top: 14px;
+      margin: 0 0 14px;
       flex-wrap: wrap;
     }
     .catalog-search-wrap {
       position: relative;
-      flex: 1 1 220px;
-      min-width: 180px;
+      flex: 1 1 240px;
+      max-width: 360px;
+      min-width: 200px;
       display: flex;
       align-items: center;
+    }
+    .catalog-toolbar-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .catalog-toolbar .catalog-view-switch { margin: 0; }
+    /* Подсказка «/» внутри поля — пока поле пустое и не в фокусе; на касании
+       клавиатуры нет, и подсказка там не нужна. */
+    .catalog-search-kbd {
+      position: absolute; right: 10px;
+      min-width: 20px; height: 20px; padding: 0 6px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--panel2); color: var(--muted);
+      font: inherit; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+      pointer-events: none;
+    }
+    .catalog-search-wrap:focus-within .catalog-search-kbd,
+    .catalog-search-input:not(:placeholder-shown) + .catalog-search-kbd { display: none; }
+    @media (hover: none) { .catalog-search-kbd { display: none; } }
+
+    /* «Все» блоками разделов: шапка блока прилипает, пока листаешь раздел. */
+    .catalog-block + .catalog-block { margin-top: 22px; }
+    .catalog-block-head {
+      position: sticky; top: 62px; z-index: 2;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; margin-bottom: 8px;
+      background: var(--panel);
+      /* Линия снизу: прилипшая белая шапка сливалась с белой карточкой, и
+         срезанная её краем строка читалась как текст СКВОЗЬ шапку (замер 02.10). */
+      box-shadow: 0 1px 0 var(--line);
+    }
+    .catalog-block-ico {
+      flex: 0 0 30px; width: 30px; height: 30px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: var(--r-md);
+      background: color-mix(in srgb, currentColor 14%, transparent);
+    }
+    .catalog-block-head h3 { margin: 0; font-size: 16px; line-height: 1.25; }
+    .catalog-block-count { font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .catalog-block-open {
+      margin-left: auto;
+      display: inline-flex; align-items: center; gap: 4px;
+      height: 30px; padding: 0 10px;
+      border: 0; border-radius: var(--r-md);
+      background: none; color: var(--muted);
+      font: inherit; font-size: 12px; font-weight: 650;
+      cursor: pointer;
+      transition: background var(--dur-1), color var(--dur-1);
+    }
+    .catalog-block-open:hover { color: var(--primary-text); background: rgb(var(--primary-rgb) / .1); }
+    .catalog-block-open:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
+    @media (hover: none) and (pointer: coarse) { .catalog-block-open { height: 44px; } }
+
+    /* Широкий экран: строка поиска и колонка разделов прилипают под верхней
+       полосой (62px). Колонка раньше прилипала на 16px — и уезжала верхом ПОД
+       полосу. Шапка блока — под строкой поиска: 62 + 12 + 43 (поле) + 12. */
+    @media (min-width: 769px) {
+      .catalog-body-main > .catalog-toolbar {
+        position: sticky; top: 62px; z-index: 3;
+        padding: 12px 0; margin: -12px 0 2px;
+        background: var(--panel);
+        /* фон на 6px шире строки: иначе по краям выглядывали скруглённые углы
+           и тени карточек, проезжающих под ней */
+        box-shadow: 0 0 0 6px var(--panel);
+      }
+      .catalog-block-head { top: 128px; }
+      .catalog-found-count.is-dup,
+      .catalog-section-head.is-dup-head { display: none; }
     }
     .catalog-search-wrap svg {
       position: absolute;
@@ -1658,7 +1750,7 @@
       flex-direction: column;
       gap: 2px;
       position: sticky;
-      top: 16px;
+      top: 74px;   /* под верхней полосой (62px), вровень с прилипшей строкой поиска */
     }
     .catalog-cat-group {
       display: flex;
@@ -1725,6 +1817,14 @@
       border-radius: var(--r-pill); padding: 1px 6px 1px 4px;
     }
     .catalog-cat-item:not(.active) .catalog-cat-count { opacity: .7; }
+    /* Раздел, который сейчас на экране в «Все» (_catalogSpy), — тоньше, чем
+       выбранный: выбран «Все», а это лишь «вы здесь». */
+    .catalog-cat-item.is-here:not(.active) { color: var(--text); background: rgb(var(--primary-rgb) / .07); box-shadow: inset 2px 0 0 var(--primary); }
+    /* правило выше сильнее общего :hover — без своего наведения подсвеченный
+       раздел переставал откликаться на мышь (сторож «кликабельное отзывается») */
+    .catalog-cat-item.is-here:not(.active):hover { background: rgb(var(--primary-rgb) / .13); }
+    /* При поиске: в разделе ничего не найдено */
+    .catalog-cat-item .catalog-cat-count.is-zero { opacity: .35; }
 
     /* Шапка над карточками (app.js renderCatalogSectionHead). */
     .catalog-section-head {
@@ -10717,13 +10817,25 @@ button.is-busy::before {
      Без явной строки для поиска он делил ряд с выпадашками, и те сжимались до
      сорока пикселей: от подписей «Без фильтра» и «По названию» оставались одни
      шевроны. Минимальная ширина 110px — та, при которой подпись ещё читается. */
-  .catalog-toolbar .catalog-search-wrap { flex: 1 1 100%; }
+  /* С 02.10.2026 в строке ещё и вид «плитки / список»: поиск делит с ним
+     первую строку (поле остаётся ≥200px), обе выпадашки — вторую. Обёртка
+     инструментов раскладке не мешает (display: contents), порядок — order. */
+  /* Основа «вся строка минус переключатель вида» — рядом с полем больше ничего
+     не помещается, выпадашки гарантированно уходят на вторую строку. */
+  .catalog-toolbar .catalog-search-wrap { flex: 1 1 calc(100% - 110px); max-width: none; }
+  .catalog-toolbar-tools { display: contents; }
+  .catalog-toolbar .catalog-view-switch { order: 1; }
+  .catalog-toolbar .catalog-toolbar-select,
+  .catalog-toolbar .uu-select-wrap { order: 2; }
   .catalog-toolbar .catalog-toolbar-select,
   /* Обёртка кастомной выпадашки ОБЯЗАТЕЛЬНА в списке: enhanceSelects прячет
      нативный select и переносит его ширину на .uu-select-wrap — правило,
      нацеленное только на select, до раскладки не доходит. */
   .catalog-toolbar .uu-select-wrap {
-    flex: 1 1 0 !important;
+    /* Половина строки, а не 1 1 0: при нулевой основе первая выпадашка влезала
+       в строку поиска (замер 480px, 02.10.2026), поле переставало расти, а
+       скрытый нативный select вылезал за край на 8px. */
+    flex: 1 1 calc(50% - 5px) !important;
     width: auto !important;
     min-width: 110px;
   }

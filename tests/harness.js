@@ -239,6 +239,10 @@ class Suite {
     // видно, на каком именно встало. Держим в харнессе, а не в разовом скрипте:
     // это первое, что понадобится в следующий раз.
     if (process.env.TESTS_TRACE) process.stdout.write("   … " + name + "\n");
+    // TESTS_ONLY=<часть имени> — только подходящие тесты набора. Для отладки одного
+    // теста: весь interactions идёт минуты. Годится для тестов со СВОИМ контекстом
+    // (bootLocal внутри); тесты общей страницы зависят от соседей перед ними.
+    if (process.env.TESTS_ONLY && !name.includes(process.env.TESTS_ONLY)) return;
     const t0 = Date.now();
     try {
       await fn();

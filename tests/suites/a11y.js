@@ -648,8 +648,9 @@ module.exports = async function ({ browser, baseUrl, test }) {
         await own.page.waitForTimeout(280);
         // С 30.09.2026 разделы появляются волной (~0,9 с): карточки в эти доли
         // секунды прозрачны. Мерим в покое — невидимость здесь про устройство
-        // разметки, а не про анимацию входа.
-        await own.page.waitForFunction(() => !document.getElementById("appContent").classList.contains("page-enter"), null, { timeout: 3000 }).catch(() => {});
+        // разметки, а не про анимацию входа. У «Финансов» своя волна строк (fin-enter,
+        // старт через 300 мс) — без её ожидания таб через 280 мс ловил прозрачную строку.
+        await own.page.waitForFunction(() => { const c = document.getElementById("appContent").classList; return !c.contains("page-enter") && !c.contains("fin-enter"); }, null, { timeout: 3000 }).catch(() => {});
         for (let i = 0; i < 25; i++) {
           await own.page.keyboard.press("Tab");
           const r = await own.page.evaluate(() => {

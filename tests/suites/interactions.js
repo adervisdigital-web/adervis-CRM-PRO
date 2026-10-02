@@ -231,6 +231,83 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await page.evaluate(() => { window.app.setTab("all"); });
   });
 
+  /* Навигация каталога (владелец 02.10.2026): «Все» шли сплошным алфавитом с
+     разделами вперемешку, поиск полосой через весь каталог уезжал при
+     прокрутке, «Все услуги · 202 позиции» дублировали колонку. Теперь «Все» —
+     блоками в порядке колонки, клик по разделу в «Все» ведёт к блоку (и
+     подсвечивает его), строка поиска прилипает под верхней полосой, «/» ставит
+     курсор в поиск, Esc его очищает, а счётчики колонки при поиске считают
+     найденное в разделе. */
+  await test("каталог: «Все» разделами, клик в колонке ведёт к блоку, поиск прилипает и откликается на «/»", async () => {
+    const b = await bootLocal(browser, baseUrl, { width: 1440, height: 900, seedDemo: true });
+    const p = b.page;
+    try {
+      await p.evaluate(() => { window.app.go("catalog"); window.app.setSearch(""); window.app.setTab("all"); window.scrollTo(0, 0); });
+      await p.waitForTimeout(1100);
+      const layout = await p.evaluate(() => {
+        const nav = [...document.querySelectorAll(".catalog-cat-item[data-group]")].map((x) => x.dataset.group);
+        const blocks = [...document.querySelectorAll(".catalog-block")].map((x) => x.dataset.block);
+        const head = document.querySelector(".catalog-section-head");
+        return { nav, blocks, headShown: !!head && getComputedStyle(head).display !== "none" };
+      });
+      assert(layout.blocks.length >= 2, "в «Все» нет блоков разделов: " + JSON.stringify(layout.blocks));
+      assertEqual(new Set(layout.blocks).size, layout.blocks.length, "раздел встречается в ленте дважды — порядок «Все» не по разделам: " + layout.blocks.join(","));
+      const order = layout.blocks.filter((g) => layout.nav.includes(g)).map((g) => layout.nav.indexOf(g));
+      assert(order.every((v, i) => i === 0 || v > order[i - 1]), "блоки «Все» идут не в порядке колонки: " + layout.blocks.join(","));
+      assert(!layout.headShown, "над «Все» снова шапка «Все услуги · N позиций» — дубль колонки слева");
+
+      // Клик по последнему разделу колонки (его ещё нет в первой порции) — прокрутка к блоку
+      const target = layout.nav[layout.nav.length - 2] || layout.nav[layout.nav.length - 1];
+      await p.click(`.catalog-cat-item[data-group="${target}"]`);
+      await p.waitForTimeout(1900);
+      const jumped = await p.evaluate((g) => {
+        const head = document.querySelector(`.catalog-block[data-block="${g}"] .catalog-block-head`);
+        const bar = document.querySelector(".catalog-toolbar").getBoundingClientRect();
+        const topbar = document.querySelector(".topbar").getBoundingClientRect();
+        return {
+          tabAll: !!document.querySelector('.catalog-cat-item.active[onclick*="setTab(\'all\')"]'),
+          headTop: head ? Math.round(head.getBoundingClientRect().top) : null,
+          stick: head ? parseFloat(getComputedStyle(head).top) : null,
+          here: [...document.querySelectorAll(".catalog-cat-item.is-here")].map((x) => x.dataset.group),
+          barTop: Math.round(bar.top), barH: Math.round(bar.height), topbarBottom: Math.round(topbar.bottom),
+          scrolled: Math.round(scrollY),
+        };
+      }, target);
+      assert(jumped.tabAll, "клик по разделу в «Все» сузил список вместо прокрутки к блоку");
+      assert(jumped.headTop !== null, `блока «${target}» нет в ленте — клик не догрузил порцию до него`);
+      assert(Math.abs(jumped.headTop - jumped.stick) <= 3, `шапка блока «${target}» не доехала до места: ${jumped.headTop}px при ${jumped.stick}px`);
+      assertEqual(jumped.here.join(","), target, "колонка подсвечивает не тот раздел, что на экране");
+      assert(jumped.scrolled > 1000, "страница не прокрутилась к разделу");
+      assert(Math.abs(jumped.barTop - jumped.topbarBottom) <= 2 && jumped.barH > 30, `строка поиска не прилипла под верхней полосой: верх ${jumped.barTop}px, полоса до ${jumped.topbarBottom}px`);
+
+      // «/» — к поиску; счётчики колонки = найденное в разделе, сумма = «N найдено»; Esc — сброс
+      await p.evaluate(() => { document.activeElement && document.activeElement.blur && document.activeElement.blur(); });
+      await p.keyboard.press("/");
+      assert(await p.evaluate(() => document.activeElement && document.activeElement.classList.contains("catalog-search-input")), "«/» не поставил курсор в поиск каталога");
+      await p.keyboard.type("монтаж", { delay: 20 });
+      await p.waitForTimeout(500);
+      const searched = await p.evaluate(() => {
+        const counts = [...document.querySelectorAll(".catalog-cat-item[data-group] .catalog-cat-count")].map((x) => ({ n: parseInt(x.textContent, 10) || 0, zero: x.classList.contains("is-zero") }));
+        return {
+          sum: counts.reduce((s, c) => s + c.n, 0),
+          zeros: counts.filter((c) => c.n === 0).length,
+          zeroMarked: counts.filter((c) => c.n === 0 && c.zero).length,
+          found: parseInt((document.querySelector(".catalog-found-count") || {}).textContent || "0", 10),
+        };
+      });
+      assert(searched.found > 0, "поиск «монтаж» ничего не нашёл");
+      assertEqual(searched.sum, searched.found, "сумма счётчиков колонки при поиске не равна «найдено»");
+      assertEqual(searched.zeroMarked, searched.zeros, "раздел без совпадений не помечен бледным нулём");
+      await p.keyboard.press("Escape");
+      await p.waitForTimeout(500);
+      const cleared = await p.evaluate(() => ({ v: document.querySelector(".catalog-search-input").value, blocks: document.querySelectorAll(".catalog-block").length }));
+      assertEqual(cleared.v, "", "Esc не очистил поиск каталога");
+      assert(cleared.blocks >= 2, "после сброса поиска «Все» не вернулись блоками");
+    } finally {
+      await b.context.close();
+    }
+  });
+
   // Кнопка навигации каталога — единственный указатель раздела на телефоне (список
   // там скрыт и открывается листом), поэтому она обязана называть то, что показано
   // ниже. Подкатегории бывают ДВУХ видов: у групп с разными category это сама
@@ -255,7 +332,8 @@ module.exports = async function ({ browser, baseUrl, test }) {
         .map((b) => {
           const oc = b.getAttribute("onclick") || "";
           const tab = oc.match(/app\.setTab\('([^']+)'\)/);
-          const grp = oc.match(/app\.toggleCatalogGroup\('([^']+)'\)/);
+          // С 02.10.2026 раздел в колонке зовёт catalogNavClick (в «Все» — прокрутка к блоку)
+          const grp = oc.match(/app\.(?:toggleCatalogGroup|catalogNavClick)\('([^']+)'\)/);
           if (!tab && !grp) return null;
           const clone = b.cloneNode(true);
           clone.querySelectorAll(".catalog-cat-count, .catalog-cat-picked").forEach((c) => c.remove());
