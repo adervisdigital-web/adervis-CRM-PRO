@@ -224,6 +224,13 @@ async function bootWithSession(browser, baseUrl, opts = {}) {
     const s = document.getElementById("appSidebar");
     return s && s.innerHTML.trim().length > 0;
   }, null, { timeout: 10000 });
+  /* Меню рисуется ДО конца входа: дальше вход догружает профиль и (нет отметки
+     прошлого агентства) сбрасывает состояние на вид «CRM». Тест, успевший к этому
+     моменту открыть раздел, оставался на «CRM» — админка в CI падала по
+     таймауту ожидания карточек, локально проходила (машина быстрее, гонка
+     выигрывалась). Ждём конец входа: отметка агентства записана, скелет ушёл. */
+  await page.waitForFunction(() => !!localStorage.getItem("adervis_last_agency_id")
+    && !document.querySelector("#appContent .skel"), null, { timeout: 15000 });
   return { context, page, errors };
 }
 
