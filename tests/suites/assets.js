@@ -2117,5 +2117,11 @@ module.exports = async function ({ test }) {
       assert(mb < 8, `${rel} весит ${mb.toFixed(1)} МБ — ролик для приложения должен быть легче 8 МБ`);
     }
     assert((app.match(/promoVideoHtml\("(plans|support)"\)/g) || []).length === 2, "ролик должен стоять в «Тарифном плане» и в «Поддержке»");
+    // любой файл из media/, на который ссылается приложение, на месте (08.10.2026 снимок
+    // сметы на лендинге заменён живой петлёй — старый файл убран, ссылка не должна остаться)
+    const refs = [...new Set(app.match(/media\/[\w.-]+\.(mp4|webm|webp|jpg|png)/g) || [])];
+    for (const rel of refs) assert(fs.existsSync(path.join(REPO_ROOT, rel)), "app.js ссылается на несуществующий файл: " + rel);
+    const loop = path.join(REPO_ROOT, "media/lp-loop.mp4");
+    assert(fs.existsSync(loop) && fs.statSync(loop).size < 1048576, "живая петля лендинга отсутствует или тяжелее 1 МБ — она грузится на первом экране");
   });
 };

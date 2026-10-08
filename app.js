@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 459;
+      const APP_BUILD = 460;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
@@ -3929,14 +3929,18 @@
             </section>
 
             <section class="lp-sec" id="lp-product">
-              <h2 class="lp-h2">Так выглядит смета в ADERVIS CRM</h2>
-              <p class="lp-sub">Настоящий экран приложения: этапы, позиции из каталога, итог для клиента и аванс — всё на одной странице.</p>
+              <h2 class="lp-h2">Так собирается смета в ADERVIS CRM</h2>
+              <p class="lp-sub">Настоящий экран приложения: нажимаете «Добавить» у позиции каталога — она уже в смете со своей ценой, а итог справа считается сам.</p>
+              ${/* Живая петля вместо снимка (владелец 08.10.2026: «живая обложка лендинга»).
+                    Без звука, 7,5 с, конец совпадает с началом. При «уменьшить движение» —
+                    только первый кадр. Снята с настоящего каталога: promo-video/loop.html. */""}
               <div class="lp-shot">
                 <div class="lp-shot-bar"><i></i><i></i><i></i><span>app.adervis.ru</span></div>
-                <img src="media/lp-estimate.webp" alt="Смета в ADERVIS CRM: этапы, позиции, итог для клиента 153 500 ₽ и аванс 50%" loading="lazy" width="1440" height="836">
-                <span class="lp-pin" style="--x:30%;--y:44%"><b>1</b>Позиции из каталога — цены подставятся сами</span>
-                <span class="lp-pin" style="--x:79%;--y:30%"><b>2</b>Итог, аванс и прибыль считаются на лету</span>
-                <span class="lp-pin" style="--x:79%;--y:93%"><b>3</b>КП клиенту — одной кнопкой</span>
+                <video class="lp-shot-media" src="media/lp-loop.mp4" poster="media/lp-loop.webp" ${_reducedMotion() ? "" : "autoplay"} muted loop playsinline preload="metadata" width="1280" height="888"
+                  aria-label="Каталог ADERVIS CRM: позиции добавляются в смету, итог справа растёт до 20 500 ₽"></video>
+                <span class="lp-pin" style="--x:40%;--y:24%"><b>1</b>«Добавить» — и позиция в смете, цена уже стоит</span>
+                <span class="lp-pin" style="--x:84%;--y:57%"><b>2</b>Итог сметы считается на лету</span>
+                <span class="lp-pin" style="--x:84%;--y:76%"><b>3</b>Дальше — КП клиенту одной ссылкой</span>
               </div>
             </section>
 
@@ -4771,8 +4775,11 @@
           el.innerHTML = "";
         } else {
           const prevScroll = (el.querySelector(".auth-gate") || {}).scrollTop || 0;
+          // и момент живой петли — иначе она начиналась заново на каждой перерисовке
+          const prevLoop = (el.querySelector(".lp-shot-media") || {}).currentTime || 0;
           el.innerHTML = renderAuthGate();
           const gate = el.querySelector(".auth-gate"); if (gate && prevScroll) gate.scrollTop = prevScroll;
+          const loop = el.querySelector(".lp-shot-media"); if (loop && prevLoop) loop.currentTime = prevLoop;
           _vkidInited = false;
           setTimeout(() => _ensureVKIDSDK().then(initVKIDWidget).catch(e => console.warn("VK ID SDK:", e)), 50);
         }
