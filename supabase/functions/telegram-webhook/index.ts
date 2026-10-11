@@ -294,6 +294,12 @@ Deno.serve(async (req) => {
     }
   }
 
+  // «1 позиция, 3 позиции, 5 позиций» — раньше было «1 — позиция, иначе позиций», и бот писал «3 позиций»
+  function posWord(n: number) {
+    const a = n % 10, b = n % 100;
+    return a === 1 && b !== 11 ? "позиция" : a >= 2 && a <= 4 && (b < 10 || b >= 20) ? "позиции" : "позиций";
+  }
+
   function estimateSummary(p: any) {
     const rows = (p.lines || []).map((l: any, i: number) =>
       `${i + 1}. ${esc(l.name)}${l.qty > 1 ? ` × ${l.qty}` : ""}${l.note ? ` <i>(${esc(l.note)})</i>` : ""} — <b>${money(l.price * l.qty)}</b>`
@@ -458,7 +464,7 @@ Deno.serve(async (req) => {
       `👋 Привет${firstName ? `, ${esc(firstName)}` : ""}!\n\n` +
       `Это AI-помощник <b>ADERVIS CRM</b>.\n\n` +
       `Ваш Chat ID:\n<code>${chatId}</code>\n\n` +
-      `Скопируйте его в профиль ADERVIS CRM → «Уведомления».\n` +
+      `Вставьте его в ADERVIS CRM: «Настройки» → «Уведомления».\n` +
       `После этого я буду знать ваши сделки, финансы и дедлайны.`,
       mainKeyboard,
     );
@@ -471,7 +477,7 @@ Deno.serve(async (req) => {
   if (!agencyRow) {
     await send(
       `❌ Chat ID не найден в системе.\n\nВаш Chat ID: <code>${chatId}</code>\n\n` +
-      `Добавьте его в <b>Профиль → Уведомления (Telegram)</b>.`,
+      `Добавьте его в <b>Настройки → Уведомления</b>.`,
     );
     return new Response("ok", { status: 200 });
   }
@@ -582,7 +588,7 @@ Deno.serve(async (req) => {
       await send(
         `🎉 <b>Сделка создана</b>\n\n📋 ${esc(name)}\n` +
         `${p.client ? `👤 ${esc(p.client)}\n` : ""}` +
-        `💰 ${money(p.sum)} · ${p.lines.length} ${p.lines.length === 1 ? "позиция" : "позиций"}\n\n` +
+        `💰 ${money(p.sum)} · ${p.lines.length} ${posWord(p.lines.length)}\n\n` +
         `Откройте сделку в CRM — там кнопка «Развернуть смету».`,
         mainKeyboard,
       );
