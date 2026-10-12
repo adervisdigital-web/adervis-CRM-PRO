@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 462;
+      const APP_BUILD = 463;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
@@ -6987,13 +6987,18 @@
          видео не было. Строки «обложка + текст» — колонка «Поддержки» 680 px, три плеера
          в ряд вышли бы по 210 px. Обложка — кнопка: ролик открывается окном (тот же плеер,
          что из «Начала работы»), страница не тянет 3–4 МБ, пока не нажали. */
+      /* Один раздел «Помощь и обучение» (владелец 12.10: «это всё в одной тематике — объединить»):
+         видеоинструкции + «Быстрый старт» (слайды онбординга) + «Тур по интерфейсу». Раньше
+         это были три отдельных блока в «Поддержке», вперемешку с контактами и документами.
+         Тур отсюда — единственный ручной запуск: выпадающее меню помощи в index.html скрыто. */
       function howtoVideosHtml() {
         return `
-          <section class="howto-list no-print" aria-label="Видеоинструкции">
+          <section class="howto-list no-print" aria-label="Помощь и обучение">
             <div class="howto-list-head">
-              <h2>${icon("video", 16)} Видеоинструкции</h2>
-              <p>Три коротких ролика с голосом — одна сделка от сметы до аванса.</p>
+              <h2>${icon("rocket", 16)} Помощь и обучение</h2>
+              <p>С чего начать: короткие видео с голосом, быстрый старт и тур по разделам.</p>
             </div>
+            <div class="howto-sub">${icon("video", 13)} Видеоинструкции · одна сделка от сметы до аванса</div>
             ${HOWTO_VIDEOS.map((v, i) => `
               <button type="button" class="howto-row" onclick="app.openHowtoVideo(${i})" aria-label="Смотреть: ${v.title}, ${v.secs} секунд">
                 <span class="howto-thumb"><img src="${v.poster}" alt="" loading="lazy"><span class="howto-play">${icon("play", 16)}</span></span>
@@ -7003,6 +7008,16 @@
                   <span class="howto-desc">${v.desc}</span>
                 </span>
               </button>`).join("")}
+            <div class="howto-more">
+              <button type="button" class="howto-more-btn" onclick="app.openHelpModal()">
+                ${iconBadge("chat", "var(--primary)", 36)}
+                <span><b>Быстрый старт</b><span class="howto-desc">Как начать работать — онбординг и подсказки по разделам</span></span>
+              </button>
+              <button type="button" class="howto-more-btn" onclick="app.startTour()">
+                ${iconBadge("target", "var(--primary2)", 36)}
+                <span><b>Тур по интерфейсу</b><span class="howto-desc">Подсветим разделы меню · полторы минуты, на компьютере</span></span>
+              </button>
+            </div>
           </section>`;
       }
 
@@ -7080,28 +7095,8 @@
                 </div>
               </button>
 
-              <button class="support-card" onclick="app.openHelpModal()" style="border:none;cursor:pointer;text-align:left;width:100%">
-                ${iconBadge("chat", "var(--primary)", 44)}
-                <div>
-                  <div class="u-label-strong">Помощь и обучение</div>
-                  <div class="u-meta-13">Быстрый старт — как начать работать в CRM</div>
-                  <div class="u-meta-mt3">Онбординг и подсказки по разделам</div>
-                </div>
-              </button>
-
-              ${/* Тур по разделам показывался ОДИН раз при первом входе, а вручную
-                    запускался только из выпадающего меню помощи — а оно лежит в
-                    index.html внутри блока display:none, то есть недостижимо. Кто
-                    закрыл тур в первый день, вернуть его не мог ничем. */""}
-              <button class="support-card" onclick="app.startTour()" style="border:none;cursor:pointer;text-align:left;width:100%">
-                ${iconBadge("target", "var(--primary2)", 44)}
-                <div>
-                  <div class="u-label-strong">Тур по интерфейсу</div>
-                  <div class="u-meta-13">Подсветим разделы бокового меню и расскажем, что где лежит</div>
-                  <div class="u-meta-mt3">Полторы минуты, на компьютере</div>
-                </div>
-              </button>
-
+              ${/* «Помощь и обучение» и «Тур по интерфейсу» — в разделе «Помощь и обучение» выше
+                    (howtoVideosHtml), вместе с видеоинструкциями. */""}
               ${/* Возврат средств — рядом с документами, а не в них: человек, которому
                     нужны деньги назад, не станет искать пункт в оферте. Пишем сразу
                     порядок и срок, чтобы не пришлось спрашивать «а как?». */""}
