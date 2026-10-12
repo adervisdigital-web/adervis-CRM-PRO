@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 463;
+      const APP_BUILD = 464;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
@@ -28851,7 +28851,9 @@
                       «100% маржа» на смете без себестоимости: при нуле выручки
                       капсулы просто нет. */""}
                 ${f.revenue > 0 ? `<span class="margin-badge ${marginClass}" style="font-size:12px" title="${escapeHtml(marginLabel)}">${margin}% маржа</span>` : ""}
-                ${(() => { const u = dealDeadlineUrgency(state.project); if (!u || u.level === "ok") return ""; return `<span style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px"> ${escapeHtml(u.label)}</span>`; })()}
+                ${/* Плашка срока — кнопка (владелец 12.10: «сделай, чтобы кнопка дедлайна нажималась»):
+                      открывает карточку сделки сразу на поле дедлайна — сдвинуть или убрать срок */""}
+                ${(() => { const u = dealDeadlineUrgency(state.project); if (!u || u.level === "ok") return ""; const pid = String(state.activeProjectId || "").replace(/'/g, ""); return `<button type="button" class="deal-deadline-pill" onclick="app.openDealModal('${pid}','deadline')" title="Изменить дедлайн" style="font-size:12px;font-weight:800;color:${u.color};background:${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.12)":"rgba(202,138,4,.12)"};border:1px solid ${u.level==="overdue"||u.level==="critical"?"rgba(220,38,38,.35)":"rgba(202,138,4,.35)"};padding:3px 9px;border-radius:99px">${icon("calendar", 11)} ${escapeHtml(u.label)}</button>`; })()}
               </div>
 
               <div class="deal-actions-group">
@@ -32587,7 +32589,8 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         `;
       }
 
-      function openDealModal(projectId) {
+      // focus === "deadline" — с плашки срока в шапке сделки: курсор сразу в поле дедлайна
+      function openDealModal(projectId, focus) {
         const project = (state.savedProjects || []).find(p => p.id === projectId);
         if (!project) return;
         state.dealModal = {
@@ -32607,6 +32610,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         };
         _armDirtyCheck(state.dealModal);
         renderModal();
+        if (focus === "deadline") {
+          const inp = document.getElementById("dealModalDeadline");
+          if (inp) { inp.focus(); try { inp.showPicker(); } catch (e) {} }   // календарь — если браузер разрешит
+        }
       }
       async function closeDealModal() {
         if (!(await _confirmDiscardIfDirty(state.dealModal))) return;
@@ -32794,7 +32801,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                         чтобы поле перестало гореть. */""}
                   ${m.deadline ? `<button type="button" class="btn small" style="margin-left:auto" onclick="app.clearDealModalDeadline()" title="Убрать дедлайн — работа сделана или срок больше не нужен">Убрать</button>` : ""}
                 </div>
-                <input type="date" value="${escapeHtml(m.deadline||"")}"
+                <input type="date" id="dealModalDeadline" aria-label="Дедлайн проекта" value="${escapeHtml(m.deadline||"")}"
                   oninput="app.setDealModalField('deadline',this.value)"
                   style="width:100%;border-radius:var(--r-lg);border:1px solid var(--line);background:var(--input);color:var(--text);padding:10px 12px;font-size:14px">
               </div>
