@@ -8717,6 +8717,18 @@
     .dp-field.is-open .dp-chev { transform: rotate(-90deg); }
     .dp-quick { display: flex; flex-wrap: wrap; gap: 6px; }
     .dp-quick .chip { font-size: 12px; padding: 4px 10px; }
+    /* календарь открыт — быстрые сроки столбиком справа от него: там было пусто, а строка над
+       сеткой удлиняла окно (скриншот владельца 12.10) */
+    .dp.is-open { grid-template-columns: minmax(0, 340px) minmax(0, 1fr); align-items: start; }
+    .dp.is-open .dp-field { grid-column: 1 / -1; }
+    .dp.is-open .dp-cal { grid-column: 1; grid-row: 2; }
+    .dp.is-open .dp-quick { grid-column: 2; grid-row: 2; flex-direction: column; align-items: stretch; }
+    .dp.is-open .dp-quick .chip { justify-content: flex-start; text-align: left; padding: 7px 12px; }
+    @media (max-width: 560px) {
+      .dp.is-open { grid-template-columns: minmax(0, 1fr); }
+      .dp.is-open .dp-cal, .dp.is-open .dp-quick { grid-column: 1; grid-row: auto; }
+      .dp.is-open .dp-quick { flex-direction: row; }
+    }
     /* компактно: окно сделки и так длинное (владелец: «всё не вмещается, календарь очень большой») */
     .dp-cal { max-width: 340px; padding: 8px 10px 10px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
     .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }

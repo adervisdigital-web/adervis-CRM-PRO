@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 466;
+      const APP_BUILD = 467;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
@@ -32630,7 +32630,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         // «Сегодня» убрано (владелец 12.10): срок «на сегодня» почти не ставят, а чипы не влезали в строку
         const quick = [["Завтра", 1], ["Через неделю", 7], ["Через 2 недели", 14], ["Через месяц", "m"]];
         return `
-          <div class="dp">
+          <div class="dp ${c.open ? "is-open" : ""}">
             <button type="button" class="dp-field ${c.open ? "is-open" : ""} ${val ? "" : "is-empty"}" id="${fieldId}" onclick="app.dpToggle('${key}')" aria-expanded="${c.open}">
               ${icon("calendar", 15)}
               <span class="dp-field-text">${val ? `<b>${label}</b><span>${_dpRel(val)}</span>` : "Выберите дату"}</span>
