@@ -2123,13 +2123,20 @@ module.exports = async function ({ test }) {
     for (const rel of refs) assert(fs.existsSync(path.join(REPO_ROOT, rel)), "app.js ссылается на несуществующий файл: " + rel);
     const loop = path.join(REPO_ROOT, "media/lp-loop.mp4");
     assert(fs.existsSync(loop) && fs.statSync(loop).size < 1048576, "живая петля лендинга отсутствует или тяжелее 1 МБ — она грузится на первом экране");
-    // видеоинструкции (12.10.2026): три ролика с обложками, каждый легче 6 МБ, грузятся только по нажатию
+    // видеоинструкции (12.10.2026): три ролика с обложками, каждый легче 6 МБ. Это обучение, а не
+    // справочник (владелец: «не в базе знаний»): «Помощь и обучение» в «Поддержке» + ссылки из шагов
+    // «Начала работы»; на странице — только обложки, видео грузится окном по нажатию
     const howto = [...app.matchAll(/src: "(media\/howto-[\w-]+\.mp4)", poster: "(media\/howto-[\w-]+\.jpg)"/g)];
     assert(howto.length === 3, "в HOWTO_VIDEOS должно быть три инструкции, нашлось " + howto.length);
     for (const [, vid] of howto) {
       const mb = fs.statSync(path.join(REPO_ROOT, vid)).size / 1048576;
       assert(mb < 6, `${vid} весит ${mb.toFixed(1)} МБ — инструкция для приложения должна быть легче 6 МБ`);
     }
-    assert(/HOWTO_VIDEOS\.map[\s\S]{0,300}preload="none"/.test(app), "видеоинструкции должны грузиться по нажатию (preload=\"none\")");
+    const fnBody = (name) => { const i = app.indexOf("function " + name + "("); return i < 0 ? "" : app.slice(i, app.indexOf("\n      }\n", i)); };
+    assert(/\$\{howtoVideosHtml\(\)\}/.test(fnBody("renderSupport")), "видеоинструкции должны стоять в «Поддержке» (howtoVideosHtml в renderSupport)");
+    assert(!/<video/.test(fnBody("howtoVideosHtml")), "в списке инструкций — только обложки: <video> на странице тянул бы 3–4 МБ на ролик");
+    assert((fnBody("renderOnboardingChecklist").match(/video: \d/g) || []).length === 3 && /app\.openHowtoVideo\(/.test(fnBody("renderOnboardingChecklist")),
+      "у каждого шага «Начала работы» должна быть ссылка на видеоинструкцию");
+    assert(!/HOWTO_VIDEOS/.test(fnBody("renderKnowledge")), "видеоинструкции — не в «Базе знаний» (решение владельца 12.10)");
   });
 };

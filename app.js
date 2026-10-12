@@ -9,13 +9,16 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 461;
+      const APP_BUILD = 462;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
-      /* Видеоинструкции с голосом (12.10.2026) — в «Базе знаний». Одна история: инструкция 2
-         продолжает сделку из первой. Экраны настоящие, сняты кликами по приложению
-         (promo-video/capture-howto*.js); 1600 px — мельче текст интерфейса не читается. */
+      /* Видеоинструкции с голосом (12.10.2026) — это обучение, а не справочник студии
+         (владелец: «в помощь и обучение или в знакомство, но не в базе знаний»):
+         живут в «Поддержке» под роликом-знакомством и открываются окном прямо из шагов
+         «Начала работы» на главной. Одна история: инструкция 2 продолжает сделку из первой.
+         Экраны настоящие, сняты кликами по приложению (promo-video/capture-howto*.js);
+         1600 px — мельче текст интерфейса не читается. */
       const HOWTO_VIDEOS = [
         { src: "media/howto-smeta.mp4", poster: "media/howto-smeta.jpg", secs: 40, title: "Первая смета за пару минут",
           desc: "Новая сделка, каталог по шагам, «Добавить» — итог, аванс и прибыль считаются сами." },
@@ -587,6 +590,7 @@
         // Видеокамера — раздел «Оборудование». Фотоаппарат (camera) занят
         // «Съёмкой»: и этапом сметы, и разделом каталога.
         video:    `<path d="M1.8 4h8c.9 0 1.7.8 1.7 1.7v.6l2.7-1.6c.4-.2.8.1.8.5v5.6c0 .4-.4.7-.8.5l-2.7-1.6v.6c0 .9-.8 1.7-1.7 1.7h-8C.8 12 0 11.2 0 10.3V5.7C0 4.8.8 4 1.8 4z"/>`,
+        play:     `<path d="M4.5 2.6c0-.8.9-1.3 1.6-.9l7.6 4.6c.7.4.7 1.4 0 1.8l-7.6 4.6c-.7.4-1.6-.1-1.6-.9z"/>`,
         book:     `<path d="M3 1.5h9.4c.6 0 1.1.5 1.1 1.1v10.8c0 .6-.5 1.1-1.1 1.1H3c-.9 0-1.6-.7-1.6-1.6V3.1c0-.9.7-1.6 1.6-1.6zm0 1.4a.2.2 0 00-.2.2v9.9c.1 0 .1-.1.2-.1h9.1V2.9H3zm1.8 2.2h5.6v1.3H4.8V5.1zm0 2.6h5.6V9H4.8V7.7z"/>`,
         contract: `<path d="M4 1h5l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm4.6 1.3V4.4H11L8.6 2.3zM5 6.5h6v1.1H5V6.5zm2.1 5.9L5 10.3l.8-.8 1.3 1.3 3-3 .8.8-3.8 3.8z"/>`,
         // Коробка с крышкой — «убрано на хранение». Заведена в базу, а не нарисована
@@ -2388,7 +2392,7 @@
         return (state.company && state.company.currency) || "₽";
       }
 
-      const SYNC_SKIP_KEYS = new Set(["view","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","wizardModal","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","gFinSelectMode","gFinSelected","gFinNoMethodOnly","catalogCostPanelOpen","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","docsModal","docsTab","catalogGroupsConfigOpen","pkgCatsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
+      const SYNC_SKIP_KEYS = new Set(["view","adminModal","clientModal","taskModal","taskModalSource","financeModal","editTransactionModal","wizard","wizardModal","dealModal","dealSwitcherOpen","packageEditModal","crmSelectMode","gFinSelectMode","gFinSelected","gFinNoMethodOnly","catalogCostPanelOpen","taskDetailsOpen","lineCommentsOpen","catalogEditId","helpModal","howtoVideo","docsModal","docsTab","catalogGroupsConfigOpen","pkgCatsConfigOpen","catalogNavOpen","notifPopupOpen","summaryOpen","briefEditorType","proposalModal","kbCatsModal"]);
 
       // Кладёт облачное состояние в state. Отдельно от _loadCloudState, потому что
       // вызывается ещё и из разрешения конфликта.
@@ -6979,6 +6983,58 @@
           </section>`;
       }
 
+      /* «Помощь и обучение» в «Поддержке»: карточка давно обещала «видео-инструкции», а
+         видео не было. Строки «обложка + текст» — колонка «Поддержки» 680 px, три плеера
+         в ряд вышли бы по 210 px. Обложка — кнопка: ролик открывается окном (тот же плеер,
+         что из «Начала работы»), страница не тянет 3–4 МБ, пока не нажали. */
+      function howtoVideosHtml() {
+        return `
+          <section class="howto-list no-print" aria-label="Видеоинструкции">
+            <div class="howto-list-head">
+              <h2>${icon("video", 16)} Видеоинструкции</h2>
+              <p>Три коротких ролика с голосом — одна сделка от сметы до аванса.</p>
+            </div>
+            ${HOWTO_VIDEOS.map((v, i) => `
+              <button type="button" class="howto-row" onclick="app.openHowtoVideo(${i})" aria-label="Смотреть: ${v.title}, ${v.secs} секунд">
+                <span class="howto-thumb"><img src="${v.poster}" alt="" loading="lazy"><span class="howto-play">${icon("play", 16)}</span></span>
+                <span class="howto-text">
+                  <span class="howto-kicker">${i + 1} из ${HOWTO_VIDEOS.length} · ${v.secs} с</span>
+                  <b>${v.title}</b>
+                  <span class="howto-desc">${v.desc}</span>
+                </span>
+              </button>`).join("")}
+          </section>`;
+      }
+
+      // Окно-плеер инструкции: из «Поддержки» и из шагов «Начала работы». Видео
+      // создаётся вместе с окном и исчезает с ним — закрыл окно, звук не играет дальше.
+      function openHowtoVideo(i) {
+        if (!HOWTO_VIDEOS[i]) return;
+        state.howtoVideo = i;
+        renderModal();
+      }
+      function closeHowtoVideo() {
+        state.howtoVideo = null;
+        renderModal();
+      }
+      function renderHowtoVideoModal() {
+        const i = state.howtoVideo, v = HOWTO_VIDEOS[i];
+        return `
+          <div class="modal-overlay" onclick="event.target===this&&app.closeHowtoVideo()">
+            <div class="modal-box howto-modal-box" role="dialog" aria-modal="true" aria-label="Видеоинструкция: ${v.title}">
+              <div class="howto-modal-head">
+                <div>
+                  <div class="howto-kicker">Видеоинструкция · ${i + 1} из ${HOWTO_VIDEOS.length} · ${v.secs} с</div>
+                  <h2>${v.title}</h2>
+                </div>
+                <button type="button" onclick="app.closeHowtoVideo()" class="u-modal-close" aria-label="Закрыть">${icon("close", 15)}</button>
+              </div>
+              <div class="howto-modal-frame"><video src="${v.src}" poster="${v.poster}" controls autoplay playsinline preload="auto"></video></div>
+              ${i < HOWTO_VIDEOS.length - 1 ? `<button type="button" class="btn small howto-next" onclick="app.openHowtoVideo(${i + 1})">Дальше: ${HOWTO_VIDEOS[i + 1].title} ${icon("chevron", 13)}</button>` : ""}
+            </div>
+          </div>`;
+      }
+
       function renderSupport() {
         return `
           <div class="panel" style="max-width:680px;margin:0 auto">
@@ -6993,6 +7049,8 @@
             </div>
 
             ${promoVideoHtml("support")}
+
+            ${howtoVideosHtml()}
 
             <div style="display:grid;gap:14px;margin-bottom:28px">
               <a href="mailto:adervis.digital@gmail.com" class="support-card" style="text-decoration:none">
@@ -7027,7 +7085,7 @@
                 <div>
                   <div class="u-label-strong">Помощь и обучение</div>
                   <div class="u-meta-13">Быстрый старт — как начать работать в CRM</div>
-                  <div class="u-meta-mt3">Онбординг, подсказки, видео-инструкции</div>
+                  <div class="u-meta-mt3">Онбординг и подсказки по разделам</div>
                 </div>
               </button>
 
@@ -8673,28 +8731,6 @@
               </div>
             </div>
 
-            ${/* Видеоинструкции — над документами, пока человек не ищет и не выбрал тематику:
-                  при поиске блок мешал бы видеть найденное. preload="none" — 3–4 МБ на ролик
-                  не тянем, пока не нажали «смотреть»; .mp4 идёт мимо кэша sw.js (206). */""}
-            ${!search && catFilter === "all" ? `
-            <section class="kb-howto no-print" aria-label="Видеоинструкции">
-              <div class="kb-howto-head">
-                <h2>${icon("video", 16)} Видеоинструкции</h2>
-                <p>Три коротких ролика с голосом — одна сделка от сметы до аванса.</p>
-              </div>
-              <div class="kb-howto-grid">
-                ${HOWTO_VIDEOS.map((v, i) => `
-                  <article class="kb-howto-card">
-                    <div class="kb-howto-frame"><video src="${v.src}" poster="${v.poster}" controls playsinline preload="none" aria-label="Видеоинструкция: ${v.title}"></video></div>
-                    <div class="kb-howto-body">
-                      <span class="kb-howto-kicker">${icon("video", 12)} ${i + 1} из ${HOWTO_VIDEOS.length} · ${v.secs} с</span>
-                      <h3>${v.title}</h3>
-                      <p>${v.desc}</p>
-                    </div>
-                  </article>`).join("")}
-              </div>
-            </section>` : ""}
-
             ${/* Поиск и тематики — тем же видом, что в «Задачах» и каталоге:
                   поле с лупой и чипы. Здесь стояли поле с подписью «Поиск» и
                   крупные вкладки .tab (17px против 13px у чипов по соседству) с
@@ -9396,6 +9432,7 @@
           wizard: null,
           helpModal: false,
           helpSlide: 0,
+          howtoVideo: null,              // номер открытой видеоинструкции (окно-плеер) или null
           docsModal: false,
         docsTab: "privacy",
         // Настройка левой колонки каталога: какие встроенные группы скрыты и
@@ -15164,6 +15201,7 @@
         const el = document.getElementById("modalContainer");
         if (!el) return;
         const modalKey =
+          state.howtoVideo != null ? "howto" :
           state.helpModal ? "help" :
           state.docsModal ? "docs" :
           state.catalogGroupsConfigOpen ? "catalogGroups" :
@@ -15188,6 +15226,7 @@
             <div class="modal-box wizard-modal-box">${renderWizard()}</div>
           </div>`;
         }
+        else if (state.howtoVideo != null && HOWTO_VIDEOS[state.howtoVideo]) { el.innerHTML = renderHowtoVideoModal(); }
         else
         if (state.helpModal) { el.innerHTML = renderHelpModal(); _welcomeAfterRender(el); }
         else if (state.docsModal) { el.innerHTML = renderDocsModal(); }
@@ -20405,7 +20444,8 @@
             hint: 'Клиент, дедлайн и бюджет в одном месте',
             done: realProjects.length >= 1,
             action: "app.startWizard()",
-            btn: "Создать"
+            btn: "Создать",
+            video: 0   // видеоинструкция к шагу (HOWTO_VIDEOS) — показать, как, в момент, когда это нужно
           },
           {
             label: 'Соберите смету из услуг',
@@ -20413,7 +20453,8 @@
             done: realProjects.some(p => numberValue(p.total, 0) > 0),
             action: firstDealId ? `app.loadSavedProject('${firstDealId}')` : null,
             btn: "Открыть",
-            locked: !firstDealId
+            locked: !firstDealId,
+            video: 0
           },
           {
             label: 'Отправьте КП клиенту',
@@ -20421,7 +20462,8 @@
             done: realProjects.some(p => p.portalId),
             action: firstDealId ? `app.createClientPortal('${firstDealId}')` : null,
             btn: "Создать КП",
-            locked: !firstDealId
+            locked: !firstDealId,
+            video: 1
           }
         ];
         const done = steps.filter(s => s.done).length;
@@ -20459,12 +20501,16 @@
             <div style="height:4px;background:var(--line);border-radius:999px;margin-bottom:12px">
               <div class="onb-progress-fill" style="height:100%;width:${pct}%;background:var(--primary);border-radius:999px;transition:.4s"></div>
             </div>
-            ${steps.map(s => `
+            ${/* Ссылка на ролик — только у ПЕРВОГО невыполненного шага с этим роликом: шаги 1 и 2
+                  учит одна инструкция, и две одинаковые «Как это сделать» подряд — повтор
+                  (сторож в billing ловит одинаковые действия в чеклисте) */""}
+            ${steps.map((s, si) => `
               <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
                 <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${s.done ? 'var(--green)' : 'var(--line)'};background:${s.done ? 'rgba(22,163,74,.15)' : 'transparent'};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:12px;color:var(--text-success)">${s.done ? '✓' : ''}</div>
                 <div style="flex:1;min-width:0;${s.done ? 'text-decoration:line-through;opacity:.5' : ''}">
                   <div style="font-size:13px">${s.label}</div>
                   ${s.done ? '' : `<div class="u-meta">${s.hint}</div>`}
+                  ${s.done || s.video == null || steps.slice(0, si).some(p => !p.done && p.video === s.video) ? '' : `<button type="button" class="onb-howto-link" onclick="app.openHowtoVideo(${s.video})">${icon("play", 11)} Как это сделать · ${HOWTO_VIDEOS[s.video].secs} с</button>`}
                 </div>
                 ${s.done ? '' : s.locked
                   ? `<span class="u-meta" style="white-space:nowrap;flex:0 0 auto">после первого шага</span>`
@@ -34793,7 +34839,9 @@ Email: _____________________              Email: _____________________
             closeSearch();
             toggleProfileDd(false);
             toggleHelpDd(false);
-            if (state.financeModal) closeFinanceModal();
+            // плеер инструкции рисуется поверх всех окон (renderModal) — и закрывается первым
+            if (state.howtoVideo != null) closeHowtoVideo();
+            else if (state.financeModal) closeFinanceModal();
             else if (state.taskModal) closeTaskModal();
             // Через closeCatalogEdit, а не обнулением: там дописывается поле под
             // курсором и убирается нетронутый черновик своей позиции.
@@ -35408,6 +35456,8 @@ Email: _____________________              Email: _____________________
         closeHelpModal,
         openDocsModal,
         closeDocsModal,
+        openHowtoVideo,
+        closeHowtoVideo,
         setDocsTab,
         helpNext,
         helpPrev,

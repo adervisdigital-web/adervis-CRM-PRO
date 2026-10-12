@@ -8677,25 +8677,47 @@
     .kb-search { flex: 1 1 240px; max-width: 420px; }
     .kb-chips { flex: 1 1 100%; }
     .kb-chip-count { opacity: .6; font-size: 12px; font-variant-numeric: tabular-nums; }
-    /* Видеоинструкции над документами (12.10.2026): три карточки ролик + подпись,
-       вид — как у ролика о продукте в «Поддержке» (.promo-video) */
-    .kb-howto { margin: 0 0 22px; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-xl);
+    /* Видеоинструкции (12.10.2026) — «Помощь и обучение» в «Поддержке»: строки
+       «обложка + текст» (колонка 680 px), ролик открывается окном-плеером; тот же плеер
+       открывается ссылкой из шагов «Начала работы» на главной */
+    .howto-list { display: grid; gap: 10px; margin: 0 0 22px; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-xl);
       background: radial-gradient(120% 140% at 0% 100%, rgb(var(--primary-rgb) / .12), transparent 60%), var(--panel2); }
-    .kb-howto-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 14px; }
-    .kb-howto-head h2 { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 18px; }
-    .kb-howto-head p { margin: 0; font-size: 13px; color: var(--muted); }
-    .kb-howto-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-    .kb-howto-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-    .kb-howto-frame { aspect-ratio: 16 / 9; border-radius: var(--r-lg); overflow: hidden; background: var(--bg);
-      box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 18px 44px -24px rgb(var(--primary-rgb) / .7); }
-    .kb-howto-frame video { display: block; width: 100%; height: 100%; object-fit: cover; background: var(--bg); }
-    .kb-howto-body { display: flex; flex-direction: column; gap: 6px; }
-    .kb-howto-kicker { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 4px 10px; border-radius: var(--r-pill);
-      font-size: 12px; font-weight: 700; color: var(--primary-text); background: rgb(var(--primary-rgb) / .14); font-variant-numeric: tabular-nums; }
-    .kb-howto-body h3 { margin: 0; font-size: 15px; line-height: 1.3; }
-    .kb-howto-body p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
-    @media (max-width: 1100px) { .kb-howto-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 640px) { .kb-howto { padding: 14px; } .kb-howto-grid { grid-template-columns: minmax(0, 1fr); } }
+    .howto-list-head { display: grid; gap: 4px; margin-bottom: 4px; }
+    .howto-list-head h2 { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 18px; }
+    .howto-list-head p { margin: 0; font-size: 13px; color: var(--muted); }
+    .howto-row { display: flex; align-items: center; gap: 14px; width: 100%; padding: 8px; border: 1px solid transparent; border-radius: var(--r-lg);
+      background: transparent; color: var(--text); text-align: left; font: inherit; cursor: pointer; transition: background var(--dur-1), border-color var(--dur-1); }
+    .howto-row:hover { background: rgb(var(--primary-rgb) / .06); border-color: rgb(var(--primary-rgb) / .3); }
+    .howto-row:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
+    .howto-thumb { position: relative; flex: 0 0 200px; aspect-ratio: 16 / 9; border-radius: var(--r-md); overflow: hidden; background: var(--bg);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+    .howto-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    /* в углу, а не по центру: в центре обложки — название ролика, кнопка закрывала его («Перв▶мета») */
+    .howto-play { position: absolute; left: 8px; bottom: 8px; width: 34px; height: 34px; border-radius: var(--r-pill);
+      display: grid; place-items: center; background: var(--primary); color: var(--on-color); box-shadow: 0 8px 24px -6px rgb(var(--primary-rgb) / .8);
+      transition: transform var(--dur-1); }
+    .howto-row:hover .howto-play { transform: scale(1.08); }
+    .howto-text { display: grid; gap: 4px; min-width: 0; }
+    .howto-text b { font-size: 15px; line-height: 1.3; }
+    .howto-kicker { font-size: 12px; font-weight: 700; color: var(--primary-text); font-variant-numeric: tabular-nums; }
+    .howto-desc { font-size: 13px; line-height: 1.5; color: var(--muted); }
+    .howto-modal-box { width: min(960px, calc(100vw - 24px)); padding: 22px; }
+    .howto-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+    .howto-modal-head h2 { margin: 4px 0 0; font-size: 19px; }
+    .howto-modal-frame { aspect-ratio: 16 / 9; border-radius: var(--r-lg); overflow: hidden; background: var(--bg); }
+    .howto-modal-frame video { display: block; width: 100%; height: 100%; }
+    .howto-next { margin-top: 14px; }
+    .onb-howto-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 2px 0; min-height: 28px; border: 0; background: none;
+      font: inherit; font-size: 12px; font-weight: 600; color: var(--primary-text); cursor: pointer; border-radius: var(--r-sm); }
+    .onb-howto-link:hover { color: var(--text); }
+    .onb-howto-link:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
+    @media (hover: none) and (pointer: coarse) { .onb-howto-link { min-height: 44px; } }
+    @media (max-width: 560px) {
+      .howto-list { padding: 14px; }
+      .howto-row { flex-direction: column; align-items: stretch; }
+      .howto-thumb { flex: 0 0 auto; width: 100%; }
+      .howto-modal-box { padding: 14px; }
+    }
     .kb-doc-card {
       background: var(--panel2); border: 1px solid var(--line);
       border-radius: var(--r-xl); padding: 16px; cursor: pointer; transition: var(--dur-1);
