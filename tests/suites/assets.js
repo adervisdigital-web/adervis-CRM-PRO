@@ -2123,5 +2123,13 @@ module.exports = async function ({ test }) {
     for (const rel of refs) assert(fs.existsSync(path.join(REPO_ROOT, rel)), "app.js ссылается на несуществующий файл: " + rel);
     const loop = path.join(REPO_ROOT, "media/lp-loop.mp4");
     assert(fs.existsSync(loop) && fs.statSync(loop).size < 1048576, "живая петля лендинга отсутствует или тяжелее 1 МБ — она грузится на первом экране");
+    // видеоинструкции (12.10.2026): три ролика с обложками, каждый легче 6 МБ, грузятся только по нажатию
+    const howto = [...app.matchAll(/src: "(media\/howto-[\w-]+\.mp4)", poster: "(media\/howto-[\w-]+\.jpg)"/g)];
+    assert(howto.length === 3, "в HOWTO_VIDEOS должно быть три инструкции, нашлось " + howto.length);
+    for (const [, vid] of howto) {
+      const mb = fs.statSync(path.join(REPO_ROOT, vid)).size / 1048576;
+      assert(mb < 6, `${vid} весит ${mb.toFixed(1)} МБ — инструкция для приложения должна быть легче 6 МБ`);
+    }
+    assert(/HOWTO_VIDEOS\.map[\s\S]{0,300}preload="none"/.test(app), "видеоинструкции должны грузиться по нажатию (preload=\"none\")");
   });
 };

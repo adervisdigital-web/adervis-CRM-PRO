@@ -9,10 +9,21 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 460;
+      const APP_BUILD = 461;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
+      /* Видеоинструкции с голосом (12.10.2026) — в «Базе знаний». Одна история: инструкция 2
+         продолжает сделку из первой. Экраны настоящие, сняты кликами по приложению
+         (promo-video/capture-howto*.js); 1600 px — мельче текст интерфейса не читается. */
+      const HOWTO_VIDEOS = [
+        { src: "media/howto-smeta.mp4", poster: "media/howto-smeta.jpg", secs: 40, title: "Первая смета за пару минут",
+          desc: "Новая сделка, каталог по шагам, «Добавить» — итог, аванс и прибыль считаются сами." },
+        { src: "media/howto-kp.mp4", poster: "media/howto-kp.jpg", secs: 39, title: "КП и аванс по ссылке",
+          desc: "«Ссылка КП» → клиент утверждает и платит с телефона → «Внести в финансы»." },
+        { src: "media/howto-bot.mp4", poster: "media/howto-bot.jpg", secs: 45, title: "Telegram-бот за минуту",
+          desc: "Уведомления о дедлайнах и статусах, а смета, присланная текстом, становится сделкой." },
+      ];
       const STORAGE_KEY = "adervis_pro_381_state";
       const THEME_KEY = "adervis_pro_theme";
       const THEME_MODE_KEY = "adervis_pro_theme_mode";
@@ -8661,6 +8672,28 @@
                 <button class="btn small" onclick="app.openKbCatsModal()" title="Свои тематики и переименование встроенных">${icon("pencil", 13)} Редактировать</button>
               </div>
             </div>
+
+            ${/* Видеоинструкции — над документами, пока человек не ищет и не выбрал тематику:
+                  при поиске блок мешал бы видеть найденное. preload="none" — 3–4 МБ на ролик
+                  не тянем, пока не нажали «смотреть»; .mp4 идёт мимо кэша sw.js (206). */""}
+            ${!search && catFilter === "all" ? `
+            <section class="kb-howto no-print" aria-label="Видеоинструкции">
+              <div class="kb-howto-head">
+                <h2>${icon("video", 16)} Видеоинструкции</h2>
+                <p>Три коротких ролика с голосом — одна сделка от сметы до аванса.</p>
+              </div>
+              <div class="kb-howto-grid">
+                ${HOWTO_VIDEOS.map((v, i) => `
+                  <article class="kb-howto-card">
+                    <div class="kb-howto-frame"><video src="${v.src}" poster="${v.poster}" controls playsinline preload="none" aria-label="Видеоинструкция: ${v.title}"></video></div>
+                    <div class="kb-howto-body">
+                      <span class="kb-howto-kicker">${icon("video", 12)} ${i + 1} из ${HOWTO_VIDEOS.length} · ${v.secs} с</span>
+                      <h3>${v.title}</h3>
+                      <p>${v.desc}</p>
+                    </div>
+                  </article>`).join("")}
+              </div>
+            </section>` : ""}
 
             ${/* Поиск и тематики — тем же видом, что в «Задачах» и каталоге:
                   поле с лупой и чипы. Здесь стояли поле с подписью «Поиск» и
