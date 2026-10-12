@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 464;
+      const APP_BUILD = 466;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
@@ -32589,7 +32589,86 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
         `;
       }
 
-      // focus === "deadline" — с плашки срока в шапке сделки: курсор сразу в поле дедлайна
+      /* ─── Свой выбор даты (12.10.2026, владелец: «можно сделать красивый календарь и удобный
+         выбор даты?»). Системный <input type="date"> рисуется браузером: серый, мелкий, на
+         каждой ОС свой — и молча показывает пусто, если в дате есть время («2026-10-19T…»):
+         у сделки срок 19 октября, а поле — «дд.мм.гггг». Здесь дата разбирается сама.
+         Общий: состояние каждого поля — в _dp[ключ] (не в данных окна — иначе листание
+         месяцев считалось бы несохранённой правкой), get/set/перерисовка — у владельца. */
+      const DP_MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+      const DP_MONTHS_GEN = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+      const DP_WD = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+      const DP_WD_FULL = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"];
+      function _toIsoDay(v) {
+        const s = String(v || "").trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+        const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);       // «19.10.2026» из импорта
+        if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+        const d = s ? new Date(s) : null;
+        return d && !isNaN(d) ? localIso(d) : "";
+      }
+      const _dpDate = (iso) => { const [y, mo, d] = iso.split("-").map(Number); return new Date(y, mo - 1, d); };
+      const _dp = {
+        deal: { open: false, month: "", get: () => (state.dealModal && state.dealModal.deadline) || "",
+          set: (iso) => { if (state.dealModal) state.dealModal.deadline = iso; }, redraw: () => renderModal() },
+      };
+      function _dpRel(iso) {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const n = Math.round((_dpDate(iso) - today) / 864e5);
+        if (n === 0) return "сегодня"; if (n === 1) return "завтра"; if (n === -1) return "вчера";
+        return n > 0 ? `через ${n} ${plural(n, "день", "дня", "дней")}` : `${-n} ${plural(-n, "день", "дня", "дней")} назад`;
+      }
+      function datePickerHtml(key, fieldId) {
+        const c = _dp[key], val = _toIsoDay(c.get()), todayI = todayIso();
+        const month = c.month || (val || todayI).slice(0, 7);
+        const [y, mo] = month.split("-").map(Number);
+        const first = new Date(y, mo - 1, 1), shift = (first.getDay() + 6) % 7;     // неделя с понедельника
+        // только нужные недели (4–6), а не всегда шесть: хвост чужих дат раздувал окно (владелец: «календарь очень большой»)
+        const weeks = Math.ceil((shift + new Date(y, mo, 0).getDate()) / 7);
+        const cells = Array.from({ length: weeks * 7 }, (_, i) => new Date(y, mo - 1, 1 - shift + i));
+        const label = val ? (() => { const d = _dpDate(val); return `${DP_WD[(d.getDay() + 6) % 7]}, ${d.getDate()} ${DP_MONTHS_GEN[d.getMonth()]} ${d.getFullYear()}`; })() : "";
+        // «Сегодня» убрано (владелец 12.10): срок «на сегодня» почти не ставят, а чипы не влезали в строку
+        const quick = [["Завтра", 1], ["Через неделю", 7], ["Через 2 недели", 14], ["Через месяц", "m"]];
+        return `
+          <div class="dp">
+            <button type="button" class="dp-field ${c.open ? "is-open" : ""} ${val ? "" : "is-empty"}" id="${fieldId}" onclick="app.dpToggle('${key}')" aria-expanded="${c.open}">
+              ${icon("calendar", 15)}
+              <span class="dp-field-text">${val ? `<b>${label}</b><span>${_dpRel(val)}</span>` : "Выберите дату"}</span>
+              <span class="dp-chev">${icon("chevron", 13)}</span>
+            </button>
+            <div class="dp-quick">
+              ${quick.map(([t, q]) => `<button type="button" class="chip" onclick="app.dpQuick('${key}','${q}')">${t}</button>`).join("")}
+            </div>
+            ${c.open ? `
+            <div class="dp-cal" role="group" aria-label="Календарь">
+              <div class="dp-head">
+                <button type="button" class="dp-nav" onclick="app.dpShift('${key}',-1)" aria-label="Предыдущий месяц">${icon("chevron", 14)}</button>
+                <b>${DP_MONTHS[mo - 1]} ${y}</b>
+                <button type="button" class="dp-nav is-next" onclick="app.dpShift('${key}',1)" aria-label="Следующий месяц">${icon("chevron", 14)}</button>
+              </div>
+              <div class="dp-grid">
+                ${DP_WD.map((w, i) => `<span class="dp-wd ${i > 4 ? "is-wkd" : ""}">${w}</span>`).join("")}
+                ${cells.map((d) => { const iso = localIso(d), wd = (d.getDay() + 6) % 7;
+                  const cls = [d.getMonth() !== mo - 1 && "is-other", iso === todayI && "is-today", iso === val && "is-sel", iso < todayI && "is-past", wd > 4 && "is-wkd"].filter(Boolean).join(" ");
+                  return `<button type="button" class="dp-day ${cls}" onclick="app.dpPick('${key}','${iso}')" aria-label="${d.getDate()} ${DP_MONTHS_GEN[d.getMonth()]}, ${DP_WD_FULL[d.getDay()]}" ${iso === val ? 'aria-pressed="true"' : ""}>${d.getDate()}</button>`; }).join("")}
+              </div>
+            </div>` : ""}
+          </div>`;
+      }
+      function dpToggle(key) { const c = _dp[key]; if (!c) return; c.open = !c.open; if (c.open) c.month = (_toIsoDay(c.get()) || todayIso()).slice(0, 7); c.redraw(); }
+      function dpShift(key, delta) {
+        const c = _dp[key]; if (!c) return;
+        const [y, mo] = (c.month || todayIso().slice(0, 7)).split("-").map(Number);
+        const d = new Date(y, mo - 1 + delta, 1); c.month = localIso(d).slice(0, 7); c.redraw();
+      }
+      function dpPick(key, iso) { const c = _dp[key]; if (!c) return; c.set(iso); c.month = iso.slice(0, 7); c.open = false; c.redraw(); }
+      function dpQuick(key, q) {
+        const d = new Date(); d.setHours(0, 0, 0, 0);
+        if (q === "m") d.setMonth(d.getMonth() + 1); else d.setDate(d.getDate() + Number(q));
+        dpPick(key, localIso(d));
+      }
+
+      // focus === "deadline" — с плашки срока в шапке сделки: календарь сразу открыт
       function openDealModal(projectId, focus) {
         const project = (state.savedProjects || []).find(p => p.id === projectId);
         if (!project) return;
@@ -32599,7 +32678,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           client: project.client || "",
           clientId: project.clientId || "",
           crmStatus: project.crmStatus || "Лид",
-          deadline: project.deadline || "",
+          deadline: _toIsoDay(project.deadline),   // «2026-10-19T…» системное поле показывало пустым
           manager: project.manager || "",
           tags: project.tags ? [...project.tags] : [],
           total: project.total || 0,
@@ -32609,11 +32688,10 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           hasSmetaLines: Object.keys((project.snapshot || {}).selected || {}).length > 0
         };
         _armDirtyCheck(state.dealModal);
+        _dp.deal.open = focus === "deadline";
+        _dp.deal.month = (state.dealModal.deadline || todayIso()).slice(0, 7);
         renderModal();
-        if (focus === "deadline") {
-          const inp = document.getElementById("dealModalDeadline");
-          if (inp) { inp.focus(); try { inp.showPicker(); } catch (e) {} }   // календарь — если браузер разрешит
-        }
+        if (focus === "deadline") { const f = document.getElementById("dealModalDeadline"); if (f) f.focus(); }
       }
       async function closeDealModal() {
         if (!(await _confirmDiscardIfDirty(state.dealModal))) return;
@@ -32801,9 +32879,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                         чтобы поле перестало гореть. */""}
                   ${m.deadline ? `<button type="button" class="btn small" style="margin-left:auto" onclick="app.clearDealModalDeadline()" title="Убрать дедлайн — работа сделана или срок больше не нужен">Убрать</button>` : ""}
                 </div>
-                <input type="date" id="dealModalDeadline" aria-label="Дедлайн проекта" value="${escapeHtml(m.deadline||"")}"
-                  oninput="app.setDealModalField('deadline',this.value)"
-                  style="width:100%;border-radius:var(--r-lg);border:1px solid var(--line);background:var(--input);color:var(--text);padding:10px 12px;font-size:14px">
+                ${datePickerHtml("deal", "dealModalDeadline")}
               </div>
               ${!m.hasSmetaLines ? `
               <div class="field" style="margin-bottom:14px">
@@ -35330,6 +35406,10 @@ Email: _____________________              Email: _____________________
         closeDealModal,
         setDealModalField,
         clearDealModalDeadline,
+        dpToggle,
+        dpShift,
+        dpPick,
+        dpQuick,
         editClientBudget,
         createTaskOnDate,
         linkDealClient,

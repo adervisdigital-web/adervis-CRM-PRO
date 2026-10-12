@@ -8701,6 +8701,47 @@
     .howto-text b { font-size: 15px; line-height: 1.3; }
     .howto-kicker { font-size: 12px; font-weight: 700; color: var(--primary-text); font-variant-numeric: tabular-nums; }
     .howto-desc { font-size: 13px; line-height: 1.5; color: var(--muted); }
+    /* Свой выбор даты (datePickerHtml): поле-кнопка с датой словами, быстрые сроки, сетка месяца */
+    .dp { display: grid; gap: 10px; }
+    .dp-field { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-lg);
+      background: var(--input); color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: border-color var(--dur-1), box-shadow var(--dur-1); }
+    .dp-field > svg { flex: 0 0 auto; color: var(--primary-text); }
+    .dp-field:hover, .dp-field.is-open { border-color: rgb(var(--primary-rgb) / .5); }
+    .dp-field.is-open { box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / .15); }
+    .dp-field:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
+    .dp-field-text { display: grid; gap: 1px; flex: 1; min-width: 0; font-size: 14px; }
+    .dp-field-text b { font-size: 15px; font-weight: 700; }
+    .dp-field-text span { font-size: 12px; color: var(--muted); }
+    .dp-field.is-empty .dp-field-text { color: var(--muted); }
+    .dp-chev { display: grid; color: var(--muted); transform: rotate(90deg); transition: transform var(--dur-1); }
+    .dp-field.is-open .dp-chev { transform: rotate(-90deg); }
+    .dp-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+    .dp-quick .chip { font-size: 12px; padding: 4px 10px; }
+    /* компактно: окно сделки и так длинное (владелец: «всё не вмещается, календарь очень большой») */
+    .dp-cal { max-width: 340px; padding: 8px 10px 10px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+    .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .dp-head b { font-size: 14px; }
+    .dp-nav { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--line); border-radius: var(--r-md); background: transparent;
+      color: var(--text); cursor: pointer; transition: background var(--dur-1); }
+    .dp-nav svg { transform: rotate(180deg); }
+    .dp-nav.is-next svg { transform: none; }
+    .dp-nav:hover { background: rgb(var(--primary-rgb) / .1); }
+    .dp-nav:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
+    .dp-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+    .dp-wd { padding: 2px 0 4px; text-align: center; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .dp-wd.is-wkd { color: var(--text-danger, var(--red)); opacity: .75; }
+    .dp-day { height: 30px; border: 1px solid transparent; border-radius: var(--r-sm); background: transparent; color: var(--text); font: inherit; font-size: 13px;
+      font-variant-numeric: tabular-nums; cursor: pointer; transition: background var(--dur-1), color var(--dur-1); }
+    .dp-day:hover { background: rgb(var(--primary-rgb) / .12); }
+    .dp-day:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 1px; }
+    .dp-day.is-wkd { color: var(--text-danger, var(--red)); }
+    .dp-day.is-past { opacity: .45; }
+    .dp-day.is-other { opacity: .3; }
+    .dp-day.is-today { border-color: rgb(var(--primary-rgb) / .6); font-weight: 700; }
+    .dp-day.is-sel { background: var(--primary); color: var(--on-color); font-weight: 800; opacity: 1; box-shadow: 0 6px 16px -6px rgb(var(--primary-rgb) / .8); }
+    /* на телефоне палец — дни выше, но не 44: семь колонок по ~46 px и так дают широкую цель */
+    @media (hover: none) and (pointer: coarse) { .dp-cal { max-width: none; } .dp-day { height: 38px; } .dp-nav { width: 36px; height: 36px; } }
+
     /* Плашка срока в шапке сделки — кнопка: открывает карточку сделки на поле дедлайна */
     .deal-deadline-pill { display: inline-flex; align-items: center; gap: 5px; font-family: inherit; line-height: 1.4; cursor: pointer; position: relative;
       transition: filter var(--dur-1), transform var(--dur-1); }
