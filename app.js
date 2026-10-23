@@ -29144,7 +29144,7 @@
       const TM_DURS = [5, 10, 15, 20, 30, 45, 60, 90, 120, 150, 180, 240, 300];
       const TM_TEMPLATES = [["Сбор группы", "prep", 30], ["Грим и костюм", "prep", 45], ["Выставить свет", "prep", 45], ["Съёмка", "shoot", 60], ["Обед", "break", 60], ["Переезд", "move", 30], ["Сворачиваемся", "prep", 30]];
       let _tm = null, _tmFor = "", _tmLoading = false, _tmErr = "", _tmStatus = "", _tmOpen = "", _tmRole = "";
-      let _tmSaveTimer = null, _tmDirty = false, _tmSaving = false, _tmPoll = null;
+      let _tmSaveTimer = null, _tmDirty = false, _tmSaving = false, _tmPoll = null, _tmChain = true;
 
       const _tmMin = (s) => { const m = String(s || "").match(/^(\d{1,2}):(\d{2})/); return m ? Math.min(23, +m[1]) * 60 + Math.min(59, +m[2]) : 0; };
       const _tmHm = (n) => { n = ((Math.round(n) % 1440) + 1440) % 1440; return String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0"); };
@@ -29161,7 +29161,7 @@
         const kinds = TM_KINDS.map(k => k[0]);
         d.blocks = (Array.isArray(d.blocks) ? d.blocks : []).slice(0, 200).map(b => ({
           id: /^[a-z0-9]{1,20}$/i.test(String(b && b.id)) ? String(b.id) : _tmUid(),
-          start: _tmHm(_tmMin(b && b.start)), dur: Math.max(5, Math.min(720, Math.round(+(b && b.dur) || 30))),
+          start: _tmHm(_tmMin(b && b.start)), dur: Math.max(1, Math.min(720, Math.round(+(b && b.dur) || 30))),
           title: String((b && b.title) || "").slice(0, 300), kind: kinds.includes(b && b.kind) ? b.kind : "other",
           roles: (Array.isArray(b && b.roles) ? b.roles : []).map(r => String(r).slice(0, 60)),
           location: String((b && b.location) || "").slice(0, 300), address: String((b && b.address) || "").slice(0, 300),
@@ -29214,13 +29214,22 @@
         if (!_tmCan()) return;
         const d = _tmData(), b = d.blocks.find(x => x.id === id);
         if (!b) return;
-        if (key === "dur") {
-          // длительность сдвигает и всё, что идёт ПОСЛЕ блока, — следующий блок встаёт за ним, как в жизни
-          const nd = Math.max(5, Math.min(720, Math.round(+value || 0))), delta = nd - b.dur, end = _tmMin(b.start) + b.dur;
-          d.blocks.forEach(x => { if (x !== b && _tmMin(x.start) >= end) x.start = _tmHm(_tmMin(x.start) + delta); });
-          b.dur = nd; return _tmChanged(true);
+        /* Начало, конец и длительность вводятся с точностью до минуты. С галочкой
+           «Двигать следующие» (_tmChain, включена по умолчанию) всё, что шло ПОСЛЕ
+           блока, сдвигается на ту же разницу — следующий блок встаёт за ним, как в жизни. */
+        if (key === "start" || key === "end" || key === "dur") {
+          if (!/\d/.test(String(value))) return;      // поле очистили — ничего не трогаем
+          const s0 = _tmMin(b.start), e0 = s0 + b.dur;
+          let s = s0, dur = b.dur;
+          if (key === "start") s = _tmMin(value);
+          else if (key === "end") { dur = _tmMin(value) - s0; if (dur <= 0) dur += 1440; }
+          else dur = Math.round(+value || 0);
+          dur = Math.max(1, Math.min(720, dur));
+          const delta = (s + dur) - e0;
+          if (_tmChain && delta) d.blocks.forEach(x => { if (x !== b && _tmMin(x.start) >= e0) x.start = _tmHm(_tmMin(x.start) + delta); });
+          b.start = _tmHm(s); b.dur = dur;
+          return _tmChanged(true);
         }
-        if (key === "start") { b.start = _tmHm(_tmMin(value)); return _tmChanged(true); }
         if (key === "kind") { b.kind = value; return _tmChanged(true); }
         if (["title", "location", "address", "props", "notes"].includes(key)) { b[key] = String(value).slice(0, key === "props" || key === "notes" ? 2000 : 300); _tmChanged(false); }
       }
@@ -29255,15 +29264,20 @@
         _tmOpen = ""; _tmChanged(true);
         toastUndo("Блок удалён", () => { _tmData().blocks.push(removed); _tmChanged(true); });
       }
+      function tmChain(on) { _tmChain = !!on; }
       function tmOpen(id) { if (!_tmCan()) return; _tmOpen = _tmOpen === id ? "" : id; render(); }
       // «Отстаём на N минут»: сдвигаются текущий блок и всё, что после; копится в «сдвиг за день».
+      // Своё число минут: «на 25», «на −10» (минус — и типографский, и обычный).
+      function tmShiftInput() { const el = document.getElementById("tmShiftIn"); if (el) tmShift(String(el.value).replace("−", "-")); }
       function tmShift(mins) {
         if (!_tmCan()) return;
+        mins = Math.round(+mins || 0);
+        if (!mins || Math.abs(mins) > 720) { toast("Введите, на сколько минут сдвинуть: например 25 или −10"); return; }
         const live = _tmLive(), d = _tmData();
         const from = live ? (live.cur ? _tmMin(live.cur.start) : live.now) : 0;
-        d.blocks.forEach(b => { const s = _tmMin(b.start); if (live && live.cur && b.id === live.cur.id) { b.dur = Math.max(5, b.dur + mins); return; } if (s >= from) b.start = _tmHm(s + mins); });
+        d.blocks.forEach(b => { const s = _tmMin(b.start); if (live && live.cur && b.id === live.cur.id) { b.dur = Math.max(1, b.dur + mins); return; } if (s >= from) b.start = _tmHm(s + mins); });
         d.delay = (d.delay || 0) + mins;
-        toast(mins > 0 ? `Тайминг сдвинут на ${mins} мин — у группы обновится сам` : `Догнали ${-mins} мин`);
+        toast(mins > 0 ? `Тайминг сдвинут на ${mins} мин — у группы обновится сам` : `Сдвинули на ${-mins} мин раньше — у группы обновится сам`);
         _tmChanged(true);
       }
       function tmRoleAdd(input) {
@@ -29374,6 +29388,8 @@
         const shootMin = all.filter(b => b.kind === "shoot").reduce((s, b) => s + b.dur, 0);
         const maps = (a) => "https://yandex.ru/maps/?text=" + encodeURIComponent(a);
         const tel = (p) => "tel:" + String(p).replace(/[^\d+]/g, "");
+        // Сдвиг на своё число минут: в день съёмки — «отстаём», в другой день — весь план целиком.
+        const shiftExact = `<span class="tm-shift-exact"><input id="tmShiftIn" type="text" inputmode="numeric" placeholder="25" aria-label="На сколько минут сдвинуть (минус — раньше)" onkeydown="if(event.key==='Enter'){event.preventDefault();app.tmShiftInput()}"><span class="u-meta">мин</span><button type="button" class="btn small" onclick="app.tmShiftInput()">Сдвинуть</button></span>`;
         const blocksWord = (n) => n % 10 === 1 && n % 100 !== 11 ? "блок" : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "блока" : "блоков");
         const stats = [
           first ? [`${first.start}–${dayEnd}`, "съёмочный день"] : null,
@@ -29406,6 +29422,7 @@
                 ? `<input value="${escapeHtml(d.address)}" oninput="app.tmField('address',this.value)" placeholder="Город, улица, дом" aria-label="Адрес площадки">`
                 : (d.address ? `<b>${escapeHtml(d.address)}</b><a class="tm-act" href="${escapeHtml(maps(d.address))}" target="_blank" rel="noopener">${icon("external", 13)} На карте</a>` : `<b>—</b>`)}</div></div>
             </div>
+            ${ed && !live && all.length ? `<div class="tm-shift"><span class="u-meta">Перенести весь день (минус — раньше):</span>${shiftExact}</div>` : ""}
           </div>`;
         const liveHtml = live ? (() => {
           const c = live.cur, n = live.next;
@@ -29422,7 +29439,7 @@
               </div>
               ${c ? `<div class="tm-live-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Прошло от блока"><i style="width:${pct}%"></i></div>` : ""}
               ${n ? `<div class="tm-live-next tm-k-${n.kind}"><i></i><span class="u-meta">Дальше</span><b>${n.start}</b><span>${escapeHtml(n.title || "Без названия")}</span></div>` : ""}
-              ${ed ? `<div class="tm-shift"><span class="u-meta">Отстаём от плана:</span><div class="tm-seg">${[5, 10, 15, 30].map(m => `<button type="button" onclick="app.tmShift(${m})">+${m}</button>`).join("")}<button type="button" class="is-back" onclick="app.tmShift(-5)" aria-label="Догнали 5 минут" title="Догнали 5 минут">−5</button></div><span class="u-meta">мин</span></div>` : ""}
+              ${ed ? `<div class="tm-shift"><span class="u-meta">Отстаём от плана:</span><div class="tm-seg">${[5, 10, 15, 30].map(m => `<button type="button" onclick="app.tmShift(${m})">+${m}</button>`).join("")}<button type="button" class="is-back" onclick="app.tmShift(-5)" aria-label="Догнали 5 минут" title="Догнали 5 минут">−5</button></div>${shiftExact}</div>` : ""}
             </div>`;
         })() : "";
         const rolesAdmin = ed ? `
@@ -29439,14 +29456,18 @@
             <button type="button" class="chip ${!roleF ? "active" : ""}" data-role="" onclick="app.tmRoleFilter(this)">Все</button>
             ${d.roles.map(r => `<button type="button" class="chip ${roleF === r ? "active" : ""}" data-role="${escapeHtml(r)}" onclick="app.tmRoleFilter(this)">${escapeHtml(r)}</button>`).join("")}
           </div>` : "";
-        const durOpts = (cur) => [...new Set([...TM_DURS, cur])].sort((a, b) => a - b).map(m => `<option value="${m}" ${m === cur ? "selected" : ""}>${_tmDurText(m)}</option>`).join("");
+        // Длительность — число минут с точностью до одной; частые значения подсказывает список.
+        const durList = `<datalist id="tmDurList">${TM_DURS.map(m => `<option value="${m}">${_tmDurText(m)}</option>`).join("")}</datalist>`;
         const editForm = (b) => `
           <div class="tm-edit">
-            <div class="tm-edit-grid">
-              <div class="field"><label for="tmS_${b.id}">Начало</label><input id="tmS_${b.id}" type="time" step="300" value="${b.start}" onchange="app.tmBlockSet('${b.id}','start',this.value)"></div>
-              <div class="field"><label for="tmD_${b.id}">Длительность</label><select id="tmD_${b.id}" onchange="app.tmBlockSet('${b.id}','dur',this.value)">${durOpts(b.dur)}</select></div>
+            <div class="tm-edit-grid four">
+              <div class="field"><label for="tmS_${b.id}">Начало</label><input id="tmS_${b.id}" type="time" step="60" value="${b.start}" onchange="app.tmBlockSet('${b.id}','start',this.value)"></div>
+              <div class="field"><label for="tmE_${b.id}">Конец</label><input id="tmE_${b.id}" type="time" step="60" value="${_tmHm(_tmMin(b.start) + b.dur)}" onchange="app.tmBlockSet('${b.id}','end',this.value)"></div>
+              <div class="field"><label for="tmD_${b.id}">Длительность, мин</label><input id="tmD_${b.id}" type="number" inputmode="numeric" min="1" max="720" step="1" list="tmDurList" value="${b.dur}" onchange="app.tmBlockSet('${b.id}','dur',this.value)"><span class="tm-hint">${b.dur >= 60 ? "= " + _tmDurText(b.dur) : ""}</span></div>
               <div class="field"><label for="tmK_${b.id}">Тип</label><select id="tmK_${b.id}" onchange="app.tmBlockSet('${b.id}','kind',this.value)">${TM_KINDS.map(([k, l]) => `<option value="${k}" ${b.kind === k ? "selected" : ""}>${l}</option>`).join("")}</select></div>
             </div>
+            <label class="tm-check"><input type="checkbox" ${_tmChain ? "checked" : ""} onchange="app.tmChain(this.checked)"> Двигать следующие блоки, когда меняю время этого</label>
+            ${durList}
             <div class="field"><label for="tmT_${b.id}">Что происходит</label><input id="tmT_${b.id}" value="${escapeHtml(b.title)}" oninput="app.tmBlockSet('${b.id}','title',this.value)" placeholder="Например: съёмка интервью"></div>
             ${d.roles.length ? `<div class="field"><label>Кто занят</label><div class="tm-roles">${d.roles.map(r => `<button type="button" class="chip ${b.roles.includes(r) ? "active" : ""}" data-role="${escapeHtml(r)}" onclick="app.tmBlockRole('${b.id}',this)" aria-pressed="${b.roles.includes(r)}">${escapeHtml(r)}</button>`).join("")}</div></div>` : ""}
             <div class="tm-edit-grid two">
@@ -36100,6 +36121,8 @@ Email: _____________________              Email: _____________________
         tmDel,
         tmOpen,
         tmShift,
+        tmShiftInput,
+        tmChain,
         tmRoleAdd,
         tmRoleDel,
         tmRoleFilter,

@@ -1154,9 +1154,9 @@ module.exports = async function ({ browser, baseUrl, test }) {
     try {
       assert(await page.$(".tm-pill.is-admin"), "администратор не видит, что он в режиме правки");
       await page.click(".tm-row:nth-child(2) .tm-card");                 // «Грим героя», 60 мин
-      await page.waitForSelector(".tm-edit select", { timeout: 3000 });
-      const dur = await page.$('.tm-edit select[id^="tmD_"]');
-      await dur.selectOption("90");
+      await page.waitForSelector('.tm-edit input[id^="tmD_"]', { timeout: 3000 });
+      await page.fill('.tm-edit input[id^="tmD_"]', "90");                 // точное число минут, а не выбор из списка
+      await page.press('.tm-edit input[id^="tmD_"]', "Tab");
       await page.waitForTimeout(200);
       const starts = await page.$$eval(".tm-time b", (els) => els.map((e) => e.textContent));
       assertEqual(starts.join(" "), "09:00 09:30 11:00 13:00", "длительность не сдвинула следующие блоки");
@@ -1175,6 +1175,36 @@ module.exports = async function ({ browser, baseUrl, test }) {
       await page.fill(".tm-title-in", "Моё название");
       await page.waitForTimeout(1300);
       assertEqual(await page.inputValue(".tm-title-in"), "Чужая правка", "при конфликте осталась своя версия поверх чужой");
+      assertEqual(errors.length, 0, "ошибки на странице: " + errors.join(" | "));
+    } finally { await context.close(); }
+  });
+
+  await test("тайминг: точное время — конец блока, 7 минут, «не двигать следующие», сдвиг на своё число", async () => {
+    // Дата в будущем — живого режима нет, сдвиг на своё число переносит весь день.
+    const { context, page, errors, saves } = await bootTiming(tmRow({ can_edit: true }), { key: TM_KEY, size: { width: 1200, height: 900 } });
+    try {
+      const starts = () => page.$$eval(".tm-time b", (els) => els.map((e) => e.textContent).join(" "));
+      const setField = async (sel, v) => { await page.fill(sel, v); await page.press(sel, "Tab"); await page.waitForTimeout(200); };
+      await page.click(".tm-row:nth-child(2) .tm-card");                 // «Грим героя» 09:30, 60 мин
+      await page.waitForSelector('.tm-edit input[id^="tmE_"]', { timeout: 3000 });
+      // Конец 10:47 → длительность 77 мин, следующие встают за ним.
+      await setField('.tm-edit input[id^="tmE_"]', "10:47");
+      assertEqual(await page.inputValue('.tm-edit input[id^="tmD_"]'), "77", "конец блока не пересчитал длительность");
+      assertEqual(await starts(), "09:00 09:30 10:47 12:47", "конец блока не сдвинул следующие");
+      // Длительность 7 минут — меньше прежнего минимума в 5-минутных шагах не округляется.
+      await setField('.tm-edit input[id^="tmD_"]', "7");
+      assertEqual(await starts(), "09:00 09:30 09:37 11:37", "длительность 7 мин не принялась точно");
+      // Без галочки «двигать следующие» меняется только этот блок.
+      await page.uncheck(".tm-check input");
+      await setField('.tm-edit input[id^="tmS_"]', "09:41");
+      assertEqual(await starts(), "09:00 09:37 09:41 11:37", "без галочки сдвинулись и следующие блоки");
+      // Перенос всего дня на своё число минут, с минусом.
+      await page.fill("#tmShiftIn", "−13");
+      await page.click(".tm-shift-exact button");
+      await page.waitForTimeout(200);
+      assertEqual(await starts(), "08:47 09:24 09:28 11:24", "день не перенёсся на −13 минут");
+      await page.waitForTimeout(1300);
+      assertEqual(saves[saves.length - 1].p_data.blocks.find((b) => b.id === "b1").start, "08:47", "перенос не ушёл на сервер");
       assertEqual(errors.length, 0, "ошибки на странице: " + errors.join(" | "));
     } finally { await context.close(); }
   });
