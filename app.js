@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 467;
+      const APP_BUILD = 469;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
@@ -1342,6 +1342,69 @@
           ],
           notes: ["5 роликов по 15–60 сек за один день съёмки.", "В монтаж входят субтитры и базовые переходы."]
         },
+
+        // ── Stories для соцсетей (3 уровня) — владелец 17.10.2026 ─────────
+        // Самый короткий заказ в продакшне: оператор на пару часов с камерой в руках и
+        // ролик до минуты. Оператор считается ПО ЧАСАМ (crewBilling: "hour" — тот же
+        // режим, что «Почасовая работа» в строке сметы), а не сменой: за два часа
+        // полная смена завышала бы пакет втрое. «До 1 минуты» — это ровно то, что
+        // входит в базу монтажа короткого ролика (includedMinutes = 1).
+        {
+          id: "stories_2h",
+          name: "Stories 1 — 2 часа",
+          cat: "social", tier: 1,
+          desc: "Съёмка для соцсетей: 2 часа видео с рук и монтаж ролика до 1 минуты — Stories, Reels, Shorts, VK Клипы.",
+          goodFor: "сторис бренда, кафе и магазины, эксперты, анонсы",
+          items: [
+            { id: "camera_operator", line: { crewBilling: "hour", hours: 2 } },
+            "camera_basic", "edit_short", "music"
+          ],
+          notes: ["2 часа съёмки с рук — без штатива и стабилизатора, живая подача.", "Один вертикальный ролик до 1 минуты с музыкой."]
+        },
+        {
+          id: "stories_half",
+          name: "Stories 2 — Полсмены",
+          cat: "social", tier: 2,
+          desc: "4 часа съёмки с рук и три ролика до 1 минуты: субтитры, обложки, музыка.",
+          goodFor: "регулярные сторис, запуски, акции, SMM-отделы",
+          items: [
+            { id: "camera_operator", line: { shiftType: "half" } },
+            "camera_basic", "light_oncam",
+            { id: "edit_short", line: { extraVersions: 2 } },
+            "subtitles", { id: "cover_design", line: { qty: 3 } }, "music"
+          ],
+          notes: ["Полсмены — 4 часа на площадке, накамерный свет для съёмки в помещении.", "Три ролика из одного материала, у каждого своя обложка."]
+        },
+        {
+          id: "stories_day",
+          name: "Stories 3 — Смена",
+          cat: "social", tier: 3,
+          desc: "Полный день съёмки с рук и шесть роликов до 1 минуты: план съёмки, звук, субтитры, обложки.",
+          goodFor: "сторис и Reels на месяц вперёд, бренды, блогеры, сети заведений",
+          items: [
+            "shoot_plan",
+            { id: "camera_operator", line: { shiftType: "full" } },
+            "camera_basic", "light_oncam", "sound_kit",
+            { id: "edit_short", line: { extraVersions: 5 } },
+            "subtitles", { id: "cover_design", line: { qty: 6 } }, "music"
+          ],
+          notes: ["Смена — 8 часов: хватает на 6 сценариев в разных локациях.", "Петличка или направленный микрофон — для роликов с речью."]
+        },
+        {
+          id: "stories_event",
+          name: "Stories с мероприятия",
+          cat: "events",
+          desc: "Оператор 2 часа на событии с камерой в руках и три коротких ролика до 1 минуты для сторис.",
+          goodFor: "открытия, презентации, вечеринки, выставочные стенды",
+          // tier не задан: это не ступень видеоотчёта, а отдельный короткий формат для сторис
+          items: [
+            { id: "event_cameraman", line: { crewBilling: "hour", hours: 2 } },
+            "camera_basic", "light_oncam",
+            { id: "edit_short", line: { extraVersions: 2 } },
+            "music"
+          ],
+          notes: ["Снимаем самые живые моменты события — без полного отчётного ролика.", "Три вертикальных ролика до 1 минуты с музыкой."]
+        },
         {
           id: "youtube_project",
           name: "YouTube-проект / обзор",
@@ -1588,6 +1651,14 @@
       let _supabase = null;
       let _realtimeChannel = null;
       let _adminSession = null;
+      // Пришли по ссылке «Восстановить пароль» — после входа открыть «Вход и пароль» (_openPasswordRecovery)
+      let _pwRecovery = /type=recovery/.test(location.hash + location.search), _pwRecoveryShown = false;
+      // вход дорисовывает экран асинхронно (профиль, облако) — открываем форму чуть позже, один раз
+      function _maybeOpenRecovery() {
+        if (!_pwRecovery || _pwRecoveryShown) return;
+        _pwRecoveryShown = true;
+        setTimeout(() => _openPasswordRecovery(), 1200);
+      }
       let _loggedInUserId = null; // защита от повторной полной загрузки при дублях SIGNED_IN
       let _userProfile = null;   // { subscription_status, subscription_plan, subscription_expires_at, agency_id }
       let _cloudSaveTimer = null;
@@ -1810,16 +1881,18 @@
           // Быстрая проверка сохранённой сессии — не показываем auth gate до её результата
           _supabase.auth.getSession().then(({ data: { session } }) => {
             _authChecking = false;
-            if (session) { _adminSession = session; _onUserLoggedIn(session); }
+            if (session) { _adminSession = session; _onUserLoggedIn(session); _maybeOpenRecovery(); }
             else { renderAuthGateEl(); }
           });
           _supabase.auth.onAuthStateChange((event, session) => {
+            // Вход по ссылке «Восстановить пароль»: впустить — и сразу спросить новый пароль
+            if (event === "PASSWORD_RECOVERY") _pwRecovery = true;
             // INITIAL_SESSION fires on subscribe and duplicates the getSession() call above
             if (event === "INITIAL_SESSION") return;
             // TOKEN_REFRESHED: only update the session token, do not reload all data
             if (event === "TOKEN_REFRESHED") { _adminSession = session; return; }
             _adminSession = session;
-            if (session) { _onUserLoggedIn(session); }
+            if (session) { _onUserLoggedIn(session); _maybeOpenRecovery(); }
             else {
               _loggedInUserId = null;
               _userProfile = null;
@@ -5158,7 +5231,7 @@
          человеком с двумя съёмками в месяц значит заставлять его выбирать не из
          своего. Свои пакеты (id «package_…») видны всегда. */
       const START_PACKAGE_IDS = new Set([
-        "social_start", "reels_series", "content_day",
+        "social_start", "reels_series", "content_day", "stories_2h", "stories_event",
         "interview_base", "business_video",
         "photo_content", "photo_content_pro", "photo_marketplace",
         "event_photo_report", "event_report_half",
@@ -8076,9 +8149,21 @@
         if (p1 !== p2) { toast("Пароли не совпадают"); return; }
         if (!_supabase) return;
         const { error } = await _supabase.auth.updateUser({ password: p1 });
-        if (error) { toast("Ошибка: " + error.message); return; }
-    toast("Пароль успешно изменён");
-        document.getElementById("changePasswordBox").innerHTML = "";
+        if (error) {
+          // ответы Supabase — по-английски; самые частые переводим, остальные показываем как есть
+          const m = String(error.message || "");
+          const ru = /different from the old/i.test(m) ? "Новый пароль совпадает со старым — придумайте другой"
+            : /at least \d+ char/i.test(m) ? "Пароль слишком короткий"
+            : /reauthenticat/i.test(m) ? "Нужен свежий вход: выйдите и войдите по ссылке «Забыли пароль?» из письма"
+            : /weak|pwned|leaked/i.test(m) ? "Пароль слишком простой или встречался в утечках — придумайте другой"
+            : "Ошибка: " + m;
+          toast(ru); return;
+        }
+        toast("Пароль сохранён — теперь можно входить по email и паролю");
+        const box = document.getElementById("changePasswordBox");
+        _pwRecovery = false;
+        if (box && box.dataset.inline) render();       // вкладка «Вход и пароль»: форма остаётся, поля пустые
+        else if (box) box.innerHTML = "";
       }
 
       async function confirmDeleteAccount() {
@@ -28989,6 +29074,45 @@
         event.target.value = "";
       }
 
+      /* Вкладка «Вход и пароль» (владелец 23.10.2026: «добавить смену пароля… не могу
+         зайти в свой аккаунт, подключено было через Google»). Аккаунт, созданный через
+         Google, пароля не имеет вовсе, а кнопку Google с экрана входа убрали (406-ФЗ):
+         в инкогнито или на новом устройстве войти стало нечем. Смена пароля жила только
+         в «Профиле» за кнопкой — здесь форма открыта сразу и честно говорит, почему её
+         стоит заполнить. Тот же вид открывается после ссылки «Восстановить пароль». */
+      function renderSettingsAccount() {
+        const u = _adminSession && _adminSession.user;
+        if (!u) return `<div class="panel set-card"><p class="u-meta">Войдите в аккаунт, чтобы задать или сменить пароль.</p></div>`;
+        const md = u.app_metadata || {};
+        const provs = Array.isArray(md.providers) && md.providers.length ? md.providers : [md.provider].filter(Boolean);
+        const PROV = { email: "Email и пароль", google: "Google", vk: "VK ID", yandex: "Яндекс ID" };
+        const oauthOnly = provs.length && !provs.includes("email");
+        return `
+          <div class="panel set-card">
+            <div class="set-card-head">${iconBadge("lock", "var(--blue)", 30)}<div><h2>Вход и пароль</h2><p>Пароль для входа по email — на любом устройстве и в режиме инкогнито</p></div></div>
+            ${_pwRecovery ? `<div class="acc-note is-ok">${icon("key", 14)} Вы перешли по ссылке восстановления — придумайте новый пароль ниже и сохраните.</div>` : ""}
+            ${oauthOnly && !_pwRecovery ? `<div class="acc-note">${icon("info", 14)} Аккаунт создан через ${provs.map(p => PROV[p] || p).join(", ")}. Если пароль вы ещё не задавали — задайте его здесь: кнопки Google на экране входа больше нет, а с паролем войдёте по email где угодно.</div>` : ""}
+            <div class="acc-row"><span class="u-meta">Email аккаунта</span><b>${escapeHtml(u.email || "—")}</b></div>
+            <div class="acc-row"><span class="u-meta">Способ входа</span><span class="acc-provs">${provs.map(p => `<span class="chip">${escapeHtml(PROV[p] || p)}</span>`).join("") || "—"}</span></div>
+            <div id="changePasswordBox" data-inline="1" style="margin-top:14px">
+              <div class="grid two">
+                <div class="field"><label for="newPassInput">Новый пароль</label><input type="password" id="newPassInput" autocomplete="new-password" placeholder="не меньше 6 символов"></div>
+                <div class="field"><label for="newPassConfirm">Повторите пароль</label><input type="password" id="newPassConfirm" autocomplete="new-password"></div>
+              </div>
+              <div class="toolbar" style="margin-top:12px"><button class="btn primary" onclick="app.submitChangePassword()">${icon("key", 13)} Сохранить пароль</button></div>
+            </div>
+          </div>`;
+      }
+      // После ссылки «Восстановить пароль»: Supabase впускает по ссылке (событие
+      // PASSWORD_RECOVERY), но раньше на этом всё и заканчивалось — новый пароль никто
+      // не спрашивал, и в следующий раз человек снова не мог войти.
+      function _openPasswordRecovery() {
+        _settingsTab = "account";
+        try { history.replaceState(null, "", location.pathname); } catch (e) {}
+        go("settings");
+        setTimeout(() => { const i = document.getElementById("newPassInput"); if (i) i.focus(); }, 300);
+      }
+
       // Секция «Уведомления (Telegram)» — вынесена из renderSettings (self-contained, читает
       // только state.telegramChatIds). Первый шаг декомпозиции длинной renderSettings.
       function renderSettingsTelegram() {
@@ -29215,6 +29339,7 @@
       function renderSettings() {
         const tabs = [
           ["company", icon("gear"), "Компания"],
+          ["account", icon("lock"), "Вход и пароль"],
           ["kp", icon("contract"), "КП и договоры"],
           ["appearance", icon("palette"), "Оформление"],
           ["notify", icon("bell"), "Уведомления"],
@@ -29855,6 +29980,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                 // заголовка внутри вкладки (см. iconBadge() в контенте ниже).
                 const TAB_COLOR_CLASS = {
                   notify: "seg-switch-yellow",
+                  account: "seg-switch-blue",
                   integrations: "seg-switch-blue",
                   data: "seg-switch-green",
                   __admin_link: "seg-switch-link"
@@ -29867,6 +29993,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
             </div>
 
             ${tab === "company" ? companyTab : ""}
+            ${tab === "account" ? renderSettingsAccount() : ""}
             ${tab === "kp" ? kpTab : ""}
             ${tab === "appearance" ? renderSettingsAppearance() : ""}
             ${tab === "notify" ? notifyTab : ""}
@@ -30115,6 +30242,13 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
           tiers: ["social_start", "social_pro", "social_media"],
           days: true, weeks: [1, 2, 3],
           extras: ["vertical_adapt", "smm_cutdowns", "drone", "makeup", "location_rent", "voiceover_record"]
+        },
+        {
+     id: "stories", icon: "", title: "Stories для соцсетей",
+          sub: "Съёмка с рук на пару часов и короткие ролики до минуты",
+          tiers: ["stories_2h", "stories_half", "stories_day"],
+          days: false, weeks: [1, 1, 2],
+          extras: ["subtitles", "cover_design", "sound_kit", "makeup", "smm_cutdowns", "location_rent"]
         },
         {
      id: "business", icon: "", title: "Видео о компании",

@@ -6045,7 +6045,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
       `цена пакета поехала за числом дней открытой сделки: ${onEmpty} → ${onThreeDays}`);
   });
 
-  await test("витрина пакетов не врёт: карточка сходится с итогом сметы по ВСЕМ 45", async () => {
+  await test("витрина пакетов не врёт: карточка сходится с итогом сметы по ВСЕМ пакетам", async () => {
     await dismissStaleDialog(page);
     const { ctx, p } = await (async () => {
       const b = await bootLocal(browser, baseUrl, { width: 1300, height: 950, seedDemo: true });
@@ -7563,7 +7563,8 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assert(r.места, "в таблице нет строки «Пользователей в команде»");
       assertEqual(r.места[0], "1", "пробному снова обещано больше одного места: " + r.места.join(" | "));
       assert(!/Экспорт в Excel/.test(r.стандарт), "«Экспорт в Excel» снова подан отличием «Стандарта» — он открыт на всех тарифах");
-      assert(/36 позиций · 13 пакетов/.test(r.каталог[1]) && /36 позиций · 13 пакетов/.test(r.старт), "каталог «Старта» не назван числами: " + r.каталог[1]);
+      // 15 пакетов: с 17.10.2026 в «Старт» входят «Stories 1 — 2 часа» и «Stories с мероприятия» (START_PACKAGE_IDS)
+      assert(/36 позиций · 15 пакетов/.test(r.каталог[1]) && /36 позиций · 15 пакетов/.test(r.старт), "каталог «Старта» не назван числами: " + r.каталог[1]);
 
       await p.evaluate(() => window.app.go("profile"));
       await p.waitForTimeout(500);
