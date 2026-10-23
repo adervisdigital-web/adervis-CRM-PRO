@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 470;
+      const APP_BUILD = 471;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
@@ -29364,6 +29364,7 @@
           const typing = a && a.closest && a.closest(".tm-wrap") && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
           if (_tmDirty || _tmSaving || typing) return;
           const { data, error } = await _supabase.rpc("get_project_timing", { p_id: _tm.id, p_token: _timingKey || null });
+          if (!error && data === null && !inCrm) { clearInterval(_tmPoll); _tmPoll = null; _tm = null; _tmErr = "Тайминг удалён студией — уточните у администратора, где новый"; render(); return; }
           if (!error && data && data.version > _tm.version) { const keep = _tm.edit_token; _tm = Object.assign(data, inCrm ? { can_edit: true, edit_token: keep } : {}); render(); }
           else if (_tmLive()) render();                  // живой режим: «сейчас идёт» переезжает со временем
         }, 15000);
@@ -29559,11 +29560,30 @@
           <div class="panel tm-share">
             <div class="tm-share-row"><div><b>Ссылка для группы</b><p class="u-meta">Только просмотр: план дня, должности, адреса, «сейчас идёт»</p></div><button type="button" class="btn small" onclick="app.tmCopy('view')">${icon("link", 13)} Скопировать</button></div>
             <div class="tm-share-row"><div><b>Ссылка для администратора площадки</b><p class="u-meta">Может править тайминг без аккаунта — отдавайте только ему</p></div><button type="button" class="btn small" onclick="app.tmCopy('edit')">${icon("key", 13)} Скопировать</button></div>
+            <div class="tm-share-foot"><button type="button" class="btn small danger-quiet" onclick="app.tmRemove()">${TRASH_SVG} Удалить тайминг</button></div>
           </div>
           ${timingBoardHtml("crm")}
         </div>`;
       }
       function tmReload() { _tmFor = ""; render(); }
+      // Удалить тайминг сделки: обе ссылки перестают работать, у открытых страниц через опрос появится «удалён».
+      async function tmRemove() {
+        if (!_tm || !_supabase) return;
+        const ok = await confirmDialog({
+          title: "Удалить тайминг?",
+          message: "Ссылки для группы и администратора перестанут открываться. Блоки, должности и заметки удалятся без возврата. Новый тайминг можно будет создать заново.",
+          okText: "Удалить", danger: true,
+        });
+        if (!ok || !_tm) return;
+        clearTimeout(_tmSaveTimer); _tmDirty = false;
+        // select("id") — чтобы отличить удаление от «RLS молча не дал удалить ни строки» (supabase-js не бросает)
+        const { data, error } = await _supabase.from("project_timings").delete().eq("id", _tm.id).select("id");
+        if (error || !data || !data.length) { toast("Не удалось удалить тайминг" + (error ? ": " + error.message : " — нет прав")); return; }
+        clearInterval(_tmPoll); _tmPoll = null;
+        _tm = null; _tmOpen = ""; _tmRole = ""; _tmStatus = "";
+        toast("Тайминг удалён");
+        render();
+      }
 
       // Секция «Уведомления (Telegram)» — вынесена из renderSettings (self-contained, читает
       // только state.telegramChatIds). Первый шаг декомпозиции длинной renderSettings.
@@ -36135,6 +36155,7 @@ Email: _____________________              Email: _____________________
         tmCreate,
         tmCopy,
         tmReload,
+        tmRemove,
         confirmDeleteAccount,
 
         openHelpModal,

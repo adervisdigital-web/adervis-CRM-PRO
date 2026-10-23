@@ -7669,7 +7669,21 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assertEqual(await p.$$eval(".tm-row", (els) => els.length), 6, "черновик тайминга — не типовой день из шести блоков");
       assert(создано.p_data.roles.includes("Администратор"), "в черновике нет должности «Администратор»");
       const ссылки = await p.$$eval(".tm-share button", (els) => els.map((e) => e.getAttribute("onclick")));
-      assertEqual(ссылки.join(" "), "app.tmCopy('view') app.tmCopy('edit')", "нет двух ссылок: для группы и для администратора");
+      assertEqual(ссылки.join(" "), "app.tmCopy('view') app.tmCopy('edit') app.tmRemove()", "нет двух ссылок (группе и администратору) и кнопки удаления");
+
+      // «Удалить тайминг»: спрашиваем, удаляем запись по id и снова предлагаем создать.
+      let удалено = "";
+      await ctx.unroute("**/rest/v1/project_timings*");
+      await ctx.route("**/rest/v1/project_timings*", (r) => {
+        if (r.request().method() === "DELETE") { удалено = r.request().url(); return r.fulfill({ status: 200, contentType: "application/json", body: '[{"id":"11111111-2222-3333-4444-777777777777"}]' }); }
+        r.fulfill({ status: 200, contentType: "application/json", body: "null" });
+      });
+      await p.click(".tm-share-foot button");
+      await p.waitForSelector(".confirm-dialog-overlay .confirm-ok", { timeout: 3000 });
+      await p.click(".confirm-dialog-overlay .confirm-ok");
+      await p.waitForFunction(() => [...document.querySelectorAll("#appContent button")].some((b) => /Создать тайминг/.test(b.textContent)), null, { timeout: 5000 });
+      assert(/id=eq\.11111111-2222-3333-4444-777777777777/.test(удалено), "удаление ушло не по id тайминга: " + удалено);
+      assertEqual(await p.$$eval(".tm-row", (els) => els.length), 0, "после удаления на экране остались блоки тайминга");
     } finally {
       await ctx.close();
     }
