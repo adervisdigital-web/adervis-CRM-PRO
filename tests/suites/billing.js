@@ -1145,6 +1145,17 @@ module.exports = async function ({ browser, baseUrl, test }) {
       await page.waitForTimeout(200);
       const titles = await page.$$eval(".tm-card h3", (els) => els.map((e) => e.textContent));
       assertEqual(titles.join(" | "), "Сбор группы | Грим героя | Обед", "фильтр по должности показал не те блоки");
+
+      // Тема: у гостя нет меню CRM — переключатель в шапке тайминга, выбор запоминается на устройстве.
+      const theme = () => page.evaluate(() => ({ t: document.documentElement.getAttribute("data-theme"), label: document.querySelector(".tm-theme")?.getAttribute("aria-label") }));
+      const before = await theme();
+      assert(before.label, "на странице тайминга нет переключателя темы");
+      await page.click(".tm-theme");
+      await page.waitForTimeout(200);
+      const after = await theme();
+      assert(after.t && after.t !== before.t, `тема не переключилась: было ${before.t}, стало ${after.t}`);
+      assert(after.label !== before.label, "подпись кнопки темы не сменилась вслед за темой");
+      assertEqual(await page.evaluate(() => localStorage.getItem("adervis_pro_theme_mode")), after.t, "выбор темы не запомнился");
       assertEqual(errors.length, 0, "ошибки на странице: " + errors.join(" | "));
     } finally { await context.close(); }
   });

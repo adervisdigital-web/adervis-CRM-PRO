@@ -12221,6 +12221,10 @@ button.summary-adjust-row:hover { background: rgb(var(--primary-rgb) / .06); bor
 .tm-head-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .tm-pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .tm-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 12px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--panel) 75%, transparent); border: 1px solid var(--line); font-size: 12px; font-weight: 600; color: var(--muted); }
+.tm-theme { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: var(--r-pill); border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 75%, transparent); color: var(--text); cursor: pointer; transition: border-color var(--dur-1), box-shadow var(--dur-1), color var(--dur-1); }
+.tm-theme:hover { border-color: rgb(var(--primary-rgb) / .5); color: var(--primary-text); box-shadow: var(--glow-sm); }
+.tm-theme:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; }
+.tm-pills { align-items: center; }
 .tm-pill.is-admin { background: var(--primary); border-color: transparent; color: var(--on-color); box-shadow: var(--glow-sm); }
 .tm-studio { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; }
 .tm-studio img, .tm-studio-mark { width: 32px; height: 32px; border-radius: var(--r-md); object-fit: cover; }
@@ -12366,7 +12370,7 @@ button.summary-adjust-row:hover { background: rgb(var(--primary-rgb) / .06); bor
   .tm-share-row { flex-direction: column; align-items: stretch; }
 }
 @media print {
-  .tm-add, .tm-shift, .tm-share, .tm-pills, .tm-edit-hint, .tm-roles-panel, .tm-filter, .tm-card-bar { display: none; }
+  .tm-add, .tm-shift, .tm-share, .tm-pills, .tm-theme, .tm-edit-hint, .tm-roles-panel, .tm-filter, .tm-card-bar { display: none; }
   .tm-head, .tm-live, .tm-row.is-cur .tm-card { background-image: none; box-shadow: none; }
   .tm-row.is-past .tm-card, .tm-row.is-past .tm-time { opacity: 1; }
 }

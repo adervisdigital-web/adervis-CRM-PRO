@@ -29265,6 +29265,7 @@
         toastUndo("Блок удалён", () => { _tmData().blocks.push(removed); _tmChanged(true); });
       }
       function tmChain(on) { _tmChain = !!on; }
+      function tmTheme() { toggleTheme(); render(); }
       function tmOpen(id) { if (!_tmCan()) return; _tmOpen = _tmOpen === id ? "" : id; render(); }
       // «Отстаём на N минут»: сдвигаются текущий блок и всё, что после; копится в «сдвиг за день».
       // Своё число минут: «на 25», «на −10» (минус — и типографский, и обычный).
@@ -29405,7 +29406,11 @@
           <div class="panel tm-head">
             <div class="tm-head-top">
               ${studio || `<div class="tm-kicker">${icon("calendar", 13)} Тайминг съёмки</div>`}
-              ${ed ? `<div class="tm-pills">${mode === "public" ? `<span class="tm-pill is-admin">${icon("pencil", 12)} Режим администратора</span>` : ""}<span class="tm-pill tm-status" data-s="${_tmStatus}" aria-live="polite">${icon("cloud", 12)}<span id="tmStatus">${_tmStatusText()}</span></span></div>` : ""}
+              ${ed || mode === "public" ? `<div class="tm-pills">${ed && mode === "public" ? `<span class="tm-pill is-admin">${icon("pencil", 12)} Режим администратора</span>` : ""}${ed ? `<span class="tm-pill tm-status" data-s="${_tmStatus}" aria-live="polite">${icon("cloud", 12)}<span id="tmStatus">${_tmStatusText()}</span></span>` : ""}${mode === "public" ? (() => {
+                // Гостю по ссылке меню CRM с переключателем темы не видно — кнопка здесь (в CRM она в шапке приложения).
+                const dark = (document.documentElement.getAttribute("data-theme") || "dark") === "dark";
+                return `<button type="button" class="tm-theme" onclick="app.tmTheme()" aria-label="${dark ? "Светлая тема" : "Тёмная тема"}" title="${dark ? "Светлая тема" : "Тёмная тема"}">${icon(dark ? "sun" : "moon", 15)}</button>`;
+              })() : ""}</div>` : ""}
             </div>
             ${studio ? `<div class="tm-kicker">${icon("calendar", 13)} Тайминг съёмки</div>` : ""}
             ${ed ? `<input class="tm-title-in" value="${escapeHtml(_tm.title || "")}" oninput="app.tmField('title',this.value)" aria-label="Название тайминга" placeholder="Название съёмки">`
@@ -36123,6 +36128,7 @@ Email: _____________________              Email: _____________________
         tmShift,
         tmShiftInput,
         tmChain,
+        tmTheme,
         tmRoleAdd,
         tmRoleDel,
         tmRoleFilter,
