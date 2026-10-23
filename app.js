@@ -29191,9 +29191,9 @@
 
       /* ── правка ── */
       function _tmStatusText() {
-        return { saving: "Сохраняю…", saved: "Сохранено", error: "Не сохранилось — проверьте связь, повторю сам", conflict: "Обновлено с другого устройства" }[_tmStatus] || "Все изменения сохраняются сами";
+        return { saving: "Сохраняю…", saved: "Сохранено", error: "Не сохранилось — проверьте связь, повторю сам", conflict: "Обновлено с другого устройства" }[_tmStatus] || "Изменения сохраняются сами";
       }
-      function _tmStatusPaint() { const el = document.getElementById("tmStatus"); if (el) { el.textContent = _tmStatusText(); el.dataset.s = _tmStatus; } }
+      function _tmStatusPaint() { const el = document.getElementById("tmStatus"); if (el) { el.textContent = _tmStatusText(); el.parentElement.dataset.s = _tmStatus; } }
       function _tmChanged(rerender) {
         _tmDirty = true; _tmStatus = "saving";
         clearTimeout(_tmSaveTimer); _tmSaveTimer = setTimeout(_tmSave, 800);
@@ -29387,8 +29387,11 @@
                 : `<span class="tm-studio-mark">${escapeHtml(_tm.agency_name.replace(/[^0-9A-Za-zА-Яа-яЁё]/g, "").charAt(0).toUpperCase() || "A")}</span>`}<span>${escapeHtml(_tm.agency_name)}</span></div>` : "";
         const head = `
           <div class="panel tm-head">
-            ${studio}
-            <div class="tm-kicker">${icon("calendar", 13)} Тайминг съёмки</div>
+            <div class="tm-head-top">
+              ${studio || `<div class="tm-kicker">${icon("calendar", 13)} Тайминг съёмки</div>`}
+              ${ed ? `<div class="tm-pills">${mode === "public" ? `<span class="tm-pill is-admin">${icon("pencil", 12)} Режим администратора</span>` : ""}<span class="tm-pill tm-status" data-s="${_tmStatus}" aria-live="polite">${icon("cloud", 12)}<span id="tmStatus">${_tmStatusText()}</span></span></div>` : ""}
+            </div>
+            ${studio ? `<div class="tm-kicker">${icon("calendar", 13)} Тайминг съёмки</div>` : ""}
             ${ed ? `<input class="tm-title-in" value="${escapeHtml(_tm.title || "")}" oninput="app.tmField('title',this.value)" aria-label="Название тайминга" placeholder="Название съёмки">`
                  : `<h1 class="tm-title">${escapeHtml(_tm.title || "Тайминг съёмки")}</h1>`}
             ${stats.length ? `<div class="tm-stats">${stats.map(([v, l, cls]) => `<div class="tm-stat ${cls ? "is-" + cls : ""}"><b>${v}</b><span>${l}</span></div>`).join("")}</div>` : ""}
@@ -29403,7 +29406,6 @@
                 ? `<input value="${escapeHtml(d.address)}" oninput="app.tmField('address',this.value)" placeholder="Город, улица, дом" aria-label="Адрес площадки">`
                 : (d.address ? `<b>${escapeHtml(d.address)}</b><a class="tm-act" href="${escapeHtml(maps(d.address))}" target="_blank" rel="noopener">${icon("external", 13)} На карте</a>` : `<b>—</b>`)}</div></div>
             </div>
-            ${ed ? `<div class="tm-status" id="tmStatus" data-s="${_tmStatus}" aria-live="polite">${_tmStatusText()}</div>` : ""}
           </div>`;
         const liveHtml = live ? (() => {
           const c = live.cur, n = live.next;
@@ -29419,8 +29421,8 @@
                 ${left > 0 ? `<div class="tm-live-left"><b>${_tmDurText(left)}</b><span>${c ? "осталось" : "до начала"}</span></div>` : ""}
               </div>
               ${c ? `<div class="tm-live-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Прошло от блока"><i style="width:${pct}%"></i></div>` : ""}
-              ${n ? `<div class="tm-live-next"><span class="u-meta">Дальше</span><b>${n.start}</b><span>${escapeHtml(n.title || "Без названия")}</span></div>` : ""}
-              ${ed ? `<div class="tm-shift"><span class="u-meta">Отстаём от плана:</span><div class="tm-seg">${[5, 10, 15, 30].map(m => `<button type="button" onclick="app.tmShift(${m})">+${m}</button>`).join("")}<button type="button" onclick="app.tmShift(-5)" aria-label="Догнали 5 минут">−5</button></div><span class="u-meta">мин</span></div>` : ""}
+              ${n ? `<div class="tm-live-next tm-k-${n.kind}"><i></i><span class="u-meta">Дальше</span><b>${n.start}</b><span>${escapeHtml(n.title || "Без названия")}</span></div>` : ""}
+              ${ed ? `<div class="tm-shift"><span class="u-meta">Отстаём от плана:</span><div class="tm-seg">${[5, 10, 15, 30].map(m => `<button type="button" onclick="app.tmShift(${m})">+${m}</button>`).join("")}<button type="button" class="is-back" onclick="app.tmShift(-5)" aria-label="Догнали 5 минут" title="Догнали 5 минут">−5</button></div><span class="u-meta">мин</span></div>` : ""}
             </div>`;
         })() : "";
         const rolesAdmin = ed ? `
@@ -29499,7 +29501,6 @@
         if (_tmErr) return `<div class="tm-wrap tm-page"><div class="panel tm-empty">${escapeHtml(_tmErr)}</div></div>`;
         if (!_tm) return `<div class="tm-wrap tm-page"><div class="panel tm-empty">Загружаю тайминг…</div></div>`;
         return `<div class="tm-wrap tm-page">
-          ${_tm.can_edit ? `<div class="tm-badge">${icon("pencil", 12)} Вы администратор: правки сразу видны всей группе</div>` : ""}
           ${timingBoardHtml("public")}
           <div class="tm-foot">Тайминг сделан в <a href="https://app.adervis.ru/" target="_blank" rel="noopener">ADERVIS CRM</a></div>
         </div>`;

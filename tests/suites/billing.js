@@ -1152,7 +1152,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
   await test("тайминг по ссылке администратора: правка длительности двигает день и уходит на сервер с ключом", async () => {
     const { context, page, errors, saves } = await bootTiming(tmRow({ can_edit: true }), { key: TM_KEY, size: { width: 1200, height: 900 } });
     try {
-      assert(await page.$(".tm-badge"), "администратор не видит, что он в режиме правки");
+      assert(await page.$(".tm-pill.is-admin"), "администратор не видит, что он в режиме правки");
       await page.click(".tm-row:nth-child(2) .tm-card");                 // «Грим героя», 60 мин
       await page.waitForSelector(".tm-edit select", { timeout: 3000 });
       const dur = await page.$('.tm-edit select[id^="tmD_"]');
