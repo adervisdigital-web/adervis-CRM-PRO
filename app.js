@@ -29140,6 +29140,7 @@
          попадает в разметку, нормализуется (_tmData) и экранируется: id блока идёт
          в onclick и обязан быть [a-z0-9], а должности передаются через data-role. */
       const TM_KINDS = [["prep", "Подготовка"], ["shoot", "Съёмка"], ["break", "Перерыв"], ["move", "Переезд"], ["other", "Другое"]];
+      const TM_KIND_ICON = { prep: "clipboard", shoot: "camera", break: "sun", move: "send", other: "info" };
       const TM_DURS = [5, 10, 15, 20, 30, 45, 60, 90, 120, 150, 180, 240, 300];
       const TM_TEMPLATES = [["Сбор группы", "prep", 30], ["Грим и костюм", "prep", 45], ["Выставить свет", "prep", 45], ["Съёмка", "shoot", 60], ["Обед", "break", 60], ["Переезд", "move", 30], ["Сворачиваемся", "prep", 30]];
       let _tm = null, _tmFor = "", _tmLoading = false, _tmErr = "", _tmStatus = "", _tmOpen = "", _tmRole = "";
@@ -29369,45 +29370,73 @@
         const dateIso = _tm.shoot_date ? String(_tm.shoot_date).slice(0, 10) : "";
         const dateText = dateIso ? _longDate(new Date(dateIso + "T00:00:00")) : "Дата не выбрана";
         const first = all[0], lastB = all[all.length - 1];
-        const span = first ? `${first.start}–${_tmHm(_tmMin(lastB.start) + lastB.dur)}` : "";
+        const dayEnd = lastB ? _tmHm(_tmMin(lastB.start) + lastB.dur) : "";
+        const shootMin = all.filter(b => b.kind === "shoot").reduce((s, b) => s + b.dur, 0);
         const maps = (a) => "https://yandex.ru/maps/?text=" + encodeURIComponent(a);
         const tel = (p) => "tel:" + String(p).replace(/[^\d+]/g, "");
+        const blocksWord = (n) => n % 10 === 1 && n % 100 !== 11 ? "блок" : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "блока" : "блоков");
+        const stats = [
+          first ? [`${first.start}–${dayEnd}`, "съёмочный день"] : null,
+          [String(all.length), blocksWord(all.length)],
+          shootMin ? [_tmDurText(shootMin), "съёмки"] : null,
+          d.delay ? [`${d.delay > 0 ? "+" : ""}${d.delay} мин`, "сдвиг за день", "warn"] : null,
+        ].filter(Boolean);
+        const studio = mode === "public" && _tm.agency_name ? `
+              <div class="tm-studio">${_tm.agency_logo
+                ? `<img src="${escapeHtml(_tm.agency_logo)}" alt="" onerror="this.remove()">`
+                : `<span class="tm-studio-mark">${escapeHtml(_tm.agency_name.replace(/[^0-9A-Za-zА-Яа-яЁё]/g, "").charAt(0).toUpperCase() || "A")}</span>`}<span>${escapeHtml(_tm.agency_name)}</span></div>` : "";
         const head = `
           <div class="panel tm-head">
-            ${mode === "public" && _tm.agency_name ? `<div class="tm-studio">${_tm.agency_logo ? `<img src="${escapeHtml(_tm.agency_logo)}" alt="" onerror="this.remove()">` : ""}<span>${escapeHtml(_tm.agency_name)}</span></div>` : ""}
-            <div class="tm-kicker">${icon("calendar", 13)} Тайминг съёмки${span ? ` · ${span}` : ""}</div>
+            ${studio}
+            <div class="tm-kicker">${icon("calendar", 13)} Тайминг съёмки</div>
             ${ed ? `<input class="tm-title-in" value="${escapeHtml(_tm.title || "")}" oninput="app.tmField('title',this.value)" aria-label="Название тайминга" placeholder="Название съёмки">`
                  : `<h1 class="tm-title">${escapeHtml(_tm.title || "Тайминг съёмки")}</h1>`}
-            <div class="tm-meta">
-              <div class="tm-meta-cell"><span class="u-meta">Дата</span>${ed ? `<input type="date" value="${escapeHtml(dateIso)}" onchange="app.tmField('shoot_date',this.value)" aria-label="Дата съёмки">` : `<b>${escapeHtml(dateText)}</b>`}</div>
-              <div class="tm-meta-cell"><span class="u-meta">Администратор</span>${ed
+            ${stats.length ? `<div class="tm-stats">${stats.map(([v, l, cls]) => `<div class="tm-stat ${cls ? "is-" + cls : ""}"><b>${v}</b><span>${l}</span></div>`).join("")}</div>` : ""}
+            <div class="tm-meta ${ed ? "is-edit" : ""}">
+              <div class="tm-tile">${iconBadge("calendar", "var(--primary)", 34)}<div class="tm-tile-body"><span class="u-meta">Дата</span>${ed
+                ? `<input type="date" value="${escapeHtml(dateIso)}" onchange="app.tmField('shoot_date',this.value)" aria-label="Дата съёмки">`
+                : `<b>${escapeHtml(dateText)}</b>`}</div></div>
+              <div class="tm-tile">${iconBadge("person", "var(--blue)", 34)}<div class="tm-tile-body"><span class="u-meta">Администратор</span>${ed
                 ? `<div class="tm-2in"><input value="${escapeHtml(d.admin.name)}" oninput="app.tmField('adminName',this.value)" placeholder="Имя" aria-label="Имя администратора"><input type="tel" value="${escapeHtml(d.admin.phone)}" oninput="app.tmField('adminPhone',this.value)" placeholder="Телефон" aria-label="Телефон администратора"></div>`
-                : (d.admin.name || d.admin.phone ? `<b>${escapeHtml(d.admin.name || "—")}</b>${d.admin.phone ? ` <a class="tm-tel" href="${escapeHtml(tel(d.admin.phone))}">${icon("phone", 12)} ${escapeHtml(d.admin.phone)}</a>` : ""}` : `<b>—</b>`)}</div>
-              <div class="tm-meta-cell"><span class="u-meta">Адрес площадки</span>${ed
+                : `<b>${escapeHtml(d.admin.name || "—")}</b>${d.admin.phone ? `<a class="tm-act" href="${escapeHtml(tel(d.admin.phone))}">${icon("phone", 13)} ${escapeHtml(d.admin.phone)}</a>` : ""}`}</div></div>
+              <div class="tm-tile">${iconBadge("target", "var(--green)", 34)}<div class="tm-tile-body"><span class="u-meta">Адрес площадки</span>${ed
                 ? `<input value="${escapeHtml(d.address)}" oninput="app.tmField('address',this.value)" placeholder="Город, улица, дом" aria-label="Адрес площадки">`
-                : (d.address ? `<a href="${escapeHtml(maps(d.address))}" target="_blank" rel="noopener">${escapeHtml(d.address)} ${icon("external", 11)}</a>` : `<b>—</b>`)}</div>
+                : (d.address ? `<b>${escapeHtml(d.address)}</b><a class="tm-act" href="${escapeHtml(maps(d.address))}" target="_blank" rel="noopener">${icon("external", 13)} На карте</a>` : `<b>—</b>`)}</div></div>
             </div>
             ${ed ? `<div class="tm-status" id="tmStatus" data-s="${_tmStatus}" aria-live="polite">${_tmStatusText()}</div>` : ""}
           </div>`;
         const liveHtml = live ? (() => {
-          const c = live.cur, pct = c ? Math.min(100, Math.max(0, Math.round((live.now - _tmMin(c.start)) / c.dur * 100))) : 0;
+          const c = live.cur, n = live.next;
+          const pct = c ? Math.min(100, Math.max(0, Math.round((live.now - _tmMin(c.start)) / c.dur * 100))) : 0;
+          const left = c ? _tmMin(c.start) + c.dur - live.now : (n ? _tmMin(n.start) - live.now : 0);
           return `
             <div class="panel tm-live" aria-live="polite">
-              <div class="tm-live-row"><span class="tm-live-dot"></span>${c ? `Сейчас: <b>${escapeHtml(c.title || "Без названия")}</b> · до ${_tmHm(_tmMin(c.start) + c.dur)}` : `Сейчас в плане окно${live.next ? "" : " — день по таймингу закончен"}`}</div>
-              ${c ? `<div class="tm-live-bar"><i style="width:${pct}%"></i></div>` : ""}
-              ${live.next ? `<div class="u-meta">Дальше: ${escapeHtml(live.next.title || "Без названия")} в ${live.next.start}</div>` : ""}
-              ${d.delay ? `<div class="tm-delay">Сдвиг за день: ${d.delay > 0 ? "+" : ""}${d.delay} мин</div>` : ""}
-              ${ed ? `<div class="tm-shift"><span class="u-meta">Отстаём:</span>${[5, 10, 15, 30].map(m => `<button type="button" class="chip" onclick="app.tmShift(${m})">+${m} мин</button>`).join("")}<button type="button" class="chip" onclick="app.tmShift(-5)">−5</button></div>` : ""}
+              <div class="tm-live-main">
+                <div class="tm-live-what">
+                  <span class="tm-live-label"><span class="tm-live-dot"></span>${c ? "Сейчас идёт" : (n ? "Перерыв в плане" : "День по таймингу закончен")}</span>
+                  ${c ? `<h2>${escapeHtml(c.title || "Без названия")}</h2><span class="u-meta">${c.start}–${_tmHm(_tmMin(c.start) + c.dur)}${c.location ? " · " + escapeHtml(c.location) : ""}</span>` : ""}
+                </div>
+                ${left > 0 ? `<div class="tm-live-left"><b>${_tmDurText(left)}</b><span>${c ? "осталось" : "до начала"}</span></div>` : ""}
+              </div>
+              ${c ? `<div class="tm-live-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Прошло от блока"><i style="width:${pct}%"></i></div>` : ""}
+              ${n ? `<div class="tm-live-next"><span class="u-meta">Дальше</span><b>${n.start}</b><span>${escapeHtml(n.title || "Без названия")}</span></div>` : ""}
+              ${ed ? `<div class="tm-shift"><span class="u-meta">Отстаём от плана:</span><div class="tm-seg">${[5, 10, 15, 30].map(m => `<button type="button" onclick="app.tmShift(${m})">+${m}</button>`).join("")}<button type="button" onclick="app.tmShift(-5)" aria-label="Догнали 5 минут">−5</button></div><span class="u-meta">мин</span></div>` : ""}
             </div>`;
         })() : "";
-        const rolesHtml = (d.roles.length || ed) ? `
-          <div class="tm-roles">
-            ${d.roles.length ? `<span class="u-meta">${ed ? "Должности:" : "Мой тайминг:"}</span>` : ""}
-            ${ed ? d.roles.map(r => `<span class="chip tm-role">${escapeHtml(r)}<button type="button" class="tm-role-x" data-role="${escapeHtml(r)}" onclick="app.tmRoleDel(this)" aria-label="Убрать должность">${icon("close", 10)}</button></span>`).join("")
-                 + `<input id="tmRoleInput" class="tm-role-in" placeholder="+ должность" aria-label="Добавить должность" onkeydown="if(event.key==='Enter'){event.preventDefault();app.tmRoleAdd(this)}" onblur="app.tmRoleAdd(this)">`
-                 : `<button type="button" class="chip ${!roleF ? "active" : ""}" data-role="" onclick="app.tmRoleFilter(this)">Все</button>` + d.roles.map(r => `<button type="button" class="chip ${roleF === r ? "active" : ""}" data-role="${escapeHtml(r)}" onclick="app.tmRoleFilter(this)">${escapeHtml(r)}</button>`).join("")}
-          </div>
-          ${ed && d.roles.length ? `<div class="tm-roles tm-roles-f"><span class="u-meta">Показать:</span><button type="button" class="chip ${!roleF ? "active" : ""}" data-role="" onclick="app.tmRoleFilter(this)">Все</button>${d.roles.map(r => `<button type="button" class="chip ${roleF === r ? "active" : ""}" data-role="${escapeHtml(r)}" onclick="app.tmRoleFilter(this)">${escapeHtml(r)}</button>`).join("")}</div>` : ""}` : "";
+        const rolesAdmin = ed ? `
+          <div class="panel tm-roles-panel">
+            <div class="tm-sec-head">${iconBadge("team", "var(--primary)", 28)}<div><b>Должности на площадке</b><span class="u-meta">Отмечайте их в блоках — каждый увидит свой тайминг</span></div></div>
+            <div class="tm-roles">
+              ${d.roles.map(r => `<span class="chip tm-role">${escapeHtml(r)}<button type="button" class="tm-role-x" data-role="${escapeHtml(r)}" onclick="app.tmRoleDel(this)" aria-label="Убрать должность">${icon("close", 10)}</button></span>`).join("")}
+              <input id="tmRoleInput" class="tm-role-in" placeholder="Новая должность" aria-label="Добавить должность" onkeydown="if(event.key==='Enter'){event.preventDefault();app.tmRoleAdd(this)}" onblur="app.tmRoleAdd(this)">
+            </div>
+          </div>` : "";
+        const filter = d.roles.length ? `
+          <div class="tm-roles tm-filter">
+            <span class="u-meta">Мой тайминг:</span>
+            <button type="button" class="chip ${!roleF ? "active" : ""}" data-role="" onclick="app.tmRoleFilter(this)">Все</button>
+            ${d.roles.map(r => `<button type="button" class="chip ${roleF === r ? "active" : ""}" data-role="${escapeHtml(r)}" onclick="app.tmRoleFilter(this)">${escapeHtml(r)}</button>`).join("")}
+          </div>` : "";
         const durOpts = (cur) => [...new Set([...TM_DURS, cur])].sort((a, b) => a - b).map(m => `<option value="${m}" ${m === cur ? "selected" : ""}>${_tmDurText(m)}</option>`).join("");
         const editForm = (b) => `
           <div class="tm-edit">
@@ -29431,30 +29460,40 @@
         const list = blocks.map(b => {
           const s = _tmMin(b.start), e = s + b.dur, isCur = !!(live && live.cur && live.cur.id === b.id), past = !!(live && e <= live.now);
           const open = ed && _tmOpen === b.id;
+          const pct = isCur ? Math.min(100, Math.max(0, Math.round((live.now - s) / b.dur * 100))) : 0;
           return `
-            <div class="tm-row ${isCur ? "is-cur" : ""} ${past ? "is-past" : ""} ${open ? "is-open" : ""}">
-              <div class="tm-time"><b>${b.start}</b><span>${_tmHm(e)}</span><small>${_tmDurText(b.dur)}</small></div>
-              <div class="tm-card tm-k-${b.kind}" ${ed ? `role="button" tabindex="0" onclick="app.tmOpen('${b.id}')" onkeydown="if(event.key==='Enter'){app.tmOpen('${b.id}')}" aria-expanded="${open}"` : ""}>
-                <div class="tm-card-top"><span class="tm-kind">${kindName[b.kind]}</span>${isCur ? `<span class="tm-now">Сейчас</span>` : ""}${ed ? `<span class="tm-edit-hint">${icon("pencil", 11)}</span>` : ""}</div>
+            <div class="tm-row tm-k-${b.kind} ${isCur ? "is-cur" : ""} ${past ? "is-past" : ""} ${open ? "is-open" : ""}">
+              <div class="tm-time"><b>${b.start}</b><span>${_tmHm(e)}</span></div>
+              <div class="tm-rail" aria-hidden="true"><i>${past ? icon("check", 10) : ""}</i></div>
+              <div class="tm-card" ${ed ? `role="button" tabindex="0" onclick="app.tmOpen('${b.id}')" onkeydown="if(event.key==='Enter'){app.tmOpen('${b.id}')}" aria-expanded="${open}"` : ""}>
+                <div class="tm-card-top">
+                  <span class="tm-kind">${icon(TM_KIND_ICON[b.kind] || "info", 12)} ${kindName[b.kind]}</span>
+                  ${isCur ? `<span class="tm-now">Сейчас</span>` : ""}
+                  <span class="tm-dur">${_tmDurText(b.dur)}</span>
+                  ${ed ? `<span class="tm-edit-hint">${icon("pencil", 12)}</span>` : ""}
+                </div>
                 <h3>${escapeHtml(b.title || "Без названия")}</h3>
-                ${b.roles.length ? `<div class="tm-chips">${b.roles.map(r => `<span class="tm-chip">${escapeHtml(r)}</span>`).join("")}</div>` : ""}
-                ${b.location || b.address ? `<div class="tm-line">${icon("target", 12)} ${escapeHtml(b.location)}${b.address ? ` · <a href="${escapeHtml(maps(b.address))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(b.address)}</a>` : ""}</div>` : ""}
-                ${b.props ? `<div class="tm-line"><b>Реквизит:</b> ${escapeHtml(b.props)}</div>` : ""}
-                ${b.notes ? `<div class="tm-line tm-notes">${escapeHtml(b.notes)}</div>` : ""}
+                ${b.roles.length ? `<div class="tm-chips">${b.roles.map(r => `<span class="tm-chip ${roleF === r ? "is-me" : ""}">${escapeHtml(r)}</span>`).join("")}</div>` : ""}
+                ${b.location || b.address ? `<div class="tm-line">${icon("target", 12)}<span>${escapeHtml(b.location)}${b.location && b.address ? " · " : ""}${b.address ? `<a href="${escapeHtml(maps(b.address))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(b.address)}</a>` : ""}</span></div>` : ""}
+                ${b.props ? `<div class="tm-line">${icon("clipboard", 12)}<span><b>Реквизит:</b> ${escapeHtml(b.props)}</span></div>` : ""}
+                ${b.notes ? `<div class="tm-line">${icon("chat", 12)}<span>${escapeHtml(b.notes)}</span></div>` : ""}
+                ${isCur ? `<div class="tm-card-bar"><i style="width:${pct}%"></i></div>` : ""}
               </div>
             </div>
             ${open ? editForm(b) : ""}`;
         }).join("");
         const add = ed ? `
           <div class="tm-add">
-            <button type="button" class="btn small primary" onclick="app.tmAdd(-1)">${icon("plus", 13)} Блок</button>
-            ${TM_TEMPLATES.map((t, i) => `<button type="button" class="chip" onclick="app.tmAdd(${i})">${t[0]}</button>`).join("")}
+            <div class="tm-sec-head">${iconBadge("plus", "var(--primary)", 28)}<div><b>Добавить блок</b><span class="u-meta">Встанет в конец дня — время и длительность поправите</span></div></div>
+            <div class="tm-roles">
+              <button type="button" class="btn small primary" onclick="app.tmAdd(-1)">${icon("plus", 13)} Пустой блок</button>
+              ${TM_TEMPLATES.map((t, i) => `<button type="button" class="chip tm-tpl tm-k-${t[1]}" onclick="app.tmAdd(${i})"><i></i>${t[0]}</button>`).join("")}
+            </div>
           </div>` : "";
-        return `${head}${liveHtml}${rolesHtml}
+        return `${head}${liveHtml}${rolesAdmin}${filter}
           <div class="tm-list">${list || `<div class="panel tm-empty">${roleF ? "У этой должности блоков нет" : "Блоков пока нет"}</div>`}</div>
           ${add}`;
       }
-
       // Страница по ссылке (?timing=…): группа видит план, администратор (с ключом) — правит.
       function renderTimingPage() {
         if (_tmErr) return `<div class="tm-wrap tm-page"><div class="panel tm-empty">${escapeHtml(_tmErr)}</div></div>`;
