@@ -1072,4 +1072,126 @@ module.exports = async function ({ browser, baseUrl, test }) {
 
     await c3.close();
   });
+
+  /* Онлайн-тайминг съёмки (тариф «Про», 23.10.2026). Страница ?timing=… открывается
+     группой по ссылке без аккаунта; с ключом &k=… — администратором площадки,
+     который правит. Данные приходят от анонимного редактора, поэтому отдельно
+     проверяем, что текст и id блока не исполняются как разметка. */
+  const TM_ID = "11111111-2222-3333-4444-666666666666";
+  const TM_KEY = "99999999-8888-7777-6666-555555555555";
+  const tmRow = (over = {}) => Object.assign({
+    id: TM_ID, title: "Ролик для «Полёта»", shoot_date: "2030-05-14", version: 3, updated_at: "2030-05-01T10:00:00Z",
+    can_edit: false, agency_name: "Студия «Полёт»", agency_logo: "",
+    data: {
+      admin: { name: "Ирина", phone: "+7 999 111-22-33" }, address: "Москва, Тверская, 1", delay: 0,
+      roles: ["Администратор", "Оператор", "Гримёр"],
+      blocks: [
+        { id: "b1", start: "09:00", dur: 30, title: "Сбор группы", kind: "prep", roles: [] },
+        { id: "b2", start: "09:30", dur: 60, title: "Грим героя", kind: "prep", roles: ["Гримёр"] },
+        { id: "b3", start: "10:30", dur: 120, title: "Съёмка интервью", kind: "shoot", roles: ["Оператор"], location: "Зал 2", props: "Два стула" },
+        { id: "b4", start: "12:30", dur: 60, title: "Обед", kind: "break", roles: [] },
+      ],
+    },
+  }, over);
+  async function bootTiming(row, { key = "", size = { width: 390, height: 844 }, onSave = null } = {}) {
+    const context = await browser.newContext({ viewport: size, hasTouch: size.width < 600, isMobile: size.width < 600 });
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e.message || e)));
+    await page.addInitScript(() => { window.__xss = 0; });
+    const saves = [];
+    await page.route("**/*.supabase.co/**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: "{}" }));
+    await page.route("**/rest/v1/rpc/get_project_timing*", (r) =>
+      r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(row) }));
+    await page.route("**/rest/v1/rpc/save_project_timing*", (r) => {
+      const body = JSON.parse(r.request().postData() || "{}");
+      saves.push(body);
+      const res = onSave ? onSave(body) : { ok: true, version: body.p_version + 1, updated_at: "2030-05-01T10:01:00Z" };
+      r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(res) });
+    });
+    await page.goto(`${baseUrl}/index.html?timing=${TM_ID}${key ? "&k=" + key : ""}`, { waitUntil: "load" });
+    await page.waitForFunction(() => /tm-row|tm-empty/.test(document.getElementById("appContent")?.innerHTML || ""), { timeout: 10000 });
+    await page.waitForTimeout(300);
+    return { context, page, errors, saves };
+  }
+
+  await test("тайминг по ссылке группы: план дня виден, правок нет, фильтр по должности", async () => {
+    const { context, page, errors } = await bootTiming(tmRow());
+    try {
+      const r = await page.evaluate(() => {
+        const root = document.getElementById("appContent");
+        return {
+          rows: root.querySelectorAll(".tm-row").length,
+          inputs: root.querySelectorAll("input, textarea, select").length,
+          text: root.textContent.replace(/\s+/g, " "),
+          sidebar: (document.getElementById("appSidebar")?.innerHTML || "").trim().length,
+          spill: document.documentElement.scrollWidth > window.innerWidth,
+          maps: !!root.querySelector('a[href^="https://yandex.ru/maps/?text="]'),
+          tel: root.querySelector('a[href^="tel:"]')?.getAttribute("href"),
+        };
+      });
+      assertEqual(r.rows, 4, "показаны не все блоки тайминга");
+      assertEqual(r.inputs, 0, "по ссылке группы можно править тайминг — это ссылка только для просмотра");
+      assert(/Съёмка интервью/.test(r.text) && /Два стула/.test(r.text) && /Зал 2/.test(r.text), "нет названия, реквизита или локации блока: " + r.text.slice(0, 300));
+      assert(/09:00–13:30/.test(r.text), "в шапке нет границ дня 09:00–13:30");
+      assert(/Ирина/.test(r.text) && r.tel === "tel:+79991112233", "администратор без телефона-ссылки: " + r.tel);
+      assert(r.maps, "адрес площадки не ведёт на карту");
+      assert(/Студия «Полёт»/.test(r.text) && /ADERVIS CRM/.test(r.text), "нет студии в шапке или подписи внизу");
+      assertEqual(r.sidebar, 0, "гостю по ссылке показано меню CRM");
+      assert(!r.spill, "страница тайминга шире телефона");
+
+      // «Мой тайминг»: гримёр видит свои блоки и общие (без должностей), чужие — нет.
+      await page.click('.tm-roles button[data-role="Гримёр"]');
+      await page.waitForTimeout(200);
+      const titles = await page.$$eval(".tm-card h3", (els) => els.map((e) => e.textContent));
+      assertEqual(titles.join(" | "), "Сбор группы | Грим героя | Обед", "фильтр по должности показал не те блоки");
+      assertEqual(errors.length, 0, "ошибки на странице: " + errors.join(" | "));
+    } finally { await context.close(); }
+  });
+
+  await test("тайминг по ссылке администратора: правка длительности двигает день и уходит на сервер с ключом", async () => {
+    const { context, page, errors, saves } = await bootTiming(tmRow({ can_edit: true }), { key: TM_KEY, size: { width: 1200, height: 900 } });
+    try {
+      assert(await page.$(".tm-badge"), "администратор не видит, что он в режиме правки");
+      await page.click(".tm-row:nth-child(2) .tm-card");                 // «Грим героя», 60 мин
+      await page.waitForSelector(".tm-edit select", { timeout: 3000 });
+      const dur = await page.$('.tm-edit select[id^="tmD_"]');
+      await dur.selectOption("90");
+      await page.waitForTimeout(200);
+      const starts = await page.$$eval(".tm-time b", (els) => els.map((e) => e.textContent));
+      assertEqual(starts.join(" "), "09:00 09:30 11:00 13:00", "длительность не сдвинула следующие блоки");
+      await page.waitForTimeout(1300);                                    // сохранение через 800 мс
+      assert(saves.length >= 1, "правка не ушла на сервер");
+      const last = saves[saves.length - 1];
+      assertEqual(last.p_token, TM_KEY, "сохранение ушло без ключа администратора");
+      assertEqual(last.p_version, 3, "сохранение не передало версию, с которой начинали править");
+      assertEqual(last.p_data.blocks.find((b) => b.id === "b3").start, "11:00", "на сервер ушёл старый тайминг");
+      assert(/Сохранено/.test(await page.textContent("#tmStatus")), "не сказано, что сохранилось");
+
+      // Чужая правка успела раньше: сервер отвечает конфликтом — показываем свежую версию, не затираем.
+      await page.unroute("**/rest/v1/rpc/save_project_timing*");
+      await page.route("**/rest/v1/rpc/save_project_timing*", (r) => r.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ ok: false, conflict: true, version: 9, title: "Чужая правка", shoot_date: "2030-05-14", data: tmRow().data }) }));
+      await page.fill(".tm-title-in", "Моё название");
+      await page.waitForTimeout(1300);
+      assertEqual(await page.inputValue(".tm-title-in"), "Чужая правка", "при конфликте осталась своя версия поверх чужой");
+      assertEqual(errors.length, 0, "ошибки на странице: " + errors.join(" | "));
+    } finally { await context.close(); }
+  });
+
+  await test("тайминг: текст и id блока от анонимного редактора не исполняются", async () => {
+    const evil = tmRow({ title: '<img src=x onerror="window.__xss++">' });
+    evil.data.roles.push('"><img src=x onerror="window.__xss++">');
+    evil.data.blocks.push({ id: "x');window.__xss++;('", start: "14:00", dur: 30, title: "<script>window.__xss++</script>", kind: "evil", roles: ['"><b>'], notes: "<img src=x onerror=window.__xss++>" });
+    evil.can_edit = true;
+    const { context, page, errors } = await bootTiming(evil, { key: TM_KEY, size: { width: 1200, height: 900 } });
+    try {
+      await page.click(".tm-row:last-child .tm-card");                   // открыть форму злого блока — id идёт в onclick
+      await page.waitForTimeout(300);
+      const r = await page.evaluate(() => ({ xss: window.__xss, imgs: document.querySelectorAll("#appContent img[src='x']").length }));
+      assertEqual(r.xss, 0, "код из данных тайминга исполнился");
+      assertEqual(r.imgs, 0, "разметка из данных тайминга попала в страницу");
+      assertEqual(errors.length, 0, "ошибки на странице: " + errors.join(" | "));
+    } finally { await context.close(); }
+  });
 };

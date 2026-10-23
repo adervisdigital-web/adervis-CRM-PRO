@@ -1331,7 +1331,7 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
       await page.waitForTimeout(400);
       const opened = await reach();
       const all = new Set([...closed, ...opened]);
-      assert(all.size >= 10, `с телефона открывается ${all.size} разделов сделки из 10: ${JSON.stringify([...all])}`);
+      assert(all.size >= 11, `с телефона открывается ${all.size} разделов сделки из 11: ${JSON.stringify([...all])}`);
 
       // Список должен помещаться целиком: прокручиваемый список выбора снова
       // прячет часть пунктов от глаза.
@@ -1347,7 +1347,7 @@ module.exports = async function ({ browser, baseUrl, test, shotDir }) {
         };
       });
       assert(fit, "лист разделов сделки не открылся");
-      assert(fit.rows === 10, `в листе ${fit.rows} разделов вместо 10`);
+      assert(fit.rows === 11, `в листе ${fit.rows} разделов вместо 11`);
       assert(fit.lastVisible, "последний раздел сделки за нижним краем экрана");
 
       // Выбор закрывает лист и меняет подпись кнопки — иначе непонятно, где ты.

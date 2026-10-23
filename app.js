@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 469;
+      const APP_BUILD = 470;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
@@ -1686,6 +1686,12 @@
       let _briefType = (new URLSearchParams(location.search).get('type') || 'video').trim().toLowerCase();
       let _portalId = (new URLSearchParams(location.search).get('portal') || '').trim();
       if (_portalId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(_portalId)) _portalId = '';
+      // Онлайн-тайминг по ссылке: ?timing=<id> — просмотр для группы, &k=<ключ> — редактор администратора площадки
+      const _UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      let _timingId = (new URLSearchParams(location.search).get('timing') || '').trim();
+      let _timingKey = (new URLSearchParams(location.search).get('k') || '').trim();
+      if (!_UUID_RE.test(_timingId)) _timingId = '';
+      if (!_UUID_RE.test(_timingKey)) _timingKey = '';
       // Публичный калькулятор: ?calc=1 (пусто) или ?calc=задача~пакет~дней~опции~срочно
       // (шеринг расчёта; старый формат «id:кол-во:смен;…» тоже понимаем — см. _calcApplyShared).
       // 'calc' in params, а не .get(), потому что "?calc" без значения — валидный вход
@@ -3077,7 +3083,7 @@
       function renderPageTitle() {
         const el = document.getElementById("topbarPageTitle");
         if (!el) return;
-        if (!_adminSession || _briefAgencyId || _portalId || _calcMode) { el.innerHTML = ""; return; }
+        if (!_adminSession || _briefAgencyId || _portalId || _timingId || _calcMode) { el.innerHTML = ""; return; }
         let [title, sub] = _PAGE_TITLES[state.view] || ["ADERVIS", ""];
         if (state.view === "deal" && state.project?.name) sub = escapeHtml(state.project.name);
         if (state.view === "clients") {
@@ -3182,7 +3188,7 @@
       function renderSidebar() {
         const el = document.getElementById("appSidebar");
         if (!el) return;
-        if (!_adminSession || _briefAgencyId || _portalId || _calcMode) { el.innerHTML = ""; return; }
+        if (!_adminSession || _briefAgencyId || _portalId || _timingId || _calcMode) { el.innerHTML = ""; return; }
 
         const v = state.view || "home";
         const email = _adminSession.user.email || "";
@@ -3363,7 +3369,7 @@
            nav    — разделы приложения (кнопка «Разделы» в нижней панели);
            config — какие разделы показывать и в каком порядке (та же разметка, что
                     в поповере у сайдбара на десктопе);
-           tabs   — вкладки ВНУТРИ сделки: их десять, а в ленту на 390px влезало три. */
+           tabs   — вкладки ВНУТРИ сделки: их одиннадцать, а в ленту на 390px влезало три. */
       /* Вкладки внутри сделки — ОДИН список на ленту (десктоп) и лист снизу
          (телефон). Подписи считаются из state, поэтому функция самодостаточна и не
          теряет ничего при выносе наружу (gotcha-extracted-fn-loses-locals).
@@ -3376,6 +3382,7 @@
           { id: "finance",     label: "Финансы",                                                                      hint: "Платежи и расходы" },
           { id: "tasks",       label: `Задачи${state.tasks.length ? " (" + state.tasks.length + ")" : ""}`,            hint: "Задачи и канбан" },
           { id: "calendar",    label: "Календарь",                                                                    hint: "Даты проекта" },
+          { id: "timing",      label: "Тайминг",                                                                      hint: "Онлайн-тайминг съёмочного дня по ссылке" },
           { id: "team",        label: "Команда",                                                                      hint: "Команда проекта" },
           { id: "proposal",    label: "КП",                                                                           hint: "Коммерческое предложение" },
           { id: "contract",    label: `Договор${_dealContractCount() ? " (" + _dealContractCount() + ")" : ""}`,       hint: "Договор по сделке" },
@@ -4855,7 +4862,7 @@
       function renderAuthGateEl() {
         const el = document.getElementById("authGateContainer");
         if (!el) return;
-        if (_briefAgencyId || _portalId || _calcMode) { el.innerHTML = ""; return; }
+        if (_briefAgencyId || _portalId || _timingId || _calcMode) { el.innerHTML = ""; return; }
         const cfg = getSupabaseConfig();
         const localMode = lsGet("adervis_local_mode") === "1";
         // Пока проверяем сохранённую сессию — auth gate не показываем (бесшовная загрузка)
@@ -5199,9 +5206,10 @@
          лимиты, места и витрина читают её, а не повторяют условия по коду.
          deals: Infinity — без ограничения. */
       const TIER_RULES = {
-        start: { deals: 5,        seats: 1,  sections: false, dashboard: false, ai: false, whiteLabel: false, publicCalc: false, catalog: "short" },
-        std:   { deals: Infinity, seats: 3,  sections: true,  dashboard: true,  ai: true,  whiteLabel: false, publicCalc: false, catalog: "full"  },
-        pro:   { deals: Infinity, seats: 10, sections: true,  dashboard: true,  ai: true,  whiteLabel: true,  publicCalc: true,  catalog: "full"  },
+        start: { deals: 5,        seats: 1,  sections: false, dashboard: false, ai: false, whiteLabel: false, publicCalc: false, timing: false, catalog: "short" },
+        std:   { deals: Infinity, seats: 3,  sections: true,  dashboard: true,  ai: true,  whiteLabel: false, publicCalc: false, timing: false, catalog: "full"  },
+        // timing — онлайн-тайминг съёмки по ссылке (23.10.2026); сервер проверяет тариф сам (create_project_timing)
+        pro:   { deals: Infinity, seats: 10, sections: true,  dashboard: true,  ai: true,  whiteLabel: true,  publicCalc: true,  timing: true,  catalog: "full"  },
       };
       /* Короткий каталог «Старта». Двести позиций для человека с двумя
          съёмками в месяц — не богатство, а поиск своей услуги среди чужих:
@@ -5266,7 +5274,7 @@
       // вовсе (интерфейс проще), а прямой заход показывает экран о старшем.
       const TIER_LOCKED_VIEWS = ["contracts", "briefs", "company-team"];
       // Вкладки внутри сделки из того же набора: договор и команда.
-      const TIER_LOCKED_DEAL_TABS = ["contract", "team"];
+      const TIER_LOCKED_DEAL_TABS = ["contract", "team", "timing"];
 
       // Мест в команде на любом оплаченном тарифе. Пробный период — как и раньше, один
       // пользователь: он про «посмотреть продукт», а не про работу командой.
@@ -5320,7 +5328,7 @@
           trial: ["Весь «Стандарт» на 7 дней", "Сделки без ограничения", "Калькулятор смет", "КП для клиентов", `${AI_PROPOSAL_TRIAL_LIMIT} AI-генераций КП`, "Один пользователь"],
           start: [`До ${TIER_RULES.start.deals} съёмок в работе`, `Каталог фото и видео: ${startCatalogText()}`, "КП по ссылке с авансом", "Клиенты и календарь съёмок", "Деньги: оплачено и сколько должны", "Один пользователь"],
           std: ["Сделок без ограничения", `До ${TIER_RULES.std.seats} человек в команде`, `Полный каталог: ${catalogCountText()}`, "Договоры и онлайн-брифы", "Дашборд: графики и прогноз", "ИИ-помощник для КП"],
-          pro: ["Всё из «Стандарта»", `До ${TIER_RULES.pro.seats} человек в команде`, "Ваш бренд вместо нашего в КП", "Калькулятор на вашем сайте", "Приоритетная поддержка", "Помощь с переносом цен"],
+          pro: ["Всё из «Стандарта»", `До ${TIER_RULES.pro.seats} человек в команде`, "Онлайн-тайминг съёмки по ссылке", "Ваш бренд вместо нашего в КП", "Калькулятор на вашем сайте", "Приоритетная поддержка", "Помощь с переносом цен"],
         };
       }
 
@@ -17809,6 +17817,11 @@
           return;
         }
 
+        if (_timingId) {
+          root.innerHTML = renderTimingPage();
+          return;
+        }
+
         if (_briefAgencyId) {
           root.innerHTML = renderBriefPage();
           return;
@@ -28914,6 +28927,7 @@
           finance: renderFinance,
           team: renderTeam,
           calendar: renderCalendar,
+          timing: renderDealTiming,
           versions: renderVersions,
           activity: renderActivityLog,
         };
@@ -29112,6 +29126,378 @@
         go("settings");
         setTimeout(() => { const i = document.getElementById("newPassInput"); if (i) i.focus(); }, 300);
       }
+
+      /* ═══ ТАЙМИНГ СЪЁМКИ (тариф «Про») ═══════════════════════════════════════════
+         Владелец 23.10.2026: «для каждого проекта тайминг онлайн, с должностями и
+         администратором, работает по ссылке, легко редактируется, наглядный — только
+         для максимальной подписки». Решения владельца: две ссылки (просмотр группе,
+         редактор администратору площадки без аккаунта), в строке — время,
+         длительность, должности, локация, реквизит и заметки; живой режим в день
+         съёмки.
+         Хранится НЕ в agency_state, а в project_timings (миграция 20261023000001):
+         правят две стороны, у записи версия, устаревшее сохранение не затирает
+         свежее. Данные приходят и от анонимного редактора — поэтому всё, что из них
+         попадает в разметку, нормализуется (_tmData) и экранируется: id блока идёт
+         в onclick и обязан быть [a-z0-9], а должности передаются через data-role. */
+      const TM_KINDS = [["prep", "Подготовка"], ["shoot", "Съёмка"], ["break", "Перерыв"], ["move", "Переезд"], ["other", "Другое"]];
+      const TM_DURS = [5, 10, 15, 20, 30, 45, 60, 90, 120, 150, 180, 240, 300];
+      const TM_TEMPLATES = [["Сбор группы", "prep", 30], ["Грим и костюм", "prep", 45], ["Выставить свет", "prep", 45], ["Съёмка", "shoot", 60], ["Обед", "break", 60], ["Переезд", "move", 30], ["Сворачиваемся", "prep", 30]];
+      let _tm = null, _tmFor = "", _tmLoading = false, _tmErr = "", _tmStatus = "", _tmOpen = "", _tmRole = "";
+      let _tmSaveTimer = null, _tmDirty = false, _tmSaving = false, _tmPoll = null;
+
+      const _tmMin = (s) => { const m = String(s || "").match(/^(\d{1,2}):(\d{2})/); return m ? Math.min(23, +m[1]) * 60 + Math.min(59, +m[2]) : 0; };
+      const _tmHm = (n) => { n = ((Math.round(n) % 1440) + 1440) % 1440; return String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0"); };
+      const _tmUid = () => "b" + Math.random().toString(36).slice(2, 10);
+      const _tmDurText = (d) => d >= 60 ? `${Math.floor(d / 60)} ч${d % 60 ? " " + (d % 60) + " мин" : ""}` : `${d} мин`;
+      // Нормализация: время — «ЧЧ:ММ», длительность — число, тип — из списка, id — безопасный.
+      function _tmData() {
+        if (!_tm) return { blocks: [], roles: [], admin: { name: "", phone: "" }, address: "", delay: 0 };
+        const d = (_tm.data && typeof _tm.data === "object") ? _tm.data : {};
+        d.roles = (Array.isArray(d.roles) ? d.roles : []).map(r => String(r).slice(0, 60)).filter(Boolean);
+        d.admin = { name: String((d.admin && d.admin.name) || "").slice(0, 120), phone: String((d.admin && d.admin.phone) || "").slice(0, 40) };
+        d.address = String(d.address || "").slice(0, 300);
+        d.delay = Math.round(+d.delay || 0);
+        const kinds = TM_KINDS.map(k => k[0]);
+        d.blocks = (Array.isArray(d.blocks) ? d.blocks : []).slice(0, 200).map(b => ({
+          id: /^[a-z0-9]{1,20}$/i.test(String(b && b.id)) ? String(b.id) : _tmUid(),
+          start: _tmHm(_tmMin(b && b.start)), dur: Math.max(5, Math.min(720, Math.round(+(b && b.dur) || 30))),
+          title: String((b && b.title) || "").slice(0, 300), kind: kinds.includes(b && b.kind) ? b.kind : "other",
+          roles: (Array.isArray(b && b.roles) ? b.roles : []).map(r => String(r).slice(0, 60)),
+          location: String((b && b.location) || "").slice(0, 300), address: String((b && b.address) || "").slice(0, 300),
+          props: String((b && b.props) || "").slice(0, 2000), notes: String((b && b.notes) || "").slice(0, 2000),
+        }));
+        _tm.data = d;
+        return d;
+      }
+      const _tmSorted = () => _tmData().blocks.slice().sort((a, b) => _tmMin(a.start) - _tmMin(b.start));
+      function _tmDefaultData() {
+        // должности — из команды сделки: сменные позиции сметы (оператор, режиссёр…) и администратор
+        const roles = ["Администратор"];
+        Object.keys(state.selected || {}).forEach(id => { const it = findItem(id, true); if (it && it.calcModel === "crewShift" && !roles.includes(it.name)) roles.push(it.name); });
+        let t = 9 * 60;
+        const blocks = [["Сбор группы", "prep", 30], ["Подготовка: свет, звук, грим", "prep", 60], ["Съёмка — блок 1", "shoot", 120], ["Обед", "break", 60], ["Съёмка — блок 2", "shoot", 120], ["Сворачиваемся", "prep", 30]]
+          .map(([title, kind, dur]) => { const b = { id: _tmUid(), start: _tmHm(t), dur, title, kind, roles: [], location: "", address: "", props: "", notes: "" }; t += dur; return b; });
+        return { admin: { name: "", phone: "" }, address: "", roles, blocks, delay: 0 };
+      }
+      // Живой режим: только в день съёмки, по часам устройства.
+      function _tmLive() {
+        if (!_tm || !_tm.shoot_date || String(_tm.shoot_date).slice(0, 10) !== todayIso()) return null;
+        const d = new Date(), now = d.getHours() * 60 + d.getMinutes();
+        let cur = null, next = null;
+        _tmSorted().forEach(b => { const s = _tmMin(b.start), e = s + b.dur; if (s <= now && now < e) cur = b; if (s > now && (!next || s < _tmMin(next.start))) next = b; });
+        return { now, cur, next };
+      }
+
+      /* ── правка ── */
+      function _tmStatusText() {
+        return { saving: "Сохраняю…", saved: "Сохранено", error: "Не сохранилось — проверьте связь, повторю сам", conflict: "Обновлено с другого устройства" }[_tmStatus] || "Все изменения сохраняются сами";
+      }
+      function _tmStatusPaint() { const el = document.getElementById("tmStatus"); if (el) { el.textContent = _tmStatusText(); el.dataset.s = _tmStatus; } }
+      function _tmChanged(rerender) {
+        _tmDirty = true; _tmStatus = "saving";
+        clearTimeout(_tmSaveTimer); _tmSaveTimer = setTimeout(_tmSave, 800);
+        if (rerender) render(); else _tmStatusPaint();
+      }
+      const _tmCan = () => !!(_tm && _tm.can_edit);
+      function tmField(key, value) {
+        if (!_tmCan()) return;
+        const d = _tmData();
+        if (key === "title") _tm.title = String(value).slice(0, 200);
+        else if (key === "shoot_date") { _tm.shoot_date = value || null; return _tmChanged(true); }
+        else if (key === "adminName") d.admin.name = String(value).slice(0, 120);
+        else if (key === "adminPhone") d.admin.phone = String(value).slice(0, 40);
+        else if (key === "address") d.address = String(value).slice(0, 300);
+        _tmChanged(false);
+      }
+      function tmBlockSet(id, key, value) {
+        if (!_tmCan()) return;
+        const d = _tmData(), b = d.blocks.find(x => x.id === id);
+        if (!b) return;
+        if (key === "dur") {
+          // длительность сдвигает и всё, что идёт ПОСЛЕ блока, — следующий блок встаёт за ним, как в жизни
+          const nd = Math.max(5, Math.min(720, Math.round(+value || 0))), delta = nd - b.dur, end = _tmMin(b.start) + b.dur;
+          d.blocks.forEach(x => { if (x !== b && _tmMin(x.start) >= end) x.start = _tmHm(_tmMin(x.start) + delta); });
+          b.dur = nd; return _tmChanged(true);
+        }
+        if (key === "start") { b.start = _tmHm(_tmMin(value)); return _tmChanged(true); }
+        if (key === "kind") { b.kind = value; return _tmChanged(true); }
+        if (["title", "location", "address", "props", "notes"].includes(key)) { b[key] = String(value).slice(0, key === "props" || key === "notes" ? 2000 : 300); _tmChanged(false); }
+      }
+      function tmBlockRole(id, el) {
+        if (!_tmCan() || !el) return;
+        const b = _tmData().blocks.find(x => x.id === id), role = el.dataset.role;
+        if (!b || !role) return;
+        b.roles = b.roles.includes(role) ? b.roles.filter(r => r !== role) : [...b.roles, role];
+        _tmChanged(true);
+      }
+      function tmAdd(tpl) {
+        if (!_tmCan()) return;
+        const d = _tmData(), bs = _tmSorted(), last = bs[bs.length - 1];
+        const t = TM_TEMPLATES[tpl] || ["Новый блок", "other", 30];
+        const b = { id: _tmUid(), start: last ? _tmHm(_tmMin(last.start) + last.dur) : "09:00", dur: t[2], title: t[0], kind: t[1], roles: [], location: "", address: "", props: "", notes: "" };
+        d.blocks.push(b); _tmOpen = b.id; _tmChanged(true);
+      }
+      function tmDup(id) {
+        if (!_tmCan()) return;
+        const d = _tmData(), b = d.blocks.find(x => x.id === id);
+        if (!b) return;
+        const end = _tmMin(b.start) + b.dur;
+        d.blocks.forEach(x => { if (x !== b && _tmMin(x.start) >= end) x.start = _tmHm(_tmMin(x.start) + b.dur); });
+        const c = Object.assign({}, b, { id: _tmUid(), start: _tmHm(end), roles: [...b.roles] });
+        d.blocks.push(c); _tmOpen = c.id; _tmChanged(true);
+      }
+      function tmDel(id) {
+        if (!_tmCan()) return;
+        const d = _tmData(), idx = d.blocks.findIndex(x => x.id === id);
+        if (idx < 0) return;
+        const removed = d.blocks.splice(idx, 1)[0];
+        _tmOpen = ""; _tmChanged(true);
+        toastUndo("Блок удалён", () => { _tmData().blocks.push(removed); _tmChanged(true); });
+      }
+      function tmOpen(id) { if (!_tmCan()) return; _tmOpen = _tmOpen === id ? "" : id; render(); }
+      // «Отстаём на N минут»: сдвигаются текущий блок и всё, что после; копится в «сдвиг за день».
+      function tmShift(mins) {
+        if (!_tmCan()) return;
+        const live = _tmLive(), d = _tmData();
+        const from = live ? (live.cur ? _tmMin(live.cur.start) : live.now) : 0;
+        d.blocks.forEach(b => { const s = _tmMin(b.start); if (live && live.cur && b.id === live.cur.id) { b.dur = Math.max(5, b.dur + mins); return; } if (s >= from) b.start = _tmHm(s + mins); });
+        d.delay = (d.delay || 0) + mins;
+        toast(mins > 0 ? `Тайминг сдвинут на ${mins} мин — у группы обновится сам` : `Догнали ${-mins} мин`);
+        _tmChanged(true);
+      }
+      function tmRoleAdd(input) {
+        if (!_tmCan() || !input) return;
+        const v = String(input.value || "").trim().slice(0, 60), d = _tmData();
+        if (!v || d.roles.includes(v)) { input.value = ""; return; }
+        d.roles.push(v); input.value = ""; _tmChanged(true);
+        setTimeout(() => { const i = document.getElementById("tmRoleInput"); if (i) i.focus(); }, 30);
+      }
+      function tmRoleDel(el) {
+        if (!_tmCan() || !el) return;
+        const role = el.dataset.role, d = _tmData();
+        d.roles = d.roles.filter(r => r !== role);
+        d.blocks.forEach(b => { b.roles = b.roles.filter(r => r !== role); });
+        if (_tmRole === role) _tmRole = "";
+        _tmChanged(true);
+      }
+      function tmRoleFilter(el) { _tmRole = (el && el.dataset.role) || ""; render(); }
+
+      async function _tmSave() {
+        if (!_tm || !_supabase) return;
+        if (_tmSaving) { clearTimeout(_tmSaveTimer); _tmSaveTimer = setTimeout(_tmSave, 600); return; }
+        _tmSaving = true; _tmDirty = false;
+        const { data, error } = await _supabase.rpc("save_project_timing", {
+          p_id: _tm.id, p_token: _timingKey || _tm.edit_token || null, p_version: _tm.version,
+          p_title: _tm.title || "", p_date: _tm.shoot_date ? String(_tm.shoot_date).slice(0, 10) : null, p_data: _tmData(),
+        });
+        _tmSaving = false;
+        if (error || !data) {   // supabase-js не бросает: ошибка — в результате (gotcha-supabase-error-not-thrown)
+          _tmStatus = "error"; _tmDirty = true; _tmStatusPaint();
+          clearTimeout(_tmSaveTimer); _tmSaveTimer = setTimeout(_tmSave, 5000);
+          return;
+        }
+        if (data.conflict) {
+          Object.assign(_tm, { version: data.version, title: data.title, shoot_date: data.shoot_date, data: data.data });
+          _tmStatus = "conflict"; toast("Тайминг только что изменили с другого устройства — показываю свежую версию");
+          render(); return;
+        }
+        _tm.version = data.version;
+        _tmStatus = _tmDirty ? "saving" : "saved"; _tmStatusPaint();
+      }
+
+      /* ── загрузка и обновление у всех ── */
+      async function loadTimingPublic() {
+        if (!_supabase && window.supabase) {   // как у портала: гость без сессии, клиент может быть ещё не создан
+          const { url, key } = getSupabaseConfig();
+          if (url && key) { try { _supabase = window.supabase.createClient(url, key); } catch (e) { console.warn("createClient (timing):", e); } }
+        }
+        if (!_supabase) { _tmErr = "Не удалось подключиться к серверу — проверьте интернет"; render(); return; }
+        const { data, error } = await _supabase.rpc("get_project_timing", { p_id: _timingId, p_token: _timingKey || null });
+        if (error || !data) { _tmErr = error ? "Не удалось загрузить тайминг — проверьте интернет и обновите страницу" : "Тайминг не найден — возможно, ссылку удалили"; render(); return; }
+        _tm = data; _tmErr = ""; document.title = (_tm.title || "Тайминг") + " — тайминг съёмки";
+        render(); _tmStartPolling();
+      }
+      async function _tmLoadForProject(pid) {
+        _tmFor = pid; _tm = null; _tmErr = ""; _tmLoading = true; _tmOpen = ""; _tmRole = "";
+        const { data, error } = await _supabase.from("project_timings").select("id,edit_token,title,shoot_date,data,version,updated_at").eq("project_id", pid).maybeSingle();
+        _tmLoading = false;
+        if (_tmFor !== pid) return;                      // успели открыть другую сделку
+        if (error) _tmErr = "Не удалось загрузить тайминг: " + error.message;
+        else if (data) _tm = Object.assign(data, { can_edit: true });
+        render(); if (_tm) _tmStartPolling();
+      }
+      async function tmCreate() {
+        if (!tierAllows("timing")) { go("plans"); return; }
+        const pid = state.activeProjectId;
+        if (!pid || !_supabase) return;
+        // дата съёмки — ближайший день работы из сметы, если он не в прошлом
+        const days = Object.values(state.selected || {}).flatMap(l => [l && l.date, ...((l && l.workDates) || [])]).filter(v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""))).sort();
+        const date = days.find(v => v >= todayIso()) || null;
+        const { data, error } = await _supabase.rpc("create_project_timing", { p_project_id: pid, p_title: state.project.name || "Тайминг съёмки", p_date: date, p_data: _tmDefaultData() });
+        if (error || !data) { toast(error && /timing_requires_pro/.test(error.message) ? "Тайминг — на тарифе «Про»" : "Не удалось создать тайминг" + (error ? ": " + error.message : "")); return; }
+        _tm = Object.assign(data, { can_edit: true }); _tmFor = pid; _tmErr = "";
+        render(); _tmStartPolling();
+      }
+      function _tmStartPolling() {
+        clearInterval(_tmPoll);
+        _tmPoll = setInterval(async () => {
+          if (!_tm || !_supabase || document.hidden) return;
+          const inCrm = !_timingId;
+          if (inCrm && !(state.view === "deal" && state.dealView === "timing")) { clearInterval(_tmPoll); _tmPoll = null; return; }
+          const a = document.activeElement;
+          const typing = a && a.closest && a.closest(".tm-wrap") && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
+          if (_tmDirty || _tmSaving || typing) return;
+          const { data, error } = await _supabase.rpc("get_project_timing", { p_id: _tm.id, p_token: _timingKey || null });
+          if (!error && data && data.version > _tm.version) { const keep = _tm.edit_token; _tm = Object.assign(data, inCrm ? { can_edit: true, edit_token: keep } : {}); render(); }
+          else if (_tmLive()) render();                  // живой режим: «сейчас идёт» переезжает со временем
+        }, 15000);
+      }
+      function tmCopy(kind) {
+        if (!_tm) return;
+        const base = location.origin + location.pathname + "?timing=" + _tm.id;
+        if (kind === "edit") { if (!_tm.edit_token) return; copyToClipboard(base + "&k=" + _tm.edit_token, "Ссылка администратора скопирована — отдавайте только ему"); }
+        else copyToClipboard(base, "Ссылка для группы скопирована");
+      }
+
+      /* ── вид ── */
+      function timingBoardHtml(mode) {
+        const d = _tmData(), ed = _tmCan(), live = _tmLive();
+        const roleF = _tmRole && d.roles.includes(_tmRole) ? _tmRole : "";
+        const all = _tmSorted();
+        const blocks = all.filter(b => !roleF || !b.roles.length || b.roles.includes(roleF));
+        const kindName = Object.fromEntries(TM_KINDS);
+        const dateIso = _tm.shoot_date ? String(_tm.shoot_date).slice(0, 10) : "";
+        const dateText = dateIso ? _longDate(new Date(dateIso + "T00:00:00")) : "Дата не выбрана";
+        const first = all[0], lastB = all[all.length - 1];
+        const span = first ? `${first.start}–${_tmHm(_tmMin(lastB.start) + lastB.dur)}` : "";
+        const maps = (a) => "https://yandex.ru/maps/?text=" + encodeURIComponent(a);
+        const tel = (p) => "tel:" + String(p).replace(/[^\d+]/g, "");
+        const head = `
+          <div class="panel tm-head">
+            ${mode === "public" && _tm.agency_name ? `<div class="tm-studio">${_tm.agency_logo ? `<img src="${escapeHtml(_tm.agency_logo)}" alt="" onerror="this.remove()">` : ""}<span>${escapeHtml(_tm.agency_name)}</span></div>` : ""}
+            <div class="tm-kicker">${icon("calendar", 13)} Тайминг съёмки${span ? ` · ${span}` : ""}</div>
+            ${ed ? `<input class="tm-title-in" value="${escapeHtml(_tm.title || "")}" oninput="app.tmField('title',this.value)" aria-label="Название тайминга" placeholder="Название съёмки">`
+                 : `<h1 class="tm-title">${escapeHtml(_tm.title || "Тайминг съёмки")}</h1>`}
+            <div class="tm-meta">
+              <div class="tm-meta-cell"><span class="u-meta">Дата</span>${ed ? `<input type="date" value="${escapeHtml(dateIso)}" onchange="app.tmField('shoot_date',this.value)" aria-label="Дата съёмки">` : `<b>${escapeHtml(dateText)}</b>`}</div>
+              <div class="tm-meta-cell"><span class="u-meta">Администратор</span>${ed
+                ? `<div class="tm-2in"><input value="${escapeHtml(d.admin.name)}" oninput="app.tmField('adminName',this.value)" placeholder="Имя" aria-label="Имя администратора"><input type="tel" value="${escapeHtml(d.admin.phone)}" oninput="app.tmField('adminPhone',this.value)" placeholder="Телефон" aria-label="Телефон администратора"></div>`
+                : (d.admin.name || d.admin.phone ? `<b>${escapeHtml(d.admin.name || "—")}</b>${d.admin.phone ? ` <a class="tm-tel" href="${escapeHtml(tel(d.admin.phone))}">${icon("phone", 12)} ${escapeHtml(d.admin.phone)}</a>` : ""}` : `<b>—</b>`)}</div>
+              <div class="tm-meta-cell"><span class="u-meta">Адрес площадки</span>${ed
+                ? `<input value="${escapeHtml(d.address)}" oninput="app.tmField('address',this.value)" placeholder="Город, улица, дом" aria-label="Адрес площадки">`
+                : (d.address ? `<a href="${escapeHtml(maps(d.address))}" target="_blank" rel="noopener">${escapeHtml(d.address)} ${icon("external", 11)}</a>` : `<b>—</b>`)}</div>
+            </div>
+            ${ed ? `<div class="tm-status" id="tmStatus" data-s="${_tmStatus}" aria-live="polite">${_tmStatusText()}</div>` : ""}
+          </div>`;
+        const liveHtml = live ? (() => {
+          const c = live.cur, pct = c ? Math.min(100, Math.max(0, Math.round((live.now - _tmMin(c.start)) / c.dur * 100))) : 0;
+          return `
+            <div class="panel tm-live" aria-live="polite">
+              <div class="tm-live-row"><span class="tm-live-dot"></span>${c ? `Сейчас: <b>${escapeHtml(c.title || "Без названия")}</b> · до ${_tmHm(_tmMin(c.start) + c.dur)}` : `Сейчас в плане окно${live.next ? "" : " — день по таймингу закончен"}`}</div>
+              ${c ? `<div class="tm-live-bar"><i style="width:${pct}%"></i></div>` : ""}
+              ${live.next ? `<div class="u-meta">Дальше: ${escapeHtml(live.next.title || "Без названия")} в ${live.next.start}</div>` : ""}
+              ${d.delay ? `<div class="tm-delay">Сдвиг за день: ${d.delay > 0 ? "+" : ""}${d.delay} мин</div>` : ""}
+              ${ed ? `<div class="tm-shift"><span class="u-meta">Отстаём:</span>${[5, 10, 15, 30].map(m => `<button type="button" class="chip" onclick="app.tmShift(${m})">+${m} мин</button>`).join("")}<button type="button" class="chip" onclick="app.tmShift(-5)">−5</button></div>` : ""}
+            </div>`;
+        })() : "";
+        const rolesHtml = (d.roles.length || ed) ? `
+          <div class="tm-roles">
+            ${d.roles.length ? `<span class="u-meta">${ed ? "Должности:" : "Мой тайминг:"}</span>` : ""}
+            ${ed ? d.roles.map(r => `<span class="chip tm-role">${escapeHtml(r)}<button type="button" class="tm-role-x" data-role="${escapeHtml(r)}" onclick="app.tmRoleDel(this)" aria-label="Убрать должность">${icon("close", 10)}</button></span>`).join("")
+                 + `<input id="tmRoleInput" class="tm-role-in" placeholder="+ должность" aria-label="Добавить должность" onkeydown="if(event.key==='Enter'){event.preventDefault();app.tmRoleAdd(this)}" onblur="app.tmRoleAdd(this)">`
+                 : `<button type="button" class="chip ${!roleF ? "active" : ""}" data-role="" onclick="app.tmRoleFilter(this)">Все</button>` + d.roles.map(r => `<button type="button" class="chip ${roleF === r ? "active" : ""}" data-role="${escapeHtml(r)}" onclick="app.tmRoleFilter(this)">${escapeHtml(r)}</button>`).join("")}
+          </div>
+          ${ed && d.roles.length ? `<div class="tm-roles tm-roles-f"><span class="u-meta">Показать:</span><button type="button" class="chip ${!roleF ? "active" : ""}" data-role="" onclick="app.tmRoleFilter(this)">Все</button>${d.roles.map(r => `<button type="button" class="chip ${roleF === r ? "active" : ""}" data-role="${escapeHtml(r)}" onclick="app.tmRoleFilter(this)">${escapeHtml(r)}</button>`).join("")}</div>` : ""}` : "";
+        const durOpts = (cur) => [...new Set([...TM_DURS, cur])].sort((a, b) => a - b).map(m => `<option value="${m}" ${m === cur ? "selected" : ""}>${_tmDurText(m)}</option>`).join("");
+        const editForm = (b) => `
+          <div class="tm-edit">
+            <div class="tm-edit-grid">
+              <div class="field"><label for="tmS_${b.id}">Начало</label><input id="tmS_${b.id}" type="time" step="300" value="${b.start}" onchange="app.tmBlockSet('${b.id}','start',this.value)"></div>
+              <div class="field"><label for="tmD_${b.id}">Длительность</label><select id="tmD_${b.id}" onchange="app.tmBlockSet('${b.id}','dur',this.value)">${durOpts(b.dur)}</select></div>
+              <div class="field"><label for="tmK_${b.id}">Тип</label><select id="tmK_${b.id}" onchange="app.tmBlockSet('${b.id}','kind',this.value)">${TM_KINDS.map(([k, l]) => `<option value="${k}" ${b.kind === k ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+            </div>
+            <div class="field"><label for="tmT_${b.id}">Что происходит</label><input id="tmT_${b.id}" value="${escapeHtml(b.title)}" oninput="app.tmBlockSet('${b.id}','title',this.value)" placeholder="Например: съёмка интервью"></div>
+            ${d.roles.length ? `<div class="field"><label>Кто занят</label><div class="tm-roles">${d.roles.map(r => `<button type="button" class="chip ${b.roles.includes(r) ? "active" : ""}" data-role="${escapeHtml(r)}" onclick="app.tmBlockRole('${b.id}',this)" aria-pressed="${b.roles.includes(r)}">${escapeHtml(r)}</button>`).join("")}</div></div>` : ""}
+            <div class="tm-edit-grid two">
+              <div class="field"><label for="tmL_${b.id}">Локация</label><input id="tmL_${b.id}" value="${escapeHtml(b.location)}" oninput="app.tmBlockSet('${b.id}','location',this.value)" placeholder="Зал, гримёрка, улица…"></div>
+              <div class="field"><label for="tmA_${b.id}">Адрес (если другой)</label><input id="tmA_${b.id}" value="${escapeHtml(b.address)}" oninput="app.tmBlockSet('${b.id}','address',this.value)" placeholder="Для переезда"></div>
+            </div>
+            <div class="tm-edit-grid two">
+              <div class="field"><label for="tmP_${b.id}">Реквизит</label><textarea id="tmP_${b.id}" rows="2" oninput="app.tmBlockSet('${b.id}','props',this.value)" placeholder="Что подготовить к блоку">${escapeHtml(b.props)}</textarea></div>
+              <div class="field"><label for="tmN_${b.id}">Заметки</label><textarea id="tmN_${b.id}" rows="2" oninput="app.tmBlockSet('${b.id}','notes',this.value)" placeholder="Комментарий для группы">${escapeHtml(b.notes)}</textarea></div>
+            </div>
+            <div class="toolbar"><button type="button" class="btn small" onclick="app.tmDup('${b.id}')">Дублировать</button><button type="button" class="btn small danger-quiet" onclick="app.tmDel('${b.id}')">${TRASH_SVG} Удалить</button><button type="button" class="btn small primary" style="margin-left:auto" onclick="app.tmOpen('${b.id}')">Готово</button></div>
+          </div>`;
+        const list = blocks.map(b => {
+          const s = _tmMin(b.start), e = s + b.dur, isCur = !!(live && live.cur && live.cur.id === b.id), past = !!(live && e <= live.now);
+          const open = ed && _tmOpen === b.id;
+          return `
+            <div class="tm-row ${isCur ? "is-cur" : ""} ${past ? "is-past" : ""} ${open ? "is-open" : ""}">
+              <div class="tm-time"><b>${b.start}</b><span>${_tmHm(e)}</span><small>${_tmDurText(b.dur)}</small></div>
+              <div class="tm-card tm-k-${b.kind}" ${ed ? `role="button" tabindex="0" onclick="app.tmOpen('${b.id}')" onkeydown="if(event.key==='Enter'){app.tmOpen('${b.id}')}" aria-expanded="${open}"` : ""}>
+                <div class="tm-card-top"><span class="tm-kind">${kindName[b.kind]}</span>${isCur ? `<span class="tm-now">Сейчас</span>` : ""}${ed ? `<span class="tm-edit-hint">${icon("pencil", 11)}</span>` : ""}</div>
+                <h3>${escapeHtml(b.title || "Без названия")}</h3>
+                ${b.roles.length ? `<div class="tm-chips">${b.roles.map(r => `<span class="tm-chip">${escapeHtml(r)}</span>`).join("")}</div>` : ""}
+                ${b.location || b.address ? `<div class="tm-line">${icon("target", 12)} ${escapeHtml(b.location)}${b.address ? ` · <a href="${escapeHtml(maps(b.address))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(b.address)}</a>` : ""}</div>` : ""}
+                ${b.props ? `<div class="tm-line"><b>Реквизит:</b> ${escapeHtml(b.props)}</div>` : ""}
+                ${b.notes ? `<div class="tm-line tm-notes">${escapeHtml(b.notes)}</div>` : ""}
+              </div>
+            </div>
+            ${open ? editForm(b) : ""}`;
+        }).join("");
+        const add = ed ? `
+          <div class="tm-add">
+            <button type="button" class="btn small primary" onclick="app.tmAdd(-1)">${icon("plus", 13)} Блок</button>
+            ${TM_TEMPLATES.map((t, i) => `<button type="button" class="chip" onclick="app.tmAdd(${i})">${t[0]}</button>`).join("")}
+          </div>` : "";
+        return `${head}${liveHtml}${rolesHtml}
+          <div class="tm-list">${list || `<div class="panel tm-empty">${roleF ? "У этой должности блоков нет" : "Блоков пока нет"}</div>`}</div>
+          ${add}`;
+      }
+
+      // Страница по ссылке (?timing=…): группа видит план, администратор (с ключом) — правит.
+      function renderTimingPage() {
+        if (_tmErr) return `<div class="tm-wrap tm-page"><div class="panel tm-empty">${escapeHtml(_tmErr)}</div></div>`;
+        if (!_tm) return `<div class="tm-wrap tm-page"><div class="panel tm-empty">Загружаю тайминг…</div></div>`;
+        return `<div class="tm-wrap tm-page">
+          ${_tm.can_edit ? `<div class="tm-badge">${icon("pencil", 12)} Вы администратор: правки сразу видны всей группе</div>` : ""}
+          ${timingBoardHtml("public")}
+          <div class="tm-foot">Тайминг сделан в <a href="https://app.adervis.ru/" target="_blank" rel="noopener">ADERVIS CRM</a></div>
+        </div>`;
+      }
+
+      // Вкладка «Тайминг» в сделке.
+      function renderDealTiming() {
+        if (!tierAllows("timing")) return `
+          <div class="panel tm-upsell">
+            <div class="set-card-head">${iconBadge("calendar", "var(--primary)", 30)}<div><h2>Онлайн-тайминг съёмки</h2><p>Доступен на тарифе «Про»</p></div></div>
+            <ul class="promo-video-points">
+              <li>${icon("check", 12)}<span>План съёмочного дня блоками: время, должности, локации, реквизит</span></li>
+              <li>${icon("check", 12)}<span>Ссылка для группы и отдельная — для администратора площадки, без аккаунтов</span></li>
+              <li>${icon("check", 12)}<span>Живой режим: «сейчас идёт», «отстаём на 15 минут» — у всех обновляется само</span></li>
+            </ul>
+            <button type="button" class="btn primary" onclick="app.go('plans')">Перейти на «Про»</button>
+          </div>`;
+        if (!_supabase || !_adminSession) return `<div class="panel tm-empty">Тайминг живёт в облаке, чтобы открываться по ссылке — войдите в аккаунт.</div>`;
+        const pid = state.activeProjectId;
+        if (!pid) return `<div class="panel tm-empty">Сохраните сделку — и для неё можно будет собрать тайминг.</div>`;
+        if (_tmFor !== pid && !_tmLoading) _tmLoadForProject(pid);
+        if (_tmLoading || _tmFor !== pid) return `<div class="panel tm-empty">Загружаю тайминг…</div>`;
+        if (_tmErr) return `<div class="panel tm-empty">${escapeHtml(_tmErr)} <button type="button" class="btn small" onclick="app.tmReload()">Повторить</button></div>`;
+        if (!_tm) return `
+          <div class="panel tm-upsell">
+            <div class="set-card-head">${iconBadge("calendar", "var(--primary)", 30)}<div><h2>Тайминг съёмочного дня</h2><p>Соберём черновик из сметы: должности — из команды, блоки — типовой день. Дальше правите под себя.</p></div></div>
+            <button type="button" class="btn primary" onclick="app.tmCreate()">Создать тайминг</button>
+          </div>`;
+        return `<div class="tm-wrap">
+          <div class="panel tm-share">
+            <div class="tm-share-row"><div><b>Ссылка для группы</b><p class="u-meta">Только просмотр: план дня, должности, адреса, «сейчас идёт»</p></div><button type="button" class="btn small" onclick="app.tmCopy('view')">${icon("link", 13)} Скопировать</button></div>
+            <div class="tm-share-row"><div><b>Ссылка для администратора площадки</b><p class="u-meta">Может править тайминг без аккаунта — отдавайте только ему</p></div><button type="button" class="btn small" onclick="app.tmCopy('edit')">${icon("key", 13)} Скопировать</button></div>
+          </div>
+          ${timingBoardHtml("crm")}
+        </div>`;
+      }
+      function tmReload() { _tmFor = ""; render(); }
 
       // Секция «Уведомления (Telegram)» — вынесена из renderSettings (self-contained, читает
       // только state.telegramChatIds). Первый шаг декомпозиции длинной renderSettings.
@@ -35666,6 +36052,20 @@ Email: _____________________              Email: _____________________
         rotateCalendarToken,
         openChangePassword,
         submitChangePassword,
+        tmField,
+        tmBlockSet,
+        tmBlockRole,
+        tmAdd,
+        tmDup,
+        tmDel,
+        tmOpen,
+        tmShift,
+        tmRoleAdd,
+        tmRoleDel,
+        tmRoleFilter,
+        tmCreate,
+        tmCopy,
+        tmReload,
         confirmDeleteAccount,
 
         openHelpModal,
@@ -35937,7 +36337,7 @@ Email: _____________________              Email: _____________________
       }
       initEvents();
       if (_briefAgencyId) document.body.classList.add('brief-mode');
-      if (_portalId) document.body.classList.add('portal-mode');
+      if (_portalId || _timingId) document.body.classList.add('portal-mode');   // тайминг по ссылке — та же гостевая оболочка без меню
       render();
       if (!_calcMode) {
         // Тот же принцип: калькулятор анонимен и ничего не должно тянуть auth-сессию
@@ -35947,6 +36347,7 @@ Email: _____________________              Email: _____________________
         checkVKCallback();
         checkYandexCallback();
         if (_portalId) loadPortalData();
+        if (_timingId) loadTimingPublic();
       }
       setTimeout(initSwipeToDelete, 800);
       _initTaskBoardDrag();
@@ -36027,7 +36428,7 @@ Email: _____________________              Email: _____________________
           .catch(() => {});   // проверка — фоновая любезность, её отказ не беда
       }
 
-      if ("serviceWorker" in navigator && !_briefAgencyId && !_portalId && !_calcMode) {
+      if ("serviceWorker" in navigator && !_briefAgencyId && !_portalId && !_timingId && !_calcMode) {
         let hadController = !!navigator.serviceWorker.controller;
         navigator.serviceWorker.addEventListener("controllerchange", () => {
           if (!hadController) { hadController = true; return; }

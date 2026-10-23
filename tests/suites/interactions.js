@@ -7492,6 +7492,16 @@ module.exports = async function ({ browser, baseUrl, test }) {
       });
       assert(std.бренд, "на «Стандарте» дают снять подпись «Сделано в ADERVIS» — это возможность «Про»");
       assert(std.про, "не сказано, что подпись снимается на «Про»");
+
+      // Онлайн-тайминг — тоже «Про»: вкладка есть, но вместо тайминга — что он даёт и куда перейти.
+      await p.evaluate(() => { window.app.openDeal("d0"); window.app.setDealView("timing"); });
+      await p.waitForTimeout(600);
+      const tm = await p.evaluate(() => ({
+        t: document.getElementById("appContent").textContent.replace(/\s+/g, " "),
+        create: [...document.querySelectorAll("#appContent button")].some((b) => /Создать тайминг/.test(b.textContent)),
+      }));
+      assert(/Доступен на тарифе «Про»/.test(tm.t), "на «Стандарте» вкладка «Тайминг» не объясняет, что это возможность «Про»");
+      assert(!tm.create, "на «Стандарте» дают создать тайминг");
     } finally {
       await ctx.close();
     }
@@ -7640,6 +7650,26 @@ module.exports = async function ({ browser, baseUrl, test }) {
       pro.бренд = бренд;
       assert(pro.бренд, "на «Про» подпись «Сделано в ADERVIS» всё ещё не снимается");
       assert(pro.калькулятор, "на «Про» публичный калькулятор не открылся");
+
+      /* Тайминг на «Про»: у сделки его ещё нет → «Создать тайминг» → черновик
+         типового дня и две ссылки. Сервер подменяем: create отдаёт запись с ключом. */
+      let создано = null;
+      await ctx.route("**/rest/v1/project_timings*", (r) => r.fulfill({ status: 200, contentType: "application/json", body: "null" }));
+      await ctx.route("**/rest/v1/rpc/create_project_timing*", (r) => {
+        создано = JSON.parse(r.request().postData() || "{}");
+        r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+          id: "11111111-2222-3333-4444-777777777777", edit_token: "99999999-8888-7777-6666-555555555555",
+          title: создано.p_title, shoot_date: создано.p_date, data: создано.p_data, version: 1 }) });
+      });
+      await p.evaluate(() => { window.app.openDeal("d0"); window.app.setDealView("timing"); });
+      await p.waitForFunction(() => [...document.querySelectorAll("#appContent button")].some((b) => /Создать тайминг/.test(b.textContent)), null, { timeout: 5000 });
+      await p.evaluate(() => window.app.tmCreate());
+      await p.waitForSelector(".tm-row", { timeout: 5000 });
+      assertEqual(создано.p_project_id, "d0", "тайминг создан не для открытой сделки");
+      assertEqual(await p.$$eval(".tm-row", (els) => els.length), 6, "черновик тайминга — не типовой день из шести блоков");
+      assert(создано.p_data.roles.includes("Администратор"), "в черновике нет должности «Администратор»");
+      const ссылки = await p.$$eval(".tm-share button", (els) => els.map((e) => e.getAttribute("onclick")));
+      assertEqual(ссылки.join(" "), "app.tmCopy('view') app.tmCopy('edit')", "нет двух ссылок: для группы и для администратора");
     } finally {
       await ctx.close();
     }
