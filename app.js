@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 474;
+      const APP_BUILD = 475;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
@@ -1727,8 +1727,23 @@
          «Telegram» и «telegram » окажутся в отчёте разными каналами. */
       const SIGNUP_SOURCE_KEY = "_signupSource";
       (function() {
-        const raw = (new URLSearchParams(location.search).get("utm_source") || "").trim();
-        if (!raw || lsGet(SIGNUP_SOURCE_KEY)) return;
+        if (lsGet(SIGNUP_SOURCE_KEY)) return;
+        let raw = (new URLSearchParams(location.search).get("utm_source") || "").trim();
+        /* Без метки — по сайту, с которого пришли. Ссылок с меткой почти нигде нет
+           (сайт, соцсети, поиск), и до 28.10.2026 источник был пуст у всех 19 профилей.
+           Знакомые площадки — коротким именем, остальное — ref_<домен>.
+           Свой адрес и переезд со старого (app → crm) источником не считаем. */
+        if (!raw) {
+          let host = "";
+          try { host = document.referrer ? new URL(document.referrer).hostname.replace(/^www\./, "") : ""; } catch (e) { host = ""; }
+          if (host && host !== location.hostname && !/(^|\.)(app|crm)\.adervis\.ru$/.test(host)) {
+            const KNOWN = [[/(^|\.)yandex\.|(^|\.)ya\.ru$/, "yandex"], [/(^|\.)google\./, "google"], [/(^|\.)(vk\.com|vk\.ru|vkontakte\.ru)$/, "vk"],
+              [/(^|\.)(t\.me|telegram\.org|telegram\.me)$/, "telegram"], [/(^|\.)instagram\.com$/, "instagram"], [/(^|\.)(youtube\.com|youtu\.be)$/, "youtube"],
+              [/(^|\.)dzen\.ru$/, "dzen"], [/(^|\.)stock\.adervis\.ru$/, "adervis_stock"], [/(^|\.)hub\.adervis\.ru$/, "adervis_hub"], [/(^|\.)adervis\.ru$/, "adervis_site"]];
+            const hit = KNOWN.find(([re]) => re.test(host));
+            raw = hit ? hit[1] : "ref_" + host;
+          }
+        }
         const src = raw.toLowerCase().replace(/[^a-z0-9_-]+/g, "_").slice(0, 40);
         if (src) lsSet(SIGNUP_SOURCE_KEY, src);
       })();
