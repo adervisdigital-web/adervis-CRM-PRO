@@ -74,6 +74,30 @@ serveOrigins(async (req) => {
     }
   }
 
+  /* Запасной канал — почта владельцев студии. Telegram подключили 2 студии из 22
+     (28.10.2026): остальные не узнавали, что клиент открыл или согласовал КП, и
+     у них не было повода вернуться в CRM. Письмо — только когда Telegram нет. */
+  async function mailAgency(agencyId: string, subject: string, lines: string[], cta: string): Promise<boolean> {
+    const key = Deno.env.get("RESEND_API_KEY");
+    if (!key) return false;
+    const { data: owners } = await supabase.from("profiles").select("email").eq("agency_id", agencyId).limit(5);
+    const to = [...new Set((owners || []).map((o: any) => String(o.email || "").trim()).filter(Boolean))];
+    if (!to.length) return false;
+    const appUrl = Deno.env.get("APP_URL") || "https://crm.adervis.ru";
+    const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#14121a">
+      <h2 style="margin:0 0 14px;font-size:20px">${esc(subject)}</h2>
+      ${lines.map(l => `<p style="margin:0 0 8px;font-size:15px;line-height:1.5">${l}</p>`).join("")}
+      <p style="margin:22px 0"><a href="${appUrl}" style="display:inline-block;background:#6c00ff;color:#fff;text-decoration:none;font-weight:700;padding:12px 26px;border-radius:10px">${esc(cta)}</a></p>
+      <p style="margin:0;font-size:13px;color:#6b6780">Хотите узнавать об этом сразу? Подключите Telegram: «Настройки → Уведомления» в ADERVIS CRM.</p></div>`;
+    const text = [subject, "", ...lines.map(l => l.replace(/<[^>]+>/g, "")), "", `${cta}: ${appUrl}`].join(String.fromCharCode(10));
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: "ADERVIS CRM <noreply@app.adervis.ru>", to, subject, html, text }),
+    });
+    if (!r.ok) console.warn("agency-notify mail:", r.status, await r.text().catch(() => ""));
+    return r.ok;
+  }
+
   const ok = (msg = "ok") => new Response(JSON.stringify({ ok: true, msg }), {
     headers: { "Content-Type": "application/json", ...cors },
   });
@@ -94,7 +118,14 @@ serveOrigins(async (req) => {
     if (await isThrottled(portal.agency_id, `portal_${body.portalId}`, 30 * 60 * 1000)) return ok("throttled");
 
     const chatIds = await getTelegramIds(portal.agency_id);
-    if (!chatIds.length) return ok("no recipients");
+    if (!chatIds.length) {
+      // письмом — не чаще раза в неделю по одному КП: клиент может открывать его каждый день
+      if (await isThrottled(portal.agency_id, `mail_view_${body.portalId}`, 7 * 24 * 60 * 60 * 1000)) return ok("throttled");
+      const sent = await mailAgency(portal.agency_id, "Клиент открыл ваше КП",
+        [`<b>${esc(portal.deal_name) || "КП"}</b>`, `Клиент: ${esc(portal.client_name) || "клиент"}`, "Хороший момент позвонить или написать, пока предложение у клиента перед глазами."],
+        "Открыть ADERVIS CRM");
+      return ok(sent ? "mailed" : "no recipients");
+    }
 
     const text =
       `👁 <b>Клиент открыл КП</b>\n\n` +
@@ -130,11 +161,18 @@ serveOrigins(async (req) => {
     // ещё раз — второй такой же сигнал студии не нужен.
     if (await isThrottled(portal.agency_id, "approved_" + body.portalId, 24 * 60 * 60 * 1000)) return ok("throttled");
 
-    const chatIds = await getTelegramIds(portal.agency_id);
-    if (!chatIds.length) return ok("no recipients");
-
     const rub = (n: number) =>
       new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 }).format(n);
+
+    const chatIds = await getTelegramIds(portal.agency_id);
+    if (!chatIds.length) {
+      const sent = await mailAgency(portal.agency_id, "Клиент согласовал КП",
+        [`<b>${esc(portal.deal_name) || "КП"}</b>`, `Подписал: ${esc(portal.signer_name || portal.client_name) || "клиент"}`,
+          ...(portal.total_price ? [`Сумма: ${rub(Number(portal.total_price))}`] : []),
+          portal.advance_amount ? `Дальше аванс ${rub(Number(portal.advance_amount))}.` : "Дальше счёт и предоплата."],
+        "Открыть сделку в CRM");
+      return ok(sent ? "mailed" : "no recipients");
+    }
 
     const text =
       `✅ <b>Клиент согласовал КП</b>\n\n` +
@@ -171,7 +209,14 @@ serveOrigins(async (req) => {
     if (await isThrottled(agencyId, "brief_submitted", 60 * 1000)) return ok("throttled");
 
     const chatIds = await getTelegramIds(agencyId);
-    if (!chatIds.length) return ok("no recipients");
+    if (!chatIds.length) {
+      const sent = await mailAgency(agencyId, "Новый бриф от клиента",
+        [`<b>${esc(submission.client_name) || "Клиент"}</b>`,
+          ...[submission.client_phone, submission.client_email, submission.project_type, submission.budget].filter(Boolean).map((x: any) => esc(x)),
+          "Откройте «Брифы» в CRM, чтобы создать сделку."],
+        "Открыть брифы");
+      return ok(sent ? "mailed" : "no recipients");
+    }
 
     const text =
       `📥 <b>Новый бриф!</b>\n\n` +
