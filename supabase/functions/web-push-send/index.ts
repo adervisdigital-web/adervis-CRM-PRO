@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serveOrigins } from "../_shared/origins.ts";
 
 // Web Push (RFC 8030 + RFC 8291 + RFC 8292)
 // — VAPID JWT signing (ES256)
@@ -112,7 +113,7 @@ async function encryptPayload(
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────────
-Deno.serve(async (req) => {
+serveOrigins(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors, status: 204 });
   if (req.method !== "POST")    return new Response("Method Not Allowed", { status: 405 });
 

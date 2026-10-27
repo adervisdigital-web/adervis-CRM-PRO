@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serveOrigins } from '../_shared/origins.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': 'https://app.adervis.ru',
@@ -24,7 +25,7 @@ interface VKUserInfo {
   phone?:      string;
 }
 
-Deno.serve(async (req) => {
+serveOrigins(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {

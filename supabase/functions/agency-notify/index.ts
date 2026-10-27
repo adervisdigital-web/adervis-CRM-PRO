@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serveOrigins } from "../_shared/origins.ts";
 
 // Public endpoint — no JWT required.
 // Security: callers must know the portal UUID or agency UUID (both are UUIDs, not guessable).
@@ -15,7 +16,7 @@ const cors = {
   "Access-Control-Allow-Headers": "content-type, apikey, authorization",
 };
 
-Deno.serve(async (req) => {
+serveOrigins(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 

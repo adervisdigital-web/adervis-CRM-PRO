@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serveOrigins } from "../_shared/origins.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "https://app.adervis.ru",
@@ -68,7 +69,7 @@ function nextDay(dateStr: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-Deno.serve(async (req) => {
+serveOrigins(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {

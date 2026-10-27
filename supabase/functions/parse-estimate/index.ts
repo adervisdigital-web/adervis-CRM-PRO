@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serveOrigins } from "../_shared/origins.ts";
 
 /* Разбор сметы из свободного текста.
 
@@ -56,7 +57,7 @@ const SYSTEM_PROMPT = `Ты разбираешь смету видеопрода
 - Ничего не добавляй от себя: сколько строк в тексте, столько и в lines.
 - Пиши по-русски, названия оставляй как у человека.`;
 
-Deno.serve(async (req) => {
+serveOrigins(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {

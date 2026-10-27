@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serveOrigins } from "../_shared/origins.ts";
 
 // Бесплатный тариф Gemini API (Google AI Studio, ключ без привязки карты):
 // gemini-2.5-flash-lite — 15 запросов/мин, 1000 запросов/день, этого с запасом
@@ -36,7 +37,7 @@ const SYSTEM_PROMPT = `Ты — копирайтер digital-агентства 
 
 Пиши по-русски, по делу, без воды и канцеляризмов. Не придумывай услуги, которых нет в переданном списке.`;
 
-Deno.serve(async (req) => {
+serveOrigins(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {

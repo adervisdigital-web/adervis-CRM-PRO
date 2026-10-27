@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serveOrigins } from "../_shared/origins.ts";
 
 // Deployed with --no-verify-jwt: клиентский портал публичный, JWT нет.
 // Безопасность: portalId — UUID v4, угадать невозможно; сумма берётся из БД,
@@ -9,7 +10,7 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-Deno.serve(async (req) => {
+serveOrigins(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors, status: 204 });
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
