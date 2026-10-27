@@ -12375,3 +12375,40 @@ button.summary-adjust-row:hover { background: rgb(var(--primary-rgb) / .06); bor
   .tm-head, .tm-live, .tm-row.is-cur .tm-card { background-image: none; box-shadow: none; }
   .tm-row.is-past .tm-card, .tm-row.is-past .tm-time { opacity: 1; }
 }
+
+    /* ── Новости CRM: тихая строка по центру шапки (news.js) ─────────
+       Не спорит с работой: мелкий приглушённый текст, без заливки,
+       точка-маркер в цвете акцента. Только десктоп — на телефоне шапка узкая. */
+    .crm-news { display: none; }
+    @media (min-width: 769px) {
+      .crm-news {
+        display: flex; align-items: center; gap: 8px;
+        margin-left: auto; min-width: 0; flex: 0 1 auto; max-width: 560px;
+        height: 30px; padding: 0 6px 0 12px;
+        border: 1px solid transparent; border-radius: var(--r-pill);
+        color: var(--muted); font-size: 12.5px; line-height: 1;
+        transition: border-color var(--dur-2), background var(--dur-2), opacity .3s;
+      }
+      .crm-news:hover { border-color: var(--line); background: color-mix(in srgb, var(--panel) 60%, transparent); }
+      .crm-news.gone { opacity: 0; }
+      .crm-news-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: rgb(var(--primary-rgb) / .7); }
+      .crm-news-track { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+      .crm-news-text {
+        display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        transition: opacity .26s ease, transform .32s cubic-bezier(.22, 1, .36, 1);
+      }
+      .crm-news-text.out { opacity: 0; transform: translateY(-6px); }
+      .crm-news-text.in { opacity: 0; transform: translateY(6px); transition: none; }
+      .crm-news-count { flex: none; font-size: 11px; opacity: .6; font-variant-numeric: tabular-nums; }
+      .crm-news-count:empty { display: none; }
+      .crm-news-close {
+        flex: none; width: 22px; height: 22px; padding: 0; display: grid; place-items: center;
+        border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer;
+        opacity: .55; transition: opacity var(--dur-1), background var(--dur-1);
+      }
+      .crm-news-close:hover, .crm-news-close:focus-visible { opacity: 1; background: color-mix(in srgb, var(--text) 8%, transparent); }
+      .crm-news-close:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 1px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .crm-news, .crm-news-text { transition: none; }
+    }

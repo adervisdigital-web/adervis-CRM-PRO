@@ -1,4 +1,4 @@
-const CACHE_NAME = "adervis-crm-v472";
+const CACHE_NAME = "adervis-crm-v473";
 // Только то, без чего приложение не поднимется. Скриншоты онбординга (onboarding/*.webp)
 // сюда СОЗНАТЕЛЬНО не входят: это был 1 МБ из 3,5 МБ установки, который скачивали все,
 // включая тех, кто онбординг ни разу не открывал. Обработчик fetch ниже кэширует любой
@@ -9,6 +9,7 @@ const STATIC_ASSETS = [
   "./index.html",
   "./style.css",
   "./app.js",
+  "./news.js",
   "./vendor/supabase.min.js",
   "./vendor/vkid-sdk.min.js",
   "./manifest.json",

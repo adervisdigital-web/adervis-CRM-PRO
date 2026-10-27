@@ -247,7 +247,7 @@ module.exports = async function ({ browser, baseUrl, test }) {
     const { context, page, errors } = await bootPortal(browser, baseUrl, PORTAL_ROW);
     const txt = await page.$eval("#appContent", (el) => el.textContent || "");
     assert(/Сделано в\s*ADERVIS/i.test(txt), "нет подписи на портале КП");
-    const href = await page.$eval("#appContent a[href*='app.adervis.ru']", (a) => a.getAttribute("href"));
+    const href = await page.$eval("#appContent a[href*='crm.adervis.ru']", (a) => a.getAttribute("href"));
     assert(/[?&]ref=/.test(href), "подпись без реферальной метки ?ref=: " + href);
     assert(errors.length === 0, "ошибки на портале: " + errors.join(" | "));
     await context.close();
