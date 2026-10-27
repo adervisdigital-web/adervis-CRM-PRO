@@ -69,7 +69,7 @@ function buildMail(appUrl: string, name: string, m: Mail): string {
       </td></tr>
       <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center">
         <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6">Есть вопросы? Просто ответьте на это письмо.<br>
-        <strong>ADERVIS CRM</strong> · <a href="${appUrl}" style="color:#6c00ff;text-decoration:none">app.adervis.ru</a></p>
+        <strong>ADERVIS CRM</strong> · <a href="${appUrl}" style="color:#6c00ff;text-decoration:none">crm.adervis.ru</a></p>
       </td></tr>
     </table>
   </td></tr></table>
@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
   }
   const resendKey = Deno.env.get("RESEND_API_KEY");
   if (!resendKey) return new Response("Missing RESEND_API_KEY", { status: 500 });
-  const appUrl = Deno.env.get("APP_URL") ?? "https://app.adervis.ru";
+  const appUrl = Deno.env.get("APP_URL") ?? "https://crm.adervis.ru";
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,

@@ -3,4 +3,4 @@ Allow: /
 Disallow: /?portal=
 Disallow: /?brief=
 
-Sitemap: https://app.adervis.ru/sitemap.xml
+Sitemap: https://crm.adervis.ru/sitemap.xml

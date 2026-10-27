@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   const resendKey = Deno.env.get("RESEND_API_KEY");
   if (!resendKey) return new Response("Missing RESEND_API_KEY secret", { status: 500 });
 
-  const appUrl = Deno.env.get("APP_URL") ?? "https://app.adervis.ru";
+  const appUrl = Deno.env.get("APP_URL") ?? "https://crm.adervis.ru";
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,

@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
-  const appUrl = Deno.env.get("APP_URL") ?? "https://app.adervis.ru";
+  const appUrl = Deno.env.get("APP_URL") ?? "https://crm.adervis.ru";
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const oauthError = url.searchParams.get("error");

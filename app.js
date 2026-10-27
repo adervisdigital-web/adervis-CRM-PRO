@@ -4030,7 +4030,7 @@
                     Без звука, 7,5 с, конец совпадает с началом. При «уменьшить движение» —
                     только первый кадр. Снята с настоящего каталога: promo-video/loop.html. */""}
               <div class="lp-shot">
-                <div class="lp-shot-bar"><i></i><i></i><i></i><span>app.adervis.ru</span></div>
+                <div class="lp-shot-bar"><i></i><i></i><i></i><span>crm.adervis.ru</span></div>
                 <video class="lp-shot-media" src="media/lp-loop.mp4" poster="media/lp-loop.webp" ${_reducedMotion() ? "" : "autoplay"} muted loop playsinline preload="metadata" width="1280" height="888"
                   aria-label="Каталог ADERVIS CRM: позиции добавляются в смету, итог справа растёт до 20 500 ₽"></video>
                 <span class="lp-pin" style="--x:40%;--y:24%"><b>1</b>«Добавить» — и позиция в смете, цена уже стоит</span>
@@ -5432,7 +5432,7 @@
             + "Продукт: ADERVIS, сервис смет и коммерческих предложений для видеопродакшна. "
             + "Каталог " + catalogCountText() + " со своими ценами, готовые пакеты, расчёт съёмочных дней и техники. "
             + `КП уходит клиенту ссылкой — он подписывает и вносит аванс. От ${PLAN_ENTRY_PRICE} ₽/мес, 7 дней бесплатно без карты. `
-            + "Сайт adervis.ru, приложение app.adervis.ru.\n\n"
+            + "Сайт adervis.ru, приложение crm.adervis.ru.\n\n"
             + "Тон: точный, быстрый, свой. Без «инновационный», «уникальный», «команда профессионалов».",
         },
       ];
@@ -6565,7 +6565,7 @@
 
       function promoUtmLink(ch) {
         const src = (ch.utm || _utmSlug(ch.name)).trim();
-        return `https://app.adervis.ru/?utm_source=${encodeURIComponent(src)}&utm_medium=social`;
+        return `https://crm.adervis.ru/?utm_source=${encodeURIComponent(src)}&utm_medium=social`;
       }
 
       function addPromoChannel() {
@@ -7231,7 +7231,7 @@
                 </div>
                 <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
                   <span class="u-muted">Приложение</span>
-                  <a href="https://app.adervis.ru" target="_blank" rel="noopener" style="color:var(--primary-text)">app.adervis.ru</a>
+                  <a href="https://crm.adervis.ru" target="_blank" rel="noopener" style="color:var(--primary-text)">crm.adervis.ru</a>
                 </div>
               </div>
             </div>
@@ -29529,7 +29529,7 @@
         if (!_tm) return `<div class="tm-wrap tm-page"><div class="panel tm-empty">Загружаю тайминг…</div></div>`;
         return `<div class="tm-wrap tm-page">
           ${timingBoardHtml("public")}
-          <div class="tm-foot">Тайминг сделан в <a href="https://app.adervis.ru/" target="_blank" rel="noopener">ADERVIS CRM</a></div>
+          <div class="tm-foot">Тайминг сделан в <a href="https://crm.adervis.ru/" target="_blank" rel="noopener">ADERVIS CRM</a></div>
         </div>`;
       }
 
@@ -29673,7 +29673,7 @@
 
          Подменяем только локальные адреса: на любом настоящем домене (в том числе
          если приложение переедет) остаётся текущий origin. */
-      const PUBLIC_APP_ORIGIN = "https://app.adervis.ru";
+      const PUBLIC_APP_ORIGIN = "https://crm.adervis.ru";
       function publicCalcUrl(forSharing = true) {
         const isLocal = /^(localhost|127\.|0\.0\.0\.0|\[::1\]|192\.168\.|10\.)/.test(location.hostname)
           || location.protocol === "file:";
@@ -31796,7 +31796,7 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
 
               ${_portalContactsHtml(d)}
               ${d.hide_branding ? '' : `
-              <a href="https://app.adervis.ru/${d.agency_id ? `?ref=${encodeURIComponent(d.agency_id)}` : ''}" target="_blank" rel="noopener"
+              <a href="https://crm.adervis.ru/${d.agency_id ? `?ref=${encodeURIComponent(d.agency_id)}` : ''}" target="_blank" rel="noopener"
                  onclick="app.trackGoal('portal_branding_click')"
                  style="display:flex;align-items:center;justify-content:center;gap:6px;padding:0 0 24px;font-size:12px;color:var(--muted);text-decoration:none">
                 <span style="width:16px;height:16px;border-radius:5px;background:var(--primary);display:grid;place-items:center;flex-shrink:0">

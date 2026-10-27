@@ -3,7 +3,7 @@ import { serveOrigins } from "../_shared/origins.ts";
 
 const RESEND_FROM = "ADERVIS CRM <noreply@app.adervis.ru>";
 const REPLY_TO = "adervis.digital@gmail.com";
-const APP_URL = "https://app.adervis.ru";
+const APP_URL = "https://crm.adervis.ru";
 
 const cors = {
   "Access-Control-Allow-Origin": "https://app.adervis.ru",
@@ -117,7 +117,7 @@ serveOrigins(async (req) => {
         <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center">
           <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6">
             Есть вопросы? Ответьте на это письмо — мы поможем.<br>
-            <strong>ADERVIS CRM</strong> · <a href="${APP_URL}" style="color:#6c00ff;text-decoration:none">app.adervis.ru</a>
+            <strong>ADERVIS CRM</strong> · <a href="${APP_URL}" style="color:#6c00ff;text-decoration:none">crm.adervis.ru</a>
           </p>
         </td></tr>
 
