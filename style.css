@@ -12394,13 +12394,30 @@ button.summary-adjust-row:hover { background: rgb(var(--primary-rgb) / .06); bor
       .crm-news-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: rgb(var(--primary-rgb) / .7); }
       .crm-news-track { flex: 0 1 auto; min-width: 0; overflow: hidden; }
       .crm-news-text {
-        display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        transition: opacity .26s ease, transform .32s cubic-bezier(.22, 1, .36, 1);
+        display: block; max-width: 100%; padding: 0; border: 0; background: none;
+        color: inherit; font: inherit; line-height: 1.4; text-align: left;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        transition: opacity .2s ease, transform .3s cubic-bezier(.22, 1, .36, 1), color var(--dur-1);
       }
+      .crm-news-text:disabled { cursor: default; }
+      /* новость со ссылкой: чуть ярче, подчёркивание и стрелка — только при наведении */
+      .crm-news-text.link { cursor: pointer; color: color-mix(in srgb, var(--text) 72%, var(--muted)); }
+      .crm-news-text.link:hover { color: var(--text); text-decoration: underline; text-decoration-color: rgb(var(--primary-rgb) / .5); text-underline-offset: 3px; }
+      .crm-news-text.link:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 2px; border-radius: var(--r-xs); }
       .crm-news-text.out { opacity: 0; transform: translateY(-6px); }
+      .crm-news-text.out-back { opacity: 0; transform: translateY(6px); }
       .crm-news-text.in { opacity: 0; transform: translateY(6px); transition: none; }
-      .crm-news-count { flex: none; font-size: 11px; opacity: .6; font-variant-numeric: tabular-nums; }
-      .crm-news-count:empty { display: none; }
+      .crm-news-text.in-back { opacity: 0; transform: translateY(-6px); transition: none; }
+      .crm-news-pager { flex: none; display: inline-flex; align-items: center; gap: 0; }
+      .crm-news-pager[hidden] { display: none; }
+      .crm-news-count { font-size: 11px; opacity: .6; font-variant-numeric: tabular-nums; min-width: 22px; text-align: center; }
+      .crm-news-nav {
+        width: 20px; height: 22px; padding: 0; display: grid; place-items: center;
+        border: 0; border-radius: var(--r-xs); background: transparent; color: inherit; cursor: pointer;
+        opacity: .5; transition: opacity var(--dur-1), background var(--dur-1);
+      }
+      .crm-news-nav:hover, .crm-news-nav:focus-visible { opacity: 1; background: color-mix(in srgb, var(--text) 8%, transparent); }
+      .crm-news-nav:focus-visible { outline: var(--ring-w) solid var(--ring); outline-offset: 1px; }
       .crm-news-close {
         flex: none; width: 22px; height: 22px; padding: 0; display: grid; place-items: center;
         border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer;
