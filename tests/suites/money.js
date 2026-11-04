@@ -945,6 +945,31 @@ module.exports = async function ({ browser, baseUrl, test }) {
     await c3.close();
   });
 
+  // 3D-ролик продукта (владелец 04.11.2026: «в CRM нет похожих позиций»): позиции
+  // «за секунду ролика» сразу встают на 20 секунд, стайлфреймы на 3 кадра — иначе
+  // смета пакета показала бы цену одной секунды анимации.
+  await test("пакет «3D-ролик продукта»: секунды и кадры встают сразу, итог из строк", async () => {
+    const { context: c4, page: p4 } = await bootLocal(browser, baseUrl);
+    const r = await p4.evaluate(async () => {
+      window.app.startWizard();
+      window.app.wizardSetField("projectName", "3D-ролик фильтра");
+      window.app.finishWizard("estimate");
+      window.app.applyPackage("product_3d_video");
+      await new Promise((res) => setTimeout(res, 300));
+      const st = JSON.parse(localStorage.getItem("adervis_pro_381_state") || "{}");
+      const s = st.selected || {};
+      const q = (id) => s[id] && Number(s[id].qty);
+      return { anim: q("p3d_anim_sec"), comp: q("p3d_comp_sec"), render: q("p3d_render_4k"), frames: q("p3d_styleframe"), model: q("p3d_model"),
+        lines: Object.keys(s).length, text: document.querySelector("#appContent").textContent.replace(/\s+/g, " ") };
+    });
+    await c4.close();
+    assertEqual(r.lines, 10, "в смету легли не все 10 строк пакета");
+    assert(r.anim === 20 && r.comp === 20 && r.render === 20, `секунды не встали на 20: ${r.anim}/${r.comp}/${r.render}`);
+    assertEqual(r.frames, 3, "стайлфреймов должно встать 3");
+    assertEqual(r.model, 1, "модель продукта — одна");
+    assert(/30\s000/.test(r.text), "строки «3D-анимация, за секунду» на 30 000 ₽ (20 × 1 500) в смете нет");
+  });
+
   // Карточка позиции сметы показывала все шесть полей расчёта сразу: при оплате
   // сменой рядом с итогом 20 000 ₽ стояли «Часов» и «Ставка/час», не влияющие ни на
   // что. Понять, откуда взялась сумма, было нельзя.
