@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 477;
+      const APP_BUILD = 478;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
@@ -12781,6 +12781,26 @@
         if (key === "days" && itemData.calcModel === "crewShift" && (line.stageId || itemData.stage) === "post") return "смена";
         return "день";
       }
+      /* «2 смены», «3 дня», «6 ч» под названием позиции в КП: клиент видит, за
+         сколько смен сумма (просьба амбассадора 23.11.2026). Пусто, если позиция
+         считается не сменами, днями или часами. */
+      function proposalQtyNote(itemData, line) {
+        if (!itemData || !line) return "";
+        if (lineBillMode(itemData, line) === "hour") {
+          const h = Math.max(0, _numOr(line.billHours, 1));
+          return h > 0 ? `${h} ч` : "";
+        }
+        const key = lineCountKey(itemData, line);
+        if (!key) return "";
+        const n = Math.max(1, _numOr(line[key], 1));
+        // Люди работают сменами (так в КП и пишут: «оператор, 2 смены»), а
+        // техника арендуется днями.
+        const unit = itemData.calcModel === "crewShift" ? "смена" : workUnitOf(itemData, line);
+        const word = unit === "смена" ? plural(n, "смена", "смены", "смен")
+          : unit === "день" ? plural(n, "день", "дня", "дней")
+          : unit;
+        return `${n} ${word}`;
+      }
       const _isoDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
       const _plusDays = (iso, n) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return localIso(d); };
       function _syncWorkDates(id) {
@@ -22865,7 +22885,7 @@
                           <div class="catalog-cat-row ${g.id === "money" ? "danger" : ""}">
                             <button class="catalog-cat-item ${g.id === "money" ? "danger" : ""} ${active ? "active" : ""}"
                               data-group="${g.id}" data-group-size="${list.length}" data-open="${open ? "1" : "0"}"
-                              onclick="app.catalogNavClick('${g.id}')" title="${escapeHtml(g.hint)}">
+                              onclick="app.catalogNavClick('${g.id}', event)" title="${escapeHtml(g.hint)}">
                               <span class="catalog-cat-label">
                                 <span class="catalog-cat-chev" aria-hidden="true">${icon("chevron", 12)}</span>
                                 <span class="catalog-cat-ico" style="color:${g.color}" aria-hidden="true">${icon(g.ic, 15)}</span>
@@ -24477,7 +24497,18 @@
       /* Клик по разделу в колонке. В «Все» лента идёт разделами — клик ведёт к
          блоку раздела, а не сужает список (владелец 02.10.2026). В остальных
          видах — как раньше: открыть раздел и раскрыть его подразделы. */
-      function catalogNavClick(gid) {
+      function catalogNavClick(gid, ev) {
+        /* Стрелка раскрывает и сворачивает подразделы в ЛЮБОМ виде, не трогая
+           выбор. Раньше в «Все» клик только прокручивал к блоку, и стрелка
+           «не всегда открывала подменю» (амбассадор, 23.11.2026). */
+        if (ev?.target?.closest?.(".catalog-cat-chev")) {
+          const open = { ...(state.catalogGroupsOpen || {}) };
+          if (open[gid]) delete open[gid]; else open[gid] = true;
+          state.catalogGroupsOpen = open;
+          save();
+          render();
+          return;
+        }
         if (state.tab === "all" && catalogJumpTo(gid)) return;
         toggleCatalogGroup(gid);
       }
@@ -27456,11 +27487,13 @@
                 const itemData = findItem(id, true);
                 const line = state.selected[id];
                 if (!itemData || !line) return "";
+                const qtyNote = proposalQtyNote(itemData, line);
 
                 return `
                   <tr>
                     <td>
                       <strong>${escapeHtml(line.lineName || itemData.name)}</strong>
+                      ${qtyNote ? `<br><span class="proposal-qty" style="color:#6b7280;font-size:12px">${escapeHtml(qtyNote)}</span>` : ""}
                       ${line.clientComment ? `<br><span style="color:#6b7280">${escapeHtml(line.clientComment)}</span>` : ""}
                     </td>
                     ${showDetails ? `<td>${escapeHtml(line.editedDesc || itemData.desc || "")}${renderProposalLineDetails(id)}</td>` : ""}

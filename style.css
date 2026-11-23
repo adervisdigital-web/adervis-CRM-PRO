@@ -1804,7 +1804,10 @@
       border-radius: 0 0 var(--r-sm) var(--r-sm);
     }
     .catalog-cat-label { display: flex; align-items: center; gap: 6px; min-width: 0; }
-    .catalog-cat-chev { flex: 0 0 12px; width: 12px; display: inline-flex; opacity: .55; }
+    .catalog-cat-chev { flex: 0 0 12px; width: 12px; display: inline-flex; opacity: .55; position: relative; }
+    /* по стрелке легко попасть: зона нажатия шире самой стрелки */
+    .catalog-cat-chev::after { content: ""; position: absolute; inset: -10px -6px -10px -10px; }
+    .catalog-cat-item:hover .catalog-cat-chev { opacity: .9; }
     .catalog-cat-chev svg { transition: transform var(--dur-1); }
     .catalog-cat-item[data-open="1"] .catalog-cat-chev svg { transform: rotate(90deg); }
     .catalog-cat-ico { display: inline-flex; flex-shrink: 0; }

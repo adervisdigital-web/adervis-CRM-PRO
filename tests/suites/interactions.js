@@ -7764,6 +7764,50 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("каталог: стрелка раздела раскрывает подразделы и в «Все» (амбассадор 23.11)", async () => {
+    /* В «Все» клик по разделу только прокручивал к блоку, и стрелка не
+       раскрывала подменю «Оборудования» и «Постпродакшна». */
+    const b = await bootLocal(browser, baseUrl, { width: 1440, height: 900, seedDemo: true });
+    const p = b.page;
+    try {
+      await p.evaluate(() => { window.app.go("catalog"); window.app.setSearch(""); window.app.setTab("all"); window.scrollTo(0, 0); });
+      await p.waitForTimeout(800);
+      for (const g of ["gear", "post"]) {
+        await p.click(`.catalog-cat-item[data-group="${g}"] .catalog-cat-chev`);
+        await p.waitForTimeout(400);
+        const st = await p.evaluate((gid) => ({
+          subs: document.querySelectorAll(`.catalog-subgroups[data-subs-of="${gid}"] .catalog-subgroup`).length,
+          open: document.querySelector(`.catalog-cat-item[data-group="${gid}"]`).dataset.open,
+          tabAll: !!document.querySelector('.catalog-cat-item.active[onclick*="setTab(\'all\')"]'),
+        }), g);
+        assert(st.subs >= 2, `стрелка «${g}» в «Все» не раскрыла подразделы: ${st.subs}`);
+        assertEqual(st.open, "1", `стрелка «${g}» не повернулась`);
+        assert(st.tabAll, `стрелка «${g}» увела из «Все»`);
+        await p.click(`.catalog-cat-item[data-group="${g}"] .catalog-cat-chev`);
+        await p.waitForTimeout(400);
+        const closed = await p.evaluate((gid) => document.querySelectorAll(`.catalog-subgroups[data-subs-of="${gid}"]`).length, g);
+        assertEqual(closed, 0, `повторный клик по стрелке «${g}» не свернул подразделы`);
+      }
+    } finally {
+      await b.context.close();
+    }
+  });
+
+  await test("КП клиенту: у позиций сменами и днями видно, сколько смен (амбассадор 23.11)", async () => {
+    const { context: ctx, page: p } = await bootLocal(browser, baseUrl, { width: 1200, height: 1000, seedDemo: true });
+    try {
+      const id = await p.evaluate(() => JSON.parse(localStorage.getItem("adervis_pro_381_state")).savedProjects[0].id);
+      await p.evaluate((i) => { window.app.selectActiveDeal(i); window.app.setDealView("proposal"); window.app.go("deal"); }, id);
+      await p.waitForTimeout(800);
+      const notes = await p.$$eval(".proposal-preview .proposal-qty", (xs) => xs.map((x) => x.textContent.trim()));
+      assert(notes.length >= 1, "в КП ни у одной позиции не указано число смен или дней");
+      assert(notes.every((t) => /^\d+([.,]\d+)?\s(смен[аы]?|д(ень|ня|ней)|ч|\S+)$/.test(t)), "непонятная подпись количества: " + notes.join(" | "));
+      assert(notes.some((t) => /смен|д(ень|ня|ней)/.test(t)), "нет ни одной подписи «N смен/дней»: " + notes.join(" | "));
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await test("КП клиенту: аванс назван суммой и совпадает с финансами, итог выделен, этапы в цвете", async () => {
     /* Документ, который читает ЗАКАЗЧИК. Было: итог набран как обычная строка
        таблицы (выделение жило только в печатной версии), заголовки колонок
