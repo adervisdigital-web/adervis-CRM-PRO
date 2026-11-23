@@ -7801,8 +7801,10 @@ module.exports = async function ({ browser, baseUrl, test }) {
       await p.waitForTimeout(800);
       const notes = await p.$$eval(".proposal-preview .proposal-qty", (xs) => xs.map((x) => x.textContent.trim()));
       assert(notes.length >= 1, "в КП ни у одной позиции не указано число смен или дней");
-      assert(notes.every((t) => /^\d+([.,]\d+)?\s(смен[аы]?|д(ень|ня|ней)|ч|\S+)$/.test(t)), "непонятная подпись количества: " + notes.join(" | "));
-      assert(notes.some((t) => /смен|д(ень|ня|ней)/.test(t)), "нет ни одной подписи «N смен/дней»: " + notes.join(" | "));
+      assert(notes.every((t) => /^\d+([.,]\d+)?\s(смен[аы]?|д(ень|ня|ней)|ч|\S+)( × \d+ (комплект(а|ов)?|чел\.))*$/.test(t)), "непонятная подпись количества: " + notes.join(" | "));
+      assert(notes.some((t) => /смен/.test(t)), "у людей нет «N смен»: " + notes.join(" | "));
+      // У аренды техники — и комплекты (тот же амбассадор, следом)
+      assert(notes.some((t) => /д(ень|ня|ней) × \d+ комплект/.test(t)), "у аренды техники не видно комплектов: " + notes.join(" | "));
     } finally {
       await ctx.close();
     }

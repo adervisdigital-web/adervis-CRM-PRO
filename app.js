@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 478;
+      const APP_BUILD = 479;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
@@ -12786,9 +12786,19 @@
          считается не сменами, днями или часами. */
       function proposalQtyNote(itemData, line) {
         if (!itemData || !line) return "";
-        if (lineBillMode(itemData, line) === "hour") {
+        /* Сколько человек и комплектов — тоже клиенту (амбассадор 23.11):
+           у аренды техники комплекты всегда, людей — когда их больше одного. */
+        const mode = lineBillMode(itemData, line);
+        const crew = mode !== "item" || itemData.calcModel === "crewShift";
+        const people = Math.max(1, _numOr(line.people, 1));
+        const who = crew && people > 1 ? ` × ${people} чел.` : "";
+        if (mode === "hour") {
           const h = Math.max(0, _numOr(line.billHours, 1));
-          return h > 0 ? `${h} ч` : "";
+          return h > 0 ? `${h} ч${who}` : "";
+        }
+        if (itemData.calcModel === "crewShift" && line.crewBilling === "hour") {
+          const h = Math.max(0, numberValue(line.hours, 0));
+          return h > 0 ? `${h} ч${who}` : "";
         }
         const key = lineCountKey(itemData, line);
         if (!key) return "";
@@ -12799,7 +12809,9 @@
         const word = unit === "смена" ? plural(n, "смена", "смены", "смен")
           : unit === "день" ? plural(n, "день", "дня", "дней")
           : unit;
-        return `${n} ${word}`;
+        const kits = itemData.calcModel === "equipmentRental" ? Math.max(1, numberValue(line.qty, 1)) : 0;
+        const sets = kits ? ` × ${kits} ${plural(kits, "комплект", "комплекта", "комплектов")}` : "";
+        return `${n} ${word}${sets}${who}`;
       }
       const _isoDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
       const _plusDays = (iso, n) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return localIso(d); };
