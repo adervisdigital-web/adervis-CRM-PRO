@@ -192,6 +192,21 @@ module.exports = async function ({ browser, baseUrl, test }) {
     }
   });
 
+  await test("портал КП: в составе услуг количество тихой подписью (амбассадор 24.11)", async () => {
+    const { context, page, errors } = await bootPortal(browser, baseUrl,
+      { ...PORTAL_ROW, services_list: ["Оператор · 2 смены", "Godox 100 · 2 дня × 3 комплекта", "Монтаж"] });
+    const li = await page.$$eval(".portal-services-list li", (xs) => xs.map((x) => ({
+      t: x.textContent.replace(/\s+/g, " ").trim(),
+      q: x.querySelector(".portal-service-qty")?.textContent || "",
+    })));
+    assertEqual(li.length, 3, "строк в составе услуг: " + JSON.stringify(li));
+    assertEqual(li[1].q, "2 дня × 3 комплекта", "количество не вынесено в подпись: " + JSON.stringify(li));
+    assert(li[0].t.includes("Оператор") && !li[0].t.includes("·"), "разделитель « · » остался в тексте: " + li[0].t);
+    assertEqual(li[2].q, "", "у строки без количества появилась подпись");
+    assertEqual(errors.length, 0, "исключения на портале: " + errors.join(" | "));
+    await context.close();
+  });
+
   await test("портал КП: один главный шаг за раз — сначала подпись, потом оплата", async () => {
     /* Страница, которую открывает ЗАКАЗЧИК. Было три ярких кнопки подряд —
        «Подписать», «Оплатить», «Добавить в календарь», — и по виду они равны:

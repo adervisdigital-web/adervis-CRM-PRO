@@ -9,7 +9,7 @@
          номер сборки уже есть, уже поднимается на каждый выпуск и уже проверяется
          CI (без нового CACHE_NAME правка не доедет до людей, см. .github/workflows).
          Сторож в tests/suites/assets.js держит эти два числа в согласии. */
-      const APP_BUILD = 479;
+      const APP_BUILD = 480;
       const APP_VERSION = "4." + APP_BUILD;
       // Ролик о продукте: лендинг входа, «Тарифный план», «Поддержка» (см. promoVideoHtml).
       const PROMO_VIDEO = { src: "media/adervis-promo.mp4", poster: "media/adervis-promo.jpg", secs: 25 };
@@ -31787,7 +31787,11 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
                   <div class="portal-section">
                     <h3>Состав услуг</h3>
                     <ul class="portal-services-list">
-                      ${servicesList.map(s => `<li>${escapeHtml(s)}</li>`).join('')}
+                      ${servicesList.map(s => {
+                        // «Оператор · 2 смены»: количество — тихой подписью
+                        const [name, ...rest] = String(s).split(' · ');
+                        return `<li>${escapeHtml(name)}${rest.length ? ` <span class="portal-service-qty">${escapeHtml(rest.join(' · '))}</span>` : ''}</li>`;
+                      }).join('')}
                     </ul>
                   </div>
                 ` : ''}
@@ -32105,9 +32109,19 @@ grant execute on function update_telegram_recipients(uuid, jsonb) to authenticat
       // Сторож: tests/suites/billing.js «КП: клиент видит свои услуги агентства».
       function proposalServicesList(snap) {
         const selected = (snap && snap.selected) || {};
+        /* Клиент по ссылке видит строку так же, как в КП: своё название
+           позиции (раньше уходило каталожное — «Godox 100» студии превращался
+           в «Свет базовый») и через « · » сколько смен, дней и комплектов. */
         return Object.keys(selected)
           .filter(id => !selected[id] || !selected[id].optional)
-          .map(id => { const it = findItem(id, true); return it ? it.name : null; })
+          .map(id => {
+            const it = findItem(id, true);
+            if (!it) return null;
+            const line = selected[id] || {};
+            const name = String(line.lineName || it.name || "").trim();
+            const note = proposalQtyNote(it, line);
+            return note ? `${name} · ${note}` : name;
+          })
           .filter(Boolean);
       }
 
@@ -35736,6 +35750,7 @@ Email: _____________________              Email: _____________________
         goCatalogGroup,
         toggleCatalogGroup,
         catalogNavClick,
+        proposalServicesList,
         openCatalogGroupsConfig,
         closeCatalogGroupsConfig,
         toggleCatalogGroupHidden,

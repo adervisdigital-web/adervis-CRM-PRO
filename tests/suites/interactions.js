@@ -7805,6 +7805,18 @@ module.exports = async function ({ browser, baseUrl, test }) {
       assert(notes.some((t) => /смен/.test(t)), "у людей нет «N смен»: " + notes.join(" | "));
       // У аренды техники — и комплекты (тот же амбассадор, следом)
       assert(notes.some((t) => /д(ень|ня|ней) × \d+ комплект/.test(t)), "у аренды техники не видно комплектов: " + notes.join(" | "));
+      // Ссылка клиенту получает то же: своё название позиции и количество
+      const list = await p.evaluate((i) => {
+        const proj = JSON.parse(localStorage.getItem("adervis_pro_381_state")).savedProjects.find((x) => x.id === i);
+        const snap = JSON.parse(JSON.stringify(proj.snapshot));
+        const first = Object.keys(snap.selected)[0];
+        snap.selected[first].lineName = "Своё название позиции";
+        return window.app.proposalServicesList(snap);
+      }, id);
+      assert(list.includes("Своё название позиции") || list.some((s) => s.startsWith("Своё название позиции · ")),
+        "в ссылку клиенту ушло каталожное название вместо своего: " + list.join(" | "));
+      assert(list.some((s) => / · \d+ смен/.test(s)) && list.some((s) => / · \d+ д(ень|ня|ней) × \d+ комплект/.test(s)),
+        "в ссылке клиенту нет смен и комплектов: " + list.join(" | "));
     } finally {
       await ctx.close();
     }

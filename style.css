@@ -9308,6 +9308,7 @@ body.portal-mode .nav { display: none !important; }
   background: var(--panel2); border: 1px solid var(--line);
 }
 .portal-services-list li::before { content: "✓ "; color: var(--text-success); font-weight: 700; }
+.portal-service-qty { color: var(--muted); font-size: 12px; white-space: nowrap; margin-left: 4px; }
 @media (max-width: 640px) {
   .portal-card { padding: 22px 18px; border-radius: var(--r-xl); }
   .portal-title { font-size: 20px; }
